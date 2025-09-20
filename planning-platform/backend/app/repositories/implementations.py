@@ -1,133 +1,212 @@
 """
-레포지토리 구현
+레포지토리 구현 - 실제 PostgreSQL DB 연동
 """
 
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
+import json
 
 from ..models.entities import (
     Hospital, HospitalInfo, ContactInfo, Address,
     Patient, PatientInfo,
     CheckupResult, CheckupDesign, UserSession
 )
-from ..data.dummy_data import HOSPITALS_DATA, PATIENTS_DATA
+from ..models.value_objects import Gender
+from ..core.database import db_manager
 
 class HospitalRepository:
     """병원 레포지토리"""
     
     async def get_by_id(self, hospital_id: str) -> Optional[Hospital]:
-        """ID로 병원 조회"""
-        if hospital_id in HOSPITALS_DATA:
-            data = HOSPITALS_DATA[hospital_id]
+        """ID로 병원 조회 (DB 기반)"""
+        query = """
+            SELECT hospital_id, hospital_name, phone, address, layout_type, 
+                   brand_color, logo_position, is_active, supported_checkup_types
+            FROM p9_mkt_biz.wello_hospitals 
+            WHERE hospital_id = %s AND is_active = true
+        """
+        
+        result = await db_manager.execute_one(query, (hospital_id,))
+        if result:
+            # 주소 파싱 (간단하게 처리)
+            address_parts = result['address'].split(' ') if result['address'] else ['서울특별시', '강남구', '']
+            city = address_parts[0] if len(address_parts) > 0 else '서울특별시'
+            district = address_parts[1] if len(address_parts) > 1 else '강남구'
+            detail = ' '.join(address_parts[2:]) if len(address_parts) > 2 else ''
+            
             return Hospital(
-                    hospital_id=data["hospital_id"],
-                    info=HospitalInfo(name=data["name"]),
-                    contact=ContactInfo(phone=data["phone"]),
-                    address=Address(city="서울", district="강남구", detail=data["address"]),
-                    supported_checkup_types=data["supported_checkup_types"],
-                    layout_type=data["layout_type"],
-                    brand_color=data["brand_color"],
-                    logo_position=data["logo_position"],
-                    is_active=data["is_active"]
-                )
+                hospital_id=result['hospital_id'],
+                info=HospitalInfo(name=result['hospital_name']),
+                contact=ContactInfo(phone=result['phone']),
+                address=Address(city=city, district=district, detail=detail),
+                supported_checkup_types=result['supported_checkup_types'],
+                layout_type=result['layout_type'],
+                brand_color=result['brand_color'],
+                logo_position=result['logo_position'],
+                is_active=result['is_active']
+            )
         return None
     
     async def get_by_name(self, name: str) -> Optional[Hospital]:
-        """이름으로 병원 조회"""
-        for hospital_id, data in HOSPITALS_DATA.items():
-            if data["name"] == name:
-                return Hospital(
-                    hospital_id=data["hospital_id"],
-                    info=HospitalInfo(name=data["name"]),
-                    contact=ContactInfo(phone=data["phone"]),
-                    address=Address(city="서울", district="강남구", detail=data["address"]),
-                    supported_checkup_types=data["supported_checkup_types"],
-                    layout_type=data["layout_type"],
-                    brand_color=data["brand_color"],
-                    logo_position=data["logo_position"],
-                    is_active=data["is_active"]
-                )
+        """이름으로 병원 조회 (DB 기반)"""
+        query = """
+            SELECT hospital_id, hospital_name, phone, address, layout_type, 
+                   brand_color, logo_position, is_active, supported_checkup_types
+            FROM p9_mkt_biz.wello_hospitals 
+            WHERE hospital_name = %s AND is_active = true
+        """
+        
+        result = await db_manager.execute_one(query, (name,))
+        if result:
+            address_parts = result['address'].split(' ') if result['address'] else ['서울특별시', '강남구', '']
+            city = address_parts[0] if len(address_parts) > 0 else '서울특별시'
+            district = address_parts[1] if len(address_parts) > 1 else '강남구'
+            detail = ' '.join(address_parts[2:]) if len(address_parts) > 2 else ''
+            
+            return Hospital(
+                hospital_id=result['hospital_id'],
+                info=HospitalInfo(name=result['hospital_name']),
+                contact=ContactInfo(phone=result['phone']),
+                address=Address(city=city, district=district, detail=detail),
+                supported_checkup_types=result['supported_checkup_types'],
+                layout_type=result['layout_type'],
+                brand_color=result['brand_color'],
+                logo_position=result['logo_position'],
+                is_active=result['is_active']
+            )
         return None
     
     async def get_all_active(self) -> List[Hospital]:
-        """활성화된 모든 병원 조회"""
+        """활성화된 모든 병원 조회 (DB 기반)"""
+        query = """
+            SELECT hospital_id, hospital_name, phone, address, layout_type, 
+                   brand_color, logo_position, is_active, supported_checkup_types
+            FROM p9_mkt_biz.wello_hospitals 
+            WHERE is_active = true
+            ORDER BY hospital_name
+        """
+        
+        results = await db_manager.execute_query(query)
         hospitals = []
-        for hospital_id, data in HOSPITALS_DATA.items():
-            if data.get("is_active", True):
-                hospitals.append(Hospital(
-                    hospital_id=data["hospital_id"],
-                    info=HospitalInfo(name=data["name"]),
-                    contact=ContactInfo(phone=data["phone"]),
-                    address=Address(city="서울", district="강남구", detail=data["address"]),
-                    supported_checkup_types=data["supported_checkup_types"],
-                    layout_type=data["layout_type"],
-                    brand_color=data["brand_color"],
-                    logo_position=data["logo_position"],
-                    is_active=data["is_active"]
-                ))
+        for result in results:
+            address_parts = result['address'].split(' ') if result['address'] else ['서울특별시', '강남구', '']
+            city = address_parts[0] if len(address_parts) > 0 else '서울특별시'
+            district = address_parts[1] if len(address_parts) > 1 else '강남구' 
+            detail = ' '.join(address_parts[2:]) if len(address_parts) > 2 else ''
+            
+            hospitals.append(Hospital(
+                hospital_id=result['hospital_id'],
+                info=HospitalInfo(name=result['hospital_name']),
+                contact=ContactInfo(phone=result['phone']),
+                address=Address(city=city, district=district, detail=detail),
+                supported_checkup_types=result['supported_checkup_types'],
+                layout_type=result['layout_type'],
+                brand_color=result['brand_color'],
+                logo_position=result['logo_position'],
+                is_active=result['is_active']
+            ))
         return hospitals
     
     async def search_by_address(self, city: str, district: Optional[str] = None) -> List[Hospital]:
-        """주소로 병원 검색"""
-        hospitals = []
-        for data in HOSPITALS_DATA:
-            if data["address"]["city"] == city and (
-                not district or data["address"]["district"] == district
-            ):
-                hospitals.append(Hospital(
-                    hospital_id=data["hospital_id"],
-                    info=HospitalInfo(name=data["name"]),
-                    contact=ContactInfo(phone=data["phone"]),
-                    address=Address(city="서울", district="강남구", detail=data["address"]),
-                    supported_checkup_types=data["supported_checkup_types"],
-                    layout_type=data["layout_type"],
-                    brand_color=data["brand_color"],
-                    logo_position=data["logo_position"],
-                    is_active=data["is_active"]
-                ))
-        return hospitals
+        """주소로 병원 검색 (간단 구현)"""
+        return await self.get_all_active()  # 일단 모든 병원 반환
 
 
 class PatientRepository:
     """환자 레포지토리"""
     
     async def get_by_uuid(self, uuid: UUID) -> Optional[Patient]:
-        """UUID로 환자 조회"""
-        uuid_str = str(uuid)
-        if uuid_str in PATIENTS_DATA:
-            data = PATIENTS_DATA[uuid_str]
+        """UUID로 환자 조회 (DB 기반)"""
+        query = """
+            SELECT uuid, name, birthday, gender, phoneno, hosnm, visitdate, regdate
+            FROM p9_mkt_biz.mdx_agr_list 
+            WHERE uuid = %s
+        """
+        
+        result = await db_manager.execute_one(query, (str(uuid),))
+        if result:
+            # 나이 계산
+            age = 0
+            birth_date = None
+            if result['birthday']:
+                birth_date = result['birthday']
+                age = datetime.now().year - birth_date.year
+                if datetime.now().date() < birth_date.replace(year=datetime.now().year):
+                    age -= 1
+            
+            # 성별 변환
+            gender_mapping = {'M': Gender.MALE, 'F': Gender.FEMALE}
+            gender = gender_mapping.get(result['gender'], Gender.MALE)
+            
+            # 병원 ID 찾기 (병원명으로 매핑)
+            hospital_query = """
+                SELECT hospital_id FROM p9_mkt_biz.wello_hospitals 
+                WHERE hospital_name = %s LIMIT 1
+            """
+            hospital_result = await db_manager.execute_one(hospital_query, (result['hosnm'],))
+            hospital_id = hospital_result['hospital_id'] if hospital_result else 'UNKNOWN'
+            
             return Patient(
-                    uuid=UUID(data["uuid"]),
-                    info=PatientInfo(
-                        name=data["name"],
-                        age=data["age"],
-                        gender=data["gender"],
-                        birth_date=datetime.strptime(data.get("birthday", ""), "%Y%m%d") if data.get("birthday") else None
-                    ),
-                    phone=data["phone"],
-                    hospital_id=data["hospital"]["hospital_id"],
-                    last_checkup_count=1,
-                    created_at=datetime.now()
-                )
+                uuid=UUID(result['uuid']),
+                info=PatientInfo(
+                    name=result['name'],
+                    age=age,
+                    gender=gender,
+                    birth_date=birth_date
+                ),
+                phone=result['phoneno'],
+                hospital_id=hospital_id,
+                last_checkup_count=1,
+                created_at=result['regdate'] if result['regdate'] else datetime.now()
+            )
         return None
     
     async def get_by_phone(self, phone: str) -> Optional[Patient]:
-        """전화번호로 환자 조회"""
-        for data in PATIENTS_DATA:
-            if data["phone"] == phone:
-                return Patient(
-                    uuid=UUID(data["uuid"]),
-                    info=PatientInfo(
-                        name=data["name"],
-                        age=data["age"],
-                        gender=data["gender"]
-                    ),
-                    phone=data["phone"],
-                    hospital_id=data["hospital"]["hospital_id"],
-                    last_checkup_count=1,
-                    created_at=datetime.now()
-                )
+        """전화번호로 환자 조회 (DB 기반)"""
+        query = """
+            SELECT uuid, name, birthday, gender, phoneno, hosnm, visitdate, regdate
+            FROM p9_mkt_biz.mdx_agr_list 
+            WHERE phoneno = %s
+            LIMIT 1
+        """
+        
+        result = await db_manager.execute_one(query, (phone,))
+        if result:
+            # 나이 계산
+            age = 0
+            birth_date = None
+            if result['birthday']:
+                birth_date = result['birthday']
+                age = datetime.now().year - birth_date.year
+                if datetime.now().date() < birth_date.replace(year=datetime.now().year):
+                    age -= 1
+            
+            # 성별 변환
+            gender_mapping = {'M': Gender.MALE, 'F': Gender.FEMALE}
+            gender = gender_mapping.get(result['gender'], Gender.MALE)
+            
+            # 병원 ID 찾기 (병원명으로 매핑)
+            hospital_query = """
+                SELECT hospital_id FROM p9_mkt_biz.wello_hospitals 
+                WHERE hospital_name = %s LIMIT 1
+            """
+            hospital_result = await db_manager.execute_one(hospital_query, (result['hosnm'],))
+            hospital_id = hospital_result['hospital_id'] if hospital_result else 'UNKNOWN'
+            
+            return Patient(
+                uuid=UUID(result['uuid']),
+                info=PatientInfo(
+                    name=result['name'],
+                    age=age,
+                    gender=gender,
+                    birth_date=birth_date
+                ),
+                phone=result['phoneno'],
+                hospital_id=hospital_id,
+                last_checkup_count=1,
+                created_at=result['regdate'] if result['regdate'] else datetime.now()
+            )
         return None
 
 

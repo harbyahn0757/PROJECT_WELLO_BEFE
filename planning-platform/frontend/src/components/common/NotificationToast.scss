@@ -1,0 +1,152 @@
+.notification-toast {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: white;
+  border-left: 4px solid;
+  min-width: 320px;
+  max-width: 480px;
+  position: relative;
+  animation: slideInRight 0.3s ease-out;
+
+  &--info {
+    border-left-color: #3b82f6;
+    .notification-toast__icon {
+      color: #3b82f6;
+    }
+  }
+
+  &--success {
+    border-left-color: #10b981;
+    .notification-toast__icon {
+      color: #10b981;
+    }
+  }
+
+  &--warning {
+    border-left-color: #f59e0b;
+    .notification-toast__icon {
+      color: #f59e0b;
+    }
+  }
+
+  &--error {
+    border-left-color: #ef4444;
+    .notification-toast__icon {
+      color: #ef4444;
+    }
+  }
+
+  &__icon {
+    font-size: 18px;
+    font-weight: bold;
+    margin-right: 12px;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+
+  &__content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+
+  &__message {
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+
+  &__actions {
+    margin-top: 8px;
+  }
+
+  &__action-button {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+
+    &:hover {
+      background: #2563eb;
+    }
+
+    &:active {
+      background: #1d4ed8;
+    }
+  }
+
+  &__close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 4px;
+    line-height: 1;
+    border-radius: 2px;
+    transition: color 0.2s;
+
+    &:hover {
+      color: #6b7280;
+    }
+  }
+}
+
+// 알림 컨테이너
+.notification-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  pointer-events: none;
+
+  .notification-toast {
+    pointer-events: all;
+  }
+}
+
+// 애니메이션
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+// 반응형
+@media (max-width: 480px) {
+  .notification-container {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+  }
+
+  .notification-toast {
+    min-width: auto;
+    max-width: none;
+  }
+}

@@ -25,11 +25,12 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "npm run kill-port && NODE_OPTIONS=\"--max-old-space-size=512\" craco start",
-    "kill-port": "pkill -f 'craco start' || pkill -f 'react-scripts start' || lsof -ti:9281 | xargs kill -9 || true",
-    "dev": "npm run kill-port && NODE_OPTIONS=\"--max-old-space-size=512\" craco start",
-    "build": "NODE_OPTIONS=\"--max-old-space-size=1024\" craco build",
-    "test": "craco test",
+    "start": "PORT=9281 NODE_OPTIONS=\"--max-old-space-size=512\" react-scripts start",
+    "kill-port": "pkill -f 'react-scripts start' || lsof -ti:9281 | xargs kill -9 || true",
+    "dev": "npm run kill-port && PORT=9281 NODE_OPTIONS=\"--max-old-space-size=512\" react-scripts start",
+    "build": "NODE_OPTIONS=\"--max-old-space-size=1024\" react-scripts build",
+    "build-craco": "NODE_OPTIONS=\"--max-old-space-size=1024\" craco build",
+    "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {

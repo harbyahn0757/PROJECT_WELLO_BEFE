@@ -71,9 +71,8 @@ const fetchWithTimeout = async (url: string, timeout: number = 5000): Promise<Re
 
 const fetchPatientData = async (uuid: string): Promise<PatientData> => {
   try {
-    // 현재 호스트에 맞춰 API URL 동적 설정
-    const apiHost = window.location.hostname === 'localhost' ? 'localhost' : '192.168.0.54';
-    const response = await fetchWithTimeout(`http://${apiHost}:8082/api/v1/patients/${uuid}`, 3000);
+    // 개발/운영 모두 실제 서버 사용
+    const response = await fetchWithTimeout(`https://xogxog.com/api/v1/wello/patients/${uuid}`, 3000);
     
     if (!response.ok) {
       throw new Error(`환자 정보 조회 실패: ${response.status}`);
@@ -90,9 +89,8 @@ const fetchPatientData = async (uuid: string): Promise<PatientData> => {
 
 const fetchHospitalData = async (hospitalId: string): Promise<HospitalData> => {
   try {
-    // 현재 호스트에 맞춰 API URL 동적 설정
-    const apiHost = window.location.hostname === 'localhost' ? 'localhost' : '192.168.0.54';
-    const response = await fetchWithTimeout(`http://${apiHost}:8082/api/v1/hospitals/${hospitalId}`, 3000);
+    // 개발/운영 모두 실제 서버 사용
+    const response = await fetchWithTimeout(`https://xogxog.com/api/v1/wello/hospitals/${hospitalId}`, 3000);
     
     if (!response.ok) {
       throw new Error(`병원 정보 조회 실패: ${response.status}`);

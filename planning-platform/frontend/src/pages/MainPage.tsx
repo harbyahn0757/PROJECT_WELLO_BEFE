@@ -1,27 +1,35 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/Card';
-import { LayoutConfig } from '../utils/layoutMapper';
+import { useWelloData } from '../contexts/WelloDataContext';
 
-interface MainPageProps {
-  layoutConfig: LayoutConfig;
-}
-
-const MainPage: React.FC<MainPageProps> = ({ layoutConfig }) => {
+const MainPage: React.FC = () => {
+  const { state } = useWelloData();
+  const { layoutConfig, patient, hospital } = state;
   const navigate = useNavigate();
   const location = useLocation();
+
+  // 데이터가 없는 경우 로딩 표시
+  if (!layoutConfig || !patient || !hospital) {
+    return (
+      <div className="main-page-loading">
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+          <p>페이지를 준비하는 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleCardClick = (cardType: string) => {
     switch (cardType) {
       case 'chart':
-        // Hash 기반 라우팅에서 파라미터 추출
-        const currentHash = window.location.hash;
-        const hashParts = currentHash.split('?');
-        const queryString = hashParts.length > 1 ? '?' + hashParts[1] : '';
+        // 현재 URL의 파라미터를 인증페이지로 전달
+        const queryString = location.search; // ?uuid=...&hospital=... 형태
         
         const fromPath = location.pathname + location.search + location.hash;
         const loginPath = `/login${queryString}`;
-        console.log('🚀 [메인페이지] 인증페이지로 이동');
+        console.log('🚀 [메인페이지] 인증페이지로 이동:', loginPath);
         navigate(loginPath, { state: { from: fromPath } });
         break;
       case 'design':

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import VerticalLayout from './layouts/VerticalLayout';
 import HorizontalLayout from './layouts/HorizontalLayout';
@@ -13,111 +13,170 @@ import SurveyPage from './pages/SurveyPage';
 import AuthPage from './pages/AuthPage';
 import { HealthDataViewer } from './components/health/HealthDataViewer';
 import { LayoutType } from './constants/layoutTypes';
-import { getCurrentLayoutConfig, debugLayoutMapping, type LayoutConfig } from './utils/layoutMapper';
+import { debugLayoutMapping } from './utils/layoutMapper';
+import { WelloDataProvider, useWelloData } from './contexts/WelloDataContext';
+import NotificationContainer from './components/common/NotificationContainer';
 import './App.scss';
 
 // 전역 함수 타입 선언
 declare global {
   interface Window {
     handleKakaoLoginFromFloating?: () => void;
+    openResultsTrend?: () => void;
   }
 }
 
-// 플로팅 버튼 조건부 렌더링을 위한 컴포넌트
-const FloatingButtonWrapper: React.FC<{ 
-  layoutConfig: LayoutConfig; 
-}> = ({ layoutConfig }) => {
+// FloatingButton 컴포넌트 (페이지별 다른 텍스트와 기능)
+const FloatingButton: React.FC = () => {
   const location = useLocation();
   
-  // 로그인 페이지에서는 카카오 인증 버튼 표시
-  if (location.pathname === '/login') {
-    const handleKakaoAuth = () => {
-      // TilkoAuth 컴포넌트의 카카오 인증 함수 호출
-      const authButton = document.querySelector('[data-testid="kakao-auth-button"]') as HTMLButtonElement;
-      if (authButton) {
-        authButton.click();
+  const getButtonConfig = () => {
+    const path = location.pathname;
+    
+    if (path === '/login') {
+      return {
+        text: '인증하고 내 검진 추이 확인하기',
+        onClick: () => {
+          console.log('🔐 [인증페이지] 틸코 API 인증 시작');
+          // AuthForm의 handleKakaoAuth 함수 호출
+          const authForm = document.querySelector('.auth__content');
+          if (authForm) {
+            // 기존 AuthForm의 카카오 인증 버튼을 클릭하는 것과 동일한 동작
+            const kakaoButton = authForm.querySelector('.button[type="submit"]') as HTMLButtonElement;
+            if (kakaoButton) {
+              kakaoButton.click();
+            }
+          }
+        }
+      };
+    }
+    
+    // 기본 (메인페이지 등)
+    return {
+      text: '건강검진 예약하기',
+      onClick: () => {
+        console.log('🎯 [메인페이지] 건강검진 예약 시작');
+        if (window.handleKakaoLoginFromFloating) {
+          window.handleKakaoLoginFromFloating();
+        } else {
+          console.warn('카카오 로그인 함수가 등록되지 않았습니다');
+        }
       }
     };
+  };
 
-    return (
-      <div className="floating-button">
-        <Button onClick={handleKakaoAuth} width="90%">
-          건강정보 공단에서 불러오기
-        </Button>
-      </div>
-    );
-  }
-  
-  // 설문조사 페이지에서는 플로팅 버튼 숨김 (Health Connect는 제외)
-  const hiddenPaths = ['/checkup-design', '/health-habits', '/health-questionnaire', '/health-questionnaire-complete', '/survey'];
-  const shouldHideButton = hiddenPaths.some(path => location.pathname.startsWith(path));
-  
+  const buttonConfig = getButtonConfig();
 
-  if (!layoutConfig.showFloatingButton || shouldHideButton) {
-    return null;
-  }
-  
   return (
-    <div className="floating-button">
-      <Button>건강검진 신청하기</Button>
+    <div className="floating-button-container">
+      <Button
+        className="floating-button"
+        onClick={buttonConfig.onClick}
+        disabled={false}
+      >
+        {buttonConfig.text}
+      </Button>
     </div>
   );
 };
 
-function App() {
-  const [layoutConfig, setLayoutConfig] = useState<LayoutConfig | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+// 결과 트렌드 버튼 컴포넌트
+const ResultsTrendButton: React.FC = () => {
+  const handleClick = () => {
+    console.log('📊 [결과트렌드버튼] 결과 트렌드 페이지 열기');
+    if (window.openResultsTrend) {
+      window.openResultsTrend();
+    } else {
+      console.warn('결과 트렌드 함수가 등록되지 않았습니다');
+    }
+  };
+
+  return (
+    <Button
+      className="results-trend-button"
+      onClick={handleClick}
+      variant="secondary"
+    >
+      📈 결과 트렌드 보기
+    </Button>
+  );
+};
+
+// URL 감지 및 자동 로딩을 위한 내부 컴포넌트
+const AppContent: React.FC = () => {
+  const { state, actions } = useWelloData();
+  const location = useLocation();
+
+  // URL 파라미터 감지하여 자동 데이터 로딩
   useEffect(() => {
-    let isMounted = true;
-    
-    const initializeLayout = async () => {
-      try {
-        if (!isMounted) return;
-        setIsLoading(true);
-        
-        const config = await getCurrentLayoutConfig();
-        
-        if (!isMounted) return;
-        setLayoutConfig(config);
-        
-        // 개발 환경에서만 디버그 정보 출력
-        if (process.env.NODE_ENV === 'development') {
-          await debugLayoutMapping();
-        }
-      } catch (err) {
-        console.error('레이아웃 초기화 오류:', err);
-        if (isMounted) {
-          setError('레이아웃 설정을 불러오는 중 오류가 발생했습니다. 기본 설정으로 표시됩니다.');
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
+    const urlParams = new URLSearchParams(location.search);
+    const uuid = urlParams.get('uuid');
+    const hospital = urlParams.get('hospital');
+
+    if (uuid && hospital) {
+      // 현재 환자 데이터가 없거나 다른 환자인 경우에만 로딩
+      if (!state.patient || state.patient.uuid !== uuid) {
+        actions.loadPatientData(uuid, hospital);
       }
-    };
+    }
+  }, [location.search, state.patient?.uuid]); // actions 의존성 제거
 
-    initializeLayout();
-    
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  // 개발 환경에서 디버그 정보 출력
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && state.layoutConfig) {
+      debugLayoutMapping();
+    }
+  }, [state.layoutConfig]);
 
-  // 로딩 중 표시
-  if (isLoading) {
-    return <div className="loading">로딩 중...</div>;
+  if (state.isLoading) {
+    return (
+      <div className="app">
+        <div className="loading-container">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+            <p>데이터를 불러오는 중...</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  // 에러 표시
-  if (error) {
-    return <div className="error">{error}</div>;
+  if (state.error && !state.patient) {
+    return (
+      <div className="app">
+        <div className="error-container">
+          <div className="error-message">
+            <h2>오류가 발생했습니다</h2>
+            <p>{state.error}</p>
+            <button onClick={() => window.location.reload()}>
+              새로고침
+            </button>
+            <button onClick={actions.recoverSession}>
+              세션 복구 시도
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  // 레이아웃 설정이 없는 경우
-  if (!layoutConfig) {
-    return <div className="error">레이아웃 설정을 불러올 수 없습니다.</div>;
-  }
+  // 레이아웃 설정이 없는 경우 기본 레이아웃 사용
+  const layoutConfig = state.layoutConfig || {
+    layoutType: 'vertical' as LayoutType,
+    showAIButton: false,
+    showFloatingButton: true,
+    title: 'WELLO 건강검진 플랫폼',
+    subtitle: '건강한 내일을 위한 첫걸음을 시작하세요.',
+    headerMainTitle: '',
+    headerImage: window.location.hostname === 'localhost' ? "/doctor-image.png" : "/wello/doctor-image.png",
+    headerImageAlt: "의사가 정면으로 청진기를 들고 있는 전문적인 의료 배경 이미지",
+    headerSlogan: "행복한 건강생활의 평생 동반자",
+    headerLogoTitle: "건강검진센터",
+    headerLogoSubtitle: "",
+    hospitalName: '건강검진센터',
+    brandColor: '#4b5563',
+    logoPosition: 'center',
+  };
 
   // 레이아웃 컴포넌트 선택
   const LayoutComponent = 
@@ -126,72 +185,53 @@ function App() {
     VerticalLayout;
 
   return (
-    <Router>
-      <div className="app">
-        <div className="main-container">
-          <Routes>
+    <div className="app">
+      <div className="main-container">
+        <Routes>
           <Route 
             path="/" 
             element={
               <LayoutComponent
+                headerImage={layoutConfig.headerImage}
+                headerImageAlt={layoutConfig.headerImageAlt}
                 headerSlogan={layoutConfig.headerSlogan}
                 headerLogoTitle={layoutConfig.headerLogoTitle}
                 headerLogoSubtitle={layoutConfig.headerLogoSubtitle}
                 headerMainTitle={layoutConfig.headerMainTitle}
-                headerImage={layoutConfig.headerImage}
-                headerImageAlt={layoutConfig.headerImageAlt}
-                hideHeader={false}
               >
-                       <MainPage 
-                         layoutConfig={layoutConfig} 
-                       />
+                <MainPage />
               </LayoutComponent>
             } 
           />
-                 
-                 {/* 백엔드 연동 설문조사 */}
-                 <Route path="/survey/:surveyId" element={<SurveyPage />} />
-                 
-                 {/* 인증 페이지 */}
-                 <Route path="/login" element={<AuthPage />} />
-                 
-                 {/* 기존 페이지들 (하위 호환성) */}
-                 <Route path="/checkup-design" element={<CheckupDesignPage />} />
-                 <Route path="/health-habits" element={<HealthHabitsPage />} />
-                 <Route path="/health-questionnaire" element={<HealthQuestionnairePage />} />
-                 <Route path="/health-questionnaire-complete" element={<HealthQuestionnaireComplete />} />
-          <Route 
-            path="/results-trend" 
-            element={
-              <LayoutComponent
-                headerSlogan={layoutConfig.headerSlogan}
-                headerLogoTitle={layoutConfig.headerLogoTitle}
-                headerLogoSubtitle={layoutConfig.headerLogoSubtitle}
-                headerMainTitle="검진 결과 추이"
-                headerImage={layoutConfig.headerImage}
-                headerImageAlt={layoutConfig.headerImageAlt}
-                hideHeader={false}
-              >
-                <HealthDataViewer onBack={() => window.history.back()} />
-              </LayoutComponent>
-            } 
-          />
-          <Route 
-            path="/disease-prediction" 
-            element={
-              <div className="simple-page">
-                <h1>질병 예측 리포트</h1>
-                <p>AI 질병 예측 분석 결과가 여기에 표시됩니다.</p>
-              </div>
-            } 
-          />
-          </Routes>
-
-          <FloatingButtonWrapper 
-            layoutConfig={layoutConfig} 
-          />
-        </div>
+          <Route path="/login" element={<AuthPage />} />
+          <Route path="/survey/:surveyId" element={<SurveyPage />} />
+          <Route path="/survey/checkup-design" element={<CheckupDesignPage />} />
+          <Route path="/survey/health-habits" element={<HealthHabitsPage />} />
+          <Route path="/health-questionnaire" element={<HealthQuestionnairePage />} />
+          <Route path="/questionnaire-complete" element={<HealthQuestionnaireComplete />} />
+          <Route path="/results-trend" element={<HealthDataViewer onBack={() => window.history.back()} />} />
+        </Routes>
+        
+        {/* 플로팅 버튼 조건부 렌더링 */}
+        {layoutConfig.showFloatingButton && <FloatingButton />}
+        
+        {/* AI 버튼 조건부 렌더링 */}
+        {layoutConfig.showAIButton && <ResultsTrendButton />}
       </div>
+      
+      {/* 알림 컨테이너 */}
+      <NotificationContainer />
+    </div>
+  );
+};
+
+// 메인 App 컴포넌트 (Provider 래핑)
+function App() {
+  return (
+    <Router basename={window.location.hostname === 'localhost' ? '/' : '/wello'}>
+      <WelloDataProvider>
+        <AppContent />
+      </WelloDataProvider>
     </Router>
   );
 }

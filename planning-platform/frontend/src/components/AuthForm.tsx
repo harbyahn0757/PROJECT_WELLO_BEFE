@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getCurrentLayoutConfig, type LayoutConfig } from '../utils/layoutMapper';
+import { useWelloData } from '../contexts/WelloDataContext';
 import splashIcon from '../assets/splash.png';
 
 interface AuthFormProps {
@@ -30,6 +30,8 @@ interface ReqParams {
 const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { state } = useWelloData();
+  const { patient, hospital, layoutConfig } = state;
   const privateAuthType = '0'; // 인증종류 0: 카카오톡
   
   // 로딩 중 순환 메시지
@@ -47,7 +49,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const [errorType, setErrorType] = useState<'validation' | 'network' | 'server' | 'auth' | null>(null);
   const [authRequested, setAuthRequested] = useState(false);
   // progress 상태 제거됨 - currentStatus로 통합
-  const [layoutConfig, setLayoutConfig] = useState<LayoutConfig | null>(null);
+  // layoutConfig는 Context에서 가져옴
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [statusMessages, setStatusMessages] = useState<Array<{timestamp: string, type: string, message: string}>>([]);
   const [currentStatus, setCurrentStatus] = useState<string>('start');
@@ -57,12 +59,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const [loadingMessage, setLoadingMessage] = useState<string>('');
   const [loadingMessageIndex, setLoadingMessageIndex] = useState<number>(0);
   
-  // 인증 입력 상태 (URL에서 가져온 사용자 데이터)
+  // 인증 입력 상태 (Context에서 가져온 사용자 데이터로 초기화)
   const [authInput, setAuthInput] = useState<AuthInput>({
-    name: '',
-    gender: 'M',
-    phoneNo: '',
-    birthday: ''
+    name: patient?.name || '',
+    gender: patient?.gender?.toLowerCase() === 'male' ? 'M' : 'F',
+    phoneNo: patient?.phone?.replace(/-/g, '') || '',
+    birthday: patient?.birthday || ''
   });
 
   // 요청 파라미터 상태
@@ -77,47 +79,24 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     phoneNo: ''
   });
 
-  // URL에서 사용자 데이터 로드
-  const loadUserData = async () => {
-    try {
-      // Hash 기반 라우팅에서 파라미터 추출
-      let queryString = location.search;
-      if (!queryString && window.location.hash) {
-        const hashParts = window.location.hash.split('?');
-        queryString = hashParts.length > 1 ? '?' + hashParts[1] : '';
-      }
+  // Context에서 환자 데이터가 변경되면 authInput 업데이트
+  useEffect(() => {
+    if (patient) {
+      console.log('📋 [인증페이지] Context에서 환자 데이터 로드:', patient.name);
       
-      const urlParams = new URLSearchParams(queryString);
-      const uuid = urlParams.get('uuid');
+      const newAuthInput = {
+        name: patient.name,
+        gender: patient.gender.toLowerCase() === 'male' ? 'M' : 'F',
+        phoneNo: patient.phone.replace(/-/g, ''),
+        birthday: patient.birthday
+      };
       
-      if (uuid) {
-        const response = await fetch(`http://localhost:8082/api/v1/patients/${uuid}`);
-        if (response.ok) {
-          const userData = await response.json();
-          console.log('📋 [인증페이지] 사용자 데이터 로드:', userData.name);
-          
-          // 전화번호에서 하이픈 제거 (틸코 API 형식에 맞춤)
-          const cleanPhoneNo = userData.phone.replace(/-/g, '');
-          
-          const newAuthInput = {
-            name: userData.name,
-            gender: userData.gender.toLowerCase() === 'male' ? 'M' : 'F',
-            phoneNo: cleanPhoneNo,
-            birthday: userData.birthday
-          };
-          
-          setAuthInput(newAuthInput);
-        }
-      }
-    } catch (error) {
-      console.error('❌ [인증페이지] 사용자 데이터 로드 실패:', error);
-      handleError('사용자 데이터를 불러올 수 없습니다.', 'network');
+      setAuthInput(newAuthInput);
+      console.log('📋 [인증페이지] 인증 입력 데이터 설정 완료:', newAuthInput);
     }
-  };
+  }, [patient]);
 
   useEffect(() => {
-    loadLayoutConfig();
-    loadUserData();
     checkExistingSession();
   }, []);
 
@@ -566,16 +545,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     };
   }, [loading, authRequested, loadingMessages]);
 
-  const loadLayoutConfig = async () => {
-    try {
-      const config = await getCurrentLayoutConfig();
-      setLayoutConfig(config);
-    } catch (error) {
-      console.error('레이아웃 설정 로드 실패:', error);
-    }
-  };
+  // loadLayoutConfig 함수 제거됨 - Context에서 레이아웃 정보 사용
 
-  if (!layoutConfig || isRecovering) {
+  if (isRecovering) {
     return (
       <div className="auth__content">
         <div className="auth__content-input-area" style={{ padding: '40px 20px', textAlign: 'center' }}>
@@ -588,7 +560,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     );
   }
 
-  const hospitalName = layoutConfig.headerLogoTitle || '병원';
+  const hospitalName = layoutConfig?.headerLogoTitle || '병원';
 
   // 데이터 수집 중 로딩 화면 (XOG 스타일)
   if (loading && authRequested) {

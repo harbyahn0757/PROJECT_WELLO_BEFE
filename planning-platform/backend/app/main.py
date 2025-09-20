@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.openapi.utils import get_openapi
 import os
 
 from .api.v1.endpoints import patients, hospitals, health, checkup_design, auth, tilko_auth
@@ -15,7 +16,9 @@ from .data.tilko_session_data import session_manager
 app = FastAPI(
     title="건강검진 관리 시스템",
     description="건강검진 예약 및 관리 API",
-    version="1.0.0"
+    version="1.0.0",
+    docs_url="/docs",
+    openapi_url="/openapi.json"
 )
 
 # CORS 설정
@@ -54,6 +57,22 @@ async def startup_event():
         print(f"🧹 [초기정리] {cleaned}개 만료된 세션 정리 완료")
     
     print("✅ [시스템] 서버 시작 완료")
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="건강검진 관리 시스템",
+        version="1.0.0",
+        description="건강검진 예약 및 관리 API",
+        routes=app.routes,
+    )
+    # OpenAPI 3.1.0을 3.0.2로 변경
+    openapi_schema["openapi"] = "3.0.2"
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
 
 @app.get("/")
 async def root():

@@ -6,13 +6,39 @@
   background: $background-yellow;
 }
 
-// 인증 페이지에서 플로팅 버튼 배경을 노란색 계열로
-.questionnaire-container.tilko-login {
-  .floating-button {
-    background: rgba(255, 0, 0, 0.8) !important; // 빨간색으로 테스트 (변화 확인용)
-    backdrop-filter: blur(20px) !important; // 블러 효과 줄임
-    -webkit-backdrop-filter: blur(20px) !important;
-  }
+// 인증 페이지에서 플로팅 버튼 배경을 노란색 계열로 (최고 우선순위)
+html body .questionnaire-container.tilko-login .floating-button-container,
+.questionnaire-container.tilko-login .floating-button-container {
+  background: $background-yellow !important; // 상단 페이지와 정확히 동일한 변수 사용
+  background-color: $background-yellow !important; // 추가 보험
+  backdrop-filter: blur(20px) !important; // 블러 효과 줄임
+  -webkit-backdrop-filter: blur(20px) !important;
+}
+
+html body .questionnaire-container.tilko-login .floating-button,
+.questionnaire-container.tilko-login .floating-button {
+  background: $background-yellow !important; // 상단 페이지와 동일한 노란색 변수
+  background-color: $background-yellow !important; // 추가 보험
+  color: $background-beige !important; // 베이지색 텍스트 (변수 사용)
+  box-shadow: 0 4px 12px rgba(247, 232, 211, 0.3) !important; // 베이지색 그림자
+  border: none !important; // 테두리 제거
+}
+
+html body .questionnaire-container.tilko-login .floating-button:hover,
+.questionnaire-container.tilko-login .floating-button:hover {
+  background: $background-beige !important; // 호버시 베이지색
+  background-color: $background-beige !important; // 추가 보험
+  color: $background-yellow !important; // 노란색 텍스트
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 16px rgba(247, 232, 211, 0.4) !important;
+}
+
+html body .questionnaire-container.tilko-login .floating-button:active,
+.questionnaire-container.tilko-login .floating-button:active {
+  background: $background-beige !important; // 클릭시 베이지색
+  background-color: $background-beige !important; // 추가 보험
+  color: $background-yellow !important; // 노란색 텍스트
+  transform: translateY(0) !important;
 }
 
 // 뒤로가기 버튼 (인증 페이지용)
@@ -146,3 +172,4 @@
     }
   }
 }
+

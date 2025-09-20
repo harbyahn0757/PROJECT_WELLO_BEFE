@@ -38,14 +38,6 @@ const AuthPage: React.FC = () => {
           <AuthForm onBack={handleBack} />
         </div>
       </div>
-      {/* 플로팅 버튼 스타일을 전역으로 직접 오버라이드 */}
-      <style>{`
-        .floating-button {
-          background: rgba(255, 218, 91, 0.1) !important;
-          backdrop-filter: blur(20px) !important;
-          -webkit-backdrop-filter: blur(20px) !important;
-        }
-      `}</style>
     </div>
   );
 };

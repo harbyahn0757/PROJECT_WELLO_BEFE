@@ -97,11 +97,18 @@ class Settings(BaseSettings):
     # CORS 설정
     cors_allowed_origins: List[str] = Field(default=["http://localhost:9283"], env="CORS_ALLOWED_ORIGINS")
     
+    # 데이터베이스 설정
+    DB_HOST: str = Field(default="localhost", env="DB_HOST")
+    DB_PORT: int = Field(default=5432, env="DB_PORT")
+    DB_NAME: str = Field(default="health_check_db", env="DB_NAME")
+    DB_USER: str = Field(default="admin", env="DB_USER")
+    DB_PASSWORD: str = Field(default="dev_password", env="DB_PASSWORD")
+    
     # OpenAI 설정
     openai_api_key: str = Field(default="dev-openai-key", env="OPENAI_API_KEY")
     
     model_config = {
-        "env_file": ".env",
+        "env_file": ["config.env", ".env"],
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
         "extra": "ignore"
