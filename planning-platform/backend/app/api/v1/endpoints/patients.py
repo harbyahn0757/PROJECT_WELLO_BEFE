@@ -42,6 +42,7 @@ class PatientResponse(BaseModel):
     age: int
     gender: str
     phone: str
+    birthday: str
     hospital: HospitalInfo
     last_checkup_count: int
     created_at: str
@@ -73,6 +74,7 @@ async def get_patient(
             age=patient.info.age,
             gender=patient.info.gender,
             phone=patient.phone,
+            birthday=patient.info.birth_date.strftime("%Y%m%d") if patient.info.birth_date else '19810927',  # birthday 필드 추가
             hospital=HospitalInfo(
                 hospital_id=hospital.hospital_id,
                 name=hospital.info.name,

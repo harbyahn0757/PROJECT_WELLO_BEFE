@@ -58,10 +58,11 @@ HOSPITALS_DATA = {
 PATIENTS_DATA = {
     "a1b2c3d4-e5f6-7890-abcd-ef1234567890": {
         "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-        "name": "김철수",
-        "age": 39,
+        "name": "안광수",
+        "age": 43,
         "gender": Gender.MALE,
-        "phone": "010-1234-5678",
+        "phone": "010-5618-0757",
+        "birthday": "19810927",
         "hospital": HOSPITALS_DATA["KHW001"],
         "last_checkup_date": "2024-09",
         "last_checkup_type": CheckupType.BASIC

@@ -10,12 +10,7 @@ from cryptography.hazmat.primitives import serialization, hashes
 from datetime import datetime, timedelta
 import base64
 import os
-from app.data.tilko_dummy_data import (
-    DUMMY_HEALTH_SCREENING_DATA,
-    DUMMY_PRESCRIPTION_DATA, 
-    DUMMY_SIMPLE_AUTH_DATA,
-    DUMMY_PUBLIC_KEY
-)
+# 더미 데이터 import 제거 - 실제 API만 사용
 
 TILKO_API_HOST = os.getenv("TILKO_API_HOST", "https://api.tilko.net")
 TILKO_API_KEY = os.getenv("TILKO_API_KEY")
@@ -29,19 +24,15 @@ AES_IV_FIXED = b'\x00' * 16
 async def get_public_key() -> str:
     """틸코 공개키 조회"""
     if not TILKO_API_KEY:
-        # 더미 공개키 반환 (개발/테스트용)
-        return DUMMY_PUBLIC_KEY
+        raise ValueError("TILKO_API_KEY 환경변수가 설정되지 않았습니다.")
     
     async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(
-                f"{TILKO_API_HOST}/api/Auth/GetPublicKey",
-                params={"APIkey": TILKO_API_KEY}
-            )
-            return response.json()["PublicKey"]
-        except Exception:
-            # API 호출 실패시 더미 데이터 반환
-            return DUMMY_PUBLIC_KEY
+        response = await client.get(
+            f"{TILKO_API_HOST}/api/Auth/GetPublicKey",
+            params={"APIkey": TILKO_API_KEY}
+        )
+        response.raise_for_status()
+        return response.json()["PublicKey"]
 
 def aes_encrypt(key: bytes, iv: bytes, plain_text: str) -> str:
     """AES 암호화"""
@@ -77,102 +68,90 @@ async def simple_auth(
 ) -> Dict[str, Any]:
     """카카오 간편인증 요청 (레퍼런스 구조대로)"""
     if not TILKO_API_KEY:
-        # 더미 응답 반환 (개발/테스트용)
-        return DUMMY_SIMPLE_AUTH_DATA
+        raise ValueError("TILKO_API_KEY 환경변수가 설정되지 않았습니다.")
     
     public_key = await get_public_key()
     
     async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                f"{TILKO_API_HOST}/api/v1.0/nhissimpleauth/simpleauthrequest",
-                json={
-                    "PrivateAuthType": private_auth_type,
-                    "UserName": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, user_name),
-                    "BirthDate": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, birthdate),
-                    "UserCellphoneNumber": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, phone_no)
-                },
-                headers={
-                    "Content-Type": "application/json",
-                    "API-KEY": TILKO_API_KEY,
-                    "ENC-KEY": rsa_encrypt(public_key, AES_KEY_FIXED)
-                }
-            )
-            return response.json()
-        except Exception:
-            # API 호출 실패시 더미 데이터 반환
-            return DUMMY_SIMPLE_AUTH_DATA
+        response = await client.post(
+            f"{TILKO_API_HOST}/api/v1.0/nhissimpleauth/simpleauthrequest",
+            json={
+                "PrivateAuthType": private_auth_type,
+                "UserName": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, user_name),
+                "BirthDate": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, birthdate),
+                "UserCellphoneNumber": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, phone_no)
+            },
+            headers={
+                "Content-Type": "application/json",
+                "API-KEY": TILKO_API_KEY,
+                "ENC-KEY": rsa_encrypt(public_key, AES_KEY_FIXED)
+            }
+        )
+        response.raise_for_status()
+        return response.json()
 
 async def get_health_screening_data(
     request_login: Dict[str, str]
 ) -> Dict[str, Any]:
     """건강검진 데이터 조회 (레퍼런스 구조대로)"""
     if not TILKO_API_KEY:
-        # 더미 건강검진 데이터 반환 (개발/테스트용)
-        return DUMMY_HEALTH_SCREENING_DATA
+        raise ValueError("TILKO_API_KEY 환경변수가 설정되지 않았습니다.")
     
     public_key = await get_public_key()
     
     async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                f"{TILKO_API_HOST}/api/v1.0/nhissimpleauth/ggpab003m0105",
-                json={
-                    "CxId": request_login.get("cxId", ""),
-                    "PrivateAuthType": request_login["privateAuthType"],
-                    "ReqTxId": request_login["reqTxId"],
-                    "Token": request_login["token"],
-                    "TxId": request_login["txId"],
-                    "UserName": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, request_login["userName"]),
-                    "BirthDate": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, request_login["birthday"]),
-                    "UserCellphoneNumber": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, request_login["phoneNo"])
-                },
-                headers={
-                    "Content-Type": "application/json",
-                    "API-KEY": TILKO_API_KEY,
-                    "ENC-KEY": rsa_encrypt(public_key, AES_KEY_FIXED)
-                }
-            )
-            return response.json()
-        except Exception:
-            # API 호출 실패시 더미 데이터 반환
-            return DUMMY_HEALTH_SCREENING_DATA
+        response = await client.post(
+            f"{TILKO_API_HOST}/api/v1.0/nhissimpleauth/ggpab003m0105",
+            json={
+                "CxId": request_login.get("cxId", ""),
+                "PrivateAuthType": request_login["privateAuthType"],
+                "ReqTxId": request_login["reqTxId"],
+                "Token": request_login["token"],
+                "TxId": request_login["txId"],
+                "UserName": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, request_login["userName"]),
+                "BirthDate": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, request_login["birthday"]),
+                "UserCellphoneNumber": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, request_login["phoneNo"])
+            },
+            headers={
+                "Content-Type": "application/json",
+                "API-KEY": TILKO_API_KEY,
+                "ENC-KEY": rsa_encrypt(public_key, AES_KEY_FIXED)
+            }
+        )
+        response.raise_for_status()
+        return response.json()
 
 async def get_prescription_data(
     request_login: Dict[str, str]
 ) -> Dict[str, Any]:
     """처방전 데이터 조회 (레퍼런스 구조대로)"""
     if not TILKO_API_KEY:
-        # 더미 처방전 데이터 반환 (개발/테스트용)
-        return DUMMY_PRESCRIPTION_DATA
+        raise ValueError("TILKO_API_KEY 환경변수가 설정되지 않았습니다.")
     
     public_key = await get_public_key()
     start_date = (datetime.now() - timedelta(days=420)).strftime("%Y%m%d")  # 14개월 전
     end_date = (datetime.now() - timedelta(days=60)).strftime("%Y%m%d")     # 2개월 전
     
     async with httpx.AsyncClient() as client:
-        try:
-            response = await client.post(
-                f"{TILKO_API_HOST}/api/v1.0/nhissimpleauth/retrievetreatmentinjectioninformationperson",
-                json={
-                    "CxId": request_login["cxId"],
-                    "PrivateAuthType": request_login["privateAuthType"],
-                    "ReqTxId": request_login["reqTxId"],
-                    "Token": request_login["token"],
-                    "TxId": request_login["txId"],
-                    "UserName": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, request_login["userName"]),
-                    "BirthDate": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, request_login["birthday"]),
-                    "UserCellphoneNumber": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, request_login["phoneNo"]),
-                    "StartDate": start_date,
-                    "EndDate": end_date
-                },
-                headers={
-                    "Content-Type": "application/json",
-                    "API-KEY": TILKO_API_KEY,
-                    "ENC-KEY": rsa_encrypt(public_key, AES_KEY_FIXED)
-                }
-            )
-            return response.json()
-        except Exception:
-            # API 호출 실패시 더미 데이터 반환
-            return DUMMY_PRESCRIPTION_DATA
+        response = await client.post(
+            f"{TILKO_API_HOST}/api/v1.0/nhissimpleauth/retrievetreatmentinjectioninformationperson",
+            json={
+                "CxId": request_login["cxId"],
+                "PrivateAuthType": request_login["privateAuthType"],
+                "ReqTxId": request_login["reqTxId"],
+                "Token": request_login["token"],
+                "TxId": request_login["txId"],
+                "UserName": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, request_login["userName"]),
+                "BirthDate": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, request_login["birthday"]),
+                "UserCellphoneNumber": aes_encrypt(AES_KEY_FIXED, AES_IV_FIXED, request_login["phoneNo"]),
+                "StartDate": start_date,
+                "EndDate": end_date
+            },
+            headers={
+                "Content-Type": "application/json",
+                "API-KEY": TILKO_API_KEY,
+                "ENC-KEY": rsa_encrypt(public_key, AES_KEY_FIXED)
+            }
+        )
+        response.raise_for_status()
+        return response.json()

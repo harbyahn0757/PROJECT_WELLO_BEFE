@@ -4,9 +4,13 @@ FastAPI 애플리케이션 메인
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
 
-from .api.v1.endpoints import patients, hospitals, health, checkup_design, auth
+from .api.v1.endpoints import patients, hospitals, health, checkup_design, auth, tilko_auth
 from .core.config import settings
+from .data.tilko_session_data import session_manager
 
 app = FastAPI(
     title="건강검진 관리 시스템",
@@ -17,18 +21,39 @@ app = FastAPI(
 # CORS 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:9283"],  # 프론트엔드 서버
+    allow_origins=["*"],  # 운영환경에서는 실제 도메인으로 변경
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# 정적 파일 서빙 (React 빌드 파일)
+static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
 # API 라우터 등록
 app.include_router(health.router, prefix="/api/v1/health", tags=["health"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(tilko_auth.router, prefix="/api/v1/tilko", tags=["tilko"])
 app.include_router(patients.router, prefix="/api/v1/patients", tags=["patients"])
 app.include_router(hospitals.router, prefix="/api/v1/hospitals", tags=["hospitals"])
 app.include_router(checkup_design.router, prefix="/api/v1/checkup-design", tags=["checkup-design"])
+
+@app.on_event("startup")
+async def startup_event():
+    """앱 시작 시 이벤트"""
+    print("🚀 [시스템] 서버 시작 중...")
+    
+    # 세션 자동 정리 시작 (30분 간격)
+    await session_manager.start_auto_cleanup(30)
+    
+    # 즉시 한번 정리
+    cleaned = session_manager.cleanup_expired_sessions()
+    if cleaned > 0:
+        print(f"🧹 [초기정리] {cleaned}개 만료된 세션 정리 완료")
+    
+    print("✅ [시스템] 서버 시작 완료")
 
 @app.get("/")
 async def root():

@@ -102,7 +102,8 @@ class PatientRepository:
                     info=PatientInfo(
                         name=data["name"],
                         age=data["age"],
-                        gender=data["gender"]
+                        gender=data["gender"],
+                        birth_date=datetime.strptime(data.get("birthday", ""), "%Y%m%d") if data.get("birthday") else None
                     ),
                     phone=data["phone"],
                     hospital_id=data["hospital"]["hospital_id"],
