@@ -26,6 +26,10 @@ pydantic-settings==2.1.0
 python-dotenv==1.0.0
 httpx==0.25.2
 
+# Tilko 연동을 위한 암호화 라이브러리
+cryptography==41.0.7
+aiohttp==3.9.1
+
 # 개발 도구
 pytest==7.4.3
 pytest-asyncio==0.21.1

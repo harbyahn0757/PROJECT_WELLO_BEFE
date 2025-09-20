@@ -4,6 +4,7 @@
 from fastapi import APIRouter, HTTPException
 from typing import Dict, Any
 import uuid
+import os
 from datetime import datetime
 
 router = APIRouter()
@@ -11,14 +12,13 @@ router = APIRouter()
 # 카카오 인증 더미 데이터
 KAKAO_USERS_DATA = {}
 
-@router.get("/kakao/login-url")
+@router.get("/login-url")
 async def get_kakao_login_url() -> Dict[str, Any]:
     """
-    카카오 로그인 URL 생성
+    카카오 로그인 URL 생성 (환경변수 사용)
     """
-    # 실제로는 카카오 API 키와 redirect_uri를 사용
-    kakao_client_id = "your_kakao_client_id"  # 환경변수에서 가져와야 함
-    redirect_uri = "http://localhost:9283/auth/kakao/callback"
+    kakao_client_id = os.getenv("KAKAO_CLIENT_ID", "dummy_kakao_client_id")
+    redirect_uri = os.getenv("KAKAO_REDIRECT_URI", "http://localhost:9283/auth/kakao/callback")
     
     login_url = f"https://kauth.kakao.com/oauth/authorize?client_id={kakao_client_id}&redirect_uri={redirect_uri}&response_type=code"
     
@@ -27,12 +27,13 @@ async def get_kakao_login_url() -> Dict[str, Any]:
         "data": {
             "loginUrl": login_url,
             "clientId": kakao_client_id,
-            "redirectUri": redirect_uri
+            "redirectUri": redirect_uri,
+            "isDummy": kakao_client_id == "dummy_kakao_client_id"
         },
         "message": "카카오 로그인 URL을 생성했습니다."
     }
 
-@router.post("/kakao/callback")
+@router.post("/callback")
 async def kakao_callback(request: Dict[str, Any]) -> Dict[str, Any]:
     """
     카카오 로그인 콜백 처리 (현아 프로젝트 방식)
@@ -118,7 +119,7 @@ async def kakao_callback(request: Dict[str, Any]) -> Dict[str, Any]:
             detail=f"카카오 로그인 처리 중 오류가 발생했습니다: {str(e)}"
         )
 
-@router.get("/kakao/user/{user_id}")
+@router.get("/user/{user_id}")
 async def get_kakao_user(user_id: str) -> Dict[str, Any]:
     """
     카카오 사용자 정보 조회
@@ -135,7 +136,7 @@ async def get_kakao_user(user_id: str) -> Dict[str, Any]:
         "message": "사용자 정보를 조회했습니다."
     }
 
-@router.post("/kakao/logout")
+@router.post("/logout")
 async def kakao_logout(request: Dict[str, Any]) -> Dict[str, Any]:
     """
     카카오 로그아웃

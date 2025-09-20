@@ -3,11 +3,18 @@ API v1 패키지
 """
 
 from fastapi import APIRouter
-from .endpoints import patients, hospitals, checkup_design, health, auth, surveys, kakao_auth, checkup_records
+from .endpoints import patients, hospitals, checkup_design, health, auth, surveys, kakao_auth, checkup_records, health_connect, tilko_auth
 
 api_router = APIRouter()
 
 # 엔드포인트 라우터들 등록
+
+api_router.include_router(
+    kakao_auth.router,
+    prefix="/auth/kakao",
+    tags=["kakao-auth"]
+)
+
 api_router.include_router(
     auth.router,
     prefix="/auth",
@@ -44,14 +51,21 @@ api_router.include_router(
     tags=["surveys"]
 )
 
-api_router.include_router(
-    kakao_auth.router,
-    prefix="/auth",
-    tags=["kakao-auth"]
-)
 
 api_router.include_router(
     checkup_records.router,
     prefix="",
     tags=["checkup-records"]
+)
+
+api_router.include_router(
+    health_connect.router,
+    prefix="",
+    tags=["health-connect"]
+)
+
+api_router.include_router(
+    tilko_auth.router,
+    prefix="/tilko",
+    tags=["tilko-auth"]
 )
