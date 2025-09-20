@@ -1,0 +1,11 @@
+// SCSS 모듈 임포트 (@use는 최상단에 위치해야 함)
+@use './styles/variables' as *;
+@use './styles/mixins' as *;
+@use './styles/base';
+@use './styles/components';
+@use './styles/survey';
+@use './styles/auth';
+@use './styles/health';
+
+// Pretendard 폰트 임포트
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');

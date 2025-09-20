@@ -1,0 +1,162 @@
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
+
+// HorizontalLayout 메인 스타일
+.horizontal-layout {
+  min-height: 100vh;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden; // 가로 스크롤 방지
+
+  &__container {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: $overlay-light; // 더 투명한 배경으로 대비 증가
+    overflow-y: auto;
+    overflow-x: hidden; // 가로 스크롤 방지
+    position: relative;
+    
+    // 모바일: 전체 화면 사용, 둥글기 없음
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    
+    // 데스크톱: 중앙 정렬, 최대 너비 제한, 그림자 추가
+    @include respond-to(md) {
+      max-width: 448px;
+      margin: 0 auto;
+      border-radius: $border-radius-xl;
+      box-shadow: $shadow-lg;
+      max-height: 900px;
+      height: 100vh;
+    }
+  }
+
+  // 배경 장식 요소
+  &__bg-decoration {
+    position: absolute;
+    width: 256px; // w-64 (16rem = 256px)
+    height: 256px; // h-64
+    background-color: $brand-brown;
+    border-radius: 50%;
+    opacity: 0.1;
+    filter: blur(48px); // blur-3xl
+    z-index: -1;
+    
+    &--top {
+      top: 25%; // top-1/4
+      left: -96px; // -left-24 (6rem = 96px)
+    }
+    
+    &--bottom {
+      bottom: 25%; // bottom-1/4
+      right: -96px; // -right-24
+    }
+  }
+
+  // 헤더
+  &__header {
+    flex-shrink: 0;
+    z-index: 10;
+    position: relative;
+    height: 90px; // 헤더 높이 더 축소
+  }
+  
+  &__header-image {
+    position: absolute;
+    inset: 0;
+    width: 130%; // 이미지를 더더 확대
+    height: 100%;
+    object-fit: cover;
+    object-position: right center; // 완전히 오른쪽으로
+    transform: translateX(60px); // 60px 오른쪽 이동 (40px → 60px)
+  }
+  
+  &__header-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, $background-beige, rgba(247, 232, 211, 0.8), transparent);
+  }
+  
+  &__header-content {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
+    padding: $spacing-xs $spacing-lg; // 상하 패딩 더 줄임
+  }
+  
+  &__header-slogan {
+    font-size: $font-sm;
+    color: $gray-600;
+    margin: 0 0 2px 0; // 간격 대폭 축소
+  }
+  
+  &__header-logo {
+    margin-top: 2px; // 간격 대폭 축소
+  }
+  
+  &__header-logo-title {
+    font-size: $font-lg; // 조금 더 작게
+    font-weight: 700;
+    color: $brand-brown;
+    margin: 0;
+  }
+  
+  &__header-logo-subtitle {
+    font-size: $font-xs;
+    color: $gray-500;
+    letter-spacing: 0.1em;
+    margin: 0 0 2px 0; // 하단 간격 축소
+  }
+  
+  &__header-main-title {
+    font-size: $font-xl; // 2xl에서 xl로 (폰트 크기 -1)
+    font-weight: 500; // 볼드 제거 (900 → 500)
+    color: $gray-800;
+    margin: 2px 0 0 0; // 간격 더 축소
+  }
+
+  // 메인 콘텐츠 - 가로 슬라이드용
+  &__main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    padding: $spacing-md $spacing-md $spacing-xs; // 하단 패딩 줄임 (md → xs)
+    z-index: 10;
+  }
+}
+
+// 가로 슬라이드 카드 컨테이너
+.horizontal-cards {
+  &__title {
+    font-size: $font-lg;
+    font-weight: 700;
+    color: $gray-800;
+    margin: 0 0 $spacing-md 0;
+    text-align: center;
+  }
+  
+  &__subtitle {
+    font-size: $font-sm;
+    color: $gray-600;
+    margin: 0 0 $spacing-sm 0;
+    text-align: center;
+  }
+  
+  // 스와이프 힌트는 Card.scss의 .swipe-area로 이동됨
+  
+  &__container {
+    // 이 스타일은 Card.scss의 .cards-horizontal로 이동됨
+    // 중복 제거를 위해 여기서는 기본 스타일만 유지
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+  
+  // 카드 스타일은 Card.scss의 .card--horizontal로 이동됨
+}

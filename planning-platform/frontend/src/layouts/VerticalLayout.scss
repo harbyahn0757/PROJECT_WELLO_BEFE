@@ -1,0 +1,133 @@
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
+
+// VerticalLayout 메인 스타일
+.vertical-layout {
+  min-height: 100vh;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden; // 가로 스크롤 방지
+
+  &__container {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: rgba(255, 255, 255, 0.5);
+    overflow-y: auto;
+    overflow-x: hidden; // 가로 스크롤 방지
+    position: relative;
+    
+    // 모바일: 전체 화면 사용, 둥글기 없음
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    
+    // 데스크톱: 중앙 정렬, 최대 너비 제한, 그림자 추가
+    @include respond-to(md) {
+      max-width: 448px;
+      margin: 0 auto;
+      border-radius: $border-radius-xl;
+      box-shadow: $shadow-lg;
+      max-height: 900px;
+      height: 100vh;
+    }
+  }
+
+  // 배경 장식 요소
+  &__bg-decoration {
+    position: absolute;
+    width: 256px; // w-64 (16rem = 256px)
+    height: 256px; // h-64
+    background-color: $brand-brown;
+    border-radius: 50%;
+    opacity: 0.1;
+    filter: blur(48px); // blur-3xl
+    z-index: -1;
+    
+    &--top {
+      top: 25%; // top-1/4
+      left: -96px; // -left-24 (6rem = 96px)
+    }
+    
+    &--bottom {
+      bottom: 25%; // bottom-1/4
+      right: -96px; // -right-24
+    }
+  }
+
+  // 헤더
+  &__header {
+    flex-shrink: 0;
+    z-index: 10;
+    position: relative;
+    height: 120px; // 헤더 높이 더 축소
+  }
+  
+  &__header-image {
+    position: absolute;
+    inset: 0;
+    width: 130%; // 이미지를 더더 확대
+    height: 100%;
+    object-fit: cover;
+    object-position: right center; // 완전히 오른쪽으로
+    transform: translateX(60px); // 60px 오른쪽 이동 (40px → 60px)
+  }
+  
+  &__header-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, $background-beige, rgba(247, 232, 211, 0.8), transparent);
+  }
+  
+  &__header-content {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
+    padding: $spacing-sm $spacing-lg; // 상하 패딩 줄임
+  }
+  
+  &__header-slogan {
+    font-size: $font-sm;
+    color: $gray-600;
+    margin: 0 0 2px 0; // 간격 대폭 축소
+  }
+  
+  &__header-logo {
+    margin-top: 2px; // 간격 대폭 축소
+  }
+  
+  &__header-logo-title {
+    font-size: $font-xl;
+    font-weight: 700;
+    color: $brand-brown;
+    margin: 0;
+  }
+  
+  &__header-logo-subtitle {
+    font-size: $font-xs;
+    color: $gray-500;
+    letter-spacing: 0.1em;
+    margin: 0 0 2px 0; // 하단 간격 축소
+  }
+  
+  &__header-main-title {
+    font-size: $font-3xl; // 4xl에서 3xl로 (폰트 크기 -1)
+    font-weight: 500; // 볼드 제거 (900 → 500)
+    color: $gray-800;
+    margin: 2px 0 0 0; // 간격 더 축소
+  }
+
+  // 메인 콘텐츠
+  &__main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    padding: $spacing-sm $spacing-md $spacing-md;
+    text-align: center;
+    z-index: 10;
+  }
+}

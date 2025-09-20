@@ -1,0 +1,643 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+// XOG 배경색 클래스
+.bg_xog_yellow {
+  background: $background-yellow;
+}
+
+// 설문조사 컨테이너 (더 이상 사용하지 않음 - 카카오 로그인과 통일)
+.questionnaire-container {
+  // 레거시 지원용으로 유지하되 기본 스타일만
+  min-height: 100vh;
+  background: $background-beige;
+  
+  // 틸코 로그인 페이지에서는 노랑색 배경 사용
+  &.tilko-login {
+    background: $background-yellow;
+  }
+}
+
+// 현아의 question 스타일을 우리 디자인으로 변환
+.question {
+  &__title {
+    flex-shrink: 1;
+    margin-top: $spacing-xl;
+    
+    &-text {
+      font-family: $font-family-base;
+      font-size: $font-2xl;
+      line-height: 1.6;
+      font-weight: $font-weight-bold;
+      color: $gray-800;
+      
+      &-s {
+        font-family: $font-family-base;
+        font-size: $font-xl;
+        line-height: 1.6;
+        font-weight: $font-weight-bold;
+        color: $gray-800;
+      }
+      
+      &--ss {
+        display: block;
+        font-size: $font-lg;
+        font-weight: $font-weight-medium;
+        color: $brand-brown;
+        margin-bottom: $spacing-sm;
+      }
+    }
+  }
+  
+  &__content {
+    border: $spacing-sm solid transparent;
+    box-sizing: border-box;
+    
+    &-input {
+      background: $white;
+      border: 2px solid $brand-brown;
+      border-radius: $border-radius-xl;
+      box-sizing: border-box;
+      font-family: $font-family-base;
+      font-size: $font-xl;
+      font-weight: $font-weight-semibold;
+      height: 52px;
+      margin-top: $spacing-sm;
+      outline: none;
+      padding: $spacing-md;
+      text-align: center;
+      width: 100%;
+      
+      &:focus {
+        border-color: $brand-brown-hover;
+        box-shadow: 0 0 0 3px rgba(124, 116, 106, 0.1);
+      }
+      
+      &-unit {
+        font-family: $font-family-base;
+        font-size: $font-lg;
+        font-weight: $font-weight-semibold;
+        color: $gray-600;
+        margin-top: -38px;
+        padding-right: 30px;
+        text-align: right;
+      }
+    }
+    
+    &-input-area {
+      min-height: 85px;
+    }
+    
+    &-input-label {
+      display: block;
+      font-size: $font-lg;
+      font-weight: $font-weight-medium;
+      color: $gray-700;
+      margin-top: $spacing-sm;
+    }
+    
+    &-input-button {
+      box-sizing: content-box !important;
+      outline: none;
+      -webkit-tap-highlight-color: transparent;
+      
+      & input[type="radio"], 
+      & input[type="checkbox"] {
+        box-sizing: content-box !important;
+        display: none;
+      }
+      
+      & input[type="radio"] + span, 
+      & input[type="checkbox"] + span {
+        background: $white;
+        border: 2px solid $gray-300;
+        border-radius: $border-radius-xl;
+        box-shadow: $shadow-sm;
+        box-sizing: content-box !important;
+        cursor: pointer;
+        display: inline-block;
+        font-size: $font-base;
+        font-weight: $font-weight-medium;
+        color: $gray-700;
+        height: 22px;
+        letter-spacing: -0.05rem;
+        margin: $spacing-xs;
+        outline: none;
+        padding: $spacing-md $spacing-lg;
+        -webkit-tap-highlight-color: transparent;
+        transition: all 0.3s ease;
+        
+        &:hover {
+          border-color: $brand-brown;
+          background: $brand-brown-light;
+        }
+      }
+      
+      & input[type="radio"]:checked + span, 
+      & input[type="checkbox"]:checked + span {
+        background: $brand-brown;
+        border-color: $brand-brown;
+        box-sizing: content-box !important;
+        color: $white;
+        font-weight: $font-weight-semibold;
+        transition: all 0.3s ease;
+        transform: translateY(-1px);
+        box-shadow: $shadow-md;
+      }
+      
+      &.nothing input[type="radio"] + span, 
+      &.nothing input[type="checkbox"] + span {
+        border-color: $gray-400;
+        background: $gray-50;
+        box-shadow: none;
+        box-sizing: content-box !important;
+      }
+      
+      &.nothing input[type="radio"]:checked + span, 
+      &.nothing input[type="checkbox"]:checked + span {
+        background: $gray-600;
+        border-color: $gray-600;
+        color: $white;
+      }
+    }
+  }
+  
+  &__footer {
+    display: block;
+    font-size: $font-lg;
+    letter-spacing: -0.8px;
+    text-align: left;
+    margin-top: $spacing-xl;
+    
+    &__text {
+      width: fit-content;
+      margin: 0 auto;
+      color: $gray-600;
+      line-height: 1.6;
+    }
+    
+    &-button {
+      background: $brand-brown;
+      border: 0;
+      border-radius: $border-radius-2xl;
+      color: $white;
+      font-family: $font-family-base;
+      font-size: $font-lg;
+      font-weight: $font-weight-semibold;
+      height: 70px;
+      letter-spacing: -0.056rem;
+      margin: $spacing-xl $spacing-lg $spacing-lg $spacing-lg;
+      min-height: 70px;
+      width: calc(100% - #{$spacing-lg * 2});
+      cursor: pointer;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        background: $brand-brown-hover;
+        transform: translateY(-2px);
+        box-shadow: $shadow-lg;
+      }
+      
+      &:active {
+        transform: translateY(0);
+      }
+      
+      &:disabled {
+        background: $gray-400;
+        color: $gray-600;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+    }
+  }
+}
+
+// 백 버튼 스타일
+.back-button-container {
+  position: absolute;
+  top: $spacing-lg;
+  left: $spacing-lg;
+  z-index: 100;
+  
+        .back-button {
+          background: $white;
+          border: 2px solid $gray-300;
+          border-radius: $border-radius-full;
+          width: 48px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          box-shadow: $shadow-sm;
+          font-size: $font-base;
+          font-weight: $font-weight-medium;
+          color: $gray-600;
+          
+          &:hover {
+            border-color: $brand-brown;
+            background: $brand-brown-light;
+            transform: translateY(-1px);
+            box-shadow: $shadow-md;
+          }
+        }
+}
+
+// 설문조사 하단 고정 플로팅 버튼
+.survey-floating-button {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: $white;
+  border-top: 1px solid $gray-200;
+  padding: $spacing-md $spacing-lg;
+  z-index: 1000;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  
+  &__btn {
+    background: $brand-brown;
+    border: 0;
+    border-radius: $border-radius-2xl;
+    color: $white;
+    font-family: $font-family-base;
+    font-size: $font-lg;
+    font-weight: $font-weight-semibold;
+    height: 56px;
+    width: 100%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: $brand-brown-hover;
+      transform: translateY(-2px);
+      box-shadow: $shadow-lg;
+    }
+    
+    &:active {
+      transform: translateY(0);
+    }
+    
+    &:disabled {
+      background: $gray-400;
+      color: $gray-600;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+  }
+}
+
+.survey-page {
+  min-height: 100vh;
+  background: $background-beige;
+  padding: $spacing-lg;
+  
+  .survey-header {
+    text-align: center;
+    margin-bottom: $spacing-xl;
+    
+    h1 {
+      font-size: $font-2xl;
+      font-weight: $font-weight-bold;
+      color: $gray-800;
+      margin-bottom: $spacing-md;
+    }
+    
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background-color: $gray-200;
+      border-radius: $border-radius-full;
+      overflow: hidden;
+      margin-bottom: $spacing-sm;
+      
+      .progress-fill {
+        height: 100%;
+        background-color: $brand-brown;
+        border-radius: $border-radius-full;
+        transition: width 0.3s ease;
+      }
+    }
+    
+    .progress-text {
+      font-size: $font-sm;
+      color: $gray-600;
+      margin: 0;
+    }
+  }
+  
+  .survey-content {
+    max-width: 600px;
+    margin: 0 auto;
+    background: $white;
+    border-radius: $border-radius-xl;
+    padding: $spacing-xl;
+    box-shadow: $shadow-md;
+    
+    .survey-step {
+      &__title {
+        font-size: $font-xl;
+        font-weight: $font-weight-bold;
+        color: $gray-800;
+        margin-bottom: $spacing-sm;
+      }
+      
+      &__subtitle {
+        font-size: $font-base;
+        color: $gray-600;
+        margin-bottom: $spacing-xl;
+        line-height: 1.6;
+      }
+      
+      &__content {
+        .question-group {
+          margin-bottom: $spacing-xl;
+          
+          h3 {
+            font-size: $font-lg;
+            font-weight: $font-weight-semibold;
+            color: $gray-800;
+            margin-bottom: $spacing-md;
+          }
+          
+          .radio-group,
+          .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: $spacing-sm;
+            
+            .radio-label,
+            .checkbox-label {
+              display: flex;
+              align-items: center;
+              padding: $spacing-md;
+              border: 2px solid $gray-200;
+              border-radius: $border-radius-lg;
+              cursor: pointer;
+              transition: all 0.2s ease;
+              
+              &:hover {
+                border-color: $brand-brown;
+                background-color: $brand-brown-light;
+              }
+              
+              input[type="radio"],
+              input[type="checkbox"] {
+                margin-right: $spacing-sm;
+                accent-color: $brand-brown;
+              }
+              
+              .checkbox-text,
+              span {
+                font-size: $font-base;
+                color: $gray-700;
+              }
+            }
+          }
+          
+          .input-group {
+            margin-top: $spacing-md;
+            
+            label {
+              display: block;
+              font-size: $font-sm;
+              font-weight: $font-weight-medium;
+              color: $gray-700;
+              margin-bottom: $spacing-xs;
+            }
+            
+            input[type="number"],
+            input[type="text"],
+            select {
+              width: 100%;
+              padding: $spacing-md;
+              border: 2px solid $gray-200;
+              border-radius: $border-radius-lg;
+              font-size: $font-base;
+              transition: border-color 0.2s ease;
+              
+              &:focus {
+                outline: none;
+                border-color: $brand-brown;
+                box-shadow: 0 0 0 3px rgba(124, 116, 106, 0.1);
+              }
+            }
+            
+            .form-select {
+              appearance: none;
+              background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+              background-position: right 8px center;
+              background-repeat: no-repeat;
+              background-size: 16px 12px;
+              padding-right: 32px;
+            }
+          }
+          
+          .range-input {
+            display: flex;
+            align-items: center;
+            gap: $spacing-md;
+            
+            input[type="range"] {
+              flex: 1;
+              height: 6px;
+              background: $gray-200;
+              border-radius: $border-radius-full;
+              outline: none;
+              
+              &::-webkit-slider-thumb {
+                appearance: none;
+                width: 20px;
+                height: 20px;
+                background: $brand-brown;
+                border-radius: 50%;
+                cursor: pointer;
+              }
+              
+              &::-moz-range-thumb {
+                width: 20px;
+                height: 20px;
+                background: $brand-brown;
+                border-radius: 50%;
+                cursor: pointer;
+                border: none;
+              }
+            }
+            
+            .range-value {
+              font-size: $font-lg;
+              font-weight: $font-weight-semibold;
+              color: $brand-brown;
+              min-width: 60px;
+              text-align: center;
+            }
+          }
+        }
+        
+        .recommendation-card,
+        .analysis-card {
+          background: $gray-50;
+          border: 1px solid $gray-200;
+          border-radius: $border-radius-lg;
+          padding: $spacing-lg;
+          margin-bottom: $spacing-md;
+          
+          h3 {
+            font-size: $font-lg;
+            font-weight: $font-weight-semibold;
+            color: $gray-800;
+            margin-bottom: $spacing-md;
+          }
+          
+          ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            
+            li {
+              padding: $spacing-xs 0;
+              border-bottom: 1px solid $gray-200;
+              font-size: $font-base;
+              color: $gray-700;
+              
+              &:last-child {
+                border-bottom: none;
+              }
+              
+              &::before {
+                content: "✓";
+                color: $brand-brown;
+                font-weight: bold;
+                margin-right: $spacing-sm;
+              }
+            }
+          }
+          
+          .analysis-item {
+            padding: $spacing-sm 0;
+            border-bottom: 1px solid $gray-200;
+            font-size: $font-base;
+            
+            &:last-child {
+              border-bottom: none;
+            }
+            
+            strong {
+              color: $gray-800;
+            }
+          }
+        }
+        
+        .plan-summary {
+          margin-bottom: $spacing-xl;
+        }
+        
+        .plan-recommendations {
+          .week-plan {
+            background: $white;
+            border: 1px solid $gray-200;
+            border-radius: $border-radius-lg;
+            padding: $spacing-lg;
+            margin-bottom: $spacing-md;
+            
+            h4 {
+              font-size: $font-lg;
+              font-weight: $font-weight-semibold;
+              color: $brand-brown;
+              margin-bottom: $spacing-md;
+            }
+            
+            ul {
+              list-style: none;
+              padding: 0;
+              margin: 0;
+              
+              li {
+                padding: $spacing-sm 0;
+                font-size: $font-base;
+                color: $gray-700;
+                
+                &::before {
+                  content: "🎯";
+                  margin-right: $spacing-sm;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  .survey-actions {
+    max-width: 600px;
+    margin: $spacing-xl auto 0;
+    display: flex;
+    justify-content: space-between;
+    gap: $spacing-md;
+    
+    .btn-secondary,
+    .btn-primary {
+      padding: $spacing-md $spacing-xl;
+      border-radius: $border-radius-lg;
+      font-size: $font-base;
+      font-weight: $font-weight-medium;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-width: 120px;
+      
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+    
+    .btn-secondary {
+      background: $white;
+      color: $gray-700;
+      border: 2px solid $gray-300;
+      
+      &:hover:not(:disabled) {
+        background: $gray-50;
+        border-color: $gray-400;
+      }
+    }
+    
+    .btn-primary {
+      background: $brand-brown;
+      color: $white;
+      
+      &:hover:not(:disabled) {
+        background: $brand-brown-hover;
+      }
+    }
+  }
+}
+
+// 간단한 페이지 스타일
+.simple-page {
+  min-height: 100vh;
+  background: $background-beige;
+  padding: $spacing-xl;
+  text-align: center;
+  @include flex-center;
+  flex-direction: column;
+  
+  h1 {
+    font-size: $font-3xl;
+    font-weight: $font-weight-bold;
+    color: $gray-800;
+    margin-bottom: $spacing-lg;
+  }
+  
+  p {
+    font-size: $font-lg;
+    color: $gray-600;
+    max-width: 600px;
+    line-height: 1.6;
+  }
+}

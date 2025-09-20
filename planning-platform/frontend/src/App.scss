@@ -1,0 +1,542 @@
+@use './styles/variables' as *;
+@use './styles/mixins' as *;
+
+// App 로딩 스타일
+.app-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: $background-beige;
+  
+  .loading-spinner {
+    padding: $spacing-lg;
+    font-size: $font-lg;
+    color: $gray-600;
+    text-align: center;
+    
+    &::after {
+      content: '';
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      margin-left: $spacing-sm;
+      border: 2px solid transparent;
+      border-top: 2px solid $brand-brown;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      vertical-align: middle;
+    }
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// 앱 스타일
+.app {
+  min-height: 100vh;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden; // 가로 스크롤 방지
+}
+
+// 메인 컨테이너
+.main-container {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.5);
+  overflow-y: auto;
+  overflow-x: hidden; // 가로 스크롤 방지
+  position: relative;
+  
+  // 모바일: 전체 화면 사용, 둥글기 없음
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  
+  // 데스크톱: 중앙 정렬, 최대 너비 제한, 그림자 추가
+  @include respond-to(md) {
+    max-width: 448px;
+    margin: 0 auto;
+    border-radius: $border-radius-xl;
+    box-shadow: $shadow-lg;
+    max-height: 900px;
+    height: 100vh;
+  }
+}
+
+// 배경 장식 요소
+.bg-decoration {
+  position: absolute;
+  width: 256px; // w-64 (16rem = 256px)
+  height: 256px; // h-64
+  background-color: $brand-brown;
+  border-radius: 50%;
+  opacity: 0.1;
+  filter: blur(48px); // blur-3xl
+  z-index: -1;
+  
+  &--top {
+    top: 25%; // top-1/4
+    left: -96px; // -left-24 (6rem = 96px)
+  }
+  
+  &--bottom {
+    bottom: 25%; // bottom-1/4
+    right: -96px; // -right-24
+  }
+}
+
+// 헤더
+.header {
+  flex-shrink: 0;
+  z-index: 10;
+  position: relative;
+  height: 208px; // h-52 (13rem = 208px)
+  
+  &__image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+  
+  &__overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, $background-beige, rgba(247, 232, 211, 0.8), transparent);
+  }
+  
+  &__content {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
+    padding: $spacing-md $spacing-lg;
+  }
+  
+  &__slogan {
+    font-size: $font-sm;
+    color: $gray-600;
+    margin: 0 0 $spacing-xs 0;
+  }
+  
+  &__logo {
+    margin-top: $spacing-xs;
+    
+    &-title {
+      font-size: $font-xl;
+      font-weight: 700;
+      color: $brand-brown;
+      margin: 0;
+    }
+    
+    &-subtitle {
+      font-size: $font-xs;
+      color: $gray-500;
+      letter-spacing: 0.1em;
+      margin: 0;
+    }
+  }
+  
+  &__main-title {
+    font-size: $font-4xl;
+    font-weight: 900;
+    color: $gray-800;
+    margin: $spacing-md 0 0 0;
+  }
+}
+
+// 메인 콘텐츠
+.main-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  padding: $spacing-sm $spacing-md $spacing-md;
+  text-align: center;
+  z-index: 10;
+}
+
+// 타이틀 섹션
+.title-section {
+  flex-shrink: 0;
+  margin-bottom: $spacing-md;
+  
+  &__title {
+    font-size: $font-2xl;
+    font-weight: 700;
+    color: $gray-800;
+    line-height: 1.25;
+    margin: 0 0 $spacing-xs 0;
+  }
+  
+  &__subtitle {
+    font-size: $font-sm;
+    color: $gray-500;
+    margin: 0;
+  }
+}
+
+// AI 섹션
+.ai-section {
+  margin: $spacing-md 0;
+  @include flex-center; // 중앙 정렬
+}
+
+// 카드 섹션 스타일은 Card.scss로 이동됨
+
+// 건강 카드
+.health-card {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(16px);
+  padding: $spacing-md;
+  border-radius: $border-radius-xl;
+  box-shadow: $shadow-md;
+  border: 1px solid $gray-100;
+  border-left: 4px solid $brand-brown;
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  transition: box-shadow 0.3s ease;
+  text-align: left;
+  
+  &:hover {
+    box-shadow: $shadow-lg;
+  }
+  
+  &__icon {
+    width: 48px; // w-12 (3rem = 48px)
+    height: 48px; // h-12
+    border-radius: $border-radius-lg;
+    background-color: $brand-brown-light;
+    color: $brand-brown;
+    flex-shrink: 0;
+    @include flex-center;
+    
+    .icon {
+      width: 28px; // w-7 (1.75rem = 28px)
+      height: 28px; // h-7
+    }
+  }
+  
+  &__content {
+    flex: 1;
+  }
+  
+  &__title {
+    font-size: $font-sm;
+    font-weight: 700;
+    color: $gray-800;
+    margin: 0 0 $spacing-xs 0;
+  }
+  
+  &__description {
+    font-size: $font-xs;
+    color: $gray-600;
+    margin: 0;
+    
+    strong {
+      color: $brand-brown;
+      font-weight: 600;
+    }
+  }
+}
+
+// 하단 섹션
+.footer-section {
+  flex-shrink: 0;
+  margin-top: auto;
+  
+  &__message {
+    font-size: 10px; // 폰트 크기 대폭 축소
+    color: $gray-600;
+    font-weight: 500;
+    margin: 0 0 $spacing-xs 0; // 하단 여백 축소
+  }
+  
+  &__info {
+    font-size: 9px; // 정보 텍스트 더 작게
+    color: $gray-500;
+    margin-bottom: $spacing-xs; // 하단 여백 축소
+    
+    p {
+      margin: 0;
+    }
+  }
+  
+  &__spacing {
+    height: 80px; // 플로팅 버튼을 위한 여백
+  }
+  
+  // 가로형 레이아웃 전용 중간정렬
+  &--horizontal {
+    text-align: center;
+    
+    .footer-section__message {
+      text-align: center;
+    }
+    
+    .footer-section__info {
+      text-align: center;
+    }
+  }
+  
+  // 가로형 레이아웃에서 푸터 간격 축소
+  &--compact {
+    margin-top: -$spacing-lg; // 위쪽 여백을 음수로 설정하여 더 위로
+    
+    .footer-section__message {
+      margin-bottom: $spacing-xs; // 메시지 하단 여백 축소 (sm → xs)
+    }
+    
+    .footer-section__info {
+      margin-bottom: $spacing-xs; // 정보 하단 여백 축소 (sm → xs)
+    }
+  }
+}
+
+// 가로형 레이아웃 헤더 스타일
+.horizontal-cards {
+  &__title {
+    font-size: $font-2xl;
+    font-weight: 700;
+    color: $gray-800;
+    line-height: 1.2;
+    text-align: center; // 중간 정렬
+    margin: $spacing-md 0 $spacing-lg 0; // 간격 늘림
+    
+    // 환자명 강조 스타일
+    .patient-name {
+      font-size: $font-3xl; // 환자명만 더 크게
+      font-weight: 800;
+      color: $gray-900; // 조금 더 진한 색상
+    }
+  }
+  
+  &__subtitle {
+    font-size: $font-sm;
+    color: $gray-600;
+    line-height: 1.6;
+    text-align: center; // 중간 정렬
+    margin: 0 0 $spacing-xl 0; // 하단 마진 늘림
+    
+    // 병원명 강조 스타일
+    .hospital-name {
+      color: $brand-brown;
+      font-size: calc(#{$font-sm} + 1px); // 1px 더 크게
+      font-weight: 600;
+    }
+  }
+}
+
+// 가로형 메시지 섹션 (카드 아래 영역)
+.horizontal-message-section {
+  margin: $spacing-lg 0;
+  padding: $spacing-md;
+  text-align: center;
+  
+  &__text {
+    font-size: $font-sm;
+    color: $gray-700;
+    font-weight: 500;
+    line-height: 1.6;
+    margin: 0;
+    
+    // 첫 번째 줄 강조
+    &::first-line {
+      font-weight: 600;
+      color: $gray-800;
+    }
+  }
+}
+
+// 플로팅 버튼 영역 (메인 컨테이너 내부에 위치)
+.floating-button {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.25) !important; // 컨테이너 배경 더욱 투명하게 (75% 투명)
+  backdrop-filter: blur(35px) saturate(250%) !important; // 강한 유리 효과
+  -webkit-backdrop-filter: blur(35px) saturate(250%) !important; // Safari 지원
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important; // 거의 보이지 않는 테두리
+  padding: $spacing-md;
+  z-index: 1000;
+  box-shadow: 0 -2px 40px rgba(0, 0, 0, 0.04) !important; // 매우 연한 그림자
+  @include flex-center; // 중앙 정렬
+  
+  // 버튼은 원래 스타일로 복원 (브랜드 컬러)
+  .button {
+    background-color: $brand-brown !important; // 원래 브랜드 배경색
+    color: $white !important; // 흰색 글자
+    border: none !important; // 테두리 제거
+    box-shadow: 0 4px 12px rgba(139, 69, 19, 0.3) !important; // 버튼에 그림자 추가
+    width: 90% !important; // 화면 너비의 90%로 확대
+    max-width: 400px !important; // 최대 너비 제한
+    min-width: 280px !important; // 최소 너비 보장
+    
+    &:hover {
+      background-color: $brand-brown-hover !important; // 호버시 더 진한 브랜드 색
+      transform: translateY(-1px) !important; // 살짝 위로 올라가는 효과
+    }
+  }
+}
+
+// 모달 스타일
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 50;
+  @include flex-center;
+  padding: $spacing-md;
+  transition: opacity 0.3s ease;
+}
+
+.modal-content {
+  background: #fdf8e2; // 베이지 톤 배경
+  width: 100%;
+  max-width: 448px; // max-w-md
+  border-radius: $border-radius-2xl;
+  box-shadow: $shadow-lg;
+  padding: $spacing-xl;
+  position: relative;
+  transform: scale(1);
+  transition: transform 0.3s ease;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-close {
+  position: absolute;
+  top: $spacing-md;
+  right: $spacing-md;
+  background: none;
+  border: none;
+  color: $gray-500;
+  cursor: pointer;
+  padding: $spacing-xs;
+  
+  &:hover {
+    color: $gray-800;
+  }
+  
+  svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.modal-title {
+  font-size: $font-2xl;
+  font-weight: 700;
+  color: $brand-brown;
+  margin: 0 0 $spacing-sm 0;
+  text-align: center;
+}
+
+.modal-subtitle {
+  font-size: $font-sm;
+  color: $gray-600;
+  margin: 0 0 $spacing-xl 0;
+  text-align: center;
+}
+
+.form-fields {
+  margin-bottom: $spacing-xl;
+  text-align: left;
+}
+
+.gender-options {
+  display: flex;
+  gap: $spacing-md;
+}
+
+.gender-option {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  
+  input[type="radio"] {
+    margin-right: $spacing-sm;
+    accent-color: $brand-brown;
+  }
+}
+
+// 모달 결과
+.modal-result {
+  text-align: center;
+}
+
+.loader-container {
+  @include flex-center;
+  margin: $spacing-2xl 0;
+}
+
+.loader {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid $brand-brown;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.result-text {
+  text-align: left;
+  font-size: $font-sm;
+  background: rgba(255, 255, 255, 0.8);
+  padding: $spacing-md;
+  border-radius: $border-radius-lg;
+  min-height: 150px;
+  white-space: pre-wrap;
+  margin: $spacing-lg 0;
+}
+
+.result-disclaimer {
+  font-size: $font-xs;
+  color: $gray-500;
+  text-align: center;
+  margin: $spacing-md 0 0 0;
+}
+
+// 병원명 강조 스타일
+.hospital-name {
+  color: $brand-brown; // 기존 정의된 브랜드 브라운 색상 사용
+  font-size: 1.1em; // 폰트 크기 +1 (상대적으로 10% 크게)
+  font-weight: 600; // 약간 두껍게
+}
+
+// 반응형 조정
+@include respond-to(md) {
+  .main-container {
+    margin: 0;
+    border-radius: 0;
+  }
+  
+  .header {
+    &__content {
+      padding: $spacing-lg $spacing-2xl;
+    }
+  }
+  
+  .main-content {
+    padding: $spacing-md $spacing-xl $spacing-xl;
+  }
+}

@@ -1,0 +1,143 @@
+/**
+ * FilterSection 컴포넌트 스타일
+ */
+@use '../../../styles/variables';
+
+.filter-section {
+  background: variables.$white;
+  border-radius: variables.$border-radius-xl;
+  padding: variables.$spacing-lg;
+  margin: variables.$spacing-md variables.$spacing-lg;
+  box-shadow: variables.$shadow-sm;
+  border: 1px solid variables.$gray-200;
+  
+  &--disabled {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: variables.$spacing-lg;
+    
+    .filter-section__title {
+      font-size: variables.$font-lg;
+      font-weight: variables.$font-weight-semibold;
+      color: variables.$gray-800;
+      margin: 0;
+    }
+    
+    .filter-section__reset {
+      background: none;
+      border: 1px solid variables.$gray-300;
+      color: variables.$gray-600;
+      padding: variables.$spacing-xs variables.$spacing-md;
+      border-radius: variables.$border-radius-lg;
+      font-size: variables.$font-sm;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        border-color: variables.$brand-brown;
+        color: variables.$brand-brown;
+      }
+      
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+  }
+  
+  &__content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: variables.$spacing-md;
+  }
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  
+  .filter-label {
+    font-size: variables.$font-sm;
+    font-weight: variables.$font-weight-medium;
+    color: variables.$gray-700;
+    margin-bottom: variables.$spacing-xs;
+  }
+  
+  .filter-select,
+  .filter-input {
+    padding: variables.$spacing-sm variables.$spacing-md;
+    border: 2px solid variables.$gray-300;
+    border-radius: variables.$border-radius-lg;
+    font-size: variables.$font-base;
+    transition: all 0.3s ease;
+    background: variables.$white;
+    
+    &:focus {
+      outline: none;
+      border-color: variables.$brand-brown;
+      box-shadow: 0 0 0 3px rgba(124, 116, 106, 0.1);
+    }
+    
+    &:disabled {
+      background: variables.$gray-50;
+      color: variables.$gray-400;
+      cursor: not-allowed;
+    }
+    
+    &::placeholder {
+      color: variables.$gray-400;
+    }
+  }
+  
+  .filter-select {
+    cursor: pointer;
+    
+    &:disabled {
+      cursor: not-allowed;
+    }
+  }
+}
+
+// 반응형 디자인
+@media (max-width: 768px) {
+  .filter-section {
+    margin: variables.$spacing-md;
+    padding: variables.$spacing-md;
+    
+    &__content {
+      grid-template-columns: 1fr;
+      gap: variables.$spacing-sm;
+    }
+    
+    &__header {
+      margin-bottom: variables.$spacing-md;
+      
+      .filter-section__title {
+        font-size: variables.$font-base;
+      }
+      
+      .filter-section__reset {
+        padding: variables.$spacing-xs variables.$spacing-sm;
+        font-size: variables.$font-xs;
+      }
+    }
+  }
+  
+  .filter-group {
+    .filter-label {
+      font-size: variables.$font-xs;
+    }
+    
+    .filter-select,
+    .filter-input {
+      padding: variables.$spacing-xs variables.$spacing-sm;
+      font-size: variables.$font-sm;
+    }
+  }
+}

@@ -1,0 +1,215 @@
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
+
+// IntroLayout 메인 스타일
+.intro-layout {
+  min-height: 100vh;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden;
+
+  &__container {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    
+    // 모바일: 전체 화면 사용
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    
+    // 데스크톱: 중앙 정렬, 최대 너비 제한
+    @include respond-to(md) {
+      max-width: 448px;
+      margin: 0 auto;
+      border-radius: $border-radius-xl;
+      box-shadow: $shadow-lg;
+      max-height: 900px;
+      height: 100vh;
+    }
+  }
+
+  // 배경 그라데이션 (어두운 네이비 → 베이지)
+  &__background {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      135deg,
+      #1a202c 0%,           // 어두운 네이비 시작
+      #2d3748 25%,          // 중간 회색
+      $background-beige 70%, // 베이지로 전환
+      $background-beige 100% // 베이지 끝
+    );
+    z-index: -2;
+  }
+
+  // 애니메이션 별들
+  &__stars {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    
+    .star {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background: #ffd700;
+      border-radius: 50%;
+      animation: twinkle 2s infinite alternate;
+      
+      &::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: inherit;
+        border-radius: 50%;
+        filter: blur(4px);
+        opacity: 0.6;
+      }
+      
+      &--1 {
+        top: 20%;
+        left: 15%;
+        animation-delay: 0s;
+      }
+      
+      &--2 {
+        top: 35%;
+        right: 20%;
+        animation-delay: 0.5s;
+      }
+      
+      &--3 {
+        bottom: 40%;
+        left: 25%;
+        animation-delay: 1s;
+      }
+      
+      &--4 {
+        bottom: 25%;
+        right: 15%;
+        animation-delay: 1.5s;
+      }
+    }
+  }
+
+  // 헤더 - 중앙 정렬
+  &__header {
+    flex-shrink: 0;
+    z-index: 10;
+    position: relative;
+    padding: $spacing-xl 0;
+    text-align: center;
+  }
+  
+  &__header-content {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-md;
+    padding: 0 $spacing-lg;
+  }
+  
+  &__header-slogan {
+    font-size: $font-sm;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+    opacity: 0;
+    animation: fadeInUp 1s ease-out 0.5s forwards;
+  }
+  
+  &__header-logo {
+    opacity: 0;
+    animation: fadeInUp 1s ease-out 1s forwards;
+  }
+  
+  &__header-logo-title {
+    font-size: $font-2xl;
+    font-weight: 700;
+    color: $white;
+    margin: 0;
+  }
+  
+  &__header-logo-subtitle {
+    font-size: $font-xs;
+    color: rgba(255, 255, 255, 0.7);
+    letter-spacing: 0.1em;
+    margin: $spacing-xs 0 0 0;
+  }
+  
+  &__header-main-title {
+    font-size: $font-xl;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.9);
+    margin: 0;
+    opacity: 0;
+    animation: fadeInUp 1s ease-out 1.5s forwards;
+  }
+
+  // 메인 콘텐츠 - 인트로 애니메이션용
+  &__main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: $spacing-lg;
+    position: relative;
+    z-index: 5;
+  }
+}
+
+// 애니메이션 키프레임
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes twinkle {
+  0% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+// 인트로용 카드 스타일 오버라이드
+.intro-layout {
+  .card {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    
+    opacity: 0;
+    transform: translateY(50px);
+    animation: slideUpCard 0.8s ease-out forwards;
+    
+    &:nth-child(1) { animation-delay: 2s; }
+    &:nth-child(2) { animation-delay: 2.2s; }
+    &:nth-child(3) { animation-delay: 2.4s; }
+    &:nth-child(4) { animation-delay: 2.6s; }
+  }
+}
+
+@keyframes slideUpCard {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

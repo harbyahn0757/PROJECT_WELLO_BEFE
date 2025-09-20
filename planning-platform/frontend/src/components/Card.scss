@@ -1,0 +1,233 @@
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
+
+// 공용 Card 컴포넌트 스타일 - 아이콘 | 큰제목 + 작은설명 레이아웃
+.card {
+  background: $overlay-medium; // 토큰 사용으로 더 명확한 대비
+  backdrop-filter: blur(16px);
+  padding: $spacing-md;
+  border-radius: $border-radius-xl;
+  box-shadow: $shadow-md;
+  border: 1px solid $gray-100;
+  display: flex;
+  flex-direction: column; // 세로 배치로 변경
+  justify-content: space-between; // 상하 끝으로 정렬
+  transition: box-shadow 0.3s ease;
+  text-align: left;
+  min-height: 140px; // 최소 높이 고정
+  
+  &:hover {
+    box-shadow: $shadow-lg;
+  }
+
+  // 클릭 가능한 카드 스타일
+  &--clickable {
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.3s ease;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: $shadow-lg;
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+
+    &:focus {
+      outline: 2px solid $brand-brown;
+      outline-offset: 2px;
+    }
+  }
+  
+  // 아이콘 스타일 - 왼쪽 고정
+  &__icon {
+    width: 48px;
+    height: 48px;
+    border-radius: $border-radius-lg;
+    background-color: $brand-brown-light;
+    color: $brand-brown;
+    @include flex-center;
+    flex-shrink: 0;
+  }
+  
+  &__icon-svg {
+    width: 28px;
+    height: 28px;
+    color: $brand-brown;
+  }
+  
+  &__icon-text {
+    font-size: 18px;
+    font-weight: 700;
+    color: $brand-brown;
+    line-height: 1;
+  }
+  
+  // 메인 콘텐츠 영역 - 상단 (아이콘 + 텍스트)
+  &__main-content {
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-md;
+    flex: 1;
+  }
+  
+  // 콘텐츠 영역 - 텍스트 부분
+  &__content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+  }
+  
+  // 큰제목 스타일
+  &__title {
+    font-size: $font-base; // 16px 기본 텍스트 크기
+    font-weight: 700;
+    color: $gray-800;
+    margin: 0;
+    line-height: 1.2;
+  }
+  
+  // 작은설명 스타일
+  &__description {
+    font-size: $font-sm; // $font-xs에서 1단계 증가
+    color: $gray-600;
+    line-height: 1.6;
+    margin: 0;
+    
+    strong {
+      color: $brand-brown;
+      font-weight: 600;
+    }
+  }
+  
+  // 바로가기 영역 - 하단 고정
+  &__shortcut {
+    margin-top: $spacing-md;
+    padding-top: $spacing-xs;
+    padding-right: $spacing-sm; // 오른쪽 패딩으로 조금 왼쪽으로 이동
+    border-top: 1px solid $gray-300; // 조금 더 진한 가로줄
+    min-height: 24px; // 고정 높이
+    display: flex;
+    align-items: center;
+    justify-content: flex-end; // 오른쪽 정렬 유지
+    flex-shrink: 0; // 축소 방지
+  }
+  
+  &__shortcut-text {
+    font-size: $font-sm; // $font-xs에서 1단계 증가
+    color: $brand-brown;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      color: $brand-brown-hover;
+      text-decoration: underline;
+    }
+    
+    // 바로가기 아이콘 추가
+    &::before {
+      content: "→ ";
+      margin-right: 2px;
+      font-weight: 700;
+    }
+  }
+  
+  // 세로형 타입 (기본 레이아웃 유지)
+  &--vertical {
+    width: 100%;
+  }
+  
+  // 가로형 타입 (가로 스크롤용 고정 너비) - 기존 대비 10% 확대
+  &--horizontal {
+    // 모바일: 화면의 73% (66%에서 10% 증가)
+    width: calc(73vw - #{$spacing-md * 2});
+    min-width: 231px; // 210px에서 10% 증가
+    max-width: 317px; // 288px에서 10% 증가
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    
+    // 스크롤 성능 개선
+    will-change: transform;
+    transform: translateZ(0); // GPU 가속 활성화
+    
+    // 가로형 카드의 아이콘 크기 조정
+    .card__icon {
+      width: 36px;
+      height: 36px;
+      font-size: 16px; // 아이콘 내부 텍스트/이미지 크기도 조정
+    }
+    
+    // 데스크톱에서는 고정 너비 (10% 증가)
+    @include respond-to(md) {
+      width: 277px; // 252px에서 10% 증가
+    }
+  }
+}
+
+// 카드 컨테이너별 스타일
+
+// 세로형 카드들 컨테이너
+.cards-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  width: 100%;
+}
+
+// 가로형 카드들 컨테이너
+.cards-horizontal {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: $spacing-sm;
+  padding: $spacing-sm calc((100vw - 75vw) / 2 + #{$spacing-md}) $spacing-lg calc((100vw - 75vw) / 2 + #{$spacing-md});
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  
+  // 스크롤 성능 최적화
+  will-change: scroll-position;
+  contain: layout style paint;
+  
+  // 데스크톱에서는 기본 패딩으로 변경
+  @include respond-to(md) {
+    padding: $spacing-sm $spacing-md $spacing-lg $spacing-md;
+  }
+  
+  // 스크롤바 숨기기
+  &::-webkit-scrollbar {
+    display: none;
+  }
+  scrollbar-width: none;
+  
+  // 가로 스크롤 힌트 그라데이션 제거 (깔끔한 UI)
+}
+
+// 스와이프 영역 (가로형 전용)
+.swipe-area {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm; // 힌트와 카드 간격 줄임
+  margin-bottom: $spacing-md; // 푸터와의 간격 줄임
+  
+  &__hint {
+    text-align: center;
+    font-size: $font-xs;
+    color: $gray-500;
+    margin-top: 0; // 카드와의 간격 완전 제거
+    padding: 0;
+    line-height: 1.2;
+    
+    // 카드 위에 위치하는 힌트 (새로운 위치)
+    &--top {
+      margin-bottom: $spacing-sm; // 카드와의 간격
+      margin-top: $spacing-lg; // 서브타이틀과의 간격 늘림
+      color: $gray-600; // 조금 더 진한 색상으로 강조
+      font-weight: 500; // 약간 두껍게
+    }
+  }
+}

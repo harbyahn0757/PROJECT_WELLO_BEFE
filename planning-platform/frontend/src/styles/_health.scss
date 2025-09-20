@@ -1,0 +1,387 @@
+/**
+ * 건강 데이터 관련 스타일
+ */
+@use 'variables';
+
+// Health Data Viewer 메인 스타일
+.health-data-viewer {
+  // 기본 페이지 스타일 (survey-page 스타일을 직접 정의)
+  min-height: 100vh;
+  background-color: variables.$gray-50;
+  position: relative;
+  
+  .stats-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: variables.$spacing-md;
+    margin: variables.$spacing-lg 0;
+    padding: 0 variables.$spacing-lg;
+    
+    .stats-card {
+      background: variables.$white;
+      border-radius: variables.$border-radius-xl;
+      padding: variables.$spacing-lg;
+      text-align: center;
+      box-shadow: variables.$shadow-sm;
+      border: 1px solid variables.$gray-200;
+      
+      .stats-number {
+        font-size: variables.$font-2xl;
+        font-weight: variables.$font-weight-bold;
+        color: variables.$brand-brown;
+        margin-bottom: variables.$spacing-xs;
+      }
+      
+      .stats-label {
+        font-size: variables.$font-sm;
+        color: variables.$gray-600;
+        font-weight: variables.$font-weight-medium;
+      }
+    }
+  }
+  
+  .tab-menu {
+    display: flex;
+    margin: variables.$spacing-lg variables.$spacing-lg 0;
+    border-bottom: 2px solid variables.$gray-200;
+    
+    .tab-button {
+      flex: 1;
+      padding: variables.$spacing-md variables.$spacing-lg;
+      background: none;
+      border: none;
+      font-size: variables.$font-base;
+      font-weight: variables.$font-weight-medium;
+      color: variables.$gray-600;
+      border-bottom: 2px solid transparent;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      
+      &.active {
+        color: variables.$brand-brown;
+        border-bottom-color: variables.$brand-brown;
+        font-weight: variables.$font-weight-semibold;
+      }
+      
+      &:hover:not(.active) {
+        color: variables.$brand-brown-hover;
+        background: variables.$brand-brown-light;
+      }
+    }
+  }
+  
+  .last-update {
+    font-size: variables.$font-sm;
+    color: variables.$gray-600;
+    margin-top: variables.$spacing-xs;
+    text-align: center;
+  }
+  
+  .action-buttons {
+    display: flex;
+    gap: variables.$spacing-sm;
+    
+    .action-button {
+      flex: 1;
+      padding: variables.$spacing-md variables.$spacing-lg;
+      border-radius: variables.$border-radius-xl;
+      border: 2px solid variables.$brand-brown;
+      font-size: variables.$font-base;
+      font-weight: variables.$font-weight-medium;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      
+      &.secondary {
+        background: variables.$white;
+        color: variables.$brand-brown;
+        
+        &:hover {
+          background: variables.$brand-brown-light;
+        }
+      }
+    }
+  }
+}
+
+// 로딩 스피너
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: variables.$spacing-xl;
+  
+  &--small {
+    padding: variables.$spacing-md;
+    
+    .spinner {
+      width: 20px;
+      height: 20px;
+    }
+  }
+  
+  &--medium {
+    padding: variables.$spacing-lg;
+    
+    .spinner {
+      width: 40px;
+      height: 40px;
+    }
+  }
+  
+  &--large {
+    padding: variables.$spacing-xl;
+    
+    .spinner {
+      width: 60px;
+      height: 60px;
+    }
+  }
+  
+  .spinner {
+    border: 3px solid variables.$gray-200;
+    border-top: 3px solid variables.$brand-brown;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  &__message {
+    margin-top: variables.$spacing-md;
+    font-size: variables.$font-base;
+    color: variables.$gray-600;
+    text-align: center;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// 에러 메시지
+.error-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: variables.$spacing-xl;
+  text-align: center;
+  
+  &--error {
+    color: #EF4444;
+  }
+  
+  &--warning {
+    color: #F59E0B;
+  }
+  
+  &--info {
+    color: #3B82F6;
+  }
+  
+  &__icon {
+    font-size: variables.$font-3xl;
+    margin-bottom: variables.$spacing-md;
+  }
+  
+  &__title {
+    font-size: variables.$font-xl;
+    font-weight: variables.$font-weight-semibold;
+    margin-bottom: variables.$spacing-sm;
+  }
+  
+  &__text {
+    font-size: variables.$font-base;
+    color: variables.$gray-700;
+    margin-bottom: variables.$spacing-lg;
+    line-height: 1.6;
+  }
+  
+  &__details {
+    margin: variables.$spacing-md 0;
+    text-align: left;
+    width: 100%;
+    
+    summary {
+      cursor: pointer;
+      font-weight: variables.$font-weight-medium;
+      margin-bottom: variables.$spacing-sm;
+    }
+    
+    pre {
+      background: variables.$gray-50;
+      padding: variables.$spacing-md;
+      border-radius: variables.$border-radius-lg;
+      font-size: variables.$font-sm;
+      overflow-x: auto;
+    }
+  }
+  
+  &__actions {
+    display: flex;
+    gap: variables.$spacing-md;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  &__button {
+    padding: variables.$spacing-md variables.$spacing-lg;
+    border-radius: variables.$border-radius-xl;
+    font-size: variables.$font-base;
+    font-weight: variables.$font-weight-medium;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    &--primary {
+      background: variables.$brand-brown;
+      color: variables.$white;
+      
+      &:hover {
+        background: variables.$brand-brown-hover;
+      }
+    }
+    
+    &--secondary {
+      background: variables.$white;
+      color: variables.$brand-brown;
+      border: 2px solid variables.$brand-brown;
+      
+      &:hover {
+        background: variables.$brand-brown-light;
+      }
+    }
+  }
+}
+
+// 빈 상태
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: variables.$spacing-xl;
+  text-align: center;
+  
+  &__icon {
+    font-size: 4rem;
+    margin-bottom: variables.$spacing-lg;
+    opacity: 0.6;
+  }
+  
+  &__message {
+    font-size: variables.$font-xl;
+    font-weight: variables.$font-weight-semibold;
+    color: variables.$gray-800;
+    margin-bottom: variables.$spacing-sm;
+  }
+  
+  &__description {
+    font-size: variables.$font-base;
+    color: variables.$gray-600;
+    margin-bottom: variables.$spacing-lg;
+    line-height: 1.6;
+  }
+  
+  &__button {
+    padding: variables.$spacing-md variables.$spacing-xl;
+    background: variables.$brand-brown;
+    color: variables.$white;
+    border: none;
+    border-radius: variables.$border-radius-xl;
+    font-size: variables.$font-base;
+    font-weight: variables.$font-weight-medium;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      background: variables.$brand-brown-hover;
+      transform: translateY(-2px);
+      box-shadow: variables.$shadow-md;
+    }
+  }
+}
+
+// 스켈레톤 로딩
+.loading-skeleton {
+  .skeleton-item {
+    background: variables.$white;
+    border-radius: variables.$border-radius-xl;
+    padding: variables.$spacing-lg;
+    margin-bottom: variables.$spacing-md;
+    
+    .skeleton-line {
+      height: 16px;
+      background: linear-gradient(90deg, variables.$gray-200 25%, variables.$gray-100 50%, variables.$gray-200 75%);
+      background-size: 200% 100%;
+      animation: skeleton-loading 1.5s infinite;
+      border-radius: 4px;
+      margin-bottom: variables.$spacing-sm;
+      
+      &--title {
+        height: 20px;
+        width: 70%;
+      }
+      
+      &--subtitle {
+        height: 16px;
+        width: 50%;
+      }
+      
+      &--content {
+        height: 14px;
+        width: 90%;
+      }
+      
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+// 반응형 디자인
+@media (max-width: 768px) {
+  .health-data-viewer {
+    .stats-cards {
+      gap: variables.$spacing-sm;
+      padding: 0 variables.$spacing-md;
+      
+      .stats-card {
+        padding: variables.$spacing-md;
+        
+        .stats-number {
+          font-size: variables.$font-xl;
+        }
+        
+        .stats-label {
+          font-size: variables.$font-xs;
+        }
+      }
+    }
+    
+    .tab-menu {
+      margin: variables.$spacing-md;
+      
+      .tab-button {
+        padding: variables.$spacing-sm variables.$spacing-md;
+        font-size: variables.$font-sm;
+      }
+    }
+    
+    .action-buttons {
+      flex-direction: column;
+      
+      .action-button {
+        width: 100%;
+      }
+    }
+  }
+}

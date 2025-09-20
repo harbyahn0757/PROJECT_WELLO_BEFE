@@ -1,0 +1,93 @@
+@use 'variables' as *;
+
+// 반응형 믹스인
+@mixin respond-to($breakpoint) {
+  @if $breakpoint == sm {
+    @media (min-width: $breakpoint-sm) {
+      @content;
+    }
+  }
+  @if $breakpoint == md {
+    @media (min-width: $breakpoint-md) {
+      @content;
+    }
+  }
+  @if $breakpoint == lg {
+    @media (min-width: $breakpoint-lg) {
+      @content;
+    }
+  }
+  @if $breakpoint == xl {
+    @media (min-width: $breakpoint-xl) {
+      @content;
+    }
+  }
+}
+
+// 플렉스 중앙 정렬
+@mixin flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+// 플렉스 컬럼 중앙 정렬
+@mixin flex-column-center {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+// 버튼 기본 스타일
+@mixin button-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: $spacing-md $spacing-lg;
+  border: none;
+  border-radius: $border-radius-lg;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// 브랜드 버튼
+@mixin button-brand {
+  @include button-base;
+  background-color: $brand-brown;
+  color: $white;
+  
+  &:hover:not(:disabled) {
+    background-color: $brand-brown-hover;
+  }
+}
+
+// 카드 스타일
+@mixin card {
+  background: $white;
+  border-radius: $border-radius-xl;
+  box-shadow: $shadow-md;
+  padding: $spacing-lg;
+}
+
+// 텍스트 줄임
+@mixin text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// 여러 줄 텍스트 줄임
+@mixin text-ellipsis-multiline($lines: 2) {
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

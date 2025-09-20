@@ -1,0 +1,144 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+// 버튼
+.btn {
+  @include button-base;
+  
+  &--primary {
+    @include button-brand;
+  }
+  
+  &--secondary {
+    background-color: $white;
+    color: $brand-brown;
+    border: 2px solid $brand-brown;
+    
+    &:hover:not(:disabled) {
+      background-color: $brand-brown;
+      color: $white;
+    }
+  }
+  
+  &--large {
+    padding: $spacing-lg $spacing-2xl;
+    font-size: $font-lg;
+  }
+  
+  &--small {
+    padding: $spacing-sm $spacing-md;
+    font-size: $font-sm;
+  }
+}
+
+// 카드
+.card {
+  @include card;
+  
+  &--hover {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: $shadow-lg;
+    }
+  }
+  
+  &__title {
+    font-size: $font-xl;
+    font-weight: 600;
+    color: $brand-brown;
+    margin-bottom: $spacing-md;
+  }
+  
+  &__content {
+    color: $gray-600;
+    line-height: 1.6;
+  }
+}
+
+
+// 모달
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  @include flex-center;
+  z-index: 1000;
+  
+  &__content {
+    background: $white;
+    border-radius: $border-radius-xl;
+    padding: $spacing-xl;
+    margin: $spacing-md;
+    max-width: 500px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $spacing-lg;
+    
+    h2 {
+      margin: 0;
+      color: $brand-brown;
+    }
+  }
+  
+  &__close {
+    background: none;
+    border: none;
+    font-size: $font-xl;
+    cursor: pointer;
+    color: $gray-500;
+    
+    &:hover {
+      color: $gray-700;
+    }
+  }
+}
+
+// 폼
+.form {
+  &__group {
+    margin-bottom: $spacing-lg;
+  }
+  
+  &__label {
+    display: block;
+    margin-bottom: $spacing-sm;
+    font-weight: 500;
+    color: $gray-700;
+  }
+  
+  &__input {
+    width: 100%;
+    padding: $spacing-md;
+    border: 2px solid $gray-300;
+    border-radius: $border-radius-lg;
+    font-size: $font-base;
+    
+    &:focus {
+      outline: none;
+      border-color: $brand-brown;
+    }
+  }
+  
+  &__select {
+    @extend .form__input;
+    cursor: pointer;
+  }
+  
+  &__textarea {
+    @extend .form__input;
+    resize: vertical;
+    min-height: 100px;
+  }
+}

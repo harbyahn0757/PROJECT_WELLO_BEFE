@@ -1,0 +1,95 @@
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
+
+.button {
+  @include button-base;
+  position: relative;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  // 기본 스타일
+  &--primary {
+    @include button-brand;
+  }
+  
+  &--secondary {
+    background-color: $white;
+    color: $brand-brown;
+    border: 2px solid $brand-brown;
+    
+    &:hover:not(:disabled) {
+      background-color: $brand-brown;
+      color: $white;
+    }
+  }
+  
+  &--outline {
+    background-color: transparent;
+    color: $brand-brown;
+    border: 2px solid $brand-brown;
+    
+    &:hover:not(:disabled) {
+      background-color: $brand-brown-light;
+    }
+  }
+  
+  // 크기 변형
+  &--small {
+    padding: $spacing-sm $spacing-md;
+    font-size: $font-sm;
+    border-radius: $border-radius-md;
+  }
+  
+  &--medium {
+    padding: $spacing-md $spacing-lg;
+    font-size: $font-base;
+    border-radius: $border-radius-lg;
+  }
+  
+  &--large {
+    padding: $spacing-lg $spacing-2xl;
+    font-size: $font-lg;
+    border-radius: $border-radius-lg;
+    font-weight: 700;
+  }
+  
+  // 상태 변형
+  &--disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    
+    &:hover {
+      transform: none;
+    }
+  }
+  
+  &--loading {
+    cursor: wait;
+    
+    .button__content {
+      opacity: 0.7;
+    }
+  }
+  
+  // 로딩 스피너
+  &__spinner {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 20px;
+    height: 20px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  &__content {
+    transition: opacity 0.2s ease;
+  }
+}
+
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}

@@ -1,0 +1,148 @@
+@use 'variables' as *;
+@use 'mixins' as *;
+
+// 인증 페이지 전용 배경색
+.bg_auth_yellow {
+  background: $background-yellow;
+}
+
+// 인증 페이지에서 플로팅 버튼 배경을 노란색 계열로
+.questionnaire-container.tilko-login {
+  .floating-button {
+    background: rgba(255, 0, 0, 0.8) !important; // 빨간색으로 테스트 (변화 확인용)
+    backdrop-filter: blur(20px) !important; // 블러 효과 줄임
+    -webkit-backdrop-filter: blur(20px) !important;
+  }
+}
+
+// 뒤로가기 버튼 (인증 페이지용)
+.back-button-container {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  
+  .back-button {
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(200, 200, 200, 0.5);
+    border-radius: $border-radius-full;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: none;
+    font-size: $font-sm;
+    font-weight: $font-weight-medium;
+    color: rgba(102, 102, 102, 0.8);
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.9);
+      border-color: rgba(124, 116, 106, 0.6);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+  }
+}
+
+// 인증 페이지 질문 스타일
+.auth {
+  &__title {
+    flex-shrink: 1;
+    margin-top: $spacing-xl;
+    
+    &-text {
+      font-family: $font-family-base;
+      font-size: $font-2xl;
+      line-height: 1.6;
+      font-weight: $font-weight-bold;
+      color: $gray-800;
+      
+      &-s {
+        font-family: $font-family-base;
+        font-size: $font-xl;
+        line-height: 1.6;
+        font-weight: $font-weight-bold;
+        color: $gray-800;
+      }
+      
+      &--ss {
+        display: block;
+        font-size: $font-lg;
+        font-weight: $font-weight-medium;
+        color: $brand-brown;
+        margin-bottom: $spacing-sm;
+      }
+    }
+  }
+  
+  &__content {
+    border: $spacing-sm solid transparent;
+    box-sizing: border-box;
+    
+    &-input {
+      background: $white;
+      border: 2px solid $brand-brown;
+      border-radius: $border-radius-xl;
+      box-sizing: border-box;
+      font-family: $font-family-base;
+      font-size: $font-xl;
+      font-weight: $font-weight-semibold;
+      height: 52px;
+      margin-top: $spacing-sm;
+      outline: none;
+      padding: $spacing-md;
+      text-align: center;
+      width: 100%;
+      
+      &:focus {
+        border-color: $brand-brown-hover;
+        box-shadow: 0 0 0 3px rgba(124, 116, 106, 0.1);
+      }
+    }
+    
+    &-input-area {
+      min-height: 85px;
+    }
+    
+    &-input-label {
+      display: block;
+      font-size: $font-lg;
+      font-weight: $font-weight-medium;
+      color: $gray-700;
+      margin-top: $spacing-sm;
+    }
+  }
+
+  &__footer {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    
+    &-button {
+      background: $brand-brown;
+      color: $white;
+      border: none;
+      border-radius: $border-radius-xl;
+      padding: $spacing-md $spacing-lg;
+      font-size: $font-lg;
+      font-weight: $font-weight-semibold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        background: $brand-brown-hover;
+        transform: translateY(-1px);
+      }
+      
+      &:disabled {
+        background: $gray-400;
+        cursor: not-allowed;
+        transform: none;
+      }
+    }
+  }
+}
