@@ -1,75 +1,126 @@
 """
-설정 파일 - Pydantic Settings를 사용한 환경변수 관리
+건강검진 관리 시스템 설정
+
+환경변수 및 시스템 설정을 관리합니다.
 """
 
 from typing import List, Optional
+from pydantic import Field, BaseModel
 from pydantic_settings import BaseSettings
-from pydantic import Field
-import os
+from pathlib import Path
 
+class ServerSettings(BaseModel):
+    """서버 관련 설정"""
+    host: str = Field(default="0.0.0.0", env="HOST")
+    port: int = Field(default=8082, env="PORT")
+    debug: bool = Field(default=False, env="DEBUG")
+    environment: str = Field(default="production", env="ENVIRONMENT")
+    api_version: str = Field(default="v1", env="API_VERSION")
+    api_prefix: str = Field(default="/api/v1", env="API_PREFIX")
+
+class SecuritySettings(BaseModel):
+    """보안 관련 설정"""
+    secret_key: str = Field(default="dev-secret-key-for-testing-only-change-in-production", env="SECRET_KEY")
+    jwt_secret_key: str = Field(default="dev-jwt-secret-key-for-testing-only", env="JWT_SECRET_KEY")
+    jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
+    access_token_expire_minutes: int = Field(default=20, env="ACCESS_TOKEN_EXPIRE_MINUTES")
+
+class CORSSettings(BaseModel):
+    """CORS 관련 설정"""
+    allowed_origins: List[str] = Field(default=["http://localhost:9283"], env="CORS_ALLOWED_ORIGINS")
+    allowed_methods: List[str] = Field(default=["*"], env="CORS_ALLOWED_METHODS")
+    allowed_headers: List[str] = Field(default=["*"], env="CORS_ALLOWED_HEADERS")
+
+class DatabaseSettings(BaseModel):
+    """데이터베이스 설정"""
+    host: str = Field(default="localhost", env="DB_HOST")
+    port: int = Field(default=5432, env="DB_PORT")
+    name: str = Field(default="health_check_db", env="DB_NAME")
+    user: str = Field(default="admin", env="DB_USER")
+    password: str = Field(default="dev_password", env="DB_PASSWORD")
+
+class RedisSettings(BaseModel):
+    """Redis 설정"""
+    url: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
+    password: Optional[str] = Field(None, env="REDIS_PASSWORD")
+
+class OpenAISettings(BaseModel):
+    """OpenAI GPT 설정"""
+    api_key: str = Field(default="dev-openai-key", env="OPENAI_API_KEY")
+    model: str = Field(default="gpt-4", env="GPT_MODEL")
+    max_tokens: int = Field(default=2000, env="MAX_TOKENS")
+
+class GoogleAnalyticsSettings(BaseModel):
+    """Google Analytics 설정"""
+    tracking_id: str = Field(default="dev-ga-tracking-id", env="GA_TRACKING_ID")
+    measurement_id: str = Field(default="dev-ga-measurement-id", env="GA_MEASUREMENT_ID")
+
+class CheckupSettings(BaseModel):
+    """검진 관련 설정"""
+    min_age: int = Field(default=19, env="MIN_CHECKUP_AGE")
+    max_age: int = Field(default=120, env="MAX_CHECKUP_AGE")
+    default_duration: int = Field(default=120, env="DEFAULT_CHECKUP_DURATION_MINUTES")
+
+class NotificationSettings(BaseModel):
+    """알림 관련 설정"""
+    sender_email: str = Field(default="no-reply@healthcheck.com", env="NOTIFICATION_SENDER")
+    sms_number: str = Field(default="15881234", env="SMS_SENDER_NUMBER")
+
+class FileSettings(BaseModel):
+    """파일 업로드 설정"""
+    max_size: int = Field(default=10485760, env="MAX_UPLOAD_SIZE")  # 10MB
+    allowed_types: List[str] = Field(
+        default=["image/jpeg", "image/png", "application/pdf"],
+        env="ALLOWED_FILE_TYPES"
+    )
+    upload_path: str = Field(default="/uploads", env="UPLOAD_PATH")
+
+class LogSettings(BaseModel):
+    """로깅 설정"""
+    level: str = Field(default="info", env="LOG_LEVEL")
+    format: str = Field(default="json", env="LOG_FORMAT")
+    path: str = Field(default="/var/log/healthcheck", env="LOG_PATH")
 
 class Settings(BaseSettings):
-    """애플리케이션 설정"""
-    
-    # 기본 설정
-    PROJECT_NAME: str = "Planning Platform API"
-    VERSION: str = "1.0.0"
-    ENVIRONMENT: str = Field(default="development", env="ENVIRONMENT")
-    
+    """통합 설정"""
     # 서버 설정
-    HOST: str = Field(default="0.0.0.0", env="HOST")
-    PORT: int = Field(default=8000, env="PORT")
+    host: str = Field(default="0.0.0.0", env="HOST")
+    port: int = Field(default=8082, env="PORT")
+    debug: bool = Field(default=False, env="DEBUG")
+    
+    # 보안 설정
+    secret_key: str = Field(default="dev-secret-key", env="SECRET_KEY")
+    jwt_secret_key: str = Field(default="dev-jwt-secret-key", env="JWT_SECRET_KEY")
+    jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
+    access_token_expire_minutes: int = Field(default=20, env="ACCESS_TOKEN_EXPIRE_MINUTES")
     
     # CORS 설정
-    ALLOWED_HOSTS: List[str] = Field(
-        default=["http://localhost:3000", "http://127.0.0.1:3000"],
-        env="ALLOWED_HOSTS"
-    )
+    cors_allowed_origins: List[str] = Field(default=["http://localhost:9283"], env="CORS_ALLOWED_ORIGINS")
     
-    # 데이터베이스 설정
-    DATABASE_URL: Optional[str] = Field(default=None, env="DATABASE_URL")
-    DATABASE_HOST: str = Field(default="localhost", env="DATABASE_HOST")
-    DATABASE_PORT: int = Field(default=5432, env="DATABASE_PORT")
-    DATABASE_USER: str = Field(default="planning_user", env="DATABASE_USER")
-    DATABASE_PASSWORD: str = Field(default="planning_password", env="DATABASE_PASSWORD")
-    DATABASE_NAME: str = Field(default="planning_platform", env="DATABASE_NAME")
+    # OpenAI 설정
+    openai_api_key: str = Field(default="dev-openai-key", env="OPENAI_API_KEY")
     
-    # JWT 설정
-    SECRET_KEY: str = Field(
-        default="your-secret-key-change-this-in-production",
-        env="SECRET_KEY"
-    )
-    ALGORITHM: str = Field(default="HS256", env="ALGORITHM")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
-    
-    # Redis 설정 (선택적)
-    REDIS_URL: Optional[str] = Field(default=None, env="REDIS_URL")
-    
-    # 로깅 설정
-    LOG_LEVEL: str = Field(default="INFO", env="LOG_LEVEL")
-    
-    # AI/ML 모델 설정
-    MODEL_PATH: str = Field(default="./models", env="MODEL_PATH")
-    
-    # 외부 API 설정
-    EXTERNAL_API_KEY: Optional[str] = Field(default=None, env="EXTERNAL_API_KEY")
-    
-    @property
-    def database_url(self) -> str:
-        """데이터베이스 URL 생성"""
-        if self.DATABASE_URL:
-            return self.DATABASE_URL
-        
-        return (
-            f"postgresql+asyncpg://{self.DATABASE_USER}:{self.DATABASE_PASSWORD}"
-            f"@{self.DATABASE_HOST}:{self.DATABASE_PORT}/{self.DATABASE_NAME}"
-        )
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
-
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,
+        "extra": "ignore"
+    }
 
 # 설정 인스턴스 생성
 settings = Settings()
+
+# 프로젝트 루트 디렉토리
+ROOT_DIR = Path(__file__).parent.parent.parent
+
+# 데이터 디렉토리
+DATA_DIR = ROOT_DIR / "data"
+DATA_DIR.mkdir(exist_ok=True)
+
+# 업로드 디렉토리
+UPLOAD_DIR = ROOT_DIR / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
+
+# 로그 디렉토리
+LOG_DIR = ROOT_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
