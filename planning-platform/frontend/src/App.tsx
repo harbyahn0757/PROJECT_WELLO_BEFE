@@ -29,6 +29,76 @@ declare global {
 // FloatingButton 컴포넌트 (페이지별 다른 텍스트와 기능)
 const FloatingButton: React.FC = () => {
   const location = useLocation();
+  const { state } = useWelloData();
+  const { patient } = state;
+  
+  const handleAuthClick = async () => {
+    console.log('🔐 [인증페이지] 틸코 API 인증 시작');
+    
+    if (!patient) {
+      console.error('환자 데이터가 없습니다.');
+      alert('환자 정보를 먼저 불러주세요.');
+      return;
+    }
+    
+    try {
+      // 1단계: 세션 생성
+      console.log('📡 [API] 틸코 세션 생성 요청');
+      const sessionResponse = await fetch('https://xogxog.com/api/v1/wello/tilko/session/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          private_auth_type: '0', // 카카오톡 인증
+          user_name: patient.name,
+          birthdate: patient.birthday,
+          phone_no: patient.phone.replace(/-/g, ''),
+          gender: patient.gender.toLowerCase() === 'male' ? 'M' : 'F'
+        })
+      });
+
+      if (!sessionResponse.ok) {
+        throw new Error('세션 생성 실패');
+      }
+
+      const sessionResult = await sessionResponse.json();
+      console.log('✅ [API] 세션 생성 성공:', sessionResult);
+
+      if (sessionResult.success) {
+        const sessionId = sessionResult.session_id;
+        
+        // 2단계: 간편인증 요청
+        console.log('📡 [API] 카카오 간편인증 요청');
+        const authResponse = await fetch(`https://xogxog.com/api/v1/wello/tilko/session/simple-auth?session_id=${sessionId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+
+        if (!authResponse.ok) {
+          throw new Error('인증 요청 실패');
+        }
+
+        const authResult = await authResponse.json();
+        console.log('✅ [API] 카카오 인증 요청 성공:', authResult);
+        
+        if (authResult.success) {
+          alert('카카오톡에서 인증을 진행해주세요.');
+          // 여기서 상태 폴링 시작하거나 인증페이지로 이동
+        } else {
+          throw new Error(authResult.message || '인증 요청 실패');
+        }
+      } else {
+        throw new Error(sessionResult.message || '세션 생성 실패');
+      }
+    } catch (error) {
+      console.error('❌ [API] 틸코 인증 실패:', error);
+      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+      alert(`인증 실패: ${errorMessage}`);
+    }
+  };
   
   const getButtonConfig = () => {
     const path = location.pathname;
@@ -36,18 +106,7 @@ const FloatingButton: React.FC = () => {
     if (path === '/login') {
       return {
         text: '인증하고 내 검진 추이 확인하기',
-        onClick: () => {
-          console.log('🔐 [인증페이지] 틸코 API 인증 시작');
-          // AuthForm의 handleKakaoAuth 함수 호출
-          const authForm = document.querySelector('.auth__content');
-          if (authForm) {
-            // 기존 AuthForm의 카카오 인증 버튼을 클릭하는 것과 동일한 동작
-            const kakaoButton = authForm.querySelector('.button[type="submit"]') as HTMLButtonElement;
-            if (kakaoButton) {
-              kakaoButton.click();
-            }
-          }
-        }
+        onClick: handleAuthClick
       };
     }
     
