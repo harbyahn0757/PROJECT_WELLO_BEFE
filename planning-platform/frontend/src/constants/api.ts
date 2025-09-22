@@ -1,0 +1,68 @@
+/**
+ * API 엔드포인트 상수 관리
+ * 하드코딩된 URL들을 중앙 집중식으로 관리
+ */
+
+// 기본 API 호스트
+export const API_HOSTS = {
+  LOCAL: 'http://localhost:8082',
+  PRODUCTION: 'https://xogxog.com'
+} as const;
+
+// 현재 환경에 따른 API 호스트 선택
+const getApiHost = (endpoint: 'local' | 'production' = 'local'): string => {
+  return endpoint === 'local' ? API_HOSTS.LOCAL : API_HOSTS.PRODUCTION;
+};
+
+// Tilko API 엔드포인트
+export const TILKO_API = {
+  // 세션 관리
+  SESSION_START: (host: 'local' | 'production' = 'local') => 
+    `${getApiHost(host)}/api/v1/tilko/session/start`,
+  
+  SESSION_STATUS: (sessionId: string, host: 'local' | 'production' = 'production') => 
+    `${getApiHost(host)}/api/v1/wello/tilko/session/${sessionId}/status`,
+  
+  SESSION_CLEANUP_USER: (userName: string, host: 'local' | 'production' = 'local') => 
+    `${getApiHost(host)}/api/v1/tilko/session/cleanup-user/${encodeURIComponent(userName)}`,
+  
+  SESSION_DELETE: (sessionId: string, host: 'local' | 'production' = 'production') => 
+    `${getApiHost(host)}/api/v1/wello/tilko/session/${sessionId}`,
+  
+  SESSION_MESSAGES: (sessionId: string, host: 'local' | 'production' = 'production') => 
+    `${getApiHost(host)}/api/v1/wello/tilko/session/${sessionId}/messages`,
+  
+  // 인증
+  SIMPLE_AUTH: (sessionId: string, host: 'local' | 'production' = 'local') => 
+    `${getApiHost(host)}/api/v1/tilko/session/simple-auth?session_id=${sessionId}`,
+  
+  // 데이터 수집
+  COLLECT_HEALTH_DATA: (sessionId: string, host: 'local' | 'production' = 'production') => 
+    `${getApiHost(host)}/api/v1/wello/tilko/session/${sessionId}/collect-health-data`
+} as const;
+
+// 기타 API 엔드포인트
+export const API_ENDPOINTS = {
+  PATIENT_DATA: (patientId: string) => `/api/v1/patients/${patientId}`,
+  HEALTH_RECORDS: (patientId: string) => `/api/v1/patients/${patientId}/health-records`
+} as const;
+
+// HTTP 메서드 상수
+export const HTTP_METHODS = {
+  GET: 'GET',
+  POST: 'POST',
+  PUT: 'PUT',
+  DELETE: 'DELETE',
+  PATCH: 'PATCH'
+} as const;
+
+// API 요청 헤더
+export const API_HEADERS = {
+  JSON: {
+    'Content-Type': 'application/json'
+  },
+  FORM: {
+    'Content-Type': 'application/x-www-form-urlencoded'
+  }
+} as const;
+

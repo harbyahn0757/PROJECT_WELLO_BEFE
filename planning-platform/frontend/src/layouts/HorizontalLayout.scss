@@ -67,17 +67,25 @@
   &__header-image {
     position: absolute;
     inset: 0;
-    width: 130%; // 이미지를 더더 확대
+    width: 130%; // 이미지 확대하여 오른쪽 이동 효과
     height: 100%;
     object-fit: cover;
-    object-position: right center; // 완전히 오른쪽으로
-    transform: translateX(60px); // 60px 오른쪽 이동 (40px → 60px)
+    object-position: right center; // 오른쪽 정렬
+    transform: translateX(60px); // 오른쪽으로 60px 이동
+    z-index: 1;
+    opacity: 0.8; // 이미지를 살짝 투명하게
   }
   
   &__header-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(to right, $background-beige, rgba(247, 232, 211, 0.8), transparent);
+    background: linear-gradient(to right, 
+      rgba(247, 232, 211, 0.95) 0%,     // 왼쪽 끝: 거의 불투명
+      rgba(247, 232, 211, 0.7) 30%,    // 왼쪽 중간: 반투명
+      rgba(247, 232, 211, 0.3) 70%,    // 오른쪽 중간: 투명
+      transparent 100%                  // 오른쪽 끝: 완전 투명 (이미지 잘 보임)
+    );
+    z-index: 2;
   }
   
   &__header-content {

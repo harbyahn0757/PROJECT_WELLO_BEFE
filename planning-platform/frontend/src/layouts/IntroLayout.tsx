@@ -23,7 +23,7 @@ interface IntroLayoutProps {
  */
 const IntroLayout: React.FC<IntroLayoutProps> = ({
   children,
-  headerImage = window.location.hostname === 'localhost' ? "/doctor-image.png" : "/wello/doctor-image.png",
+  headerImage = "/wello/doctor-image.png",
   headerImageAlt = "의사가 정면으로 청진기를 들고 있는 전문적인 의료 배경 이미지",
   headerSlogan = "행복한 건강생활의 평생 동반자",
   headerLogoTitle = "김현우내과의원",
@@ -48,6 +48,12 @@ const IntroLayout: React.FC<IntroLayoutProps> = ({
         {/* 헤더 - 인트로용 중앙 정렬 */}
         {!hideHeader && (
           <header className="intro-layout__header">
+            <img
+              src={headerImage}
+              alt={headerImageAlt}
+              className="intro-layout__header-image"
+            />
+            <div className="intro-layout__header-overlay"></div>
             <div className="intro-layout__header-content">
               <p className="intro-layout__header-slogan">{headerSlogan}</p>
               <div className="intro-layout__header-logo">

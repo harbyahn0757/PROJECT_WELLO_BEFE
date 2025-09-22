@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useMemo } from 'react';
 import { LayoutConfig as BaseLayoutConfig } from '../utils/layoutMapper';
+import { PatientData as CommonPatientData, HospitalData as CommonHospitalData } from '../types/patient';
 
 // 확장된 레이아웃 설정 (Context용)
 export interface ExtendedLayoutConfig extends BaseLayoutConfig {
@@ -8,30 +9,9 @@ export interface ExtendedLayoutConfig extends BaseLayoutConfig {
   logoPosition: string;
 }
 
-// 데이터 타입 정의
-export interface PatientData {
-  uuid: string;
-  name: string;
-  age: number;
-  gender: 'male' | 'female';
-  phone: string;
-  birthday: string;
-  hospital_id: string;
-  last_checkup_count: number;
-  created_at: string;
-}
-
-export interface HospitalData {
-  hospital_id: string;
-  name: string;
-  phone: string;
-  address: string;
-  supported_checkup_types: string[];
-  layout_type: string;
-  brand_color: string;
-  logo_position: string;
-  is_active: boolean;
-}
+// 통합 타입 사용 (중복 정의 제거)
+export type PatientData = CommonPatientData;
+export type HospitalData = CommonHospitalData;
 
 export interface CacheData {
   patient: PatientData | null;
@@ -362,7 +342,7 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
         title: `안녕하세요 ${patientData.name}님,\n${hospitalData.name}입니다`,
         subtitle: `${hospitalData.name}에서\n더 의미있는 내원이 되시길 바라며\n준비한 건강관리 서비스를 제공해드립니다.`,
         headerMainTitle: '',
-        headerImage: window.location.hostname === 'localhost' ? "/doctor-image.png" : "/wello/doctor-image.png",
+        headerImage: "/wello/doctor-image.png",
         headerImageAlt: "의사가 정면으로 청진기를 들고 있는 전문적인 의료 배경 이미지",
         headerSlogan: "행복한 건강생활의 평생 동반자",
         headerLogoTitle: hospitalData.name,

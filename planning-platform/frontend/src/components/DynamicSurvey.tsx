@@ -31,6 +31,32 @@ const DynamicSurvey: React.FC<DynamicSurveyProps> = ({
 
   const currentPage = survey.pages[currentPageIndex];
   const isLastPage = currentPageIndex === survey.pages.length - 1;
+  
+  // response 변수 제거됨 - hasAnswerForPage 함수로 대체
+  
+  // 답변이 있는 페이지들을 확인하기 위한 헬퍼 함수
+  const hasAnswerForPage = (pageId: string): boolean => {
+    const page = survey.pages.find(page => page.id === pageId);
+    if (!page) return false;
+    
+    return page.sections.some(section => 
+      section.questions.some(question => 
+        answers.some(answer => answer.questionId === question.id)
+      )
+    );
+  };
+
+  // SurveyResponse 객체 생성 헬퍼 함수
+  const createResponse = (): SurveyResponse => ({
+    sessionId,
+    surveyId: survey.id,
+    currentPageId: currentPage.id,
+    answers,
+    isCompleted: isLastPage && answers.length > 0,
+    startedAt: initialResponse?.startedAt || new Date(),
+    completedAt: isLastPage ? new Date() : undefined,
+    lastSavedAt: new Date()
+  });
 
   // 답변 저장
   const saveAnswer = (questionId: string, value: string | number | boolean | string[] | number[]) => {
@@ -111,16 +137,7 @@ const DynamicSurvey: React.FC<DynamicSurveyProps> = ({
 
   // 다음 페이지
   const handleNext = async () => {
-    const response: SurveyResponse = {
-      surveyId: survey.id,
-      sessionId,
-      currentPageId: currentPage.id,
-      answers,
-      isCompleted: isLastPage,
-      startedAt: initialResponse?.startedAt || new Date(),
-      completedAt: isLastPage ? new Date() : undefined,
-      lastSavedAt: new Date()
-    };
+    const response = createResponse();
 
     if (survey.settings.autoSave && onSave) {
       await onSave(response);
@@ -321,13 +338,48 @@ const DynamicSurvey: React.FC<DynamicSurveyProps> = ({
       
       {/* 하단 고정 플로팅 버튼 */}
       <div className="survey-floating-button">
+        {/* 뒤로/앞으로 네비게이션 버튼들 */}
+        {currentPageIndex > 0 && (
+          <button 
+            type="button" 
+            className="survey-floating-button__btn survey-floating-button__btn--secondary" 
+            onClick={() => setCurrentPageIndex(prev => Math.max(0, prev - 1))}
+            style={{ 
+              marginRight: '12px',
+              backgroundColor: '#6b7280',
+              flex: '0 0 auto',
+              minWidth: '80px'
+            }}
+          >
+            이전
+          </button>
+        )}
+        
         <button 
           type="button" 
           className="survey-floating-button__btn" 
           onClick={handleNext}
+          style={{ flex: '1' }}
         >
           {isLastPage ? '완료' : '다음'}
         </button>
+        
+        {/* 앞으로가기 버튼 (이미 진행했던 페이지가 있는 경우) */}
+        {currentPageIndex < survey.pages.length - 1 && hasAnswerForPage(survey.pages[currentPageIndex + 1]?.id) && (
+          <button 
+            type="button" 
+            className="survey-floating-button__btn survey-floating-button__btn--tertiary" 
+            onClick={() => setCurrentPageIndex(prev => Math.min(survey.pages.length - 1, prev + 1))}
+            style={{ 
+              marginLeft: '12px',
+              backgroundColor: '#9ca3af',
+              flex: '0 0 auto',
+              minWidth: '80px'
+            }}
+          >
+            건너뛰기
+          </button>
+        )}
       </div>
     </>
   );

@@ -71,7 +71,7 @@ export const URL_LAYOUT_MAP: Record<string, LayoutType> = {
  * 기본 헤더 정보
  */
 export const DEFAULT_HEADER_CONFIG = {
-  headerImage: window.location.hostname === 'localhost' ? "/doctor-image.png" : "/wello/doctor-image.png",
+  headerImage: "/wello/doctor-image.png",
   headerImageAlt: "의사가 정면으로 청진기를 들고 있는 전문적인 의료 배경 이미지",
   headerSlogan: "행복한 건강생활의 평생 동반자",
   headerLogoTitle: "건강검진센터",

@@ -15,6 +15,7 @@ import { HealthDataViewer } from './components/health/HealthDataViewer';
 import { LayoutType } from './constants/layoutTypes';
 import { debugLayoutMapping } from './utils/layoutMapper';
 import { WelloDataProvider, useWelloData } from './contexts/WelloDataContext';
+import { STORAGE_KEYS, StorageManager } from './constants/storage';
 import NotificationContainer from './components/common/NotificationContainer';
 import './App.scss';
 
@@ -32,72 +33,71 @@ const FloatingButton: React.FC = () => {
   const { state } = useWelloData();
   const { patient } = state;
   
+  // localStorage 변경 시 custom event 발생 헬퍼
+  const removeLocalStorageWithEvent = React.useCallback((key: string) => {
+    localStorage.removeItem(key);
+    window.dispatchEvent(new CustomEvent('tilko-status-change'));
+  }, []);
+  
+  // 정보 확인 중이거나 인증 진행 중에는 플로팅 버튼 숨기기
+  const [hideFloatingButton, setHideFloatingButton] = React.useState(false);
+  
+  React.useEffect(() => {
+    const checkHideStatus = () => {
+      const isConfirming = localStorage.getItem('tilko_info_confirming') === 'true';
+      setHideFloatingButton(isConfirming);
+    };
+    
+    // 초기 상태 확인
+    checkHideStatus();
+    
+    // storage 이벤트 리스너 (다른 탭에서의 변경사항 감지)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'tilko_info_confirming') {
+        checkHideStatus();
+      }
+    };
+    
+    // custom event 리스너 (같은 탭에서의 변경사항 감지)
+    const handleCustomEvent = () => {
+      checkHideStatus();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('tilko-status-change', handleCustomEvent);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('tilko-status-change', handleCustomEvent);
+    };
+  }, []);
+  
+  // 인증 페이지에서 환자 데이터가 로드되면 플로팅 버튼 표시 보장
+  React.useEffect(() => {
+    if (location.pathname === '/login' && patient) {
+      console.log('👤 [인증페이지] 환자 데이터 로드됨 - 플로팅 버튼 표시 보장');
+      removeLocalStorageWithEvent('tilko_info_confirming');
+    }
+  }, [location.pathname, patient, removeLocalStorageWithEvent]);
+
+  if (hideFloatingButton) {
+    return null;
+  }
+  
   const handleAuthClick = async () => {
-    console.log('🔐 [인증페이지] 틸코 API 인증 시작');
+    console.log('🔐 [인증페이지] 정보 확인 단계 시작');
     
     if (!patient) {
       console.error('환자 데이터가 없습니다.');
-      alert('환자 정보를 먼저 불러주세요.');
       return;
     }
     
-    try {
-      // 1단계: 세션 생성
-      console.log('📡 [API] 틸코 세션 생성 요청');
-      const sessionResponse = await fetch('https://xogxog.com/api/v1/wello/tilko/session/start', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          private_auth_type: '0', // 카카오톡 인증
-          user_name: patient.name,
-          birthdate: patient.birthday,
-          phone_no: patient.phone.replace(/-/g, ''),
-          gender: patient.gender.toLowerCase() === 'male' ? 'M' : 'F'
-        })
-      });
-
-      if (!sessionResponse.ok) {
-        throw new Error('세션 생성 실패');
-      }
-
-      const sessionResult = await sessionResponse.json();
-      console.log('✅ [API] 세션 생성 성공:', sessionResult);
-
-      if (sessionResult.success) {
-        const sessionId = sessionResult.session_id;
-        
-        // 2단계: 간편인증 요청
-        console.log('📡 [API] 카카오 간편인증 요청');
-        const authResponse = await fetch(`https://xogxog.com/api/v1/wello/tilko/session/simple-auth?session_id=${sessionId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
-
-        if (!authResponse.ok) {
-          throw new Error('인증 요청 실패');
-        }
-
-        const authResult = await authResponse.json();
-        console.log('✅ [API] 카카오 인증 요청 성공:', authResult);
-        
-        if (authResult.success) {
-          alert('카카오톡에서 인증을 진행해주세요.');
-          // 여기서 상태 폴링 시작하거나 인증페이지로 이동
-        } else {
-          throw new Error(authResult.message || '인증 요청 실패');
-        }
-      } else {
-        throw new Error(sessionResult.message || '세션 생성 실패');
-      }
-    } catch (error) {
-      console.error('❌ [API] 틸코 인증 실패:', error);
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
-      alert(`인증 실패: ${errorMessage}`);
-    }
+    // AuthForm에게 정보 확인 시작 신호 전송
+    StorageManager.setItem(STORAGE_KEYS.START_INFO_CONFIRMATION, 'true');
+    console.log('📡 [플로팅버튼] 정보 확인 시작 신호 전송');
+    
+    // 같은 페이지 내에서 localStorage 변경을 감지할 수 있도록 커스텀 이벤트 발생
+    window.dispatchEvent(new Event('localStorageChange'));
   };
   
   const getButtonConfig = () => {
@@ -227,7 +227,7 @@ const AppContent: React.FC = () => {
     title: 'WELLO 건강검진 플랫폼',
     subtitle: '건강한 내일을 위한 첫걸음을 시작하세요.',
     headerMainTitle: '',
-    headerImage: window.location.hostname === 'localhost' ? "/doctor-image.png" : "/wello/doctor-image.png",
+    headerImage: "/wello/doctor-image.png",
     headerImageAlt: "의사가 정면으로 청진기를 들고 있는 전문적인 의료 배경 이미지",
     headerSlogan: "행복한 건강생활의 평생 동반자",
     headerLogoTitle: "건강검진센터",
@@ -287,7 +287,7 @@ const AppContent: React.FC = () => {
 // 메인 App 컴포넌트 (Provider 래핑)
 function App() {
   return (
-    <Router basename={window.location.hostname === 'localhost' ? '/' : '/wello'}>
+    <Router basename="/wello">
       <WelloDataProvider>
         <AppContent />
       </WelloDataProvider>

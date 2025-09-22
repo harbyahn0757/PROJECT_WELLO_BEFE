@@ -1,6 +1,16 @@
 @use 'variables' as *;
 @use 'mixins' as *;
 
+// 타이핑 커서 애니메이션 (더 자연스럽고 빠르게)
+@keyframes typing-cursor {
+  0%, 45% {
+    opacity: 1;
+  }
+  46%, 100% {
+    opacity: 0;
+  }
+}
+
 // 인증 페이지 전용 배경색
 .bg_auth_yellow {
   background: $background-yellow;
