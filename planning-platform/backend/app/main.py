@@ -9,9 +9,9 @@ from fastapi.responses import FileResponse
 from fastapi.openapi.utils import get_openapi
 import os
 
-from .api.v1.endpoints import patients, hospitals, health, checkup_design, auth, tilko_auth
+from .api.v1.endpoints import patients, hospitals, health, checkup_design, auth, tilko_auth, websocket_auth
 from .core.config import settings
-from .data.tilko_session_data import session_manager
+from .data.redis_session_manager import redis_session_manager as session_manager
 
 app = FastAPI(
     title="건강검진 관리 시스템",
@@ -39,6 +39,7 @@ if os.path.exists(static_dir):
 app.include_router(health.router, prefix="/api/v1/health", tags=["health"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(tilko_auth.router, prefix="/api/v1/tilko", tags=["tilko"])
+app.include_router(websocket_auth.router, prefix="/api/v1/tilko", tags=["websocket"])
 app.include_router(patients.router, prefix="/api/v1/patients", tags=["patients"])
 app.include_router(hospitals.router, prefix="/api/v1/hospitals", tags=["hospitals"])
 app.include_router(checkup_design.router, prefix="/api/v1/checkup-design", tags=["checkup-design"])

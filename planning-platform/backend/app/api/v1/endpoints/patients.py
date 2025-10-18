@@ -55,7 +55,11 @@ async def get_patient(
 ):
     """특정 환자 정보 조회"""
     try:
+        print(f"🔍 [API DEBUG] 환자 조회 시작 - UUID: {patient_uuid}")
+        
         patient = await patient_service.get_patient_by_uuid(patient_uuid)
+        
+        print(f"🔍 [API DEBUG] 환자 조회 결과: {patient}")
         
         if not patient:
             raise PatientNotFoundError(f"환자를 찾을 수 없습니다: {patient_uuid}")

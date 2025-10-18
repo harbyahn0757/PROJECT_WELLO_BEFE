@@ -19,10 +19,18 @@ class PatientService:
     
     async def get_patient_by_uuid(self, uuid: UUID) -> Optional[Patient]:
         """UUID로 환자 조회"""
-        patient = await self.patient_repo.get_by_uuid(uuid)
-        if not patient:
-            raise PatientNotFoundError(f"환자를 찾을 수 없습니다: {uuid}")
-        return patient
+        print(f"🔍 [SERVICE DEBUG] 환자 서비스 조회 시작 - UUID: {uuid}")
+        
+        try:
+            patient = await self.patient_repo.get_by_uuid(uuid)
+            print(f"🔍 [SERVICE DEBUG] 레포지토리 조회 결과: {patient}")
+            
+            if not patient:
+                raise PatientNotFoundError(f"환자를 찾을 수 없습니다: {uuid}")
+            return patient
+        except Exception as e:
+            print(f"🔍 [SERVICE DEBUG] 조회 중 에러 발생: {str(e)}")
+            raise
     
     async def get_patient_by_phone(self, phone: str) -> Optional[Patient]:
         """전화번호로 환자 조회"""

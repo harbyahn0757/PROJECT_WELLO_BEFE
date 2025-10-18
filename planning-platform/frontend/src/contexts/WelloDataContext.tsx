@@ -315,10 +315,10 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
 
       setState(prev => ({ ...prev, isLoading: true, error: null }));
 
-      // API 호출
+      // API 호출 (WELLO 전용 경로)
       const [patientResponse, hospitalResponse] = await Promise.all([
-        fetch(`https://xogxog.com/api/v1/wello/patients/${uuid}`),
-        fetch(`https://xogxog.com/api/v1/wello/hospitals/${hospital}`),
+        fetch(`/api/v1/wello/patients/${uuid}`),
+        fetch(`/api/v1/wello/hospitals/${hospital}`),
       ]);
 
       if (!patientResponse.ok) {

@@ -41,11 +41,19 @@ const FloatingButton: React.FC = () => {
   
   // 정보 확인 중이거나 인증 진행 중에는 플로팅 버튼 숨기기
   const [hideFloatingButton, setHideFloatingButton] = React.useState(false);
+  const [isAuthWaiting, setIsAuthWaiting] = React.useState(false);
   
   React.useEffect(() => {
     const checkHideStatus = () => {
       const isConfirming = localStorage.getItem('tilko_info_confirming') === 'true';
-      setHideFloatingButton(isConfirming);
+      const authWaiting = localStorage.getItem('tilko_auth_waiting') === 'true';
+      
+      // 정보 확인 중에는 무조건 숨김, 인증 대기 중에만 표시
+      const shouldHide = isConfirming;
+      setHideFloatingButton(shouldHide);
+      setIsAuthWaiting(authWaiting);
+      
+      console.log('🔄 [플로팅버튼] 상태 확인:', { isConfirming, authWaiting, shouldHide });
     };
     
     // 초기 상태 확인
@@ -53,7 +61,7 @@ const FloatingButton: React.FC = () => {
     
     // storage 이벤트 리스너 (다른 탭에서의 변경사항 감지)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'tilko_info_confirming') {
+      if (e.key === 'tilko_info_confirming' || e.key === 'tilko_auth_waiting') {
         checkHideStatus();
       }
     };
@@ -65,10 +73,12 @@ const FloatingButton: React.FC = () => {
     
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('tilko-status-change', handleCustomEvent);
+    window.addEventListener('localStorageChange', handleCustomEvent);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('tilko-status-change', handleCustomEvent);
+      window.removeEventListener('localStorageChange', handleCustomEvent);
     };
   }, []);
   
@@ -99,15 +109,36 @@ const FloatingButton: React.FC = () => {
     // 같은 페이지 내에서 localStorage 변경을 감지할 수 있도록 커스텀 이벤트 발생
     window.dispatchEvent(new Event('localStorageChange'));
   };
+
+  const handleAuthCompleteClick = async () => {
+    console.log('✅ [인증완료] 사용자가 인증 완료 버튼 클릭');
+    
+    // AuthForm에게 수동 데이터 수집 신호 전송
+    StorageManager.setItem('tilko_manual_collect', 'true');
+    console.log('📡 [플로팅버튼] 수동 데이터 수집 신호 전송');
+    
+    // 같은 페이지 내에서 localStorage 변경을 감지할 수 있도록 커스텀 이벤트 발생
+    window.dispatchEvent(new Event('localStorageChange'));
+  };
   
   const getButtonConfig = () => {
     const path = location.pathname;
     
     if (path === '/login') {
-      return {
-        text: '인증하고 내 검진 추이 확인하기',
-        onClick: handleAuthClick
-      };
+      // 틸코 인증 대기 상태 확인 (React state 사용)
+      console.log('🔍 [플로팅버튼] isAuthWaiting state:', isAuthWaiting);
+      
+      if (isAuthWaiting) {
+        return {
+          text: '인증완료 하였어요',
+          onClick: handleAuthCompleteClick
+        };
+      } else {
+        return {
+          text: '인증하고 내 검진 추이 확인하기',
+          onClick: handleAuthClick
+        };
+      }
     }
     
     // 기본 (메인페이지 등)
@@ -166,7 +197,7 @@ const AppContent: React.FC = () => {
   const { state, actions } = useWelloData();
   const location = useLocation();
 
-  // URL 파라미터 감지하여 자동 데이터 로딩
+  // URL 파라미터 감지하여 자동 데이터 로딩 (한 번만 실행)
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const uuid = urlParams.get('uuid');
@@ -175,10 +206,14 @@ const AppContent: React.FC = () => {
     if (uuid && hospital) {
       // 현재 환자 데이터가 없거나 다른 환자인 경우에만 로딩
       if (!state.patient || state.patient.uuid !== uuid) {
+        console.log(`🔄 [App] 환자 데이터 로딩: ${uuid} @ ${hospital}`);
         actions.loadPatientData(uuid, hospital);
+      } else {
+        console.log(`✅ [App] 환자 데이터 이미 로드됨: ${state.patient.name} (${uuid})`);
       }
     }
-  }, [location.search, state.patient?.uuid]); // actions 의존성 제거
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search, state.patient?.uuid]); // actions는 의도적으로 제외 (무한 루프 방지)
 
   // 개발 환경에서 디버그 정보 출력
   useEffect(() => {
@@ -269,6 +304,7 @@ const AppContent: React.FC = () => {
           <Route path="/health-questionnaire" element={<HealthQuestionnairePage />} />
           <Route path="/questionnaire-complete" element={<HealthQuestionnaireComplete />} />
           <Route path="/results-trend" element={<HealthDataViewer onBack={() => window.history.back()} />} />
+          <Route path="/results" element={<HealthDataViewer onBack={() => window.history.back()} />} />
         </Routes>
         
         {/* 플로팅 버튼 조건부 렌더링 */}

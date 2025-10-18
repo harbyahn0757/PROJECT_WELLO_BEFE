@@ -35,6 +35,24 @@
   100% { transform: rotate(360deg); }
 }
 
+// 파비콘 블링크 애니메이션
+@keyframes faviconBlink {
+  0%, 100% { 
+    opacity: 1; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.3; 
+    transform: scale(0.95);
+  }
+}
+
+.favicon-blink-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 // 앱 스타일
 .app {
   min-height: 100vh;

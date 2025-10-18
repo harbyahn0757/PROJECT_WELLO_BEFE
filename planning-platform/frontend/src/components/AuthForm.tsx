@@ -5,6 +5,7 @@ import { PatientDataConverter, PatientDataValidator, GenderConverter } from '../
 import { TILKO_API, HTTP_METHODS, API_HEADERS } from '../constants/api';
 import { NavigationHelper, STANDARD_NAVIGATION } from '../constants/navigation';
 import { STORAGE_KEYS, StorageManager, TilkoSessionStorage } from '../constants/storage';
+import { useWebSocketAuth } from '../hooks/useWebSocketAuth';
 import splashIcon from '../assets/splash.png';
 
 interface AuthFormProps {
@@ -36,8 +37,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const { state } = useWelloData();
   const { patient, layoutConfig } = state;
   
-  // 디버깅 로그 제거됨 - 정상 작동 확인 완료
-  const privateAuthType = '0'; // 인증종류 0: 카카오톡 (1에서 0으로 변경 - 테스트 결과 0이 정상 작동)
+  // 인증 방식 선택 (기본값: 카카오톡)
+  const [selectedAuthType, setSelectedAuthType] = useState('0'); // 0: 카카오톡
+  
+  // 지원되는 인증 방식 (선별된 3가지)
+  const AUTH_TYPES = [
+    { value: '0', label: '카카오톡', icon: '💬', description: '카카오톡 앱으로 인증' },
+    { value: '4', label: '통신사Pass', icon: '📱', description: 'SKT/KT/LG U+ 통신사 인증' },
+    { value: '6', label: '네이버', icon: '🟢', description: '네이버 계정으로 인증' }
+  ];
   
   // localStorage 변경 시 custom event 발생 헬퍼 (통합 스토리지 매니저 사용)
   const setLocalStorageWithEvent = (key: string, value: string) => {
@@ -76,6 +84,36 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       cleanupPolling();
     };
   }, [cleanupPolling]);
+
+  // 블링킹 스피너 CSS 애니메이션 추가
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes blinkSpin {
+        0%, 100% { 
+          opacity: 1; 
+          transform: rotate(0deg) scale(1);
+        }
+        25% { 
+          opacity: 0.3; 
+          transform: rotate(90deg) scale(0.8);
+        }
+        50% { 
+          opacity: 0.6; 
+          transform: rotate(180deg) scale(1.1);
+        }
+        75% { 
+          opacity: 0.3; 
+          transform: rotate(270deg) scale(0.8);
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<'validation' | 'network' | 'server' | 'auth' | null>(null);
@@ -85,8 +123,100 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [statusMessages, setStatusMessages] = useState<Array<{timestamp: string, type: string, message: string}>>([]);
   
+  // CxId 수신 상태 추가
+  const [cxIdReceived, setCxIdReceived] = useState<boolean>(false);
+  const [receivedCxId, setReceivedCxId] = useState<string>('');
+  const [autoPollingActive, setAutoPollingActive] = useState<boolean>(false);
+
+  // WebSocket 실시간 통신
+  const { isConnected: wsConnected, connectionError: wsError } = useWebSocketAuth({
+    sessionId,
+    onTilkoKeyReceived: (cxId) => {
+      console.log('🔑 [AuthForm] 틸코 키 수신!', cxId);
+      setCxIdReceived(true);
+      setReceivedCxId(cxId);
+      setCurrentStatus('auth_waiting');
+      setTypingText(`틸코 인증 키를 받았습니다!\n인증 ID: ${cxId.substring(0, 8)}...\n\n카카오톡에서 인증을 완료해주세요.\n인증 완료 후 하단의 버튼을 눌러주세요.`);
+      
+      // localStorage에 인증 대기 상태 저장 (플로팅 버튼 변경용)
+      StorageManager.setItem('tilko_auth_waiting', 'true');
+      StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING); // 정보 확인 완료, 플로팅 버튼 다시 표시
+      window.dispatchEvent(new Event('localStorageChange'));
+    },
+    onAuthCompleted: (authData) => {
+      console.log('🎊 [WebSocket] 인증 완료 알림 수신!', authData);
+      
+      // 데이터 수집 완료된 경우 (streaming_status: completed)
+      if (authData && (authData.health_data || authData.prescription_data)) {
+        console.log('🎉 [WebSocket] 데이터 수집 완료! 결과 페이지로 이동');
+        
+        // 수집된 데이터를 localStorage에 저장
+        StorageManager.setItem('tilko_collected_data', {
+          health_data: authData.health_data,
+          prescription_data: authData.prescription_data,
+          collected_at: new Date().toISOString()
+        });
+        
+        // 세션 정리
+        StorageManager.removeItem(STORAGE_KEYS.TILKO_SESSION_ID);
+        StorageManager.removeItem(STORAGE_KEYS.TILKO_SESSION_DATA);
+        StorageManager.removeItem('tilko_auth_waiting'); // 인증 대기 상태 제거
+        StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING); // 정보 확인 상태 제거
+        
+        // 결과 페이지로 이동
+        setCurrentStatus('completed');
+        setTimeout(() => {
+          navigate('/results');
+        }, 1000);
+        
+        return;
+      }
+      
+      // 일반 인증 완료
+      setTokenReceived(true);
+      setCurrentStatus('auth_completed');
+      setTypingText('인증이 완료되었습니다!\n건강검진 데이터를 수집하겠습니다.');
+      
+      // 기존 폴링 정리
+      if (tokenTimeout) {
+        clearTimeout(tokenTimeout);
+        setTokenTimeout(null);
+      }
+    },
+    onDataCollectionProgress: (progressType, message) => {
+      console.log('📈 [WebSocket] 데이터 수집 진행:', progressType, message);
+      setCurrentStatus('data_collecting');
+      setLoading(true); // 로딩 스피너 표시
+      setTypingText(message);
+    },
+    onError: (error) => {
+      console.error('❌ [WebSocket] 에러:', error);
+      handleError(error, 'server');
+    },
+    onAuthTimeout: (message) => {
+      console.log('⏰ [WebSocket] 인증 타임아웃:', message);
+      setCurrentStatus('timeout');
+      setTypingText(message + '\n3초 후 처음 페이지로 돌아갑니다.');
+      setLoading(false);
+      
+      // 3초 후 메인 페이지로 이동
+      setTimeout(() => {
+        console.log('🔄 [타임아웃] 메인 페이지로 이동');
+        navigate('/');
+      }, 3000);
+    },
+    onStatusUpdate: (status, authCompleted) => {
+      console.log('📊 [WebSocket] 상태 업데이트:', status, 'auth_completed:', authCompleted);
+      if (authCompleted && !tokenReceived) {
+        setTokenReceived(true);
+        setCurrentStatus('auth_completed');
+        setTypingText('인증이 완료되었습니다!\n건강검진 데이터를 수집하겠습니다.');
+      }
+    }
+  });
+  
   // 단계별 확인 상태
-  const [currentConfirmationStep, setCurrentConfirmationStep] = useState<'name' | 'phone' | 'birthday' | 'completed'>('name');
+  const [currentConfirmationStep, setCurrentConfirmationStep] = useState<'name' | 'phone' | 'birthday' | 'auth_method' | 'completed'>('name');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [editableName, setEditableName] = useState('');
   const [editablePhone, setEditablePhone] = useState('');
@@ -124,7 +254,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     const componentId = Math.random().toString(36).substr(2, 9);
     console.log(`🔄 [인증페이지-${componentId}] AuthForm 마운트 - 플로팅 버튼 플래그 초기화`);
     console.log(`🔄 [인증페이지-${componentId}] AuthForm 완전 마운트됨 - 모든 useEffect 활성화`);
-    removeLocalStorageWithEvent('tilko_info_confirming');
+    
+    // 이전 세션의 신호들 정리 (세션 복구 후에 실행)
+    // 세션 복구가 필요할 수 있으므로 즉시 정리하지 않음
+    console.log(`🔄 [인증페이지-${componentId}] 세션 복구 체크 후 신호 정리 예정`);
     // tilko_auth_completed와 tilko_session_id는 유지 (세션 복구용)
     
         // 이름 추출 함수 (데이터 로드 상태에 관계없이 최신 데이터 사용)
@@ -160,7 +293,21 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         // localStorage 이벤트 리스너를 사용한 신호 감지
         const handleStartSignal = () => {
           const startSignal = StorageManager.getItem(STORAGE_KEYS.START_INFO_CONFIRMATION);
-          console.log(`🔍 [신호감지-${componentId}] 신호 감지됨. startSignal:`, startSignal);
+          const manualCollectSignal = StorageManager.getItem('tilko_manual_collect');
+          console.log(`🔍 [신호감지-${componentId}] 신호 감지됨. startSignal:`, startSignal, 'manualCollectSignal:', manualCollectSignal);
+          
+          // 수동 데이터 수집 신호 처리 (문자열 'true' 또는 boolean true 처리)
+          const isManualCollectSignal = manualCollectSignal === 'true' || (typeof manualCollectSignal === 'boolean' && manualCollectSignal === true);
+          if (isManualCollectSignal) {
+            console.log(`✅ [신호감지-${componentId}] 수동 데이터 수집 시작`);
+            StorageManager.removeItem('tilko_manual_collect'); // 신호 제거
+            StorageManager.removeItem('tilko_auth_waiting'); // 인증 대기 상태 제거
+            window.dispatchEvent(new Event('localStorageChange')); // 플로팅 버튼 업데이트
+            
+            // 수동 데이터 수집 실행
+            handleManualDataCollection();
+            return;
+          }
           
           // 문자열 'true' 또는 boolean true 또는 truthy 값 체크
           const isSignalActive = startSignal === 'true' || (startSignal as any) === true || !!startSignal;
@@ -513,9 +660,54 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     return () => clearInterval(interval);
   }, [currentStatus]);
 
-  // 토큰 발급 모니터링 (실패 감지 및 재시도 포함)
+  // 수동 데이터 수집 함수 (자동 폴링 제거됨)
+  const handleManualDataCollection = useCallback(async () => {
+      console.log('🔘 [수동수집] 사용자가 인증 완료 버튼 클릭');
+      
+      // sessionId 유효성 검사 (localStorage에서 직접 가져오기)
+      const currentSessionId = sessionId || StorageManager.getItem(STORAGE_KEYS.TILKO_SESSION_ID);
+      if (!currentSessionId) {
+        console.error('❌ [수동수집] sessionId가 없습니다. state:', sessionId, 'localStorage:', StorageManager.getItem(STORAGE_KEYS.TILKO_SESSION_ID));
+        setCurrentStatus('error');
+        setTypingText('세션 정보가 없습니다.\n다시 시도해주세요.');
+        return;
+      }
+      
+      console.log('🔍 [수동수집] sessionId 확인 - state:', sessionId, 'localStorage:', StorageManager.getItem(STORAGE_KEYS.TILKO_SESSION_ID), 'using:', currentSessionId);
+      setCurrentStatus('manual_collecting');
+      setTypingText('데이터를 수집하고 있습니다...\n잠시만 기다려주세요.');
+      
+      try {
+        const response = await fetch(`/api/v1/wello/tilko/session/${currentSessionId}/collect-data`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ [수동수집] 데이터 수집 성공!', result);
+          
+          // 인증 대기 상태 제거 (데이터 수집 시작됨)
+          StorageManager.removeItem('tilko_auth_waiting');
+          window.dispatchEvent(new Event('localStorageChange'));
+          
+          setCurrentStatus('collecting');
+          setTypingText('데이터 수집이 시작되었습니다.\n완료까지 잠시만 기다려주세요.');
+        } else {
+          console.error('❌ [수동수집] 데이터 수집 실패:', response.status);
+          setCurrentStatus('error');
+          setTypingText('데이터 수집에 실패했습니다.\n다시 시도해주세요.');
+        }
+      } catch (error) {
+        console.error('❌ [수동수집] 오류:', error);
+        setCurrentStatus('error');
+        setTypingText('오류가 발생했습니다.\n다시 시도해주세요.');
+      }
+  }, [sessionId]);
+
+  // WebSocket 전용 모니터링 (폴링 제거)
   const startTokenMonitoring = useCallback((sessionId: string) => {
-    console.log('🔍 [토큰모니터링] 시작:', sessionId);
+    console.log('📡 [WebSocket전용] 폴링 제거됨, WebSocket으로만 상태 수신:', sessionId);
     
     // 기존 타임아웃 정리
     if (tokenTimeout) {
@@ -524,15 +716,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     
     const checkToken = async () => {
       try {
-        const response = await fetch(TILKO_API.SESSION_STATUS(sessionId, 'production'));
+        const response = await fetch(TILKO_API.SESSION_STATUS(sessionId));
         if (response.ok) {
           const result = await response.json();
           
-          // auth_data가 있으면 토큰 발급됨
-          if (result.auth_data && !tokenReceived) {
-            console.log('✅ [토큰확인] 토큰 발급 완료!');
+          // 인증 완료 확인 (progress.auth_completed 또는 status가 auth_completed/authenticated)
+          if ((result.progress?.auth_completed || result.status === 'auth_completed' || result.status === 'authenticated') && !tokenReceived) {
+            console.log('✅ [인증완료] 사용자 인증 완료 감지!');
             setTokenReceived(true);
-            setTokenRetryCount(0); // 성공 시 재시도 카운트 리셋
+            setTokenRetryCount(0);
             
             // localStorage에도 토큰 상태 저장
             const sessionData = StorageManager.getItem(STORAGE_KEYS.TILKO_SESSION_DATA) || {} as any;
@@ -546,12 +738,53 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               setTokenTimeout(null);
             }
             
-            // 토큰 수신 후 2분 대기하다가 사용자가 버튼을 누르지 않으면 알림
-            setTimeout(() => {
-              if (tokenReceived && currentStatus === 'auth_pending') {
-                handleTokenReceivedButNotClicked();
+            // 인증 완료 즉시 데이터 수집 시작
+            console.log('🚀 [자동시작] 인증 완료 후 데이터 수집 자동 시작');
+            setCurrentStatus('auth_completed');
+            setTypingText('인증이 완료되었습니다!\n건강검진 데이터를 수집하겠습니다.');
+            
+            // 2초 후 데이터 수집 시작
+            setTimeout(async () => {
+              try {
+                const collectResponse = await fetch(TILKO_API.COLLECT_HEALTH_DATA(sessionId), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (collectResponse.ok) {
+                  console.log('✅ [자동수집] 건강검진 데이터 수집 시작 성공');
+                  setCurrentStatus('data_collecting');
+                  setTypingText('건강검진 데이터를 수집하고 있습니다...\n잠시만 기다려주세요.');
+                } else {
+                  console.error('❌ [자동수집] 데이터 수집 시작 실패');
+                  setTypingText('인증은 완료되었지만\n데이터 수집에 문제가 발생했습니다.');
+                }
+              } catch (error) {
+                console.error('❌ [자동수집] 데이터 수집 요청 실패:', error);
+                setTypingText('인증은 완료되었지만\n데이터 수집에 문제가 발생했습니다.');
               }
-            }, 120000); // 2분
+            }, 2000);
+          }
+          
+          // 데이터 수집 상태 확인 및 업데이트
+          if (result.status === 'fetching_health_data') {
+            console.log('🏥 [데이터수집] 건강검진 데이터 수집 중...');
+            setCurrentStatus('data_collecting');
+            setTypingText('건강검진 데이터를 수집하고 있습니다...\n잠시만 기다려주세요.');
+          } else if (result.status === 'fetching_prescription_data') {
+            console.log('💊 [데이터수집] 처방전 데이터 수집 중...');
+            setCurrentStatus('data_collecting');
+            setTypingText('처방전 데이터를 수집하고 있습니다...\n잠시만 기다려주세요.');
+          } else if (result.status === 'completed') {
+            console.log('✅ [데이터수집] 모든 데이터 수집 완료!');
+            setCurrentStatus('data_completed');
+            setTypingText('건강검진 및 처방전 데이터 수집이\n완료되었습니다!');
+            
+            // 수집 완료 시 모니터링 중단
+            if (tokenTimeout) {
+              clearTimeout(tokenTimeout);
+              setTokenTimeout(null);
+            }
           }
         }
       } catch (error) {
@@ -559,24 +792,19 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       }
     };
     
-    // 10초마다 토큰 상태 확인
+    // 10초마다 상태 확인 (백엔드 자동 체크 비활성화됨)
     const interval = setInterval(checkToken, 10000);
     
-    // 45초 후 토큰 발급 실패로 간주하고 재시도 제안
+    // 5분 후 타임아웃 (재시도 없이 안내 메시지만)
     const timeoutId = setTimeout(() => {
       clearInterval(interval);
       
-      if (!tokenReceived && tokenRetryCount < 3) {
-        console.log('⚠️ [토큰모니터링] 45초 경과, 토큰 발급 실패 감지');
-        handleTokenFailure(sessionId);
-      } else if (tokenRetryCount >= 3) {
-        console.log('❌ [토큰모니터링] 최대 재시도 횟수 초과');
-        handleError('카카오 인증에 반복적으로 실패했습니다. 잠시 후 다시 시도해주세요.', 'auth');
-        setCurrentStatus('error');
-      } else {
-        console.log('⏰ [토큰모니터링] 1분 경과로 중단');
+      if (!tokenReceived) {
+        console.log('⏰ [인증대기] 5분 경과 - 사용자 안내');
+        setCurrentStatus('auth_timeout');
+        setTypingText('카카오톡 인증이 완료되지 않았습니다.\n카카오톡에서 인증을 완료해주세요.\n\n인증 후 이 페이지가 자동으로 업데이트됩니다.');
       }
-    }, 45000);
+    }, 300000); // 5분
     
     setTokenTimeout(timeoutId);
     
@@ -584,48 +812,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     checkToken();
   }, [tokenReceived, tokenRetryCount, tokenTimeout]);
 
-  // 토큰 발급 실패 처리
-  const handleTokenFailure = useCallback(async (sessionId: string) => {
-    const newRetryCount = tokenRetryCount + 1;
-    setTokenRetryCount(newRetryCount);
+  // 수동 새로고침 안내 (자동 재시도 제거)
+  const handleAuthTimeout = useCallback(() => {
+    console.log('⏰ [인증타임아웃] 사용자 수동 새로고침 안내');
     
-    console.log(`🔄 [토큰재시도] ${newRetryCount}번째 재시도 시작`);
-    
-    // 상태 메시지 업데이트
-    setCurrentStatus('auth_requesting');
-    
-    try {
-      // 새로운 인증 요청
-      const authResponse = await fetch(TILKO_API.SIMPLE_AUTH(sessionId, 'local'), {
-        method: HTTP_METHODS.POST,
-        headers: API_HEADERS.JSON
-      });
-
-      if (authResponse.ok) {
-        const authResult = await authResponse.json();
-        
-        if (authResult.success) {
-          setCurrentStatus('auth_pending');
-          console.log(`🔄 [토큰재시도] ${newRetryCount}번째 재시도 요청 성공`);
-          
-          // 재시도 모니터링 시작
-          startTokenMonitoring(sessionId);
-        } else {
-          throw new Error(authResult.message || '재시도 실패');
-        }
-      } else {
-        throw new Error('재시도 요청 실패');
-                }
-              } catch (error) {
-      console.error(`❌ [토큰재시도] ${newRetryCount}번째 재시도 실패:`, error);
-      const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
-      handleError(`인증 재시도 실패: ${errorMessage}`, 'auth');
-      
-      if (newRetryCount >= 3) {
-        setCurrentStatus('error');
-      }
-    }
-  }, [tokenRetryCount, startTokenMonitoring]);
+    setCurrentStatus('auth_manual_refresh');
+    setTypingText('인증이 지연되고 있습니다.\n\n다음을 확인해주세요:\n• 카카오톡 앱이 설치되어 있는지\n• 카카오톡 알림을 확인했는지\n• 전화번호가 정확한지\n\n문제가 계속되면 페이지를 새로고침해주세요.');
+  }, []);
 
   // 토큰 수신했지만 사용자가 버튼을 누르지 않은 경우 처리
   const handleTokenReceivedButNotClicked = useCallback(() => {
@@ -672,17 +865,20 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       case 'auth_pending':
         // 토큰 대기 중 - 바로 해당 화면으로
         setSessionId(sessionId);
-                setCurrentStatus('auth_pending');
+        setCurrentStatus('auth_waiting'); // auth_pending -> auth_waiting으로 변경
         setAuthRequested(true);
         setShowConfirmation(false);
-        // 토큰 상태 확인
-        setTokenReceived(sessionData.token_received || false);
-        console.log('📱 [복구] 카카오 인증 대기 화면으로 이동');
+        setCxIdReceived(true); // 틸코 키 수신 상태 설정
         
-        // 토큰 미수신 시 모니터링 재시작
-        if (!sessionData.token_received) {
-          startTokenMonitoring(sessionId);
-        }
+        // 플로팅 버튼을 위한 상태 설정
+        StorageManager.setItem('tilko_auth_waiting', 'true');
+        StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
+        window.dispatchEvent(new Event('localStorageChange'));
+        
+        console.log('📱 [복구] 카카오 인증 대기 화면으로 이동 - 플로팅 버튼 활성화');
+        
+        // WebSocket으로만 상태 수신 (폴링 제거됨)
+        console.log('📡 [WebSocket전용] 백엔드 스트리밍으로 상태 수신 대기 중');
         break;
         
       case 'authenticated':
@@ -738,7 +934,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           console.log('🔄 [인증복구] 기존 세션 발견:', savedSessionId);
           
           // 서버에서 세션 상태 확인 (레디스 기반)
-          const response = await fetch(TILKO_API.SESSION_STATUS(savedSessionId, 'production'));
+          const response = await fetch(TILKO_API.SESSION_STATUS(savedSessionId));
           
           if (response.ok) {
             const result = await response.json();
@@ -758,10 +954,23 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       localStorage.removeItem('tilko_session_id');
       localStorage.removeItem('tilko_session_data');
       
+      // 세션 복구 실패 시에만 신호 정리
+      console.log('🧹 [세션복구] 복구 실패 - 이전 신호들 정리');
+      StorageManager.removeItem('tilko_manual_collect');
+      StorageManager.removeItem('tilko_auth_waiting');
+      StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
+      
     } catch (error) {
       console.error('❌ [인증복구] 세션 복구 실패:', error);
       localStorage.removeItem('tilko_session_id');
       localStorage.removeItem('tilko_session_data');
+      
+      // 세션 복구 실패 시에만 신호 정리
+      console.log('🧹 [세션복구] 복구 오류 - 이전 신호들 정리');
+      StorageManager.removeItem('tilko_manual_collect');
+      StorageManager.removeItem('tilko_auth_waiting');
+      StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
+      
     } finally {
       setIsRecovering(false);
     }
@@ -820,8 +1029,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   // 세션 상태 폴링
   // 폴링 로직 제거됨 - 동기적 처리로 변경
 
-  // 모든 정보 확인 완료 후 인증 시작
+  // 모든 정보 확인 완료 후 인증 시작 (중복 방지)
   const handleAllConfirmed = useCallback(async () => {
+    // 🚨 중복 방지: 이미 인증이 진행 중인지 확인
+    if (currentStatus === 'auth_requesting' || currentStatus === 'auth_pending' || authRequested) {
+      console.log('⚠️ [중복방지] 이미 인증이 진행 중입니다. 상태:', currentStatus);
+      return;
+    }
+
     // 수정된 정보로 authInput 업데이트
     const updatedAuthInput = {
       ...authInput,
@@ -852,7 +1067,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       // 기존 사용자 세션 정리
       console.log('🧹 [세션정리] 기존 세션 정리 시작');
       try {
-        await fetch(TILKO_API.SESSION_CLEANUP_USER(editableName, 'local'), {
+        await fetch(TILKO_API.SESSION_CLEANUP_USER(editableName), {
           method: HTTP_METHODS.POST
         });
       } catch (cleanupError) {
@@ -860,11 +1075,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       }
       
       // 1단계: 세션 시작
-      const sessionResponse = await fetch(TILKO_API.SESSION_START('local'), {
+      const sessionResponse = await fetch(TILKO_API.SESSION_START(), {
         method: HTTP_METHODS.POST,
         headers: API_HEADERS.JSON,
         body: JSON.stringify({
-          private_auth_type: privateAuthType,
+          private_auth_type: selectedAuthType,
           user_name: editableName, // 수정된 이름 사용
           birthdate: editableBirthday, // 수정된 생년월일 사용
           phone_no: editablePhone.replace(/-/g, ''), // 수정된 전화번호 사용
@@ -899,7 +1114,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         console.log('💾 [인증세션] 세션 정보 저장:', newSessionId);
         
         // 2단계: 간편인증 요청
-        const authResponse = await fetch(TILKO_API.SIMPLE_AUTH(newSessionId, 'local'), {
+        const authResponse = await fetch(TILKO_API.SIMPLE_AUTH(newSessionId), {
           method: HTTP_METHODS.POST,
           headers: API_HEADERS.JSON
         });
@@ -915,8 +1130,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           setTokenReceived(false); // 토큰 상태 초기화
           console.log('🔄 [인증요청] 카카오톡 인증 대기 중');
           
-          // 토큰 발급 상태 모니터링 시작
-          startTokenMonitoring(newSessionId);
+          // WebSocket으로만 상태 수신 (폴링 제거됨)
+          console.log('📡 [WebSocket전용] 백엔드가 스트리밍 시작, 폴링 불필요');
         } else {
           handleError(authResult.message || '인증 요청 실패', 'auth');
         }
@@ -930,7 +1145,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     } finally {
       setLoading(false);
     }
-  }, [authInput, editableName, editablePhone, editableBirthday, privateAuthType]);
+  }, [authInput, editableName, editablePhone, editableBirthday, selectedAuthType]);
 
   // 단계별 뒤로가기 처리
   const handleStepBack = useCallback(() => {
@@ -947,6 +1162,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         const phone = (editablePhone && PatientDataConverter.cleanUndefined(editablePhone).trim()) || 
                      PatientDataConverter.getSafePhone(patient);
         typeTitleMessage(`전화번호가\n${phone} 맞나요?`, 120, true);
+      }, 100);
+    } else if (currentConfirmationStep === 'auth_method') {
+      setCurrentConfirmationStep('birthday');
+      setTimeout(() => {
+        const birthday = (editableBirthday && PatientDataConverter.cleanUndefined(editableBirthday).trim()) || 
+                        PatientDataConverter.getSafeBirthday(patient);
+        typeTitleMessage(`주민번호가\n${birthday}** 맞나요?`, 120, true);
       }, 100);
     } else {
       // 첫 번째 단계에서는 정보 확인을 종료하고 원래 페이지로
@@ -981,6 +1203,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         typeTitleMessage(`주민번호가\n${birthday}** 맞나요?`, 120, true);
       }, 300);
     } else if (currentConfirmationStep === 'birthday') {
+      setCurrentConfirmationStep('auth_method');
+      // 히스토리에 새 상태 추가
+      NavigationHelper.pushState(
+        { step: 'auth_method', confirmationData: { name: editableName, phone: editablePhone, birthday: editableBirthday } }
+      );
+      setTimeout(() => {
+        typeTitleMessage(`인증 방식을\n선택해주세요`, 120, true);
+      }, 300);
+    } else if (currentConfirmationStep === 'auth_method') {
       setCurrentConfirmationStep('completed');
       handleAllConfirmed();
     }
@@ -996,18 +1227,18 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         // 기존 사용자 세션 정리
         console.log('🧹 [세션정리] 기존 세션 정리 시작');
         try {
-          await fetch(TILKO_API.SESSION_CLEANUP_USER(authInput.name, 'local'), {
+          await fetch(TILKO_API.SESSION_CLEANUP_USER(authInput.name), {
             method: HTTP_METHODS.POST
           });
         } catch (cleanupError) {
           console.warn('⚠️ [세션정리] 실패 (계속 진행):', cleanupError);
         }
         // 1단계: 세션 시작
-        const sessionResponse = await fetch(TILKO_API.SESSION_START('local'), {
+        const sessionResponse = await fetch(TILKO_API.SESSION_START(), {
           method: HTTP_METHODS.POST,
           headers: API_HEADERS.JSON,
           body: JSON.stringify({
-            private_auth_type: privateAuthType,
+            private_auth_type: selectedAuthType,
             user_name: authInput.name,
             birthdate: authInput.birthday,
             phone_no: authInput.phoneNo,
@@ -1042,7 +1273,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           console.log('💾 [인증세션] 세션 정보 저장:', newSessionId);
           
           // 2단계: 간편인증 요청
-          const authResponse = await fetch(TILKO_API.SIMPLE_AUTH(newSessionId, 'local'), {
+          const authResponse = await fetch(TILKO_API.SIMPLE_AUTH(newSessionId), {
             method: HTTP_METHODS.POST,
             headers: API_HEADERS.JSON
           });
@@ -1082,7 +1313,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         setLoading(false);
       }
     }
-  }, [checkRequired, authInput, privateAuthType]);
+  }, [checkRequired, authInput, selectedAuthType]);
 
   // 폴링 정리 로직 제거됨 
   
@@ -1096,9 +1327,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       return;
     }
     
-    // 토큰 미수신 시 클릭 무시
-    if (!tokenReceived) {
-      console.log('⏸️ [인증버튼] 토큰 미수신으로 클릭 무시');
+    // 틸코 키 미수신 시 클릭 무시 (tokenReceived 체크 제거)
+    if (!cxIdReceived) {
+      console.log('⏸️ [인증버튼] 틸코 키 미수신으로 클릭 무시');
       return;
     }
     
@@ -1110,7 +1341,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     // 실제 인증 상태를 폴링으로 확인
     const checkAuthStatus = async () => {
       try {
-        const response = await fetch(TILKO_API.SESSION_STATUS(sessionId, 'local'));
+        const response = await fetch(TILKO_API.SESSION_STATUS(sessionId));
         if (response.ok) {
           const result = await response.json();
           console.log(`📊 [폴링] 현재 상태: ${result.status}`);
@@ -1119,7 +1350,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             console.log('✅ [인증완료] 실제 인증 완료 확인됨 - 데이터 수집 시작');
             
             // 데이터 수집 시작
-            const collectResponse = await fetch(TILKO_API.COLLECT_HEALTH_DATA(sessionId, 'production'), {
+            const collectResponse = await fetch(TILKO_API.COLLECT_HEALTH_DATA(sessionId), {
               method: HTTP_METHODS.POST,
               headers: API_HEADERS.JSON
             });
@@ -1197,7 +1428,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     
     // 상태 메시지 가져오기
     try {
-      const messageResponse = await fetch(TILKO_API.SESSION_MESSAGES(savedSessionId, 'production'));
+      const messageResponse = await fetch(TILKO_API.SESSION_MESSAGES(savedSessionId));
       if (messageResponse.ok) {
         const messageResult = await messageResponse.json();
         if (messageResult.success) {
@@ -1239,7 +1470,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     // 백엔드에서 세션 삭제
     if (savedSessionInfo && savedSessionInfo.sessionId) {
       try {
-        const response = await fetch(TILKO_API.SESSION_DELETE(savedSessionInfo.sessionId, 'production'), {
+        const response = await fetch(TILKO_API.SESSION_DELETE(savedSessionInfo.sessionId), {
           method: HTTP_METHODS.DELETE
         });
         
@@ -1310,16 +1541,26 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         return '카카오 간편인증을 요청하고 있습니다...';
       case 'auth_pending':
         return '이제 카카오 인증을 확인해주세요.\n카카오톡에 인증 메시지를 확인하세요.';
+      case 'auth_key_received':
+        return '인증 요청이 전송되었습니다.\n카카오톡에서 인증을 완료해주세요.';
+      case 'auth_waiting':
+        return '카카오톡 인증 대기 중...\n카카오톡 앱에서 인증을 완료해주세요.';
+      case 'auth_completed':
+        return '✅ 인증이 완료되었습니다!\n이제 건강정보를 수집합니다...';
       case 'authenticating':
         return '인증을 확인하고 건강정보를 가져오고 있습니다...';
       case 'authenticated':
         return '인증이 완료되었습니다. 건강정보를 가져오는 중입니다...';
+      case 'data_collecting':
+        return '📊 건강검진 및 처방전 데이터를\n수집하고 있습니다...\n\n잠시만 기다려주세요.';
       case 'fetching_health_data':
         return '건강검진 데이터를 가져오고 있습니다...';
       case 'fetching_prescription_data':
         return '처방전 데이터를 가져오고 있습니다...';
       case 'completed':
-        return '모든 건강정보 동기화가 완료되었습니다!';
+        return '🎉 모든 건강정보 수집이 완료되었습니다!\n결과 페이지로 이동합니다...';
+      case 'timeout':
+        return '⏰ 인증 시간이 초과되었습니다 (10초).\n다시 시도해주세요.\n\n3초 후 처음 페이지로 돌아갑니다.';
       default:
         return authRequested ? '카카오톡에서 인증을 진행해주세요.' : '';
     }
@@ -1746,6 +1987,108 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                   </div>
                 </>
                 )}
+
+                {/* 인증 방식 선택 단계 */}
+                {currentConfirmationStep === 'auth_method' && (
+                <>
+                  <div style={{ 
+                    marginLeft: '-16px', 
+                    marginBottom: '30px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px'
+                  }}>
+                    {AUTH_TYPES.map((authType) => (
+                      <div
+                        key={authType.value}
+                        onClick={() => setSelectedAuthType(authType.value)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '16px',
+                          border: selectedAuthType === authType.value ? '2px solid #7c746a' : '2px solid #e5e5e5',
+                          borderRadius: '12px',
+                          backgroundColor: selectedAuthType === authType.value ? '#f9f7f4' : '#ffffff',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          gap: '12px'
+                        }}
+                      >
+                        <div style={{ 
+                          fontSize: '24px',
+                          width: '32px',
+                          textAlign: 'center'
+                        }}>
+                          {authType.icon}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{
+                            fontSize: '18px',
+                            fontWeight: 'bold',
+                            color: '#1d1e1f',
+                            marginBottom: '4px'
+                          }}>
+                            {authType.label}
+                          </div>
+                          <div style={{
+                            fontSize: '14px',
+                            color: '#666',
+                            lineHeight: '1.4'
+                          }}>
+                            {authType.description}
+                          </div>
+                        </div>
+                        {selectedAuthType === authType.value && (
+                          <div style={{
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            backgroundColor: '#7c746a',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            <div style={{
+                              width: '8px',
+                              height: '8px',
+                              borderRadius: '50%',
+                              backgroundColor: '#ffffff'
+                            }} />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <button
+                    onClick={handleNextStep}
+                    style={{
+                      backgroundColor: '#7c746a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '16px 24px',
+                      fontSize: '16px',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      width: '100%',
+                      marginTop: '20px'
+                    }}
+                  >
+                    선택 완료
+                  </button>
+                  
+                  <div style={{ 
+                    fontSize: '14px', 
+                    color: '#999', 
+                    marginTop: '16px',
+                    textAlign: 'center',
+                    lineHeight: '1.5'
+                  }}>
+                    선택한 인증 방식의 앱이 설치되어 있어야 합니다
+                  </div>
+                </>
+                )}
               </div>
             </div>
           </div>
@@ -1776,7 +2119,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               marginBottom: '8px', 
               marginLeft: '-16px'
             }}>
-              <span style={{ fontSize: '48px' }}>🛡️</span>
+              <img 
+                src={splashIcon} 
+                alt="아이콘" 
+                style={{ 
+                  width: '32px', 
+                  height: '32px', 
+                  objectFit: 'contain' 
+                }} 
+              />
             </div>
 
             {/* 사용자 이름 */}
@@ -1815,42 +2166,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               }}>|</span>
             </div>
             
-            {/* 입력창 영역 - 카카오 인증 버튼 */}
-            <div style={{
-              height: '120px',
-              minHeight: '120px',
-              maxHeight: '120px',
-              marginBottom: '20px',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'flex-start'
-            }}>
-              <div style={{ marginLeft: '-16px' }}>
-                <button 
-                  className="auth-complete-button"
-                  onClick={handleAuthCompleted}
-                  disabled={loading || isTyping || !tokenReceived}
-                  style={{
-                    backgroundColor: (isTyping || !tokenReceived) ? '#e0e0e0' : '#fee500',
-                    color: (isTyping || !tokenReceived) ? '#999' : '#000',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '16px 32px',
-                    fontSize: '18px',
-                    fontWeight: 'bold',
-                    cursor: (loading || isTyping || !tokenReceived) ? 'not-allowed' : 'pointer',
-                    opacity: (loading || isTyping || !tokenReceived) ? 0.7 : 1,
-                    transition: 'all 0.3s ease',
-                    minWidth: '280px'
-                  }}
-                >
-                  {loading ? '확인 중...' : 
-                   (isTyping ? '타이핑 중...' : 
-                   (!tokenReceived ? '카카오 인증 대기 중...' : '카카오톡 인증 완료했어요!'))}
-                </button>
-              </div>
-            </div>
+            {/* 인증 대기 상태에서는 플로팅 버튼만 사용 */}
           </div>
         </div>
 
@@ -1891,7 +2207,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   }
 
   // 데이터 수집 중 로딩 화면 (XOG 스타일)
-  if (loading && authRequested) {
+  if ((loading && authRequested) || currentStatus === 'manual_collecting' || currentStatus === 'data_collecting') {
     return (
       <div className="auth__content">
         <div className="auth__content-input-area" style={{ padding: '40px 20px', textAlign: 'center' }}>
@@ -1919,15 +2235,27 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             </p>
           </div>
           
-          {/* 로딩 스피너 */}
-          <div style={{ marginBottom: '20px' }}>
-            <div className="loading-spinner"></div>
+          {/* 파비콘 블링크 스피너 */}
+          <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
+            <div className="favicon-blink-spinner">
+              <img 
+                src="/wello/wello-icon.png" 
+                alt="로딩 중" 
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  animation: 'faviconBlink 1.5s ease-in-out infinite'
+                }}
+              />
+            </div>
           </div>
           
           {/* 진행률 표시 */}
-          <p style={{ fontSize: '14px', color: '#999' }}>
-            {currentStatus === 'fetching_health_data' ? '건강검진 데이터 수집 중...' :
-             currentStatus === 'fetching_prescription_data' ? '처방전 데이터 수집 중...' :
+          <p style={{ fontSize: '14px', color: '#999', textAlign: 'center' }}>
+            {currentStatus === 'manual_collecting' ? '데이터 수집을 시작합니다...' :
+             currentStatus === 'data_collecting' ? '건강정보를 수집하고 있습니다...' :
+             currentStatus === 'fetching_health_data' ? '🏥 건강검진 데이터 수집 중...' :
+             currentStatus === 'fetching_prescription_data' ? '💊 처방전 데이터 수집 중...' :
              '데이터를 수집하고 있습니다...'}
           </p>
         </div>
@@ -2162,7 +2490,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                       }}>|</span>
                   </span>
                 <br />
-                {(currentStatus === 'auth_requesting') && (
+                {(currentStatus === 'auth_requesting' || currentStatus === 'auth_key_received' || currentStatus === 'auth_waiting' || currentStatus === 'auto_polling') && (
                   <span style={{ 
                     display: 'inline-block',
                     marginLeft: '4px',
@@ -2175,6 +2503,77 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             )}
           </div>
         </div>
+
+        {/* 수동 인증 완료 버튼 (30초 후 표시) */}
+        {currentStatus === 'auth_waiting_manual' && (
+          <div style={{
+            marginTop: '20px',
+            textAlign: 'center'
+          }}>
+            <button
+              onClick={async () => {
+                console.log('🔘 [수동버튼] 사용자가 인증 완료 버튼 클릭');
+                setCurrentStatus('manual_checking');
+                setTypingText('인증 상태를 확인하고 있습니다...');
+                
+                try {
+                  const response = await fetch(`/api/v1/wello/tilko/session/${sessionId}/collect-data`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                  });
+                  
+                  if (response.ok) {
+                    const result = await response.json();
+                    console.log('✅ [수동버튼] 데이터 수집 응답:', result);
+                    
+                    // 세션 상태 확인
+                    const statusResponse = await fetch(`/api/v1/wello/tilko/session/${sessionId}/status`);
+                    if (statusResponse.ok) {
+                      const statusResult = await statusResponse.json();
+                      
+                      if (statusResult.progress?.completed || statusResult.status === 'completed') {
+                        setCurrentStatus('data_collected');
+                        setTypingText('데이터 수집이 완료되었습니다!');
+                        
+                        if (statusResult.health_data || statusResult.prescription_data) {
+                          localStorage.setItem('tilko_collected_data', JSON.stringify({
+                            health_data: statusResult.health_data,
+                            prescription_data: statusResult.prescription_data,
+                            collected_at: new Date().toISOString()
+                          }));
+                          navigate('/health-data');
+                        } else {
+                          setTypingText('데이터 수집이 완료되었지만 조회 가능한 데이터가 없습니다.');
+                        }
+                      } else {
+                        setCurrentStatus('auth_waiting_manual');
+                        setTypingText('아직 인증이 완료되지 않았습니다.\n카카오톡에서 인증을 완료해주세요.');
+                      }
+                    }
+                  }
+                } catch (error) {
+                  console.error('❌ [수동버튼] 오류:', error);
+                  setCurrentStatus('auth_waiting_manual');
+                  setTypingText('오류가 발생했습니다. 다시 시도해주세요.');
+                }
+              }}
+              style={{
+                backgroundColor: '#fee500',
+                color: '#000',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 24px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                animation: 'buttonReminderPulse 2s infinite'
+              }}
+            >
+              인증 완료됨 - 계속 진행
+            </button>
+          </div>
+        )}
 
         {/* 애니메이션 스타일 */}
         {authRequested && (

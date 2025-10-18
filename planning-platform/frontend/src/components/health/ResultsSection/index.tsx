@@ -7,9 +7,6 @@ import { healthConnectService } from '../../../services/health/HealthConnectServ
 import './styles.scss';
 
 interface ExtendedResultsSectionProps extends ResultsSectionProps {
-  sortBy?: 'date' | 'hospital' | 'status';
-  sortOrder?: 'asc' | 'desc';
-  onSortChange?: (sortBy: 'date' | 'hospital' | 'status', sortOrder?: 'asc' | 'desc') => void;
   selectedResults?: string[];
   onSelectionChange?: (resultId: string) => void;
 }
@@ -158,8 +155,8 @@ const ResultsSection: React.FC<ExtendedResultsSectionProps> = ({
                 <div className="result-card__date">
                   {healthConnectService.formatDate(result.date)}
                 </div>
-                <div className={`result-card__status ${getStatusClass(result.overallStatus)}`}>
-                  {getStatusIcon(result.overallStatus)}
+                <div className={`result-card__status ${getStatusClass(result.overallStatus || '')}`}>
+                  {getStatusIcon(result.overallStatus || '')}
                   {result.overallStatus}
                 </div>
               </div>

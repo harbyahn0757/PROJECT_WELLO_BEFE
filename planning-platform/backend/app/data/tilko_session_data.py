@@ -32,7 +32,7 @@ class TilkoSessionManager:
             "status": "initiated",
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
-            "expires_at": (datetime.now() + timedelta(hours=1)).isoformat(),
+            "expires_at": (datetime.now() + timedelta(minutes=1)).isoformat(),
             "auth_data": None,
             "health_data": None,
             "prescription_data": None,
@@ -215,10 +215,10 @@ class TilkoSessionManager:
                         session_data = self.get_session(session_id)
                         if session_data:
                             expires_at = datetime.fromisoformat(session_data["expires_at"])
-                            # 만료된 세션 또는 3시간 이상 된 error/completed 세션 정리
+                            # 만료된 세션 또는 5분 이상 된 error/completed 세션 정리
                             if (current_time > expires_at or 
                                 (session_data["status"] in ["error", "completed"] and 
-                                 (current_time - datetime.fromisoformat(session_data["updated_at"])).total_seconds() > 10800)):  # 3시간
+                                 (current_time - datetime.fromisoformat(session_data["updated_at"])).total_seconds() > 300)):  # 5분
                                 os.remove(os.path.join(self.data_dir, filename))
                                 cleaned_count += 1
                                 print(f"🧹 [세션정리] 만료된 세션 삭제: {session_id}")
@@ -226,7 +226,7 @@ class TilkoSessionManager:
                 print(f"❌ [세션정리] 실패: {e}")
         return cleaned_count
     
-    async def start_auto_cleanup(self, interval_minutes: int = 30):
+    async def start_auto_cleanup(self, interval_minutes: int = 5):
         """자동 세션 정리 시작"""
         if self._cleanup_task and not self._cleanup_task.done():
             return

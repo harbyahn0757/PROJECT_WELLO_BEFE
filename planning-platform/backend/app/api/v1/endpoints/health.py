@@ -134,25 +134,5 @@ async def data_status():
         raise HTTPException(status_code=500, detail=f"데이터 상태 확인 실패: {str(e)}")
 
 
-@router.post("/initialize-data")
-async def initialize_data():
-    """더미 데이터 초기화"""
-    try:
-        from ....data.dummy_data import DummyDataGenerator
-        
-        generator = DummyDataGenerator()
-        await generator.save_dummy_data()
-        
-        return {
-            "message": "더미 데이터가 성공적으로 초기화되었습니다.",
-            "timestamp": datetime.now().isoformat(),
-            "data": {
-                "patients": 5,
-                "hospitals": 3,
-                "sessions": 5
-            }
-        }
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"데이터 초기화 실패: {str(e)}")
+# 더미 데이터 초기화 기능 제거됨 - 실제 데이터베이스 사용
 

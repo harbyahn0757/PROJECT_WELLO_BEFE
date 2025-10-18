@@ -62,7 +62,11 @@ class HealthConnectService {
    * 에러 처리
    */
   private handleError(error: any): HealthConnectError {
-    const healthError: HealthConnectError = new Error();
+    const healthError: HealthConnectError = {
+      code: 'UNKNOWN_ERROR',
+      message: 'Unknown error occurred',
+      name: 'HealthConnectError'
+    };
 
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError;
@@ -211,7 +215,7 @@ class HealthConnectService {
   /**
    * 수치 정규화
    */
-  normalizeValue(value: string, unit?: string): string {
+  normalizeValue(value: string | number, unit?: string): string {
     if (!value) return '-';
     
     // 단위가 있는 경우
@@ -220,12 +224,12 @@ class HealthConnectService {
     }
     
     // 숫자인 경우 소수점 처리
-    const numValue = parseFloat(value);
+    const numValue = parseFloat(String(value));
     if (!isNaN(numValue)) {
       return numValue % 1 === 0 ? numValue.toString() : numValue.toFixed(2);
     }
     
-    return value;
+    return String(value);
   }
 
   /**

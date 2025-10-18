@@ -20,7 +20,7 @@ class SessionService:
             session_id=f"session_{user_id}_{datetime.now().timestamp()}",
             user_id=user_id,
             created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(minutes=20),
+            expires_at=datetime.now() + timedelta(minutes=1),
             data=session_data,
             is_active=True
         )

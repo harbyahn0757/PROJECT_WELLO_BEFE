@@ -30,21 +30,24 @@ const PrescriptionSection: React.FC<ExtendedPrescriptionSectionProps> = ({
   };
 
   /**
-   * 진료과별 색상
+   * 진료과별 색상 (단조로운 그레이 스케일 기반)
    */
   const getDepartmentColor = (department: string) => {
-    const colors: Record<string, string> = {
-      '내과': '#4CAF50',
-      '외과': '#2196F3',
-      '정형외과': '#FF9800',
-      '피부과': '#E91E63',
-      '안과': '#9C27B0',
-      '이비인후과': '#00BCD4',
-      '산부인과': '#FFC107',
-      '소아과': '#8BC34A',
-      '정신건강의학과': '#607D8B'
-    };
-    return colors[department] || '#9E9E9E';
+    // 해시 기반으로 일관된 색상 할당 (그레이 스케일 내에서)
+    const hash = department.split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0);
+      return a & a;
+    }, 0);
+    
+    const grayLevels = [
+      'var(--color-gray-500)',
+      'var(--color-gray-600)', 
+      'var(--color-gray-700)',
+      'var(--color-primary)',
+      'var(--color-success)',
+    ];
+    
+    return grayLevels[Math.abs(hash) % grayLevels.length];
   };
 
   if (loading) {
@@ -69,7 +72,7 @@ const PrescriptionSection: React.FC<ExtendedPrescriptionSectionProps> = ({
     return (
       <div className="prescription-section">
         <div className="prescription-section__empty">
-          <div className="empty-icon">💊</div>
+          <div className="empty-icon"></div>
           <h3>처방전이 없습니다</h3>
           <p>필터 조건을 변경하거나 새로운 데이터를 추가해보세요.</p>
         </div>
@@ -117,7 +120,7 @@ const PrescriptionSection: React.FC<ExtendedPrescriptionSectionProps> = ({
                 <div 
                   className="prescription-card__department"
                   style={{ 
-                    backgroundColor: getDepartmentColor(prescription.department),
+                    backgroundColor: getDepartmentColor(prescription.department || ''),
                     color: 'white'
                   }}
                 >

@@ -1,0 +1,208 @@
+/* WELLO 건강정보 시스템 디자인 토큰 */
+/* 현대적이고 단조로운 색상 팔레트 */
+
+:root {
+  /* === 기본 색상 팔레트 (단조로운 그레이 스케일) === */
+  --color-white: #ffffff;
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f5f5f5;
+  --color-gray-200: #e5e5e5;
+  --color-gray-300: #d4d4d4;
+  --color-gray-400: #a3a3a3;
+  --color-gray-500: #737373;
+  --color-gray-600: #525252;
+  --color-gray-700: #404040;
+  --color-gray-800: #262626;
+  --color-gray-900: #171717;
+  --color-black: #000000;
+
+  /* === 액센트 색상 (최소한의 컬러) === */
+  --color-primary: #525252;      /* 차분한 그레이 (메인) */
+  --color-primary-light: #737373;
+  --color-primary-dark: #404040;
+  
+  --color-success: #059669;      /* 차분한 그린 (건강 정상) */
+  --color-success-light: #10b981;
+  --color-success-dark: #047857;
+  
+  --color-warning: #d97706;      /* 차분한 오렌지 (주의) */
+  --color-warning-light: #f59e0b;
+  --color-warning-dark: #b45309;
+  
+  --color-danger: #dc2626;       /* 차분한 레드 (위험) */
+  --color-danger-light: #ef4444;
+  --color-danger-dark: #b91c1c;
+
+  /* === 의료/건강 전용 색상 === */
+  --color-health-normal: var(--color-success);
+  --color-health-warning: var(--color-warning);
+  --color-health-danger: var(--color-danger);
+  --color-health-neutral: var(--color-gray-500);
+
+  /* === 배경 색상 === */
+  --bg-primary: var(--color-white);
+  --bg-secondary: var(--color-gray-50);
+  --bg-tertiary: var(--color-gray-100);
+  --bg-card: var(--color-white);
+  --bg-overlay: rgba(0, 0, 0, 0.5);
+
+  /* === 텍스트 색상 === */
+  --text-primary: var(--color-gray-900);
+  --text-secondary: var(--color-gray-600);
+  --text-tertiary: var(--color-gray-500);
+  --text-disabled: var(--color-gray-400);
+  --text-inverse: var(--color-white);
+
+  /* === 보더 색상 === */
+  --border-light: var(--color-gray-200);
+  --border-medium: var(--color-gray-300);
+  --border-strong: var(--color-gray-400);
+
+  /* === 타이포그래피 === */
+  --font-family-primary: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+
+  /* 폰트 크기 */
+  --font-size-xs: 0.75rem;    /* 12px */
+  --font-size-sm: 0.875rem;   /* 14px */
+  --font-size-base: 1rem;     /* 16px */
+  --font-size-lg: 1.125rem;   /* 18px */
+  --font-size-xl: 1.25rem;    /* 20px */
+  --font-size-2xl: 1.5rem;    /* 24px */
+  --font-size-3xl: 1.875rem;  /* 30px */
+  --font-size-4xl: 2.25rem;   /* 36px */
+
+  /* 폰트 두께 */
+  --font-weight-light: 300;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* 라인 높이 */
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.75;
+
+  /* === 간격 (Spacing) === */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
+
+  /* === 반지름 (Border Radius) === */
+  --radius-none: 0;
+  --radius-sm: 0.125rem;   /* 2px */
+  --radius-base: 0.25rem;  /* 4px */
+  --radius-md: 0.375rem;   /* 6px */
+  --radius-lg: 0.5rem;     /* 8px */
+  --radius-xl: 0.75rem;    /* 12px */
+  --radius-2xl: 1rem;      /* 16px */
+  --radius-full: 9999px;
+
+  /* === 그림자 (Shadow) === */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-base: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+  /* === 애니메이션 === */
+  --transition-fast: 150ms ease-in-out;
+  --transition-base: 200ms ease-in-out;
+  --transition-slow: 300ms ease-in-out;
+
+  /* === Z-Index === */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+
+  /* === 컴포넌트별 전용 변수 === */
+  
+  /* 카드 */
+  --card-bg: var(--bg-card);
+  --card-border: var(--border-light);
+  --card-shadow: var(--shadow-sm);
+  --card-radius: var(--radius-lg);
+  --card-padding: var(--space-6);
+
+  /* 버튼 */
+  --button-height-sm: 2rem;      /* 32px */
+  --button-height-base: 2.5rem;  /* 40px */
+  --button-height-lg: 3rem;      /* 48px */
+  --button-padding-x: var(--space-4);
+  --button-radius: var(--radius-md);
+
+  /* 입력 필드 */
+  --input-height: var(--button-height-base);
+  --input-padding-x: var(--space-3);
+  --input-border: var(--border-medium);
+  --input-radius: var(--radius-md);
+  --input-focus-color: var(--color-primary);
+
+  /* 차트 */
+  --chart-grid-color: var(--color-gray-200);
+  --chart-text-color: var(--text-secondary);
+  --chart-line-width: 2px;
+  --chart-point-size: 4px;
+}
+
+/* === 다크 모드 (선택사항) === */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg-primary: var(--color-gray-900);
+    --bg-secondary: var(--color-gray-800);
+    --bg-tertiary: var(--color-gray-700);
+    --bg-card: var(--color-gray-800);
+    
+    --text-primary: var(--color-gray-100);
+    --text-secondary: var(--color-gray-300);
+    --text-tertiary: var(--color-gray-400);
+    
+    --border-light: var(--color-gray-700);
+    --border-medium: var(--color-gray-600);
+    --border-strong: var(--color-gray-500);
+    
+    --card-border: var(--color-gray-700);
+    --chart-grid-color: var(--color-gray-700);
+  }
+}
+
+/* === 유틸리티 클래스 === */
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-tertiary { color: var(--text-tertiary); }
+.text-success { color: var(--color-success); }
+.text-warning { color: var(--color-warning); }
+.text-danger { color: var(--color-danger); }
+
+.bg-primary { background-color: var(--bg-primary); }
+.bg-secondary { background-color: var(--bg-secondary); }
+.bg-card { background-color: var(--bg-card); }
+
+.border-light { border-color: var(--border-light); }
+.border-medium { border-color: var(--border-medium); }
+
+.shadow-sm { box-shadow: var(--shadow-sm); }
+.shadow-base { box-shadow: var(--shadow-base); }
+.shadow-md { box-shadow: var(--shadow-md); }
+
+.transition-fast { transition: var(--transition-fast); }
+.transition-base { transition: var(--transition-base); }
+
+.font-mono { font-family: var(--font-family-mono); }
+.font-light { font-weight: var(--font-weight-light); }
+.font-medium { font-weight: var(--font-weight-medium); }
+.font-semibold { font-weight: var(--font-weight-semibold); }
+.font-bold { font-weight: var(--font-weight-bold); }

@@ -1,0 +1,188 @@
+/**
+ * LineChart 스타일 - 단조로운 색상 팔레트 사용
+ */
+
+.wello-line-chart {
+  width: 100%;
+  height: 100%;
+  position: relative;
+
+  &__svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  &__empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+  }
+
+  // 그리드 라인
+  &__grid-line {
+    stroke: var(--border-light);
+    stroke-width: 1;
+    stroke-dasharray: 2,2;
+    opacity: 0.5;
+  }
+
+  // 참조선
+  &__reference-lines {
+    .wello-line-chart__reference-line {
+      stroke-width: 1;
+      stroke-dasharray: 4,4;
+      opacity: 0.7;
+
+      &--optimal {
+        stroke: var(--color-success);
+      }
+
+      &--min {
+        stroke: var(--color-warning);
+      }
+
+      &--max {
+        stroke: var(--color-danger);
+      }
+    }
+  }
+
+  // 데이터 시리즈
+  &__series {
+    .wello-line-chart__area {
+      transition: fill-opacity 0.2s ease;
+    }
+
+    .wello-line-chart__line {
+      transition: stroke-width 0.2s ease;
+      
+      &:hover {
+        stroke-width: 3;
+      }
+    }
+
+    .wello-line-chart__point {
+      transition: all 0.2s ease;
+      cursor: pointer;
+
+      &:hover {
+        r: 6;
+        stroke-width: 3;
+      }
+
+      // 건강 상태별 색상
+      &--normal {
+        fill: var(--color-success) !important;
+      }
+
+      &--warning {
+        fill: var(--color-warning) !important;
+      }
+
+      &--danger {
+        fill: var(--color-danger) !important;
+      }
+    }
+  }
+
+  // 축
+  &__x-axis,
+  &__y-axis {
+    .wello-line-chart__axis-line {
+      stroke: var(--border-medium);
+      stroke-width: 1;
+    }
+
+    .wello-line-chart__axis-label {
+      fill: var(--text-secondary);
+      font-size: var(--font-size-xs);
+      font-family: var(--font-family-primary);
+    }
+
+    .wello-line-chart__axis-title {
+      fill: var(--text-primary);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      font-family: var(--font-family-primary);
+    }
+  }
+}
+
+// 툴팁 내용 스타일
+.wello-chart-tooltip {
+  &__title {
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: 4px;
+  }
+
+  &__date {
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+    margin-bottom: 2px;
+  }
+
+  &__value {
+    font-weight: var(--font-weight-medium);
+    margin-bottom: 4px;
+  }
+
+  &__status {
+    font-size: var(--font-size-xs);
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    
+    &.status-normal {
+      background-color: var(--color-success);
+      color: var(--text-inverse);
+    }
+
+    &.status-warning {
+      background-color: var(--color-warning);
+      color: var(--text-inverse);
+    }
+
+    &.status-danger {
+      background-color: var(--color-danger);
+      color: var(--text-inverse);
+    }
+  }
+}
+
+// 반응형 조정
+@media (max-width: 480px) {
+  .wello-line-chart {
+    &__x-axis,
+    &__y-axis {
+      .wello-line-chart__axis-label {
+        font-size: 10px;
+      }
+    }
+
+    &__series {
+      .wello-line-chart__point {
+        r: 3;
+
+        &:hover {
+          r: 5;
+        }
+      }
+    }
+  }
+}
+
+// 접근성 개선
+@media (prefers-reduced-motion: reduce) {
+  .wello-line-chart {
+    &__series {
+      .wello-line-chart__area,
+      .wello-line-chart__line,
+      .wello-line-chart__point {
+        transition: none;
+      }
+    }
+  }
+}

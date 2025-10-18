@@ -113,8 +113,10 @@ export const useHealthData = (options: UseHealthDataOptions = {}) => {
     // 토큰 확인
     const targetToken = token || authToken;
     if (!targetToken) {
-      const error = new Error('인증 토큰이 필요합니다') as HealthConnectError;
-      error.code = 'NO_TOKEN';
+      const error: HealthConnectError = {
+        code: 'NO_TOKEN',
+        message: '인증 토큰이 필요합니다'
+      };
       setError(error);
       throw error;
     }

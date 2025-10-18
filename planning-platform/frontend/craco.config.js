@@ -55,12 +55,24 @@ module.exports = {
   devServer: {
     watchFiles: ['src/**/*'],
     compress: true,
-    hot: true,
+    hot: false, // HMR 완전 비활성화
+    liveReload: false, // Live Reload 비활성화
     client: {
-      overlay: {
-        errors: true,
-        warnings: false,
-      },
+      webSocketTransport: 'sockjs', // SockJS 사용 (WebSocket 대신)
+      overlay: false, // 오류 오버레이 비활성화
+      progress: false, // 진행률 표시 비활성화
+      reconnect: false, // 재연결 비활성화
+    },
+    webSocketServer: 'sockjs', // SockJS 서버 사용
+    setupMiddlewares: (middlewares, devServer) => {
+      // WebSocket 관련 모든 경로 차단
+      devServer.app.use('/ws', (req, res) => {
+        res.status(404).end();
+      });
+      devServer.app.use('/sockjs-node', (req, res) => {
+        res.status(404).end();
+      });
+      return middlewares;
     },
   },
   babel: {

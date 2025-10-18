@@ -9,13 +9,16 @@ from app.utils.tilko_utils import (
     get_public_key,
     simple_auth,
     get_health_screening_data,
-    get_prescription_data
+    get_prescription_data,
+    check_auth_status
 )
-from app.data.tilko_session_data import session_manager
+from app.data.redis_session_manager import redis_session_manager as session_manager
 from pydantic import BaseModel
 import asyncio
 
 router = APIRouter()
+
+# WebSocket 라우터는 별도로 등록됨
 
 class SimpleAuthRequest(BaseModel):
     private_auth_type: str
@@ -93,14 +96,14 @@ async def get_health_screening(request: HealthDataRequest) -> Dict[str, Any]:
     """
     try:
         result = await get_health_screening_data({
-            "cxId": request.cx_id,
-            "privateAuthType": request.private_auth_type,
-            "reqTxId": request.req_tx_id,
-            "token": request.token,
-            "txId": request.tx_id,
-            "userName": request.user_name,
-            "birthday": request.birthday,
-            "phoneNo": request.phone_no
+            "CxId": request.cx_id,
+            "PrivateAuthType": request.private_auth_type,
+            "ReqTxId": request.req_tx_id,
+            "Token": request.token,
+            "TxId": request.tx_id,
+            "UserName": request.user_name,
+            "BirthDate": request.birthday,
+            "UserCellphoneNumber": request.phone_no
         })
         return {
             "success": True,
@@ -120,14 +123,14 @@ async def get_prescription(request: HealthDataRequest) -> Dict[str, Any]:
     """
     try:
         result = await get_prescription_data({
-            "cxId": request.cx_id,
-            "privateAuthType": request.private_auth_type,
-            "reqTxId": request.req_tx_id,
-            "token": request.token,
-            "txId": request.tx_id,
-            "userName": request.user_name,
-            "birthday": request.birthday,
-            "phoneNo": request.phone_no
+            "CxId": request.cx_id,
+            "PrivateAuthType": request.private_auth_type,
+            "ReqTxId": request.req_tx_id,
+            "Token": request.token,
+            "TxId": request.tx_id,
+            "UserName": request.user_name,
+            "BirthDate": request.birthday,
+            "UserCellphoneNumber": request.phone_no
         })
         return {
             "success": True,
@@ -148,9 +151,17 @@ async def start_auth_session(request: SimpleAuthWithSessionRequest) -> Dict[str,
     새로운 인증 세션 시작
     """
     try:
+        # 이름 정규화 (suffix 제거: "-웰로", "-님" 등)
+        clean_name = request.user_name
+        for suffix in ["-웰로", "-님", " 님"]:
+            if clean_name.endswith(suffix):
+                clean_name = clean_name[:-len(suffix)]
+                print(f"🔧 [이름정규화] '{request.user_name}' → '{clean_name}'")
+                break
+        
         # 세션 생성
         user_info = {
-            "name": request.user_name,
+            "name": clean_name,
             "birthdate": request.birthdate,
             "phone_no": request.phone_no,
             "gender": request.gender,
@@ -177,12 +188,27 @@ async def session_simple_auth(
     session_id: str
 ) -> Dict[str, Any]:
     """
-    세션 기반 카카오 간편인증 요청
+    세션 기반 카카오 간편인증 요청 (중복 요청 방지)
     """
     try:
         session_data = session_manager.get_session(session_id)
         if not session_data:
             raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+        
+        # 🚨 중복 요청 방지: 이미 인증 요청이 진행 중인지 확인
+        current_status = session_data.get("status", "")
+        temp_auth_data = session_data.get("temp_auth_data")
+        
+        if current_status in ["auth_pending", "auth_completed", "authenticated"] or temp_auth_data:
+            print(f"⚠️ [중복방지] 세션 {session_id}는 이미 인증 진행 중 (상태: {current_status})")
+            return {
+                "success": True,
+                "session_id": session_id,
+                "message": "이미 인증이 진행 중입니다. 카카오톡에서 인증을 완료해주세요.",
+                "next_step": "wait_for_auth",
+                "status": current_status,
+                "duplicate_request_prevented": True
+            }
         
         user_info = session_data["user_info"]
         
@@ -193,26 +219,54 @@ async def session_simple_auth(
             "카카오 간편인증을 요청하고 있습니다..."
         )
         
+        print(f"🔍 [틸코API] simple_auth 호출 - 사용자: {user_info['name']}")
         result = await simple_auth(
             user_info["private_auth_type"],
             user_info["name"],
             user_info["birthdate"],
             user_info["phone_no"]
         )
+        print(f"🔍 [틸코API] simple_auth 응답: {result}")
+        print(f"🔍 [틸코API] Status 값: '{result.get('Status')}'")
+        print(f"🔍 [틸코API] 전체 키들: {list(result.keys()) if isinstance(result, dict) else 'dict가 아님'}")
+
+        # 틸코 API 응답 상세 분석 - 강제 출력
+        import sys
+        print(f"🚨🚨🚨 [틸코검증] 틸코 API 전체 응답 분석:", flush=True)
+        print(f"   - 응답 타입: {type(result)}", flush=True)
+        print(f"   - 응답 내용: {result}", flush=True)
+        sys.stdout.flush()
+        sys.stderr.flush()
+        if isinstance(result, dict):
+            for key, value in result.items():
+                print(f"   - {key}: {value} (타입: {type(value)})", flush=True)
         
-        if result.get("Status") != "Error":
-            # 인증 요청 성공 - 하지만 아직 실제 인증은 완료되지 않은 상태
+        # 틸코 API 응답에 따른 분기 처리
+        tilko_status = result.get("Status")
+        cx_id = result.get("ResultData", {}).get("CxId") if result.get("ResultData") else None
+        print(f"🚨 [틸코검증] 틸코 Status 확인: '{tilko_status}'")
+        print(f"🚨 [틸코검증] CxId 확인: '{cx_id}'")
+        
+        if tilko_status == "OK" and cx_id is not None:
+            # 인증 요청 성공 - CxId가 존재하므로 카카오톡 메시지 발송됨
+            print(f"✅ [틸코성공] 카카오톡 인증 메시지 발송 성공 - CxId: {cx_id}")
+            
             # 인증 데이터를 임시 저장 (사용자가 실제 인증 완료 시까지)
+            session_data = session_manager.get_session(session_id)
+            user_info = session_data.get("user_info", {})
+            
             temp_auth_data = {
-                "cxId": result.get("ResultData", {}).get("CxId", ""),
-                "privateAuthType": "0",
+                "cxId": cx_id,
+                "privateAuthType": user_info.get("private_auth_type", "0"),
                 "reqTxId": result.get("ResultData", {}).get("ReqTxId", ""),
                 "token": result.get("ResultData", {}).get("Token", ""),
-                "txId": result.get("ResultData", {}).get("TxId", "")
+                "txId": result.get("ResultData", {}).get("TxId", ""),
+                "userName": result.get("ResultData", {}).get("UserName", user_info.get("name", "")),
+                "birthDate": result.get("ResultData", {}).get("BirthDate", user_info.get("birthdate", "")),
+                "userCellphoneNumber": result.get("ResultData", {}).get("UserCellphoneNumber", user_info.get("phone_no", ""))
             }
             
             # 임시 인증 데이터 저장 (완료되지 않은 상태)
-            session_data = session_manager.get_session(session_id)
             session_data["temp_auth_data"] = temp_auth_data
             session_manager._save_session(session_id, session_data)
             
@@ -222,16 +276,57 @@ async def session_simple_auth(
                 "카카오톡에서 인증을 진행해주세요. 인증 완료를 기다리고 있습니다..."
             )
             
+            # 세션 연장 (활동 감지) - 5분 연장
+            session_manager.extend_session(session_id, 300)
+            
+            # 실시간 스트리밍 알림 - 틸코 키값 수신
+            try:
+                from .websocket_auth import notify_tilko_key_received, notify_auth_waiting, notify_session_extended
+                print(f"🔔 [스트리밍] WebSocket 알림 시작 - 세션: {session_id}, CxId: {cx_id}")
+                
+                await notify_tilko_key_received(session_id, cx_id)
+                print(f"✅ [스트리밍] 틸코 키 수신 알림 완료")
+                
+                await notify_auth_waiting(session_id)
+                print(f"✅ [스트리밍] 인증 대기 알림 완료")
+                
+                await notify_session_extended(session_id, 30)
+                print(f"✅ [스트리밍] 세션 연장 알림 완료")
+                
+            except Exception as e:
+                import traceback
+                print(f"⚠️ [스트리밍] WebSocket 알림 실패: {e}")
+                print(f"⚠️ [스트리밍] 상세 에러: {traceback.format_exc()}")
+                print(f"⚠️ [스트리밍] 실패 위치 - 세션: {session_id}, CxId: {cx_id}")
+            
+            # 백엔드 자동 폴링 비활성화 - 사용자 수동 트리거 방식 사용
+            # background_tasks.add_task(streaming_auth_monitor, session_id)  # 비활성화
+            
             return {
                 "success": True,
                 "session_id": session_id,
                 "message": "카카오 간편인증이 요청되었습니다. 카카오톡에서 인증을 진행해주세요.",
                 "next_step": "wait_for_auth"
             }
-        else:
-            error_msg = result.get("Message", "인증 요청 실패")
+        elif tilko_status == "OK" and cx_id is None:
+            # 틸코 API는 성공했지만 CxId가 없음 - 카카오톡 미연동 사용자
+            error_msg = "카카오톡이 연동되지 않은 사용자입니다. 카카오톡 설치 및 본인인증을 확인해주세요."
+            print(f"⚠️ [틸코경고] CxId가 null - 카카오톡 미연동: {user_info['name']}")
+            
             session_manager.add_error_message(session_id, error_msg)
+            session_manager.update_session_status(session_id, "error", error_msg)
+            
             raise HTTPException(status_code=400, detail=error_msg)
+        else:
+            # 틸코 API 에러 처리
+            error_code = result.get("ErrorCode", "알 수 없음")
+            error_msg = result.get("Message", "인증 요청 실패")
+            print(f"❌ [틸코에러] ErrorCode: {error_code}, Message: {error_msg}")
+            
+            session_manager.add_error_message(session_id, f"틸코 API 에러 ({error_code}): {error_msg}")
+            session_manager.update_session_status(session_id, "error", f"틸코 API 에러: {error_msg}")
+            
+            raise HTTPException(status_code=400, detail=f"틸코 API 에러 ({error_code}): {error_msg}")
             
     except HTTPException:
         raise
@@ -245,16 +340,63 @@ async def session_simple_auth(
 @router.get("/session/status/{session_id}")
 async def get_session_status(session_id: str) -> Dict[str, Any]:
     """
-    세션 상태 조회
+    세션 상태 조회 - 인증 완료 여부 및 다음 단계 안내 포함
     """
     try:
-        status = session_manager.get_session_status(session_id)
-        if not status:
+        session_data = session_manager.get_session(session_id)
+        if not session_data:
             raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+        
+        # 임시 인증 데이터가 있는 경우 실제 인증 완료 여부 확인
+        temp_auth_data = session_data.get("temp_auth_data")
+        auth_completed = False
+        next_step = "unknown"
+        
+        if temp_auth_data and temp_auth_data.get("cxId"):
+            print(f"🔍 [인증확인] 세션 {session_id}의 인증 완료 여부 확인 중...")
+            
+            # 틸코 API로 실제 인증 완료 여부 확인
+            try:
+                from ....utils.tilko_utils import check_auth_status
+                auth_result = await check_auth_status(
+                    temp_auth_data.get("cxId"),
+                    temp_auth_data.get("txId")
+                )
+                
+                print(f"🔍 [인증확인] 틸코 응답: {auth_result}")
+                
+                # 인증이 완료되었는지 확인 (틸코 응답에 따라 조건 조정 필요)
+                if auth_result.get("Status") == "OK" and auth_result.get("ResultData"):
+                    print(f"✅ [인증완료] 사용자 인증 완료 감지!")
+                    session_manager.update_session_status(session_id, "auth_completed", "인증이 완료되었습니다.")
+                    auth_completed = True
+                    next_step = "collect_health_data"
+                else:
+                    next_step = "wait_for_auth"
+            except Exception as e:
+                print(f"⚠️ [인증확인] 틸코 API 호출 실패: {e}")
+                # 에러 시 기존 로직 사용
+                if session_data.get("status") == "auth_completed":
+                    auth_completed = True
+                    next_step = "collect_health_data"
+                else:
+                    next_step = "wait_for_auth"
         
         return {
             "success": True,
-            "data": status
+            "session_id": session_id,
+            "status": session_data.get("status", "unknown"),
+            "auth_completed": auth_completed,
+            "next_step": next_step,
+            "progress": session_data.get("progress", {}),
+            "messages": session_data.get("messages", []),
+            "user_info": session_data.get("user_info", {}),
+            "temp_auth_data": {
+                "has_cxid": bool(temp_auth_data and temp_auth_data.get("cxId")),
+                "cxid": temp_auth_data.get("cxId") if temp_auth_data else None
+            } if temp_auth_data else None,
+            "created_at": session_data.get("created_at"),
+            "updated_at": session_data.get("updated_at")
         }
     except HTTPException:
         raise
@@ -701,3 +843,557 @@ async def get_session_stats() -> Dict[str, Any]:
             status_code=500,
             detail=f"세션 통계 조회 중 오류가 발생했습니다: {str(e)}"
         )
+
+
+# 새로운 폴링용 엔드포인트들
+@router.get("/session/{session_id}/status")
+async def get_session_status_for_polling(session_id: str):
+    """세션 상태 조회 (폴링용)"""
+    print(f"📊 [틸코API] 세션 상태 조회 - 세션: {session_id}")
+    
+    # 세션 데이터 조회
+    session_data = session_manager.get_session(session_id)
+    if not session_data:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
+    
+    return {
+        "success": True,
+        "session_id": session_id,
+        "status": session_data.get("status", "unknown"),
+        "progress": session_data.get("progress", {}),
+        "messages": session_data.get("messages", [])[-3:],  # 최근 3개 메시지만
+        "updated_at": session_data.get("updated_at"),
+        "user_name": session_data.get("user_info", {}).get("name", "")
+    }
+
+
+@router.post("/session/{session_id}/collect-data")
+async def collect_data_unified(session_id: str, background_tasks: BackgroundTasks):
+    """통합 데이터 수집 API (자동 폴링용)"""
+    try:
+        session_data = session_manager.get_session(session_id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+        
+        # temp_auth_data를 auth_data로 변환 (인증 완료 상태로 전환)
+        temp_auth_data = session_data.get("temp_auth_data")
+        if not temp_auth_data:
+            raise HTTPException(status_code=400, detail="인증 데이터가 없습니다.")
+        
+        # auth_data 생성
+        auth_data = {
+            "CxId": temp_auth_data.get("cxId"),
+            "PrivateAuthType": temp_auth_data.get("privateAuthType", "0"),
+            "ReqTxId": temp_auth_data.get("reqTxId"),
+            "Token": temp_auth_data.get("token"),
+            "TxId": temp_auth_data.get("txId")
+        }
+        session_data["auth_data"] = auth_data
+        session_manager._save_session(session_id, session_data)
+        
+        # 백그라운드에서 데이터 수집 (기존 함수 사용)
+        background_tasks.add_task(collect_health_data_background_task, session_id)
+        
+        return {
+            "success": True,
+            "message": "데이터 수집을 시작했습니다.",
+            "session_id": session_id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ [통합수집] 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"데이터 수집 중 오류가 발생했습니다: {str(e)}")
+
+@router.post("/session/{session_id}/manual-auth-complete")
+async def manual_auth_complete(session_id: str) -> Dict[str, Any]:
+    """수동으로 인증 완료 상태로 변경 (디버깅용)"""
+    try:
+        session_data = session_manager.get_session(session_id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+        
+        print(f"🔧 [수동인증완료] 세션 {session_id}를 인증 완료 상태로 변경")
+        
+        # 세션 상태를 인증 완료로 변경
+        session_manager.update_session_status(session_id, "auth_completed", "수동으로 인증 완료 처리되었습니다.")
+        session_manager.add_error_message(session_id, "인증이 완료되었습니다. 건강검진 데이터를 수집할 수 있습니다.")
+        
+        # temp_auth_data를 실제 auth_data로 변환
+        temp_auth_data = session_data.get("temp_auth_data", {})
+        if temp_auth_data:
+            auth_data = {
+                "CxId": temp_auth_data.get("cxId"),
+                "PrivateAuthType": temp_auth_data.get("privateAuthType", "0"),
+                "ReqTxId": temp_auth_data.get("reqTxId"),
+                "Token": temp_auth_data.get("token"),
+                "TxId": temp_auth_data.get("txId")
+            }
+            session_data["auth_data"] = auth_data
+            session_manager._save_session(session_id, session_data)
+        
+        return {
+            "success": True,
+            "session_id": session_id,
+            "message": "인증 완료 상태로 변경되었습니다.",
+            "next_step": "collect_health_data"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"수동 인증 완료 처리 중 오류: {str(e)}")
+
+@router.post("/session/{session_id}/collect-health-data")
+async def start_health_data_collection(session_id: str, background_tasks: BackgroundTasks):
+    """건강정보 수집 시작"""
+    print(f"🏥 [틸코API] 건강정보 수집 시작 - 세션: {session_id}")
+    
+    # 세션 데이터 조회
+    session_data = session_manager.get_session(session_id)
+    if not session_data:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
+    
+    # 인증 완료 상태인지 확인
+    if session_data.get("status") not in ["authenticated", "auth_completed"]:
+        raise HTTPException(status_code=400, detail=f"인증이 완료되지 않았습니다. 현재 상태: {session_data.get('status')}")
+    
+    # 세션 상태 업데이트
+    session_manager.update_session_status(session_id, "fetching_health_data", "건강검진 데이터를 수집하고 있습니다...")
+    
+    try:
+        # 백그라운드에서 건강정보 수집 시작
+        background_tasks.add_task(collect_health_data_background_task, session_id)
+        
+        return {
+            "success": True,
+            "message": "건강정보 수집을 시작했습니다.",
+            "session_id": session_id,
+            "status": "fetching_health_data"
+        }
+        
+    except Exception as e:
+        error_msg = f"건강정보 수집 시작 중 오류 발생: {str(e)}"
+        print(f"❌ [틸코API] {error_msg}")
+        session_manager.add_error_message(session_id, error_msg)
+        session_manager.update_session_status(session_id, "error", error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
+async def collect_health_data_background_task(session_id: str):
+    """건강정보 수집 백그라운드 작업 (실제 Tilko API 호출)"""
+    try:
+        print(f"🔄 [백그라운드] 실제 건강정보 수집 시작 - 세션: {session_id}")
+        
+        session_data = session_manager.get_session(session_id)
+        if not session_data:
+            return
+        
+        # 사용자 정보 가져오기
+        user_info = session_data.get("user_info")
+        if not user_info:
+            session_manager.add_error_message(session_id, "사용자 정보가 없습니다.")
+            return
+        
+        # 인증이 완료된 세션에서 auth_data 가져오기 (simple-auth 완료 시 설정됨)
+        auth_data = session_data.get("auth_data")
+        
+        # 인증 데이터가 없으면 오류 처리 (실제 인증이 완료되어야만 진행)
+        if not auth_data:
+            error_msg = "인증이 완료되지 않았습니다. 카카오톡에서 인증을 먼저 완료해주세요."
+            session_manager.add_error_message(session_id, error_msg)
+            print(f"❌ [백그라운드] {error_msg}")
+            return
+        
+        # 데이터 수집 요청 준비 (대문자 키 사용)
+        request_login = {
+            "CxId": auth_data.get("CxId", ""),
+            "PrivateAuthType": auth_data.get("PrivateAuthType", user_info["private_auth_type"]),
+            "ReqTxId": auth_data.get("ReqTxId", ""),
+            "Token": auth_data.get("Token", ""),
+            "TxId": auth_data.get("TxId", ""),
+            "UserName": user_info["name"],
+            "BirthDate": user_info["birthdate"],
+            "UserCellphoneNumber": user_info["phone_no"]
+        }
+        
+        # 건강검진 데이터 수집
+        session_manager.update_session_status(
+            session_id,
+            "fetching_health_data", 
+            "건강검진 데이터를 수집하고 있습니다..."
+        )
+        
+        # 진행 상황 WebSocket 알림
+        try:
+            from app.api.v1.endpoints.websocket_auth import notify_streaming_status
+            await notify_streaming_status(
+                session_id,
+                "fetching_health_data", 
+                "건강검진 데이터를 수집하고 있습니다..."
+            )
+        except Exception as e:
+            print(f"⚠️ [백그라운드] 건강검진 진행 알림 실패: {e}")
+        
+        try:
+            print(f"🏥 [백그라운드] === 건강검진 데이터 API 호출 시작 ===")
+            print(f"🏥 [백그라운드] 인증 정보 - CxId: {auth_data.get('CxId', '')[:10]}...")
+            print(f"🏥 [백그라운드] 사용자: {user_info['name']}")
+            
+            health_data = await get_health_screening_data(request_login)
+            
+            if health_data.get("Status") == "Error":
+                error_msg = health_data.get("Message", "건강검진 데이터 수집 실패")
+                session_manager.add_error_message(session_id, f"건강검진 데이터 오류: {error_msg}")
+                print(f"❌ [백그라운드] 건강검진 데이터 오류: {error_msg}")
+            else:
+                session_manager.update_health_data(session_id, health_data)
+                print(f"✅ [백그라운드] 건강검진 데이터 수집 성공")
+                print(f"✅ [백그라운드] JSON 파일 저장 완료")
+                
+        except Exception as e:
+            session_manager.add_error_message(session_id, f"건강검진 데이터 수집 실패: {str(e)}")
+            print(f"❌ [백그라운드] 건강검진 데이터 수집 실패: {str(e)}")
+            return
+        
+        # 처방전 데이터 수집
+        session_manager.update_session_status(
+            session_id,
+            "fetching_prescription_data",
+            "처방전 데이터를 수집하고 있습니다..."
+        )
+        
+        # 진행 상황 WebSocket 알림
+        try:
+            await notify_streaming_status(
+                session_id,
+                "fetching_prescription_data", 
+                "처방전 데이터를 수집하고 있습니다..."
+            )
+        except Exception as e:
+            print(f"⚠️ [백그라운드] 처방전 진행 알림 실패: {e}")
+        
+        try:
+            print(f"💊 [백그라운드] === 처방전 데이터 API 호출 시작 ===")
+            print(f"💊 [백그라운드] 동일한 인증 정보 재사용 - CxId: {auth_data.get('CxId', '')[:10]}...")
+            print(f"💊 [백그라운드] 사용자: {user_info['name']}")
+            
+            prescription_data = await get_prescription_data(request_login)
+            
+            if prescription_data.get("Status") == "Error":
+                error_msg = prescription_data.get("Message", "처방전 데이터 수집 실패")
+                session_manager.add_error_message(session_id, f"처방전 데이터 오류: {error_msg}")
+                print(f"❌ [백그라운드] 처방전 데이터 오류: {error_msg}")
+            else:
+                session_manager.update_prescription_data(session_id, prescription_data)
+                print(f"✅ [백그라운드] 처방전 데이터 수집 성공")
+                print(f"✅ [백그라운드] JSON 파일 저장 완료")
+                
+        except Exception as e:
+            session_manager.add_error_message(session_id, f"처방전 데이터 수집 실패: {str(e)}")
+            print(f"❌ [백그라운드] 처방전 데이터 수집 실패: {str(e)}")
+        
+        # 모든 데이터 수집 완료
+        session_manager.complete_session(session_id)
+        print(f"✅ [백그라운드] 모든 건강정보 수집 완료 - 세션: {session_id}")
+        
+        # 완료 알림 전송
+        try:
+            from app.api.v1.endpoints.websocket_auth import notify_completion
+            
+            # 수집된 데이터 가져오기
+            final_session_data = session_manager.get_session(session_id)
+            collected_data = {
+                "health_data": final_session_data.get("health_data"),
+                "prescription_data": final_session_data.get("prescription_data")
+            }
+            
+            await notify_completion(session_id, collected_data)
+            print(f"✅ [백그라운드] 완료 알림 전송 완료 - 세션: {session_id}")
+            
+        except Exception as e:
+            print(f"⚠️ [백그라운드] 완료 알림 전송 실패: {e}")
+        
+    except Exception as e:
+        error_msg = f"건강정보 수집 백그라운드 작업 실패: {str(e)}"
+        print(f"❌ [백그라운드] {error_msg}")
+        session_manager.add_error_message(session_id, error_msg)
+        session_manager.update_session_status(session_id, "error", error_msg)
+
+
+async def auto_check_auth_status(session_id: str):
+    """
+    백그라운드에서 2초마다 인증 상태를 자동 체크하고 완료 시 상태 업데이트
+    """
+    import sys
+    max_attempts = 150  # 5분 (2초 * 150회)
+    attempt = 0
+    
+    print(f"🔄 [자동체크] 세션 {session_id} 인증 상태 자동 체크 시작", flush=True)
+    sys.stdout.flush()
+    sys.stderr.flush()
+    
+    try:
+        while attempt < max_attempts:
+            attempt += 1
+            
+            # 세션 데이터 조회
+            session_data = session_manager.get_session(session_id)
+            if not session_data:
+                print(f"❌ [자동체크] 세션 {session_id} 없음 - 체크 중단")
+                break
+            
+            # 이미 인증 완료된 경우 체크 중단
+            current_status = session_data.get("status", "")
+            if current_status in ["auth_completed", "authenticated", "error"]:
+                print(f"✅ [자동체크] 세션 {session_id} 이미 완료됨 (상태: {current_status}) - 체크 중단")
+                break
+            
+            # temp_auth_data 확인
+            temp_auth_data = session_data.get("temp_auth_data")
+            if not temp_auth_data or not temp_auth_data.get("cxId"):
+                print(f"⚠️ [자동체크] 세션 {session_id} 인증 데이터 없음 - 체크 중단")
+                break
+            
+            print(f"🔍 [자동체크] 세션 {session_id} 인증 상태 확인 중... (시도 {attempt}/{max_attempts})")
+            
+            try:
+                # 틸코 API로 인증 상태 확인
+                auth_result = await check_auth_status(
+                    temp_auth_data.get("cxId"),
+                    temp_auth_data.get("txId", "")
+                )
+                
+                print(f"🔍 [자동체크] 틸코 응답: Status={auth_result.get('Status')}")
+                
+                # 인증 완료 확인
+                if auth_result.get("Status") == "OK" and auth_result.get("ResultData"):
+                    print(f"✅ [자동체크] 세션 {session_id} 인증 완료 감지!")
+                    
+                    # 세션 상태를 auth_completed로 변경
+                    session_manager.update_session_status(
+                        session_id, 
+                        "auth_completed", 
+                        "인증이 완료되었습니다. 건강검진 데이터를 수집할 수 있습니다."
+                    )
+                    
+                    # WebSocket으로 클라이언트에 즉시 알림
+                    try:
+                        from .websocket_auth import notify_auth_completed
+                        await notify_auth_completed(session_id, auth_data)
+                    except Exception as e:
+                        print(f"⚠️ [자동체크] WebSocket 알림 실패: {e}")
+                    
+                    # temp_auth_data를 auth_data로 변환
+                    auth_data = {
+                        "CxId": temp_auth_data.get("cxId"),
+                        "PrivateAuthType": temp_auth_data.get("privateAuthType", "0"),
+                        "ReqTxId": temp_auth_data.get("reqTxId"),
+                        "Token": temp_auth_data.get("token"),
+                        "TxId": temp_auth_data.get("txId")
+                    }
+                    
+                    # Redis에서 직접 auth_data 업데이트
+                    session_data = session_manager.get_session(session_id)
+                    if session_data:
+                        session_data["auth_data"] = auth_data
+                        session_data["progress"]["auth_completed"] = True
+                        session_manager._save_session(session_id, session_data)
+                    
+                    print(f"🎉 [자동체크] 세션 {session_id} 인증 완료 처리 완료!")
+                    break
+                    
+            except Exception as e:
+                print(f"⚠️ [자동체크] 틸코 API 호출 실패: {e}")
+            
+            # 2초 대기
+            await asyncio.sleep(2)
+        
+        # 최대 시도 횟수 도달 시
+        if attempt >= max_attempts:
+            print(f"⏰ [자동체크] 세션 {session_id} 타임아웃 (5분 경과)")
+            session_manager.add_error_message(
+                session_id, 
+                "인증 시간이 초과되었습니다. 다시 시도해주세요."
+            )
+            
+    except Exception as e:
+        print(f"❌ [자동체크] 세션 {session_id} 체크 중 오류: {e}")
+        session_manager.add_error_message(session_id, f"인증 상태 체크 오류: {str(e)}")
+
+
+async def streaming_auth_monitor(session_id: str):
+    """
+    실시간 스트리밍 인증 모니터링
+    - 백엔드에서 틸코 인증 완료까지 폴링 (10초 제한)
+    - 2초마다 인증 완료 여부 확인
+    - 완료되면 즉시 데이터 수집 시작
+    - 모든 과정을 WebSocket으로 실시간 스트리밍
+    """
+    import sys
+    import asyncio
+    max_attempts = 5  # 10초 (2초 * 5회) - 빠른 인증 체크
+    attempt = 0
+    
+    print(f"🎬 [스트리밍모니터] 세션 {session_id} 실시간 모니터링 시작 (10초 제한)", flush=True)
+    sys.stdout.flush()
+    
+    try:
+        while attempt < max_attempts:
+            attempt += 1
+            
+            # 세션 만료 확인
+            if session_manager.is_session_expired(session_id):
+                print(f"⏰ [스트리밍모니터] 세션 {session_id} 만료됨 - 모니터링 중단")
+                break
+            
+            session_data = session_manager.get_session(session_id)
+            if not session_data:
+                print(f"❌ [스트리밍모니터] 세션 {session_id} 없음 - 모니터링 중단")
+                break
+            
+            current_status = session_data.get("status", "")
+            if current_status in ["auth_completed", "authenticated", "error", "completed"]:
+                print(f"✅ [스트리밍모니터] 세션 {session_id} 이미 완료됨 (상태: {current_status}) - 모니터링 중단")
+                break
+            
+            temp_auth_data = session_data.get("temp_auth_data")
+            if not temp_auth_data or not temp_auth_data.get("cxId"):
+                print(f"⚠️ [스트리밍모니터] 세션 {session_id} 인증 데이터 없음 - 모니터링 중단")
+                break
+            
+            print(f"🔍 [스트리밍모니터] 세션 {session_id} 인증 상태 확인 중... (시도 {attempt}/{max_attempts}) - 2초 간격")
+            
+            try:
+                # 실제 건강검진 API 호출로 인증 완료 여부 판단
+                from app.utils.tilko_utils import get_health_screening_data
+                
+                # user_info에서 필요한 데이터 추출
+                user_info = session_data.get("user_info", {})
+                
+                auth_data = {
+                    "CxId": temp_auth_data.get("cxId"),
+                    "PrivateAuthType": temp_auth_data.get("privateAuthType") or user_info.get("private_auth_type", "0"),
+                    "ReqTxId": temp_auth_data.get("reqTxId"),
+                    "Token": temp_auth_data.get("token"),
+                    "TxId": temp_auth_data.get("txId"),
+                    "UserName": temp_auth_data.get("userName") or user_info.get("name", ""),
+                    "BirthDate": temp_auth_data.get("birthDate") or user_info.get("birthdate", ""),
+                    "UserCellphoneNumber": temp_auth_data.get("userCellphoneNumber") or user_info.get("phone_no", "")
+                }
+                
+                health_result = await get_health_screening_data(auth_data)
+                
+                print(f"🔍 [스트리밍모니터] 건강검진 API 응답: Status={health_result.get('Status')}")
+                
+                # 인증 완료 여부 판단
+                if health_result.get("Status") == "OK":
+                    # 인증 완료 및 데이터 수집 성공
+                    print(f"✅ [스트리밍모니터] 세션 {session_id} 인증 완료 감지!")
+                    
+                    # 세션 연장 (데이터 수집 시간 확보)
+                    session_manager.extend_session(session_id, 60)  # 1분 연장
+                    
+                    # 세션 상태 업데이트
+                    session_manager.update_session_status(
+                        session_id,
+                        "auth_completed",
+                        "인증이 완료되었습니다. 데이터를 수집하고 있습니다..."
+                    )
+                    
+                    # 실시간 알림
+                    try:
+                        from .websocket_auth import (
+                            notify_auth_completed, 
+                            notify_data_extracting, 
+                            notify_session_extended,
+                            notify_completion
+                        )
+                        
+                        await notify_auth_completed(session_id, auth_data)
+                        await notify_session_extended(session_id, 60)
+                        await notify_data_extracting(session_id, "건강검진")
+                        
+                    except Exception as e:
+                        print(f"⚠️ [스트리밍모니터] WebSocket 알림 실패: {e}")
+                    
+                    # 건강검진 데이터 저장
+                    session_manager.update_health_data(session_id, health_result)
+                    
+                    # 처방전 데이터 수집
+                    try:
+                        await notify_data_extracting(session_id, "처방전")
+                        
+                        from app.utils.tilko_utils import get_prescription_data
+                        prescription_result = await get_prescription_data(auth_data)
+                        
+                        if prescription_result.get("Status") == "OK":
+                            session_manager.update_prescription_data(session_id, prescription_result)
+                            print(f"✅ [스트리밍모니터] 처방전 데이터 수집 완료")
+                        else:
+                            print(f"⚠️ [스트리밍모니터] 처방전 데이터 수집 실패: {prescription_result.get('Message', 'Unknown')}")
+                            
+                    except Exception as e:
+                        print(f"❌ [스트리밍모니터] 처방전 데이터 수집 오류: {e}")
+                    
+                    # 최종 완료 처리
+                    session_manager.complete_session(session_id)
+                    
+                    # 수집된 데이터 정리
+                    final_session_data = session_manager.get_session(session_id)
+                    collected_data = {
+                        "health_data": final_session_data.get("health_data"),
+                        "prescription_data": final_session_data.get("prescription_data")
+                    }
+                    
+                    # 완료 알림
+                    try:
+                        await notify_completion(session_id, collected_data)
+                    except Exception as e:
+                        print(f"⚠️ [스트리밍모니터] 완료 알림 실패: {e}")
+                    
+                    print(f"🎉 [스트리밍모니터] 세션 {session_id} 전체 프로세스 완료!")
+                    break
+                    
+                elif health_result.get("Status") == "Error":
+                    # 인증 미완료 상태 (정상적인 대기 상태)
+                    error_msg = health_result.get("ErrMsg", "")
+                    if "간편인증 로그인 요청이 실패" in error_msg or "인증을 진행할 수 없습니다" in error_msg:
+                        print(f"⏳ [스트리밍모니터] 인증 대기 중... (사용자가 아직 카카오톡에서 인증하지 않음)")
+                    else:
+                        print(f"⚠️ [스트리밍모니터] 인증 에러: {error_msg}")
+                else:
+                    print(f"⏳ [스트리밍모니터] 아직 인증 미완료 (Status: {health_result.get('Status')})")
+                    
+            except Exception as e:
+                print(f"⚠️ [스트리밍모니터] API 호출 실패: {e}")
+                # 네트워크 에러 등은 계속 재시도
+            
+            # 2초 대기 (빠른 체크)
+            await asyncio.sleep(2)
+        
+        # 타임아웃 처리
+        if attempt >= max_attempts:
+            print(f"⏰ [스트리밍모니터] 세션 {session_id} 타임아웃 (10초 경과)")
+            session_manager.add_error_message(
+                session_id,
+                "인증 시간이 초과되었습니다 (10초). 다시 시도해주세요."
+            )
+            session_manager.update_session_status(session_id, "timeout", "인증 시간 초과")
+            
+            try:
+                from .websocket_auth import notify_timeout
+                await notify_timeout(session_id, "인증 시간이 초과되었습니다. 다시 시도해주세요.")
+            except Exception as e:
+                print(f"⚠️ [스트리밍모니터] 타임아웃 알림 실패: {e}")
+    
+    except Exception as e:
+        print(f"❌ [스트리밍모니터] 세션 {session_id} 모니터링 중 오류: {e}")
+        session_manager.add_error_message(session_id, f"모니터링 오류: {str(e)}")
+        
+        try:
+            from .websocket_auth import notify_error
+            await notify_error(session_id, f"시스템 오류가 발생했습니다: {str(e)}")
+        except Exception as notify_e:
+            print(f"⚠️ [스트리밍모니터] 오류 알림 실패: {notify_e}")

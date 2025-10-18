@@ -26,9 +26,9 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "PORT=9281 NODE_OPTIONS=\"--max-old-space-size=512\" react-scripts start",
-    "kill-port": "pkill -f 'react-scripts start' || lsof -ti:9281 | xargs kill -9 || true",
-    "dev": "npm run kill-port && PORT=9281 NODE_OPTIONS=\"--max-old-space-size=512\" react-scripts start",
+    "start": "PORT=9282 WDS_SOCKET_PORT=0 WDS_SOCKET_HOST=0.0.0.0 FAST_REFRESH=false GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true TSC_COMPILE_ON_ERROR=true SKIP_PREFLIGHT_CHECK=true NODE_OPTIONS=\"--max-old-space-size=512\" craco start",
+    "kill-port": "pkill -f 'react-scripts start' || lsof -ti:9282 | xargs kill -9 || true",
+    "dev": "npm run kill-port && PORT=9282 WDS_SOCKET_PORT=0 WDS_SOCKET_HOST=0.0.0.0 FAST_REFRESH=false GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true NODE_OPTIONS=\"--max-old-space-size=512\" react-scripts start",
     "build": "NODE_OPTIONS=\"--max-old-space-size=1024\" react-scripts build",
     "build-craco": "NODE_OPTIONS=\"--max-old-space-size=1024\" craco build",
     "test": "react-scripts test",

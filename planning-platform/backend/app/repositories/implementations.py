@@ -126,6 +126,9 @@ class PatientRepository:
         
         result = await db_manager.execute_one(query, (str(uuid),))
         if result:
+            print(f"🔍 [DEBUG] DB 조회 결과: {result}")
+            print(f"🔍 [DEBUG] hosnm 값: '{result['hosnm']}'")
+            
             # 나이 계산
             age = 0
             birth_date = None
@@ -145,7 +148,11 @@ class PatientRepository:
                 WHERE hospital_name = %s LIMIT 1
             """
             hospital_result = await db_manager.execute_one(hospital_query, (result['hosnm'],))
-            hospital_id = hospital_result['hospital_id'] if hospital_result else 'UNKNOWN'
+            hospital_id = hospital_result['hospital_id'] if hospital_result else result['hosnm']  # 직접 사용
+            
+            print(f"🔍 [DEBUG] 병원 쿼리 입력: '{result['hosnm']}'")
+            print(f"🔍 [DEBUG] 병원 매핑 결과: {hospital_result}")
+            print(f"🔍 [DEBUG] 최종 hospital_id: '{hospital_id}'")
             
             return Patient(
                 uuid=UUID(result['uuid']),
@@ -192,7 +199,11 @@ class PatientRepository:
                 WHERE hospital_name = %s LIMIT 1
             """
             hospital_result = await db_manager.execute_one(hospital_query, (result['hosnm'],))
-            hospital_id = hospital_result['hospital_id'] if hospital_result else 'UNKNOWN'
+            hospital_id = hospital_result['hospital_id'] if hospital_result else result['hosnm']  # 직접 사용
+            
+            print(f"🔍 [DEBUG] 병원 쿼리 입력: '{result['hosnm']}'")
+            print(f"🔍 [DEBUG] 병원 매핑 결과: {hospital_result}")
+            print(f"🔍 [DEBUG] 최종 hospital_id: '{hospital_id}'")
             
             return Patient(
                 uuid=UUID(result['uuid']),

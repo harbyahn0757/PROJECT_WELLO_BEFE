@@ -13,7 +13,7 @@ import {
 
 interface UseHealthDataStateOptions {
   initialYear?: number;
-  initialCategory?: ResultCategory;
+  initialCategory?: string;
 }
 
 export const useHealthDataState = (options: UseHealthDataStateOptions = {}) => {
@@ -72,10 +72,10 @@ export const useHealthDataState = (options: UseHealthDataStateOptions = {}) => {
           comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
           break;
         case 'hospital':
-          comparison = a.hospitalName.localeCompare(b.hospitalName);
+          comparison = (a.hospitalName || '').localeCompare(b.hospitalName || '');
           break;
         case 'status':
-          comparison = a.overallStatus.localeCompare(b.overallStatus);
+          comparison = (a.overallStatus || '').localeCompare(b.overallStatus || '');
           break;
         default:
           return 0;
@@ -97,7 +97,7 @@ export const useHealthDataState = (options: UseHealthDataStateOptions = {}) => {
           comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
           break;
         case 'hospital':
-          comparison = a.hospitalName.localeCompare(b.hospitalName);
+          comparison = (a.hospitalName || a.hospital || '').localeCompare(b.hospitalName || b.hospital || '');
           break;
         default:
           return 0;
@@ -208,7 +208,7 @@ export const useHealthDataState = (options: UseHealthDataStateOptions = {}) => {
    */
   const groupResultsByHospital = useCallback((results: CheckupResult[]) => {
     return results.reduce((groups, result) => {
-      const hospital = result.hospitalName;
+      const hospital = result.hospitalName || '기타';
       if (!groups[hospital]) {
         groups[hospital] = [];
       }
@@ -227,8 +227,8 @@ export const useHealthDataState = (options: UseHealthDataStateOptions = {}) => {
       normalResults: results.filter(r => r.overallStatus === '정상').length,
       abnormalResults: results.filter(r => r.overallStatus !== '정상').length,
       uniqueHospitals: new Set([
-        ...results.map(r => r.hospitalName),
-        ...prescriptions.map(p => p.hospitalName)
+        ...results.map(r => r.hospitalName || '기타'),
+        ...prescriptions.map(p => p.hospitalName || p.hospital || '기타')
       ]).size,
       latestCheckup: results.length > 0 
         ? results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]

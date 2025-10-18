@@ -27,7 +27,7 @@ class SecuritySettings(BaseModel):
 
 class CORSSettings(BaseModel):
     """CORS 관련 설정"""
-    allowed_origins: List[str] = Field(default=["http://localhost:9283"], env="CORS_ALLOWED_ORIGINS")
+    allowed_origins: str = Field(default="http://localhost:9283", env="CORS_ALLOWED_ORIGINS")
     allowed_methods: List[str] = Field(default=["*"], env="CORS_ALLOWED_METHODS")
     allowed_headers: List[str] = Field(default=["*"], env="CORS_ALLOWED_HEADERS")
 
@@ -95,7 +95,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = Field(default=20, env="ACCESS_TOKEN_EXPIRE_MINUTES")
     
     # CORS 설정
-    cors_allowed_origins: List[str] = Field(default=["http://localhost:9283"], env="CORS_ALLOWED_ORIGINS")
+    cors_allowed_origins: str = Field(default="http://localhost:9281", env="CORS_ALLOWED_ORIGINS")
     
     # 데이터베이스 설정
     DB_HOST: str = Field(default="localhost", env="DB_HOST")

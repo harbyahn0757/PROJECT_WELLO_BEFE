@@ -14,37 +14,33 @@ const getApiHost = (endpoint: 'local' | 'production' = 'local'): string => {
   return endpoint === 'local' ? API_HOSTS.LOCAL : API_HOSTS.PRODUCTION;
 };
 
-// Tilko API 엔드포인트
+// Tilko API 엔드포인트 (WELLO 전용 경로 - 상대경로 사용)
 export const TILKO_API = {
-  // 세션 관리
-  SESSION_START: (host: 'local' | 'production' = 'local') => 
-    `${getApiHost(host)}/api/v1/tilko/session/start`,
+  // 세션 관리 (절대경로 사용 - setupProxy/Nginx가 자동 라우팅)
+  SESSION_START: () => `/api/v1/wello/tilko/session/start`,
   
-  SESSION_STATUS: (sessionId: string, host: 'local' | 'production' = 'production') => 
-    `${getApiHost(host)}/api/v1/wello/tilko/session/${sessionId}/status`,
+  SESSION_STATUS: (sessionId: string) => `/api/v1/wello/tilko/session/${sessionId}/status`,
   
-  SESSION_CLEANUP_USER: (userName: string, host: 'local' | 'production' = 'local') => 
-    `${getApiHost(host)}/api/v1/tilko/session/cleanup-user/${encodeURIComponent(userName)}`,
+  SESSION_CLEANUP_USER: (userName: string) => `/api/v1/wello/tilko/session/cleanup-user/${encodeURIComponent(userName)}`,
   
-  SESSION_DELETE: (sessionId: string, host: 'local' | 'production' = 'production') => 
-    `${getApiHost(host)}/api/v1/wello/tilko/session/${sessionId}`,
+  SESSION_DELETE: (sessionId: string) => `/api/v1/wello/tilko/session/${sessionId}`,
   
-  SESSION_MESSAGES: (sessionId: string, host: 'local' | 'production' = 'production') => 
-    `${getApiHost(host)}/api/v1/wello/tilko/session/${sessionId}/messages`,
+  SESSION_MESSAGES: (sessionId: string) => `/api/v1/wello/tilko/session/${sessionId}/messages`,
+  
+  // 데이터 수집 (통합)
+  COLLECT_DATA: (sessionId: string) => `/api/v1/wello/tilko/session/${sessionId}/collect-data`,
   
   // 인증
-  SIMPLE_AUTH: (sessionId: string, host: 'local' | 'production' = 'local') => 
-    `${getApiHost(host)}/api/v1/tilko/session/simple-auth?session_id=${sessionId}`,
+  SIMPLE_AUTH: (sessionId: string) => `/api/v1/wello/tilko/session/simple-auth?session_id=${sessionId}`,
   
   // 데이터 수집
-  COLLECT_HEALTH_DATA: (sessionId: string, host: 'local' | 'production' = 'production') => 
-    `${getApiHost(host)}/api/v1/wello/tilko/session/${sessionId}/collect-health-data`
+  COLLECT_HEALTH_DATA: (sessionId: string) => `/api/v1/wello/tilko/session/${sessionId}/collect-health-data`
 } as const;
 
-// 기타 API 엔드포인트
+// 기타 API 엔드포인트 (WELLO 전용 경로)
 export const API_ENDPOINTS = {
-  PATIENT_DATA: (patientId: string) => `/api/v1/patients/${patientId}`,
-  HEALTH_RECORDS: (patientId: string) => `/api/v1/patients/${patientId}/health-records`
+  PATIENT_DATA: (patientId: string) => `/api/v1/wello/patients/${patientId}`,
+  HEALTH_RECORDS: (patientId: string) => `/api/v1/wello/patients/${patientId}/health-records`
 } as const;
 
 // HTTP 메서드 상수

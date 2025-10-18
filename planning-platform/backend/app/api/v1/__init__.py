@@ -3,7 +3,7 @@ API v1 패키지
 """
 
 from fastapi import APIRouter
-from .endpoints import patients, hospitals, checkup_design, health, auth, surveys, kakao_auth, checkup_records, health_connect, tilko_auth
+from .endpoints import patients, hospitals, checkup_design, health, auth, surveys, kakao_auth, checkup_records, tilko_auth, websocket_auth
 
 api_router = APIRouter()
 
@@ -58,14 +58,17 @@ api_router.include_router(
     tags=["checkup-records"]
 )
 
-api_router.include_router(
-    health_connect.router,
-    prefix="",
-    tags=["health-connect"]
-)
+# health_connect.router 제거됨 - 더미 서비스 사용
 
 api_router.include_router(
     tilko_auth.router,
     prefix="/tilko",
     tags=["tilko-auth"]
+)
+
+# WebSocket 라우터 별도 등록
+api_router.include_router(
+    websocket_auth.router,
+    prefix="/tilko",
+    tags=["websocket"]
 )
