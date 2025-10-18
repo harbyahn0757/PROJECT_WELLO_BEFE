@@ -1,0 +1,219 @@
+/**
+ * BarChart 스타일 - 단조로운 색상 팔레트 사용
+ */
+
+.wello-bar-chart {
+  width: 100%;
+  height: 100%;
+  position: relative;
+
+  &__svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  &__empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+  }
+
+  // 그리드 라인
+  &__grid-line {
+    stroke: var(--border-light);
+    stroke-width: 1;
+    stroke-dasharray: 2,2;
+    opacity: 0.5;
+  }
+
+  // 참조선
+  &__reference-lines {
+    .wello-bar-chart__reference-line {
+      stroke-width: 2;
+      stroke-dasharray: 4,4;
+      opacity: 0.7;
+
+      &--normal {
+        stroke: var(--color-success);
+      }
+
+      &--min {
+        stroke: var(--color-warning);
+      }
+
+      &--max {
+        stroke: var(--color-danger);
+      }
+    }
+  }
+
+  // 바 그룹
+  &__group {
+    .wello-bar-chart__bar {
+      transition: all 0.2s ease;
+      cursor: pointer;
+      stroke: var(--bg-primary);
+      stroke-width: 1;
+
+      &:hover {
+        opacity: 0.8;
+        stroke-width: 2;
+      }
+
+      // 건강 상태별 색상 오버라이드
+      &--normal {
+        fill: var(--color-success) !important;
+      }
+
+      &--warning {
+        fill: var(--color-warning) !important;
+      }
+
+      &--danger {
+        fill: var(--color-danger) !important;
+      }
+    }
+
+    .wello-bar-chart__value-label {
+      fill: var(--text-primary);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      font-family: var(--font-family-primary);
+      pointer-events: none;
+    }
+  }
+
+  // 축
+  &__x-axis,
+  &__y-axis {
+    .wello-bar-chart__axis-line {
+      stroke: var(--border-medium);
+      stroke-width: 1;
+    }
+
+    .wello-bar-chart__axis-label {
+      fill: var(--text-secondary);
+      font-size: var(--font-size-xs);
+      font-family: var(--font-family-primary);
+    }
+
+    .wello-bar-chart__axis-title {
+      fill: var(--text-primary);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      font-family: var(--font-family-primary);
+    }
+  }
+}
+
+// 툴팁 내용 스타일
+.wello-chart-tooltip {
+  &__title {
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: 4px;
+  }
+
+  &__label {
+    font-size: var(--font-size-xs);
+    opacity: 0.9;
+    margin-bottom: 2px;
+  }
+
+  &__value {
+    font-weight: var(--font-weight-medium);
+    margin-bottom: 4px;
+  }
+
+  &__date {
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+    margin-bottom: 2px;
+  }
+
+  &__location {
+    font-size: var(--font-size-xs);
+    opacity: 0.8;
+    margin-bottom: 2px;
+  }
+
+  &__status {
+    font-size: var(--font-size-xs);
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+    
+    &.status-normal {
+      background-color: var(--color-success);
+      color: var(--text-inverse);
+    }
+
+    &.status-warning {
+      background-color: var(--color-warning);
+      color: var(--text-inverse);
+    }
+
+    &.status-danger {
+      background-color: var(--color-danger);
+      color: var(--text-inverse);
+    }
+  }
+}
+
+// 반응형 조정
+@media (max-width: 768px) {
+  .wello-bar-chart {
+    &__x-axis,
+    &__y-axis {
+      .wello-bar-chart__axis-label {
+        font-size: 10px;
+      }
+    }
+
+    &__group {
+      .wello-bar-chart__value-label {
+        font-size: 10px;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .wello-bar-chart {
+    &__group {
+      .wello-bar-chart__value-label {
+        display: none; // 모바일에서는 값 라벨 숨김
+      }
+    }
+  }
+}
+
+// 접근성 개선
+@media (prefers-reduced-motion: reduce) {
+  .wello-bar-chart {
+    &__group {
+      .wello-bar-chart__bar {
+        transition: none;
+      }
+    }
+  }
+}
+
+// 고대비 모드 지원
+@media (prefers-contrast: high) {
+  .wello-bar-chart {
+    &__group {
+      .wello-bar-chart__bar {
+        stroke-width: 2;
+      }
+    }
+
+    &__reference-lines {
+      .wello-bar-chart__reference-line {
+        stroke-width: 3;
+      }
+    }
+  }
+}

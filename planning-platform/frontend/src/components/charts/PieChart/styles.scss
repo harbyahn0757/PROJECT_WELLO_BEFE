@@ -1,0 +1,216 @@
+/**
+ * PieChart 스타일 - 단조로운 색상 팔레트 사용
+ */
+
+.wello-pie-chart {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  &__svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  &__empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+  }
+
+  // 파이 슬라이스
+  &__slices {
+    .wello-pie-chart__slice {
+      cursor: pointer;
+      stroke: var(--bg-primary);
+      stroke-width: 2;
+      transition: all 0.3s ease;
+
+      &:hover,
+      &--hovered {
+        opacity: 0.9;
+        filter: brightness(1.1);
+      }
+    }
+
+    .wello-pie-chart__label {
+      fill: var(--text-inverse);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-semibold);
+      font-family: var(--font-family-primary);
+      pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+  }
+
+  // 중앙 텍스트 (도넛 차트)
+  &__center {
+    .wello-pie-chart__center-value {
+      fill: var(--text-primary);
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+      font-family: var(--font-family-primary);
+    }
+
+    .wello-pie-chart__center-label {
+      fill: var(--text-secondary);
+      font-size: var(--font-size-sm);
+      font-family: var(--font-family-primary);
+    }
+  }
+
+  // 범례
+  &__legend {
+    margin-top: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    width: 100%;
+    max-width: 300px;
+
+    @media (min-width: 768px) {
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: none;
+    }
+  }
+
+  &__legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: var(--transition-ease);
+
+    &:hover,
+    &--active {
+      background-color: var(--bg-secondary);
+    }
+
+    @media (min-width: 768px) {
+      flex: 1;
+      min-width: 150px;
+      justify-content: flex-start;
+    }
+  }
+
+  &__legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: var(--border-radius-sm);
+    flex-shrink: 0;
+  }
+
+  &__legend-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+    flex: 1;
+  }
+
+  &__legend-value {
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
+  }
+}
+
+// 툴팁 내용 스타일
+.wello-chart-tooltip {
+  &__title {
+    font-weight: var(--font-weight-semibold);
+    margin-bottom: 4px;
+  }
+
+  &__value {
+    font-weight: var(--font-weight-medium);
+    margin-bottom: 2px;
+  }
+
+  &__percentage {
+    font-size: var(--font-size-xs);
+    opacity: 0.9;
+  }
+}
+
+// 반응형 조정
+@media (max-width: 480px) {
+  .wello-pie-chart {
+    &__slices {
+      .wello-pie-chart__label {
+        font-size: 10px;
+      }
+    }
+
+    &__center {
+      .wello-pie-chart__center-value {
+        font-size: var(--font-size-lg);
+      }
+
+      .wello-pie-chart__center-label {
+        font-size: var(--font-size-xs);
+      }
+    }
+
+    &__legend {
+      margin-top: var(--spacing-sm);
+    }
+
+    &__legend-item {
+      padding: var(--spacing-xs) var(--spacing-sm);
+    }
+
+    &__legend-label {
+      font-size: var(--font-size-xs);
+    }
+
+    &__legend-value {
+      font-size: 10px;
+    }
+  }
+}
+
+// 접근성 개선
+@media (prefers-reduced-motion: reduce) {
+  .wello-pie-chart {
+    &__slices {
+      .wello-pie-chart__slice {
+        transition: none;
+      }
+    }
+
+    &__legend-item {
+      transition: none;
+    }
+  }
+}
+
+// 고대비 모드 지원
+@media (prefers-contrast: high) {
+  .wello-pie-chart {
+    &__slices {
+      .wello-pie-chart__slice {
+        stroke-width: 3;
+      }
+
+      .wello-pie-chart__label {
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        font-weight: var(--font-weight-bold);
+      }
+    }
+
+    &__legend-item {
+      border: 1px solid var(--border-medium);
+    }
+  }
+}

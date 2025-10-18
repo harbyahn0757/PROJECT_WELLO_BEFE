@@ -1,0 +1,413 @@
+/**
+ * HealthTrends 스타일 - 단조로운 색상 팔레트 사용
+ */
+
+.health-trends {
+  min-height: 100vh;
+  background-color: var(--color-background-primary);
+  padding: var(--spacing-md);
+
+  @media (min-width: 768px) {
+    padding: var(--spacing-lg);
+  }
+
+  // 로딩 상태
+  &--loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__loading {
+    text-align: center;
+    color: var(--color-text-secondary);
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--color-gray-200);
+      border-top: 3px solid var(--color-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto var(--spacing-md);
+    }
+
+    p {
+      font-size: var(--font-size-base);
+      margin: 0;
+    }
+  }
+
+  // 빈 상태
+  &--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__empty {
+    text-align: center;
+    max-width: 400px;
+    padding: var(--spacing-xl);
+
+    .empty-icon {
+      width: 80px;
+      height: 80px;
+      background-color: var(--color-gray-200);
+      border-radius: 50%;
+      margin: 0 auto var(--spacing-lg);
+    }
+
+    h2 {
+      font-size: var(--font-size-xl);
+      color: var(--color-text-primary);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    p {
+      font-size: var(--font-size-base);
+      color: var(--color-text-secondary);
+      margin-bottom: var(--spacing-lg);
+    }
+  }
+
+  // 헤더
+  &__header {
+    margin-bottom: var(--spacing-lg);
+  }
+
+  &__title {
+    .back-button {
+      background: none;
+      border: none;
+      color: var(--color-primary);
+      font-size: var(--font-size-base);
+      cursor: pointer;
+      margin-bottom: var(--spacing-sm);
+      padding: var(--spacing-xs) 0;
+      transition: var(--transition-ease);
+
+      &:hover {
+        color: var(--color-primary-dark);
+      }
+    }
+
+    h1 {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      margin: 0 0 var(--spacing-xs) 0;
+
+      @media (max-width: 768px) {
+        font-size: var(--font-size-xl);
+      }
+    }
+
+    p {
+      font-size: var(--font-size-base);
+      color: var(--color-text-secondary);
+      margin: 0;
+    }
+  }
+
+  // 컨트롤 섹션
+  &__controls {
+    background-color: var(--color-gray-0);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border);
+  }
+
+  &__filters {
+    margin-bottom: var(--spacing-lg);
+  }
+
+  &__metrics {
+    h3 {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0 0 var(--spacing-md) 0;
+    }
+
+    .metric-selector {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--spacing-sm);
+
+      @media (max-width: 768px) {
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      }
+    }
+
+    .metric-checkbox {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+      cursor: pointer;
+      padding: var(--spacing-xs);
+      border-radius: var(--border-radius-sm);
+      transition: var(--transition-ease);
+
+      &:hover {
+        background-color: var(--color-background-secondary);
+      }
+
+      input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--color-primary);
+      }
+
+      &__label {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-primary);
+        user-select: none;
+      }
+    }
+  }
+
+  // 추이 분석 결과
+  &__analysis {
+    margin-bottom: var(--spacing-xl);
+
+    h3 {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0 0 var(--spacing-md) 0;
+    }
+
+    .trend-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: var(--spacing-md);
+
+      @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .trend-card {
+      background-color: var(--color-gray-0);
+      border-radius: var(--border-radius-lg);
+      padding: var(--spacing-md);
+      box-shadow: var(--shadow-sm);
+      border-left: 4px solid var(--color-gray-300);
+
+      &--improving {
+        border-left-color: var(--color-success);
+      }
+
+      &--stable {
+        border-left-color: var(--color-gray-500);
+      }
+
+      &--declining {
+        border-left-color: var(--color-warning);
+      }
+
+      &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--spacing-sm);
+
+        h4 {
+          font-size: var(--font-size-base);
+          font-weight: var(--font-weight-semibold);
+          color: var(--color-text-primary);
+          margin: 0;
+        }
+
+        .trend-indicator {
+          display: flex;
+          align-items: center;
+          gap: var(--spacing-xs);
+          font-size: var(--font-size-sm);
+          font-weight: var(--font-weight-medium);
+
+          &--improving {
+            color: var(--color-success);
+          }
+
+          &--stable {
+            color: var(--color-gray-500);
+          }
+
+          &--declining {
+            color: var(--color-warning);
+          }
+        }
+      }
+
+      &__recommendation {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        line-height: var(--line-height-normal);
+        margin: 0;
+      }
+    }
+  }
+
+  // 차트 섹션
+  &__charts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
+
+    .chart-section {
+      background-color: var(--color-gray-0);
+      border-radius: var(--border-radius-lg);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--color-border);
+      overflow: hidden;
+    }
+  }
+
+  // 건강 관리 팁
+  &__tips {
+    h3 {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0 0 var(--spacing-md) 0;
+    }
+
+    .tip-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--spacing-md);
+
+      @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .tip-card {
+      background-color: var(--color-gray-0);
+      border-radius: var(--border-radius-lg);
+      padding: var(--spacing-md);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--color-border);
+      display: flex;
+      align-items: flex-start;
+      gap: var(--spacing-md);
+
+      &__icon {
+        width: 48px;
+        height: 48px;
+        border-radius: var(--border-radius-md);
+        flex-shrink: 0;
+
+        &--diet {
+          background-color: var(--color-success);
+        }
+
+        &--exercise {
+          background-color: var(--color-primary);
+        }
+
+        &--checkup {
+          background-color: var(--color-gray-500);
+        }
+      }
+
+      &__content {
+        flex: 1;
+        min-width: 0;
+
+        h4 {
+          font-size: var(--font-size-base);
+          font-weight: var(--font-weight-semibold);
+          color: var(--color-text-primary);
+          margin: 0 0 var(--spacing-xs) 0;
+        }
+
+        p {
+          font-size: var(--font-size-sm);
+          color: var(--color-text-secondary);
+          line-height: var(--line-height-normal);
+          margin: 0;
+        }
+      }
+    }
+  }
+}
+
+// 애니메이션
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// 반응형 조정
+@media (max-width: 480px) {
+  .health-trends {
+    padding: var(--spacing-sm);
+
+    &__controls {
+      padding: var(--spacing-md);
+    }
+
+    &__metrics {
+      .metric-selector {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .trend-cards {
+      gap: var(--spacing-sm);
+    }
+
+    .trend-card {
+      padding: var(--spacing-sm);
+    }
+
+    .tip-cards {
+      gap: var(--spacing-sm);
+    }
+
+    .tip-card {
+      padding: var(--spacing-sm);
+      
+      &__icon {
+        width: 40px;
+        height: 40px;
+      }
+    }
+  }
+}
+
+// 접근성 개선
+@media (prefers-reduced-motion: reduce) {
+  .health-trends {
+    .loading-spinner {
+      animation: none;
+    }
+
+    .back-button,
+    .metric-checkbox {
+      transition: none;
+    }
+  }
+}
+
+// 고대비 모드 지원
+@media (prefers-contrast: high) {
+  .health-trends {
+    &__controls,
+    .chart-section,
+    .trend-card,
+    .tip-card {
+      border-width: 2px;
+    }
+
+    .trend-card {
+      border-left-width: 6px;
+    }
+  }
+}

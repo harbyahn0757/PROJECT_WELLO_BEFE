@@ -1,0 +1,412 @@
+/**
+ * HealthDashboard 스타일 - 단조로운 색상 팔레트 사용
+ */
+
+.health-dashboard {
+  min-height: 100vh;
+  background-color: var(--color-background-primary);
+  padding: var(--spacing-md);
+
+  @media (min-width: 768px) {
+    padding: var(--spacing-lg);
+  }
+
+  // 로딩 상태
+  &--loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__loading {
+    text-align: center;
+    color: var(--color-text-secondary);
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--color-gray-200);
+      border-top: 3px solid var(--color-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto var(--spacing-md);
+    }
+
+    p {
+      font-size: var(--font-size-base);
+      margin: 0;
+    }
+  }
+
+  // 빈 상태
+  &--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__empty {
+    text-align: center;
+    max-width: 400px;
+    padding: var(--spacing-xl);
+
+    .empty-icon {
+      width: 80px;
+      height: 80px;
+      background-color: var(--color-gray-200);
+      border-radius: 50%;
+      margin: 0 auto var(--spacing-lg);
+    }
+
+    h2 {
+      font-size: var(--font-size-xl);
+      color: var(--color-text-primary);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    p {
+      font-size: var(--font-size-base);
+      color: var(--color-text-secondary);
+      margin-bottom: var(--spacing-lg);
+    }
+  }
+
+  // 헤더
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-lg);
+    gap: var(--spacing-md);
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+
+  &__title {
+    h1 {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      margin: 0 0 var(--spacing-xs) 0;
+
+      @media (max-width: 768px) {
+        font-size: var(--font-size-xl);
+      }
+    }
+
+    p {
+      font-size: var(--font-size-base);
+      color: var(--color-text-secondary);
+      margin: 0;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    gap: var(--spacing-sm);
+
+    @media (max-width: 768px) {
+      justify-content: stretch;
+      
+      .wello-button {
+        flex: 1;
+      }
+    }
+  }
+
+  // 통계 위젯
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .stat-card {
+    background-color: var(--color-gray-0);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+
+    &__icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--border-radius-md);
+      flex-shrink: 0;
+
+      &--checkups {
+        background-color: var(--color-primary);
+      }
+
+      &--latest {
+        background-color: var(--color-success);
+      }
+
+      &--trends {
+        background-color: var(--color-gray-500);
+      }
+    }
+
+    &__content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &__value {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    &__label {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      font-weight: var(--font-weight-medium);
+    }
+
+    &__meta {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      margin-top: 2px;
+    }
+
+    &__trends {
+      display: flex;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-xs);
+
+      .trend-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+
+        .trend-value {
+          font-size: var(--font-size-lg);
+          font-weight: var(--font-weight-bold);
+        }
+
+        .trend-label {
+          font-size: var(--font-size-xs);
+          font-weight: var(--font-weight-medium);
+        }
+
+        &--improving {
+          .trend-value { color: var(--color-success); }
+        }
+
+        &--stable {
+          .trend-value { color: var(--color-warning); }
+        }
+
+        &--concerning {
+          .trend-value { color: var(--color-danger); }
+        }
+      }
+    }
+  }
+
+  // 차트 위젯
+  &__charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+
+    @media (max-width: 768px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .chart-widget {
+    background-color: var(--color-gray-0);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border);
+    overflow: hidden;
+
+    &--pie {
+      @media (min-width: 768px) {
+        grid-column: span 1;
+      }
+    }
+
+    &--line {
+      @media (min-width: 1200px) {
+        grid-column: span 2;
+      }
+    }
+
+    &--bar {
+      @media (min-width: 768px) {
+        grid-column: span 1;
+      }
+    }
+  }
+
+  // 빠른 액션 패널
+  &__actions-panel {
+    h3 {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0 0 var(--spacing-md) 0;
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: var(--spacing-md);
+
+      @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .action-card {
+      background-color: var(--color-gray-0);
+      border: 1px solid var(--color-border);
+      border-radius: var(--border-radius-lg);
+      padding: var(--spacing-md);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-md);
+      cursor: pointer;
+      transition: var(--transition-ease);
+      text-align: left;
+
+      &:hover {
+        background-color: var(--color-background-secondary);
+        border-color: var(--color-primary);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+      }
+
+      &__icon {
+        width: 40px;
+        height: 40px;
+        border-radius: var(--border-radius-md);
+        flex-shrink: 0;
+
+        &--trends {
+          background-color: var(--color-primary);
+        }
+
+        &--history {
+          background-color: var(--color-success);
+        }
+
+        &--refresh {
+          background-color: var(--color-gray-500);
+        }
+      }
+
+      &__content {
+        flex: 1;
+        min-width: 0;
+      }
+
+      &__title {
+        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
+        margin-bottom: var(--spacing-xs);
+      }
+
+      &__description {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        line-height: var(--line-height-normal);
+      }
+    }
+  }
+}
+
+// 애니메이션
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// 반응형 조정
+@media (max-width: 480px) {
+  .health-dashboard {
+    padding: var(--spacing-sm);
+
+    &__stats {
+      gap: var(--spacing-sm);
+    }
+
+    &__charts {
+      gap: var(--spacing-md);
+    }
+
+    .stat-card {
+      padding: var(--spacing-sm);
+      
+      &__icon {
+        width: 40px;
+        height: 40px;
+      }
+
+      &__value {
+        font-size: var(--font-size-lg);
+      }
+    }
+
+    .action-card {
+      padding: var(--spacing-sm);
+      
+      &__icon {
+        width: 32px;
+        height: 32px;
+      }
+    }
+  }
+}
+
+// 접근성 개선
+@media (prefers-reduced-motion: reduce) {
+  .health-dashboard {
+    .loading-spinner {
+      animation: none;
+    }
+
+    .action-card {
+      transition: none;
+
+      &:hover {
+        transform: none;
+      }
+    }
+  }
+}
+
+// 고대비 모드 지원
+@media (prefers-contrast: high) {
+  .health-dashboard {
+    .stat-card,
+    .chart-widget,
+    .action-card {
+      border-width: 2px;
+    }
+
+    .action-card {
+      &:hover {
+        border-width: 3px;
+      }
+    }
+  }
+}

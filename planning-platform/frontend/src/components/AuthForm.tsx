@@ -661,6 +661,40 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   }, [currentStatus]);
 
   // 수동 데이터 수집 함수 (자동 폴링 제거됨)
+  // 기존 데이터 확인 함수
+  const checkExistingData = useCallback(async (uuid: string, hospitalId: string) => {
+    try {
+      console.log('🔍 [기존데이터확인] 시작:', { uuid, hospitalId });
+      
+      const response = await fetch(`/api/v1/wello/data/check?uuid=${uuid}&hospital_id=${hospitalId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ [기존데이터확인] 결과:', result);
+      
+      return {
+        patientExists: result.patient_exists,
+        hasHealthData: result.has_health_data,
+        hasPrescriptionData: result.has_prescription_data
+      };
+    } catch (error) {
+      console.error('❌ [기존데이터확인] 실패:', error);
+      return {
+        patientExists: false,
+        hasHealthData: false,
+        hasPrescriptionData: false
+      };
+    }
+  }, []);
+
   const handleManualDataCollection = useCallback(async () => {
       console.log('🔘 [수동수집] 사용자가 인증 완료 버튼 클릭');
       
@@ -1059,6 +1093,19 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       phone: editablePhone,
       birthday: editableBirthday
     });
+
+    // 기존 데이터 확인
+    if (patient) {
+      const existingData = await checkExistingData(patient.uuid, patient.hospital_id);
+      
+      if (existingData.patientExists && (existingData.hasHealthData || existingData.hasPrescriptionData)) {
+        console.log('📋 [기존데이터] 발견됨 - 스킵 옵션 제공');
+        setCurrentStatus('existing_data_found');
+        setTypingText(`이미 연동된 건강정보가 있습니다.\\n\\n기존 데이터를 사용하시겠습니까?\\n아니면 새로 인증하시겠습니까?`);
+        setLoading(false);
+        return;
+      }
+    }
     
     try {
       setLoading(true);
@@ -1559,6 +1606,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         return '처방전 데이터를 가져오고 있습니다...';
       case 'completed':
         return '🎉 모든 건강정보 수집이 완료되었습니다!\n결과 페이지로 이동합니다...';
+      case 'existing_data_found':
+        return '📋 이미 연동된 건강정보가 있습니다.\n\n기존 데이터를 사용하시겠습니까?\n아니면 새로 인증하시겠습니까?';
       case 'timeout':
         return '⏰ 인증 시간이 초과되었습니다 (10초).\n다시 시도해주세요.\n\n3초 후 처음 페이지로 돌아갑니다.';
       default:
@@ -2207,6 +2256,84 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   }
 
   // 데이터 수집 중 로딩 화면 (XOG 스타일)
+  // 기존 데이터 발견 시 선택 UI
+  if (currentStatus === 'existing_data_found') {
+    return (
+      <div className="auth__content">
+        <div className="auth__content-input-area" style={{ padding: '40px 20px', textAlign: 'center' }}>
+          <h3 style={{ marginBottom: '20px', color: '#333' }}>
+            기존 건강정보 발견
+          </h3>
+          
+          <div style={{ 
+            minHeight: '80px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            marginBottom: '30px'
+          }}>
+            <p style={{ 
+              fontSize: '16px', 
+              lineHeight: '1.5', 
+              color: '#666',
+              textAlign: 'center',
+              margin: 0
+            }}>
+              이미 연동된 건강정보가 있습니다.<br/>
+              기존 데이터를 사용하시겠습니까?
+            </p>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <button
+              onClick={() => {
+                console.log('📋 [기존데이터] 사용자가 기존 데이터 사용 선택');
+                navigate('/wello/dashboard');
+              }}
+              style={{
+                backgroundColor: '#7c746a',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '12px 20px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              기존 데이터 사용
+            </button>
+            
+            <button
+              onClick={() => {
+                console.log('🔄 [기존데이터] 사용자가 새로 인증 선택');
+                // 인증 로직 재시작
+                setCurrentStatus('auth_requesting');
+                setLoading(true);
+                // 인증 프로세스 재시작
+                window.location.reload();
+              }}
+              style={{
+                backgroundColor: '#fff',
+                color: '#7c746a',
+                border: '2px solid #7c746a',
+                borderRadius: '8px',
+                padding: '10px 20px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+            >
+              새로 인증하기
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if ((loading && authRequested) || currentStatus === 'manual_collecting' || currentStatus === 'data_collecting') {
     return (
       <div className="auth__content">

@@ -12,6 +12,8 @@ import HealthQuestionnairePage from './pages/HealthQuestionnairePage';
 import SurveyPage from './pages/SurveyPage';
 import AuthPage from './pages/AuthPage';
 import { HealthDataViewer } from './components/health/HealthDataViewer';
+import HealthDashboard from './pages/HealthDashboard';
+import HealthTrends from './pages/HealthTrends';
 import { LayoutType } from './constants/layoutTypes';
 import { debugLayoutMapping } from './utils/layoutMapper';
 import { WelloDataProvider, useWelloData } from './contexts/WelloDataContext';
@@ -303,6 +305,8 @@ const AppContent: React.FC = () => {
           <Route path="/survey/health-habits" element={<HealthHabitsPage />} />
           <Route path="/health-questionnaire" element={<HealthQuestionnairePage />} />
           <Route path="/questionnaire-complete" element={<HealthQuestionnaireComplete />} />
+          <Route path="/dashboard" element={<HealthDashboard />} />
+          <Route path="/trends" element={<HealthTrends />} />
           <Route path="/results-trend" element={<HealthDataViewer onBack={() => window.history.back()} />} />
           <Route path="/results" element={<HealthDataViewer onBack={() => window.history.back()} />} />
         </Routes>
