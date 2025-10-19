@@ -1,0 +1,362 @@
+/**
+ * AccessibilityButton 스타일 - 접근성 최적화
+ */
+
+.accessibility-button {
+  position: fixed;
+  width: 56px;
+  height: 56px;
+  background-color: var(--color-primary);
+  color: var(--color-text-inverse);
+  border: 2px solid var(--color-primary-dark);
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-ease);
+  box-shadow: var(--shadow-lg);
+
+  // 위치별 스타일
+  &--bottom-right {
+    bottom: var(--spacing-lg);
+    right: var(--spacing-lg);
+  }
+
+  &--bottom-left {
+    bottom: var(--spacing-lg);
+    left: var(--spacing-lg);
+  }
+
+  &--top-right {
+    top: var(--spacing-lg);
+    right: var(--spacing-lg);
+  }
+
+  &--top-left {
+    top: var(--spacing-lg);
+    left: var(--spacing-lg);
+  }
+
+  // 호버 효과
+  &:hover {
+    background-color: var(--color-primary-dark);
+    transform: scale(1.05);
+    box-shadow: var(--shadow-lg), 0 0 20px rgba(0, 0, 0, 0.2);
+  }
+
+  // 포커스 효과
+  &:focus {
+    outline: none;
+    box-shadow: 
+      var(--shadow-lg),
+      0 0 0 3px var(--color-focus-ring),
+      0 0 20px rgba(0, 0, 0, 0.2);
+  }
+
+  // 활성 상태
+  &:active {
+    transform: scale(0.95);
+  }
+
+  // 아이콘
+  &__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2px;
+
+    svg {
+      width: 24px;
+      height: 24px;
+      color: currentColor;
+    }
+  }
+
+  // 라벨
+  &__label {
+    font-size: 10px;
+    font-weight: var(--font-weight-medium);
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  // 활성 상태 인디케이터
+  &__indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    background-color: var(--color-success);
+    border: 2px solid var(--color-gray-0);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+}
+
+// 라벨이 있는 경우 버튼 크기 조정
+.accessibility-button:has(.accessibility-button__label) {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--border-radius-lg);
+
+  .accessibility-button__icon {
+    margin-bottom: 4px;
+
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+}
+
+// 펄스 애니메이션
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+// 고대비 모드 지원
+@media (prefers-contrast: high) {
+  .accessibility-button {
+    border-width: 3px;
+    background-color: var(--color-text-primary);
+    color: var(--color-gray-0);
+    border-color: var(--color-gray-0);
+
+    &:hover {
+      background-color: var(--color-text-primary);
+      border-color: var(--color-warning);
+    }
+
+    &:focus {
+      box-shadow: 
+        var(--shadow-lg),
+        0 0 0 4px var(--color-warning),
+        0 0 20px rgba(0, 0, 0, 0.3);
+    }
+
+    &__indicator {
+      background-color: var(--color-warning);
+      border-color: var(--color-text-primary);
+      border-width: 3px;
+    }
+  }
+}
+
+// 다크 모드 지원
+@media (prefers-color-scheme: dark) {
+  .accessibility-button {
+    background-color: var(--color-gray-700);
+    color: var(--color-gray-0);
+    border-color: var(--color-gray-600);
+
+    &:hover {
+      background-color: var(--color-gray-600);
+    }
+
+    &__indicator {
+      border-color: var(--color-gray-700);
+    }
+  }
+}
+
+// 애니메이션 감소 모드
+@media (prefers-reduced-motion: reduce) {
+  .accessibility-button {
+    transition: none;
+
+    &:hover {
+      transform: none;
+    }
+
+    &:active {
+      transform: none;
+    }
+
+    &__indicator {
+      animation: none;
+    }
+  }
+}
+
+// 모바일 최적화
+@media (max-width: 768px) {
+  .accessibility-button {
+    width: 48px;
+    height: 48px;
+    bottom: var(--spacing-md);
+    right: var(--spacing-md);
+
+    // 모바일에서는 위치 고정
+    &--bottom-right,
+    &--bottom-left,
+    &--top-right,
+    &--top-left {
+      bottom: var(--spacing-md);
+      right: var(--spacing-md);
+      top: auto;
+      left: auto;
+    }
+
+    &__icon svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    &__label {
+      font-size: 9px;
+    }
+
+    &__indicator {
+      width: 10px;
+      height: 10px;
+    }
+  }
+
+  // 라벨이 있는 경우
+  .accessibility-button:has(.accessibility-button__label) {
+    width: 56px;
+    height: 56px;
+
+    .accessibility-button__icon svg {
+      width: 18px;
+      height: 18px;
+    }
+  }
+}
+
+// 작은 화면 최적화
+@media (max-width: 320px) {
+  .accessibility-button {
+    width: 44px;
+    height: 44px;
+    bottom: var(--spacing-sm);
+    right: var(--spacing-sm);
+
+    &__icon svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    &__label {
+      font-size: 8px;
+    }
+
+    &__indicator {
+      width: 8px;
+      height: 8px;
+    }
+  }
+
+  .accessibility-button:has(.accessibility-button__label) {
+    width: 52px;
+    height: 52px;
+
+    .accessibility-button__icon svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+}
+
+// 터치 디바이스 최적화
+@media (hover: none) and (pointer: coarse) {
+  .accessibility-button {
+    // 터치 디바이스에서는 hover 효과 제거
+    &:hover {
+      background-color: var(--color-primary);
+      transform: none;
+      box-shadow: var(--shadow-lg);
+    }
+
+    // 터치 피드백 강화
+    &:active {
+      background-color: var(--color-primary-dark);
+      transform: scale(0.9);
+    }
+  }
+}
+
+// 큰 텍스트 모드
+.large-text {
+  .accessibility-button {
+    width: 72px;
+    height: 72px;
+
+    &__icon svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    &__label {
+      font-size: 12px;
+    }
+
+    &__indicator {
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  .accessibility-button:has(.accessibility-button__label) {
+    width: 80px;
+    height: 80px;
+
+    .accessibility-button__icon svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .accessibility-button__label {
+      font-size: 11px;
+    }
+  }
+}
+
+// 키보드 네비게이션 강화
+.keyboard-navigation {
+  .accessibility-button {
+    &:focus {
+      box-shadow: 
+        var(--shadow-lg),
+        0 0 0 4px var(--color-focus-ring),
+        0 0 30px rgba(0, 0, 0, 0.3);
+    }
+  }
+}
+
+// iOS Safari 하단 안전 영역 지원
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .accessibility-button {
+    &--bottom-right,
+    &--bottom-left {
+      bottom: calc(var(--spacing-lg) + env(safe-area-inset-bottom));
+    }
+  }
+
+  @media (max-width: 768px) {
+    .accessibility-button {
+      &--bottom-right,
+      &--bottom-left,
+      &--top-right,
+      &--top-left {
+        bottom: calc(var(--spacing-md) + env(safe-area-inset-bottom));
+      }
+    }
+  }
+}

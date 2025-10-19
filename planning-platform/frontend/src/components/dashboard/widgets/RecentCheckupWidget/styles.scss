@@ -1,0 +1,437 @@
+/**
+ * RecentCheckupWidget 스타일 - 단조로운 색상 팔레트 사용
+ */
+
+.recent-checkup-widget {
+  background-color: var(--color-gray-0);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+
+  // 로딩 상태
+  &--loading {
+    padding: var(--spacing-md);
+
+    .skeleton-line {
+      background: linear-gradient(
+        90deg,
+        var(--color-gray-200) 25%,
+        var(--color-gray-300) 50%,
+        var(--color-gray-200) 75%
+      );
+      background-size: 200% 100%;
+      animation: skeleton-loading 1.5s infinite;
+      border-radius: var(--border-radius-sm);
+
+      &--title {
+        height: 20px;
+        width: 60%;
+        margin-bottom: var(--spacing-sm);
+      }
+
+      &--date {
+        height: 14px;
+        width: 40%;
+        margin-bottom: var(--spacing-md);
+      }
+
+      &--status {
+        height: 24px;
+        width: 80px;
+        margin-bottom: var(--spacing-md);
+      }
+
+      &--metric-name {
+        height: 12px;
+        width: 70%;
+        margin-bottom: 4px;
+      }
+
+      &--metric-value {
+        height: 16px;
+        width: 50%;
+      }
+    }
+
+    .metrics-skeleton {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: var(--spacing-sm);
+    }
+
+    .metric-skeleton {
+      padding: var(--spacing-sm);
+      background-color: var(--color-background-secondary);
+      border-radius: var(--border-radius-md);
+    }
+  }
+
+  // 빈 상태
+  &--empty {
+    padding: var(--spacing-xl);
+    text-align: center;
+
+    .empty-state {
+      .empty-icon {
+        font-size: 48px;
+        margin-bottom: var(--spacing-md);
+      }
+
+      h3 {
+        font-size: var(--font-size-lg);
+        color: var(--color-text-primary);
+        margin: 0 0 var(--spacing-xs) 0;
+      }
+
+      p {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        margin: 0;
+      }
+    }
+  }
+
+  &__header {
+    padding: var(--spacing-md);
+    background-color: var(--color-background-secondary);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+
+    .header-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .widget-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0 0 var(--spacing-xs) 0;
+    }
+
+    .checkup-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .checkup-date {
+        font-size: var(--font-size-sm);
+        font-weight: var(--font-weight-medium);
+        color: var(--color-text-primary);
+      }
+
+      .checkup-location {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+      }
+    }
+
+    .overall-status {
+      padding: var(--spacing-xs) var(--spacing-sm);
+      border-radius: var(--border-radius-full);
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-inverse);
+      white-space: nowrap;
+      text-align: center;
+      min-width: 60px;
+    }
+  }
+
+  &__content {
+    padding: var(--spacing-md);
+
+    .key-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-md);
+
+      .metric-item {
+        padding: var(--spacing-sm);
+        background-color: var(--color-background-secondary);
+        border-radius: var(--border-radius-md);
+        border-left: 3px solid var(--color-gray-300);
+        transition: var(--transition-ease);
+
+        &--normal {
+          border-left-color: var(--color-success);
+        }
+
+        &--warning {
+          border-left-color: var(--color-warning);
+        }
+
+        &--danger {
+          border-left-color: var(--color-danger);
+        }
+
+        .metric-name {
+          font-size: var(--font-size-xs);
+          color: var(--color-text-secondary);
+          margin-bottom: 2px;
+          font-weight: var(--font-weight-medium);
+        }
+
+        .metric-value {
+          font-size: var(--font-size-sm);
+          font-weight: var(--font-weight-semibold);
+          color: var(--color-text-primary);
+          line-height: var(--line-height-tight);
+        }
+      }
+    }
+
+    .view-details-button {
+      width: 100%;
+      padding: var(--spacing-sm);
+      background-color: transparent;
+      border: 1px solid var(--color-border);
+      border-radius: var(--border-radius-md);
+      color: var(--color-primary);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      cursor: pointer;
+      transition: var(--transition-ease);
+      margin-bottom: var(--spacing-md);
+
+      &:hover {
+        background-color: var(--color-background-secondary);
+        border-color: var(--color-primary);
+      }
+
+      &:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px var(--color-focus-ring);
+      }
+
+      &:active {
+        transform: scale(0.98);
+      }
+    }
+
+    .checkup-description {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      line-height: var(--line-height-normal);
+      padding: var(--spacing-sm);
+      background-color: var(--color-background-secondary);
+      border-radius: var(--border-radius-md);
+      border-left: 3px solid var(--color-primary);
+    }
+  }
+}
+
+// 스켈레톤 로딩 애니메이션
+@keyframes skeleton-loading {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+// 다크 모드 지원
+@media (prefers-color-scheme: dark) {
+  .recent-checkup-widget {
+    background-color: var(--color-gray-800);
+    border-color: var(--color-gray-600);
+
+    &__header {
+      background-color: var(--color-gray-900);
+      border-color: var(--color-gray-600);
+    }
+
+    &__content {
+      .key-metrics .metric-item {
+        background-color: var(--color-gray-700);
+      }
+
+      .view-details-button {
+        border-color: var(--color-gray-600);
+
+        &:hover {
+          background-color: var(--color-gray-700);
+        }
+      }
+
+      .checkup-description {
+        background-color: var(--color-gray-700);
+      }
+    }
+
+    &--loading {
+      .skeleton-line {
+        background: linear-gradient(
+          90deg,
+          var(--color-gray-700) 25%,
+          var(--color-gray-600) 50%,
+          var(--color-gray-700) 75%
+        );
+      }
+
+      .metric-skeleton {
+        background-color: var(--color-gray-700);
+      }
+    }
+  }
+}
+
+// 고대비 모드 지원
+@media (prefers-contrast: high) {
+  .recent-checkup-widget {
+    border-width: 2px;
+
+    &__header {
+      border-bottom-width: 2px;
+    }
+
+    &__content {
+      .key-metrics .metric-item {
+        border-left-width: 4px;
+      }
+
+      .view-details-button {
+        border-width: 2px;
+
+        &:focus {
+          box-shadow: 0 0 0 3px var(--color-focus-ring);
+        }
+      }
+
+      .checkup-description {
+        border-left-width: 4px;
+      }
+    }
+  }
+}
+
+// 애니메이션 감소 모드
+@media (prefers-reduced-motion: reduce) {
+  .recent-checkup-widget {
+    &__content {
+      .key-metrics .metric-item {
+        transition: none;
+      }
+
+      .view-details-button {
+        transition: none;
+
+        &:active {
+          transform: none;
+        }
+      }
+    }
+
+    &--loading .skeleton-line {
+      animation: none;
+    }
+  }
+}
+
+// 모바일 최적화
+@media (max-width: 768px) {
+  .recent-checkup-widget {
+    &__header {
+      padding: var(--spacing-sm);
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--spacing-sm);
+
+      .overall-status {
+        align-self: flex-start;
+      }
+    }
+
+    &__content {
+      padding: var(--spacing-sm);
+
+      .key-metrics {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: var(--spacing-xs);
+      }
+    }
+  }
+}
+
+// 작은 화면 최적화
+@media (max-width: 480px) {
+  .recent-checkup-widget {
+    &__header {
+      .checkup-info {
+        .checkup-date,
+        .checkup-location {
+          font-size: var(--font-size-xs);
+        }
+      }
+    }
+
+    &__content {
+      .key-metrics {
+        grid-template-columns: 1fr 1fr;
+
+        .metric-item {
+          padding: var(--spacing-xs);
+
+          .metric-name {
+            font-size: 10px;
+          }
+
+          .metric-value {
+            font-size: var(--font-size-xs);
+          }
+        }
+      }
+    }
+  }
+}
+
+// 큰 텍스트 모드
+.large-text {
+  .recent-checkup-widget {
+    &__header {
+      .widget-title {
+        font-size: var(--font-size-xl);
+      }
+
+      .checkup-info {
+        .checkup-date {
+          font-size: var(--font-size-base);
+        }
+
+        .checkup-location {
+          font-size: var(--font-size-sm);
+        }
+      }
+
+      .overall-status {
+        font-size: var(--font-size-sm);
+      }
+    }
+
+    &__content {
+      .key-metrics .metric-item {
+        .metric-name {
+          font-size: var(--font-size-sm);
+        }
+
+        .metric-value {
+          font-size: var(--font-size-base);
+        }
+      }
+
+      .view-details-button {
+        font-size: var(--font-size-base);
+      }
+
+      .checkup-description {
+        font-size: var(--font-size-base);
+      }
+    }
+  }
+}

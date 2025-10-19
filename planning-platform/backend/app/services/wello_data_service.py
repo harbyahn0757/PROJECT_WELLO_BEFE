@@ -5,12 +5,7 @@ WELLO 건강정보 데이터 저장 및 관리 서비스
 import json
 from datetime import datetime, date
 from typing import Dict, Any, Optional, List, Tuple
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, desc
-from ..models.wello_models import WelloPatient, WelloCheckupData, WelloPrescriptionData, WelloCollectionHistory
-from ..core.database import get_db
 import asyncpg
-from ..core.config import settings
 
 class WelloDataService:
     """WELLO 건강정보 데이터 관리 서비스"""

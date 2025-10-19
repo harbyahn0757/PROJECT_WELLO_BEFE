@@ -666,7 +666,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     try {
       console.log('🔍 [기존데이터확인] 시작:', { uuid, hospitalId });
       
-      const response = await fetch(`/api/v1/wello/data/check?uuid=${uuid}&hospital_id=${hospitalId}`, {
+      const response = await fetch(`/api/v1/wello/check-existing-data?uuid=${uuid}&hospital_id=${hospitalId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'

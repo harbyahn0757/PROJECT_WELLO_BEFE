@@ -5,7 +5,7 @@ WELLO 건강정보 데이터 관리 API
 from fastapi import APIRouter, HTTPException, Query
 from typing import Dict, Any, Optional, List
 from datetime import datetime
-from ..services.wello_data_service import wello_data_service
+from ....services.wello_data_service import wello_data_service
 
 router = APIRouter()
 

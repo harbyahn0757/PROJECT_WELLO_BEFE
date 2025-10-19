@@ -14,9 +14,7 @@ module.exports = function(app) {
       ws: false, // WebSocket 지원 비활성화 (HMR과 충돌 방지)
       timeout: 30000,
       logLevel: 'info', // 디버그 로그 레벨 낮춤
-      pathRewrite: {
-        '^/api/v1/wello': '/api/v1'  // /api/v1/wello/patients → /api/v1/patients
-      },
+      // pathRewrite 제거 - WELLO API는 경로 변경 없이 그대로 전달
       onError: (err, req, res) => {
         console.error('WELLO Backend proxy error:', err.message);
         res.status(500).json({
@@ -44,9 +42,7 @@ module.exports = function(app) {
       ws: true, // 특정 경로에서만 WebSocket 지원
       timeout: 30000,
       logLevel: 'info',
-      pathRewrite: {
-        '^/api/v1/wello': '/api/v1'
-      },
+      // pathRewrite 제거 - WebSocket 경로도 그대로 전달
       onProxyReqWs: (proxyReq, req, socket) => {
         console.log(`[WELLO Tilko WebSocket] ${req.url} -> ${proxyReq.path}`);
       },

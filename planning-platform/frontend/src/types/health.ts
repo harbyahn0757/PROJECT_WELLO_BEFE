@@ -29,11 +29,87 @@ export interface Patient {
   updated_at: string;
 }
 
+// === Tilko API 원본 데이터 구조 ===
+export interface TilkoHealthCheckupRaw {
+  Year: string;
+  CheckUpDate: string;
+  Code: string; // 정상, 의심, 질환의심 등
+  Location: string;
+  Description: string;
+  Inspections: TilkoInspectionGroup[];
+  // ... 기타 Tilko API가 제공하는 모든 필드
+}
+
+export interface TilkoInspectionGroup {
+  Gubun: string; // 계측검사, 요검사, 혈액검사 등
+  Illnesses: TilkoIllness[];
+}
+
+export interface TilkoIllness {
+  Name: string; // 비만, 시각이상, 고혈압, 당뇨병 등
+  Items: TilkoTestItem[];
+}
+
+export interface TilkoTestItem {
+  Name: string; // 신장, 체중, 혈압(최고/최저), 공복혈당 등
+  Value: string;
+  Unit: string;
+  ItemReferences: { Name: string; Value: string }[];
+}
+
+export interface TilkoPrescriptionRaw {
+  Idx: string;
+  Page: string;
+  ByungEuiwonYakGukMyung: string; // 병원/약국명
+  Address: string;
+  JinRyoGaesiIl: string; // 진료 개시일
+  JinRyoHyungTae: string; // 진료 형태
+  BangMoonIpWonIlsoo: string; // 방문/입원 일수
+  CheoBangHoiSoo: string; // 처방 횟수
+  TuYakYoYangHoiSoo: string; // 투약/요양 횟수
+  RetrieveTreatmentInjectionInformationPersonDetailList: TilkoPrescriptionDetail[];
+  // ... 기타 Tilko API가 제공하는 모든 필드
+}
+
+export interface TilkoPrescriptionDetail {
+  Idx: string;
+  JinRyoChoBangIlja: string; // 진료/처방 일자
+  JinRyoHyungTae: string; // 진료 형태
+  ChoBangHoetSoo: string | null; // 처방 횟수 (약국)
+  ChoBangYakPumMyung: string; // 처방 약품명
+  ChoBangYakPumHyoneung: string; // 처방 약품 효능
+  TuyakIlSoo: string; // 투약 일수
+  DrugCode: string; // 약품 코드
+  NameAddr: string; // 약국명[주소]
+  RetrieveMdsupDtlInfo: TilkoDrugDetailInfo; // 약품 상세 정보
+  // ... 기타 상세 필드
+}
+
+export interface TilkoDrugDetailInfo {
+  DrugCode: string;
+  MediPrdcNm: string; // 의약품 제품명
+  DrugImage: string; // 약품 이미지 (Base64 또는 URL)
+  CmpnInfo: string; // 성분 정보
+  TmsgGnlSpcd: string; // 특수 코드
+  SnglCmtnYn: string | null; // 단일 성분 여부
+  UpsoName: string; // 업체명
+  FomlCdXplnCnte: string; // 제형 설명
+  MdctPathXplnCnte: string; // 투여 경로 설명
+  MohwClsfNoXplnCnte: string; // 보건복지부 분류 번호 설명
+  AtcInfo: string; // ATC 코드 정보
+  KpicInfo: string; // KPIC 정보
+  EfftEftCnte: string; // 효능 효과 내용
+  UsagCpctCnte: string; // 용법 용량 내용
+  UseAtntMttCnte: string; // 사용상 주의사항 내용
+  CmnTmdcGdncCnte: string; // 일반 의약품 안내 내용
+  // ... 기타 상세 필드
+}
+
 // === 건강검진 데이터 ===
 export interface HealthCheckupRecord {
   id: number;
   patient_id: number;
-  raw_data: TilkoHealthData; // 원본 Tilko API 데이터
+  raw_data: TilkoHealthCheckupRaw; // 원본 Tilko API 데이터
   year?: string;
   checkup_date?: string;
   location?: string;

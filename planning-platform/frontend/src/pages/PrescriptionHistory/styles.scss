@@ -1,0 +1,570 @@
+/**
+ * PrescriptionHistory 스타일 - 단조로운 색상 팔레트 사용
+ */
+
+.prescription-history {
+  min-height: 100vh;
+  background-color: var(--color-background-primary);
+  padding: var(--spacing-md);
+
+  @media (min-width: 768px) {
+    padding: var(--spacing-lg);
+  }
+
+  // 로딩 상태
+  &--loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__loading {
+    text-align: center;
+    color: var(--color-text-secondary);
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--color-gray-200);
+      border-top: 3px solid var(--color-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto var(--spacing-md);
+    }
+
+    p {
+      font-size: var(--font-size-base);
+      margin: 0;
+    }
+  }
+
+  // 빈 상태
+  &--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__empty {
+    text-align: center;
+    max-width: 400px;
+    padding: var(--spacing-xl);
+
+    .empty-icon {
+      width: 80px;
+      height: 80px;
+      background-color: var(--color-gray-200);
+      border-radius: 50%;
+      margin: 0 auto var(--spacing-lg);
+    }
+
+    h2 {
+      font-size: var(--font-size-xl);
+      color: var(--color-text-primary);
+      margin-bottom: var(--spacing-sm);
+    }
+
+    p {
+      font-size: var(--font-size-base);
+      color: var(--color-text-secondary);
+      margin-bottom: var(--spacing-lg);
+    }
+  }
+
+  // 헤더
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-lg);
+    gap: var(--spacing-md);
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+
+  &__title {
+    .back-button {
+      background: none;
+      border: none;
+      color: var(--color-primary);
+      font-size: var(--font-size-base);
+      cursor: pointer;
+      margin-bottom: var(--spacing-sm);
+      padding: var(--spacing-xs) 0;
+      transition: var(--transition-ease);
+
+      &:hover {
+        color: var(--color-primary-dark);
+      }
+    }
+
+    h1 {
+      font-size: var(--font-size-2xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      margin: 0 0 var(--spacing-xs) 0;
+
+      @media (max-width: 768px) {
+        font-size: var(--font-size-xl);
+      }
+    }
+
+    p {
+      font-size: var(--font-size-base);
+      color: var(--color-text-secondary);
+      margin: 0;
+    }
+  }
+
+  .view-selector {
+    display: flex;
+    background-color: var(--color-gray-0);
+    border-radius: var(--border-radius-md);
+    border: 1px solid var(--color-border);
+    overflow: hidden;
+
+    .view-button {
+      padding: var(--spacing-sm) var(--spacing-md);
+      border: none;
+      background-color: transparent;
+      color: var(--color-text-secondary);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      cursor: pointer;
+      transition: var(--transition-ease);
+
+      &:hover {
+        background-color: var(--color-background-secondary);
+      }
+
+      &.active {
+        background-color: var(--color-primary);
+        color: var(--color-text-inverse);
+      }
+
+      &:not(:last-child) {
+        border-right: 1px solid var(--color-border);
+      }
+    }
+  }
+
+  // 통계 위젯
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+
+    @media (max-width: 768px) {
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+  }
+
+  .stat-card {
+    background-color: var(--color-gray-0);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+
+    &__icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--border-radius-md);
+      flex-shrink: 0;
+
+      &--prescriptions {
+        background-color: var(--color-primary);
+      }
+
+      &--hospitals {
+        background-color: var(--color-success);
+      }
+
+      &--medications {
+        background-color: var(--color-warning);
+      }
+
+      &--recent {
+        background-color: var(--color-gray-500);
+      }
+    }
+
+    &__content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &__value {
+      font-size: var(--font-size-xl);
+      font-weight: var(--font-weight-bold);
+      color: var(--color-text-primary);
+      margin-bottom: var(--spacing-xs);
+    }
+
+    &__label {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      font-weight: var(--font-weight-medium);
+    }
+
+    &__meta {
+      font-size: var(--font-size-xs);
+      color: var(--color-text-tertiary);
+      margin-top: 2px;
+    }
+  }
+
+  // 검색 영역
+  &__search {
+    margin-bottom: var(--spacing-xl);
+  }
+
+  // 콘텐츠 영역
+  &__content {
+    background-color: var(--color-gray-0);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border);
+    overflow: hidden;
+  }
+}
+
+// 처방전 목록
+.prescription-list {
+  padding: var(--spacing-lg);
+
+  &__header {
+    margin-bottom: var(--spacing-lg);
+
+    h3 {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0;
+    }
+  }
+
+  .hospital-groups {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+  }
+
+  .hospital-group {
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+
+    &__header {
+      background-color: var(--color-background-secondary);
+      padding: var(--spacing-md);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--spacing-md);
+
+      @media (max-width: 768px) {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      h4 {
+        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-semibold);
+        color: var(--color-text-primary);
+        margin: 0;
+      }
+
+      &__stats {
+        display: flex;
+        gap: var(--spacing-md);
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+
+        @media (max-width: 768px) {
+          gap: var(--spacing-sm);
+        }
+
+        .stat {
+          white-space: nowrap;
+        }
+      }
+    }
+
+    .prescription-items {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .prescription-item {
+      padding: var(--spacing-md);
+      border-bottom: 1px solid var(--color-border);
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &__header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--spacing-sm);
+
+        .prescription-date {
+          font-size: var(--font-size-base);
+          font-weight: var(--font-weight-semibold);
+          color: var(--color-text-primary);
+        }
+
+        .prescription-type {
+          font-size: var(--font-size-sm);
+          color: var(--color-text-secondary);
+          background-color: var(--color-background-secondary);
+          padding: var(--spacing-xs) var(--spacing-sm);
+          border-radius: var(--border-radius-sm);
+        }
+      }
+
+      &__details {
+        .prescription-counts {
+          display: flex;
+          gap: var(--spacing-md);
+          font-size: var(--font-size-sm);
+          color: var(--color-text-secondary);
+          margin-bottom: var(--spacing-sm);
+
+          @media (max-width: 768px) {
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+          }
+        }
+
+        .medication-list {
+          &__header {
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-medium);
+            color: var(--color-text-primary);
+            margin-bottom: var(--spacing-xs);
+          }
+
+          .medications {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--spacing-xs);
+
+            .medication {
+              display: flex;
+              align-items: center;
+              gap: var(--spacing-xs);
+              background-color: var(--color-background-secondary);
+              padding: var(--spacing-xs) var(--spacing-sm);
+              border-radius: var(--border-radius-sm);
+              font-size: var(--font-size-xs);
+
+              .medication-name {
+                color: var(--color-text-primary);
+                font-weight: var(--font-weight-medium);
+              }
+
+              .medication-days {
+                color: var(--color-text-tertiary);
+              }
+
+              &.more {
+                color: var(--color-text-secondary);
+                font-style: italic;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// 처방전 차트
+.prescription-chart {
+  padding: var(--spacing-lg);
+}
+
+// 처방전 타임라인
+.prescription-timeline {
+  padding: var(--spacing-lg);
+
+  .timeline-header {
+    margin-bottom: var(--spacing-lg);
+
+    h3 {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0;
+    }
+  }
+
+  .timeline {
+    position: relative;
+    padding-left: var(--spacing-lg);
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 12px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background-color: var(--color-border);
+    }
+
+    .timeline-item {
+      position: relative;
+      margin-bottom: var(--spacing-lg);
+
+      .timeline-marker {
+        position: absolute;
+        left: -18px;
+        top: 8px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: var(--color-primary);
+        border: 3px solid var(--color-gray-0);
+        box-shadow: 0 0 0 2px var(--color-border);
+      }
+
+      .timeline-content {
+        background-color: var(--color-background-secondary);
+        padding: var(--spacing-md);
+        border-radius: var(--border-radius-md);
+        border: 1px solid var(--color-border);
+
+        .timeline-date {
+          font-size: var(--font-size-base);
+          font-weight: var(--font-weight-semibold);
+          color: var(--color-text-primary);
+          margin-bottom: var(--spacing-xs);
+        }
+
+        .timeline-hospital {
+          font-size: var(--font-size-sm);
+          color: var(--color-text-secondary);
+          margin-bottom: var(--spacing-xs);
+        }
+
+        .timeline-details {
+          display: flex;
+          gap: var(--spacing-md);
+          font-size: var(--font-size-xs);
+          color: var(--color-text-tertiary);
+
+          @media (max-width: 768px) {
+            gap: var(--spacing-sm);
+            flex-wrap: wrap;
+          }
+        }
+      }
+    }
+  }
+}
+
+// 애니메이션
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// 반응형 조정
+@media (max-width: 480px) {
+  .prescription-history {
+    padding: var(--spacing-sm);
+
+    &__stats {
+      gap: var(--spacing-sm);
+    }
+
+    .stat-card {
+      padding: var(--spacing-sm);
+      
+      &__icon {
+        width: 40px;
+        height: 40px;
+      }
+
+      &__value {
+        font-size: var(--font-size-lg);
+      }
+    }
+  }
+
+  .prescription-list {
+    padding: var(--spacing-md);
+
+    .hospital-group {
+      &__header {
+        padding: var(--spacing-sm);
+      }
+    }
+
+    .prescription-item {
+      padding: var(--spacing-sm);
+    }
+  }
+
+  .prescription-timeline {
+    padding: var(--spacing-md);
+
+    .timeline {
+      padding-left: var(--spacing-md);
+
+      .timeline-item {
+        .timeline-marker {
+          left: -14px;
+        }
+
+        .timeline-content {
+          padding: var(--spacing-sm);
+        }
+      }
+    }
+  }
+}
+
+// 접근성 개선
+@media (prefers-reduced-motion: reduce) {
+  .prescription-history {
+    .loading-spinner {
+      animation: none;
+    }
+
+    .back-button,
+    .view-button {
+      transition: none;
+    }
+  }
+}
+
+// 고대비 모드 지원
+@media (prefers-contrast: high) {
+  .prescription-history {
+    .stat-card,
+    .hospital-group,
+    .timeline-item .timeline-content {
+      border-width: 2px;
+    }
+
+    .view-selector {
+      border-width: 2px;
+
+      .view-button:not(:last-child) {
+        border-right-width: 2px;
+      }
+    }
+  }
+}

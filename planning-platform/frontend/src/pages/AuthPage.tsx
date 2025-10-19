@@ -14,7 +14,7 @@ const AuthPage: React.FC = () => {
     // 2순위: 현재 URL에서 원래 페이지 정보 추출 (UUID와 hospital이 있으면 메인 페이지로 이동)
     const urlParams = new URLSearchParams(location.search);
     const uuid = urlParams.get('uuid');
-    const hospital = urlParams.get('hospital');
+    const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
     const layout = urlParams.get('layout');
     
     if (from) {

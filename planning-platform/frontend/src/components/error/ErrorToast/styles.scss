@@ -1,0 +1,500 @@
+/**
+ * ErrorToast 스타일 - 모바일 친화적 에러 토스트
+ */
+
+.error-toast-container {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  max-width: 400px;
+  width: 100%;
+
+  // 위치별 스타일
+  &--top-right {
+    top: var(--spacing-lg);
+    right: var(--spacing-lg);
+  }
+
+  &--top-left {
+    top: var(--spacing-lg);
+    left: var(--spacing-lg);
+  }
+
+  &--bottom-right {
+    bottom: var(--spacing-lg);
+    right: var(--spacing-lg);
+  }
+
+  &--bottom-left {
+    bottom: var(--spacing-lg);
+    left: var(--spacing-lg);
+  }
+
+  &--top-center {
+    top: var(--spacing-lg);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  &--bottom-center {
+    bottom: var(--spacing-lg);
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  @media (max-width: 768px) {
+    max-width: calc(100% - var(--spacing-lg) * 2);
+    
+    &--top-right,
+    &--top-left {
+      top: var(--spacing-md);
+      right: var(--spacing-md);
+      left: var(--spacing-md);
+    }
+
+    &--bottom-right,
+    &--bottom-left {
+      bottom: var(--spacing-md);
+      right: var(--spacing-md);
+      left: var(--spacing-md);
+    }
+
+    &--top-center {
+      top: var(--spacing-md);
+      left: var(--spacing-md);
+      right: var(--spacing-md);
+      transform: none;
+    }
+
+    &--bottom-center {
+      bottom: var(--spacing-md);
+      left: var(--spacing-md);
+      right: var(--spacing-md);
+      transform: none;
+    }
+  }
+}
+
+.error-toast {
+  position: relative;
+  background-color: var(--color-gray-0);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-danger);
+  padding: var(--spacing-md);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  pointer-events: auto;
+  animation: slideIn 0.3s ease-out;
+  overflow: hidden;
+
+  &--hiding {
+    animation: slideOut 0.3s ease-in forwards;
+  }
+
+  &__icon {
+    font-size: var(--font-size-lg);
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  &__content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__message {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    line-height: var(--line-height-normal);
+    margin-bottom: var(--spacing-xs);
+    word-break: break-word;
+  }
+
+  &__retry-info {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-xs);
+  }
+
+  &__actions {
+    display: flex;
+    gap: var(--spacing-xs);
+    margin-top: var(--spacing-sm);
+  }
+
+  &__action-button {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-md);
+    background-color: var(--color-background-secondary);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: var(--transition-ease);
+
+    &:hover {
+      background-color: var(--color-primary);
+      color: var(--color-text-inverse);
+      border-color: var(--color-primary);
+    }
+
+    &:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--color-focus-ring);
+    }
+
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+
+  &__close {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: var(--border-radius-full);
+    background-color: transparent;
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: var(--transition-ease);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+      background-color: var(--color-gray-200);
+      color: var(--color-text-primary);
+    }
+
+    &:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--color-focus-ring);
+    }
+
+    &:active {
+      transform: scale(0.9);
+    }
+  }
+
+  &__progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background-color: var(--color-danger);
+    animation: progressBar linear;
+    transform-origin: left;
+  }
+}
+
+// 애니메이션 정의
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+    max-height: 200px;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-bottom: 0;
+  }
+}
+
+@keyframes progressBar {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+// 왼쪽 위치일 때 애니메이션 방향 변경
+.error-toast-container--top-left,
+.error-toast-container--bottom-left {
+  .error-toast {
+    animation: slideInLeft 0.3s ease-out;
+
+    &--hiding {
+      animation: slideOutLeft 0.3s ease-in forwards;
+    }
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutLeft {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+    max-height: 200px;
+  }
+  to {
+    transform: translateX(-100%);
+    opacity: 0;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-bottom: 0;
+  }
+}
+
+// 중앙 위치일 때 애니메이션
+.error-toast-container--top-center,
+.error-toast-container--bottom-center {
+  .error-toast {
+    animation: slideInCenter 0.3s ease-out;
+
+    &--hiding {
+      animation: slideOutCenter 0.3s ease-in forwards;
+    }
+  }
+}
+
+@keyframes slideInCenter {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+    scale: 0.95;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes slideOutCenter {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+    scale: 1;
+    max-height: 200px;
+  }
+  to {
+    transform: translateY(-20px);
+    opacity: 0;
+    scale: 0.95;
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    margin-bottom: 0;
+  }
+}
+
+// 다크 모드 지원
+@media (prefers-color-scheme: dark) {
+  .error-toast {
+    background-color: var(--color-gray-800);
+    border-color: var(--color-gray-600);
+
+    &__action-button {
+      background-color: var(--color-gray-700);
+      border-color: var(--color-gray-600);
+
+      &:hover {
+        background-color: var(--color-primary);
+        border-color: var(--color-primary);
+      }
+    }
+
+    &__close {
+      &:hover {
+        background-color: var(--color-gray-700);
+      }
+    }
+  }
+}
+
+// 고대비 모드 지원
+@media (prefers-contrast: high) {
+  .error-toast {
+    border-width: 2px;
+    border-left-width: 6px;
+
+    &__action-button {
+      border-width: 2px;
+
+      &:focus {
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
+      }
+    }
+
+    &__close:focus {
+      box-shadow: 0 0 0 3px var(--color-focus-ring);
+    }
+
+    &__progress {
+      height: 4px;
+    }
+  }
+}
+
+// 애니메이션 감소 모드
+@media (prefers-reduced-motion: reduce) {
+  .error-toast {
+    animation: none;
+
+    &--hiding {
+      animation: none;
+      opacity: 0;
+    }
+
+    &__action-button {
+      transition: none;
+
+      &:active {
+        transform: none;
+      }
+    }
+
+    &__close {
+      transition: none;
+
+      &:active {
+        transform: none;
+      }
+    }
+
+    &__progress {
+      animation: none;
+      display: none;
+    }
+  }
+}
+
+// 모바일 최적화
+@media (max-width: 480px) {
+  .error-toast {
+    padding: var(--spacing-sm);
+    gap: var(--spacing-xs);
+
+    &__icon {
+      font-size: var(--font-size-base);
+    }
+
+    &__message {
+      font-size: var(--font-size-xs);
+    }
+
+    &__retry-info {
+      font-size: 10px;
+    }
+
+    &__actions {
+      gap: 4px;
+      margin-top: var(--spacing-xs);
+    }
+
+    &__action-button {
+      padding: 4px var(--spacing-xs);
+      font-size: 10px;
+    }
+
+    &__close {
+      width: 20px;
+      height: 20px;
+      font-size: var(--font-size-xs);
+    }
+  }
+}
+
+// 터치 디바이스 최적화
+@media (hover: none) and (pointer: coarse) {
+  .error-toast {
+    &__action-button {
+      // 터치 디바이스에서는 호버 효과 제거
+      &:hover {
+        background-color: var(--color-background-secondary);
+        color: var(--color-text-primary);
+        border-color: var(--color-border);
+      }
+
+      // 터치 피드백 강화
+      &:active {
+        background-color: var(--color-primary);
+        color: var(--color-text-inverse);
+        transform: scale(0.9);
+      }
+    }
+
+    &__close {
+      &:hover {
+        background-color: transparent;
+        color: var(--color-text-tertiary);
+      }
+
+      &:active {
+        background-color: var(--color-gray-200);
+        transform: scale(0.85);
+      }
+    }
+  }
+}
+
+// 큰 텍스트 모드
+.large-text {
+  .error-toast {
+    &__message {
+      font-size: var(--font-size-base);
+    }
+
+    &__retry-info {
+      font-size: var(--font-size-sm);
+    }
+
+    &__action-button {
+      font-size: var(--font-size-sm);
+      padding: var(--spacing-sm) var(--spacing-md);
+    }
+
+    &__close {
+      width: 28px;
+      height: 28px;
+      font-size: var(--font-size-base);
+    }
+  }
+}
+
+// 배터리 절약 모드 (실험적)
+@media (prefers-reduced-data: reduce) {
+  .error-toast {
+    &__progress {
+      animation: none;
+      display: none;
+    }
+  }
+}

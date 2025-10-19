@@ -1,0 +1,298 @@
+/**
+ * LazyImage 스타일 - 지연 로딩 이미지 컴포넌트
+ */
+
+.lazy-image-wrapper {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  background-color: var(--color-background-secondary);
+  border-radius: var(--border-radius-md);
+}
+
+.lazy-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  
+  &--loaded {
+    opacity: 1;
+  }
+
+  &--error {
+    opacity: 1;
+    filter: grayscale(100%);
+  }
+}
+
+.lazy-image__placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-gray-200);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  z-index: 1;
+  
+  &--blur {
+    filter: blur(5px);
+    transform: scale(1.1);
+  }
+}
+
+.lazy-image__loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: var(--border-radius-full);
+  padding: var(--spacing-sm);
+  backdrop-filter: blur(4px);
+}
+
+.lazy-image__spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--color-gray-300);
+  border-top: 2px solid var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.lazy-image__error {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-gray-100);
+  color: var(--color-text-secondary);
+  z-index: 2;
+  text-align: center;
+  padding: var(--spacing-md);
+}
+
+.lazy-image__error-icon {
+  font-size: var(--font-size-2xl);
+  margin-bottom: var(--spacing-sm);
+  opacity: 0.7;
+}
+
+.lazy-image__error-message {
+  font-size: var(--font-size-sm);
+  margin: 0;
+  line-height: var(--line-height-normal);
+}
+
+// 스피너 애니메이션
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// 페이드인 애니메이션
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+// 다크 모드 지원
+@media (prefers-color-scheme: dark) {
+  .lazy-image-wrapper {
+    background-color: var(--color-gray-700);
+  }
+
+  .lazy-image__placeholder {
+    background-color: var(--color-gray-700);
+  }
+
+  .lazy-image__loading {
+    background-color: rgba(0, 0, 0, 0.8);
+  }
+
+  .lazy-image__spinner {
+    border-color: var(--color-gray-600);
+    border-top-color: var(--color-primary);
+  }
+
+  .lazy-image__error {
+    background-color: var(--color-gray-700);
+  }
+}
+
+// 고대비 모드 지원
+@media (prefers-contrast: high) {
+  .lazy-image-wrapper {
+    border: 1px solid var(--color-border);
+  }
+
+  .lazy-image__placeholder {
+    border: 1px solid var(--color-border);
+  }
+
+  .lazy-image__loading {
+    border: 2px solid var(--color-border);
+  }
+
+  .lazy-image__spinner {
+    border-width: 3px;
+  }
+
+  .lazy-image__error {
+    border: 2px solid var(--color-danger);
+  }
+}
+
+// 애니메이션 감소 모드
+@media (prefers-reduced-motion: reduce) {
+  .lazy-image {
+    transition: none;
+  }
+
+  .lazy-image__placeholder {
+    &--blur {
+      filter: none;
+      transform: none;
+    }
+  }
+
+  .lazy-image__spinner {
+    animation: none;
+  }
+}
+
+// 모바일 최적화
+@media (max-width: 768px) {
+  .lazy-image__loading {
+    padding: var(--spacing-xs);
+  }
+
+  .lazy-image__spinner {
+    width: 20px;
+    height: 20px;
+    border-width: 2px;
+  }
+
+  .lazy-image__error {
+    padding: var(--spacing-sm);
+  }
+
+  .lazy-image__error-icon {
+    font-size: var(--font-size-xl);
+  }
+
+  .lazy-image__error-message {
+    font-size: var(--font-size-xs);
+  }
+}
+
+// 터치 디바이스 최적화
+@media (hover: none) and (pointer: coarse) {
+  .lazy-image-wrapper {
+    // 터치 디바이스에서 더 빠른 로딩을 위해 플레이스홀더 최적화
+    .lazy-image__placeholder {
+      &--blur {
+        filter: blur(2px);
+      }
+    }
+  }
+}
+
+// 큰 텍스트 모드
+.large-text {
+  .lazy-image__error-message {
+    font-size: var(--font-size-base);
+  }
+}
+
+// 성능 최적화를 위한 추가 스타일
+.lazy-image-wrapper {
+  // GPU 가속 활성화
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  
+  // 이미지 렌더링 최적화
+  .lazy-image {
+    image-rendering: auto;
+    image-rendering: crisp-edges;
+    image-rendering: -webkit-optimize-contrast;
+  }
+}
+
+// 반응형 이미지 지원
+.lazy-image-wrapper {
+  &--responsive {
+    width: 100%;
+    height: 0;
+    padding-bottom: 56.25%; // 16:9 비율
+    
+    .lazy-image,
+    .lazy-image__placeholder {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  &--square {
+    width: 100%;
+    height: 0;
+    padding-bottom: 100%; // 1:1 비율
+    
+    .lazy-image,
+    .lazy-image__placeholder {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  &--circle {
+    border-radius: 50%;
+    overflow: hidden;
+    
+    .lazy-image,
+    .lazy-image__placeholder {
+      border-radius: 50%;
+    }
+  }
+}
+
+// 인쇄 스타일
+@media print {
+  .lazy-image__loading,
+  .lazy-image__placeholder {
+    display: none;
+  }
+
+  .lazy-image {
+    opacity: 1 !important;
+    filter: none !important;
+  }
+
+  .lazy-image__error {
+    display: none;
+  }
+}

@@ -334,6 +334,9 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
         hospitalResponse.json(),
       ]);
 
+      // patient 데이터에 hospital_id 추가
+      patientData.hospital_id = hospital;
+
       // 레이아웃 설정 생성 (기존 layoutMapper 로직 사용)
       const layoutConfig: ExtendedLayoutConfig = {
         layoutType: hospitalData.layout_type as any,
@@ -446,7 +449,7 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
     // URL에서 UUID와 병원 정보 추출하여 세션 복구 시도
     const urlParams = new URLSearchParams(window.location.search);
     const uuid = urlParams.get('uuid');
-    const hospital = urlParams.get('hospital');
+    const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
 
     if (uuid && hospital) {
       addNotification({

@@ -66,9 +66,9 @@ export const transformHealthDataForLineChart = (
     const date = `${checkup.Year} ${checkup.CheckUpDate}`;
     const status = getHealthStatus(checkup.Code);
 
-    checkup.Inspections.forEach(inspection => {
-      inspection.Illnesses.forEach(illness => {
-        illness.Items.forEach(item => {
+    checkup.Inspections.forEach((inspection: any) => {
+      inspection.Illnesses.forEach((illness: any) => {
+        illness.Items.forEach((item: any) => {
           const value = extractNumericValue(item.Value);
           if (value > 0) {
             const seriesKey = item.Name;
@@ -97,7 +97,7 @@ export const transformHealthDataForLineChart = (
     id: `health-${name.replace(/\s+/g, '-')}`,
     name,
     data: data.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
-    unit: data[0] ? extractUnit(data[0].label, getUnitForMetric(name)) : '',
+    unit: data[0] ? extractUnit(data[0].label || '', getUnitForMetric(name)) : '',
     color: index === 0 ? 'var(--color-primary)' : `var(--color-gray-${500 + (index % 3) * 100})`,
     showPoints: true,
     showArea: false
@@ -122,9 +122,9 @@ export const transformHealthDataForBarChart = (
     const year = checkup.Year;
     const status = getHealthStatus(checkup.Code);
 
-    checkup.Inspections.forEach(inspection => {
-      inspection.Illnesses.forEach(illness => {
-        illness.Items.forEach(item => {
+    checkup.Inspections.forEach((inspection: any) => {
+      inspection.Illnesses.forEach((illness: any) => {
+        illness.Items.forEach((item: any) => {
           if (metrics.includes(item.Name)) {
             const value = extractNumericValue(item.Value);
             if (value > 0) {
@@ -170,9 +170,9 @@ export const transformHealthDataByHospital = (
   healthDataList.forEach(checkup => {
     const status = getHealthStatus(checkup.Code);
 
-    checkup.Inspections.forEach(inspection => {
-      inspection.Illnesses.forEach(illness => {
-        illness.Items.forEach(item => {
+    checkup.Inspections.forEach((inspection: any) => {
+      inspection.Illnesses.forEach((illness: any) => {
+        illness.Items.forEach((item: any) => {
           if (item.Name === metric) {
             const value = extractNumericValue(item.Value);
             if (value > 0) {

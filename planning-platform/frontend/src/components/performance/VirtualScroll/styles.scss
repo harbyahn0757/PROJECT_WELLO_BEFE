@@ -1,0 +1,252 @@
+/**
+ * VirtualScroll 스타일 - 가상 스크롤링 컴포넌트
+ */
+
+.virtual-scroll {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+
+  // 로딩 상태
+  &--loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-background-primary);
+  }
+
+  &__loading {
+    text-align: center;
+    color: var(--color-text-secondary);
+
+    .loading-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--color-gray-200);
+      border-top: 3px solid var(--color-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto var(--spacing-md);
+    }
+
+    p {
+      font-size: var(--font-size-base);
+      margin: 0;
+    }
+  }
+
+  // 빈 상태
+  &--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-background-primary);
+  }
+
+  &__empty {
+    text-align: center;
+    color: var(--color-text-secondary);
+
+    p {
+      font-size: var(--font-size-base);
+      margin: 0;
+    }
+  }
+
+  // 스크롤 컨테이너
+  &__container {
+    width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-gray-400) var(--color-gray-200);
+
+    // 웹킷 스크롤바 스타일링
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: var(--color-gray-200);
+      border-radius: var(--border-radius-sm);
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--color-gray-400);
+      border-radius: var(--border-radius-sm);
+      transition: var(--transition-ease);
+
+      &:hover {
+        background: var(--color-gray-500);
+      }
+    }
+
+    &::-webkit-scrollbar-corner {
+      background: var(--color-gray-200);
+    }
+  }
+
+  // 콘텐츠 영역
+  &__content {
+    width: 100%;
+    will-change: transform;
+  }
+}
+
+// 스피너 애니메이션
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// 다크 모드 지원
+@media (prefers-color-scheme: dark) {
+  .virtual-scroll {
+    &--loading,
+    &--empty {
+      background-color: var(--color-gray-800);
+    }
+
+    &__container {
+      scrollbar-color: var(--color-gray-600) var(--color-gray-700);
+
+      &::-webkit-scrollbar-track {
+        background: var(--color-gray-700);
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: var(--color-gray-600);
+
+        &:hover {
+          background: var(--color-gray-500);
+        }
+      }
+
+      &::-webkit-scrollbar-corner {
+        background: var(--color-gray-700);
+      }
+    }
+  }
+}
+
+// 고대비 모드 지원
+@media (prefers-contrast: high) {
+  .virtual-scroll {
+    &__container {
+      &::-webkit-scrollbar {
+        width: 12px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: var(--color-gray-300);
+        border: 1px solid var(--color-border);
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: var(--color-gray-600);
+        border: 1px solid var(--color-border);
+
+        &:hover {
+          background: var(--color-gray-700);
+        }
+      }
+    }
+  }
+}
+
+// 애니메이션 감소 모드
+@media (prefers-reduced-motion: reduce) {
+  .virtual-scroll {
+    &__loading .loading-spinner {
+      animation: none;
+    }
+
+    &__container::-webkit-scrollbar-thumb {
+      transition: none;
+    }
+
+    &__content {
+      will-change: auto;
+    }
+  }
+}
+
+// 모바일 최적화
+@media (max-width: 768px) {
+  .virtual-scroll {
+    &__container {
+      // 모바일에서는 스크롤바 숨김
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
+
+    &__loading,
+    &__empty {
+      padding: var(--spacing-lg);
+
+      p {
+        font-size: var(--font-size-sm);
+      }
+    }
+  }
+}
+
+// 터치 디바이스 최적화
+@media (hover: none) and (pointer: coarse) {
+  .virtual-scroll {
+    &__container {
+      // 터치 디바이스에서 스크롤 성능 최적화
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+  }
+}
+
+// 큰 텍스트 모드
+.large-text {
+  .virtual-scroll {
+    &__loading p,
+    &__empty p {
+      font-size: var(--font-size-lg);
+    }
+  }
+}
+
+// 성능 최적화를 위한 추가 스타일
+.virtual-scroll {
+  // GPU 가속 활성화
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+
+  &__content {
+    // 레이어 생성으로 리페인트 최적화
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+}
+
+// 인쇄 스타일
+@media print {
+  .virtual-scroll {
+    &__container {
+      overflow: visible !important;
+      height: auto !important;
+    }
+
+    &__content {
+      transform: none !important;
+      position: static !important;
+    }
+
+    &--loading,
+    &--empty {
+      display: none;
+    }
+  }
+}

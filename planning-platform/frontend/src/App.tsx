@@ -14,6 +14,8 @@ import AuthPage from './pages/AuthPage';
 import { HealthDataViewer } from './components/health/HealthDataViewer';
 import HealthDashboard from './pages/HealthDashboard';
 import HealthTrends from './pages/HealthTrends';
+import PrescriptionHistory from './pages/PrescriptionHistory';
+import HealthComparison from './pages/HealthComparison';
 import { LayoutType } from './constants/layoutTypes';
 import { debugLayoutMapping } from './utils/layoutMapper';
 import { WelloDataProvider, useWelloData } from './contexts/WelloDataContext';
@@ -203,7 +205,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const urlParams = new URLSearchParams(location.search);
     const uuid = urlParams.get('uuid');
-    const hospital = urlParams.get('hospital');
+    const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
 
     if (uuid && hospital) {
       // 현재 환자 데이터가 없거나 다른 환자인 경우에만 로딩
@@ -307,6 +309,8 @@ const AppContent: React.FC = () => {
           <Route path="/questionnaire-complete" element={<HealthQuestionnaireComplete />} />
           <Route path="/dashboard" element={<HealthDashboard />} />
           <Route path="/trends" element={<HealthTrends />} />
+          <Route path="/prescriptions" element={<PrescriptionHistory />} />
+          <Route path="/comparison" element={<HealthComparison />} />
           <Route path="/results-trend" element={<HealthDataViewer onBack={() => window.history.back()} />} />
           <Route path="/results" element={<HealthDataViewer onBack={() => window.history.back()} />} />
         </Routes>

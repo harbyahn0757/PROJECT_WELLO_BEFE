@@ -115,7 +115,7 @@ export const extractParameters = () => {
   return {
     uuid: urlParams.get('uuid'),
     layout: urlParams.get('layout'),
-    hospital: urlParams.get('hospital')
+    hospital: urlParams.get('hospital') || urlParams.get('hospitalId')
   };
 };
 

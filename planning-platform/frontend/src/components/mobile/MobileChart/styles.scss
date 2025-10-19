@@ -1,0 +1,420 @@
+/**
+ * MobileChart 스타일 - 모바일 최적화
+ */
+
+.mobile-chart {
+  position: relative;
+  width: 100%;
+  background-color: var(--color-gray-0);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  
+  // 터치 액션 최적화
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+
+  &--fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    border-radius: 0;
+    border: none;
+    background-color: var(--color-gray-0);
+  }
+
+  &__container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  &__controls {
+    position: absolute;
+    top: var(--spacing-sm);
+    right: var(--spacing-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    z-index: 10;
+
+    .zoom-controls {
+      display: flex;
+      align-items: center;
+      background-color: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(8px);
+      border-radius: var(--border-radius-full);
+      padding: var(--spacing-xs);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--color-border);
+
+      .control-button {
+        width: 32px;
+        height: 32px;
+        border: none;
+        background: none;
+        color: var(--color-text-primary);
+        font-size: var(--font-size-base);
+        font-weight: var(--font-weight-bold);
+        cursor: pointer;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition-ease);
+
+        &:hover:not(:disabled) {
+          background-color: var(--color-background-secondary);
+        }
+
+        &:active:not(:disabled) {
+          transform: scale(0.95);
+          background-color: var(--color-primary);
+          color: var(--color-text-inverse);
+        }
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        &:focus {
+          outline: none;
+          box-shadow: 0 0 0 2px var(--color-focus-ring);
+        }
+      }
+
+      .zoom-level {
+        font-size: var(--font-size-xs);
+        color: var(--color-text-secondary);
+        font-weight: var(--font-weight-medium);
+        min-width: 40px;
+        text-align: center;
+        padding: 0 var(--spacing-xs);
+      }
+    }
+
+    .fullscreen-toggle {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background-color: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(8px);
+      color: var(--color-text-primary);
+      font-size: var(--font-size-lg);
+      cursor: pointer;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition-ease);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--color-border);
+
+      &:hover {
+        background-color: var(--color-background-secondary);
+      }
+
+      &:active {
+        transform: scale(0.95);
+        background-color: var(--color-primary);
+        color: var(--color-text-inverse);
+      }
+
+      &:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px var(--color-focus-ring);
+      }
+    }
+  }
+
+  &__hints {
+    position: absolute;
+    bottom: var(--spacing-sm);
+    left: var(--spacing-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+
+    .hint {
+      font-size: 10px;
+      color: var(--color-text-tertiary);
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 2px 6px;
+      border-radius: var(--border-radius-sm);
+      white-space: nowrap;
+    }
+  }
+
+  // 첫 방문 시 힌트 표시
+  &:hover &__hints,
+  &:focus-within &__hints {
+    opacity: 1;
+  }
+
+  &__loading,
+  &__error {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(4px);
+    z-index: 20;
+
+    p {
+      font-size: var(--font-size-sm);
+      color: var(--color-text-secondary);
+      margin: var(--spacing-sm) 0;
+      text-align: center;
+    }
+  }
+
+  &__loading {
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--color-gray-200);
+      border-top: 3px solid var(--color-primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+  }
+
+  &__error {
+    .error-icon {
+      font-size: 48px;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .retry-button {
+      padding: var(--spacing-sm) var(--spacing-md);
+      background-color: var(--color-primary);
+      color: var(--color-text-inverse);
+      border: none;
+      border-radius: var(--border-radius-md);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      cursor: pointer;
+      transition: var(--transition-ease);
+
+      &:hover {
+        background-color: var(--color-primary-dark);
+      }
+
+      &:active {
+        transform: scale(0.95);
+      }
+
+      &:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px var(--color-focus-ring);
+      }
+    }
+  }
+}
+
+// 풀스크린 모드에서 컨트롤 위치 조정
+.mobile-chart--fullscreen {
+  .mobile-chart__controls {
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+  }
+
+  .mobile-chart__hints {
+    bottom: var(--spacing-md);
+    left: var(--spacing-md);
+  }
+}
+
+// 가로 모드 최적화
+@media (orientation: landscape) and (max-height: 500px) {
+  .mobile-chart {
+    &__controls {
+      top: var(--spacing-xs);
+      right: var(--spacing-xs);
+
+      .zoom-controls {
+        padding: 4px;
+
+        .control-button {
+          width: 28px;
+          height: 28px;
+          font-size: var(--font-size-sm);
+        }
+
+        .zoom-level {
+          font-size: 10px;
+          min-width: 32px;
+        }
+      }
+
+      .fullscreen-toggle {
+        width: 32px;
+        height: 32px;
+        font-size: var(--font-size-base);
+      }
+    }
+
+    &__hints {
+      bottom: var(--spacing-xs);
+      left: var(--spacing-xs);
+
+      .hint {
+        font-size: 9px;
+      }
+    }
+  }
+}
+
+// 다크 모드 지원
+@media (prefers-color-scheme: dark) {
+  .mobile-chart {
+    background-color: var(--color-gray-900);
+
+    &__controls {
+      .zoom-controls {
+        background-color: rgba(0, 0, 0, 0.8);
+        border-color: var(--color-gray-700);
+      }
+
+      .fullscreen-toggle {
+        background-color: rgba(0, 0, 0, 0.8);
+        border-color: var(--color-gray-700);
+      }
+    }
+
+    &__loading,
+    &__error {
+      background-color: rgba(0, 0, 0, 0.9);
+    }
+  }
+}
+
+// 접근성 개선
+@media (prefers-reduced-motion: reduce) {
+  .mobile-chart {
+    &__container {
+      transition: none !important;
+    }
+
+    &__controls .control-button {
+      transition: none;
+
+      &:active:not(:disabled) {
+        transform: none;
+      }
+    }
+
+    &__hints {
+      transition: none;
+    }
+
+    &__loading .loading-spinner {
+      animation: none;
+    }
+  }
+}
+
+// 고대비 모드 지원
+@media (prefers-contrast: high) {
+  .mobile-chart {
+    border-width: 2px;
+
+    &__controls {
+      .zoom-controls,
+      .fullscreen-toggle {
+        border-width: 2px;
+        box-shadow: var(--shadow-md);
+      }
+
+      .control-button:focus,
+      .fullscreen-toggle:focus {
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
+      }
+    }
+
+    &__error .retry-button:focus {
+      box-shadow: 0 0 0 3px var(--color-focus-ring);
+    }
+  }
+}
+
+// 터치 디바이스 최적화
+@media (hover: none) and (pointer: coarse) {
+  .mobile-chart {
+    &__controls {
+      .control-button:hover,
+      .fullscreen-toggle:hover {
+        background-color: transparent;
+      }
+
+      // 터치 피드백 강화
+      .control-button:active:not(:disabled) {
+        background-color: var(--color-primary);
+        color: var(--color-text-inverse);
+      }
+
+      .fullscreen-toggle:active {
+        background-color: var(--color-primary);
+        color: var(--color-text-inverse);
+      }
+    }
+
+    // 터치 디바이스에서는 힌트를 항상 표시
+    &__hints {
+      opacity: 0.7;
+    }
+  }
+}
+
+// 애니메이션
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// 작은 화면 최적화
+@media (max-width: 320px) {
+  .mobile-chart {
+    &__controls {
+      .zoom-controls {
+        padding: 2px;
+
+        .control-button {
+          width: 24px;
+          height: 24px;
+          font-size: var(--font-size-sm);
+        }
+
+        .zoom-level {
+          font-size: 10px;
+          min-width: 28px;
+          padding: 0 4px;
+        }
+      }
+
+      .fullscreen-toggle {
+        width: 28px;
+        height: 28px;
+        font-size: var(--font-size-base);
+      }
+    }
+  }
+}

@@ -1,0 +1,448 @@
+/**
+ * HealthSummaryWidget 스타일 - 단조로운 색상 팔레트 사용
+ */
+
+.health-summary-widget {
+  background-color: var(--color-gray-0);
+  border-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+
+  // 로딩 상태
+  &--loading {
+    .widget-header,
+    .widget-content {
+      padding: var(--spacing-md);
+    }
+
+    .skeleton-line {
+      background: linear-gradient(
+        90deg,
+        var(--color-gray-200) 25%,
+        var(--color-gray-300) 50%,
+        var(--color-gray-200) 75%
+      );
+      background-size: 200% 100%;
+      animation: skeleton-loading 1.5s infinite;
+      border-radius: var(--border-radius-sm);
+
+      &--title {
+        height: 20px;
+        width: 60%;
+      }
+
+      &--metric {
+        height: 12px;
+        width: 80%;
+        margin-bottom: 4px;
+      }
+
+      &--value {
+        height: 16px;
+        width: 50%;
+      }
+    }
+
+    .chart-skeleton {
+      display: flex;
+      justify-content: center;
+      margin-bottom: var(--spacing-lg);
+
+      .skeleton-circle {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        background: linear-gradient(
+          90deg,
+          var(--color-gray-200) 25%,
+          var(--color-gray-300) 50%,
+          var(--color-gray-200) 75%
+        );
+        background-size: 200% 100%;
+        animation: skeleton-loading 1.5s infinite;
+      }
+    }
+
+    .metrics-skeleton {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: var(--spacing-sm);
+    }
+
+    .metric-skeleton {
+      padding: var(--spacing-sm);
+      background-color: var(--color-background-secondary);
+      border-radius: var(--border-radius-md);
+    }
+  }
+
+  // 빈 상태
+  &--empty {
+    padding: var(--spacing-xl);
+    text-align: center;
+
+    .empty-state {
+      .empty-icon {
+        font-size: 48px;
+        margin-bottom: var(--spacing-md);
+      }
+
+      h3 {
+        font-size: var(--font-size-lg);
+        color: var(--color-text-primary);
+        margin: 0 0 var(--spacing-xs) 0;
+      }
+
+      p {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        margin: 0;
+        line-height: var(--line-height-normal);
+      }
+    }
+  }
+
+  .widget-header {
+    padding: var(--spacing-md);
+    background-color: var(--color-background-secondary);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .widget-title {
+      font-size: var(--font-size-lg);
+      font-weight: var(--font-weight-semibold);
+      color: var(--color-text-primary);
+      margin: 0;
+    }
+
+    .summary-stats {
+      .total-checkups {
+        font-size: var(--font-size-sm);
+        color: var(--color-text-secondary);
+        background-color: var(--color-gray-0);
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: var(--border-radius-full);
+        border: 1px solid var(--color-border);
+      }
+    }
+  }
+
+  .widget-content {
+    padding: var(--spacing-md);
+
+    .status-chart {
+      display: flex;
+      justify-content: center;
+      margin-bottom: var(--spacing-lg);
+      
+      // 차트 컨테이너 스타일 조정
+      > div {
+        max-width: 200px;
+      }
+    }
+
+    .key-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-lg);
+
+      .metric-summary {
+        padding: var(--spacing-sm);
+        background-color: var(--color-background-secondary);
+        border-radius: var(--border-radius-md);
+        border-left: 3px solid var(--color-gray-300);
+        transition: var(--transition-ease);
+
+        &--normal {
+          border-left-color: var(--color-success);
+        }
+
+        &--warning {
+          border-left-color: var(--color-warning);
+        }
+
+        &--danger {
+          border-left-color: var(--color-danger);
+        }
+
+        .metric-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: var(--spacing-xs);
+
+          .metric-name {
+            font-size: var(--font-size-xs);
+            color: var(--color-text-secondary);
+            font-weight: var(--font-weight-medium);
+          }
+
+          .metric-trend {
+            font-size: var(--font-size-sm);
+            font-weight: var(--font-weight-bold);
+          }
+        }
+
+        .metric-value {
+          font-size: var(--font-size-sm);
+          font-weight: var(--font-weight-semibold);
+          color: var(--color-text-primary);
+          line-height: var(--line-height-tight);
+        }
+
+        &:hover {
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-sm);
+        }
+      }
+    }
+
+    .view-trends-button {
+      width: 100%;
+      padding: var(--spacing-sm);
+      background-color: transparent;
+      border: 1px solid var(--color-border);
+      border-radius: var(--border-radius-md);
+      color: var(--color-primary);
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-medium);
+      cursor: pointer;
+      transition: var(--transition-ease);
+
+      &:hover {
+        background-color: var(--color-background-secondary);
+        border-color: var(--color-primary);
+      }
+
+      &:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px var(--color-focus-ring);
+      }
+
+      &:active {
+        transform: scale(0.98);
+      }
+    }
+  }
+}
+
+// 스켈레톤 로딩 애니메이션
+@keyframes skeleton-loading {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+// 다크 모드 지원
+@media (prefers-color-scheme: dark) {
+  .health-summary-widget {
+    background-color: var(--color-gray-800);
+    border-color: var(--color-gray-600);
+
+    .widget-header {
+      background-color: var(--color-gray-900);
+      border-color: var(--color-gray-600);
+
+      .summary-stats .total-checkups {
+        background-color: var(--color-gray-700);
+        border-color: var(--color-gray-600);
+      }
+    }
+
+    .widget-content {
+      .key-metrics .metric-summary {
+        background-color: var(--color-gray-700);
+      }
+
+      .view-trends-button {
+        border-color: var(--color-gray-600);
+
+        &:hover {
+          background-color: var(--color-gray-700);
+        }
+      }
+    }
+
+    &--loading {
+      .skeleton-line {
+        background: linear-gradient(
+          90deg,
+          var(--color-gray-700) 25%,
+          var(--color-gray-600) 50%,
+          var(--color-gray-700) 75%
+        );
+      }
+
+      .chart-skeleton .skeleton-circle {
+        background: linear-gradient(
+          90deg,
+          var(--color-gray-700) 25%,
+          var(--color-gray-600) 50%,
+          var(--color-gray-700) 75%
+        );
+      }
+
+      .metric-skeleton {
+        background-color: var(--color-gray-700);
+      }
+    }
+  }
+}
+
+// 고대비 모드 지원
+@media (prefers-contrast: high) {
+  .health-summary-widget {
+    border-width: 2px;
+
+    .widget-header {
+      border-bottom-width: 2px;
+
+      .summary-stats .total-checkups {
+        border-width: 2px;
+      }
+    }
+
+    .widget-content {
+      .key-metrics .metric-summary {
+        border-left-width: 4px;
+      }
+
+      .view-trends-button {
+        border-width: 2px;
+
+        &:focus {
+          box-shadow: 0 0 0 3px var(--color-focus-ring);
+        }
+      }
+    }
+  }
+}
+
+// 애니메이션 감소 모드
+@media (prefers-reduced-motion: reduce) {
+  .health-summary-widget {
+    .widget-content {
+      .key-metrics .metric-summary {
+        transition: none;
+
+        &:hover {
+          transform: none;
+        }
+      }
+
+      .view-trends-button {
+        transition: none;
+
+        &:active {
+          transform: none;
+        }
+      }
+    }
+
+    &--loading {
+      .skeleton-line,
+      .chart-skeleton .skeleton-circle {
+        animation: none;
+      }
+    }
+  }
+}
+
+// 모바일 최적화
+@media (max-width: 768px) {
+  .health-summary-widget {
+    .widget-header {
+      padding: var(--spacing-sm);
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--spacing-xs);
+
+      .summary-stats {
+        align-self: flex-start;
+      }
+    }
+
+    .widget-content {
+      padding: var(--spacing-sm);
+
+      .status-chart {
+        margin-bottom: var(--spacing-md);
+
+        > div {
+          max-width: 160px;
+        }
+      }
+
+      .key-metrics {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: var(--spacing-xs);
+        margin-bottom: var(--spacing-md);
+      }
+    }
+  }
+}
+
+// 작은 화면 최적화
+@media (max-width: 480px) {
+  .health-summary-widget {
+    .widget-content {
+      .status-chart > div {
+        max-width: 140px;
+      }
+
+      .key-metrics {
+        grid-template-columns: 1fr 1fr;
+
+        .metric-summary {
+          padding: var(--spacing-xs);
+
+          .metric-header .metric-name {
+            font-size: 10px;
+          }
+
+          .metric-value {
+            font-size: var(--font-size-xs);
+          }
+        }
+      }
+    }
+  }
+}
+
+// 큰 텍스트 모드
+.large-text {
+  .health-summary-widget {
+    .widget-header {
+      .widget-title {
+        font-size: var(--font-size-xl);
+      }
+
+      .summary-stats .total-checkups {
+        font-size: var(--font-size-base);
+      }
+    }
+
+    .widget-content {
+      .key-metrics .metric-summary {
+        .metric-header .metric-name {
+          font-size: var(--font-size-sm);
+        }
+
+        .metric-value {
+          font-size: var(--font-size-base);
+        }
+      }
+
+      .view-trends-button {
+        font-size: var(--font-size-base);
+      }
+    }
+  }
+}

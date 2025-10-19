@@ -1,0 +1,382 @@
+/**
+ * ErrorBoundary 스타일 - 사용자 친화적 에러 화면
+ */
+
+.error-boundary {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
+  background-color: var(--color-background-primary);
+
+  &__container {
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+    background-color: var(--color-gray-0);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: var(--spacing-2xl);
+    border: 1px solid var(--color-border);
+
+    @media (max-width: 768px) {
+      padding: var(--spacing-xl);
+      margin: var(--spacing-md);
+    }
+  }
+
+  &__icon {
+    font-size: 80px;
+    margin-bottom: var(--spacing-lg);
+    opacity: 0.8;
+
+    @media (max-width: 768px) {
+      font-size: 64px;
+      margin-bottom: var(--spacing-md);
+    }
+  }
+
+  &__content {
+    margin-bottom: var(--spacing-xl);
+  }
+
+  &__title {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--spacing-md) 0;
+    line-height: var(--line-height-tight);
+
+    @media (max-width: 768px) {
+      font-size: var(--font-size-xl);
+    }
+  }
+
+  &__message {
+    font-size: var(--font-size-base);
+    color: var(--color-text-secondary);
+    line-height: var(--line-height-normal);
+    margin: 0 0 var(--spacing-lg) 0;
+
+    @media (max-width: 768px) {
+      font-size: var(--font-size-sm);
+    }
+  }
+
+  &__details {
+    margin-top: var(--spacing-lg);
+    text-align: left;
+    background-color: var(--color-background-secondary);
+    border-radius: var(--border-radius-md);
+    padding: var(--spacing-md);
+    border: 1px solid var(--color-border);
+
+    summary {
+      cursor: pointer;
+      font-weight: var(--font-weight-medium);
+      color: var(--color-text-primary);
+      margin-bottom: var(--spacing-sm);
+
+      &:hover {
+        color: var(--color-primary);
+      }
+    }
+  }
+
+  &__stack {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    background-color: var(--color-gray-100);
+    padding: var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xl);
+
+    @media (min-width: 480px) {
+      flex-direction: row;
+      justify-content: center;
+    }
+  }
+
+  &__button {
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--border-radius-md);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: var(--transition-ease);
+    border: 1px solid transparent;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 120px;
+
+    &:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--color-focus-ring);
+    }
+
+    &:active {
+      transform: scale(0.98);
+    }
+
+    &--primary {
+      background-color: var(--color-primary);
+      color: var(--color-text-inverse);
+      border-color: var(--color-primary);
+
+      &:hover {
+        background-color: var(--color-primary-dark);
+        border-color: var(--color-primary-dark);
+      }
+    }
+
+    &--secondary {
+      background-color: var(--color-gray-200);
+      color: var(--color-text-primary);
+      border-color: var(--color-gray-300);
+
+      &:hover {
+        background-color: var(--color-gray-300);
+        border-color: var(--color-gray-400);
+      }
+    }
+
+    &--ghost {
+      background-color: transparent;
+      color: var(--color-text-secondary);
+      border-color: var(--color-border);
+
+      &:hover {
+        background-color: var(--color-background-secondary);
+        color: var(--color-text-primary);
+        border-color: var(--color-primary);
+      }
+    }
+
+    @media (max-width: 480px) {
+      padding: var(--spacing-sm) var(--spacing-md);
+      font-size: var(--font-size-sm);
+      min-width: auto;
+    }
+  }
+
+  &__help {
+    border-top: 1px solid var(--color-border);
+    padding-top: var(--spacing-lg);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+
+    p {
+      margin: 0 0 var(--spacing-xs) 0;
+      line-height: var(--line-height-normal);
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  &__link {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: var(--font-weight-medium);
+
+    &:hover {
+      text-decoration: underline;
+      color: var(--color-primary-dark);
+    }
+
+    &:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--color-focus-ring);
+      border-radius: var(--border-radius-sm);
+    }
+  }
+
+  &__error-id {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    background-color: var(--color-background-secondary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius-sm);
+    display: inline-block;
+    margin-top: var(--spacing-xs);
+  }
+}
+
+// 다크 모드 지원
+@media (prefers-color-scheme: dark) {
+  .error-boundary {
+    &__container {
+      background-color: var(--color-gray-800);
+      border-color: var(--color-gray-600);
+    }
+
+    &__details {
+      background-color: var(--color-gray-900);
+      border-color: var(--color-gray-600);
+    }
+
+    &__stack {
+      background-color: var(--color-gray-700);
+    }
+
+    &__button {
+      &--secondary {
+        background-color: var(--color-gray-700);
+        color: var(--color-text-inverse);
+        border-color: var(--color-gray-600);
+
+        &:hover {
+          background-color: var(--color-gray-600);
+          border-color: var(--color-gray-500);
+        }
+      }
+
+      &--ghost {
+        border-color: var(--color-gray-600);
+
+        &:hover {
+          background-color: var(--color-gray-700);
+          border-color: var(--color-primary);
+        }
+      }
+    }
+
+    &__help {
+      border-color: var(--color-gray-600);
+    }
+
+    &__error-id {
+      background-color: var(--color-gray-700);
+    }
+  }
+}
+
+// 고대비 모드 지원
+@media (prefers-contrast: high) {
+  .error-boundary {
+    &__container {
+      border-width: 2px;
+    }
+
+    &__details {
+      border-width: 2px;
+    }
+
+    &__button {
+      border-width: 2px;
+
+      &:focus {
+        box-shadow: 0 0 0 3px var(--color-focus-ring);
+      }
+    }
+
+    &__link:focus {
+      box-shadow: 0 0 0 3px var(--color-focus-ring);
+    }
+
+    &__help {
+      border-top-width: 2px;
+    }
+  }
+}
+
+// 애니메이션 감소 모드
+@media (prefers-reduced-motion: reduce) {
+  .error-boundary {
+    &__button {
+      transition: none;
+
+      &:active {
+        transform: none;
+      }
+    }
+  }
+}
+
+// 모바일 최적화
+@media (max-width: 480px) {
+  .error-boundary {
+    padding: var(--spacing-md);
+
+    &__container {
+      padding: var(--spacing-lg);
+    }
+
+    &__actions {
+      gap: var(--spacing-xs);
+    }
+
+    &__button {
+      padding: var(--spacing-sm);
+    }
+  }
+}
+
+// 큰 텍스트 모드
+.large-text {
+  .error-boundary {
+    &__title {
+      font-size: var(--font-size-3xl);
+    }
+
+    &__message {
+      font-size: var(--font-size-lg);
+    }
+
+    &__button {
+      font-size: var(--font-size-lg);
+      padding: var(--spacing-md) var(--spacing-xl);
+    }
+
+    &__help {
+      font-size: var(--font-size-base);
+    }
+
+    &__stack {
+      font-size: var(--font-size-sm);
+    }
+  }
+}
+
+// 인쇄 스타일
+@media print {
+  .error-boundary {
+    &__container {
+      box-shadow: none;
+      border: 2px solid var(--color-border);
+    }
+
+    &__actions {
+      display: none;
+    }
+
+    &__details {
+      summary {
+        display: none;
+      }
+    }
+
+    &__stack {
+      background-color: transparent;
+      border: 1px solid var(--color-border);
+    }
+  }
+}

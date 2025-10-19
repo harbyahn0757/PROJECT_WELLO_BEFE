@@ -104,9 +104,9 @@ const HealthTrends: React.FC = () => {
       const metricData: { date: string; value: number }[] = [];
 
       filteredData.forEach(checkup => {
-        checkup.Inspections.forEach(inspection => {
-          inspection.Illnesses.forEach(illness => {
-            illness.Items.forEach(item => {
+          checkup.Inspections.forEach((inspection: any) => {
+            inspection.Illnesses.forEach((illness: any) => {
+              illness.Items.forEach((item: any) => {
               if (item.Name === metric) {
                 const value = extractNumericValue(item.Value);
                 if (value > 0) {

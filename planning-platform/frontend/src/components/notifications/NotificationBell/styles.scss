@@ -1,0 +1,358 @@
+/**
+ * NotificationBell 스타일 - 모바일 친화적 알림 벨
+ */
+
+.notification-bell {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--spacing-xs);
+  border-radius: var(--border-radius-full);
+  transition: var(--transition-ease);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+
+  &:hover {
+    background-color: var(--color-background-secondary);
+    color: var(--color-text-primary);
+  }
+
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-focus-ring);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  // 크기별 스타일
+  &--small {
+    padding: var(--spacing-xs);
+
+    .bell-icon svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .notification-badge {
+      font-size: 10px;
+      min-width: 16px;
+      height: 16px;
+      top: -2px;
+      right: -2px;
+    }
+  }
+
+  &--medium {
+    padding: var(--spacing-sm);
+
+    .bell-icon svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .notification-badge {
+      font-size: var(--font-size-xs);
+      min-width: 20px;
+      height: 20px;
+      top: -4px;
+      right: -4px;
+    }
+  }
+
+  &--large {
+    padding: var(--spacing-md);
+
+    .bell-icon svg {
+      width: 28px;
+      height: 28px;
+    }
+
+    .notification-badge {
+      font-size: var(--font-size-sm);
+      min-width: 24px;
+      height: 24px;
+      top: -6px;
+      right: -6px;
+    }
+  }
+
+  // 새 알림 애니메이션
+  &--animate {
+    animation: bellShake 0.5s ease-in-out;
+
+    .bell-icon {
+      animation: bellRing 0.5s ease-in-out;
+    }
+  }
+
+  .bell-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-ease);
+
+    svg {
+      transition: var(--transition-ease);
+    }
+  }
+
+  .notification-badge {
+    position: absolute;
+    background-color: var(--color-danger);
+    color: var(--color-text-inverse);
+    border-radius: var(--border-radius-full);
+    font-weight: var(--font-weight-bold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    border: 2px solid var(--color-gray-0);
+    box-shadow: var(--shadow-sm);
+    animation: badgePulse 2s infinite;
+  }
+
+  .new-notification-dot {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 8px;
+    height: 8px;
+    background-color: var(--color-success);
+    border-radius: 50%;
+    border: 2px solid var(--color-gray-0);
+    animation: dotPulse 1s ease-in-out;
+  }
+}
+
+// 애니메이션 정의
+@keyframes bellShake {
+  0%, 100% { transform: rotate(0deg); }
+  10%, 30%, 50%, 70%, 90% { transform: rotate(-10deg); }
+  20%, 40%, 60%, 80% { transform: rotate(10deg); }
+}
+
+@keyframes bellRing {
+  0%, 100% { transform: rotate(0deg); }
+  10%, 30%, 50%, 70%, 90% { transform: rotate(-5deg); }
+  20%, 40%, 60%, 80% { transform: rotate(5deg); }
+}
+
+@keyframes badgePulse {
+  0%, 100% { 
+    transform: scale(1); 
+    opacity: 1; 
+  }
+  50% { 
+    transform: scale(1.1); 
+    opacity: 0.8; 
+  }
+}
+
+@keyframes dotPulse {
+  0% { 
+    transform: scale(0); 
+    opacity: 0; 
+  }
+  50% { 
+    transform: scale(1.2); 
+    opacity: 1; 
+  }
+  100% { 
+    transform: scale(1); 
+    opacity: 1; 
+  }
+}
+
+// 다크 모드 지원
+@media (prefers-color-scheme: dark) {
+  .notification-bell {
+    &:hover {
+      background-color: var(--color-gray-700);
+    }
+
+    .notification-badge {
+      border-color: var(--color-gray-800);
+    }
+
+    .new-notification-dot {
+      border-color: var(--color-gray-800);
+    }
+  }
+}
+
+// 고대비 모드 지원
+@media (prefers-contrast: high) {
+  .notification-bell {
+    border: 1px solid var(--color-border);
+
+    &:focus {
+      box-shadow: 0 0 0 3px var(--color-focus-ring);
+    }
+
+    .notification-badge {
+      border-width: 3px;
+      font-weight: var(--font-weight-bold);
+    }
+
+    .new-notification-dot {
+      border-width: 3px;
+    }
+  }
+}
+
+// 애니메이션 감소 모드
+@media (prefers-reduced-motion: reduce) {
+  .notification-bell {
+    transition: none;
+
+    &:active {
+      transform: none;
+    }
+
+    &--animate {
+      animation: none;
+
+      .bell-icon {
+        animation: none;
+      }
+    }
+
+    .bell-icon,
+    .bell-icon svg {
+      transition: none;
+    }
+
+    .notification-badge {
+      animation: none;
+    }
+
+    .new-notification-dot {
+      animation: none;
+    }
+  }
+}
+
+// 터치 디바이스 최적화
+@media (hover: none) and (pointer: coarse) {
+  .notification-bell {
+    // 터치 디바이스에서는 호버 효과 제거
+    &:hover {
+      background-color: transparent;
+      color: var(--color-text-secondary);
+    }
+
+    // 터치 피드백 강화
+    &:active {
+      background-color: var(--color-background-secondary);
+      transform: scale(0.9);
+    }
+
+    // 터치 영역 확대
+    &--small {
+      padding: var(--spacing-sm);
+    }
+
+    &--medium {
+      padding: var(--spacing-md);
+    }
+
+    &--large {
+      padding: var(--spacing-lg);
+    }
+  }
+}
+
+// 모바일 최적화
+@media (max-width: 480px) {
+  .notification-bell {
+    // 모바일에서는 중간 크기로 통일
+    &--small,
+    &--medium,
+    &--large {
+      padding: var(--spacing-sm);
+
+      .bell-icon svg {
+        width: 24px;
+        height: 24px;
+      }
+
+      .notification-badge {
+        font-size: var(--font-size-xs);
+        min-width: 18px;
+        height: 18px;
+        top: -3px;
+        right: -3px;
+      }
+    }
+  }
+}
+
+// 큰 텍스트 모드
+.large-text {
+  .notification-bell {
+    &--small {
+      .bell-icon svg {
+        width: 24px;
+        height: 24px;
+      }
+
+      .notification-badge {
+        font-size: var(--font-size-xs);
+        min-width: 20px;
+        height: 20px;
+      }
+    }
+
+    &--medium {
+      .bell-icon svg {
+        width: 28px;
+        height: 28px;
+      }
+
+      .notification-badge {
+        font-size: var(--font-size-sm);
+        min-width: 24px;
+        height: 24px;
+      }
+    }
+
+    &--large {
+      .bell-icon svg {
+        width: 32px;
+        height: 32px;
+      }
+
+      .notification-badge {
+        font-size: var(--font-size-base);
+        min-width: 28px;
+        height: 28px;
+      }
+    }
+  }
+}
+
+// 배터리 절약 모드 (실험적)
+@media (prefers-reduced-data: reduce) {
+  .notification-bell {
+    .notification-badge {
+      animation: none;
+    }
+
+    .new-notification-dot {
+      animation: none;
+    }
+
+    &--animate {
+      animation: none;
+
+      .bell-icon {
+        animation: none;
+      }
+    }
+  }
+}
