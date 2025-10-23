@@ -372,18 +372,22 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
             </div>
           </div>
         )}
-        {/* 헤더 영역 */}
-        <div className="header-container">
-          {/* 뒤로가기 버튼 */}
-          <div className="back-button-container">
-            <button className="back-button" onClick={handleBack}>
-              ←
-            </button>
-          </div>
+        {/* 뒤로가기 버튼 */}
+        <div className="back-button-container">
+          <button className="back-button" onClick={handleBack}>
+            ←
+          </button>
         </div>
 
+        {/* 마지막 업데이트 시간 (우상단 플로팅) */}
+        {lastUpdateTime && (
+          <div className="last-update-floating">
+            <span className="update-text">마지막 업데이트: {formatLastUpdateTime(lastUpdateTime)}</span>
+          </div>
+        )}
+
         {/* 타이틀 */}
-        <div className="question__title">
+        <div className="question__title" style={{ marginTop: '10px' }}>
           <div className="title-with-toggle">
             <div className="title-content">
               <h1 className="question__title-text">{patientName}님의 건강 기록 타임라인</h1>

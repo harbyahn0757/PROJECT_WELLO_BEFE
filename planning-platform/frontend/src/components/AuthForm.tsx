@@ -158,6 +158,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<'validation' | 'network' | 'server' | 'auth' | null>(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorModalData, setErrorModalData] = useState<{
+    title: string;
+    message: string;
+    technicalDetail?: string;
+    retryAvailable?: boolean;
+  } | null>(null);
   const [authRequested, setAuthRequested] = useState(false);
   // progress 상태 제거됨 - currentStatus로 통합
   // layoutConfig는 Context에서 가져옴
@@ -229,6 +236,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       setCurrentStatus('data_collecting');
       setLoading(true); // 로딩 스피너 표시
       setTypingText(message);
+      
+      // 플로팅 버튼 숨기기 위한 플래그 설정
+      StorageManager.setItem('tilko_manual_collect', 'true');
+      window.dispatchEvent(new Event('localStorageChange'));
     },
     onError: (error) => {
       console.error('❌ [WebSocket] 에러:', error);
@@ -797,6 +808,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       setCurrentStatus('manual_collecting');
       setTypingText('데이터를 수집하고 있습니다...\n잠시만 기다려주세요.');
       
+      // 플로팅 버튼 숨기기 위한 플래그 설정
+      StorageManager.setItem('tilko_manual_collect', 'true');
+      window.dispatchEvent(new Event('localStorageChange'));
+      
       try {
         const response = await fetch(TILKO_API.COLLECT_DATA(currentSessionId), {
           method: 'POST',
@@ -814,6 +829,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           setCurrentStatus('collecting');
           setTypingText('데이터 수집이 시작되었습니다.\n완료까지 잠시만 기다려주세요.');
           
+          // 플로팅 버튼 숨기기 위한 플래그 설정
+          StorageManager.setItem('tilko_manual_collect', 'true');
+          window.dispatchEvent(new Event('localStorageChange'));
+          
           // 수집 완료 확인을 위한 폴링 시작 (WebSocket 대체)
           let pollCount = 0;
           const maxPolls = 30; // 최대 30회 (약 30초)
@@ -827,6 +846,28 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               if (statusResponse.ok) {
                 const statusResult = await statusResponse.json();
                 console.log('📊 [수집상태확인] 상태:', statusResult);
+                
+                // 에러 메시지 확인 및 모달 표시
+                if (statusResult.messages && Array.isArray(statusResult.messages)) {
+                  const errorMessages = statusResult.messages.filter((msg: any) => 
+                    typeof msg === 'object' && msg.type && msg.type.includes('error')
+                  );
+                  
+                  if (errorMessages.length > 0) {
+                    const latestError = errorMessages[errorMessages.length - 1];
+                    console.log('🚨 [에러감지] 구조화된 에러 메시지:', latestError);
+                    
+                    displayErrorModal({
+                      title: latestError.title || '데이터 수집 오류',
+                      message: latestError.message || '데이터 수집 중 문제가 발생했습니다.',
+                      technicalDetail: latestError.technical_detail,
+                      retryAvailable: latestError.retry_available !== false
+                    });
+                    
+                    setCurrentStatus('error');
+                    return; // 폴링 종료
+                  }
+                }
                 
                 // 수집 완료 확인
                 if (statusResult.progress?.completed || statusResult.status === 'completed' || 
@@ -855,7 +896,19 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                   
                   // 데이터 저장 확인 후 즉시 이동 (지연 제거)
                   console.log('🚀 [수집완료] 결과 페이지로 즉시 이동');
-                  navigate('/results-trend');
+                  
+                  // URL 파라미터 포함해서 이동
+                  const urlParams = new URLSearchParams(window.location.search);
+                  const uuid = urlParams.get('uuid');
+                  const hospital = urlParams.get('hospital');
+                  
+                  if (uuid && hospital) {
+                    navigate(`/results-trend?uuid=${uuid}&hospital=${hospital}`);
+                    console.log('📍 [수집완료] URL 파라미터와 함께 이동:', { uuid, hospital });
+                  } else {
+                    navigate('/results-trend');
+                    console.log('⚠️ [수집완료] URL 파라미터 없이 이동');
+                  }
                   
                   return; // 폴링 종료
                 }
@@ -955,14 +1008,26 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             console.log('🏥 [데이터수집] 건강검진 데이터 수집 중...');
             setCurrentStatus('data_collecting');
             setTypingText('건강검진 데이터를 수집하고 있습니다...\n잠시만 기다려주세요.');
+            
+            // 플로팅 버튼 숨기기 위한 플래그 설정
+            StorageManager.setItem('tilko_manual_collect', 'true');
+            window.dispatchEvent(new Event('localStorageChange'));
           } else if (result.status === 'fetching_prescription_data') {
             console.log('💊 [데이터수집] 처방전 데이터 수집 중...');
             setCurrentStatus('data_collecting');
             setTypingText('처방전 데이터를 수집하고 있습니다...\n잠시만 기다려주세요.');
+            
+            // 플로팅 버튼 숨기기 위한 플래그 설정
+            StorageManager.setItem('tilko_manual_collect', 'true');
+            window.dispatchEvent(new Event('localStorageChange'));
           } else if (result.status === 'completed') {
             console.log('✅ [데이터수집] 모든 데이터 수집 완료!');
             setCurrentStatus('data_completed');
             setTypingText('건강검진 및 처방전 데이터 수집이\n완료되었습니다!');
+            
+            // 데이터 수집 완료 - 플로팅 버튼 플래그 제거
+            StorageManager.removeItem('tilko_manual_collect');
+            window.dispatchEvent(new Event('localStorageChange'));
             
             // 수집 완료 시 모니터링 중단
             if (tokenTimeout) {
@@ -1243,10 +1308,23 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     console.error(`[${type.toUpperCase()}] ${message}`);
   }, []);
 
+  // 구조화된 에러 모달 표시
+  const displayErrorModal = useCallback((errorData: {
+    title: string;
+    message: string;
+    technicalDetail?: string;
+    retryAvailable?: boolean;
+  }) => {
+    setErrorModalData(errorData);
+    setShowErrorModal(true);
+  }, []);
+
   // 에러 클리어
   const clearError = useCallback(() => {
     setError(null);
     setErrorType(null);
+    setShowErrorModal(false);
+    setErrorModalData(null);
   }, []);
 
   // messageReplace 제거됨 - 사용되지 않음
@@ -2976,6 +3054,132 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           </div>
         </div>
       </div>
+
+      {/* 에러 모달 */}
+      {showErrorModal && errorModalData && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '400px',
+            width: '100%',
+            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)',
+            position: 'relative'
+          }}>
+            {/* 모달 헤더 */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: '16px',
+              paddingBottom: '12px',
+              borderBottom: '1px solid #f0f0f0'
+            }}>
+              <span style={{ fontSize: '20px', marginRight: '8px' }}>⚠️</span>
+              <h3 style={{
+                margin: 0,
+                fontSize: '18px',
+                fontWeight: 'bold',
+                color: '#333'
+              }}>
+                {errorModalData.title}
+              </h3>
+            </div>
+
+            {/* 모달 내용 */}
+            <div style={{ marginBottom: '20px' }}>
+              <p style={{
+                margin: 0,
+                fontSize: '16px',
+                lineHeight: '1.5',
+                color: '#555',
+                marginBottom: errorModalData.technicalDetail ? '12px' : '0'
+              }}>
+                {errorModalData.message}
+              </p>
+              
+              {errorModalData.technicalDetail && (
+                <details style={{ marginTop: '12px' }}>
+                  <summary style={{
+                    fontSize: '14px',
+                    color: '#888',
+                    cursor: 'pointer',
+                    userSelect: 'none'
+                  }}>
+                    기술적 상세 정보
+                  </summary>
+                  <p style={{
+                    fontSize: '12px',
+                    color: '#666',
+                    backgroundColor: '#f8f9fa',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    marginTop: '8px',
+                    fontFamily: 'monospace',
+                    wordBreak: 'break-all'
+                  }}>
+                    {errorModalData.technicalDetail}
+                  </p>
+                </details>
+              )}
+            </div>
+
+            {/* 모달 버튼 */}
+            <div style={{
+              display: 'flex',
+              gap: '12px',
+              justifyContent: 'flex-end'
+            }}>
+              <button
+                onClick={clearError}
+                style={{
+                  padding: '10px 20px',
+                  border: '1px solid #ddd',
+                  borderRadius: '6px',
+                  backgroundColor: 'white',
+                  color: '#666',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                닫기
+              </button>
+              {errorModalData.retryAvailable && (
+                <button
+                  onClick={() => {
+                    clearError();
+                    // 재시도 로직 (필요시 추가)
+                    window.location.reload();
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    border: 'none',
+                    borderRadius: '6px',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  다시 시도
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

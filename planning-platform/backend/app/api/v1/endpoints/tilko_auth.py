@@ -1119,16 +1119,38 @@ async def collect_health_data_background_task(session_id: str):
             prescription_data = await get_prescription_data(request_login)
             
             if prescription_data.get("Status") == "Error":
-                error_msg = prescription_data.get("Message", "처방전 데이터 수집 실패")
-                session_manager.add_error_message(session_id, f"처방전 데이터 오류: {error_msg}")
+                error_msg = prescription_data.get("ErrMsg", prescription_data.get("Message", "처방전 데이터 수집 실패"))
+                technical_detail = prescription_data.get("TechnicalDetail", "")
+                
+                # 사용자 친화적 에러 메시지와 기술적 상세 정보 분리
+                user_friendly_error = {
+                    "type": "prescription_error",
+                    "title": "처방전 데이터 수집 실패",
+                    "message": error_msg,
+                    "technical_detail": technical_detail,
+                    "retry_available": True
+                }
+                
+                session_manager.add_error_message(session_id, user_friendly_error)
                 print(f"❌ [백그라운드] 처방전 데이터 오류: {error_msg}")
+                if technical_detail:
+                    print(f"   기술적 상세: {technical_detail}")
             else:
                 session_manager.update_prescription_data(session_id, prescription_data)
                 print(f"✅ [백그라운드] 처방전 데이터 수집 성공")
                 print(f"✅ [백그라운드] JSON 파일 저장 완료")
                 
         except Exception as e:
-            session_manager.add_error_message(session_id, f"처방전 데이터 수집 실패: {str(e)}")
+            # 예외 발생 시 사용자 친화적 에러 메시지
+            user_friendly_error = {
+                "type": "prescription_exception",
+                "title": "처방전 데이터 수집 실패",
+                "message": "처방전 데이터를 가져오는 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.",
+                "technical_detail": f"Exception: {str(e)}",
+                "retry_available": True
+            }
+            
+            session_manager.add_error_message(session_id, user_friendly_error)
             print(f"❌ [백그라운드] 처방전 데이터 수집 실패: {str(e)}")
         
         # 모든 데이터 수집 완료

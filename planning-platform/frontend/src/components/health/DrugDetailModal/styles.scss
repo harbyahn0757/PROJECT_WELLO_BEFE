@@ -1,0 +1,308 @@
+/**
+ * 약품 상세정보 모달 스타일
+ */
+@use '../../../styles/variables' as *;
+
+.drug-detail-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(124, 116, 106, 0.4); // 메인 브랜드 컬러 기반
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+  
+  .drug-detail-modal {
+    background: $background-beige; // 메인 화면과 동일한 배경
+    border-radius: 12px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 30px rgba(124, 116, 106, 0.2); // 브랜드 컬러 기반 그림자
+    
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 24px 16px;
+      // border-bottom 제거 - 섹션 가이드라인 색상 제거
+      
+      .modal-title {
+        font-size: $font-lg;
+        font-weight: $font-weight-bold;
+        color: $gray-900;
+        margin: 0;
+        flex: 1;
+        padding-right: 16px;
+      }
+      
+      .close-button {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: $gray-500;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+        
+        &:hover {
+          background: $gray-100;
+          color: $gray-700;
+        }
+      }
+    }
+    
+    .modal-tabs {
+      display: flex;
+      // border-bottom 제거 - 섹션 가이드라인 색상 제거
+      background: transparent; // 배경 투명화
+      
+      .tab-button {
+        flex: 1;
+        padding: 12px 16px;
+        background: none;
+        border: none;
+        font-size: $font-sm;
+        font-weight: $font-weight-medium;
+        color: $gray-600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        // border-bottom 제거
+        
+        &:hover {
+          background: $gray-100;
+          color: $gray-800;
+        }
+        
+        &.active {
+          color: $brand-brown;
+          background: rgba(124, 116, 106, 0.1); // 브랜드 컬러 연한 배경
+          border-bottom: none; // 하단 경계선 제거
+          border-radius: 8px 8px 0 0; // 상단만 둥글게
+        }
+      }
+    }
+    
+    .modal-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0;
+      
+      .tab-content {
+        padding: 24px;
+        
+        .drug-image-section {
+          margin-bottom: 24px;
+          
+          .drug-image-container {
+            display: flex;
+            justify-content: center;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.7); // 반투명 흰색 배경
+            border-radius: 8px;
+            
+            .drug-image {
+              max-width: 200px;
+              max-height: 150px;
+              object-fit: contain;
+              border-radius: 4px;
+            }
+          }
+        }
+        
+        .basic-info {
+          .info-row {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            
+            .info-label {
+              font-size: $font-sm;
+              font-weight: $font-weight-semibold;
+              color: $gray-700;
+              min-width: 80px;
+              margin-right: 16px;
+            }
+            
+            .info-value {
+              font-size: $font-sm;
+              color: $gray-900;
+              flex: 1;
+            }
+          }
+          
+          .info-section {
+            margin-top: 24px;
+            padding-top: 20px;
+            // border-top 제거 - 섹션 가이드라인 색상 제거
+            
+            .section-title {
+              font-size: $font-base;
+              font-weight: $font-weight-bold;
+              color: $gray-900;
+              margin: 0 0 12px 0;
+            }
+            
+            .section-content {
+              font-size: $font-sm;
+              color: $gray-700;
+              line-height: 1.6;
+              margin: 0;
+            }
+          }
+          
+          .prescription-info {
+            margin-top: 24px;
+            padding: 16px;
+            background: rgba(124, 116, 106, 0.05); // 브랜드 컬러 기반 연한 배경
+            border-radius: 8px;
+            // border-left 제거 - 섹션 가이드라인 색상 제거
+            
+            .section-title {
+              font-size: $font-base;
+              font-weight: $font-weight-bold;
+              color: $brand-brown; // 브랜드 컬러로 변경
+              margin: 0 0 12px 0;
+            }
+            
+            .info-row {
+              margin-bottom: 8px;
+              
+              .info-label {
+                color: $blue-700;
+              }
+              
+              .info-value {
+                color: $blue-900;
+                font-weight: $font-weight-medium;
+              }
+            }
+          }
+        }
+        
+        .usage-content,
+        .caution-content,
+        .component-content,
+        .guidance-content,
+        .atc-content,
+        .code-content {
+          .section-title {
+            font-size: $font-base;
+            font-weight: $font-weight-bold;
+            color: $gray-900;
+            margin: 0 0 16px 0;
+          }
+          
+          .content-text {
+            font-size: $font-sm;
+            color: $gray-700;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            
+            &.guidance-text {
+              background: rgba(255, 255, 255, 0.5); // 반투명 흰색 배경
+              padding: 16px;
+              border-radius: 8px;
+              // border-left 제거 - 섹션 가이드라인 색상 제거
+              color: $brand-brown; // 브랜드 컬러로 변경
+            }
+            
+            &.caution-text {
+              background: rgba(255, 255, 255, 0.5); // 반투명 흰색 배경
+              padding: 16px;
+              border-radius: 8px;
+              // border-left 제거 - 섹션 가이드라인 색상 제거
+              color: $brand-brown; // 브랜드 컬러로 변경
+            }
+            
+            &.code-text {
+              background: rgba(255, 255, 255, 0.7); // 반투명 흰색 배경
+              padding: 12px;
+              border-radius: 6px;
+              font-family: 'Courier New', monospace;
+              font-size: $font-xs;
+              color: $brand-brown; // 브랜드 컬러로 변경
+            }
+          }
+        }
+        
+        .guidance-content {
+          margin-top: 24px;
+        }
+      }
+    }
+  }
+}
+
+// 모바일 최적화
+@media (max-width: 768px) {
+  .drug-detail-modal-overlay {
+    padding: 10px;
+    
+    .drug-detail-modal {
+      max-height: 90vh;
+      
+      .modal-header {
+        padding: 16px 20px 12px;
+        
+        .modal-title {
+          font-size: $font-base;
+        }
+      }
+      
+      .modal-tabs {
+        .tab-button {
+          padding: 10px 8px;
+          font-size: $font-xs;
+        }
+      }
+      
+      .modal-content {
+        .tab-content {
+          padding: 16px;
+          
+          .drug-image-section {
+            margin-bottom: 16px;
+            
+            .drug-image-container {
+              .drug-image {
+                max-width: 150px;
+                max-height: 100px;
+              }
+            }
+          }
+          
+          .basic-info {
+            .info-row {
+              flex-direction: column;
+              margin-bottom: 16px;
+              
+              .info-label {
+                margin-bottom: 4px;
+                margin-right: 0;
+                min-width: auto;
+              }
+            }
+            
+            .info-section {
+              margin-top: 16px;
+              padding-top: 16px;
+            }
+            
+            .prescription-info {
+              margin-top: 16px;
+              padding: 12px;
+            }
+          }
+        }
+      }
+    }
+  }
+}

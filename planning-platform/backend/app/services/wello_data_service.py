@@ -596,6 +596,58 @@ class WelloDataService:
         except Exception as e:
             print(f"❌ [데이터조회] 오류: {e}")
             return {"error": str(e)}
+    
+    async def get_drug_detail(self, drug_code: str) -> Optional[Dict[str, Any]]:
+        """약품 상세정보 조회"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            # 처방전 데이터에서 약품 상세정보 조회
+            query = """
+                SELECT DISTINCT 
+                    raw_data->'RetrieveTreatmentInjectionInformationPersonDetailList' as medication_list
+                FROM wello.wello_prescription_data 
+                WHERE raw_data ? 'RetrieveTreatmentInjectionInformationPersonDetailList'
+                  AND jsonb_typeof(raw_data->'RetrieveTreatmentInjectionInformationPersonDetailList') = 'array'
+                  AND jsonb_array_length(raw_data->'RetrieveTreatmentInjectionInformationPersonDetailList') > 0
+            """
+            
+            rows = await conn.fetch(query)
+            await conn.close()
+            
+            # 모든 약품 데이터에서 해당 약품코드 찾기
+            for row in rows:
+                if row['medication_list']:
+                    medications = json.loads(row['medication_list']) if isinstance(row['medication_list'], str) else row['medication_list']
+                    
+                    for med in medications:
+                        if isinstance(med, dict) and med.get('DrugCode') == drug_code:
+                            # RetrieveMdsupDtlInfo에서 상세정보 추출
+                            detail_info = med.get('RetrieveMdsupDtlInfo', {})
+                            
+                            if detail_info:
+                                return {
+                                    "DrugCode": drug_code,
+                                    "MediPrdcNm": detail_info.get('MediPrdcNm', med.get('ChoBangYakPumMyung', '약품명 미상')),
+                                    "DrugImage": detail_info.get('DrugImage'),
+                                    "EfftEftCnte": detail_info.get('EfftEftCnte'),
+                                    "UsagCpctCnte": detail_info.get('UsagCpctCnte'),
+                                    "UseAtntMttCnte": detail_info.get('UseAtntMttCnte'),
+                                    "CmnTmdcGdncCnte": detail_info.get('CmnTmdcGdncCnte'),
+                                    "MdctPathXplnCnte": detail_info.get('MdctPathXplnCnte'),
+                                    "MohwClsfNoXplnCnte": detail_info.get('MohwClsfNoXplnCnte'),
+                                    "UpsoName": detail_info.get('UpsoName'),
+                                    "CmpnInfo": detail_info.get('CmpnInfo'),
+                                    "AtcInfo": detail_info.get('AtcInfo'),
+                                    "FomlCdXplnCnte": detail_info.get('FomlCdXplnCnte'),
+                                    "TmsgGnlSpcd": detail_info.get('TmsgGnlSpcd')
+                                }
+            
+            return None
+            
+        except Exception as e:
+            print(f"❌ [약품정보조회] 오류: {e}")
+            return None
 
 # 싱글톤 인스턴스
 wello_data_service = WelloDataService()

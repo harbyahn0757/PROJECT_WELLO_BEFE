@@ -7,59 +7,51 @@
   // 메인 스타일은 _health.scss에서 정의됨
   padding-bottom: 150px; // 플로팅 버튼 영역 확보
   
-  // 헤더 컨테이너
-  .header-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    padding: 12px 16px; // 20px에서 12px 16px로 축소
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    z-index: 1001;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
-    
-    // 상단 여백 완전 제거 (모바일 브라우저 대응)
-    margin-top: 0;
-    padding-top: max(12px, env(safe-area-inset-top));
-  }
-
-  // 뒤로가기 버튼
+  // 뒤로가기 버튼을 플로팅 헤더로 만들기
   .back-button-container {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-radius: 50px;
-    padding: 4px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    position: fixed !important; // absolute에서 fixed로 변경
+    top: 20px;
+    left: 20px;
+    z-index: 1001; // 플로팅 버튼보다 위에
+    background: rgba(255, 255, 255, 0.95); // 배경 추가
+    backdrop-filter: blur(10px); // 블러 효과
+    -webkit-backdrop-filter: blur(10px); // Safari 지원
+    border-radius: 50px; // 둥근 배경
+    padding: 4px; // 패딩 추가
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1); // 그림자 추가
     
     .back-button {
-      background: transparent;
-      border: none;
-      box-shadow: none;
+      background: transparent; // 배경 투명
+      border: none; // 테두리 제거
+      box-shadow: none; // 그림자 제거
       
       &:hover {
-        background: rgba(124, 116, 106, 0.1);
-        transform: scale(1.1);
+        background: rgba(124, 116, 106, 0.1); // 호버 시 연한 배경
+        transform: scale(1.1); // 살짝 확대
       }
     }
   }
+
+  // 마지막 업데이트 시간 (우상단 플로팅)
+  .last-update-floating {
+    position: fixed;
+    top: 15px; // 뒤로가기 버튼보다 약간 위
+    right: 20px;
+    z-index: 1001;
+    
+    .update-text {
+      font-size: 11px;
+      color: var(--color-text-secondary, #6b7280);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+  }
   
-  // 콘텐츠 영역에 상단 패딩 추가 (헤더 영역 확보)
+  // 콘텐츠 영역에 상단 패딩 추가 (뒤로가기 버튼 영역 확보)
   .question__content {
-    padding-top: 50px; // 헤더 바로 아래로 조정 (여백 최소화)
+    padding-top: 50px; // 뒤로가기 버튼 영역만큼 패딩 (축소)
     position: relative;
     overflow-y: auto;
-  }
-
-  // 타이틀 영역 상단 여백 제거
-  .question__title {
-    margin-top: 0 !important;
-    padding-top: 0;
   }
 
   // Pull-to-refresh 스타일
@@ -87,6 +79,24 @@
   @keyframes rotate {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+  }
+
+  // 마지막 업데이트 시간 스타일
+  .last-update-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--color-text-secondary, #6b7280);
+    
+    .update-icon {
+      font-size: 14px;
+    }
+    
+    .update-text {
+      font-weight: 400;
+    }
   }
 
 
@@ -200,7 +210,7 @@
 // 토스트 메시지 스타일
 .toast-message {
   position: fixed;
-  top: 70px; // 축소된 헤더 아래에 위치
+  top: 50px; // 헤더 높이에 맞춤
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
@@ -250,11 +260,6 @@
     flex-direction: column; // 세로 배치로 변경
     gap: 0.75rem; // 제목과 토글 사이 간격
     
-    .title-content {
-      .question__title-text {
-        // 줄바꿈 제한 제거 - 자연스럽게 표시
-      }
-    }
     
     .external-view-toggle {
       display: flex;
@@ -340,13 +345,13 @@
         margin-left: auto; // 추가로 오른쪽 정렬 강화
         
         .toggle-btn {
-          width: 24px; // 모바일에서 더 작게 (28px → 24px)
-          height: 24px;
-          border-radius: 4px;
+          width: 40px; // 모바일에서 더 크게 (24px → 40px)
+          height: 40px;
+          border-radius: 6px;
           
           svg, img {
-            width: 10px; // 아이콘 더 작게 (12px → 10px)
-            height: 10px;
+            width: 18px; // 아이콘도 더 크게 (10px → 18px)
+            height: 18px;
           }
           
           img {
@@ -399,3 +404,4 @@
     transform: scale(0.95);
   }
 }
+

@@ -33,7 +33,7 @@
       
       p {
         color: $gray-600;
-        font-size: $font-sm;
+        font-size: $font-base;
       }
     }
   }
@@ -63,7 +63,7 @@
     }
     
     p {
-      font-size: $font-sm;
+      font-size: $font-base;
       line-height: 1.5;
     }
   }
@@ -90,7 +90,7 @@
         }
         
         p {
-          font-size: $font-sm;
+          font-size: $font-base;
           color: $gray-600;
           line-height: 1.5;
         }
@@ -220,7 +220,7 @@
       }
       
       .year-count {
-        font-size: $font-sm;
+        font-size: $font-base;
         color: $gray-500;
         background: transparent; // 배경 제거
         padding: 0; // 패딩 제거
@@ -244,7 +244,7 @@
       }
       
       .month-count {
-        font-size: $font-xs;
+        font-size: $font-sm;
         color: $gray-500;
         background: transparent;
         padding: 0;
@@ -255,7 +255,7 @@
       margin-bottom: 2px; // 날짜 헤더 하단 간격 대폭 축소
       
       .date-title {
-        font-size: $font-xs; // 폰트 크기 축소 (sm → xs)
+        font-size: $font-sm; // 폰트 크기 축소 (sm → xs)
         font-weight: $font-weight-normal; // 폰트 굵기 축소 (medium → normal)
         color: $gray-500; // 색상 연하게 (600 → 500)
         background: transparent; // 배경 제거
@@ -319,7 +319,7 @@
       .record-header {
         display: flex;
         align-items: flex-start;
-        padding: $spacing-md; // 패딩 축소
+        padding: $spacing-sm; // 패딩 더 축소 (md → sm)
         cursor: pointer;
         transition: background-color 0.2s ease;
         
@@ -328,7 +328,7 @@
         }
         
         .record-icon {
-          margin-right: $spacing-md;
+          margin-right: $spacing-sm; // md에서 sm으로 축소
           flex-shrink: 0;
           
           .icon-badge {
@@ -391,6 +391,7 @@
             margin-bottom: 4px;
             flex-wrap: nowrap;
             white-space: nowrap;
+            overflow: hidden; // 컨테이너 오버플로우 숨김
             
             .record-title {
               font-size: $font-base; // $font-sm에서 $font-base로 증가 (+2)
@@ -409,30 +410,36 @@
               font-size: $font-base; // $font-sm에서 $font-base로 증가 (+2)
               font-weight: $font-weight-medium;
               color: $gray-700;
-              flex-shrink: 1;
+              flex-shrink: 2; // 더 많이 축소 가능하도록
               min-width: 0;
               overflow: hidden;
               text-overflow: ellipsis;
+              max-width: 120px; // 최대 너비 제한
             }
             
             .record-treatment {
               font-size: $font-base; // $font-sm에서 $font-base로 증가 (+2)
               color: $gray-600;
-              flex-shrink: 1;
+              flex-shrink: 3; // 가장 많이 축소 가능하도록
               min-width: 0;
               overflow: hidden;
               text-overflow: ellipsis;
+              max-width: 80px; // 최대 너비 제한
             }
             
             .record-status {
-              font-size: $font-xs;
+              font-size: $font-sm;
               font-weight: $font-weight-medium;
               padding: 2px 6px;
               border-radius: $border-radius-sm;
               background: rgba(255, 255, 255, 0.8);
               border: 1px solid currentColor;
               flex-shrink: 0;
-              margin-left: auto;
+              margin-left: 4px; // auto에서 고정값으로 변경
+              max-width: 60px; // 최대 너비 제한 추가
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
             }
           }
           
@@ -441,7 +448,7 @@
             align-items: center;
             gap: $spacing-xs;
             margin-bottom: $spacing-xs;
-            font-size: $font-sm;
+            font-size: $font-base;
             color: $gray-600;
             
             .record-separator {
@@ -457,7 +464,7 @@
             display: flex;
             flex-wrap: wrap;
             gap: $spacing-xs;
-            font-size: $font-xs;
+            font-size: $font-sm;
             
             .treatment-type,
             .visit-count,
@@ -473,7 +480,7 @@
         
         .record-toggle {
           flex-shrink: 0;
-          margin-left: $spacing-sm;
+          margin-left: 4px; // $spacing-sm에서 고정값으로 변경
           display: flex;
           align-items: center;
           gap: $spacing-xs;
@@ -482,8 +489,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            width: 28px;
-            height: 28px;
+            width: 24px; // 28px에서 24px로 축소
+            height: 24px; // 28px에서 24px로 축소
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.8);
             border: 1px solid $gray-300;
@@ -573,7 +580,7 @@
         gap: 4px;
         
         .detail-label {
-          font-size: $font-xs;
+          font-size: $font-sm;
           font-weight: $font-weight-medium;
           color: $gray-500;
           text-transform: uppercase;
@@ -586,20 +593,20 @@
           gap: 2px;
           
           .detail-value {
-            font-size: $font-sm;
+            font-size: $font-base;
             font-weight: $font-weight-semibold;
             color: $gray-900;
           }
           
           .detail-reference {
-            font-size: $font-xs;
+            font-size: $font-sm;
             color: $gray-500;
             line-height: 1.3;
           }
         }
         
         .detail-value {
-          font-size: $font-sm;
+          font-size: $font-base;
           font-weight: $font-weight-semibold;
           color: $gray-900;
         }
@@ -608,7 +615,7 @@
     
     .detail-description {
       .detail-label {
-        font-size: $font-xs;
+        font-size: $font-sm;
         font-weight: $font-weight-medium;
         color: $gray-500;
         text-transform: uppercase;
@@ -618,7 +625,7 @@
       }
       
       .detail-text {
-        font-size: $font-sm;
+        font-size: $font-base;
         color: $gray-700;
         line-height: 1.5;
         margin: 0;
@@ -629,7 +636,7 @@
       }
       
       .detail-raw {
-        font-size: $font-sm;
+        font-size: $font-base;
         color: $gray-700;
         line-height: 1.5;
         
@@ -654,7 +661,7 @@
           gap: 4px;
           
           .stat-label {
-            font-size: $font-xs;
+            font-size: $font-sm;
             font-weight: $font-weight-medium;
             color: $gray-500;
             text-transform: uppercase;
@@ -672,7 +679,7 @@
     
     .medication-list {
       .detail-label {
-        font-size: $font-xs;
+        font-size: $font-sm;
         font-weight: $font-weight-medium;
         color: $gray-500;
         text-transform: uppercase;
@@ -701,14 +708,35 @@
             margin-bottom: 4px;
             
             .medication-name {
-              font-size: $font-sm;
+              font-size: $font-base;
               font-weight: $font-weight-medium;
               color: $gray-900;
               flex: 1;
+              
+              &.clickable {
+                cursor: pointer;
+                color: $brand-brown;
+                text-decoration: underline;
+                text-decoration-color: transparent;
+                transition: all 0.2s ease;
+                
+                &:hover {
+                  color: darken($brand-brown, 10%);
+                  text-decoration-color: currentColor;
+                  background: rgba($brand-brown, 0.05);
+                  padding: 2px 4px;
+                  border-radius: 4px;
+                  margin: -2px -4px;
+                }
+                
+                &:active {
+                  transform: scale(0.98);
+                }
+              }
             }
             
             .medication-duration {
-              font-size: $font-xs;
+              font-size: $font-sm;
               color: $gray-500;
               background: $gray-100;
               padding: 2px 6px;
@@ -719,7 +747,7 @@
           
           .medication-description {
             .medication-effect {
-              font-size: $font-xs;
+              font-size: $font-sm;
               color: $gray-600;
               font-style: italic;
               line-height: 1.4;
@@ -728,7 +756,7 @@
         }
         
         .medication-more {
-          font-size: $font-xs;
+          font-size: $font-sm;
           color: $gray-500;
           text-align: center;
           padding: $spacing-sm;
@@ -747,7 +775,7 @@
     border-top: 1px solid $gray-200;
     
     .last-update {
-      font-size: $font-xs;
+      font-size: $font-sm;
       color: $gray-500;
       margin: 0;
     }
@@ -778,12 +806,12 @@
               .record-info {
                 .record-main {
                   .record-title {
-                    font-size: $font-sm;
+                    font-size: $font-base;
                   }
                 }
                 
                 .record-meta {
-                  font-size: $font-xs;
+                  font-size: $font-sm;
                 }
                 
                 .record-summary {
@@ -804,7 +832,7 @@
                   }
                   
                   .detail-value {
-                    font-size: $font-xs;
+                    font-size: $font-sm;
                   }
                 }
               }
@@ -827,7 +855,7 @@
                     padding: $spacing-xs;
                     
                     .medication-name {
-                      font-size: $font-xs;
+                      font-size: $font-sm;
                     }
                   }
                 }
@@ -874,7 +902,7 @@
           }
           
           p {
-            font-size: $font-xs; // 설명 텍스트도 더 작게
+            font-size: $font-sm; // 설명 텍스트도 더 작게
             line-height: 1.4;
           }
         }
@@ -913,7 +941,7 @@
         }
         
         .year-count {
-          font-size: $font-xs; // 더 작은 폰트
+          font-size: $font-sm; // 더 작은 폰트
         }
       }
     }
@@ -932,7 +960,7 @@
       gap: $spacing-sm !important;
       
       .record-date-external {
-        font-size: $font-xs !important;
+        font-size: $font-sm !important;
         padding: 2px 6px !important;
         min-width: 50px !important;
       }
@@ -968,16 +996,16 @@
           flex-wrap: nowrap;
           
           .record-title {
-            font-size: $font-xs !important;
+            font-size: $font-sm !important;
           }
           
           .record-institution,
           .record-treatment {
-            font-size: $font-xs !important;
+            font-size: $font-sm !important;
           }
           
           .record-separator {
-            font-size: $font-xs !important;
+            font-size: $font-sm !important;
           }
         }
         
@@ -1032,7 +1060,7 @@
     .status-badge {
       padding: 4px 8px;
       border-radius: $border-radius-md;
-      font-size: $font-xs;
+      font-size: $font-sm;
       font-weight: $font-weight-medium;
       border: none;
       cursor: pointer;
@@ -1097,7 +1125,7 @@
       border: none;
       background: transparent;
       border-radius: $border-radius-md;
-      font-size: $font-xs;
+      font-size: $font-sm;
       font-weight: $font-weight-medium;
       color: $gray-600;
       cursor: pointer;
@@ -1261,7 +1289,7 @@
           display: flex;
           justify-content: space-between;
           align-items: center;
-          font-size: $font-xs;
+          font-size: $font-sm;
           color: $gray-600;
           margin-bottom: 2px;
           
@@ -1276,7 +1304,7 @@
           
           .ref-range {
             color: $gray-500;
-            font-size: $font-xs;
+            font-size: $font-sm;
           }
         }
       }
@@ -1286,11 +1314,82 @@
 
 // 모바일 최적화
 @media (max-width: 768px) {
+  .unified-timeline {
+    .timeline-item {
+      .record-info {
+        .record-main {
+          flex-wrap: nowrap !important; // 강제로 한 줄 유지
+          overflow: hidden;
+          
+          .record-institution {
+            max-width: 70px; // 모바일에서 더 작게
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          
+          .record-treatment {
+            max-width: 50px; // 모바일에서 더 작게
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+          
+          .record-status {
+            max-width: 50px; // 상태 뱃지도 제한
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            margin-left: 2px; // 모바일에서 더 작은 간격
+          }
+        }
+        
+        .record-toggle {
+          margin-left: 2px; // 모바일에서 더 작은 간격
+          
+          .toggle-button {
+            width: 20px; // 모바일에서 더 작게
+            height: 20px; // 모바일에서 더 작게
+            
+            .toggle-icon {
+              width: 10px; // 아이콘도 더 작게
+              height: 10px;
+            }
+          }
+          
+          .pill-badge {
+            width: 16px; // 약 뱃지도 더 작게
+            height: 16px;
+          }
+        }
+      }
+      
+      .record-header {
+        padding: 8px; // 모바일에서 패딩 더 축소
+        gap: 6px; // 요소 간 간격 축소
+        
+        .record-icon {
+          margin-right: 6px; // 모바일에서 더 작은 마진
+          
+          .icon-badge {
+            width: 24px; // 모바일에서 아이콘 더 작게
+            height: 24px;
+            
+            svg {
+              width: 12px;
+              height: 12px;
+            }
+          }
+        }
+      }
+    }
+  }
+
   .advanced-checkup-details {
     .group-slider {
       .group-tab {
         padding: 6px 10px;
-        font-size: $font-xs;
+        font-size: $font-sm;
       }
     }
     

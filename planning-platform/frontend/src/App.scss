@@ -57,8 +57,22 @@
 .app {
   min-height: 100vh;
   padding: 0;
+  margin: 0;
   width: 100%;
   overflow-x: hidden; // 가로 스크롤 방지
+  position: relative;
+  
+  // 상단 여백 완전 제거
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 // 메인 컨테이너

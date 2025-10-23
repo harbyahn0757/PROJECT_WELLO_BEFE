@@ -45,6 +45,26 @@ async def get_patient_health_data(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"데이터 조회 실패: {str(e)}")
 
+@router.get("/drug-detail/{drug_code}")
+async def get_drug_detail(
+    drug_code: str
+) -> Dict[str, Any]:
+    """약품 상세정보 조회"""
+    try:
+        result = await wello_data_service.get_drug_detail(drug_code)
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="약품 정보를 찾을 수 없습니다")
+        
+        return {
+            "success": True,
+            "data": result
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"약품 정보 조회 실패: {str(e)}")
+
 @router.get("/patients/{uuid}")
 async def get_patient_info(
     uuid: str

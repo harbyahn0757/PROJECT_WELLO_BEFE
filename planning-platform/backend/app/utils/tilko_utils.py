@@ -201,20 +201,82 @@ async def get_prescription_data(
     print(f"💊 [처방전API] 요청 파라미터 수: {len(request_data)} (기간 파라미터 포함)")
     
     async with httpx.AsyncClient(timeout=120.0) as client:
-        response = await client.post(
-            f"{TILKO_API_HOST}/api/v1.0/NhisSimpleAuth/RetrieveTreatmentInjectionInformationPerson",
-            json=request_data,
-            headers={
-                "Content-Type": "application/json",
-                "API-KEY": TILKO_API_KEY,
-                "ENC-KEY": rsa_encrypt(public_key, AES_KEY_FIXED)
+        try:
+            response = await client.post(
+                f"{TILKO_API_HOST}/api/v1.0/NhisSimpleAuth/RetrieveTreatmentInjectionInformationPerson",
+                json=request_data,
+                headers={
+                    "Content-Type": "application/json",
+                    "API-KEY": TILKO_API_KEY,
+                    "ENC-KEY": rsa_encrypt(public_key, AES_KEY_FIXED)
+                }
+            )
+            
+            print(f"💊 [처방전API] 응답 상태: {response.status_code}")
+            print(f"💊 [처방전API] 응답 Content-Type: {response.headers.get('content-type', 'Unknown')}")
+            
+            # HTTP 에러 상태 코드 체크 및 상세 로깅
+            if response.status_code != 200:
+                error_detail = f"HTTP {response.status_code}"
+                try:
+                    error_body = response.text[:500]  # 처음 500자만
+                    print(f"❌ [처방전API] HTTP 에러 상세:")
+                    print(f"   - 상태 코드: {response.status_code}")
+                    print(f"   - 응답 본문: {error_body}")
+                except:
+                    pass
+                
+                # 사용자 친화적 에러 메시지 생성
+                if response.status_code == 400:
+                    user_message = "처방전 조회 요청에 문제가 있습니다."
+                elif response.status_code == 401:
+                    user_message = "처방전 조회 인증에 실패했습니다."
+                elif response.status_code == 403:
+                    user_message = "처방전 조회 권한이 없습니다."
+                elif response.status_code == 429:
+                    user_message = "처방전 조회 요청이 너무 많습니다. 잠시 후 다시 시도해주세요."
+                elif response.status_code >= 500:
+                    user_message = "처방전 조회 서버에 일시적인 문제가 발생했습니다."
+                else:
+                    user_message = "처방전 조회 중 문제가 발생했습니다."
+                
+                return {
+                    "Status": "Error",
+                    "ResultCode": f"HTTP_{response.status_code}",
+                    "ErrMsg": user_message,
+                    "Message": user_message,
+                    "TechnicalDetail": f"HTTP {response.status_code}: {response.reason_phrase}"
+                }
+            
+            response.raise_for_status()
+            
+        except httpx.TimeoutException as e:
+            print(f"❌ [처방전API] 타임아웃 발생: {e}")
+            return {
+                "Status": "Error",
+                "ResultCode": "TIMEOUT",
+                "ErrMsg": "처방전 조회 시간이 초과되었습니다. 네트워크 상태를 확인하고 다시 시도해주세요.",
+                "Message": "처방전 조회 시간 초과",
+                "TechnicalDetail": f"Timeout after 120 seconds: {str(e)}"
             }
-        )
-        
-        print(f"💊 [처방전API] 응답 상태: {response.status_code}")
-        print(f"💊 [처방전API] 응답 Content-Type: {response.headers.get('content-type', 'Unknown')}")
-        
-        response.raise_for_status()
+        except httpx.ConnectError as e:
+            print(f"❌ [처방전API] 연결 오류: {e}")
+            return {
+                "Status": "Error",
+                "ResultCode": "CONNECTION_ERROR",
+                "ErrMsg": "처방전 조회 서버에 연결할 수 없습니다. 네트워크 상태를 확인해주세요.",
+                "Message": "서버 연결 실패",
+                "TechnicalDetail": f"Connection error: {str(e)}"
+            }
+        except Exception as e:
+            print(f"❌ [처방전API] 예상치 못한 오류: {e}")
+            return {
+                "Status": "Error",
+                "ResultCode": "UNEXPECTED_ERROR",
+                "ErrMsg": "처방전 조회 중 예상치 못한 문제가 발생했습니다. 잠시 후 다시 시도해주세요.",
+                "Message": "예상치 못한 오류",
+                "TechnicalDetail": f"Unexpected error: {str(e)}"
+            }
         
         # HTML 응답 체크 (NHIS 로그인 페이지 등)
         content_type = response.headers.get('content-type', '').lower()

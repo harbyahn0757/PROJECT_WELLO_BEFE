@@ -3,6 +3,8 @@
  * 건강검진과 처방전을 년도별로 통합하여 모던한 아코디언 형태로 표시
  */
 import React, { useState, useEffect } from 'react';
+import DrugDetailModal from '../DrugDetailModal';
+import { API_ENDPOINTS } from '../../../config/api';
 import './styles.scss';
 
 // 알약 이미지 경로
@@ -48,7 +50,62 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
   }>({});
   const [selectedCheckupGroups, setSelectedCheckupGroups] = useState<{ [recordId: string]: string }>({});
   const [currentSlideIndexes, setCurrentSlideIndexes] = useState<{ [recordId: string]: number }>({});
+  
+  // 약품 상세정보 모달 상태
+  const [isDrugModalOpen, setIsDrugModalOpen] = useState(false);
+  const [selectedDrugInfo, setSelectedDrugInfo] = useState<any>(null);
+  const [selectedMedicationData, setSelectedMedicationData] = useState<any>(null);
   const [statusFilters, setStatusFilters] = useState<{ [recordId: string]: string | null }>({});
+
+  // 약품 클릭 핸들러
+  const handleDrugClick = async (medication: any) => {
+    const drugCode = medication.DrugCode;
+    
+    if (!drugCode) {
+      console.warn('약품 코드가 없습니다:', medication);
+      return;
+    }
+    
+    try {
+      console.log('🔍 [약품클릭] 상세정보 조회 시작:', drugCode);
+      
+      const response = await fetch(API_ENDPOINTS.DRUG_DETAIL(drugCode));
+      const result = await response.json();
+      
+      if (result.success && result.data) {
+        setSelectedDrugInfo(result.data);
+        setSelectedMedicationData(medication);
+        setIsDrugModalOpen(true);
+        console.log('✅ [약품클릭] 상세정보 로드 완료:', result.data);
+      } else {
+        console.warn('⚠️ [약품클릭] 상세정보 없음:', drugCode);
+        // 기본 정보만으로 모달 표시
+        setSelectedDrugInfo({
+          DrugCode: drugCode,
+          MediPrdcNm: medication.ChoBangYakPumMyung || '약품명 미상',
+          EfftEftCnte: medication.ChoBangYakPumHyoneung || ''
+        });
+        setSelectedMedicationData(medication);
+        setIsDrugModalOpen(true);
+      }
+    } catch (error) {
+      console.error('❌ [약품클릭] 오류:', error);
+      // 에러 시에도 기본 정보로 모달 표시
+      setSelectedDrugInfo({
+        DrugCode: drugCode,
+        MediPrdcNm: medication.ChoBangYakPumMyung || '약품명 미상',
+        EfftEftCnte: medication.ChoBangYakPumHyoneung || ''
+      });
+      setSelectedMedicationData(medication);
+      setIsDrugModalOpen(true);
+    }
+  };
+
+  const closeDrugModal = () => {
+    setIsDrugModalOpen(false);
+    setSelectedDrugInfo(null);
+    setSelectedMedicationData(null);
+  };
 
   useEffect(() => {
     if (!healthData && !prescriptionData) return;
@@ -664,7 +721,13 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
                     {prescription.RetrieveTreatmentInjectionInformationPersonDetailList.slice(0, 5).map((med: any, idx: number) => (
                       <div key={idx} className="medication-item">
                         <div className="medication-header">
-                          <span className="medication-name">{med.ChoBangYakPumMyung || '약품명 미상'}</span>
+                          <span 
+                            className="medication-name clickable"
+                            onClick={() => handleDrugClick(med)}
+                            title="클릭하여 약품 상세정보 보기"
+                          >
+                            {med.ChoBangYakPumMyung || '약품명 미상'}
+                          </span>
                           {med.TuyakIlSoo && <span className="medication-duration">{med.TuyakIlSoo}일분</span>}
                         </div>
                         {med.ChoBangYakPumHyoneung && (
@@ -776,6 +839,7 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
   }
 
   return (
+    <>
     <div className={`unified-timeline vertical`}>
       <div className="timeline-content">
         {sortedYears.map((year: string) => {
@@ -976,6 +1040,15 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
         })}
       </div>
     </div>
+    
+    {/* 약품 상세정보 모달 */}
+    <DrugDetailModal
+      isOpen={isDrugModalOpen}
+      onClose={closeDrugModal}
+      drugInfo={selectedDrugInfo}
+      medicationData={selectedMedicationData}
+    />
+  </>
   );
 };
 

@@ -46,18 +46,22 @@ const FloatingButton: React.FC = () => {
   // 정보 확인 중이거나 인증 진행 중에는 플로팅 버튼 숨기기
   const [hideFloatingButton, setHideFloatingButton] = React.useState(false);
   const [isAuthWaiting, setIsAuthWaiting] = React.useState(false);
+  const [isAuthMethodSelection, setIsAuthMethodSelection] = React.useState(false);
   
   React.useEffect(() => {
     const checkHideStatus = () => {
       const isConfirming = localStorage.getItem('tilko_info_confirming') === 'true';
       const authWaiting = localStorage.getItem('tilko_auth_waiting') === 'true';
+      const authMethodSelection = localStorage.getItem('tilko_auth_method_selection') === 'true';
+      const isDataCollecting = localStorage.getItem('tilko_manual_collect') === 'true';
       
-      // 정보 확인 중에는 무조건 숨김, 인증 대기 중에만 표시
-      const shouldHide = isConfirming;
+      // 정보 확인 중이거나 데이터 수집 중에는 무조건 숨김
+      const shouldHide = isConfirming || isDataCollecting;
       setHideFloatingButton(shouldHide);
       setIsAuthWaiting(authWaiting);
+      setIsAuthMethodSelection(authMethodSelection);
       
-      // console.log('🔄 [플로팅버튼] 상태 확인:', { isConfirming, authWaiting, shouldHide });
+      // console.log('🔄 [플로팅버튼] 상태 확인:', { isConfirming, authWaiting, authMethodSelection, isDataCollecting, shouldHide });
     };
     
     // 초기 상태 확인
@@ -65,7 +69,8 @@ const FloatingButton: React.FC = () => {
     
     // storage 이벤트 리스너 (다른 탭에서의 변경사항 감지)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'tilko_info_confirming' || e.key === 'tilko_auth_waiting') {
+      if (e.key === 'tilko_info_confirming' || e.key === 'tilko_auth_waiting' || 
+          e.key === 'tilko_auth_method_selection' || e.key === 'tilko_manual_collect') {
         checkHideStatus();
       }
     };
@@ -124,18 +129,34 @@ const FloatingButton: React.FC = () => {
     // 같은 페이지 내에서 localStorage 변경을 감지할 수 있도록 커스텀 이벤트 발생
     window.dispatchEvent(new Event('localStorageChange'));
   };
+
+  const handleAuthMethodSelectionClick = async () => {
+    console.log('🔘 [인증방식] 사용자가 인증 시작 버튼 클릭');
+    
+    // AuthForm에게 인증 방식 선택 완료 신호 전송
+    StorageManager.setItem('tilko_auth_method_complete', 'true');
+    console.log('📡 [플로팅버튼] 인증 방식 선택 완료 신호 전송');
+    
+    // 같은 페이지 내에서 localStorage 변경을 감지할 수 있도록 커스텀 이벤트 발생
+    window.dispatchEvent(new Event('localStorageChange'));
+  };
   
   const getButtonConfig = () => {
     const path = location.pathname;
     
     if (path === '/login') {
       // 틸코 인증 대기 상태 확인 (React state 사용)
-      // console.log('🔍 [플로팅버튼] isAuthWaiting state:', isAuthWaiting);
+      // console.log('🔍 [플로팅버튼] 상태:', { isAuthWaiting, isAuthMethodSelection });
       
       if (isAuthWaiting) {
         return {
           text: '데이터 수집하기',
           onClick: handleAuthCompleteClick
+        };
+      } else if (isAuthMethodSelection) {
+        return {
+          text: '인증 시작하기',
+          onClick: handleAuthMethodSelectionClick
         };
       } else {
         return {

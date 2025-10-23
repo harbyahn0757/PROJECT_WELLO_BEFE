@@ -6,11 +6,16 @@
 }
 
 html, body {
-  margin: 0;
-  padding: 0;
+  margin: 0 !important;
+  padding: 0 !important;
   height: 100%;
   width: 100%;
   overflow-x: hidden; // 가로 스크롤 방지
+  position: relative;
+  
+  // 모바일 브라우저 상단 공간 완전 제거
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
 }
 
 body {
@@ -30,6 +35,14 @@ body {
 
 #root {
   min-height: 100vh;
+  margin: 0 !important;
+  padding: 0 !important;
+  position: relative;
+  
+  // 상단 공간 완전 제거
+  &::before {
+    display: none !important;
+  }
 }
 
 // 링크 기본 스타일

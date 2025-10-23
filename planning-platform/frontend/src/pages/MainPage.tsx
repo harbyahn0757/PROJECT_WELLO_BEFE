@@ -1,15 +1,96 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/Card';
 import { useWelloData } from '../contexts/WelloDataContext';
 import { API_ENDPOINTS } from '../config/api';
 import { LayoutType } from '../constants/layoutTypes';
+import { TILKO_API } from '../constants/api';
 
 const MainPage: React.FC = () => {
   const { state } = useWelloData();
   const { layoutConfig, patient, hospital } = state;
   const navigate = useNavigate();
   const location = useLocation();
+
+  // 세션 복구 체크 (컴포넌트 마운트 시)
+  useEffect(() => {
+    const checkAndRecoverSession = async () => {
+      try {
+        console.log('🔍 [메인페이지] 세션 복구 체크 시작');
+        
+        // 로컬 스토리지에서 세션 ID 확인
+        const savedSessionId = localStorage.getItem('tilko_session_id');
+        const savedSessionData = localStorage.getItem('tilko_session_data');
+        
+        console.log('📋 [메인페이지] localStorage 확인:', {
+          sessionId: savedSessionId,
+          sessionData: savedSessionData ? 'exists' : 'null'
+        });
+        
+        if (savedSessionId && savedSessionData) {
+          const sessionData = JSON.parse(savedSessionData);
+          
+          // 세션이 5분 이내에 생성된 경우만 복구 (기존 1분에서 5분으로 확장)
+          const sessionAge = Date.now() - new Date(sessionData.created_at).getTime();
+          const fiveMinutes = 5 * 60 * 1000;
+          
+          console.log('⏰ [메인페이지] 세션 시간 확인:', {
+            sessionAge: Math.floor(sessionAge / 1000) + '초',
+            limit: '300초',
+            valid: sessionAge < fiveMinutes
+          });
+          
+          if (sessionAge < fiveMinutes) {
+            console.log('🔄 [메인페이지] 기존 세션 발견, 상태 확인 중:', savedSessionId);
+            
+            // 서버에서 세션 상태 확인
+            const response = await fetch(TILKO_API.SESSION_STATUS(savedSessionId));
+            
+            if (response.ok) {
+              const result = await response.json();
+              
+              console.log('📊 [메인페이지] 서버 세션 상태:', result);
+              
+              if (result.success && result.status && result.status !== 'error') {
+                console.log('✅ [메인페이지] 진행 중인 세션 발견:', result.status);
+                
+                // 인증 관련 상태면 로그인 페이지로 리다이렉트
+                if (['auth_pending', 'auth_completed', 'authenticated', 'auth_waiting'].includes(result.status)) {
+                  const urlParams = new URLSearchParams(location.search);
+                  const uuid = urlParams.get('uuid');
+                  const hospital = urlParams.get('hospital');
+                  
+                  console.log('🎯 [메인페이지] URL 파라미터 확인:', { uuid, hospital });
+                  
+                  if (uuid && hospital) {
+                    console.log('🔄 [메인페이지] 인증 진행 중인 세션 → 로그인 페이지로 리다이렉트');
+                    navigate(`/login?uuid=${uuid}&hospital=${hospital}`);
+                    return;
+                  } else {
+                    console.warn('⚠️ [메인페이지] UUID 또는 Hospital 파라미터 누락');
+                  }
+                } else {
+                  console.log('ℹ️ [메인페이지] 인증 관련 상태가 아님:', result.status);
+                }
+              } else {
+                console.log('⚠️ [메인페이지] 세션 상태 응답 오류:', result);
+              }
+            } else {
+              console.error('❌ [메인페이지] 세션 상태 API 호출 실패:', response.status);
+            }
+          } else {
+            console.log('⏰ [메인페이지] 세션이 만료됨 (5분 초과)');
+          }
+        } else {
+          console.log('📭 [메인페이지] 저장된 세션 없음');
+        }
+      } catch (error) {
+        console.error('❌ [메인페이지] 세션 복구 확인 실패:', error);
+      }
+    };
+    
+    checkAndRecoverSession();
+  }, [navigate, location.search]);
 
   // 데이터가 없는 경우 로딩 표시
   if (!layoutConfig || !patient || !hospital) {

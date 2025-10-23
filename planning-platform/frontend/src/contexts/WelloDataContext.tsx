@@ -322,18 +322,84 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
         fetch(API_ENDPOINTS.HOSPITAL(hospital)),
       ]);
 
+      // 응답 상태 및 Content-Type 검증
       if (!patientResponse.ok) {
-        throw new Error(`환자 정보 조회 실패: ${patientResponse.status}`);
+        const responseText = await patientResponse.text();
+        console.error('🚨 [환자 API] 응답 실패:', {
+          status: patientResponse.status,
+          statusText: patientResponse.statusText,
+          url: API_ENDPOINTS.PATIENT(uuid),
+          contentType: patientResponse.headers.get('content-type'),
+          responsePreview: responseText.substring(0, 200)
+        });
+        throw new Error(`환자 정보 조회 실패: ${patientResponse.status} - ${responseText.substring(0, 100)}`);
       }
 
       if (!hospitalResponse.ok) {
-        throw new Error(`병원 정보 조회 실패: ${hospitalResponse.status}`);
+        const responseText = await hospitalResponse.text();
+        console.error('🚨 [병원 API] 응답 실패:', {
+          status: hospitalResponse.status,
+          statusText: hospitalResponse.statusText,
+          url: API_ENDPOINTS.HOSPITAL(hospital),
+          contentType: hospitalResponse.headers.get('content-type'),
+          responsePreview: responseText.substring(0, 200)
+        });
+        throw new Error(`병원 정보 조회 실패: ${hospitalResponse.status} - ${responseText.substring(0, 100)}`);
       }
 
-      const [patientData, hospitalData]: [PatientData, HospitalData] = await Promise.all([
-        patientResponse.json(),
-        hospitalResponse.json(),
-      ]);
+      // Content-Type 검증
+      const patientContentType = patientResponse.headers.get('content-type');
+      const hospitalContentType = hospitalResponse.headers.get('content-type');
+
+      if (!patientContentType?.includes('application/json')) {
+        const responseText = await patientResponse.text();
+        console.error('🚨 [환자 API] JSON이 아닌 응답:', {
+          contentType: patientContentType,
+          url: API_ENDPOINTS.PATIENT(uuid),
+          responsePreview: responseText.substring(0, 200)
+        });
+        throw new Error(`환자 API가 JSON이 아닌 응답을 반환했습니다: ${patientContentType}`);
+      }
+
+      if (!hospitalContentType?.includes('application/json')) {
+        const responseText = await hospitalResponse.text();
+        console.error('🚨 [병원 API] JSON이 아닌 응답:', {
+          contentType: hospitalContentType,
+          url: API_ENDPOINTS.HOSPITAL(hospital),
+          responsePreview: responseText.substring(0, 200)
+        });
+        throw new Error(`병원 API가 JSON이 아닌 응답을 반환했습니다: ${hospitalContentType}`);
+      }
+
+      // JSON 파싱 시도
+      let patientData: PatientData;
+      let hospitalData: HospitalData;
+
+      try {
+        patientData = await patientResponse.json();
+        console.log('✅ [환자 API] JSON 파싱 성공:', { uuid, name: patientData.name });
+      } catch (error) {
+        const responseText = await patientResponse.text();
+        console.error('🚨 [환자 API] JSON 파싱 실패:', {
+          error: error instanceof Error ? error.message : error,
+          url: API_ENDPOINTS.PATIENT(uuid),
+          responsePreview: responseText.substring(0, 200)
+        });
+        throw new Error(`환자 정보 JSON 파싱 실패: ${error instanceof Error ? error.message : error}`);
+      }
+
+      try {
+        hospitalData = await hospitalResponse.json();
+        console.log('✅ [병원 API] JSON 파싱 성공:', { hospitalId: hospital, name: hospitalData.name });
+      } catch (error) {
+        const responseText = await hospitalResponse.text();
+        console.error('🚨 [병원 API] JSON 파싱 실패:', {
+          error: error instanceof Error ? error.message : error,
+          url: API_ENDPOINTS.HOSPITAL(hospital),
+          responsePreview: responseText.substring(0, 200)
+        });
+        throw new Error(`병원 정보 JSON 파싱 실패: ${error instanceof Error ? error.message : error}`);
+      }
 
       // patient 데이터에 hospital_id 추가
       patientData.hospital_id = hospital;
@@ -388,8 +454,20 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
       }
 
     } catch (error) {
-      console.error('환자 데이터 로딩 실패:', error);
       const errorMessage = error instanceof Error ? error.message : '데이터를 불러오는 중 오류가 발생했습니다.';
+      
+      console.error('🚨 [환자 데이터 로딩] 실패:', {
+        error: errorMessage,
+        uuid,
+        hospital,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        url: window.location.href,
+        apiEndpoints: {
+          patient: API_ENDPOINTS.PATIENT(uuid),
+          hospital: API_ENDPOINTS.HOSPITAL(hospital)
+        }
+      });
       
       setState(prev => ({
         ...prev,
@@ -399,7 +477,10 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
 
       // 네트워크 오류인 경우 캐시 데이터 사용 제안
       const cached = WelloCacheManager.getCache(uuid);
-      if (cached && (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError'))) {
+      const isNetworkError = errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError');
+      const isAPIError = errorMessage.includes('API') || errorMessage.includes('JSON');
+      
+      if (cached && isNetworkError) {
         setState(prev => ({ ...prev, isOffline: true }));
         
         addNotification({
@@ -418,6 +499,25 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
                 error: null,
               }));
             },
+          },
+          autoClose: false,
+        });
+      } else {
+        // 프로덕션 환경에서 더 자세한 에러 정보 제공
+        let userFriendlyMessage = errorMessage;
+        if (isNetworkError) {
+          userFriendlyMessage = '네트워크 연결을 확인해주세요. 인터넷 연결이 불안정하거나 서버에 일시적인 문제가 있을 수 있습니다.';
+        } else if (isAPIError) {
+          userFriendlyMessage = 'API 서버에 문제가 있습니다. 잠시 후 다시 시도해주세요.';
+        }
+
+        addNotification({
+          type: 'error',
+          title: '데이터 로딩 실패',
+          message: userFriendlyMessage,
+          action: {
+            label: '다시 시도',
+            onClick: () => loadPatientData(uuid, hospital, { force: true }),
           },
           autoClose: false,
         });
