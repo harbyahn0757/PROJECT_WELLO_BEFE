@@ -383,7 +383,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
         </div>
 
         {/* 타이틀 */}
-        <div className="question__title" style={{ marginTop: '10px' }}>
+        <div className="question__title">
           <div className="title-with-toggle">
             <div className="title-content">
               <h1 className="question__title-text">{patientName}님의 건강 기록 타임라인</h1>

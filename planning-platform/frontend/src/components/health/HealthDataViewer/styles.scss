@@ -22,6 +22,10 @@
     -webkit-backdrop-filter: blur(10px);
     z-index: 1001;
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    
+    // 상단 여백 완전 제거 (모바일 브라우저 대응)
+    margin-top: 0;
+    padding-top: max(12px, env(safe-area-inset-top));
   }
 
   // 뒤로가기 버튼
@@ -47,9 +51,15 @@
   
   // 콘텐츠 영역에 상단 패딩 추가 (헤더 영역 확보)
   .question__content {
-    padding-top: 60px; // 헤더 높이 축소에 맞춰 패딩 감소
+    padding-top: 50px; // 헤더 바로 아래로 조정 (여백 최소화)
     position: relative;
     overflow-y: auto;
+  }
+
+  // 타이틀 영역 상단 여백 제거
+  .question__title {
+    margin-top: 0 !important;
+    padding-top: 0;
   }
 
   // Pull-to-refresh 스타일
