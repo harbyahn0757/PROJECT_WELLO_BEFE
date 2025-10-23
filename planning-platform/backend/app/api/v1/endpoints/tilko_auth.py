@@ -403,7 +403,8 @@ async def get_session_status(session_id: str) -> Dict[str, Any]:
                 else:
                     next_step = "wait_for_auth"
         
-        return {
+        # 수집된 데이터 포함 (완료 상태일 때)
+        response_data = {
             "success": True,
             "session_id": session_id,
             "status": session_data.get("status", "unknown"),
@@ -419,6 +420,18 @@ async def get_session_status(session_id: str) -> Dict[str, Any]:
             "created_at": session_data.get("created_at"),
             "updated_at": session_data.get("updated_at")
         }
+        
+        # 데이터 수집이 완료된 경우 실제 데이터 포함
+        if session_data.get("status") == "completed":
+            health_data = session_data.get("health_data")
+            prescription_data = session_data.get("prescription_data")
+            
+            if health_data:
+                response_data["health_data"] = health_data
+            if prescription_data:
+                response_data["prescription_data"] = prescription_data
+        
+        return response_data
     except HTTPException:
         raise
     except Exception as e:
