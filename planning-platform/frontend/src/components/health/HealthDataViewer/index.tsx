@@ -29,6 +29,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   const [pullDistance, setPullDistance] = useState(0);
   const [showRefreshModal, setShowRefreshModal] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<string | null>(null);
+  const [pullCount, setPullCount] = useState(0);
   
   // 터치 이벤트 관련 ref
   const containerRef = useRef<HTMLDivElement>(null);
@@ -182,13 +183,22 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
     if (!isPulling) return;
 
     if (pullDistance > 60) {
-      // 60px 이상 당기면 새로고침 모달 표시
-      setShowRefreshModal(true);
+      // 횟수 증가
+      const newCount = pullCount + 1;
+      setPullCount(newCount);
+      
+      // 3번째부터 모달 표시
+      if (newCount >= 3) {
+        setShowRefreshModal(true);
+        setPullCount(0); // 리셋
+      } else {
+        console.log(`🔄 [Pull-to-refresh] ${newCount}/3회 - ${3 - newCount}번 더 당기면 새로고침`);
+      }
     }
 
     setIsPulling(false);
     setPullDistance(0);
-  }, [isPulling, pullDistance]);
+  }, [isPulling, pullDistance, pullCount]);
 
   // 새로고침 확인 모달 핸들러
   const handleRefreshConfirm = useCallback(() => {
@@ -350,11 +360,21 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
             </div>
           </div>
         )}
-        {/* 뒤로가기 버튼 */}
-        <div className="back-button-container">
-          <button className="back-button" onClick={handleBack}>
-            ←
-          </button>
+        {/* 헤더 영역 */}
+        <div className="header-container">
+          {/* 뒤로가기 버튼 */}
+          <div className="back-button-container">
+            <button className="back-button" onClick={handleBack}>
+              ←
+            </button>
+          </div>
+
+          {/* 마지막 업데이트 시간 (우상단) */}
+          {lastUpdateTime && (
+            <div className="last-update-info-header">
+              <span className="update-text">마지막 업데이트: {formatLastUpdateTime(lastUpdateTime)}</span>
+            </div>
+          )}
         </div>
 
         {/* 타이틀 */}
@@ -362,13 +382,6 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
           <div className="title-with-toggle">
             <div className="title-content">
               <h1 className="question__title-text">{patientName}님의 건강 기록 타임라인</h1>
-              {/* 마지막 업데이트 시간 표시 */}
-              {lastUpdateTime && (
-                <div className="last-update-info">
-                  <span className="update-icon">🔄</span>
-                  <span className="update-text">마지막 업데이트: {formatLastUpdateTime(lastUpdateTime)}</span>
-                </div>
-              )}
             </div>
             
             {/* 토글 버튼들을 여기로 이동 */}

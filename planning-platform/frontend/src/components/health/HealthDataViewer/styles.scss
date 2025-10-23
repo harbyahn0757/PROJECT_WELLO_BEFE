@@ -7,34 +7,57 @@
   // 메인 스타일은 _health.scss에서 정의됨
   padding-bottom: 150px; // 플로팅 버튼 영역 확보
   
-  // 뒤로가기 버튼을 플로팅 헤더로 만들기
+  // 헤더 컨테이너
+  .header-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    z-index: 1001;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  }
+
+  // 뒤로가기 버튼
   .back-button-container {
-    position: fixed !important; // absolute에서 fixed로 변경
-    top: 20px;
-    left: 20px;
-    z-index: 1001; // 플로팅 버튼보다 위에
-    background: rgba(255, 255, 255, 0.95); // 배경 추가
-    backdrop-filter: blur(10px); // 블러 효과
-    -webkit-backdrop-filter: blur(10px); // Safari 지원
-    border-radius: 50px; // 둥근 배경
-    padding: 4px; // 패딩 추가
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1); // 그림자 추가
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 50px;
+    padding: 4px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
     
     .back-button {
-      background: transparent; // 배경 투명
-      border: none; // 테두리 제거
-      box-shadow: none; // 그림자 제거
+      background: transparent;
+      border: none;
+      box-shadow: none;
       
       &:hover {
-        background: rgba(124, 116, 106, 0.1); // 호버 시 연한 배경
-        transform: scale(1.1); // 살짝 확대
+        background: rgba(124, 116, 106, 0.1);
+        transform: scale(1.1);
       }
     }
   }
+
+  // 헤더 우상단 업데이트 시간
+  .last-update-info-header {
+    font-size: 12px;
+    color: var(--color-text-secondary, #6b7280);
+    
+    .update-text {
+      font-weight: 500;
+    }
+  }
   
-  // 콘텐츠 영역에 상단 패딩 추가 (뒤로가기 버튼 영역 확보)
+  // 콘텐츠 영역에 상단 패딩 추가 (헤더 영역 확보)
   .question__content {
-    padding-top: 50px; // 뒤로가기 버튼 영역만큼 패딩 (축소)
+    padding-top: 80px; // 헤더 영역만큼 패딩 증가
     position: relative;
     overflow-y: auto;
   }
@@ -102,7 +125,7 @@
   .refresh-modal {
     background: white;
     border-radius: 16px;
-    max-width: 400px;
+    max-width: 320px; // 400px에서 320px로 축소
     width: 100%;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     overflow: hidden;
@@ -216,23 +239,23 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 28px; // 크기 축소 (32px → 28px)
-        height: 28px; // 크기 축소 (32px → 28px)
+        width: 36px; // 크기 증가 (28px → 36px)
+        height: 36px; // 크기 증가 (28px → 36px)
         border: none;
         background: transparent;
-        border-radius: 6px; // 반경 축소
+        border-radius: 8px; // 반경 증가 (6px → 8px)
         cursor: pointer;
         transition: all 0.2s ease;
         color: #6b7280;
         
         svg {
-          width: 12px; // 아이콘 크기 축소 (14px → 12px)
-          height: 12px;
+          width: 16px; // 아이콘 크기 증가 (12px → 16px)
+          height: 16px;
         }
         
         img {
-          width: 12px; // 이미지 크기 축소 (14px → 12px)
-          height: 12px;
+          width: 16px; // 이미지 크기 증가 (12px → 16px)
+          height: 16px;
           display: block;
           margin: auto;
           object-fit: contain; // 이미지 비율 유지

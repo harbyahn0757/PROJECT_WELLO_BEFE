@@ -393,7 +393,7 @@
             white-space: nowrap;
             
             .record-title {
-              font-size: $font-sm;
+              font-size: $font-base; // $font-sm에서 $font-base로 증가 (+2)
               font-weight: $font-weight-semibold;
               color: $gray-900;
               flex-shrink: 0;
@@ -401,12 +401,12 @@
             
             .record-separator {
               color: $gray-400;
-              font-size: $font-sm;
+              font-size: $font-base; // $font-sm에서 $font-base로 증가 (+2)
               flex-shrink: 0;
             }
             
             .record-institution {
-              font-size: $font-sm;
+              font-size: $font-base; // $font-sm에서 $font-base로 증가 (+2)
               font-weight: $font-weight-medium;
               color: $gray-700;
               flex-shrink: 1;
@@ -416,7 +416,7 @@
             }
             
             .record-treatment {
-              font-size: $font-sm;
+              font-size: $font-base; // $font-sm에서 $font-base로 증가 (+2)
               color: $gray-600;
               flex-shrink: 1;
               min-width: 0;
@@ -1232,13 +1232,13 @@
           padding: 4px 0;
           
           .measurement-label {
-            font-size: $font-sm;
+            font-size: $font-base; // $font-sm에서 $font-base로 증가 (+2)
             color: $gray-600;
             font-weight: 500;
           }
           
           .measurement-value {
-            font-size: $font-base;
+            font-size: $font-lg; // $font-base에서 $font-lg로 증가 (+2)
             font-weight: 600;
             color: $gray-900;
           }
