@@ -39,7 +39,13 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
   filterMode = 'all'
 }) => {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  const [groupedRecords, setGroupedRecords] = useState<{ [year: string]: HealthRecord[] }>({});
+  const [groupedRecords, setGroupedRecords] = useState<{ 
+    [year: string]: { 
+      [month: string]: { 
+        [date: string]: HealthRecord[] 
+      } 
+    } 
+  }>({});
   const [selectedCheckupGroups, setSelectedCheckupGroups] = useState<{ [recordId: string]: string }>({});
   const [currentSlideIndexes, setCurrentSlideIndexes] = useState<{ [recordId: string]: number }>({});
   const [statusFilters, setStatusFilters] = useState<{ [recordId: string]: string | null }>({});
@@ -110,18 +116,36 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
       });
     }
 
-    // 년도별로 그룹화하고 날짜순 정렬
+    // 년도 → 월 → 날짜 3단계로 그룹화
     const grouped = records.reduce((acc, record) => {
-      if (!acc[record.year]) {
-        acc[record.year] = [];
+      const recordDate = new Date(record.date);
+      const year = record.year;
+      const month = recordDate.toLocaleDateString('ko-KR', { month: 'long' }); // "10월" 형태
+      const date = recordDate.toLocaleDateString('ko-KR', { day: 'numeric' }); // "15일" 형태
+      
+      if (!acc[year]) {
+        acc[year] = {};
       }
-      acc[record.year].push(record);
+      if (!acc[year][month]) {
+        acc[year][month] = {};
+      }
+      if (!acc[year][month][date]) {
+        acc[year][month][date] = [];
+      }
+      
+      acc[year][month][date].push(record);
       return acc;
-    }, {} as { [year: string]: HealthRecord[] });
+    }, {} as { [year: string]: { [month: string]: { [date: string]: HealthRecord[] } } });
 
-    // 각 년도 내에서 날짜순 정렬 (최신순)
+    // 각 날짜 내에서 시간순 정렬 (최신순)
     Object.keys(grouped).forEach(year => {
-      grouped[year].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      Object.keys(grouped[year]).forEach(month => {
+        Object.keys(grouped[year][month]).forEach(date => {
+          grouped[year][month][date].sort((a, b) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+        });
+      });
     });
 
     setGroupedRecords(grouped);
@@ -627,27 +651,44 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
     );
   }
 
-  // 필터링 로직 적용
-  const filteredRecords = Object.keys(groupedRecords).reduce((acc, year) => {
-    const yearRecords = groupedRecords[year].filter(record => {
-      switch (filterMode) {
-        case 'checkup':
-          return record.type === 'checkup';
-        case 'pharmacy':
-          return record.type === 'prescription' && record.isPharmacy;
-        case 'treatment':
-          return record.type === 'prescription' && !record.isPharmacy;
-        case 'all':
-        default:
-          return true;
+  // 필터링 로직 적용 (3단계 구조)
+  const filteredRecords = Object.keys(groupedRecords).reduce((accYear, year) => {
+    const filteredYear: { [month: string]: { [date: string]: HealthRecord[] } } = {};
+    
+    Object.keys(groupedRecords[year]).forEach(month => {
+      const filteredMonth: { [date: string]: HealthRecord[] } = {};
+      
+      Object.keys(groupedRecords[year][month]).forEach(date => {
+        const filteredDateRecords = groupedRecords[year][month][date].filter(record => {
+          switch (filterMode) {
+            case 'checkup':
+              return record.type === 'checkup';
+            case 'pharmacy':
+              return record.type === 'prescription' && record.isPharmacy;
+            case 'treatment':
+              return record.type === 'prescription' && !record.isPharmacy;
+            case 'all':
+            default:
+              return true;
+          }
+        });
+        
+        if (filteredDateRecords.length > 0) {
+          filteredMonth[date] = filteredDateRecords;
+        }
+      });
+      
+      if (Object.keys(filteredMonth).length > 0) {
+        filteredYear[month] = filteredMonth;
       }
     });
     
-    if (yearRecords.length > 0) {
-      acc[year] = yearRecords;
+    if (Object.keys(filteredYear).length > 0) {
+      accYear[year] = filteredYear;
     }
-    return acc;
-  }, {} as { [year: string]: HealthRecord[] });
+    
+    return accYear;
+  }, {} as { [year: string]: { [month: string]: { [date: string]: HealthRecord[] } } });
 
   const sortedYears = Object.keys(filteredRecords).sort((a, b) => parseInt(b) - parseInt(a));
 
@@ -674,22 +715,60 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
   return (
     <div className={`unified-timeline vertical`}>
       <div className="timeline-content">
-        {sortedYears.map((year: string) => (
-          <div key={year} className="year-section">
-            <div className="year-header">
-              <h3 className="year-title">{year}년</h3>
-              <span className="year-count">{filteredRecords[year].length}건</span>
-            </div>
-            
-            <div className="records-list">
-              {filteredRecords[year].map((record: any) => (
-                <div 
-                  key={record.id} 
-                  className={`record-item-wrapper ${record.type}`}
-                >
-                  <div className="record-date-external">
-                    {formatDate(record.date)}
-                  </div>
+        {sortedYears.map((year: string) => {
+          // 년도별 총 건수 계산
+          const yearTotalCount = Object.values(filteredRecords[year])
+            .reduce((total, monthData) => 
+              total + Object.values(monthData).reduce((monthTotal, dateRecords) => 
+                monthTotal + dateRecords.length, 0), 0);
+          
+          return (
+            <div key={year} className="year-section">
+              <div className="year-header">
+                <h3 className="year-title">{year}년</h3>
+                <span className="year-count">{yearTotalCount}건</span>
+              </div>
+              
+              <div className="months-list">
+                {Object.keys(filteredRecords[year])
+                  .sort((a, b) => {
+                    // 월 정렬 (12월, 11월, 10월... 순)
+                    const monthA = parseInt(a.replace('월', ''));
+                    const monthB = parseInt(b.replace('월', ''));
+                    return monthB - monthA;
+                  })
+                  .map((month: string) => {
+                    // 월별 총 건수 계산
+                    const monthTotalCount = Object.values(filteredRecords[year][month])
+                      .reduce((total, dateRecords) => total + dateRecords.length, 0);
+                    
+                    return (
+                      <div key={`${year}-${month}`} className="month-section">
+                        <div className="month-header">
+                          <h4 className="month-title">{month}</h4>
+                          <span className="month-count">{monthTotalCount}건</span>
+                        </div>
+                        
+                        <div className="dates-list">
+                          {Object.keys(filteredRecords[year][month])
+                            .sort((a, b) => {
+                              // 날짜 정렬 (31일, 30일, 29일... 순)
+                              const dateA = parseInt(a.replace('일', ''));
+                              const dateB = parseInt(b.replace('일', ''));
+                              return dateB - dateA;
+                            })
+                            .map((date: string) => (
+                              <div key={`${year}-${month}-${date}`} className="date-section">
+                                <div className="date-header">
+                                  <span className="date-title">{date}</span>
+                                </div>
+                                
+                                <div className="records-list">
+                                  {filteredRecords[year][month][date].map((record: any) => (
+                                    <div 
+                                      key={record.id} 
+                                      className={`record-item-wrapper ${record.type}`}
+                                    >
                   
                   <div 
                     className={`record-item ${record.type} ${record.isPharmacy ? 'pharmacy' : ''} ${expandedItems.has(record.id) ? 'expanded' : ''}`}
@@ -818,12 +897,20 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
                         }
                       </div>
                     )}
-                  </div>
-                </div>
-              ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
       
       <div className="timeline-footer">
