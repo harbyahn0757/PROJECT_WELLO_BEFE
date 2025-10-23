@@ -1289,9 +1289,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       const existingData = await checkExistingData(patient.uuid, patient.hospital_id);
       
       if (existingData.patientExists && (existingData.hasHealthData || existingData.hasPrescriptionData)) {
-        console.log('📋 [기존데이터] 발견됨 - 스킵 옵션 제공');
-        setCurrentStatus('existing_data_found');
-        setTypingText(`이미 연동된 건강정보가 있습니다.\\n\\n기존 데이터를 사용하시겠습니까?\\n아니면 새로 인증하시겠습니까?`);
+        console.log('📋 [기존데이터] 발견됨 - 자동으로 결과 페이지로 이동');
+        setCurrentStatus('completed');
+        setTypingText('기존 건강정보를 불러오는 중입니다...');
+        
+        // 결과 페이지로 자동 이동
+        setTimeout(() => {
+          navigate('/results-trend');
+        }, 1500);
+        
         setLoading(false);
         return;
       }
@@ -1320,7 +1326,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           user_name: editableName, // 수정된 이름 사용
           birthdate: editableBirthday, // 수정된 생년월일 사용
           phone_no: editablePhone.replace(/-/g, ''), // 수정된 전화번호 사용
-          gender: updatedAuthInput.gender
+          gender: updatedAuthInput.gender,
+          patient_uuid: patient?.uuid, // 환자 UUID 추가
+          hospital_id: patient?.hospital_id // 병원 ID 추가
         })
       });
 
