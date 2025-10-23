@@ -8,7 +8,7 @@
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
-  padding: $spacing-lg;
+  padding: $spacing-sm $spacing-md; // 패딩 축소: 상하는 sm, 좌우는 md
   font-family: $font-family-base;
 
   // 로딩 상태
@@ -220,17 +220,17 @@
         gap: $spacing-md;
         
         .record-date-external {
-          font-size: $font-sm;
+          font-size: $font-xs; // 폰트 크기 축소
           font-weight: $font-weight-medium;
           color: $gray-600;
-          background: transparent; // 배경 제거
-          padding: 4px 8px;
-          border-radius: $border-radius-md;
+          background: transparent;
+          padding: 2px 4px; // 패딩 축소
+          border-radius: $border-radius-sm;
           white-space: nowrap;
           flex-shrink: 0;
-          min-width: 60px;
+          min-width: 50px; // 최소 너비 축소
           text-align: center;
-          margin-top: 4px;
+          margin-top: 2px; // 마진 축소
         }
         
         .record-item {
@@ -272,7 +272,7 @@
       .record-header {
         display: flex;
         align-items: flex-start;
-        padding: $spacing-lg;
+        padding: $spacing-md; // 패딩 축소
         cursor: pointer;
         transition: background-color 0.2s ease;
         
@@ -436,6 +436,11 @@
             height: 20px;
             color: $gray-400;
             transition: transform 0.3s ease;
+            cursor: pointer;
+            
+            &:hover {
+              color: $gray-600;
+            }
             
             &.medication-icon {
               color: $info;
@@ -471,7 +476,7 @@
           }
         }
         
-        .expanded & .toggle-icon {
+        &.expanded .record-toggle .toggle-icon {
           transform: rotate(180deg);
         }
       }

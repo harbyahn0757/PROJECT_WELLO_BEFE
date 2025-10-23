@@ -782,11 +782,21 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
                         </svg>
                       )}
                       
-                      {/* 투약 내역이 있을 경우 우상단에 약 뱃지 표시 */}
+                      {/* 처방전에서 투약 내역이 있을 경우 토글 아이콘과 약 뱃지 모두 표시 */}
                       {record.type === 'prescription' && record.hasMedications && (
-                        <div className="medication-badge">
-                          <img src={pillIconPath} alt="투약" />
-                        </div>
+                        <>
+                          <svg 
+                            className="toggle-icon"
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            stroke="currentColor"
+                          >
+                            <polyline points="6,9 12,15 18,9"></polyline>
+                          </svg>
+                          <div className="medication-badge">
+                            <img src={pillIconPath} alt="투약" />
+                          </div>
+                        </>
                       )}
                       
                     </div>
