@@ -14,7 +14,7 @@
     left: 0;
     right: 0;
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start; // space-between에서 flex-start로 변경
     align-items: center;
     padding: 20px;
     background: rgba(255, 255, 255, 0.95);
@@ -42,16 +42,6 @@
         background: rgba(124, 116, 106, 0.1);
         transform: scale(1.1);
       }
-    }
-  }
-
-  // 헤더 우상단 업데이트 시간
-  .last-update-info-header {
-    font-size: 12px;
-    color: var(--color-text-secondary, #6b7280);
-    
-    .update-text {
-      font-weight: 500;
     }
   }
   
@@ -89,23 +79,6 @@
     to { transform: rotate(360deg); }
   }
 
-  // 마지막 업데이트 시간 스타일
-  .last-update-info {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 8px;
-    font-size: 12px;
-    color: var(--color-text-secondary, #6b7280);
-    
-    .update-icon {
-      font-size: 14px;
-    }
-    
-    .update-text {
-      font-weight: 400;
-    }
-  }
 
   // 새로고침 모달 스타일
   .refresh-modal-overlay {
@@ -211,6 +184,53 @@
       &:hover {
         background: var(--color-primary-dark, #374151);
       }
+    }
+  }
+
+  // 토스트 메시지 스타일
+  .toast-message {
+    position: fixed;
+    top: 90px; // 헤더 아래에 위치
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    animation: slideDown 0.3s ease-out, fadeOut 0.3s ease-in 2.7s;
+    
+    .toast-content {
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 25px;
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      
+      .toast-text {
+        display: block;
+      }
+    }
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  }
+
+  @keyframes fadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
     }
   }
   

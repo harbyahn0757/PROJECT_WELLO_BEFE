@@ -31,6 +31,9 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   const [lastUpdateTime, setLastUpdateTime] = useState<string | null>(null);
   const [pullCount, setPullCount] = useState(0);
   
+  // 토스트 메시지 상태
+  const [showToast, setShowToast] = useState(false);
+  
   // 터치 이벤트 관련 ref
   const containerRef = useRef<HTMLDivElement>(null);
   const startY = useRef<number>(0);
@@ -111,6 +114,9 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
               // 마지막 업데이트 시간 설정
               if (result.data.last_update) {
                 setLastUpdateTime(result.data.last_update);
+                // 토스트 메시지 표시
+                setShowToast(true);
+                setTimeout(() => setShowToast(false), 3000); // 3초 후 자동 숨김
               }
               
               setLoading(false);
@@ -136,12 +142,18 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
           if (collectedData.collected_at) {
             console.log('✅ [결과페이지] 수집 시간 설정:', collectedData.collected_at);
             setLastUpdateTime(collectedData.collected_at);
+            // 토스트 메시지 표시
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 3000); // 3초 후 자동 숨김
           } else {
             console.warn('⚠️ [결과페이지] collected_at 필드가 없습니다');
             // 대안: 현재 시간을 사용
             const fallbackTime = new Date().toISOString();
             setLastUpdateTime(fallbackTime);
             console.log('🔄 [결과페이지] 대안 시간 사용:', fallbackTime);
+            // 토스트 메시지 표시
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 3000); // 3초 후 자동 숨김
           }
         } else {
           console.warn('⚠️ [결과페이지] 저장된 데이터가 없습니다');
@@ -368,13 +380,6 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
               ←
             </button>
           </div>
-
-          {/* 마지막 업데이트 시간 (우상단) */}
-          {lastUpdateTime && (
-            <div className="last-update-info-header">
-              <span className="update-text">마지막 업데이트: {formatLastUpdateTime(lastUpdateTime)}</span>
-            </div>
-          )}
         </div>
 
         {/* 타이틀 */}
@@ -473,7 +478,18 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
             </div>
           </div>
         </div>
-      )}
+        )}
+
+        {/* 토스트 메시지 */}
+        {showToast && lastUpdateTime && (
+          <div className="toast-message">
+            <div className="toast-content">
+              <span className="toast-text">
+                마지막 업데이트: {formatLastUpdateTime(lastUpdateTime)}
+              </span>
+            </div>
+          </div>
+        )}
 
     </div>
   );
