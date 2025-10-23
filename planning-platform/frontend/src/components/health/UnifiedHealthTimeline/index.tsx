@@ -29,16 +29,17 @@ interface UnifiedHealthTimelineProps {
   healthData?: any;
   prescriptionData?: any;
   loading?: boolean;
+  filterMode?: 'all' | 'checkup' | 'pharmacy' | 'treatment';
 }
 
 const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
   healthData,
   prescriptionData,
-  loading = false
+  loading = false,
+  filterMode = 'all'
 }) => {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [groupedRecords, setGroupedRecords] = useState<{ [year: string]: HealthRecord[] }>({});
-  const [filterMode, setFilterMode] = useState<'all' | 'checkup' | 'pharmacy' | 'treatment'>('all');
   const [selectedCheckupGroups, setSelectedCheckupGroups] = useState<{ [recordId: string]: string }>({});
   const [currentSlideIndexes, setCurrentSlideIndexes] = useState<{ [recordId: string]: number }>({});
   const [statusFilters, setStatusFilters] = useState<{ [recordId: string]: string | null }>({});
@@ -695,20 +696,7 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
                   >
                     <div 
                       className="record-header"
-                      onClick={() => {
-                        // 건강검진은 항상 펼칠 수 있음
-                        if (record.type === 'checkup') {
-                          toggleExpanded(record.id);
-                        }
-                        // 처방전은 약품 정보가 있을 때만 펼칠 수 있음
-                        else if (record.type === 'prescription' && record.hasMedications) {
-                          toggleExpanded(record.id);
-                        }
-                      }}
-                      style={{ 
-                        cursor: (record.type === 'checkup' || (record.type === 'prescription' && record.hasMedications)) 
-                          ? 'pointer' : 'default' 
-                      }}
+                      style={{ cursor: 'default' }}
                     >
                       <div className="record-icon">
                         {record.isPharmacy ? (
@@ -770,21 +758,16 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
                       </div>
                     
                     <div className="record-toggle">
-                      {/* 건강검진은 항상 펼칠 수 있음 */}
+                      {/* 건강검진은 항상 펼칠 수 있음 - 토글 버튼 */}
                       {record.type === 'checkup' && (
-                        <svg 
-                          className="toggle-icon"
-                          viewBox="0 0 24 24" 
-                          fill="none" 
-                          stroke="currentColor"
+                        <div 
+                          className="toggle-button"
+                          onClick={(e) => {
+                            e.stopPropagation(); // 이벤트 버블링 방지
+                            toggleExpanded(record.id);
+                          }}
+                          title="상세 정보 보기/숨기기"
                         >
-                          <polyline points="6,9 12,15 18,9"></polyline>
-                        </svg>
-                      )}
-                      
-                      {/* 처방전에서 투약 내역이 있을 경우 토글 아이콘과 약 뱃지 모두 표시 */}
-                      {record.type === 'prescription' && record.hasMedications && (
-                        <>
                           <svg 
                             className="toggle-icon"
                             viewBox="0 0 24 24" 
@@ -793,7 +776,30 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
                           >
                             <polyline points="6,9 12,15 18,9"></polyline>
                           </svg>
-                          <div className="medication-badge">
+                        </div>
+                      )}
+                      
+                      {/* 처방전에서 투약 내역이 있을 경우 토글 버튼과 약 뱃지 */}
+                      {record.type === 'prescription' && record.hasMedications && (
+                        <>
+                          <div 
+                            className="toggle-button"
+                            onClick={(e) => {
+                              e.stopPropagation(); // 이벤트 버블링 방지
+                              toggleExpanded(record.id);
+                            }}
+                            title="투약 내역 보기/숨기기"
+                          >
+                            <svg 
+                              className="toggle-icon"
+                              viewBox="0 0 24 24" 
+                              fill="none" 
+                              stroke="currentColor"
+                            >
+                              <polyline points="6,9 12,15 18,9"></polyline>
+                            </svg>
+                          </div>
+                          <div className="medication-badge" title="투약 내역 있음">
                             <img src={pillIconPath} alt="투약" />
                           </div>
                         </>

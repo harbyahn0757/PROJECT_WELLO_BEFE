@@ -267,6 +267,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
           healthData={healthData}
           prescriptionData={prescriptionData}
           loading={loading}
+          filterMode={filterMode}
         />
       </div>
 

@@ -431,15 +431,37 @@
           align-items: center;
           gap: $spacing-xs;
           
-          .toggle-icon {
-            width: 20px;
-            height: 20px;
-            color: $gray-400;
-            transition: transform 0.3s ease;
+          .toggle-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid $gray-300;
             cursor: pointer;
+            transition: all 0.2s ease;
             
             &:hover {
-              color: $gray-600;
+              background: rgba(255, 255, 255, 1);
+              border-color: $gray-400;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            
+            &:active {
+              transform: scale(0.95);
+            }
+          }
+          
+          .toggle-icon {
+            width: 16px;
+            height: 16px;
+            color: $gray-500;
+            transition: transform 0.3s ease, color 0.2s ease;
+            
+            .toggle-button:hover & {
+              color: $gray-700;
             }
             
             &.medication-icon {
@@ -476,7 +498,7 @@
           }
         }
         
-        &.expanded .record-toggle .toggle-icon {
+        &.expanded .record-toggle .toggle-button .toggle-icon {
           transform: rotate(180deg);
         }
       }
