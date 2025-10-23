@@ -14,9 +14,9 @@
     left: 0;
     right: 0;
     display: flex;
-    justify-content: flex-start; // space-between에서 flex-start로 변경
+    justify-content: flex-start;
     align-items: center;
-    padding: 20px;
+    padding: 12px 16px; // 20px에서 12px 16px로 축소
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
@@ -47,7 +47,7 @@
   
   // 콘텐츠 영역에 상단 패딩 추가 (헤더 영역 확보)
   .question__content {
-    padding-top: 80px; // 헤더 영역만큼 패딩 증가
+    padding-top: 60px; // 헤더 높이 축소에 맞춰 패딩 감소
     position: relative;
     overflow-y: auto;
   }
@@ -187,14 +187,14 @@
     }
   }
 
-  // 토스트 메시지 스타일
-  .toast-message {
-    position: fixed;
-    top: 90px; // 헤더 아래에 위치
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 1000;
-    animation: slideDown 0.3s ease-out, fadeOut 0.3s ease-in 2.7s;
+// 토스트 메시지 스타일
+.toast-message {
+  position: fixed;
+  top: 70px; // 축소된 헤더 아래에 위치
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  animation: slideDown 0.3s ease-out, fadeOut 0.3s ease-in 2.7s;
     
     .toast-content {
       background: rgba(0, 0, 0, 0.8);
