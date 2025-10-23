@@ -31,7 +31,7 @@ async def get_public_key() -> str:
     if not TILKO_API_KEY:
         raise ValueError("TILKO_API_KEY 환경변수가 설정되지 않았습니다.")
     
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=120.0) as client:
         response = await client.get(
             f"{TILKO_API_HOST}/api/Auth/GetPublicKey",
             params={"APIkey": TILKO_API_KEY}
@@ -79,7 +79,7 @@ async def simple_auth(
     
     public_key = await get_public_key()
     
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=120.0) as client:
         response = await client.post(
             f"{TILKO_API_HOST}/api/v1.0/nhissimpleauth/simpleauthrequest",
             json={
@@ -125,7 +125,7 @@ async def get_health_screening_data(
     
     print(f"🏥 [건강검진API] 요청 파라미터 수: {len(request_data)}")
     
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=120.0) as client:
         response = await client.post(
             f"{TILKO_API_HOST}/api/v1.0/NhisSimpleAuth/Ggpab003M0105",
             json=request_data,
@@ -200,7 +200,7 @@ async def get_prescription_data(
     
     print(f"💊 [처방전API] 요청 파라미터 수: {len(request_data)} (기간 파라미터 포함)")
     
-    async with httpx.AsyncClient(timeout=60.0) as client:
+    async with httpx.AsyncClient(timeout=120.0) as client:
         response = await client.post(
             f"{TILKO_API_HOST}/api/v1.0/NhisSimpleAuth/RetrieveTreatmentInjectionInformationPerson",
             json=request_data,
