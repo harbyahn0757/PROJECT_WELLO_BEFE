@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { API_ENDPOINTS } from '../config/api';
 
 // 사용자 데이터 타입 정의
 export interface UserData {
@@ -87,7 +88,7 @@ export const UserContextProvider: React.FC<UserContextProviderProps> = ({ childr
       setIsLoading(true);
       setError(null);
       
-      const response = await fetch(`http://localhost:8082/api/v1/patients/${uuid}`);
+      const response = await fetch(API_ENDPOINTS.PATIENT(uuid));
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: 사용자 데이터를 불러올 수 없습니다.`);

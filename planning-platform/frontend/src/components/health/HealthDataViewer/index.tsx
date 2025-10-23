@@ -1,54 +1,119 @@
 /**
  * 건강 데이터 뷰어 컴포넌트 (실제 데이터 표시)
+ * 통합 타임라인 형태로 건강검진과 처방전을 함께 표시
  */
 import React, { useState, useEffect } from 'react';
 import { HealthDataViewerProps } from '../../../types/health';
+import UnifiedHealthTimeline from '../UnifiedHealthTimeline/index';
+import { useWelloData } from '../../../contexts/WelloDataContext';
+import { API_ENDPOINTS } from '../../../config/api';
 import './styles.scss';
+
+const pillIconPath = `${process.env.PUBLIC_URL || ''}/free-icon-pill-5405585.png`;
 
 const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   onBack,
   onError
 }) => {
+  const { state } = useWelloData(); // 환자 데이터 가져오기
   const [loading, setLoading] = useState(true);
   const [error] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'checkups' | 'prescriptions'>('checkups');
   const [healthData, setHealthData] = useState<any>(null);
   const [prescriptionData, setPrescriptionData] = useState<any>(null);
+  const [filterMode, setFilterMode] = useState<'all' | 'checkup' | 'pharmacy' | 'treatment'>('all');
+  
+  // 환자 이름 추출 (기본값: "사용자")
+  const patientName = state.patient?.name || '사용자';
 
   useEffect(() => {
-    // localStorage에서 수집된 데이터 로드
-    const loadCollectedData = () => {
+    // DB에서 저장된 데이터 로드 또는 localStorage에서 최근 수집된 데이터 로드
+    const loadHealthData = async () => {
       try {
+        // URL 파라미터에서 환자 정보 추출
+        const urlParams = new URLSearchParams(window.location.search);
+        const uuid = urlParams.get('uuid');
+        const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
+
+        if (uuid && hospital) {
+          console.log('📊 [결과페이지] DB에서 저장된 데이터 로드 시도:', { uuid, hospital });
+          
+          // DB에서 저장된 데이터 조회
+          const response = await fetch(API_ENDPOINTS.HEALTH_DATA(uuid, hospital));
+          
+          if (response.ok) {
+            const result = await response.json();
+            console.log('✅ [결과페이지] DB 데이터 로드 성공:', result);
+            
+            if (result.success && result.data) {
+              const { health_data, prescription_data } = result.data;
+              
+              // DB 데이터를 Tilko 형식으로 변환 (파싱된 필드들도 포함)
+              if (health_data && health_data.length > 0) {
+                const healthDataFormatted = {
+                  ResultList: health_data.map((item: any) => ({
+                    ...item.raw_data,
+                    // DB에서 파싱된 필드들 추가
+                    height: item.height,
+                    weight: item.weight,
+                    bmi: item.bmi,
+                    waist_circumference: item.waist_circumference,
+                    blood_pressure_high: item.blood_pressure_high,
+                    blood_pressure_low: item.blood_pressure_low,
+                    blood_sugar: item.blood_sugar,
+                    cholesterol: item.cholesterol,
+                    hdl_cholesterol: item.hdl_cholesterol,
+                    ldl_cholesterol: item.ldl_cholesterol,
+                    triglyceride: item.triglyceride,
+                    hemoglobin: item.hemoglobin,
+                    year: item.year,
+                    checkup_date: item.checkup_date,
+                    location: item.location,
+                    code: item.code
+                  }))
+                };
+                setHealthData(healthDataFormatted);
+                console.log('🏥 [결과페이지] 건강검진 데이터 설정 완료:', healthDataFormatted);
+              }
+              
+              if (prescription_data && prescription_data.length > 0) {
+                const prescriptionDataFormatted = {
+                  ResultList: prescription_data.map((item: any) => ({
+                    ...item.raw_data,
+                    // DB에서 파싱된 필드들 추가
+                    hospital_name: item.hospital_name,
+                    address: item.address,
+                    treatment_date: item.treatment_date,
+                    treatment_type: item.treatment_type,
+                    visit_count: item.visit_count,
+                    medication_count: item.medication_count,
+                    prescription_count: item.prescription_count,
+                    detail_records_count: item.detail_records_count
+                  }))
+                };
+                setPrescriptionData(prescriptionDataFormatted);
+                console.log('💊 [결과페이지] 처방전 데이터 설정 완료:', prescriptionDataFormatted);
+              }
+              
+              setLoading(false);
+              return;
+            }
+          } else {
+            console.warn('⚠️ [결과페이지] DB 데이터 조회 실패, localStorage 확인');
+          }
+        }
+
+        // DB에서 데이터를 가져올 수 없는 경우 localStorage에서 로드
         const collectedDataStr = localStorage.getItem('tilko_collected_data');
         if (collectedDataStr) {
           const collectedData = JSON.parse(collectedDataStr);
-          console.log('📊 [결과페이지] 수집된 데이터 로드:', collectedData);
-          
-          // 건강검진 데이터 구조 확인
-          if (collectedData.health_data) {
-            console.log('🏥 [결과페이지] 건강검진 데이터 구조:', collectedData.health_data);
-            console.log('🏥 [결과페이지] ResultList 존재 여부:', !!collectedData.health_data.ResultList);
-            if (collectedData.health_data.ResultList) {
-              console.log('🏥 [결과페이지] ResultList 길이:', collectedData.health_data.ResultList.length);
-              console.log('🏥 [결과페이지] 첫 번째 항목:', collectedData.health_data.ResultList[0]);
-            }
-          }
-          
-          // 처방전 데이터 구조 확인
-          if (collectedData.prescription_data) {
-            console.log('💊 [결과페이지] 처방전 데이터 구조:', collectedData.prescription_data);
-            console.log('💊 [결과페이지] ResultList 존재 여부:', !!collectedData.prescription_data.ResultList);
-            if (collectedData.prescription_data.ResultList) {
-              console.log('💊 [결과페이지] ResultList 길이:', collectedData.prescription_data.ResultList.length);
-              console.log('💊 [결과페이지] 첫 번째 항목:', collectedData.prescription_data.ResultList[0]);
-            }
-          }
+          console.log('📊 [결과페이지] localStorage에서 데이터 로드:', collectedData);
           
           setHealthData(collectedData.health_data);
           setPrescriptionData(collectedData.prescription_data);
         } else {
-          console.warn('⚠️ [결과페이지] 수집된 데이터가 없습니다');
+          console.warn('⚠️ [결과페이지] 저장된 데이터가 없습니다');
         }
+        
       } catch (err) {
         console.error('❌ [결과페이지] 데이터 로드 실패:', err);
       } finally {
@@ -57,7 +122,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
     };
 
     // 1.5초 후 데이터 로드 (로딩 애니메이션 표시)
-    const timer = setTimeout(loadCollectedData, 1500);
+    const timer = setTimeout(loadHealthData, 1500);
 
     return () => clearTimeout(timer);
   }, []);
@@ -81,14 +146,21 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
             </button>
           </div>
 
-          <div className="question__title" style={{ marginTop: '60px' }}>
-            <h1 className="question__title-text">검진 결과 조회</h1>
-          </div>
-
-          <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-            <div className="loading-spinner loading-spinner--medium">
-              <div className="spinner"></div>
-              <p className="loading-spinner__message">건강 데이터를 불러오는 중...</p>
+          {/* 중앙 정렬된 스피너 */}
+          <div className="centered-loading-container">
+            <div className="loading-spinner">
+              <div className="favicon-blink-spinner">
+                <img 
+                  src="/wello/wello-icon.png" 
+                  alt="로딩 중" 
+                  style={{
+                    width: '48px',
+                    height: '48px',
+                    animation: 'faviconBlink 1.5s ease-in-out infinite'
+                  }}
+                />
+              </div>
+              <p className="loading-spinner__message">{patientName}님의 건강 데이터를 불러오는 중...</p>
             </div>
           </div>
         </div>
@@ -140,148 +212,62 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
 
         {/* 타이틀 */}
         <div className="question__title" style={{ marginTop: '60px' }}>
-          <h1 className="question__title-text">건강 데이터</h1>
-          <p className="question__subtitle">
-            국민건강보험공단 연동 데이터
-          </p>
-        </div>
-
-        {/* 탭 메뉴 */}
-        <div className="tab-menu">
-          <button 
-            className={`tab-button ${activeTab === 'checkups' ? 'active' : ''}`}
-            onClick={() => setActiveTab('checkups')}
-          >
-            건강검진
-          </button>
-          <button 
-            className={`tab-button ${activeTab === 'prescriptions' ? 'active' : ''}`}
-            onClick={() => setActiveTab('prescriptions')}
-          >
-            처방전
-          </button>
-        </div>
-
-        {/* 콘텐츠 영역 */}
-        <div style={{ padding: '20px' }}>
-          {activeTab === 'checkups' ? (
-            <div className="checkup-content">
-              <h3>최근 건강검진</h3>
-              {healthData && healthData.ResultList && healthData.ResultList.length > 0 ? (
-                healthData.ResultList.map((checkup: any, index: number) => (
-                  <div key={index} style={{ 
-                    background: 'white', 
-                    padding: '20px', 
-                    borderRadius: '12px', 
-                    marginBottom: '16px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                  }}>
-                    <h4>{checkup.Year} {checkup.CheckUpDate} 건강검진</h4>
-                    <p style={{ color: '#666', fontSize: '14px' }}>
-                      {checkup.CheckUpDate} | {checkup.Location || '국민건강보험공단'}
-                    </p>
-                    <div style={{ marginTop: '12px', fontSize: '14px' }}>
-                      {checkup.Height && <p>• 신장: {checkup.Height}cm</p>}
-                      {checkup.Weight && <p>• 체중: {checkup.Weight}kg</p>}
-                      {checkup.BloodPressureHigh && checkup.BloodPressureLow && (
-                        <p>• 혈압: {checkup.BloodPressureHigh}/{checkup.BloodPressureLow} mmHg</p>
-                      )}
-                      {checkup.BloodSugar && <p>• 공복혈당: {checkup.BloodSugar} mg/dL</p>}
-                      {checkup.Cholesterol && <p>• 총콜레스테롤: {checkup.Cholesterol} mg/dL</p>}
-                      {checkup.Code && (
-                        <p style={{ 
-                          marginTop: '8px', 
-                          color: checkup.Code === '정상' ? '#10b981' : checkup.Code === '의심' ? '#f59e0b' : '#ef4444', 
-                          fontWeight: 'bold' 
-                        }}>
-                          • 판정: {checkup.Code}
-                        </p>
-                      )}
-                      {checkup.Description && (
-                        <p style={{ marginTop: '4px', fontSize: '13px', color: '#666' }}>
-                          • 상세: {checkup.Description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div style={{ 
-                  background: 'white', 
-                  padding: '40px 20px', 
-                  borderRadius: '12px', 
-                  textAlign: 'center',
-                  color: '#666'
-                }}>
-                  <p>건강검진 데이터가 없습니다.</p>
-                  <p style={{ fontSize: '14px', marginTop: '8px' }}>
-                    최근 10년 내 건강검진 기록이 조회됩니다.
-                  </p>
-                </div>
-              )}
+          <div className="title-with-toggle">
+            <div className="title-content">
+              <h1 className="question__title-text">{patientName}님의 건강 기록 타임라인</h1>
             </div>
-
-          ) : (
-            <div className="prescription-content">
-              <h3>최근 처방전</h3>
-              {prescriptionData && prescriptionData.ResultList && prescriptionData.ResultList.length > 0 ? (
-                prescriptionData.ResultList.map((prescription: any, index: number) => (
-                  <div key={index} style={{ 
-                    background: 'white', 
-                    padding: '20px', 
-                    borderRadius: '12px', 
-                    marginBottom: '16px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                  }}>
-                    <h4>{prescription.ByungEuiwonYakGukMyung || '병원'}</h4>
-                    <p style={{ color: '#666', fontSize: '14px' }}>
-                      {prescription.JinRyoGaesiIl} | {prescription.Address}
-                    </p>
-                    <div style={{ fontSize: '14px', marginTop: '8px' }}>
-                      {prescription.JinRyoHyungTae && <p>• 진료형태: {prescription.JinRyoHyungTae}</p>}
-                      {prescription.BangMoonIpWonIlsoo && <p>• 방문횟수: {prescription.BangMoonIpWonIlsoo}회</p>}
-                      {prescription.TuYakYoYangHoiSoo && <p>• 투약요양횟수: {prescription.TuYakYoYangHoiSoo}회</p>}
-                      {prescription.CheoBangHoiSoo && <p>• 처방횟수: {prescription.CheoBangHoiSoo}회</p>}
-                      {prescription.RetrieveTreatmentInjectionInformationPersonDetailList && 
-                       prescription.RetrieveTreatmentInjectionInformationPersonDetailList.length > 0 && (
-                        <div style={{ marginTop: '8px' }}>
-                          <p style={{ fontWeight: 'bold', color: '#2E86AB' }}>• 처방 상세:</p>
-                          {prescription.RetrieveTreatmentInjectionInformationPersonDetailList.slice(0, 3).map((detail: any, idx: number) => (
-                            <p key={idx} style={{ marginLeft: '12px', fontSize: '13px', color: '#666' }}>
-                              - {detail.약품명 || detail.처치명 || '상세정보'}
-                            </p>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div style={{ 
-                  background: 'white', 
-                  padding: '40px 20px', 
-                  borderRadius: '12px', 
-                  textAlign: 'center',
-                  color: '#666'
-                }}>
-                  <p>처방전 데이터가 없습니다.</p>
-                  <p style={{ fontSize: '14px', marginTop: '8px' }}>
-                    최근 14개월 내 처방 기록이 조회됩니다.
-                  </p>
-                </div>
-              )}
+            
+            {/* 토글 버튼들을 여기로 이동 */}
+            <div className="external-view-toggle">
+              <button
+                className={`toggle-btn ${filterMode === 'all' ? 'active' : ''}`}
+                onClick={() => setFilterMode('all')}
+                title="모두 보기"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <line x1="8" y1="6" x2="21" y2="6"></line>
+                  <line x1="8" y1="12" x2="21" y2="12"></line>
+                  <line x1="8" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                </svg>
+              </button>
+              <button
+                className={`toggle-btn ${filterMode === 'checkup' ? 'active' : ''}`}
+                onClick={() => setFilterMode('checkup')}
+                title="검진만 보기"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                </svg>
+              </button>
+              <button
+                className={`toggle-btn pharmacy ${filterMode === 'pharmacy' ? 'active' : ''}`}
+                onClick={() => setFilterMode('pharmacy')}
+                title="약국만 보기"
+              >
+                <img src={pillIconPath} alt="약국" />
+              </button>
+              <button
+                className={`toggle-btn ${filterMode === 'treatment' ? 'active' : ''}`}
+                onClick={() => setFilterMode('treatment')}
+                title="진료만 보기"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/>
+                </svg>
+              </button>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* 마지막 업데이트 시간 */}
-        <div className="last-update">
-          마지막 업데이트: {new Date().toLocaleDateString('ko-KR', { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          })}
-        </div>
+        {/* 통합 타임라인 컴포넌트 */}
+        <UnifiedHealthTimeline 
+          healthData={healthData}
+          prescriptionData={prescriptionData}
+          loading={loading}
+        />
       </div>
 
       {/* 플로팅 버튼 */}

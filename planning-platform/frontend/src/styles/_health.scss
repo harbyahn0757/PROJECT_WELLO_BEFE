@@ -7,7 +7,7 @@
 .health-data-viewer {
   // 기본 페이지 스타일 (survey-page 스타일을 직접 정의)
   min-height: 100vh;
-  background-color: variables.$gray-50;
+  background-color: variables.$background-beige; // 메인 페이지와 동일한 배경색
   position: relative;
   
   .stats-cards {

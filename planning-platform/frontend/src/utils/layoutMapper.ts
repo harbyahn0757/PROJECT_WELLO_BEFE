@@ -26,25 +26,35 @@ export interface LayoutConfig {
 interface PatientData {
   uuid: string;
   name: string;
+  age: number;
+  gender: string;
+  phone: string;
+  birthday: string;
   hospital: {
     hospital_id: string;
     name: string;
+    phone: string;
+    address: string;
+    supported_checkup_types: string[];
     layout_type: string;
     brand_color: string;
     logo_position: string;
-    address: string;
-    phone: string;
+    is_active: boolean;
   };
+  last_checkup_count: number;
+  created_at: string;
 }
 
 interface HospitalData {
   hospital_id: string;
   name: string;
+  phone: string;
+  address: string;
+  supported_checkup_types: string[];
   layout_type: string;
   brand_color: string;
   logo_position: string;
-  address: string;
-  phone: string;
+  is_active: boolean;
 }
 
 /**
@@ -71,8 +81,8 @@ const fetchWithTimeout = async (url: string, timeout: number = 5000): Promise<Re
 
 const fetchPatientData = async (uuid: string): Promise<PatientData> => {
   try {
-    // WELLO 전용 API 경로 사용 (도메인/로컬 모두 동작)
-    const response = await fetchWithTimeout(`/api/v1/wello/patients/${uuid}`, 3000);
+    // 기존 patients API 사용
+    const response = await fetchWithTimeout(`/api/v1/patients/${uuid}`, 3000);
     
     if (!response.ok) {
       throw new Error(`환자 정보 조회 실패: ${response.status}`);
@@ -89,8 +99,8 @@ const fetchPatientData = async (uuid: string): Promise<PatientData> => {
 
 const fetchHospitalData = async (hospitalId: string): Promise<HospitalData> => {
   try {
-    // WELLO 전용 API 경로 사용 (도메인/로컬 모두 동작)
-    const response = await fetchWithTimeout(`/api/v1/wello/hospitals/${hospitalId}`, 3000);
+    // 기존 hospitals API 사용
+    const response = await fetchWithTimeout(`/api/v1/hospitals/${hospitalId}`, 3000);
     
     if (!response.ok) {
       throw new Error(`병원 정보 조회 실패: ${response.status}`);

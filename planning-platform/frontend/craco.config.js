@@ -65,6 +65,31 @@ module.exports = {
     },
     webSocketServer: 'sockjs', // SockJS 서버 사용
     setupMiddlewares: (middlewares, devServer) => {
+      console.log('🔧 craco setupMiddlewares 실행됨');
+      
+      // WELLO API 프록시 직접 설정
+      const { createProxyMiddleware } = require('http-proxy-middleware');
+      
+      devServer.app.use('/wello-api', createProxyMiddleware({
+        target: 'http://localhost:8082',
+        changeOrigin: true,
+        pathRewrite: {
+          '^/wello-api': '/api'
+        },
+        logLevel: 'info',
+        onProxyReq: (proxyReq, req, res) => {
+          console.log(`🚀 [CRACO PROXY] ${req.method} ${req.url} → ${proxyReq.path}`);
+        },
+        onProxyRes: (proxyRes, req, res) => {
+          console.log(`📥 [CRACO PROXY] ${proxyRes.statusCode} ${req.url}`);
+        },
+        onError: (err, req, res) => {
+          console.error(`❌ [CRACO PROXY ERROR] ${req.url}:`, err.message);
+        }
+      }));
+      
+      console.log('✅ WELLO 프록시 직접 설정 완료: /wello-api → http://localhost:8082/api');
+      
       // WebSocket 관련 모든 경로 차단
       devServer.app.use('/ws', (req, res) => {
         res.status(404).end();

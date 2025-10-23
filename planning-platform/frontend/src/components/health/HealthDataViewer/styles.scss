@@ -5,4 +5,155 @@
 
 .health-data-viewer {
   // 메인 스타일은 _health.scss에서 정의됨
+  
+  // 외부 토글 버튼 스타일
+  .title-with-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+    
+    .title-content {
+      flex: 1;
+    }
+    
+    .external-view-toggle {
+      display: flex;
+      background: #f3f4f6;
+      border-radius: 12px;
+      padding: 4px;
+      gap: 2px;
+      flex-shrink: 0;
+      
+      .toggle-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border: none;
+        background: transparent;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: #6b7280;
+        
+        svg {
+          width: 14px;
+          height: 14px;
+        }
+        
+        img {
+          width: 14px;
+          height: 14px;
+          display: block;
+          margin: auto;
+          object-fit: contain; // 이미지 비율 유지
+          filter: none; // 필터 제거
+        }
+        
+        &:hover {
+          background: white;
+          color: #8b4513;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        &.active {
+          background: white;
+          color: #8b4513;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        // 각 타입별 색상 통일
+        &.checkup {
+          &.active {
+            color: #8b4513;
+            background: rgba(139, 69, 19, 0.1);
+          }
+          &:hover {
+            color: #8b4513;
+            background: rgba(139, 69, 19, 0.05);
+          }
+        }
+        
+        &.pharmacy {
+          &.active {
+            background: rgba(245, 158, 11, 0.1);
+          }
+          &:hover {
+            background: rgba(245, 158, 11, 0.05);
+          }
+        }
+      }
+    }
+  }
+  
+  // 모바일 최적화
+  @media (max-width: 768px) {
+    .title-with-toggle {
+      flex-direction: row;
+      align-items: flex-end;
+      gap: 0.5rem;
+      
+      .external-view-toggle {
+        padding: 2px;
+        
+        .toggle-btn {
+          width: 28px;
+          height: 28px;
+          
+          svg, img {
+            width: 12px;
+            height: 12px;
+          }
+          
+          img {
+            object-fit: contain; // 모바일에서도 이미지 비율 유지
+            filter: none;
+          }
+        }
+      }
+    }
+  }
+}
+
+// 중앙 정렬된 로딩 컨테이너
+.centered-loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 120px); // 뒤로가기 버튼 공간 제외
+  padding: 20px;
+  
+  .loading-spinner {
+    text-align: center;
+    
+    .favicon-blink-spinner {
+      margin-bottom: 16px;
+      
+      img {
+        display: block;
+        margin: 0 auto;
+      }
+    }
+    
+    &__message {
+      color: #666;
+      font-size: 14px;
+      margin: 0;
+      font-weight: 400;
+    }
+  }
+}
+
+// 기존 faviconBlink 애니메이션이 없다면 추가
+@keyframes faviconBlink {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.95);
+  }
 }

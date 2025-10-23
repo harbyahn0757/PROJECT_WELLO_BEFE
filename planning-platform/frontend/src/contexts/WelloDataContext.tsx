@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useMemo } from 'react';
 import { LayoutConfig as BaseLayoutConfig } from '../utils/layoutMapper';
 import { PatientData as CommonPatientData, HospitalData as CommonHospitalData } from '../types/patient';
+import { API_ENDPOINTS } from '../config/api';
 
 // 확장된 레이아웃 설정 (Context용)
 export interface ExtendedLayoutConfig extends BaseLayoutConfig {
@@ -315,10 +316,10 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
 
       setState(prev => ({ ...prev, isLoading: true, error: null }));
 
-      // API 호출 (WELLO 전용 경로)
+      // API 호출 (환경변수 기반 URL 사용)
       const [patientResponse, hospitalResponse] = await Promise.all([
-        fetch(`/api/v1/wello/patients/${uuid}`),
-        fetch(`/api/v1/wello/hospitals/${hospital}`),
+        fetch(API_ENDPOINTS.PATIENT(uuid)),
+        fetch(API_ENDPOINTS.HOSPITAL(hospital)),
       ]);
 
       if (!patientResponse.ok) {
@@ -377,8 +378,8 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
         cacheExpiresAt: expiresAt,
       }));
 
-      // 성공 알림
-      if (force) {
+      // 성공 알림 (명시적으로 업데이트를 요청한 경우에만)
+      if (force && state.patient) { // 기존 환자 데이터가 있을 때만 업데이트 토스트 표시
         addNotification({
           type: 'success',
           title: '업데이트 완료',

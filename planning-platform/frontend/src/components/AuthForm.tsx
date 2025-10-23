@@ -47,6 +47,42 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     { value: '6', label: '네이버', icon: '🟢', description: '네이버 계정으로 인증' }
   ];
   
+  // 공통 타이핑 메시지 스타일 상수
+  const TYPING_STYLES = {
+    // 기본 컨테이너 스타일 (검진정보 메시지 기준)
+    container: {
+      fontSize: '18px',
+      color: '#8B7355',
+      marginLeft: '-16px',
+      marginBottom: '12px',
+      lineHeight: '1.4',
+      minHeight: '50px',
+      fontFamily: 'inherit',
+      whiteSpace: 'pre-line' as const,
+      display: 'inline-block' as const
+    },
+    // 일반 텍스트 스타일
+    normalText: {
+      fontSize: '18px',
+      color: '#8B7355',
+      fontWeight: '400'
+    },
+    // 중요한 단어 스타일 (볼드)
+    boldText: {
+      fontSize: '19px',
+      color: '#8B7355',
+      fontWeight: 'bold' as const
+    },
+    // 커서 스타일
+    cursor: {
+      fontWeight: 'normal' as const,
+      marginLeft: '2px'
+    }
+  };
+  
+  // 공통 타이핑 속도 상수
+  const TYPING_SPEED = 80; // 검진정보 메시지 기준 속도
+  
   // localStorage 변경 시 custom event 발생 헬퍼 (통합 스토리지 매니저 사용)
   const setLocalStorageWithEvent = (key: string, value: string) => {
     StorageManager.setItemWithEvent(key, value, 'tilko-status-change');
@@ -580,7 +616,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   useEffect(() => {
     if (!authRequested && !showConfirmation && !showSessionModal && !isRecovering) {
       const timer = setTimeout(() => {
-        typeDescriptionMessage('검진정보를\n의료보험공단에서 안전하게 불러와\n검진 정보 추이를 안내하겠습니다.', 80);
+        typeDescriptionMessage('검진정보를\n의료보험공단에서 안전하게 불러와\n검진 정보 추이를 안내하겠습니다.', TYPING_SPEED);
       }, 1500);
       
       return () => clearTimeout(timer);
@@ -772,32 +808,25 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               setTokenTimeout(null);
             }
             
-            // 인증 완료 즉시 데이터 수집 시작
-            console.log('🚀 [자동시작] 인증 완료 후 데이터 수집 자동 시작');
+            // 인증 완료 - 사용자 버튼 클릭 대기
+            console.log('✅ [인증완료] 인증 요청 완료 - 사용자 버튼 클릭 대기');
             setCurrentStatus('auth_completed');
-            setTypingText('인증이 완료되었습니다!\n건강검진 데이터를 수집하겠습니다.');
             
-            // 2초 후 데이터 수집 시작
-            setTimeout(async () => {
-              try {
-                const collectResponse = await fetch(TILKO_API.COLLECT_HEALTH_DATA(sessionId), {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' }
-                });
-                
-                if (collectResponse.ok) {
-                  console.log('✅ [자동수집] 건강검진 데이터 수집 시작 성공');
-                  setCurrentStatus('data_collecting');
-                  setTypingText('건강검진 데이터를 수집하고 있습니다...\n잠시만 기다려주세요.');
-                } else {
-                  console.error('❌ [자동수집] 데이터 수집 시작 실패');
-                  setTypingText('인증은 완료되었지만\n데이터 수집에 문제가 발생했습니다.');
-                }
-              } catch (error) {
-                console.error('❌ [자동수집] 데이터 수집 요청 실패:', error);
-                setTypingText('인증은 완료되었지만\n데이터 수집에 문제가 발생했습니다.');
+            // 선택된 인증 방법에 따른 동적 메시지 생성
+            const getAuthMethodName = (authType: string) => {
+              switch (authType) {
+                case '0': return '카카오톡';
+                case '4': return '통신사Pass';
+                case '6': return '네이버';
+                default: return '카카오톡';
               }
-            }, 2000);
+            };
+            
+            // 타이핑은 useEffect에서 자동으로 처리됨
+            
+            // 플로팅 버튼 활성화 (자동 수집 제거)
+            StorageManager.setItem('tilko_auth_waiting', 'true');
+            window.dispatchEvent(new Event('localStorageChange'));
           }
           
           // 데이터 수집 상태 확인 및 업데이트
@@ -1177,8 +1206,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           setTokenReceived(false); // 토큰 상태 초기화
           console.log('🔄 [인증요청] 카카오톡 인증 대기 중');
           
-          // WebSocket으로만 상태 수신 (폴링 제거됨)
-          console.log('📡 [WebSocket전용] 백엔드가 스트리밍 시작, 폴링 불필요');
+          // WebSocket 연결 실패 대비 폴링 시작 (3초 후)
+          console.log('📡 [WebSocket전용] 백엔드 스트리밍 시작, WebSocket 실패 시 폴링으로 대체');
+          setTimeout(() => {
+            console.log('🔄 [폴링시작] WebSocket 연결 실패 대비, 폴링으로 상태 확인');
+            startTokenMonitoring(newSessionId);
+          }, 3000);
         } else {
           handleError(authResult.message || '인증 요청 실패', 'auth');
         }
@@ -1592,8 +1625,18 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         return '인증 요청이 전송되었습니다.\n카카오톡에서 인증을 완료해주세요.';
       case 'auth_waiting':
         return '카카오톡 인증 대기 중...\n카카오톡 앱에서 인증을 완료해주세요.';
-      case 'auth_completed':
-        return '✅ 인증이 완료되었습니다!\n이제 건강정보를 수집합니다...';
+      case 'auth_completed': {
+        const getAuthMethodName = (authType: string) => {
+          switch (authType) {
+            case '0': return '카카오톡';
+            case '4': return '통신사Pass';
+            case '6': return '네이버';
+            default: return '카카오톡';
+          }
+        };
+        const authMethodName = getAuthMethodName(selectedAuthType);
+        return `인증이 요청되었습니다.\n**${authMethodName}** 인증을 완료해주세요\n인증후 아래 **데이터 수집하기**를 눌러주시면\n**건강추이확인** 하실 수 있습니다.`;
+      }
       case 'authenticating':
         return '인증을 확인하고 건강정보를 가져오고 있습니다...';
       case 'authenticated':
@@ -1613,7 +1656,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       default:
         return authRequested ? '카카오톡에서 인증을 진행해주세요.' : '';
     }
-  }, [statusMessages, currentStatus, authRequested]);
+  }, [statusMessages, currentStatus, authRequested, selectedAuthType]);
 
   // 타이핑 효과 함수 (완전한 타이머 관리 포함)
   const typeMessage = useCallback((message: string, speed: number = 100, wordByWord: boolean = false, repeat: boolean = true) => {
@@ -1650,7 +1693,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             
             // 타이핑 완료 후 대기
             messageTypingTimerRef.current = setTimeout(() => {
-              if (repeat && currentStatus === 'auth_pending') {
+              if (repeat && (currentStatus === 'auth_pending' || currentStatus === 'auth_completed')) {
                 // 반복 시작 전에 텍스트 초기화
                 setTypingText('');
                 messageTypingTimerRef.current = setTimeout(() => {
@@ -1681,7 +1724,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             
             // 타이핑 완료 후 대기
             messageTypingTimerRef.current = setTimeout(() => {
-              if (repeat && currentStatus === 'auth_pending') {
+              if (repeat && (currentStatus === 'auth_pending' || currentStatus === 'auth_completed')) {
                 // 반복 시작 전에 텍스트 초기화
                 setTypingText('');
                 messageTypingTimerRef.current = setTimeout(() => {
@@ -1701,13 +1744,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
 
   // 상태 변경 시 타이핑 효과 적용
   useEffect(() => {
-    // 세션 복구 중이면 타이핑 시작하지 않음
-    if (authRequested && !isTyping && !isRecovering) { // isTyping 중에는 새로운 타이핑 시작 방지
+    // 세션 복구 중에는 타이핑 시작하지 않음
+    if (authRequested && !isTyping && !isRecovering) {
       const message = getCurrentStatusMessage();
       console.log(`🔍 [타이핑디버그] currentStatus: ${currentStatus}, authRequested: ${authRequested}, isRecovering: ${isRecovering}, message: "${message}"`);
       if (message && message !== typingText) {
         // 메시지 길이와 상황에 따라 속도 조절
-        let speed = 80; // 기본 속도
+        let speed = TYPING_SPEED; // 기본 속도
         let wordByWord = false; // 기본은 글자 단위
         
         // 반복 여부 결정
@@ -1719,6 +1762,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         } else if (currentStatus === 'auth_pending') {
           speed = 150; // 인증 대기 상태는 더 천천히
           shouldRepeat = true; // auth_pending 상태에서만 반복
+        } else if (currentStatus === 'auth_completed') {
+          speed = 100; // 인증 완료 메시지는 적당한 속도로
+          wordByWord = false; // 글자 단위로 타이핑
+          shouldRepeat = true; // auth_completed 상태에서도 반복
         } else if (currentStatus === 'completed') {
           speed = 200; // 완료 메시지는 매우 천천히
           wordByWord = true; // 완료 메시지는 단어 단위로
@@ -1727,7 +1774,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         typeMessage(message, speed, wordByWord, shouldRepeat);
       }
     }
-  }, [currentStatus, authRequested, isRecovering]); // isRecovering 의존성 추가
+  }, [currentStatus, authRequested, isRecovering, getCurrentStatusMessage, selectedAuthType]); // 타이핑 관련 의존성 추가
 
   // 로딩 메시지 순환 효과
   useEffect(() => {
@@ -2188,31 +2235,16 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             </div>
             
             {/* 타이포그래피 영역 - 카카오 인증 메시지 */}
-            <div style={{ 
-              fontSize: '24px',
-              color: '#5d4037',
-              fontWeight: '800',
-              marginLeft: '-16px', 
-              marginBottom: '30px', 
-              lineHeight: '1.4',
-              height: '80px',
-              minHeight: '80px',
-              maxHeight: '80px',
-              fontFamily: 'Pretendard, sans-serif',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'center',
-              alignItems: 'flex-start',
-              overflow: 'hidden'
-            }}>
-              {typingText.split('\n').map((line, index) => (
-                <div key={index}>{line}</div>
-              ))}
-              <span style={{ 
-                animation: 'typing-cursor 1s infinite',
-                fontWeight: 'normal',
-                marginLeft: '2px'
-              }}>|</span>
+            <div style={TYPING_STYLES.container}>
+              <span dangerouslySetInnerHTML={{
+                __html: typingText.replace(
+                  /\*\*(.*?)\*\*/g,
+                  '<span style="font-size: 19px; font-weight: bold;">$1</span>'
+                )
+              }} />
+              {isTyping && (
+                <span style={TYPING_STYLES.cursor}>|</span>
+              )}
             </div>
             
             {/* 인증 대기 상태에서는 플로팅 버튼만 사용 */}
@@ -2334,7 +2366,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     );
   }
 
-  if ((loading && authRequested) || currentStatus === 'manual_collecting' || currentStatus === 'data_collecting') {
+  if (currentStatus === 'manual_collecting' || currentStatus === 'data_collecting') {
     return (
       <div className="auth__content">
         <div className="auth__content-input-area" style={{ padding: '40px 20px', textAlign: 'center' }}>
@@ -2566,7 +2598,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             fontWeight: 'normal',
             color: '#535353',
             textAlign: 'left',
-            animation: authRequested ? 'authPulse 2s ease-in-out infinite' : 'none'
+            animation: (authRequested && currentStatus !== 'auth_completed') ? 'authPulse 2s ease-in-out infinite' : 'none'
           }}>
             <div style={{ marginBottom: '50px' }}>
               <span style={{ fontSize: '36px', fontWeight: 'bold', color: '#1d1e1f', marginLeft: '-16px' }}>{editableName || authInput.name}</span>
@@ -2586,35 +2618,33 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                     )
                   }} />
                   {isDescTyping && (
-                    <span style={{ 
-                      animation: 'typing-cursor 1s infinite',
-                      fontWeight: 'normal',
-                      marginLeft: '2px'
-                    }}>|</span>
+                    <span style={TYPING_STYLES.cursor}>|</span>
                   )}
                 </span>
               </div>
             )}
             {authRequested && (
               <>
-                  <span style={{ 
-                  marginLeft: '-8px', 
-                    fontFamily: 'monospace',
-                  fontSize: '18px',
-                  lineHeight: '1.6',
-                  whiteSpace: 'nowrap',
-                  display: 'inline-block'
-                }}>
+                  <span style={TYPING_STYLES.container}>
 {(() => {
                     const displayText = isTyping ? typingText : getCurrentStatusMessage();
                     const safeText = typeof displayText === 'string' ? 
                       displayText.replace(/undefined/g, '').replace(/null/g, '').trim() : '';
-                    return safeText || '';
-                  })()}<span style={{ 
-                    animation: 'typing-cursor 1s infinite',
-                    fontWeight: 'normal',
-                        marginLeft: '2px'
-                      }}>|</span>
+                    
+                    return (
+                      <>
+                        <span dangerouslySetInnerHTML={{
+                          __html: safeText.replace(
+                            /\*\*(.*?)\*\*/g,
+                            '<span style="font-size: 19px; font-weight: bold;">$1</span>'
+                          )
+                        }} />
+                        {!isTyping && currentStatus !== 'auth_completed' && (
+                          <span style={TYPING_STYLES.cursor}>|</span>
+                        )}
+                      </>
+                    );
+                  })()}
                   </span>
                 <br />
                 {(currentStatus === 'auth_requesting' || currentStatus === 'auth_key_received' || currentStatus === 'auth_waiting' || currentStatus === 'auto_polling') && (

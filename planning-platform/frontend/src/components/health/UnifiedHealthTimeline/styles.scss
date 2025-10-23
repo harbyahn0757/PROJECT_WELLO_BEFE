@@ -1,0 +1,1319 @@
+/**
+ * 통합 건강 타임라인 스타일
+ * 현재 디자인 시스템 톤 유지하면서 모던한 아코디언 형태 구현
+ */
+@use '../../../styles/variables' as *;
+
+.unified-timeline {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: $spacing-lg;
+  font-family: $font-family-base;
+
+  // 로딩 상태
+  .timeline-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 300px;
+    
+    .loading-spinner {
+      text-align: center;
+      
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid $gray-200;
+        border-top: 3px solid $brand-brown;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto $spacing-md;
+      }
+      
+      p {
+        color: $gray-600;
+        font-size: $font-sm;
+      }
+    }
+  }
+
+  // 빈 상태
+  .timeline-empty {
+    text-align: center;
+    padding: $spacing-2xl;
+    color: $gray-600;
+    
+    .empty-icon {
+      margin-bottom: $spacing-lg;
+      
+      svg {
+        width: 48px;
+        height: 48px;
+        color: $gray-400;
+        stroke-width: 1.5;
+      }
+    }
+    
+    h3 {
+      font-size: $font-xl;
+      font-weight: $font-weight-semibold;
+      color: $gray-800;
+      margin-bottom: $spacing-sm;
+    }
+    
+    p {
+      font-size: $font-sm;
+      line-height: 1.5;
+    }
+  }
+
+  // 헤더
+  .timeline-header {
+    margin-bottom: $spacing-lg; // $spacing-2xl → $spacing-lg로 축소
+    
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: $spacing-lg;
+      
+      .header-text {
+        text-align: left;
+        flex: 1;
+        
+        h2 {
+          font-size: $font-2xl;
+          font-weight: $font-weight-bold;
+          color: $gray-900;
+          margin-bottom: $spacing-xs; // $spacing-sm → $spacing-xs로 축소
+        }
+        
+        p {
+          font-size: $font-sm;
+          color: $gray-600;
+          line-height: 1.5;
+        }
+      }
+      
+      .view-toggle {
+        display: flex;
+        background: $gray-100;
+        border-radius: $border-radius-lg;
+        padding: 4px;
+        gap: 2px;
+        
+        .toggle-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border: none;
+          background: transparent;
+          border-radius: $border-radius-md;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          color: $gray-500;
+          
+          svg {
+            width: 10px;
+            height: 10px;
+            stroke-width: 2;
+          }
+          
+          img {
+            width: 10px;
+            height: 10px;
+            object-fit: contain;
+          }
+          
+          &:hover {
+            color: $gray-700;
+            background: rgba(255, 255, 255, 0.5);
+          }
+          
+          &.active {
+            background: $white;
+            color: $brand-brown;
+            box-shadow: $shadow-sm;
+          }
+          
+          // 각 타입별 색상 통일
+          &.checkup {
+            &.active {
+              color: $brand-brown;
+              background: rgba(139, 69, 19, 0.1); // 갈색 배경
+            }
+            &:hover {
+              color: $brand-brown;
+              background: rgba(139, 69, 19, 0.05); // 갈색 호버 배경
+            }
+          }
+          
+          &.pharmacy {
+            &.active {
+              background: rgba(245, 158, 11, 0.1);
+            }
+            &:hover {
+              background: rgba(245, 158, 11, 0.05);
+            }
+          }
+          
+          &.treatment {
+            &.active {
+              color: $info;
+              background: rgba(66, 153, 225, 0.1);
+            }
+            &:hover {
+              color: $info;
+              background: rgba(66, 153, 225, 0.05);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 타임라인 컨텐츠
+  .timeline-content {
+    .year-section {
+      margin-bottom: $spacing-lg; // $spacing-2xl → $spacing-lg로 축소
+      
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+    
+    .year-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: $spacing-md; // $spacing-lg → $spacing-md로 축소
+      padding-bottom: $spacing-xs; // $spacing-sm → $spacing-xs로 축소
+      border-bottom: 1px solid $gray-200; // 2px → 1px로 축소
+      
+      .year-title {
+        font-size: $font-lg; // $font-xl에서 $font-lg로 축소
+        font-weight: $font-weight-bold;
+        color: $brand-brown; // 진한 갈색으로 변경
+        margin: 0;
+      }
+      
+      .year-count {
+        font-size: $font-sm;
+        color: $gray-500;
+        background: transparent; // 배경 제거
+        padding: 0; // 패딩 제거
+        border-radius: 0; // 보더 반경 제거
+      }
+    }
+    
+    .records-list {
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-md; // $spacing-lg에서 $spacing-md로 축소
+      
+      .record-item-wrapper {
+        display: flex;
+        align-items: flex-start;
+        gap: $spacing-md;
+        
+        .record-date-external {
+          font-size: $font-sm;
+          font-weight: $font-weight-medium;
+          color: $gray-600;
+          background: transparent; // 배경 제거
+          padding: 4px 8px;
+          border-radius: $border-radius-md;
+          white-space: nowrap;
+          flex-shrink: 0;
+          min-width: 60px;
+          text-align: center;
+          margin-top: 4px;
+        }
+        
+        .record-item {
+          flex: 1;
+          background: rgba(255, 255, 255, 0.7); // 투명도 추가
+          border: 1px solid $gray-200;
+          border-radius: $border-radius-lg;
+          overflow: hidden;
+          transition: all 0.3s ease;
+          backdrop-filter: blur(10px); // 배경 블러 효과
+          
+          &:hover {
+            background: rgba(255, 255, 255, 0.9); // 호버 시 더 불투명하게
+            border-color: $gray-300;
+            box-shadow: $shadow-sm;
+          }
+          
+          &.expanded {
+            background: rgba(255, 255, 255, 0.95); // 펼쳐졌을 때 더 불투명하게
+            border-color: $brand-brown;
+            box-shadow: $shadow-md;
+          }
+          
+          // 타입별 좌측 보더 (더 얇게)
+          &.checkup {
+            border-left: 2px solid $brand-brown; // 갈색으로 변경
+          }
+          
+          &.prescription {
+            border-left: 2px solid $info;
+          }
+          
+          &.pharmacy {
+            border-left: 2px solid $warning;
+          }
+        }
+      }
+      
+      .record-header {
+        display: flex;
+        align-items: flex-start;
+        padding: $spacing-lg;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+        
+        &:hover {
+          background: $gray-50;
+        }
+        
+        .record-icon {
+          margin-right: $spacing-md;
+          flex-shrink: 0;
+          
+          .icon-badge {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            
+            svg {
+              display: block;
+              margin: auto;
+            }
+            
+            &.checkup {
+              background: rgba(139, 69, 19, 0.1); // 갈색 배경
+              border: 2px solid $brand-brown; // 갈색 보더
+              
+              svg {
+                width: 16px;
+                height: 16px;
+                color: $brand-brown; // 갈색 아이콘
+              }
+            }
+            
+            &.prescription {
+              background: rgba(66, 153, 225, 0.1);
+              border: 2px solid $info;
+              
+              svg {
+                width: 16px;
+                height: 16px;
+                color: $info;
+              }
+            }
+            
+            &.pharmacy {
+              background: rgba(245, 158, 11, 0.1);
+              border: 2px solid $warning;
+              
+              img {
+                width: 16px;
+                height: 16px;
+                object-fit: contain;
+              }
+            }
+          }
+        }
+        
+        .record-info {
+          flex: 1;
+          min-width: 0;
+          
+          .record-main {
+            display: flex;
+            align-items: center;
+            gap: $spacing-xs;
+            margin-bottom: 4px;
+            flex-wrap: nowrap;
+            white-space: nowrap;
+            
+            .record-title {
+              font-size: $font-sm;
+              font-weight: $font-weight-semibold;
+              color: $gray-900;
+              flex-shrink: 0;
+            }
+            
+            .record-separator {
+              color: $gray-400;
+              font-size: $font-sm;
+              flex-shrink: 0;
+            }
+            
+            .record-institution {
+              font-size: $font-sm;
+              font-weight: $font-weight-medium;
+              color: $gray-700;
+              flex-shrink: 1;
+              min-width: 0;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            
+            .record-treatment {
+              font-size: $font-sm;
+              color: $gray-600;
+              flex-shrink: 1;
+              min-width: 0;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            
+            .record-status {
+              font-size: $font-xs;
+              font-weight: $font-weight-medium;
+              padding: 2px 6px;
+              border-radius: $border-radius-sm;
+              background: rgba(255, 255, 255, 0.8);
+              border: 1px solid currentColor;
+              flex-shrink: 0;
+              margin-left: auto;
+            }
+          }
+          
+          .record-meta {
+            display: flex;
+            align-items: center;
+            gap: $spacing-xs;
+            margin-bottom: $spacing-xs;
+            font-size: $font-sm;
+            color: $gray-600;
+            
+            .record-separator {
+              color: $gray-400;
+            }
+            
+            .record-institution {
+              font-weight: $font-weight-medium;
+            }
+          }
+          
+          .record-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: $spacing-xs;
+            font-size: $font-xs;
+            
+            .treatment-type,
+            .visit-count,
+            .medication-count,
+            .prescription-count {
+              background: $gray-100;
+              color: $gray-700;
+              padding: 2px 6px;
+              border-radius: $border-radius-sm;
+            }
+          }
+        }
+        
+        .record-toggle {
+          flex-shrink: 0;
+          margin-left: $spacing-sm;
+          display: flex;
+          align-items: center;
+          gap: $spacing-xs;
+          
+          .toggle-icon {
+            width: 20px;
+            height: 20px;
+            color: $gray-400;
+            transition: transform 0.3s ease;
+            
+            &.medication-icon {
+              color: $info;
+              
+              &:hover {
+                color: darken($info, 10%);
+              }
+            }
+          }
+          
+          .medication-badge {
+            width: 20px;
+            height: 20px;
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid $warning;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            
+            &:hover {
+              background: rgba(245, 158, 11, 0.2);
+              transform: scale(1.1);
+            }
+            
+            img {
+              width: 12px;
+              height: 12px;
+              object-fit: contain;
+            }
+          }
+        }
+        
+        .expanded & .toggle-icon {
+          transform: rotate(180deg);
+        }
+      }
+      
+      .record-content {
+        border-top: 1px solid $gray-100;
+        padding: $spacing-lg;
+        background: $gray-50;
+        animation: slideDown 0.3s ease;
+      }
+    }
+  }
+
+  // 상세 정보 스타일
+  .record-details {
+    .details-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: $spacing-md;
+      margin-bottom: $spacing-lg;
+      
+      .detail-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        
+        .detail-label {
+          font-size: $font-xs;
+          font-weight: $font-weight-medium;
+          color: $gray-500;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        
+        .detail-value-container {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          
+          .detail-value {
+            font-size: $font-sm;
+            font-weight: $font-weight-semibold;
+            color: $gray-900;
+          }
+          
+          .detail-reference {
+            font-size: $font-xs;
+            color: $gray-500;
+            line-height: 1.3;
+          }
+        }
+        
+        .detail-value {
+          font-size: $font-sm;
+          font-weight: $font-weight-semibold;
+          color: $gray-900;
+        }
+      }
+    }
+    
+    .detail-description {
+      .detail-label {
+        font-size: $font-xs;
+        font-weight: $font-weight-medium;
+        color: $gray-500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: $spacing-xs;
+        display: block;
+      }
+      
+      .detail-text {
+        font-size: $font-sm;
+        color: $gray-700;
+        line-height: 1.5;
+        margin: 0;
+        padding: $spacing-sm;
+        background: $white;
+        border-radius: $border-radius-md;
+        border: 1px solid $gray-200;
+      }
+      
+      .detail-raw {
+        font-size: $font-sm;
+        color: $gray-700;
+        line-height: 1.5;
+        
+        p {
+          margin: 4px 0;
+        }
+      }
+    }
+    
+    // 처방전 전용 스타일
+    .prescription-summary {
+      margin-bottom: $spacing-lg;
+      
+      .summary-stats {
+        display: flex;
+        gap: $spacing-lg;
+        
+        .stat-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+          
+          .stat-label {
+            font-size: $font-xs;
+            font-weight: $font-weight-medium;
+            color: $gray-500;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          .stat-value {
+            font-size: $font-lg;
+            font-weight: $font-weight-bold;
+            color: $brand-brown;
+          }
+        }
+      }
+    }
+    
+    .medication-list {
+      .detail-label {
+        font-size: $font-xs;
+        font-weight: $font-weight-medium;
+        color: $gray-500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: $spacing-sm;
+        display: block;
+      }
+      
+      .medications {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
+        
+        .medication-item {
+          display: flex;
+          flex-direction: column;
+          padding: $spacing-sm;
+          background: $white;
+          border: 1px solid $gray-200;
+          border-radius: $border-radius-md;
+          
+          .medication-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+            
+            .medication-name {
+              font-size: $font-sm;
+              font-weight: $font-weight-medium;
+              color: $gray-900;
+              flex: 1;
+            }
+            
+            .medication-duration {
+              font-size: $font-xs;
+              color: $gray-500;
+              background: $gray-100;
+              padding: 2px 6px;
+              border-radius: $border-radius-sm;
+              flex-shrink: 0;
+            }
+          }
+          
+          .medication-description {
+            .medication-effect {
+              font-size: $font-xs;
+              color: $gray-600;
+              font-style: italic;
+              line-height: 1.4;
+            }
+          }
+        }
+        
+        .medication-more {
+          font-size: $font-xs;
+          color: $gray-500;
+          text-align: center;
+          padding: $spacing-sm;
+          background: $gray-100;
+          border-radius: $border-radius-md;
+        }
+      }
+    }
+  }
+
+  // 푸터
+  .timeline-footer {
+    text-align: center;
+    margin-top: $spacing-2xl;
+    padding-top: $spacing-lg;
+    border-top: 1px solid $gray-200;
+    
+    .last-update {
+      font-size: $font-xs;
+      color: $gray-500;
+      margin: 0;
+    }
+  }
+
+  // 가로형 레이아웃
+  &.horizontal {
+    .timeline-content {
+      .records-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: $spacing-lg;
+        
+        .record-item-wrapper {
+          display: flex;
+          flex-direction: column;
+          gap: $spacing-xs;
+          
+          .record-date-external {
+            align-self: flex-start;
+            margin-bottom: $spacing-xs;
+          }
+          
+          .record-item {
+            height: fit-content;
+            
+            .record-header {
+              .record-info {
+                .record-main {
+                  .record-title {
+                    font-size: $font-sm;
+                  }
+                }
+                
+                .record-meta {
+                  font-size: $font-xs;
+                }
+                
+                .record-summary {
+                  margin-top: $spacing-xs;
+                }
+              }
+            }
+          
+          .record-content {
+            .record-details {
+              .details-grid {
+                grid-template-columns: 1fr;
+                gap: $spacing-sm;
+                
+                .detail-item {
+                  .detail-label {
+                    font-size: 10px;
+                  }
+                  
+                  .detail-value {
+                    font-size: $font-xs;
+                  }
+                }
+              }
+              
+              .prescription-summary {
+                .summary-stats {
+                  gap: $spacing-sm;
+                  
+                  .stat-item {
+                    .stat-value {
+                      font-size: $font-base;
+                    }
+                  }
+                }
+              }
+              
+              .medication-list {
+                .medications {
+                  .medication-item {
+                    padding: $spacing-xs;
+                    
+                    .medication-name {
+                      font-size: $font-xs;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          }
+        }
+      }
+    }
+    
+    // 가로형에서 년도 헤더 조정
+    .year-header {
+      position: sticky;
+      top: 0;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      z-index: 10;
+      margin-bottom: $spacing-lg;
+      padding: $spacing-sm 0;
+      border-radius: $border-radius-lg;
+    }
+  }
+
+  // 반응형 디자인
+  @media (max-width: $breakpoint-sm) {
+    padding: $spacing-md;
+    
+    .timeline-header {
+      margin-bottom: $spacing-md; // $spacing-xl → $spacing-md로 대폭 축소
+      
+      .header-content {
+        flex-direction: row; // column → row로 변경 (한 줄 유지)
+        justify-content: space-between; // 양쪽 끝 정렬
+        align-items: flex-end; // 하단 정렬로 변경 (설명 텍스트 높이에 맞춤)
+        gap: $spacing-sm;
+        
+        .header-text {
+          flex: 1; // 남은 공간 차지
+          
+          h2 {
+            font-size: $font-lg; // $font-xl → $font-lg로 축소
+            margin-bottom: 2px; // 더 작은 마진
+          }
+          
+          p {
+            font-size: $font-xs; // 설명 텍스트도 더 작게
+            line-height: 1.4;
+          }
+        }
+        
+        .view-toggle {
+          align-self: flex-end; // 하단 정렬 (설명 텍스트와 같은 높이)
+          padding: 2px; // 더 작은 패딩
+          flex-shrink: 0; // 크기 고정
+          margin-bottom: 1px; // 미세 조정
+          
+          .toggle-btn {
+            width: 28px; // 32px → 28px로 축소
+            height: 28px; // 32px → 28px로 축소
+            
+            svg {
+              width: 12px; // 14px → 12px로 축소
+              height: 12px;
+            }
+          }
+        }
+      }
+    }
+    
+    // 모바일 년도 헤더 최적화
+    .timeline-content {
+      .year-section {
+        margin-bottom: $spacing-md; // 모바일에서도 컴팩트하게
+      }
+      
+      .year-header {
+        margin-bottom: $spacing-sm; // 더 작은 마진
+        padding-bottom: $spacing-xs;
+        
+        .year-title {
+          font-size: $font-base; // 모바일에서 더 작게
+        }
+        
+        .year-count {
+          font-size: $font-xs; // 더 작은 폰트
+        }
+      }
+    }
+    
+    // 가로형 레이아웃 모바일 조정
+    &.horizontal {
+      .timeline-content {
+        .records-list {
+          grid-template-columns: 1fr;
+          gap: $spacing-sm; // $spacing-md → $spacing-sm로 축소
+        }
+      }
+    }
+    
+    .record-item-wrapper {
+      gap: $spacing-sm !important;
+      
+      .record-date-external {
+        font-size: $font-xs !important;
+        padding: 2px 6px !important;
+        min-width: 50px !important;
+      }
+    }
+    
+    .record-header {
+      padding: $spacing-md !important;
+      
+      .record-icon {
+        margin-right: $spacing-sm;
+        
+        .icon-badge {
+          width: 28px !important;
+          height: 28px !important;
+          
+          svg {
+            width: 14px !important;
+            height: 14px !important;
+          }
+          
+          img {
+            width: 14px !important;
+            height: 14px !important;
+          }
+        }
+      }
+      
+      .record-info {
+        .record-main {
+          flex-direction: row;
+          align-items: center;
+          gap: $spacing-xs;
+          flex-wrap: nowrap;
+          
+          .record-title {
+            font-size: $font-xs !important;
+          }
+          
+          .record-institution,
+          .record-treatment {
+            font-size: $font-xs !important;
+          }
+          
+          .record-separator {
+            font-size: $font-xs !important;
+          }
+        }
+        
+        .record-meta {
+          flex-wrap: wrap;
+        }
+      }
+    }
+    
+    .record-content {
+      padding: $spacing-md !important;
+    }
+    
+    .details-grid {
+      grid-template-columns: 1fr !important;
+      gap: $spacing-sm !important;
+    }
+    
+    .prescription-summary .summary-stats {
+      justify-content: space-around;
+      gap: $spacing-md;
+    }
+  }
+}
+
+// 애니메이션
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+// 파비콘 블링크 애니메이션
+@keyframes faviconBlink {
+  0%, 100% { 
+    opacity: 1; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.3; 
+    transform: scale(0.95);
+  }
+}
+
+// 고도화된 검진 카드 스타일
+.advanced-checkup-details {
+  .status-badges {
+    display: flex;
+    gap: $spacing-xs;
+    margin-bottom: $spacing-lg;
+    flex-wrap: wrap;
+    
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: $border-radius-md;
+      font-size: $font-xs;
+      font-weight: $font-weight-medium;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: $shadow-sm;
+      }
+      
+      &.active {
+        transform: scale(1.05);
+        box-shadow: $shadow-md;
+      }
+      
+      &.status-normal {
+        background: rgba(139, 69, 19, 0.1); // 갈색 배경
+        color: $brand-brown; // 갈색 텍스트
+        border: 1px solid rgba(139, 69, 19, 0.3); // 갈색 보더
+        
+        &.active {
+          background: rgba(139, 69, 19, 0.2);
+          border-color: $brand-brown;
+        }
+      }
+      
+      &.status-warning {
+        background: rgba(245, 158, 11, 0.1);
+        color: $warning;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        
+        &.active {
+          background: rgba(245, 158, 11, 0.2);
+          border-color: $warning;
+        }
+      }
+      
+      &.status-abnormal {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        
+        &.active {
+          background: rgba(239, 68, 68, 0.2);
+          border-color: #ef4444;
+        }
+      }
+    }
+  }
+  
+  .group-slider {
+    display: flex;
+    gap: 4px;
+    margin-bottom: $spacing-lg;
+    background: $gray-100;
+    border-radius: $border-radius-lg;
+    padding: 4px;
+    overflow-x: auto;
+    
+    .group-tab {
+      padding: 8px 12px;
+      border: none;
+      background: transparent;
+      border-radius: $border-radius-md;
+      font-size: $font-xs;
+      font-weight: $font-weight-medium;
+      color: $gray-600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      flex-shrink: 0;
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.5);
+        color: $gray-800;
+      }
+      
+      &.active {
+        background: $white;
+        color: $brand-brown; // 갈색으로 변경
+        box-shadow: $shadow-sm;
+      }
+    }
+  }
+  
+  // 기존 세로 레이아웃 (백업용)
+  .group-items {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    
+    .checkup-item {
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid $gray-200;
+      border-radius: $border-radius-lg;
+      padding: $spacing-md;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(5px);
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: $shadow-sm;
+      }
+      
+      &.status-abnormal { border-left: 2px solid #ef4444; }
+      &.status-warning { border-left: 2px solid $warning; }
+      &.status-normal { border-left: 2px solid $brand-brown; } // 갈색으로 변경
+    }
+  }
+  
+  // 슬라이더 컨테이너
+  .slider-container {
+    position: relative;
+  }
+
+  // 새로운 가로 슬라이더 레이아웃
+  .group-items-slider {
+    display: flex;
+    gap: $spacing-md;
+    overflow-x: auto;
+    padding: $spacing-xs 0 $spacing-lg 0;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    
+    // 스크롤바 숨기기 (닷 인디케이터로 대체)
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    
+    .checkup-item-card {
+      min-width: 200px;
+      max-width: 250px;
+      flex-shrink: 0;
+      background: rgba(255, 255, 255, 0.8);
+      border: 1px solid $gray-200;
+      border-radius: $border-radius-lg;
+      padding: $spacing-md;
+      transition: all 0.2s ease;
+      backdrop-filter: blur(5px);
+      scroll-snap-align: start;
+      position: relative; // 뱃지 절대 위치를 위한 상대 위치
+      
+      &:hover {
+        background: rgba(255, 255, 255, 0.95);
+        box-shadow: $shadow-sm;
+        transform: translateY(-2px);
+      }
+      
+      // 왼쪽 라인 색상 제거 (깔끔한 디자인을 위해)
+      
+      // 상태 뱃지 - 우상단 배치
+      .status-badge {
+        position: absolute;
+        top: $spacing-xs;
+        right: $spacing-xs;
+        padding: 1px 6px; // 2px 8px → 1px 6px로 축소
+        border-radius: 8px; // 12px → 8px로 축소
+        font-size: 10px; // $font-xs보다 더 작게
+        font-weight: 600;
+        color: white;
+        
+        &.status-normal {
+          background: $brand-brown; // 갈색으로 변경
+        }
+        
+        &.status-warning {
+          background: $warning;
+        }
+        
+        &.status-abnormal {
+          background: #ef4444;
+        }
+      }
+      
+      // 항목명 스타일
+      .item-name-only {
+        font-size: $font-base;
+        font-weight: 600;
+        color: $gray-800;
+        margin-bottom: $spacing-xs;
+        padding-right: 60px; // 뱃지 공간 확보
+      }
+      
+      // 통합 신체계측 카드 스타일
+      .body-measurements {
+        display: flex;
+        flex-direction: column;
+        gap: $spacing-xs;
+        margin-bottom: $spacing-sm;
+        
+        .measurement-item {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 4px 0;
+          
+          .measurement-label {
+            font-size: $font-sm;
+            color: $gray-600;
+            font-weight: 500;
+          }
+          
+          .measurement-value {
+            font-size: $font-base;
+            font-weight: 600;
+            color: $gray-900;
+          }
+        }
+      }
+      
+      // 기존 item-header-row 스타일 제거 (새로운 레이아웃으로 대체)
+      
+      .item-value-large {
+        font-size: $font-xl;
+        font-weight: $font-weight-bold;
+        color: $gray-900;
+        margin-bottom: $spacing-sm;
+        text-align: center;
+        padding: $spacing-xs 0;
+      }
+      
+      .item-references-compact {
+        .reference-line {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: $font-xs;
+          color: $gray-600;
+          margin-bottom: 2px;
+          
+          &:last-child {
+            margin-bottom: 0;
+          }
+          
+          .ref-label {
+            font-weight: $font-weight-medium;
+            color: $gray-700;
+          }
+          
+          .ref-range {
+            color: $gray-500;
+            font-size: $font-xs;
+          }
+        }
+      }
+    }
+  }
+}
+
+// 모바일 최적화
+@media (max-width: 768px) {
+  .advanced-checkup-details {
+    .group-slider {
+      .group-tab {
+        padding: 6px 10px;
+        font-size: $font-xs;
+      }
+    }
+    
+    .group-items-slider {
+      .checkup-item-card {
+        min-width: 160px;
+        max-width: 180px;
+        padding: $spacing-sm;
+        
+        .item-header-row {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 2px;
+          
+          .item-divider {
+            display: none;
+          }
+        }
+        
+        .item-value-large {
+          font-size: $font-lg;
+          margin-bottom: $spacing-xs;
+        }
+        
+        .item-references-compact {
+          .reference-line {
+            font-size: 10px;
+            
+            .ref-range {
+              font-size: 9px;
+            }
+          }
+        }
+      }
+    }
+    
+    // 기존 세로 레이아웃 모바일 최적화
+    .group-items {
+      .checkup-item {
+        padding: $spacing-sm;
+        
+        .item-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: $spacing-xs;
+        }
+        
+        .item-value {
+          font-size: $font-base;
+        }
+      }
+    }
+  }
+}
+
+.favicon-blink-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: $spacing-md;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 500px;
+  }
+}
+
+// 닷 슬라이더 인디케이터
+.dot-indicators {
+  display: flex;
+  justify-content: center;
+  gap: 4px; // $spacing-xs보다 더 작게
+  margin-top: $spacing-xs; // $spacing-sm → $spacing-xs로 축소
+  
+  .dot {
+    width: 6px; // 8px → 6px로 축소
+    height: 6px; // 8px → 6px로 축소
+    border-radius: 50%;
+    border: none;
+    background: $gray-300;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      background: $gray-400;
+      transform: scale(1.1); // 1.2 → 1.1로 축소
+    }
+    
+    &.active {
+      background: $brand-brown;
+      transform: scale(1.2); // 1.3 → 1.2로 축소
+    }
+  }
+}

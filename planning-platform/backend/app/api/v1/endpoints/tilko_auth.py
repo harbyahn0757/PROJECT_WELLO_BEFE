@@ -2,7 +2,7 @@
 틸코 인증 관련 API 엔드포인트
 """
 from fastapi import APIRouter, HTTPException, BackgroundTasks
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import os
 from datetime import datetime
 from app.utils.tilko_utils import (
@@ -32,6 +32,8 @@ class SimpleAuthWithSessionRequest(BaseModel):
     birthdate: str
     phone_no: str
     gender: str = "M"
+    patient_uuid: Optional[str] = None  # 환자 UUID
+    hospital_id: Optional[str] = None   # 병원 ID
 
 class HealthDataRequest(BaseModel):
     cx_id: str
@@ -159,7 +161,7 @@ async def start_auth_session(request: SimpleAuthWithSessionRequest) -> Dict[str,
                 print(f"🔧 [이름정규화] '{request.user_name}' → '{clean_name}'")
                 break
         
-        # 세션 생성
+        # 세션 생성 (환자 정보 포함)
         user_info = {
             "name": clean_name,
             "birthdate": request.birthdate,
@@ -169,6 +171,16 @@ async def start_auth_session(request: SimpleAuthWithSessionRequest) -> Dict[str,
         }
         
         session_id = session_manager.create_session(user_info)
+        
+        # 환자 UUID와 병원 ID를 세션에 추가로 저장
+        if request.patient_uuid and request.hospital_id:
+            session_data = session_manager.get_session(session_id)
+            session_data["patient_uuid"] = request.patient_uuid
+            session_data["hospital_id"] = request.hospital_id
+            session_manager._save_session(session_id, session_data)
+            print(f"✅ [세션생성] 환자 정보 저장: {request.patient_uuid} @ {request.hospital_id}")
+        else:
+            print(f"⚠️ [세션생성] 환자 정보 누락 - patient_uuid: {request.patient_uuid}, hospital_id: {request.hospital_id}")
         
         return {
             "success": True,
@@ -270,10 +282,19 @@ async def session_simple_auth(
             session_data["temp_auth_data"] = temp_auth_data
             session_manager._save_session(session_id, session_data)
             
+            # 인증 방법에 따른 메시지 설정
+            auth_type = user_info.get("private_auth_type", "0")
+            auth_messages = {
+                "0": "카카오톡에서 인증을 진행해주세요. 인증 완료를 기다리고 있습니다...",
+                "4": "통신사Pass에서 인증을 진행해주세요. 인증 완료를 기다리고 있습니다...", 
+                "6": "네이버에서 인증을 진행해주세요. 인증 완료를 기다리고 있습니다..."
+            }
+            auth_message = auth_messages.get(auth_type, "선택한 방법으로 인증을 진행해주세요.")
+            
             session_manager.update_session_status(
                 session_id,
-                "auth_pending",
-                "카카오톡에서 인증을 진행해주세요. 인증 완료를 기다리고 있습니다..."
+                "auth_completed",  # CX, TX 받으면 즉시 완료 처리
+                f"인증이 완료되었습니다!\n아래 버튼을 눌러 데이터를 수집해주세요."
             )
             
             # 세션 연장 (활동 감지) - 5분 연장
@@ -863,7 +884,9 @@ async def get_session_status_for_polling(session_id: str):
         "progress": session_data.get("progress", {}),
         "messages": session_data.get("messages", [])[-3:],  # 최근 3개 메시지만
         "updated_at": session_data.get("updated_at"),
-        "user_name": session_data.get("user_info", {}).get("name", "")
+        "user_name": session_data.get("user_info", {}).get("name", ""),
+        "patient_uuid": session_data.get("patient_uuid"),
+        "hospital_id": session_data.get("hospital_id")
     }
 
 
@@ -891,8 +914,9 @@ async def collect_data_unified(session_id: str, background_tasks: BackgroundTask
         session_data["auth_data"] = auth_data
         session_manager._save_session(session_id, session_data)
         
-        # 백그라운드에서 데이터 수집 (기존 함수 사용)
-        background_tasks.add_task(collect_health_data_background_task, session_id)
+        # 백그라운드에서 데이터 수집 (직접 실행으로 변경)
+        print(f"🚀 [통합수집] 백그라운드 작업 직접 실행 시작: {session_id}")
+        await collect_health_data_background_task(session_id)
         
         return {
             "success": True,
@@ -1097,6 +1121,43 @@ async def collect_health_data_background_task(session_id: str):
         # 모든 데이터 수집 완료
         session_manager.complete_session(session_id)
         print(f"✅ [백그라운드] 모든 건강정보 수집 완료 - 세션: {session_id}")
+        
+        # 수집된 데이터를 DB에 저장
+        try:
+            from app.services.wello_data_service import WelloDataService
+            wello_service = WelloDataService()
+            
+            # 세션에서 환자 정보 가져오기 (최신 세션 데이터 사용)
+            final_session_data = session_manager.get_session(session_id)
+            patient_uuid = final_session_data.get("patient_uuid")
+            hospital_id = final_session_data.get("hospital_id")
+            
+            print(f"🔍 [백그라운드] 환자 정보 확인 - patient_uuid: {patient_uuid}, hospital_id: {hospital_id}")
+            
+            if patient_uuid and hospital_id:
+                # 환자 정보 저장
+                await wello_service.save_patient_data(patient_uuid, hospital_id, user_info, session_id)
+                
+                # 건강검진 데이터 저장
+                final_session_data = session_manager.get_session(session_id)
+                health_data = final_session_data.get("health_data")
+                if health_data:
+                    await wello_service.save_health_data(patient_uuid, hospital_id, health_data, session_id)
+                    print(f"✅ [백그라운드] 건강검진 데이터 DB 저장 완료")
+                
+                # 처방전 데이터 저장
+                prescription_data = final_session_data.get("prescription_data")
+                if prescription_data:
+                    await wello_service.save_prescription_data(patient_uuid, hospital_id, prescription_data, session_id)
+                    print(f"✅ [백그라운드] 처방전 데이터 DB 저장 완료")
+                    
+                print(f"✅ [백그라운드] 모든 데이터 DB 저장 완료 - 환자: {patient_uuid}")
+            else:
+                print(f"⚠️ [백그라운드] 환자 UUID 또는 병원 ID가 없어서 DB 저장 생략")
+                
+        except Exception as e:
+            print(f"❌ [백그라운드] DB 저장 실패: {str(e)}")
+            # DB 저장 실패해도 알림은 계속 진행
         
         # 완료 알림 전송
         try:

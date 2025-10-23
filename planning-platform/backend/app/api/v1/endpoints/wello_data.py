@@ -45,6 +45,82 @@ async def get_patient_health_data(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"데이터 조회 실패: {str(e)}")
 
+@router.get("/patients/{uuid}")
+async def get_patient_info(
+    uuid: str
+) -> Dict[str, Any]:
+    """환자 정보 조회"""
+    try:
+        result = await wello_data_service.get_patient_by_uuid(uuid)
+        
+        if "error" in result:
+            raise HTTPException(status_code=404, detail=result["error"])
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"환자 정보 조회 실패: {str(e)}")
+
+@router.get("/hospitals/{hospital_id}")
+async def get_hospital_info(
+    hospital_id: str
+) -> Dict[str, Any]:
+    """병원 정보 조회"""
+    try:
+        result = await wello_data_service.get_hospital_by_id(hospital_id)
+        
+        if "error" in result:
+            raise HTTPException(status_code=404, detail=result["error"])
+        
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"병원 정보 조회 실패: {str(e)}")
+
+@router.get("/login")
+async def login_patient(
+    uuid: str = Query(..., description="환자 UUID"),
+    hospital: str = Query(..., description="병원 ID")
+) -> Dict[str, Any]:
+    """환자 로그인 처리"""
+    try:
+        # 환자 정보 조회 및 로그인 처리
+        result = await wello_data_service.login_patient(uuid, hospital)
+        
+        if "error" in result:
+            raise HTTPException(status_code=404, detail=result["error"])
+        
+        return {
+            "success": True,
+            "data": result
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"로그인 실패: {str(e)}")
+
+@router.post("/tilko/session/{session_id}/collect-data")
+async def collect_tilko_data(
+    session_id: str
+) -> Dict[str, Any]:
+    """Tilko 세션으로부터 건강 데이터 수집"""
+    try:
+        result = await wello_data_service.collect_tilko_data(session_id)
+        
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        
+        return {
+            "success": True,
+            "data": result
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"데이터 수집 실패: {str(e)}")
+
 @router.get("/health-trends")
 async def get_health_trends(
     uuid: str = Query(..., description="환자 UUID"),

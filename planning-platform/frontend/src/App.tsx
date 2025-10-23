@@ -57,7 +57,7 @@ const FloatingButton: React.FC = () => {
       setHideFloatingButton(shouldHide);
       setIsAuthWaiting(authWaiting);
       
-      console.log('🔄 [플로팅버튼] 상태 확인:', { isConfirming, authWaiting, shouldHide });
+      // console.log('🔄 [플로팅버튼] 상태 확인:', { isConfirming, authWaiting, shouldHide });
     };
     
     // 초기 상태 확인
@@ -89,7 +89,7 @@ const FloatingButton: React.FC = () => {
   // 인증 페이지에서 환자 데이터가 로드되면 플로팅 버튼 표시 보장
   React.useEffect(() => {
     if (location.pathname === '/login' && patient) {
-      console.log('👤 [인증페이지] 환자 데이터 로드됨 - 플로팅 버튼 표시 보장');
+      // console.log('👤 [인증페이지] 환자 데이터 로드됨 - 플로팅 버튼 표시 보장');
       removeLocalStorageWithEvent('tilko_info_confirming');
     }
   }, [location.pathname, patient, removeLocalStorageWithEvent]);
@@ -130,11 +130,11 @@ const FloatingButton: React.FC = () => {
     
     if (path === '/login') {
       // 틸코 인증 대기 상태 확인 (React state 사용)
-      console.log('🔍 [플로팅버튼] isAuthWaiting state:', isAuthWaiting);
+      // console.log('🔍 [플로팅버튼] isAuthWaiting state:', isAuthWaiting);
       
       if (isAuthWaiting) {
         return {
-          text: '인증완료 하였어요',
+          text: '데이터 수집하기',
           onClick: handleAuthCompleteClick
         };
       } else {
@@ -210,21 +210,23 @@ const AppContent: React.FC = () => {
     if (uuid && hospital) {
       // 현재 환자 데이터가 없거나 다른 환자인 경우에만 로딩
       if (!state.patient || state.patient.uuid !== uuid) {
-        console.log(`🔄 [App] 환자 데이터 로딩: ${uuid} @ ${hospital}`);
-        actions.loadPatientData(uuid, hospital);
+        // console.log(`🔄 [App] 환자 데이터 로딩: ${uuid} @ ${hospital}`);
+        actions.loadPatientData(uuid, hospital); // 처음 로딩 시에는 토스트 없이
       } else {
-        console.log(`✅ [App] 환자 데이터 이미 로드됨: ${state.patient.name} (${uuid})`);
+        // console.log(`✅ [App] 환자 데이터 이미 로드됨: ${state.patient.name} (${uuid})`);
+        // 기존 데이터가 있는 경우 레이아웃만 확인하고 토스트 표시하지 않음
+        // actions.loadPatientData(uuid, hospital, { force: true }); // 제거
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search, state.patient?.uuid]); // actions는 의도적으로 제외 (무한 루프 방지)
 
-  // 개발 환경에서 디버그 정보 출력
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development' && state.layoutConfig) {
-      debugLayoutMapping();
-    }
-  }, [state.layoutConfig]);
+  // 개발 환경에서 디버그 정보 출력 (필요시에만 활성화)
+  // useEffect(() => {
+  //   if (process.env.NODE_ENV === 'development' && state.layoutConfig) {
+  //     debugLayoutMapping();
+  //   }
+  // }, [state.layoutConfig]);
 
   if (state.isLoading) {
     return (
@@ -312,7 +314,21 @@ const AppContent: React.FC = () => {
           <Route path="/prescriptions" element={<PrescriptionHistory />} />
           <Route path="/comparison" element={<HealthComparison />} />
           <Route path="/results-trend" element={<HealthDataViewer onBack={() => window.history.back()} />} />
-          <Route path="/results" element={<HealthDataViewer onBack={() => window.history.back()} />} />
+          <Route 
+            path="/results" 
+            element={
+              <LayoutComponent
+                headerImage={layoutConfig.headerImage}
+                headerImageAlt={layoutConfig.headerImageAlt}
+                headerSlogan={layoutConfig.headerSlogan}
+                headerLogoTitle={layoutConfig.headerLogoTitle}
+                headerLogoSubtitle={layoutConfig.headerLogoSubtitle}
+                headerMainTitle={layoutConfig.headerMainTitle}
+              >
+                <MainPage />
+              </LayoutComponent>
+            } 
+          />
         </Routes>
         
         {/* 플로팅 버튼 조건부 렌더링 */}

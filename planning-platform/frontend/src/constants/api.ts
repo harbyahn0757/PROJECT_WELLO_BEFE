@@ -14,27 +14,27 @@ const getApiHost = (endpoint: 'local' | 'production' = 'local'): string => {
   return endpoint === 'local' ? API_HOSTS.LOCAL : API_HOSTS.PRODUCTION;
 };
 
-// Tilko API 엔드포인트 (WELLO 전용 경로 - 상대경로 사용)
+// Tilko API 엔드포인트 (올바른 경로로 수정)
 export const TILKO_API = {
-  // 세션 관리 (절대경로 사용 - setupProxy/Nginx가 자동 라우팅)
-  SESSION_START: () => `/api/v1/wello/tilko/session/start`,
+  // 세션 관리 (실제 백엔드 라우터 경로에 맞춤)
+  SESSION_START: () => `/api/v1/tilko/session/start`,
   
-  SESSION_STATUS: (sessionId: string) => `/api/v1/wello/tilko/session/${sessionId}/status`,
+  SESSION_STATUS: (sessionId: string) => `/api/v1/tilko/session/${sessionId}/status`,
   
-  SESSION_CLEANUP_USER: (userName: string) => `/api/v1/wello/tilko/session/cleanup-user/${encodeURIComponent(userName)}`,
+  SESSION_CLEANUP_USER: (userName: string) => `/api/v1/tilko/session/cleanup-user/${encodeURIComponent(userName)}`,
   
-  SESSION_DELETE: (sessionId: string) => `/api/v1/wello/tilko/session/${sessionId}`,
+  SESSION_DELETE: (sessionId: string) => `/api/v1/tilko/session/${sessionId}`,
   
-  SESSION_MESSAGES: (sessionId: string) => `/api/v1/wello/tilko/session/${sessionId}/messages`,
+  SESSION_MESSAGES: (sessionId: string) => `/api/v1/tilko/session/${sessionId}/messages`,
   
   // 데이터 수집 (통합)
-  COLLECT_DATA: (sessionId: string) => `/api/v1/wello/tilko/session/${sessionId}/collect-data`,
+  COLLECT_DATA: (sessionId: string) => `/api/v1/tilko/session/${sessionId}/collect-data`,
   
   // 인증
-  SIMPLE_AUTH: (sessionId: string) => `/api/v1/wello/tilko/session/simple-auth?session_id=${sessionId}`,
+  SIMPLE_AUTH: (sessionId: string) => `/api/v1/tilko/session/simple-auth?session_id=${sessionId}`,
   
   // 데이터 수집
-  COLLECT_HEALTH_DATA: (sessionId: string) => `/api/v1/wello/tilko/session/${sessionId}/collect-health-data`
+  COLLECT_HEALTH_DATA: (sessionId: string) => `/api/v1/tilko/session/${sessionId}/collect-health-data`
 } as const;
 
 // 기타 API 엔드포인트 (WELLO 전용 경로)

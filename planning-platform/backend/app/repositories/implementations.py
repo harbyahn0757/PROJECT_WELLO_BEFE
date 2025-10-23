@@ -21,15 +21,16 @@ class HospitalRepository:
     async def get_by_id(self, hospital_id: str) -> Optional[Hospital]:
         """ID로 병원 조회 (DB 기반)"""
         query = """
-            SELECT hospital_id, hospital_name, phone, address, layout_type, 
-                   brand_color, logo_position, is_active, supported_checkup_types
-            FROM p9_mkt_biz.wello_hospitals 
+            SELECT hospital_id, hospital_name, phone, address, 
+                   supported_checkup_types, layout_type, 
+                   brand_color, logo_position, is_active
+            FROM wello.wello_hospitals 
             WHERE hospital_id = %s AND is_active = true
         """
         
         result = await db_manager.execute_one(query, (hospital_id,))
         if result:
-            # 주소 파싱 (간단하게 처리)
+            # 주소 파싱
             address_parts = result['address'].split(' ') if result['address'] else ['서울특별시', '강남구', '']
             city = address_parts[0] if len(address_parts) > 0 else '서울특별시'
             district = address_parts[1] if len(address_parts) > 1 else '강남구'
@@ -38,9 +39,9 @@ class HospitalRepository:
             return Hospital(
                 hospital_id=result['hospital_id'],
                 info=HospitalInfo(name=result['hospital_name']),
-                contact=ContactInfo(phone=result['phone']),
+                contact=ContactInfo(phone=result['phone'] or "02-1234-5678"),
                 address=Address(city=city, district=district, detail=detail),
-                supported_checkup_types=result['supported_checkup_types'],
+                supported_checkup_types=result['supported_checkup_types'] or ["basic", "comprehensive"],
                 layout_type=result['layout_type'],
                 brand_color=result['brand_color'],
                 logo_position=result['logo_position'],
@@ -51,14 +52,16 @@ class HospitalRepository:
     async def get_by_name(self, name: str) -> Optional[Hospital]:
         """이름으로 병원 조회 (DB 기반)"""
         query = """
-            SELECT hospital_id, hospital_name, phone, address, layout_type, 
-                   brand_color, logo_position, is_active, supported_checkup_types
-            FROM p9_mkt_biz.wello_hospitals 
+            SELECT hospital_id, hospital_name, phone, address, 
+                   supported_checkup_types, layout_type, 
+                   brand_color, logo_position, is_active
+            FROM wello.wello_hospitals 
             WHERE hospital_name = %s AND is_active = true
         """
         
         result = await db_manager.execute_one(query, (name,))
         if result:
+            # 주소 파싱
             address_parts = result['address'].split(' ') if result['address'] else ['서울특별시', '강남구', '']
             city = address_parts[0] if len(address_parts) > 0 else '서울특별시'
             district = address_parts[1] if len(address_parts) > 1 else '강남구'
@@ -67,9 +70,9 @@ class HospitalRepository:
             return Hospital(
                 hospital_id=result['hospital_id'],
                 info=HospitalInfo(name=result['hospital_name']),
-                contact=ContactInfo(phone=result['phone']),
+                contact=ContactInfo(phone=result['phone'] or "02-1234-5678"),
                 address=Address(city=city, district=district, detail=detail),
-                supported_checkup_types=result['supported_checkup_types'],
+                supported_checkup_types=result['supported_checkup_types'] or ["basic", "comprehensive"],
                 layout_type=result['layout_type'],
                 brand_color=result['brand_color'],
                 logo_position=result['logo_position'],
@@ -80,9 +83,10 @@ class HospitalRepository:
     async def get_all_active(self) -> List[Hospital]:
         """활성화된 모든 병원 조회 (DB 기반)"""
         query = """
-            SELECT hospital_id, hospital_name, phone, address, layout_type, 
-                   brand_color, logo_position, is_active, supported_checkup_types
-            FROM p9_mkt_biz.wello_hospitals 
+            SELECT hospital_id, hospital_name, phone, address, 
+                   supported_checkup_types, layout_type, 
+                   brand_color, logo_position, is_active
+            FROM wello.wello_hospitals 
             WHERE is_active = true
             ORDER BY hospital_name
         """
@@ -90,6 +94,7 @@ class HospitalRepository:
         results = await db_manager.execute_query(query)
         hospitals = []
         for result in results:
+            # 주소 파싱
             address_parts = result['address'].split(' ') if result['address'] else ['서울특별시', '강남구', '']
             city = address_parts[0] if len(address_parts) > 0 else '서울특별시'
             district = address_parts[1] if len(address_parts) > 1 else '강남구' 
@@ -98,9 +103,9 @@ class HospitalRepository:
             hospitals.append(Hospital(
                 hospital_id=result['hospital_id'],
                 info=HospitalInfo(name=result['hospital_name']),
-                contact=ContactInfo(phone=result['phone']),
+                contact=ContactInfo(phone=result['phone'] or "02-1234-5678"),
                 address=Address(city=city, district=district, detail=detail),
-                supported_checkup_types=result['supported_checkup_types'],
+                supported_checkup_types=result['supported_checkup_types'] or ["basic", "comprehensive"],
                 layout_type=result['layout_type'],
                 brand_color=result['brand_color'],
                 logo_position=result['logo_position'],
@@ -142,16 +147,10 @@ class PatientRepository:
             gender_mapping = {'M': Gender.MALE, 'F': Gender.FEMALE}
             gender = gender_mapping.get(result['gender'], Gender.MALE)
             
-            # 병원 ID 찾기 (병원명으로 매핑)
-            hospital_query = """
-                SELECT hospital_id FROM p9_mkt_biz.wello_hospitals 
-                WHERE hospital_name = %s LIMIT 1
-            """
-            hospital_result = await db_manager.execute_one(hospital_query, (result['hosnm'],))
-            hospital_id = hospital_result['hospital_id'] if hospital_result else result['hosnm']  # 직접 사용
+            # hosnm이 이미 hospital_id이므로 직접 사용
+            hospital_id = result['hosnm']
             
             print(f"🔍 [DEBUG] 병원 쿼리 입력: '{result['hosnm']}'")
-            print(f"🔍 [DEBUG] 병원 매핑 결과: {hospital_result}")
             print(f"🔍 [DEBUG] 최종 hospital_id: '{hospital_id}'")
             
             return Patient(
@@ -193,16 +192,10 @@ class PatientRepository:
             gender_mapping = {'M': Gender.MALE, 'F': Gender.FEMALE}
             gender = gender_mapping.get(result['gender'], Gender.MALE)
             
-            # 병원 ID 찾기 (병원명으로 매핑)
-            hospital_query = """
-                SELECT hospital_id FROM p9_mkt_biz.wello_hospitals 
-                WHERE hospital_name = %s LIMIT 1
-            """
-            hospital_result = await db_manager.execute_one(hospital_query, (result['hosnm'],))
-            hospital_id = hospital_result['hospital_id'] if hospital_result else result['hosnm']  # 직접 사용
+            # hosnm이 이미 hospital_id이므로 직접 사용
+            hospital_id = result['hosnm']
             
             print(f"🔍 [DEBUG] 병원 쿼리 입력: '{result['hosnm']}'")
-            print(f"🔍 [DEBUG] 병원 매핑 결과: {hospital_result}")
             print(f"🔍 [DEBUG] 최종 hospital_id: '{hospital_id}'")
             
             return Patient(

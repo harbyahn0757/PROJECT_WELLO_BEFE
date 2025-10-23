@@ -49,6 +49,7 @@ export const useWebSocketAuth = ({
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
+  const [isDataCollectionCompleted, setIsDataCollectionCompleted] = useState(false);
   
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -71,15 +72,15 @@ export const useWebSocketAuth = ({
     let wsUrl;
     
     if (isDev) {
-      // 개발환경: React 프록시를 통한 WebSocket 연결
+      // 개발환경: React 프록시를 통한 WebSocket 연결 (올바른 경로로 수정)
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host; // localhost:9283
-      wsUrl = `${protocol}//${host}/api/v1/wello/tilko/ws/${sessionId}`;
+      const host = window.location.host; // localhost:9282
+      wsUrl = `${protocol}//${host}/api/v1/tilko/ws/${sessionId}`;
       console.log(`🔌 [WebSocket] 연결 시도 (개발-프록시): ${wsUrl}`);
     } else {
-      // 운영환경: nginx WSS 프록시
+      // 운영환경: nginx WSS 프록시 (올바른 경로로 수정)
       const host = window.location.hostname;
-      wsUrl = `wss://${host}/api/v1/wello/tilko/ws/${sessionId}`;
+      wsUrl = `wss://${host}/api/v1/tilko/ws/${sessionId}`;
       console.log(`🔌 [WebSocket] 연결 시도 (운영-WSS): ${wsUrl}`);
     }
       
@@ -140,6 +141,13 @@ export const useWebSocketAuth = ({
               
             case 'data_collection_progress':
               console.log('📈 [WebSocket] 데이터 수집 진행:', message.progress_type, message.message);
+              
+              // 데이터 수집 완료 상태 체크
+              if (message.progress_type === 'completed' || message.message?.includes('모든 데이터 수집이 완료')) {
+                console.log('🎉 [WebSocket] 데이터 수집 완료 상태 설정');
+                setIsDataCollectionCompleted(true);
+              }
+              
               if (onDataCollectionProgress) {
                 onDataCollectionProgress(message.progress_type || '', message.message || '');
               }
@@ -230,12 +238,14 @@ export const useWebSocketAuth = ({
           pingIntervalRef.current = null;
         }
         
-        // 비정상 종료인 경우 재연결 시도
-        if (event.code !== 1000 && sessionId) {
+        // 비정상 종료인 경우 재연결 시도 (단, 데이터 수집 완료 상태가 아닌 경우에만)
+        if (event.code !== 1000 && sessionId && !isDataCollectionCompleted) {
           console.log('🔄 [WebSocket] 5초 후 재연결 시도...');
           reconnectTimeoutRef.current = setTimeout(() => {
             connect();
           }, 5000);
+        } else if (isDataCollectionCompleted) {
+          console.log('🛑 [WebSocket] 데이터 수집 완료로 인한 재연결 중단');
         }
       };
       

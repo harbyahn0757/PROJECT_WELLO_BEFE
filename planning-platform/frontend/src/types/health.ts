@@ -587,3 +587,23 @@ export interface ResultsSectionProps extends BaseComponentProps {
   sortOrder?: 'asc' | 'desc';
   onSortChange?: (sortBy: 'date' | 'status' | 'location' | 'hospital', sortOrder?: 'asc' | 'desc') => void;
 }
+
+// === 통합 건강 타임라인 타입 ===
+export type HealthRecordType = 'checkup' | 'prescription';
+
+export interface HealthRecord {
+  id: string;
+  type: HealthRecordType;
+  year: string;
+  date: string;
+  institution: string;
+  title: string;
+  status?: string; // 건강검진 판정 (정상, 의심, 이상 등)
+  treatmentType?: string; // 진료 형태 (일반외래, 한방기관외래 등)
+  visitCount?: number; // 방문 횟수
+  medicationCount?: number; // 투약요양 횟수
+  prescriptionCount?: number; // 처방 횟수
+  hasMedications?: boolean; // 처방약품 정보 존재 여부
+  isPharmacy?: boolean; // 약국 여부
+  details: any; // 원본 상세 데이터
+}

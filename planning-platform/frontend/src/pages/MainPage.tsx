@@ -2,6 +2,8 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/Card';
 import { useWelloData } from '../contexts/WelloDataContext';
+import { API_ENDPOINTS } from '../config/api';
+import { LayoutType } from '../constants/layoutTypes';
 
 const MainPage: React.FC = () => {
   const { state } = useWelloData();
@@ -21,12 +23,38 @@ const MainPage: React.FC = () => {
     );
   }
 
-  const handleCardClick = (cardType: string) => {
+  const handleCardClick = async (cardType: string) => {
     switch (cardType) {
       case 'chart':
-        // 현재 URL의 파라미터를 인증페이지로 전달
-        const queryString = location.search; // ?uuid=...&hospital=... 형태
+        // URL 파라미터에서 환자 정보 추출
+        const urlParams = new URLSearchParams(location.search);
+        const uuid = urlParams.get('uuid');
+        const hospitalId = urlParams.get('hospital');
         
+        if (uuid && hospitalId) {
+          try {
+            console.log('🔍 [메인페이지] 기존 데이터 확인 중...', { uuid, hospitalId });
+            
+            // 기존 데이터 확인
+            const response = await fetch(API_ENDPOINTS.CHECK_EXISTING_DATA(uuid, hospitalId));
+            if (response.ok) {
+              const result = await response.json();
+              console.log('✅ [메인페이지] 기존 데이터 확인 결과:', result);
+              
+              // 기존 데이터가 있으면 바로 결과 페이지로 이동
+              if (result.data && result.data.exists && (result.data.health_data_count > 0 || result.data.prescription_data_count > 0)) {
+                console.log('📊 [메인페이지] 기존 데이터 발견! 결과 페이지로 이동');
+                navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                return;
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ [메인페이지] 기존 데이터 확인 실패:', error);
+          }
+        }
+        
+        // 기존 데이터가 없거나 확인 실패 시 인증페이지로 이동
+        const queryString = location.search; // ?uuid=...&hospital=... 형태
         const fromPath = location.pathname + location.search + location.hash;
         const loginPath = `/login${queryString}`;
         console.log('🚀 [메인페이지] 인증페이지로 이동:', loginPath);
@@ -191,7 +219,7 @@ const MainPage: React.FC = () => {
     </>
   );
 
-  return layoutConfig.layoutType === 'horizontal' 
+  return layoutConfig.layoutType === LayoutType.HORIZONTAL 
     ? renderHorizontalContent()
     : renderVerticalContent();
 };
