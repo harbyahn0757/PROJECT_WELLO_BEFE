@@ -186,7 +186,7 @@
     }
     
     .month-section {
-      margin-bottom: $spacing-lg; // 월 섹션 간격
+      margin-bottom: $spacing-md; // 월 섹션 간격 축소 (lg → md)
       margin-left: $spacing-md; // 년도에서 들여쓰기
       
       &:last-child {
@@ -195,8 +195,8 @@
     }
     
     .date-section {
-      margin-bottom: $spacing-md; // 날짜 섹션 간격
-      margin-left: $spacing-md; // 월에서 들여쓰기
+      margin-bottom: $spacing-sm; // 날짜 섹션 간격 축소 (md → sm)
+      margin-left: $spacing-sm; // 월에서 들여쓰기 축소 (md → sm)
       
       &:last-child {
         margin-bottom: 0;
@@ -231,7 +231,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: $spacing-sm;
+      margin-bottom: $spacing-xs; // 월 헤더 하단 간격 축소 (sm → xs)
       padding-bottom: $spacing-xs;
       border-bottom: 1px solid $gray-300;
       
@@ -251,15 +251,15 @@
     }
     
     .date-header {
-      margin-bottom: $spacing-xs;
+      margin-bottom: 2px; // 날짜 헤더 하단 간격 대폭 축소
       
       .date-title {
-        font-size: $font-sm;
-        font-weight: $font-weight-medium;
-        color: $gray-600;
-        background: $gray-100;
-        padding: 2px 8px;
-        border-radius: $border-radius-sm;
+        font-size: $font-xs; // 폰트 크기 축소 (sm → xs)
+        font-weight: $font-weight-normal; // 폰트 굵기 축소 (medium → normal)
+        color: $gray-500; // 색상 연하게 (600 → 500)
+        background: transparent; // 배경 제거
+        padding: 0; // 패딩 제거
+        border-radius: 0; // 보더 반경 제거
         display: inline-block;
       }
     }
