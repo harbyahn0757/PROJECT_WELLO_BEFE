@@ -153,10 +153,8 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
       }
     };
 
-    // 1.5초 후 데이터 로드 (로딩 애니메이션 표시)
-    const timer = setTimeout(loadHealthData, 1500);
-
-    return () => clearTimeout(timer);
+    // 즉시 데이터 로드 (로딩 상태는 useState로 관리)
+    loadHealthData();
   }, []);
 
   // Pull-to-refresh 터치 이벤트 핸들러

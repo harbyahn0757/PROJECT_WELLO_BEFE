@@ -835,11 +835,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                   
                   // 수집된 데이터를 localStorage에 저장
                   if (statusResult.health_data || statusResult.prescription_data) {
-                    StorageManager.setItem('tilko_collected_data', {
+                    const collectedData = {
                       health_data: statusResult.health_data,
                       prescription_data: statusResult.prescription_data,
                       collected_at: new Date().toISOString()
-                    });
+                    };
+                    StorageManager.setItem('tilko_collected_data', collectedData);
+                    console.log('💾 [수집완료] localStorage에 데이터 저장 완료:', collectedData);
                   }
                   
                   // 세션 정리
@@ -851,10 +853,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                   setCurrentStatus('completed');
                   setTypingText('데이터 수집이 완료되었습니다!\n결과 페이지로 이동합니다...');
                   
-                  // 결과 페이지로 이동
-                  setTimeout(() => {
-                    navigate('/results-trend');
-                  }, 1500);
+                  // 데이터 저장 확인 후 즉시 이동 (지연 제거)
+                  console.log('🚀 [수집완료] 결과 페이지로 즉시 이동');
+                  navigate('/results-trend');
                   
                   return; // 폴링 종료
                 }

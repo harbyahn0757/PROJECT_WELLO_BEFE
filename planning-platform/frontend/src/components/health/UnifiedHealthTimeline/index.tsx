@@ -749,7 +749,13 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
 
   const sortedYears = Object.keys(filteredRecords).sort((a, b) => parseInt(b) - parseInt(a));
 
+  // 로딩 중일 때는 빈 상태를 표시하지 않음
   if (sortedYears.length === 0) {
+    if (loading) {
+      // 로딩 중일 때는 빈 div 반환 (부모의 로딩 스피너가 표시됨)
+      return <div className="unified-timeline loading"></div>;
+    }
+    
     return (
       <div className="unified-timeline">
         <div className="timeline-empty">
