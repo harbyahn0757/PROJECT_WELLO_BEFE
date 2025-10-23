@@ -572,8 +572,11 @@ class WelloDataService:
             
             await conn.close()
             
+            # 환자 정보에 last_update 필드 추가
+            patient_dict = dict(patient_row)
+            
             return {
-                "patient": dict(patient_row),
+                "patient": patient_dict,
                 "health_data": [
                     {
                         **dict(row),
@@ -586,7 +589,8 @@ class WelloDataService:
                         "raw_data": json.loads(row['raw_data']) if row['raw_data'] else None
                     } for row in prescription_rows
                 ],
-                "collection_history": [dict(row) for row in history_rows]
+                "collection_history": [dict(row) for row in history_rows],
+                "last_update": patient_dict.get('last_data_update')  # 마지막 업데이트 시간 추가
             }
             
         except Exception as e:

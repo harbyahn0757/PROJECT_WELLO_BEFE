@@ -125,13 +125,22 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
         if (collectedDataStr) {
           const collectedData = JSON.parse(collectedDataStr);
           console.log('📊 [결과페이지] localStorage에서 데이터 로드:', collectedData);
+          console.log('🕒 [결과페이지] collected_at 값:', collectedData.collected_at);
+          console.log('🕒 [결과페이지] collected_at 타입:', typeof collectedData.collected_at);
           
           setHealthData(collectedData.health_data);
           setPrescriptionData(collectedData.prescription_data);
           
           // localStorage에서 수집 시간 설정
           if (collectedData.collected_at) {
+            console.log('✅ [결과페이지] 수집 시간 설정:', collectedData.collected_at);
             setLastUpdateTime(collectedData.collected_at);
+          } else {
+            console.warn('⚠️ [결과페이지] collected_at 필드가 없습니다');
+            // 대안: 현재 시간을 사용
+            const fallbackTime = new Date().toISOString();
+            setLastUpdateTime(fallbackTime);
+            console.log('🔄 [결과페이지] 대안 시간 사용:', fallbackTime);
           }
         } else {
           console.warn('⚠️ [결과페이지] 저장된 데이터가 없습니다');
