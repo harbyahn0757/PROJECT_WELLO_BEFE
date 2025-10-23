@@ -267,6 +267,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const [isTyping, setIsTyping] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState<string>('');
   
+  // 임시 이름 저장용 ref (상태 업데이트 타이밍 문제 해결)
+  const tempExtractedNameRef = useRef<string>('');
+  
   // 세션 복구 모달 상태
   const [showSessionModal, setShowSessionModal] = useState<boolean>(false);
   const [savedSessionInfo, setSavedSessionInfo] = useState<any>(null);
@@ -297,28 +300,46 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     // tilko_auth_completed와 tilko_session_id는 유지 (세션 복구용)
     
         // 이름 추출 함수 (데이터 로드 상태에 관계없이 최신 데이터 사용)
-        const extractName = () => {
+        const extractName = (forceName?: string) => {
           let name = '';
           
-          // 1) editableName에서 먼저 추출
-          if (editableName && editableName.trim()) {
-            name = PatientDataConverter.cleanUndefined(editableName).trim();
+          // 0) 강제로 전달된 이름이 있으면 우선 사용
+          if (forceName && forceName.trim() && forceName !== '사용자') {
+            name = forceName.trim();
+            console.log('📝 [이름추출] 강제 전달된 이름 사용:', name);
           }
           
-          // 2) layoutConfig.title에서 추출 (우선순위 높임)
+          // 0-1) 임시로 저장된 이름이 있으면 사용
+          if (!name && tempExtractedNameRef.current) {
+            name = tempExtractedNameRef.current;
+            console.log('📝 [이름추출] 임시 저장된 이름 사용:', name);
+          }
+          
+          // 1) editableName에서 먼저 추출 (가장 우선순위 높음)
+          if (!name && editableName && editableName.trim() && editableName !== '사용자') {
+            name = PatientDataConverter.cleanUndefined(editableName).trim();
+            console.log('📝 [이름추출] editableName에서 추출:', name);
+          }
+          
+          // 2) layoutConfig.title에서 추출
           if (!name && layoutConfig?.title) {
             const titleMatch = layoutConfig.title.match(/안녕하세요\s+(.+?)님/);
             if (titleMatch && titleMatch[1]) {
               const extractedName = PatientDataConverter.cleanUndefined(titleMatch[1]).trim();
               if (extractedName && extractedName !== '사용자') {
                 name = extractedName;
+                console.log('📝 [이름추출] layoutConfig.title에서 추출:', name);
               }
             }
           }
           
           // 3) patient 데이터에서 추출
           if (!name && patient) {
-            name = PatientDataConverter.getSafeName(patient);
+            const patientName = PatientDataConverter.getSafeName(patient);
+            if (patientName && patientName !== '사용자') {
+              name = patientName;
+              console.log('📝 [이름추출] patient에서 추출:', name);
+            }
           }
           
           const safeName = name || '사용자';
@@ -469,6 +490,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         setTimeout(() => {
           typeTitleMessage(`${name}님\n존함이 맞나요?`, 120, true);
         }, 100);
+        
+        // 즉시 이름 추출에서도 이 이름을 사용하도록 강제 설정
+        tempExtractedNameRef.current = name;
       }
     }
   }, [layoutConfig?.title, patient, showConfirmation, currentConfirmationStep]);
@@ -702,7 +726,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     try {
       console.log('🔍 [기존데이터확인] 시작:', { uuid, hospitalId });
       
-      const response = await fetch(`/api/v1/wello/check-existing-data?uuid=${uuid}&hospital_id=${hospitalId}`, {
+      const response = await fetch(`/wello-api/v1/wello/check-existing-data?uuid=${uuid}&hospital_id=${hospitalId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -748,7 +772,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       setTypingText('데이터를 수집하고 있습니다...\n잠시만 기다려주세요.');
       
       try {
-        const response = await fetch(`/api/v1/wello/tilko/session/${currentSessionId}/collect-data`, {
+        const response = await fetch(`/wello-api/v1/wello/tilko/session/${currentSessionId}/collect-data`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         });
@@ -763,6 +787,76 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           
           setCurrentStatus('collecting');
           setTypingText('데이터 수집이 시작되었습니다.\n완료까지 잠시만 기다려주세요.');
+          
+          // 수집 완료 확인을 위한 폴링 시작 (WebSocket 대체)
+          let pollCount = 0;
+          const maxPolls = 30; // 최대 30회 (약 30초)
+          
+          const pollCollectionStatus = async () => {
+            try {
+              pollCount++;
+              console.log(`🔄 [수집상태확인] 폴링 ${pollCount}/${maxPolls}`);
+              
+              const statusResponse = await fetch(`/wello-api/v1/wello/tilko/session/${currentSessionId}/status`);
+              if (statusResponse.ok) {
+                const statusResult = await statusResponse.json();
+                console.log('📊 [수집상태확인] 상태:', statusResult);
+                
+                // 수집 완료 확인
+                if (statusResult.progress?.completed || statusResult.status === 'completed' || 
+                    statusResult.health_data || statusResult.prescription_data) {
+                  console.log('🎉 [수집완료] 데이터 수집 완료! 결과 페이지로 이동');
+                  
+                  // 수집된 데이터를 localStorage에 저장
+                  if (statusResult.health_data || statusResult.prescription_data) {
+                    StorageManager.setItem('tilko_collected_data', {
+                      health_data: statusResult.health_data,
+                      prescription_data: statusResult.prescription_data,
+                      collected_at: new Date().toISOString()
+                    });
+                  }
+                  
+                  // 세션 정리
+                  StorageManager.removeItem(STORAGE_KEYS.TILKO_SESSION_ID);
+                  StorageManager.removeItem(STORAGE_KEYS.TILKO_SESSION_DATA);
+                  StorageManager.removeItem('tilko_auth_waiting');
+                  StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
+                  
+                  setCurrentStatus('completed');
+                  setTypingText('데이터 수집이 완료되었습니다!\n결과 페이지로 이동합니다...');
+                  
+                  // 결과 페이지로 이동
+                  setTimeout(() => {
+                    navigate('/health-data');
+                  }, 1500);
+                  
+                  return; // 폴링 종료
+                }
+                
+                // 아직 진행 중인 경우 계속 폴링
+                if (pollCount < maxPolls) {
+                  setTimeout(pollCollectionStatus, 1000); // 1초 후 재시도
+                } else {
+                  console.warn('⚠️ [수집상태확인] 최대 폴링 횟수 초과');
+                  setCurrentStatus('error');
+                  setTypingText('데이터 수집 확인 시간이 초과되었습니다.\n다시 시도해주세요.');
+                }
+              } else {
+                console.error('❌ [수집상태확인] 상태 확인 실패:', statusResponse.status);
+                if (pollCount < maxPolls) {
+                  setTimeout(pollCollectionStatus, 1000); // 1초 후 재시도
+                }
+              }
+            } catch (error) {
+              console.error('❌ [수집상태확인] 오류:', error);
+              if (pollCount < maxPolls) {
+                setTimeout(pollCollectionStatus, 1000); // 1초 후 재시도
+              }
+            }
+          };
+          
+          // 2초 후 첫 번째 상태 확인 시작
+          setTimeout(pollCollectionStatus, 2000);
         } else {
           console.error('❌ [수동수집] 데이터 수집 실패:', response.status);
           setCurrentStatus('error');
@@ -2674,7 +2768,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                 setTypingText('인증 상태를 확인하고 있습니다...');
                 
                 try {
-                  const response = await fetch(`/api/v1/wello/tilko/session/${sessionId}/collect-data`, {
+                  const response = await fetch(`/wello-api/v1/wello/tilko/session/${sessionId}/collect-data`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' }
                   });
@@ -2684,7 +2778,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                     console.log('✅ [수동버튼] 데이터 수집 응답:', result);
                     
                     // 세션 상태 확인
-                    const statusResponse = await fetch(`/api/v1/wello/tilko/session/${sessionId}/status`);
+                    const statusResponse = await fetch(`/wello-api/v1/wello/tilko/session/${sessionId}/status`);
                     if (statusResponse.ok) {
                       const statusResult = await statusResponse.json();
                       

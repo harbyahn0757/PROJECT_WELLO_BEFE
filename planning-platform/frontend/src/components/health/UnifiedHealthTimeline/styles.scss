@@ -8,7 +8,7 @@
   width: 100%;
   max-width: 800px;
   margin: 0 auto;
-  padding: $spacing-sm $spacing-md; // 패딩 축소: 상하는 sm, 좌우는 md
+  padding: $spacing-sm 4px 150px 4px; // 하단에 플로팅 버튼 영역만큼 패딩 추가 (더 크게)
   font-family: $font-family-base;
 
   // 로딩 상태
@@ -178,7 +178,8 @@
   // 타임라인 컨텐츠
   .timeline-content {
     .year-section {
-      margin-bottom: $spacing-xl; // 년도 섹션 간격
+      margin-bottom: $spacing-md; // 년도 섹션 간격 축소 (xl → md)
+      margin-left: 0; // 년도 왼쪽 마진 제거
       
       &:last-child {
         margin-bottom: 0;
@@ -186,8 +187,8 @@
     }
     
     .month-section {
-      margin-bottom: $spacing-md; // 월 섹션 간격 축소 (lg → md)
-      margin-left: $spacing-sm; // 년도에서 들여쓰기 축소 (md → sm)
+      margin-bottom: $spacing-sm; // 월 섹션 간격 더 축소 (md → sm)
+      margin-left: 4px; // 년도에서 들여쓰기 더 최소화 (8px → 4px)
       
       &:last-child {
         margin-bottom: 0;
@@ -195,8 +196,8 @@
     }
     
     .date-section {
-      margin-bottom: $spacing-sm; // 날짜 섹션 간격 축소 (md → sm)
-      margin-left: $spacing-xs; // 월에서 들여쓰기 대폭 축소 (sm → xs)
+      margin-bottom: $spacing-xs; // 날짜 섹션 간격 더 축소 (sm → xs)
+      margin-left: 2px; // 월에서 들여쓰기 더 최소화 (8px → 2px)
       
       &:last-child {
         margin-bottom: 0;
@@ -207,8 +208,8 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: $spacing-md; // $spacing-lg → $spacing-md로 축소
-      padding-bottom: $spacing-xs; // $spacing-sm → $spacing-xs로 축소
+      margin-bottom: $spacing-xs; // 년도 헤더 하단 간격 더 축소 (md → xs)
+      padding-bottom: 2px; // 패딩 더 축소 (xs → 2px)
       border-bottom: 1px solid $gray-200; // 2px → 1px로 축소
       
       .year-title {
@@ -231,9 +232,9 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: $spacing-xs; // 월 헤더 하단 간격 축소 (sm → xs)
-      padding-bottom: $spacing-xs;
-      border-bottom: 1px solid $gray-300;
+      margin-bottom: 2px; // 월 헤더 하단 간격 더 축소 (xs → 2px)
+      padding-bottom: 0; // 패딩 제거
+      border-bottom: none; // 하단 줄 제거
       
       .month-title {
         font-size: $font-base;
@@ -267,13 +268,13 @@
     .records-list {
       display: flex;
       flex-direction: column;
-      gap: $spacing-sm; // 카드 간격 더 축소 (md → sm)
-      margin-left: 0; // 카드들을 더 왼쪽으로
+      gap: $spacing-xs; // 카드 간격 더 축소 (sm → xs)
+      margin-left: -4px; // 카드들을 더 왼쪽으로 (음수 마진으로 더 당김)
       
       .record-item-wrapper {
         display: flex;
         align-items: flex-start;
-        gap: $spacing-sm; // 날짜와 카드 사이 간격 축소 (md → sm)
+        gap: 2px; // 날짜와 카드 사이 간격 더 최소화 (4px → 2px)
         
         .record-date-external {
           display: none; // 외부 날짜 표시 숨김 (날짜 헤더가 있으므로 중복 제거)

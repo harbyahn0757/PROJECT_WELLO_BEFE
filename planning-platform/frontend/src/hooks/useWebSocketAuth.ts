@@ -68,20 +68,24 @@ export const useWebSocketAuth = ({
     
     try {
       // 개발환경: 직접 백엔드 연결 (브라우저 SSL 인증서 문제 회피)
-    const isDev = process.env.NODE_ENV === 'development' || window.location.port === '9283';
+    const isDev = (process.env.NODE_ENV === 'development' || 
+                  window.location.hostname === 'localhost' || 
+                  (window.location.port === '9282' && window.location.hostname === 'localhost') || 
+                  (window.location.port === '9283' && window.location.hostname === 'localhost')) &&
+                  window.location.hostname !== 'xogxog.com';
     let wsUrl;
     
     if (isDev) {
       // 개발환경: React 프록시를 통한 WebSocket 연결 (올바른 경로로 수정)
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.host; // localhost:9282
-      wsUrl = `${protocol}//${host}/api/v1/tilko/ws/${sessionId}`;
+      wsUrl = `${protocol}//${host}/wello-api/v1/tilko/ws/${sessionId}`;
       console.log(`🔌 [WebSocket] 연결 시도 (개발-프록시): ${wsUrl}`);
     } else {
-      // 운영환경: nginx WSS 프록시 (올바른 경로로 수정)
-      const host = window.location.hostname;
-      wsUrl = `wss://${host}/api/v1/tilko/ws/${sessionId}`;
-      console.log(`🔌 [WebSocket] 연결 시도 (운영-WSS): ${wsUrl}`);
+      // 운영환경: WebSocket 대신 HTTP 폴링 사용 (nginx WebSocket 설정 필요시까지 임시)
+      console.log(`🔌 [WebSocket] 운영환경에서는 HTTP 폴링만 사용: ${sessionId}`);
+      setIsConnected(false);
+      return; // WebSocket 연결하지 않고 폴링만 사용
     }
       
       wsRef.current = new WebSocket(wsUrl);

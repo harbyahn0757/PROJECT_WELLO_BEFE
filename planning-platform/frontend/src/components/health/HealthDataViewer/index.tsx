@@ -211,7 +211,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
         </div>
 
         {/* 타이틀 */}
-        <div className="question__title" style={{ marginTop: '60px' }}>
+        <div className="question__title" style={{ marginTop: '10px' }}>
           <div className="title-with-toggle">
             <div className="title-content">
               <h1 className="question__title-text">{patientName}님의 건강 기록 타임라인</h1>
@@ -271,18 +271,6 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
         />
       </div>
 
-      {/* 플로팅 버튼 */}
-      <div className="survey-floating-button">
-        <button 
-          className="survey-floating-button__btn"
-          onClick={() => {
-            // 홈으로 이동
-            window.location.href = '/';
-          }}
-        >
-          홈으로 가기
-        </button>
-      </div>
     </div>
   );
 };

@@ -59,14 +59,21 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
     if (healthData?.ResultList) {
       healthData.ResultList.forEach((checkup: any, index: number) => {
         // DB의 year 필드를 우선 사용, "년" 제거
-        const yearRaw = checkup.year || checkup.Year || new Date(checkup.CheckUpDate).getFullYear().toString();
+        const yearRaw = checkup.year || checkup.Year || '2023';
         const year = yearRaw.toString().replace('년', '');
+        
+        // 날짜 조합: CheckUpDate가 "09/28" 형태면 연도를 붙여서 완전한 날짜로 만들기
+        let fullDate = checkup.CheckUpDate || checkup.checkup_date;
+        if (fullDate && fullDate.includes('/') && !fullDate.includes(year)) {
+          // "09/28" -> "2021/09/28" 형태로 변환
+          fullDate = `${year}/${fullDate}`;
+        }
         
         records.push({
           id: `checkup-${index}`,
           type: 'checkup',
           year,
-          date: checkup.CheckUpDate || checkup.checkup_date || `${year}년`,
+          date: fullDate || `${year}/01/01`, // 기본값으로 해당 연도 1월 1일
           institution: checkup.Location || checkup.location || '국민건강보험공단',
           title: '건강검진',
           status: checkup.Code || checkup.code,
@@ -118,10 +125,25 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
 
     // 년도 → 월 → 날짜 3단계로 그룹화
     const grouped = records.reduce((acc, record) => {
-      const recordDate = new Date(record.date);
+      const recordDate = safeDate(record.date);
       const year = record.year;
-      const month = recordDate.toLocaleDateString('ko-KR', { month: 'long' }); // "10월" 형태
-      const date = recordDate.toLocaleDateString('ko-KR', { day: 'numeric' }); // "15일" 형태
+      
+      // 날짜가 유효하지 않으면 기본값 사용
+      let month, date;
+      if (recordDate) {
+        try {
+          month = recordDate.toLocaleDateString('ko-KR', { month: 'long' }); // "10월" 형태
+          date = recordDate.toLocaleDateString('ko-KR', { day: 'numeric' }); // "15일" 형태
+        } catch (error) {
+          console.error('날짜 포맷팅 오류:', error, record.date);
+          month = '1월';
+          date = '1일';
+        }
+      } else {
+        console.warn('유효하지 않은 날짜, 기본값 사용:', record.date);
+        month = '1월';
+        date = '1일';
+      }
       
       if (!acc[year]) {
         acc[year] = {};
@@ -141,9 +163,20 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
     Object.keys(grouped).forEach(year => {
       Object.keys(grouped[year]).forEach(month => {
         Object.keys(grouped[year][month]).forEach(date => {
-          grouped[year][month][date].sort((a, b) => 
-            new Date(b.date).getTime() - new Date(a.date).getTime()
-          );
+          grouped[year][month][date].sort((a, b) => {
+            const dateA = safeDate(a.date);
+            const dateB = safeDate(b.date);
+            
+            // 둘 다 유효한 날짜인 경우
+            if (dateA && dateB) {
+              return dateB.getTime() - dateA.getTime();
+            }
+            // 하나만 유효한 경우, 유효한 날짜를 앞으로
+            if (dateA && !dateB) return -1;
+            if (!dateA && dateB) return 1;
+            // 둘 다 유효하지 않은 경우, 문자열 비교
+            return b.date.localeCompare(a.date);
+          });
         });
       });
     });
@@ -161,15 +194,39 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
     setExpandedItems(newExpanded);
   };
 
-  const formatDate = (dateString: string) => {
+  // 안전한 날짜 처리 함수
+  const safeDate = (dateString: string | null | undefined): Date | null => {
+    if (!dateString) return null;
+    
     try {
       const date = new Date(dateString);
+      // Invalid Date 체크
+      if (isNaN(date.getTime())) {
+        console.warn('잘못된 날짜 형식:', dateString);
+        return null;
+      }
+      return date;
+    } catch (error) {
+      console.error('날짜 파싱 오류:', error, dateString);
+      return null;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = safeDate(dateString);
+    if (!date) {
+      console.warn('날짜 포맷팅 실패, 원본 반환:', dateString);
+      return dateString || '날짜 없음';
+    }
+    
+    try {
       return date.toLocaleDateString('ko-KR', { 
         month: 'long', 
         day: 'numeric' 
       });
-    } catch {
-      return dateString;
+    } catch (error) {
+      console.error('날짜 포맷팅 오류:', error);
+      return dateString || '날짜 없음';
     }
   };
 
@@ -911,16 +968,6 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
             </div>
           );
         })}
-      </div>
-      
-      <div className="timeline-footer">
-        <p className="last-update">
-          마지막 업데이트: {new Date().toLocaleDateString('ko-KR', { 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          })}
-        </p>
       </div>
     </div>
   );

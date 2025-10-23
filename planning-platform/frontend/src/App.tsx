@@ -145,11 +145,11 @@ const FloatingButton: React.FC = () => {
       }
     }
     
-    // 기본 (메인페이지 등)
+    // 기본 (메인페이지 등) - 모든 화면에서 동일한 역할
     return {
       text: '건강검진 예약하기',
       onClick: () => {
-        console.log('🎯 [메인페이지] 건강검진 예약 시작');
+        console.log('🎯 [플로팅버튼] 건강검진 예약 시작');
         if (window.handleKakaoLoginFromFloating) {
           window.handleKakaoLoginFromFloating();
         } else {
