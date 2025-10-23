@@ -25,23 +25,23 @@ const createApiUrl = (path: string): string => {
 // WELLO API 엔드포인트
 export const API_ENDPOINTS = {
   // 환자 관련
-  PATIENT: (uuid: string) => createApiUrl(`/wello-api/v1/patients/${uuid}`),
+  PATIENT: (uuid: string) => createApiUrl(`/api/v1/patients/${uuid}`),
   
   // 병원 관련
-  HOSPITAL: (hospitalId: string) => createApiUrl(`/wello-api/v1/hospitals/${hospitalId}`),
+  HOSPITAL: (hospitalId: string) => createApiUrl(`/api/v1/hospitals/${hospitalId}`),
   
   // 건강 데이터 관련
   HEALTH_DATA: (uuid: string, hospitalId: string) => 
-    createApiUrl(`/wello-api/v1/wello/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`),
+    createApiUrl(`/api/v1/wello/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`),
   
   // 기존 데이터 확인
   CHECK_EXISTING_DATA: (uuid: string, hospitalId: string) => 
-    createApiUrl(`/wello-api/v1/wello/check-existing-data?uuid=${uuid}&hospital_id=${hospitalId}`),
+    createApiUrl(`/api/v1/wello/check-existing-data?uuid=${uuid}&hospital_id=${hospitalId}`),
   
   // Tilko 인증 관련
-  TILKO_SESSION_START: createApiUrl('/wello-api/v1/tilko/session/start'),
-  TILKO_SESSION_STATUS: (sessionId: string) => createApiUrl(`/wello-api/v1/tilko/session/${sessionId}/status`),
-  TILKO_COLLECT_DATA: (sessionId: string) => createApiUrl(`/wello-api/v1/tilko/session/${sessionId}/collect-data`),
+  TILKO_SESSION_START: createApiUrl('/api/v1/tilko/session/start'),
+  TILKO_SESSION_STATUS: (sessionId: string) => createApiUrl(`/api/v1/tilko/session/${sessionId}/status`),
+  TILKO_COLLECT_DATA: (sessionId: string) => createApiUrl(`/api/v1/tilko/session/${sessionId}/collect-data`),
 };
 
 // 디버그 정보
