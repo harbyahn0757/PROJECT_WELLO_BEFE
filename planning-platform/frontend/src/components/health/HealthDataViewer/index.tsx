@@ -2,11 +2,12 @@
  * 건강 데이터 뷰어 컴포넌트 (실제 데이터 표시)
  * 통합 타임라인 형태로 건강검진과 처방전을 함께 표시
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { HealthDataViewerProps } from '../../../types/health';
 import UnifiedHealthTimeline from '../UnifiedHealthTimeline/index';
 import { useWelloData } from '../../../contexts/WelloDataContext';
 import { API_ENDPOINTS } from '../../../config/api';
+import { useNavigate } from 'react-router-dom';
 import './styles.scss';
 
 const pillIconPath = `${process.env.PUBLIC_URL || ''}/free-icon-pill-5405585.png`;
@@ -16,11 +17,23 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   onError
 }) => {
   const { state } = useWelloData(); // 환자 데이터 가져오기
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error] = useState<string | null>(null);
   const [healthData, setHealthData] = useState<any>(null);
   const [prescriptionData, setPrescriptionData] = useState<any>(null);
   const [filterMode, setFilterMode] = useState<'all' | 'checkup' | 'pharmacy' | 'treatment'>('all');
+  
+  // Pull-to-refresh 관련 상태
+  const [isPulling, setIsPulling] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [showRefreshModal, setShowRefreshModal] = useState(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState<string | null>(null);
+  
+  // 터치 이벤트 관련 ref
+  const containerRef = useRef<HTMLDivElement>(null);
+  const startY = useRef<number>(0);
+  const currentY = useRef<number>(0);
   
   // 환자 이름 추출 (기본값: "사용자")
   const patientName = state.patient?.name || '사용자';
@@ -94,6 +107,11 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
                 console.log('💊 [결과페이지] 처방전 데이터 설정 완료:', prescriptionDataFormatted);
               }
               
+              // 마지막 업데이트 시간 설정
+              if (result.data.last_update) {
+                setLastUpdateTime(result.data.last_update);
+              }
+              
               setLoading(false);
               return;
             }
@@ -110,6 +128,11 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
           
           setHealthData(collectedData.health_data);
           setPrescriptionData(collectedData.prescription_data);
+          
+          // localStorage에서 수집 시간 설정
+          if (collectedData.collected_at) {
+            setLastUpdateTime(collectedData.collected_at);
+          }
         } else {
           console.warn('⚠️ [결과페이지] 저장된 데이터가 없습니다');
         }
@@ -125,6 +148,92 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
     const timer = setTimeout(loadHealthData, 1500);
 
     return () => clearTimeout(timer);
+  }, []);
+
+  // Pull-to-refresh 터치 이벤트 핸들러
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (containerRef.current && containerRef.current.scrollTop === 0) {
+      startY.current = e.touches[0].clientY;
+      setIsPulling(true);
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isPulling || !containerRef.current) return;
+
+    currentY.current = e.touches[0].clientY;
+    const distance = currentY.current - startY.current;
+
+    if (distance > 0 && containerRef.current.scrollTop === 0) {
+      e.preventDefault();
+      const pullDistance = Math.min(distance * 0.5, 100); // 최대 100px
+      setPullDistance(pullDistance);
+    }
+  }, [isPulling]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!isPulling) return;
+
+    if (pullDistance > 60) {
+      // 60px 이상 당기면 새로고침 모달 표시
+      setShowRefreshModal(true);
+    }
+
+    setIsPulling(false);
+    setPullDistance(0);
+  }, [isPulling, pullDistance]);
+
+  // 새로고침 확인 모달 핸들러
+  const handleRefreshConfirm = useCallback(() => {
+    setShowRefreshModal(false);
+    
+    // 환자 정보 유지하면서 재인증 페이지로 이동
+    const urlParams = new URLSearchParams(window.location.search);
+    const uuid = urlParams.get('uuid');
+    const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
+    
+    if (uuid && hospital) {
+      // 기존 데이터 정리
+      localStorage.removeItem('tilko_collected_data');
+      localStorage.removeItem('tilko_session_id');
+      localStorage.removeItem('tilko_session_data');
+      
+      // 재인증 페이지로 이동 (환자 정보 유지)
+      navigate(`/login?uuid=${uuid}&hospital=${hospital}`);
+    }
+  }, [navigate]);
+
+  const handleRefreshCancel = useCallback(() => {
+    setShowRefreshModal(false);
+  }, []);
+
+  // 마지막 업데이트 시간 포맷팅
+  const formatLastUpdateTime = useCallback((timeString: string | null) => {
+    if (!timeString) return '알 수 없음';
+    
+    try {
+      const date = new Date(timeString);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      if (diffMins < 1) return '방금 전';
+      if (diffMins < 60) return `${diffMins}분 전`;
+      if (diffHours < 24) return `${diffHours}시간 전`;
+      if (diffDays < 7) return `${diffDays}일 전`;
+      
+      return date.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return '알 수 없음';
+    }
   }, []);
 
   const handleBack = () => {
@@ -202,7 +311,38 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
 
   return (
     <div className="health-data-viewer">
-      <div className="question__content">
+      <div 
+        className="question__content"
+        ref={containerRef}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{
+          transform: isPulling ? `translateY(${pullDistance}px)` : 'translateY(0)',
+          transition: isPulling ? 'none' : 'transform 0.3s ease-out'
+        }}
+      >
+        {/* Pull-to-refresh 인디케이터 */}
+        {isPulling && (
+          <div 
+            className="pull-to-refresh-indicator"
+            style={{
+              position: 'absolute',
+              top: `-${Math.min(pullDistance, 60)}px`,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              opacity: Math.min(pullDistance / 60, 1),
+              transition: 'opacity 0.2s ease-out'
+            }}
+          >
+            <div className="refresh-icon">
+              {pullDistance > 60 ? '↻' : '↓'}
+            </div>
+            <div className="refresh-text">
+              {pullDistance > 60 ? '놓으면 새로고침' : '아래로 당겨서 새로고침'}
+            </div>
+          </div>
+        )}
         {/* 뒤로가기 버튼 */}
         <div className="back-button-container">
           <button className="back-button" onClick={handleBack}>
@@ -215,6 +355,13 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
           <div className="title-with-toggle">
             <div className="title-content">
               <h1 className="question__title-text">{patientName}님의 건강 기록 타임라인</h1>
+              {/* 마지막 업데이트 시간 표시 */}
+              {lastUpdateTime && (
+                <div className="last-update-info">
+                  <span className="update-icon">🔄</span>
+                  <span className="update-text">마지막 업데이트: {formatLastUpdateTime(lastUpdateTime)}</span>
+                </div>
+              )}
             </div>
             
             {/* 토글 버튼들을 여기로 이동 */}
@@ -270,6 +417,43 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
           filterMode={filterMode}
         />
       </div>
+
+      {/* 새로고침 확인 모달 */}
+      {showRefreshModal && (
+        <div className="refresh-modal-overlay">
+          <div className="refresh-modal">
+            <div className="refresh-modal-header">
+              <h3>데이터 새로고침</h3>
+            </div>
+            <div className="refresh-modal-content">
+              <div className="refresh-info">
+                <div className="refresh-info-item">
+                  <span className="info-label">현재 데이터 수집 시점:</span>
+                  <span className="info-value">{formatLastUpdateTime(lastUpdateTime)}</span>
+                </div>
+              </div>
+              <p className="refresh-description">
+                새로운 건강정보를 수집하시겠습니까?<br/>
+                다시 인증 과정을 거쳐 최신 데이터를 가져옵니다.
+              </p>
+            </div>
+            <div className="refresh-modal-actions">
+              <button 
+                className="refresh-btn refresh-btn-cancel"
+                onClick={handleRefreshCancel}
+              >
+                취소
+              </button>
+              <button 
+                className="refresh-btn refresh-btn-confirm"
+                onClick={handleRefreshConfirm}
+              >
+                새로고침
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

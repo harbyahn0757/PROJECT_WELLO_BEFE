@@ -35,6 +35,160 @@
   // 콘텐츠 영역에 상단 패딩 추가 (뒤로가기 버튼 영역 확보)
   .question__content {
     padding-top: 50px; // 뒤로가기 버튼 영역만큼 패딩 (축소)
+    position: relative;
+    overflow-y: auto;
+  }
+
+  // Pull-to-refresh 스타일
+  .pull-to-refresh-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary, #4b5563);
+    font-size: 14px;
+    z-index: 10;
+    
+    .refresh-icon {
+      font-size: 24px;
+      margin-bottom: 4px;
+      animation: rotate 1s linear infinite;
+    }
+    
+    .refresh-text {
+      font-weight: 500;
+      white-space: nowrap;
+    }
+  }
+
+  @keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  // 마지막 업데이트 시간 스타일
+  .last-update-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--color-text-secondary, #6b7280);
+    
+    .update-icon {
+      font-size: 14px;
+    }
+    
+    .update-text {
+      font-weight: 400;
+    }
+  }
+
+  // 새로고침 모달 스타일
+  .refresh-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 20px;
+  }
+
+  .refresh-modal {
+    background: white;
+    border-radius: 16px;
+    max-width: 400px;
+    width: 100%;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+  }
+
+  .refresh-modal-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--color-border, #e5e7eb);
+    
+    h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--color-text-primary, #1f2937);
+    }
+  }
+
+  .refresh-modal-content {
+    padding: 20px 24px;
+    
+    .refresh-info {
+      background: var(--color-background-secondary, #f9fafb);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      
+      .refresh-info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        
+        .info-label {
+          font-size: 14px;
+          color: var(--color-text-secondary, #6b7280);
+          font-weight: 500;
+        }
+        
+        .info-value {
+          font-size: 14px;
+          color: var(--color-text-primary, #1f2937);
+          font-weight: 600;
+        }
+      }
+    }
+    
+    .refresh-description {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--color-text-secondary, #6b7280);
+    }
+  }
+
+  .refresh-modal-actions {
+    padding: 16px 24px 24px;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+  }
+
+  .refresh-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    
+    &.refresh-btn-cancel {
+      background: var(--color-background-secondary, #f3f4f6);
+      color: var(--color-text-secondary, #6b7280);
+      
+      &:hover {
+        background: var(--color-background-tertiary, #e5e7eb);
+      }
+    }
+    
+    &.refresh-btn-confirm {
+      background: var(--color-primary, #4b5563);
+      color: white;
+      
+      &:hover {
+        background: var(--color-primary-dark, #374151);
+      }
+    }
   }
   
   // 외부 토글 버튼 스타일
