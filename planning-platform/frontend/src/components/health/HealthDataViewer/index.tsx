@@ -64,9 +64,13 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
             if (result.success && result.data) {
               const { health_data, prescription_data } = result.data;
               
+              // 변수를 블록 밖에서 선언
+              let healthDataFormatted = { ResultList: [] };
+              let prescriptionDataFormatted = { ResultList: [] };
+              
               // DB 데이터를 Tilko 형식으로 변환 (파싱된 필드들도 포함)
               if (health_data && health_data.length > 0) {
-                const healthDataFormatted = {
+                healthDataFormatted = {
                   ResultList: health_data.map((item: any) => ({
                     ...item.raw_data,
                     // DB에서 파싱된 필드들 추가
@@ -93,7 +97,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
               }
               
               if (prescription_data && prescription_data.length > 0) {
-                const prescriptionDataFormatted = {
+                prescriptionDataFormatted = {
                   ResultList: prescription_data.map((item: any) => ({
                     ...item.raw_data,
                     // DB에서 파싱된 필드들 추가
@@ -118,6 +122,17 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
                 setShowToast(true);
                 setTimeout(() => setShowToast(false), 3000); // 3초 후 자동 숨김
               }
+              
+              // 🔄 [플로팅버튼] localStorage에 데이터 저장 (플로팅 버튼 "AI 종합 분석보기" 활성화용)
+              const collectedData = {
+                health_data: healthDataFormatted,
+                prescription_data: prescriptionDataFormatted
+              };
+              localStorage.setItem('tilko_collected_data', JSON.stringify(collectedData));
+              console.log('💾 [결과페이지] localStorage에 데이터 저장 완료 (플로팅 버튼 업데이트용)');
+              
+              // 플로팅 버튼 업데이트를 위한 이벤트 발생
+              window.dispatchEvent(new Event('localStorageChange'));
               
               setLoading(false);
               return;

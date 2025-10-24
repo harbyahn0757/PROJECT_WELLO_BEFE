@@ -99,7 +99,7 @@
 
     .wello-line-chart__axis-label {
       fill: var(--text-secondary);
-      font-size: var(--font-size-xs);
+      font-size: 12px;
       font-family: var(--font-family-primary);
     }
 
@@ -158,7 +158,7 @@
     &__x-axis,
     &__y-axis {
       .wello-line-chart__axis-label {
-        font-size: 10px;
+        font-size: 12px;
       }
     }
 

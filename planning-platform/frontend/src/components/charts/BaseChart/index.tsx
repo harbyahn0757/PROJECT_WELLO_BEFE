@@ -59,7 +59,7 @@ const BaseChart: React.FC<BaseChartWithChildrenProps> = ({
   const [dimensions, setDimensions] = useState<ChartDimensions>({
     width: width || 400,
     height,
-    margin: { top: 20, right: 20, bottom: 40, left: 40 }
+    margin: { top: 15, right: 20, bottom: 25, left: 50 } // 하단 마진 줄여서 그래프 영역 확보
   });
 
   // 반응형 크기 조정

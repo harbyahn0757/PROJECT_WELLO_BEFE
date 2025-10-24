@@ -37,7 +37,14 @@ export const TILKO_API = {
   COLLECT_HEALTH_DATA: (sessionId: string) => `/wello-api/v1/tilko/session/${sessionId}/collect-health-data`
 } as const;
 
-// 기타 API 엔드포인트 (WELLO 전용 경로 - wello-api로 통일)
+// WELLO API 엔드포인트 (wello-api로 통일)
+export const WELLO_API = {
+  PATIENT_DATA: (patientId: string) => `/wello-api/v1/wello/patients/${patientId}`,
+  HEALTH_RECORDS: (patientId: string) => `/wello-api/v1/wello/patients/${patientId}/health-records`,
+  PATIENT_HEALTH_DATA: (uuid: string, hospitalId: string) => `/wello-api/v1/wello/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`
+} as const;
+
+// 기타 API 엔드포인트 (하위 호환성)
 export const API_ENDPOINTS = {
   PATIENT_DATA: (patientId: string) => `/wello-api/v1/wello/patients/${patientId}`,
   HEALTH_RECORDS: (patientId: string) => `/wello-api/v1/wello/patients/${patientId}/health-records`

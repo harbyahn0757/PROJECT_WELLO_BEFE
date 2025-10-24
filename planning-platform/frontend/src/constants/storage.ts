@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
   TILKO_SESSION_DATA: 'tilko_session_data',
   TILKO_AUTH_COMPLETED: 'tilko_auth_completed',
   TILKO_AUTH_REQUESTED: 'tilko_auth_requested',
+  TILKO_COLLECTED_DATA: 'tilko_collected_data',
   
   // UI 상태 관리
   TILKO_INFO_CONFIRMING: 'tilko_info_confirming',

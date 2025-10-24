@@ -468,21 +468,47 @@ class WelloDataService:
                     except:
                         pass
                 
-                # 데이터 저장 (모든 필드 포함)
+                # 🚨 중복 체크: 동일한 처방전이 이미 존재하는지 확인
+                duplicate_check_query = """
+                    SELECT COUNT(*) FROM wello.wello_prescription_data 
+                    WHERE patient_uuid = $1 AND hospital_id = $2 
+                    AND hospital_name = $3 AND treatment_date = $4 AND treatment_type = $5
+                """
+                
+                existing_count = await conn.fetchval(
+                    duplicate_check_query,
+                    patient_uuid, hospital_id, hospital_name, treatment_date, treatment_type
+                )
+                
+                if existing_count > 0:
+                    print(f"⚠️ [처방전저장] 중복 데이터 스킵 - {hospital_name} / {treatment_date} / {treatment_type}")
+                    continue  # 중복 데이터는 저장하지 않고 다음으로
+                
+                # 데이터 저장 (중복이 없는 경우만)
                 insert_query = """
                     INSERT INTO wello.wello_prescription_data 
                     (patient_uuid, hospital_id, raw_data, idx, page, hospital_name, address, treatment_date, treatment_type,
                      visit_count, prescription_count, medication_count, detail_records_count)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                    ON CONFLICT (patient_uuid, hospital_id, hospital_name, treatment_date, treatment_type) 
+                    DO NOTHING
                 """
                 
-                await conn.execute(
-                    insert_query,
-                    patient_uuid, hospital_id, json.dumps(item, ensure_ascii=False),
-                    idx, page, hospital_name, address, treatment_date, treatment_type,
-                    visit_count, prescription_count, medication_count, detail_records_count
-                )
-                saved_count += 1
+                try:
+                    await conn.execute(
+                        insert_query,
+                        patient_uuid, hospital_id, json.dumps(item, ensure_ascii=False),
+                        idx, page, hospital_name, address, treatment_date, treatment_type,
+                        visit_count, prescription_count, medication_count, detail_records_count
+                    )
+                    saved_count += 1
+                    print(f"✅ [처방전저장] 새 데이터 저장 - {hospital_name} / {treatment_date} / {treatment_type}")
+                except Exception as insert_error:
+                    if "duplicate key value violates unique constraint" in str(insert_error):
+                        print(f"⚠️ [처방전저장] UNIQUE 제약조건으로 중복 방지됨 - {hospital_name} / {treatment_date}")
+                    else:
+                        print(f"❌ [처방전저장] 개별 저장 실패: {insert_error}")
+                        raise
             
             # 환자 테이블 업데이트 (patient_uuid 기준)
             await conn.execute(

@@ -447,7 +447,7 @@
 // 결과 트렌드 버튼 스타일
 .results-trend-button {
   position: fixed !important;
-  bottom: 90px !important; // 플로팅 버튼 위
+  bottom: 150px !important; // 종합 분석 버튼 위
   right: 20px !important;
   padding: 10px 15px !important;
   border-radius: 30px !important;
@@ -464,6 +464,34 @@
     background: #4A148C !important; // 더 진한 보라색
     transform: translateY(-2px) !important;
     box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+  }
+  
+  &:active {
+    transform: translateY(0) !important;
+  }
+}
+
+// 종합 분석 버튼 스타일
+.comprehensive-analysis-button {
+  position: fixed !important;
+  bottom: 90px !important; // 플로팅 버튼 위
+  right: 20px !important;
+  padding: 12px 18px !important;
+  border-radius: 30px !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  background: #7c746a !important; // 브랜드 브라운 색상
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 3px 8px rgba(124, 116, 106, 0.3) !important;
+  z-index: 1001 !important; // 트렌드 버튼보다 위
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  
+  &:hover {
+    background: #696158 !important; // 더 진한 브라운
+    transform: translateY(-2px) !important;
+    box-shadow: 0 5px 12px rgba(124, 116, 106, 0.4) !important;
   }
   
   &:active {

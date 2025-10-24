@@ -15,6 +15,7 @@ from app.utils.tilko_utils import (
 from app.data.redis_session_manager import redis_session_manager as session_manager
 from pydantic import BaseModel
 import asyncio
+from datetime import datetime
 
 router = APIRouter()
 
@@ -905,11 +906,26 @@ async def get_session_status_for_polling(session_id: str):
 
 @router.post("/session/{session_id}/collect-data")
 async def collect_data_unified(session_id: str, background_tasks: BackgroundTasks):
-    """통합 데이터 수집 API (자동 폴링용)"""
+    """통합 데이터 수집 API (자동 폴링용) - 중복 수집 방지 강화"""
     try:
         session_data = session_manager.get_session(session_id)
         if not session_data:
             raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+        
+        # 🚨 중복 수집 방지: 이미 데이터 수집이 진행 중인지 확인
+        current_status = session_data.get("status", "")
+        collection_started = session_data.get("collection_started", False)
+        
+        if current_status in ["fetching_health_data", "fetching_prescription_data", "completed"] or collection_started:
+            print(f"⚠️ [중복방지] 세션 {session_id}는 이미 데이터 수집 중 또는 완료됨 (상태: {current_status}, 플래그: {collection_started})")
+            return {
+                "success": True,
+                "session_id": session_id,
+                "message": f"데이터 수집이 이미 진행 중이거나 완료되었습니다. (상태: {current_status})",
+                "status": current_status,
+                "collection_started": collection_started,
+                "duplicate_collection_prevented": True
+            }
         
         # temp_auth_data를 auth_data로 변환 (인증 완료 상태로 전환)
         temp_auth_data = session_data.get("temp_auth_data")
@@ -1019,13 +1035,28 @@ async def start_health_data_collection(session_id: str, background_tasks: Backgr
 
 
 async def collect_health_data_background_task(session_id: str):
-    """건강정보 수집 백그라운드 작업 (실제 Tilko API 호출)"""
+    """건강정보 수집 백그라운드 작업 (실제 Tilko API 호출) - 중복 실행 방지 강화"""
     try:
         print(f"🔄 [백그라운드] 실제 건강정보 수집 시작 - 세션: {session_id}")
         
         session_data = session_manager.get_session(session_id)
         if not session_data:
+            print(f"❌ [백그라운드] 세션 {session_id} 없음 - 작업 중단")
             return
+        
+        # 🚨 중복 실행 방지: 이미 수집이 진행 중이거나 완료된 경우 중단
+        current_status = session_data.get("status", "")
+        collection_started = session_data.get("collection_started", False)
+        
+        if current_status in ["fetching_health_data", "fetching_prescription_data", "completed"] or collection_started:
+            print(f"⚠️ [백그라운드중복방지] 세션 {session_id}는 이미 수집 중/완료 (상태: {current_status}, 플래그: {collection_started}) - 작업 중단")
+            return
+        
+        # 🔒 수집 시작 플래그 설정 (다른 백그라운드 작업 차단)
+        session_data["collection_started"] = True
+        session_data["collection_start_time"] = datetime.now().isoformat()
+        session_manager._save_session(session_id, session_data)
+        print(f"🔒 [백그라운드] 수집 시작 플래그 설정 - 세션: {session_id}")
         
         # 사용자 정보 가져오기
         user_info = session_data.get("user_info")
@@ -1157,10 +1188,19 @@ async def collect_health_data_background_task(session_id: str):
         session_manager.complete_session(session_id)
         print(f"✅ [백그라운드] 모든 건강정보 수집 완료 - 세션: {session_id}")
         
-        # 수집된 데이터를 DB에 저장
+        # 🔓 수집 완료 플래그 설정 및 정리
+        session_data = session_manager.get_session(session_id)
+        if session_data:
+            session_data["collection_started"] = False
+            session_data["collection_completed"] = True
+            session_data["collection_end_time"] = datetime.now().isoformat()
+            session_manager._save_session(session_id, session_data)
+            print(f"🔓 [백그라운드] 수집 완료 플래그 설정 - 세션: {session_id}")
+        
+        # 🚀 파일 우선 저장 후 DB 입력 전략 적용
         try:
-            from app.services.wello_data_service import WelloDataService
-            wello_service = WelloDataService()
+            from app.services.file_first_data_service import FileFirstDataService
+            file_first_service = FileFirstDataService()
             
             # 세션에서 환자 정보 가져오기 (최신 세션 데이터 사용)
             final_session_data = session_manager.get_session(session_id)
@@ -1170,25 +1210,42 @@ async def collect_health_data_background_task(session_id: str):
             print(f"🔍 [백그라운드] 환자 정보 확인 - patient_uuid: {patient_uuid}, hospital_id: {hospital_id}")
             
             if patient_uuid and hospital_id:
-                # 환자 정보 저장
-                await wello_service.save_patient_data(patient_uuid, hospital_id, user_info, session_id)
+                # 1단계: 모든 데이터를 파일로 먼저 저장
+                print(f"📁 [파일우선] 1단계 - 데이터 파일 저장 시작")
                 
-                # 건강검진 데이터 저장
-                final_session_data = session_manager.get_session(session_id)
+                # 환자 정보 파일 저장
+                await file_first_service.save_data_to_file_first(
+                    session_id, "patient_data", user_info, patient_uuid, hospital_id
+                )
+                
+                # 건강검진 데이터 파일 저장
                 health_data = final_session_data.get("health_data")
                 if health_data:
-                    await wello_service.save_health_data(patient_uuid, hospital_id, health_data, session_id)
-                    print(f"✅ [백그라운드] 건강검진 데이터 DB 저장 완료")
+                    await file_first_service.save_data_to_file_first(
+                        session_id, "health_data", health_data, patient_uuid, hospital_id
+                    )
                 
-                # 처방전 데이터 저장
+                # 처방전 데이터 파일 저장
                 prescription_data = final_session_data.get("prescription_data")
                 if prescription_data:
-                    await wello_service.save_prescription_data(patient_uuid, hospital_id, prescription_data, session_id)
-                    print(f"✅ [백그라운드] 처방전 데이터 DB 저장 완료")
+                    await file_first_service.save_data_to_file_first(
+                        session_id, "prescription_data", prescription_data, patient_uuid, hospital_id
+                    )
+                
+                print(f"✅ [파일우선] 1단계 완료 - 모든 데이터 파일 저장 완료")
+                
+                # 2단계: 파일에서 DB로 저장 (즉시 처리)
+                print(f"🗄️ [파일우선] 2단계 - DB 저장 시작")
+                db_results = await file_first_service.process_pending_files_to_db(max_files=10)
+                
+                if db_results["success"] > 0:
+                    print(f"✅ [백그라운드] 파일 우선 저장 완료 - 성공: {db_results['success']}건")
+                else:
+                    print(f"⚠️ [백그라운드] DB 저장 실패 - 파일은 안전하게 보관됨")
                     
-                print(f"✅ [백그라운드] 모든 데이터 DB 저장 완료 - 환자: {patient_uuid}")
+                print(f"✅ [백그라운드] 모든 데이터 처리 완료 - 환자: {patient_uuid}")
             else:
-                print(f"⚠️ [백그라운드] 환자 UUID 또는 병원 ID가 없어서 DB 저장 생략")
+                print(f"⚠️ [백그라운드] 환자 UUID 또는 병원 ID가 없어서 저장 생략")
                 
         except Exception as e:
             print(f"❌ [백그라운드] DB 저장 실패: {str(e)}")
@@ -1214,6 +1271,20 @@ async def collect_health_data_background_task(session_id: str):
     except Exception as e:
         error_msg = f"건강정보 수집 백그라운드 작업 실패: {str(e)}"
         print(f"❌ [백그라운드] {error_msg}")
+        
+        # 🔓 에러 발생 시에도 수집 플래그 정리
+        try:
+            session_data = session_manager.get_session(session_id)
+            if session_data:
+                session_data["collection_started"] = False
+                session_data["collection_error"] = True
+                session_data["collection_error_time"] = datetime.now().isoformat()
+                session_data["collection_error_message"] = error_msg
+                session_manager._save_session(session_id, session_data)
+                print(f"🔓 [백그라운드] 에러 시 수집 플래그 정리 - 세션: {session_id}")
+        except Exception as cleanup_error:
+            print(f"⚠️ [백그라운드] 플래그 정리 실패: {cleanup_error}")
+        
         session_manager.add_error_message(session_id, error_msg)
         session_manager.update_session_status(session_id, "error", error_msg)
 

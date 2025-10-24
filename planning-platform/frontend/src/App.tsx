@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import VerticalLayout from './layouts/VerticalLayout';
 import HorizontalLayout from './layouts/HorizontalLayout';
 import IntroLayout from './layouts/IntroLayout';
@@ -11,11 +11,13 @@ import HealthQuestionnaireComplete from './pages/HealthQuestionnaireComplete';
 import HealthQuestionnairePage from './pages/HealthQuestionnairePage';
 import SurveyPage from './pages/SurveyPage';
 import AuthPage from './pages/AuthPage';
+import CollectingDataPage from './pages/CollectingDataPage';
 import { HealthDataViewer } from './components/health/HealthDataViewer';
 import HealthDashboard from './pages/HealthDashboard';
 import HealthTrends from './pages/HealthTrends';
 import PrescriptionHistory from './pages/PrescriptionHistory';
 import HealthComparison from './pages/HealthComparison';
+import ComprehensiveAnalysisPage from './pages/ComprehensiveAnalysisPage';
 import { LayoutType } from './constants/layoutTypes';
 import { debugLayoutMapping } from './utils/layoutMapper';
 import { WelloDataProvider, useWelloData } from './contexts/WelloDataContext';
@@ -47,6 +49,7 @@ const FloatingButton: React.FC = () => {
   const [hideFloatingButton, setHideFloatingButton] = React.useState(false);
   const [isAuthWaiting, setIsAuthWaiting] = React.useState(false);
   const [isAuthMethodSelection, setIsAuthMethodSelection] = React.useState(false);
+  const [buttonUpdateTrigger, setButtonUpdateTrigger] = React.useState(0);
   
   React.useEffect(() => {
     const checkHideStatus = () => {
@@ -78,6 +81,8 @@ const FloatingButton: React.FC = () => {
     // custom event 리스너 (같은 탭에서의 변경사항 감지)
     const handleCustomEvent = () => {
       checkHideStatus();
+      // 버튼 텍스트 업데이트를 위한 트리거
+      setButtonUpdateTrigger(prev => prev + 1);
     };
     
     window.addEventListener('storage', handleStorageChange);
@@ -99,10 +104,6 @@ const FloatingButton: React.FC = () => {
     }
   }, [location.pathname, patient, removeLocalStorageWithEvent]);
 
-  if (hideFloatingButton) {
-    return null;
-  }
-  
   const handleAuthClick = async () => {
     console.log('🔐 [인증페이지] 정보 확인 단계 시작');
     
@@ -166,6 +167,46 @@ const FloatingButton: React.FC = () => {
       }
     }
     
+    // results-trend 페이지에서 데이터가 있으면 분석보기 버튼으로 변경
+    if (path === '/results-trend' || path.includes('/results-trend')) {
+      const collectedDataStr = localStorage.getItem('tilko_collected_data');
+      if (collectedDataStr) {
+        try {
+          const collectedData = JSON.parse(collectedDataStr);
+          const hasHealthData = collectedData.health_data?.ResultList?.length > 0;
+          const hasPrescriptionData = collectedData.prescription_data?.ResultList?.length > 0;
+          
+          if (hasHealthData || hasPrescriptionData) {
+            return {
+              text: (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <img 
+                    src="/wello/wello-icon.png" 
+                    alt="Wello" 
+                    style={{ 
+                      width: '20px', 
+                      height: '20px'
+                    }} 
+                  />
+                  AI 종합 분석보기
+                </span>
+              ),
+              onClick: () => {
+                console.log('🧠 [플로팅버튼] 종합 분석 페이지로 이동');
+                const urlParams = new URLSearchParams(window.location.search);
+                const uuid = urlParams.get('uuid');
+                const hospital = urlParams.get('hospital');
+                const queryString = uuid && hospital ? `?uuid=${uuid}&hospital=${hospital}` : '';
+                window.location.href = `/wello/comprehensive-analysis${queryString}`;
+              }
+            };
+          }
+        } catch (error) {
+          console.error('데이터 파싱 오류:', error);
+        }
+      }
+    }
+    
     // 기본 (메인페이지 등) - 모든 화면에서 동일한 역할
     return {
       text: '건강검진 예약하기',
@@ -180,7 +221,7 @@ const FloatingButton: React.FC = () => {
     };
   };
 
-  const buttonConfig = getButtonConfig();
+  const buttonConfig = React.useMemo(() => getButtonConfig(), [location.pathname, isAuthWaiting, isAuthMethodSelection, buttonUpdateTrigger]);
 
   return (
     <div className="floating-button-container">
@@ -213,6 +254,67 @@ const ResultsTrendButton: React.FC = () => {
       variant="secondary"
     >
       📈 결과 트렌드 보기
+    </Button>
+  );
+};
+
+// 종합 분석 버튼 컴포넌트
+const ComprehensiveAnalysisButton: React.FC = () => {
+  const navigate = useNavigate();
+  const [hasData, setHasData] = React.useState(false);
+  
+  // localStorage에서 데이터 존재 여부 확인
+  React.useEffect(() => {
+    const checkDataAvailability = () => {
+      const collectedDataStr = localStorage.getItem('tilko_collected_data');
+      if (collectedDataStr) {
+        try {
+          const collectedData = JSON.parse(collectedDataStr);
+          const hasHealthData = collectedData.health_data?.ResultList?.length > 0;
+          const hasPrescriptionData = collectedData.prescription_data?.ResultList?.length > 0;
+          setHasData(hasHealthData || hasPrescriptionData);
+        } catch (error) {
+          console.error('데이터 확인 실패:', error);
+          setHasData(false);
+        }
+      } else {
+        setHasData(false);
+      }
+    };
+    
+    checkDataAvailability();
+    
+    // localStorage 변경 감지
+    const handleStorageChange = () => {
+      checkDataAvailability();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('localStorageChange', handleStorageChange);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('localStorageChange', handleStorageChange);
+    };
+  }, []);
+  
+  // 데이터가 없으면 버튼 숨김
+  if (!hasData) {
+    return null;
+  }
+
+  const handleClick = () => {
+    console.log('🧠 [종합분석버튼] 종합 분석 페이지 열기');
+    navigate('/comprehensive-analysis');
+  };
+
+  return (
+    <Button
+      className="comprehensive-analysis-button"
+      onClick={handleClick}
+      variant="primary"
+    >
+      🧠 분석보기
     </Button>
   );
 };
@@ -325,6 +427,7 @@ const AppContent: React.FC = () => {
             } 
           />
           <Route path="/login" element={<AuthPage />} />
+          <Route path="/collecting" element={<CollectingDataPage />} />
           <Route path="/survey/:surveyId" element={<SurveyPage />} />
           <Route path="/survey/checkup-design" element={<CheckupDesignPage />} />
           <Route path="/survey/health-habits" element={<HealthHabitsPage />} />
@@ -334,6 +437,7 @@ const AppContent: React.FC = () => {
           <Route path="/trends" element={<HealthTrends />} />
           <Route path="/prescriptions" element={<PrescriptionHistory />} />
           <Route path="/comparison" element={<HealthComparison />} />
+          <Route path="/comprehensive-analysis" element={<ComprehensiveAnalysisPage />} />
           <Route path="/results-trend" element={<HealthDataViewer onBack={() => window.history.back()} />} />
           <Route 
             path="/results" 
@@ -357,6 +461,9 @@ const AppContent: React.FC = () => {
         
         {/* AI 버튼 조건부 렌더링 */}
         {layoutConfig.showAIButton && <ResultsTrendButton />}
+        
+        {/* 종합 분석 버튼 조건부 렌더링 */}
+        {layoutConfig.showAIButton && <ComprehensiveAnalysisButton />}
       </div>
       
       {/* 알림 컨테이너 */}

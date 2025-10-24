@@ -56,8 +56,9 @@
     .wello-bar-chart__bar {
       transition: all 0.2s ease;
       cursor: pointer;
-      stroke: var(--bg-primary);
+      stroke: #8b7d6b !important; // 브랜드 브라운 테두리
       stroke-width: 1;
+      fill: #7c746a !important; // 브랜드 브라운 컬러 강제 적용
 
       &:hover {
         opacity: 0.8;
@@ -97,7 +98,7 @@
 
     .wello-bar-chart__axis-label {
       fill: var(--text-secondary);
-      font-size: var(--font-size-xs);
+      font-size: 12px;
       font-family: var(--font-family-primary);
     }
 
@@ -168,7 +169,7 @@
     &__x-axis,
     &__y-axis {
       .wello-bar-chart__axis-label {
-        font-size: 10px;
+        font-size: 12px;
       }
     }
 

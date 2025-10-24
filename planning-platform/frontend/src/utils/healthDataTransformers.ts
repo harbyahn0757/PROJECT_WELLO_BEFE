@@ -23,16 +23,37 @@ export const getHealthStatus = (code: string) => {
   }
 };
 
-// 수치 추출 함수
-export const extractNumericValue = (value: string): number => {
+// 수치 추출 함수 (NaN 방지 강화)
+export const extractNumericValue = (value: string | number): number => {
+  // 이미 숫자인 경우
+  if (typeof value === 'number') {
+    return isNaN(value) ? 0 : value;
+  }
+  
+  // 문자열이 아닌 경우 처리
+  if (typeof value !== 'string') {
+    return 0;
+  }
+  
+  // 빈 문자열이나 null/undefined 처리
+  if (!value || value.trim() === '') {
+    return 0;
+  }
+  
   // "140/90" 형태에서 첫 번째 값 추출 (수축기 혈압)
   if (value.includes('/')) {
-    return parseFloat(value.split('/')[0]);
+    const firstValue = parseFloat(value.split('/')[0]);
+    return isNaN(firstValue) ? 0 : firstValue;
   }
   
   // 숫자만 추출
   const numericMatch = value.match(/[\d.]+/);
-  return numericMatch ? parseFloat(numericMatch[0]) : 0;
+  if (numericMatch) {
+    const parsedValue = parseFloat(numericMatch[0]);
+    return isNaN(parsedValue) ? 0 : parsedValue;
+  }
+  
+  return 0;
 };
 
 // 단위 추출 함수
@@ -70,21 +91,71 @@ export const transformHealthDataForLineChart = (
       inspection.Illnesses.forEach((illness: any) => {
         illness.Items.forEach((item: any) => {
           const value = extractNumericValue(item.Value);
-          if (value > 0) {
+          // 유효한 숫자값만 처리 (0보다 크고 NaN이 아닌 값)
+          if (value > 0 && !isNaN(value) && isFinite(value)) {
             const seriesKey = item.Name;
             
             if (!seriesMap.has(seriesKey)) {
               seriesMap.set(seriesKey, []);
             }
 
+            // 실제 API 데이터 형식에 맞는 날짜 파싱
+            let dateString;
+            try {
+              const checkUpDate = checkup.CheckUpDate.toString();
+              
+              // 이미 ISO 형식인지 확인 (예: "2024-10-15")
+              if (checkUpDate.includes('-') && checkUpDate.length >= 10) {
+                const parsedDate = new Date(checkUpDate);
+                if (isNaN(parsedDate.getTime())) {
+                  throw new Error(`Invalid ISO date: ${checkUpDate}`);
+                }
+                dateString = parsedDate.toISOString();
+              } 
+              // MM/DD 형식인지 확인 (예: "09/28")
+              else if (checkUpDate.includes('/')) {
+                const year = checkup.Year.toString().replace('년', '');
+                const dateParts = checkUpDate.split('/');
+                
+                if (dateParts.length === 2) {
+                  const month = dateParts[0].padStart(2, '0');
+                  const day = dateParts[1].padStart(2, '0');
+                  const isoDateString = `${year}-${month}-${day}`;
+                  
+                  const parsedDate = new Date(isoDateString);
+                  if (isNaN(parsedDate.getTime())) {
+                    throw new Error(`Invalid constructed date: ${isoDateString}`);
+                  }
+                  dateString = parsedDate.toISOString();
+                } else {
+                  throw new Error(`Invalid MM/DD format: ${checkUpDate}`);
+                }
+              } 
+              else {
+                throw new Error(`Unknown date format: ${checkUpDate}`);
+              }
+            } catch (error) {
+              console.warn('날짜 파싱 실패:', { 
+                year: checkup.Year, 
+                checkUpDate: checkup.CheckUpDate, 
+                error: error instanceof Error ? error.message : String(error)
+              });
+              // 폴백: 현재 날짜 사용
+              dateString = new Date().toISOString();
+            }
+
             seriesMap.get(seriesKey)!.push({
-              date: new Date(`${checkup.Year.replace('년', '')}-${checkup.CheckUpDate.replace('/', '-')}`).toISOString(),
+              date: dateString,
               value,
               label: date,
               status,
-              reference: item.ItemReferences.length > 0 ? {
+              reference: item.ItemReferences && item.ItemReferences.length > 0 ? {
                 // 참조값이 있으면 파싱 (예: "남 90미만 / 여 85미만")
                 // 실제 구현에서는 성별에 따른 참조값 처리 필요
+                // TODO: ItemReferences를 파싱해서 min, max, optimal 값으로 변환
+                min: undefined,
+                max: undefined,
+                optimal: undefined
               } : undefined
             });
           }
@@ -127,7 +198,7 @@ export const transformHealthDataForBarChart = (
         illness.Items.forEach((item: any) => {
           if (metrics.includes(item.Name)) {
             const value = extractNumericValue(item.Value);
-            if (value > 0) {
+            if (value > 0 && !isNaN(value) && isFinite(value)) {
               seriesMap.get(item.Name)!.push({
                 label: year,
                 value,
@@ -175,7 +246,7 @@ export const transformHealthDataByHospital = (
         illness.Items.forEach((item: any) => {
           if (item.Name === metric) {
             const value = extractNumericValue(item.Value);
-            if (value > 0) {
+            if (value > 0 && !isNaN(value) && isFinite(value)) {
               hospitalData.push({
                 label: checkup.Location,
                 value,

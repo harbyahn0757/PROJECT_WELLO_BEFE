@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/wello/static/css/main.039fb2dc.css",
+    "main.js": "/wello/static/js/main.a83c89c6.js",
+    "static/media/splash.png": "/wello/static/media/splash.1f680ea4aaba8a82038a.png",
+    "static/media/pass.png": "/wello/static/media/pass.203049a9f19b1e505577.png",
+    "index.html": "/wello/index.html",
+    "main.039fb2dc.css.map": "/wello/static/css/main.039fb2dc.css.map",
+    "main.a83c89c6.js.map": "/wello/static/js/main.a83c89c6.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.039fb2dc.css",
+    "static/js/main.a83c89c6.js"
+  ]
+}

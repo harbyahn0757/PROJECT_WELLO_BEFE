@@ -1,0 +1,1718 @@
+{
+  "session_id": "c7dfe273-ace9-4dcd-b6b5-2b1bce6caadc",
+  "data_type": "health_data",
+  "timestamp": "2025-10-23T19:50:20.836550",
+  "raw_data": {
+    "ResultList": [
+      {
+        "Year": "2016년",
+        "CheckUpDate": "12/17",
+        "Code": "의심",
+        "Location": "서울메디케어의원",
+        "Description": "고도비만상태 체중조절 요망. 혈색소 과다주의",
+        "Inspections": [
+          {
+            "Gubun": "계측검사",
+            "Illnesses": [
+              {
+                "Name": "비만",
+                "Items": [
+                  {
+                    "Name": "신장",
+                    "Value": "181.0",
+                    "Unit": "Cm",
+                    "ItemReferences": []
+                  },
+                  {
+                    "Name": "체중",
+                    "Value": "110.0",
+                    "Unit": "Kg",
+                    "ItemReferences": []
+                  },
+                  {
+                    "Name": "허리둘레",
+                    "Value": "105.0",
+                    "Unit": "Cm",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "남 90미만 / 여 85미만"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "남 90이상 / 여 85이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "체질량지수",
+                    "Value": "33.6",
+                    "Unit": "kg/m2",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "18.5-24.9"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "18.5미만/25~29.9"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "30이상"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "시각이상",
+                "Items": [
+                  {
+                    "Name": "시력(좌/우)",
+                    "Value": "1.5/1.2",
+                    "Unit": "",
+                    "ItemReferences": []
+                  }
+                ]
+              },
+              {
+                "Name": "청각이상",
+                "Items": [
+                  {
+                    "Name": "청각(좌/우)",
+                    "Value": "정상/정상",
+                    "Unit": "",
+                    "ItemReferences": []
+                  }
+                ]
+              },
+              {
+                "Name": "고혈압",
+                "Items": [
+                  {
+                    "Name": "혈압(최고/최저)",
+                    "Value": "134/100",
+                    "Unit": "mmHg",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "120미만 이며/80미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "120-139 또는 /80-89"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "140이상 또는 /90이상"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "요검사",
+            "Illnesses": [
+              {
+                "Name": "신장질환",
+                "Items": [
+                  {
+                    "Name": "요단백",
+                    "Value": "음성",
+                    "Unit": "",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "음성"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "약양성±"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "양성(+1)이상"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "혈액검사",
+            "Illnesses": [
+              {
+                "Name": "빈혈",
+                "Items": [
+                  {
+                    "Name": "혈색소",
+                    "Value": "16.7",
+                    "Unit": "g/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "남: 13-16.5 / 여: 12-15.5"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "남: 12-12.9 / 여: 10-11.9"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "남:12.0미만 / 여:10.0미만"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "당뇨병",
+                "Items": [
+                  {
+                    "Name": "공복혈당",
+                    "Value": "98",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "100미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "100-125"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "126이상"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "이상지질혈증",
+                "Items": [
+                  {
+                    "Name": "총콜레스테롤",
+                    "Value": "173",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "200미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "200-239"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "240이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "고밀도(HDL) 콜레스테롤",
+                    "Value": "36",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "60이상"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "40-59"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "40미만"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "중성지방",
+                    "Value": "194",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "150미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "150-199"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "200이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "저밀도(LDL) 콜레스테롤",
+                    "Value": "98",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "130미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "130-139"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "160이상"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "만성신장질환",
+                "Items": [
+                  {
+                    "Name": "혈청크레아티닌",
+                    "Value": "1.0",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "1.6이하"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "1.6초과"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "신사구체여과율(GFR)",
+                    "Value": "89",
+                    "Unit": "mL/min",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "60이상"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "60미만"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "간장질환",
+                "Items": [
+                  {
+                    "Name": "에이에스티(AST, SGOT)",
+                    "Value": "20",
+                    "Unit": "U/L",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "40이하"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "41-50"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "51이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "에이엘티(ALT, SGPT)",
+                    "Value": "22",
+                    "Unit": "U/L",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "35이하"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "36-45"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "46이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "감마지티피(y-GTP)",
+                    "Value": "29",
+                    "Unit": "U/L",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "남:11-63 / 여:8-35"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "남:64-77 / 여:36-45"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "남:78이상 / 여:46이상"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "영상검사",
+            "Illnesses": [
+              {
+                "Name": "폐결핵 흉부질환",
+                "Items": [
+                  {
+                    "Name": "폐결핵 흉부질환",
+                    "Value": "정상",
+                    "Unit": "",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "정상, 비활동성"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "정상 및 비활동성이외의자"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "골다공증",
+            "Illnesses": [
+              {
+                "Name": "골다공증",
+                "Items": [
+                  {
+                    "Name": "골다공증",
+                    "Value": "",
+                    "Unit": "",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "T-score -1 이상"
+                      },
+                      {
+                        "Name": "정상(경계)",
+                        "Value": "-1~-2.5 초과"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "-2.5이하"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "Year": "2019년",
+        "CheckUpDate": "12/13",
+        "Code": "의심",
+        "Location": "리더스헬스케어영상의학과의원",
+        "Description": "",
+        "Inspections": [
+          {
+            "Gubun": "계측검사",
+            "Illnesses": [
+              {
+                "Name": "비만",
+                "Items": [
+                  {
+                    "Name": "신장",
+                    "Value": "181.7",
+                    "Unit": "Cm",
+                    "ItemReferences": []
+                  },
+                  {
+                    "Name": "체중",
+                    "Value": "117.4",
+                    "Unit": "Kg",
+                    "ItemReferences": []
+                  },
+                  {
+                    "Name": "허리둘레",
+                    "Value": "113.5",
+                    "Unit": "Cm",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "남 90미만 / 여 85미만"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "남 90이상 / 여 85이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "체질량지수",
+                    "Value": "35.6",
+                    "Unit": "kg/m2",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "18.5-24.9"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "18.5미만/25~29.9"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "30이상"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "시각이상",
+                "Items": [
+                  {
+                    "Name": "시력(좌/우)",
+                    "Value": "1.2/1.2",
+                    "Unit": "",
+                    "ItemReferences": []
+                  }
+                ]
+              },
+              {
+                "Name": "청각이상",
+                "Items": [
+                  {
+                    "Name": "청각(좌/우)",
+                    "Value": "정상/정상",
+                    "Unit": "",
+                    "ItemReferences": []
+                  }
+                ]
+              },
+              {
+                "Name": "고혈압",
+                "Items": [
+                  {
+                    "Name": "혈압(최고/최저)",
+                    "Value": "200/135",
+                    "Unit": "mmHg",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "120미만 이며/80미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "120-139 또는 /80-89"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "140이상 또는 /90이상"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "요검사",
+            "Illnesses": [
+              {
+                "Name": "신장질환",
+                "Items": [
+                  {
+                    "Name": "요단백",
+                    "Value": "양성",
+                    "Unit": "",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "음성"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "약양성±"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "양성(+1)이상"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "혈액검사",
+            "Illnesses": [
+              {
+                "Name": "빈혈",
+                "Items": [
+                  {
+                    "Name": "혈색소",
+                    "Value": "17.6",
+                    "Unit": "g/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "남: 13-16.5 / 여: 12-15.5"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "남: 12-12.9 / 여: 10-11.9"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "남:12.0미만 / 여:10.0미만"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "당뇨병",
+                "Items": [
+                  {
+                    "Name": "공복혈당",
+                    "Value": "127",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "100미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "100-125"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "126이상"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "이상지질혈증",
+                "Items": [
+                  {
+                    "Name": "총콜레스테롤",
+                    "Value": "224",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "200미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "200-239"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "240이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "고밀도(HDL) 콜레스테롤",
+                    "Value": "44",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "60이상"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "40-59"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "40미만"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "중성지방",
+                    "Value": "237",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "150미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "150-199"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "200이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "저밀도(LDL) 콜레스테롤",
+                    "Value": "133",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "130미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "130-139"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "160이상"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "만성신장질환",
+                "Items": [
+                  {
+                    "Name": "혈청크레아티닌",
+                    "Value": "1.3",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "1.6이하"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "1.6초과"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "신사구체여과율(GFR)",
+                    "Value": "65",
+                    "Unit": "mL/min",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "60이상"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "60미만"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "간장질환",
+                "Items": [
+                  {
+                    "Name": "에이에스티(AST, SGOT)",
+                    "Value": "122",
+                    "Unit": "U/L",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "40이하"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "41-50"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "51이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "에이엘티(ALT, SGPT)",
+                    "Value": "139",
+                    "Unit": "U/L",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "35이하"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "36-45"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "46이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "감마지티피(y-GTP)",
+                    "Value": "77",
+                    "Unit": "U/L",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "남:11-63 / 여:8-35"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "남:64-77 / 여:36-45"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "남:78이상 / 여:46이상"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "영상검사",
+            "Illnesses": [
+              {
+                "Name": "폐결핵 흉부질환",
+                "Items": [
+                  {
+                    "Name": "폐결핵 흉부질환",
+                    "Value": "정상",
+                    "Unit": "",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "정상, 비활동성"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "정상 및 비활동성이외의자"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "골다공증",
+            "Illnesses": [
+              {
+                "Name": "골다공증",
+                "Items": [
+                  {
+                    "Name": "골다공증",
+                    "Value": "",
+                    "Unit": "",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "T-score -1 이상"
+                      },
+                      {
+                        "Name": "정상(경계)",
+                        "Value": "-1~-2.5 초과"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "-2.5이하"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "Year": "2023년",
+        "CheckUpDate": "06/23",
+        "Code": "유질",
+        "Location": "재단법인서울의과학연구소 하나로리더스의원",
+        "Description": "",
+        "Inspections": [
+          {
+            "Gubun": "계측검사",
+            "Illnesses": [
+              {
+                "Name": "비만",
+                "Items": [
+                  {
+                    "Name": "신장",
+                    "Value": "181.5",
+                    "Unit": "Cm",
+                    "ItemReferences": []
+                  },
+                  {
+                    "Name": "체중",
+                    "Value": "120.7",
+                    "Unit": "Kg",
+                    "ItemReferences": []
+                  },
+                  {
+                    "Name": "허리둘레",
+                    "Value": "118.8",
+                    "Unit": "Cm",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "남 90미만 / 여 85미만"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "남 90이상 / 여 85이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "체질량지수",
+                    "Value": "36.6",
+                    "Unit": "kg/m2",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "18.5-24.9"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "18.5미만/25~29.9"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "30이상"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "시각이상",
+                "Items": [
+                  {
+                    "Name": "시력(좌/우)",
+                    "Value": "0.8/0.7",
+                    "Unit": "",
+                    "ItemReferences": []
+                  }
+                ]
+              },
+              {
+                "Name": "청각이상",
+                "Items": [
+                  {
+                    "Name": "청각(좌/우)",
+                    "Value": "정상/정상",
+                    "Unit": "",
+                    "ItemReferences": []
+                  }
+                ]
+              },
+              {
+                "Name": "고혈압",
+                "Items": [
+                  {
+                    "Name": "혈압(최고/최저)",
+                    "Value": "151/90",
+                    "Unit": "mmHg",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "120미만 이며/80미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "120-139 또는 /80-89"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "140이상 또는 /90이상"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "요검사",
+            "Illnesses": [
+              {
+                "Name": "신장질환",
+                "Items": [
+                  {
+                    "Name": "요단백",
+                    "Value": "음성",
+                    "Unit": "",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "음성"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "약양성±"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "양성(+1)이상"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "혈액검사",
+            "Illnesses": [
+              {
+                "Name": "빈혈",
+                "Items": [
+                  {
+                    "Name": "혈색소",
+                    "Value": "15.9",
+                    "Unit": "g/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "남: 13-16.5 / 여: 12-15.5"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "남: 12-12.9 / 여: 10-11.9"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "남:12.0미만 / 여:10.0미만"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "당뇨병",
+                "Items": [
+                  {
+                    "Name": "공복혈당",
+                    "Value": "116",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "100미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "100-125"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "126이상"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "이상지질혈증",
+                "Items": [
+                  {
+                    "Name": "총콜레스테롤",
+                    "Value": "219",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "200미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "200-239"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "240이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "고밀도(HDL) 콜레스테롤",
+                    "Value": "35",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "60이상"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "40-59"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "40미만"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "중성지방",
+                    "Value": "178",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "150미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "150-199"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "200이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "저밀도(LDL) 콜레스테롤",
+                    "Value": "148",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "130미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "130-139"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "160이상"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "만성신장질환",
+                "Items": [
+                  {
+                    "Name": "혈청크레아티닌",
+                    "Value": "0.9",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "1.6이하"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "1.6초과"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "신사구체여과율(GFR)",
+                    "Value": "93",
+                    "Unit": "mL/min",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "60이상"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "60미만"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "간장질환",
+                "Items": [
+                  {
+                    "Name": "에이에스티(AST, SGOT)",
+                    "Value": "29",
+                    "Unit": "U/L",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "40이하"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "41-50"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "51이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "에이엘티(ALT, SGPT)",
+                    "Value": "44",
+                    "Unit": "U/L",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "35이하"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "36-45"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "46이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "감마지티피(y-GTP)",
+                    "Value": "37",
+                    "Unit": "U/L",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "남:11-63 / 여:8-35"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "남:64-77 / 여:36-45"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "남:78이상 / 여:46이상"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "영상검사",
+            "Illnesses": [
+              {
+                "Name": "폐결핵 흉부질환",
+                "Items": [
+                  {
+                    "Name": "폐결핵 흉부질환",
+                    "Value": "정상",
+                    "Unit": "",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "정상, 비활동성"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "정상 및 비활동성이외의자"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "골다공증",
+            "Illnesses": [
+              {
+                "Name": "골다공증",
+                "Items": [
+                  {
+                    "Name": "골다공증",
+                    "Value": "",
+                    "Unit": "",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "T-score -1 이상"
+                      },
+                      {
+                        "Name": "정상(경계)",
+                        "Value": "-1~-2.5 초과"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "-2.5이하"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "Year": "2025년",
+        "CheckUpDate": "08/13",
+        "Code": "유질",
+        "Location": "강남지인병원",
+        "Description": "",
+        "Inspections": [
+          {
+            "Gubun": "계측검사",
+            "Illnesses": [
+              {
+                "Name": "비만",
+                "Items": [
+                  {
+                    "Name": "신장",
+                    "Value": "181.1",
+                    "Unit": "Cm",
+                    "ItemReferences": []
+                  },
+                  {
+                    "Name": "체중",
+                    "Value": "121.4",
+                    "Unit": "Kg",
+                    "ItemReferences": []
+                  },
+                  {
+                    "Name": "허리둘레",
+                    "Value": "112.0",
+                    "Unit": "Cm",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "남 90미만 / 여 85미만"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "남 90이상 / 여 85이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "체질량지수",
+                    "Value": "37.0",
+                    "Unit": "kg/m2",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "18.5-24.9"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "18.5미만/25~29.9"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "30이상"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "시각이상",
+                "Items": [
+                  {
+                    "Name": "시력(좌/우)",
+                    "Value": "1.0/0.9",
+                    "Unit": "",
+                    "ItemReferences": []
+                  }
+                ]
+              },
+              {
+                "Name": "청각이상",
+                "Items": [
+                  {
+                    "Name": "청각(좌/우)",
+                    "Value": "정상/정상",
+                    "Unit": "",
+                    "ItemReferences": []
+                  }
+                ]
+              },
+              {
+                "Name": "고혈압",
+                "Items": [
+                  {
+                    "Name": "혈압(최고/최저)",
+                    "Value": "121/75",
+                    "Unit": "mmHg",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "120미만 이며/80미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "120-139 또는 /80-89"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "140이상 또는 /90이상"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "요검사",
+            "Illnesses": [
+              {
+                "Name": "신장질환",
+                "Items": [
+                  {
+                    "Name": "요단백",
+                    "Value": "음성",
+                    "Unit": "",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "음성"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "약양성±"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "양성(+1)이상"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "혈액검사",
+            "Illnesses": [
+              {
+                "Name": "빈혈",
+                "Items": [
+                  {
+                    "Name": "혈색소",
+                    "Value": "16.3",
+                    "Unit": "g/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "남: 13-16.5 / 여: 12-15.5"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "남: 12-12.9 / 여: 10-11.9"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "남:12.0미만 / 여:10.0미만"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "당뇨병",
+                "Items": [
+                  {
+                    "Name": "공복혈당",
+                    "Value": "124",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "100미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "100-125"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "126이상"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "이상지질혈증",
+                "Items": [
+                  {
+                    "Name": "총콜레스테롤",
+                    "Value": "",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "200미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "200-239"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "240이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "고밀도(HDL) 콜레스테롤",
+                    "Value": "",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "60이상"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "40-59"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "40미만"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "중성지방",
+                    "Value": "",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "150미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "150-199"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "200이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "저밀도(LDL) 콜레스테롤",
+                    "Value": "",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "130미만"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "130-139"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "160이상"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "만성신장질환",
+                "Items": [
+                  {
+                    "Name": "혈청크레아티닌",
+                    "Value": "0.96",
+                    "Unit": "mg/dL",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "1.6이하"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "1.6초과"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "신사구체여과율(GFR)",
+                    "Value": "94",
+                    "Unit": "mL/min",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "60이상"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "60미만"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Name": "간장질환",
+                "Items": [
+                  {
+                    "Name": "에이에스티(AST, SGOT)",
+                    "Value": "41",
+                    "Unit": "U/L",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "40이하"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "41-50"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "51이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "에이엘티(ALT, SGPT)",
+                    "Value": "51",
+                    "Unit": "U/L",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "35이하"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "36-45"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "46이상"
+                      }
+                    ]
+                  },
+                  {
+                    "Name": "감마지티피(y-GTP)",
+                    "Value": "23",
+                    "Unit": "U/L",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "남:11-63 / 여:8-35"
+                      },
+                      {
+                        "Name": "정상(B)",
+                        "Value": "남:64-77 / 여:36-45"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "남:78이상 / 여:46이상"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "영상검사",
+            "Illnesses": [
+              {
+                "Name": "폐결핵 흉부질환",
+                "Items": [
+                  {
+                    "Name": "폐결핵 흉부질환",
+                    "Value": "정상",
+                    "Unit": "",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "정상, 비활동성"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "정상 및 비활동성이외의자"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Gubun": "골다공증",
+            "Illnesses": [
+              {
+                "Name": "골다공증",
+                "Items": [
+                  {
+                    "Name": "골다공증",
+                    "Value": "",
+                    "Unit": "",
+                    "ItemReferences": [
+                      {
+                        "Name": "정상(A)",
+                        "Value": "T-score -1 이상"
+                      },
+                      {
+                        "Name": "정상(경계)",
+                        "Value": "-1~-2.5 초과"
+                      },
+                      {
+                        "Name": "질환의심",
+                        "Value": "-2.5이하"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "ApiTxKey": "070e2e5e-4c31-4aa5-af49-c828f1ccbd6a",
+    "Status": "OK",
+    "StatusSeq": 0,
+    "ErrorCode": 0,
+    "Message": "성공",
+    "ErrorLog": null,
+    "TargetCode": null,
+    "TargetMessage": null,
+    "PointBalance": "43499150.00"
+  }
+}

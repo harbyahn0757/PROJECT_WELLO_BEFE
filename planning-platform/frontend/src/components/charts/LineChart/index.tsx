@@ -73,30 +73,47 @@ const LineChart: React.FC<LineChartProps> = ({
     const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
     const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
 
-    // 값 범위 계산 (참조선 포함)
-    const values = allPoints.map(p => p.value);
+    // 값 범위 계산 (참조선 포함) - 유효한 값만 필터링
+    const values = allPoints.map(p => p.value).filter(v => 
+      typeof v === 'number' && !isNaN(v) && isFinite(v)
+    );
     const referenceValues = allPoints.flatMap(p => 
-      p.reference ? [p.reference.min, p.reference.max, p.reference.optimal].filter(Boolean) : []
+      p.reference ? [p.reference.min, p.reference.max, p.reference.optimal].filter(v => 
+        typeof v === 'number' && !isNaN(v) && isFinite(v)
+      ) : []
     ) as number[];
     
     const allValues = [...values, ...referenceValues];
-    const minValue = Math.min(...allValues);
-    const maxValue = Math.max(...allValues);
     
-    // 여백 추가 (10%)
-    const valueRange = maxValue - minValue;
+    // 유효한 값이 없으면 기본값 사용
+    if (allValues.length === 0) {
+      return {
+        minDate: new Date(),
+        maxDate: new Date(),
+        minValue: 0,
+        maxValue: 100,
+        dateRange: 1
+      };
+    }
+    
+    // 값 범위 계산 (최소값을 0으로 고정)
+    const minValue = 0; // 항상 0부터 시작
+    const maxValue = allValues.length > 0 ? Math.max(...allValues) : 100;
+    
+    // 여백 추가 (상단만 10%)
+    const valueRange = maxValue - minValue || 1; // 0으로 나누기 방지
     const padding = valueRange * 0.1;
 
     return {
       minDate,
       maxDate,
-      minValue: minValue - padding,
+      minValue: minValue, // 0으로 고정
       maxValue: maxValue + padding,
-      dateRange: maxDate.getTime() - minDate.getTime()
+      dateRange: maxDate.getTime() - minDate.getTime() || 1 // 0으로 나누기 방지
     };
   }, [series]);
 
-  // 좌표 변환 함수
+  // 좌표 변환 함수 (NaN 방지)
   const getCoordinates = (
     point: LineChartDataPoint,
     dimensions: ChartDimensions
@@ -107,18 +124,75 @@ const LineChart: React.FC<LineChartProps> = ({
     const chartWidth = width - margin.left - margin.right;
     const chartHeight = height - margin.top - margin.bottom;
 
+    // 날짜 유효성 검사
     const date = new Date(point.date);
-    const x = margin.left + (date.getTime() - chartData.minDate.getTime()) / chartData.dateRange * chartWidth;
-    const y = margin.top + (1 - (point.value - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight;
+    if (isNaN(date.getTime())) {
+      console.warn('유효하지 않은 날짜:', point.date);
+      return { x: 0, y: 0 };
+    }
 
-    return { x, y };
+    // 값 유효성 검사
+    const value = parseFloat(point.value.toString());
+    if (isNaN(value) || !isFinite(value)) {
+      console.warn('유효하지 않은 값:', point.value);
+      return { x: 0, y: 0 };
+    }
+
+    // 범위 유효성 검사
+    if (chartData.dateRange <= 0 || (chartData.maxValue - chartData.minValue) <= 0) {
+      console.warn('유효하지 않은 차트 범위:', { dateRange: chartData.dateRange, valueRange: chartData.maxValue - chartData.minValue });
+      return { x: margin.left, y: margin.top + chartHeight / 2 };
+    }
+
+    // 데이터가 있는 년도 기준으로 X 좌표 계산
+    const pointYear = date.getFullYear();
+    
+    // 모든 시리즈에서 년도 추출
+    const allYears = new Set<number>();
+    series.forEach(s => {
+      s.data.forEach(p => {
+        if (p.date) {
+          const year = new Date(p.date).getFullYear();
+          if (!isNaN(year)) {
+            allYears.add(year);
+          }
+        }
+      });
+    });
+    
+    // 최신 5년만 선택하여 정렬
+    const sortedYears = Array.from(allYears)
+      .sort((a, b) => b - a) // 최신 년도 순
+      .slice(0, 5) // 최대 5개
+      .sort((a, b) => a - b); // 오름차순으로 다시 정렬
+    
+    // 해당 년도의 인덱스 찾기
+    const yearIndex = sortedYears.indexOf(pointYear);
+    if (yearIndex === -1) {
+      // 데이터에 없는 년도면 가장 가까운 위치로
+      return { x: margin.left, y: margin.top + chartHeight / 2 };
+    }
+    
+    const x = margin.left + (chartWidth / 4) * yearIndex;
+    
+    const y = margin.top + (1 - (value - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight;
+
+    // 최종 좌표 유효성 검사
+    const finalX = isNaN(x) || !isFinite(x) ? margin.left : x;
+    const finalY = isNaN(y) || !isFinite(y) ? margin.top + chartHeight / 2 : y;
+
+    return { x: finalX, y: finalY };
   };
 
-  // SVG 패스 생성
+  // SVG 패스 생성 (NaN 방지)
   const createPath = (seriesData: LineChartSeries, dimensions: ChartDimensions) => {
     if (!seriesData.data.length) return '';
 
-    const points = seriesData.data.map(point => getCoordinates(point, dimensions));
+    const points = seriesData.data
+      .map(point => getCoordinates(point, dimensions))
+      .filter(coord => !isNaN(coord.x) && !isNaN(coord.y) && isFinite(coord.x) && isFinite(coord.y));
+    
+    if (points.length === 0) return '';
     
     let path = `M ${points[0].x} ${points[0].y}`;
     for (let i = 1; i < points.length; i++) {
@@ -128,7 +202,7 @@ const LineChart: React.FC<LineChartProps> = ({
     return path;
   };
 
-  // 영역 패스 생성 (showArea가 true인 경우)
+  // 영역 패스 생성 (showArea가 true인 경우, NaN 방지)
   const createAreaPath = (seriesData: LineChartSeries, dimensions: ChartDimensions) => {
     if (!seriesData.data.length || !seriesData.showArea) return '';
 
@@ -136,7 +210,11 @@ const LineChart: React.FC<LineChartProps> = ({
     const chartHeight = height - margin.top - margin.bottom;
     const bottomY = margin.top + chartHeight;
 
-    const points = seriesData.data.map(point => getCoordinates(point, dimensions));
+    const points = seriesData.data
+      .map(point => getCoordinates(point, dimensions))
+      .filter(coord => !isNaN(coord.x) && !isNaN(coord.y) && isFinite(coord.x) && isFinite(coord.y));
+    
+    if (points.length === 0) return '';
     
     let path = `M ${points[0].x} ${bottomY}`;
     path += ` L ${points[0].x} ${points[0].y}`;
@@ -274,22 +352,13 @@ const LineChart: React.FC<LineChartProps> = ({
                   d={createAreaPath(seriesData, dimensions)}
                   className="wello-line-chart__area"
                   style={{
-                    fill: seriesData.color || (seriesIndex === 0 ? 'var(--color-primary)' : 'var(--color-gray-500)'),
+                    fill: seriesData.color || (seriesIndex === 0 ? '#7c746a' : '#9ca3af'), // 브랜드 브라운 색상
                     fillOpacity: 0.1
                   }}
                 />
               )}
 
-              {/* 라인 */}
-              <path
-                d={createPath(seriesData, dimensions)}
-                className="wello-line-chart__line"
-                style={{
-                  stroke: seriesData.color || (seriesIndex === 0 ? 'var(--color-primary)' : 'var(--color-gray-600)'),
-                  strokeWidth: seriesData.strokeWidth || 2,
-                  fill: 'none'
-                }}
-              />
+              {/* 라인 제거 - 점만 표시 */}
 
               {/* 데이터 포인트 */}
               {(seriesData.showPoints !== false) && seriesData.data.map((point, pointIndex) => {
@@ -302,8 +371,8 @@ const LineChart: React.FC<LineChartProps> = ({
                     r={4}
                     className={`wello-line-chart__point ${point.status ? `wello-line-chart__point--${point.status}` : ''}`}
                     style={{
-                      fill: seriesData.color || (seriesIndex === 0 ? 'var(--color-primary)' : 'var(--color-gray-600)'),
-                      stroke: 'var(--bg-primary)',
+                      fill: '#7c746a', // 플로팅 버튼 색상으로 고정
+                      stroke: '#ffffff',
                       strokeWidth: 2
                     }}
                     onMouseEnter={(e) => handlePointHover(e, point, seriesData)}
@@ -324,25 +393,48 @@ const LineChart: React.FC<LineChartProps> = ({
               className="wello-line-chart__axis-line"
             />
             
-            {/* X축 레이블 */}
-            {Array.from({ length: 5 }, (_, i) => {
-              const ratio = i / 4;
-              const date = new Date(chartData.minDate.getTime() + ratio * chartData.dateRange);
-              const x = margin.left + ratio * chartWidth;
-              
-              return (
-                <g key={`x-label-${i}`}>
-                  <text
-                    x={x}
-                    y={margin.top + chartHeight + 20}
-                    className="wello-line-chart__axis-label"
-                    textAnchor="middle"
-                  >
-                    {formatDate(date)}
-                  </text>
-                </g>
-              );
-            })}
+              {/* X축 레이블 - 데이터가 있는 년도만 표시, 최대 5개 */}
+              {(() => {
+                // 실제 데이터에서 년도 추출
+                const dataYears = new Set<number>();
+                series.forEach(s => {
+                  s.data.forEach(point => {
+                    if (point.date) {
+                      const year = new Date(point.date).getFullYear();
+                      if (!isNaN(year)) {
+                        dataYears.add(year);
+                      }
+                    }
+                  });
+                });
+                
+                // 최신 5년만 선택하여 정렬
+                const sortedYears = Array.from(dataYears)
+                  .sort((a, b) => b - a) // 최신 년도 순
+                  .slice(0, 5) // 최대 5개
+                  .sort((a, b) => a - b); // 오름차순으로 다시 정렬
+                
+                if (sortedYears.length === 0) return null;
+                
+                return sortedYears.map((year, index) => {
+                  // 5개 고정 위치에 배치 (데이터 년도 수와 관계없이)
+                  const x = margin.left + (chartWidth / 4) * index;
+                
+                return (
+                  <g key={`x-label-${year}`}>
+                    <text
+                      x={x}
+                      y={margin.top + chartHeight + 12}
+                      className="wello-line-chart__axis-label"
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                    >
+                      {year.toString().slice(-2)}년
+                    </text>
+                  </g>
+                );
+              });
+            })()}
             
             {xAxisLabel && (
               <text
@@ -366,21 +458,27 @@ const LineChart: React.FC<LineChartProps> = ({
               className="wello-line-chart__axis-line"
             />
             
-            {/* Y축 레이블 */}
-            {Array.from({ length: 5 }, (_, i) => {
-              const ratio = i / 4;
+            {/* Y축 레이블 (0만 제외, 간격 넓게) */}
+            {Array.from({ length: 4 }, (_, i) => {
+              const ratio = i / 3; // 4개로 줄여서 간격 넓게
               const value = chartData.minValue + (1 - ratio) * (chartData.maxValue - chartData.minValue);
+              const roundedValue = Math.round(value);
+              
+              // 0은 표시하지 않음
+              if (roundedValue === 0) return null;
+              
               const y = margin.top + ratio * chartHeight;
               
               return (
                 <g key={`y-label-${i}`}>
                   <text
-                    x={margin.left - 10}
+                    x={margin.left - 35}
                     y={y + 4}
                     className="wello-line-chart__axis-label"
-                    textAnchor="end"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
                   >
-                    {valueFormat(value)}
+                    {roundedValue}
                   </text>
                 </g>
               );

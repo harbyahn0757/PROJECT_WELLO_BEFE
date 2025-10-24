@@ -4,6 +4,7 @@
  */
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import useGlobalSessionDetection from '../../hooks/useGlobalSessionDetection';
 import BarChart from '../../components/charts/BarChart';
 import LineChart from '../../components/charts/LineChart';
 import { TilkoHealthCheckupRaw } from '../../types/health';
@@ -26,6 +27,9 @@ interface ComparisonMetric {
 const HealthComparison: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+
+  // 전역 세션 감지
+  useGlobalSessionDetection({ enabled: true });
   const [healthData, setHealthData] = useState<TilkoHealthCheckupRaw[]>([]);
   const [selectedMetric, setSelectedMetric] = useState<string>('공복혈당');
   const [comparisonType, setComparisonType] = useState<'period' | 'hospital' | 'year'>('period');

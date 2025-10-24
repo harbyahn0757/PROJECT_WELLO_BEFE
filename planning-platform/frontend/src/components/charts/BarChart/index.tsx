@@ -78,18 +78,33 @@ const BarChart: React.FC<BarChartProps> = ({
     const allPoints = series.flatMap(s => s.data);
     if (!allPoints.length) return null;
 
-    // 값 범위 계산
-    const values = allPoints.map(p => p.value);
+    // 값 범위 계산 - 유효한 값만 필터링
+    const values = allPoints.map(p => p.value).filter(v => 
+      typeof v === 'number' && !isNaN(v) && isFinite(v)
+    );
     const referenceValues = allPoints.flatMap(p => 
-      p.reference ? [p.reference.min, p.reference.max, p.reference.normal].filter(Boolean) : []
+      p.reference ? [p.reference.min, p.reference.max, p.reference.normal].filter(v => 
+        typeof v === 'number' && !isNaN(v) && isFinite(v)
+      ) : []
     ) as number[];
     
     const allValues = [...values, ...referenceValues];
+    
+    // 유효한 값이 없으면 기본값 사용
+    if (allValues.length === 0) {
+      return {
+        minValue: 0,
+        maxValue: 100,
+        groups: [],
+        seriesCount: series.length
+      };
+    }
+    
     const minValue = Math.min(...allValues);
     const maxValue = Math.max(...allValues);
     
     // 여백 추가 (10%)
-    const valueRange = maxValue - minValue;
+    const valueRange = maxValue - minValue || 1; // 0으로 나누기 방지
     const padding = valueRange * 0.1;
 
     // 라벨 수집 (연도, 병원 등)
@@ -152,7 +167,8 @@ const BarChart: React.FC<BarChartProps> = ({
       maxValue: maxValue + padding,
       valueRange: maxValue - minValue + (padding * 2),
       labels,
-      groups: groups.filter(g => g.bars.length > 0)
+      groups: groups.filter(g => g.bars.length > 0),
+      seriesCount: series.length
     };
   }, [series, groupBy]);
 
@@ -180,7 +196,10 @@ const BarChart: React.FC<BarChartProps> = ({
       const groupX = margin.left + groupIndex * groupWidth + groupSpacing / 2;
       const barX = groupX + barIndex * (barWidth + barSpacing);
       
-      const barHeight = Math.max((value - chartData.minValue) / chartData.valueRange * chartHeight, 2);
+      // 바 높이를 0부터 시작하도록 계산
+      const minY = 0;
+      const maxY = Math.max(chartData.maxValue, 2);
+      const barHeight = Math.max((value - minY) / (maxY - minY) * chartHeight, 2);
       const barY = margin.top + chartHeight - barHeight;
 
       return {
@@ -197,7 +216,10 @@ const BarChart: React.FC<BarChartProps> = ({
       const groupY = margin.top + groupIndex * groupHeight + groupSpacing / 2;
       const barY = groupY + barIndex * (barHeight + barSpacing);
       
-      const barWidth = Math.max((value - chartData.minValue) / chartData.valueRange * chartWidth, 2);
+      // 바 너비를 0부터 시작하도록 계산
+      const minY = 0;
+      const maxY = Math.max(chartData.maxValue, 2);
+      const barWidth = Math.max((value - minY) / (maxY - minY) * chartWidth, 2);
       const barX = margin.left;
 
       return {
@@ -308,10 +330,10 @@ const BarChart: React.FC<BarChartProps> = ({
                     {/* 정상값 라인 */}
                     {s.data.find(p => p.reference?.normal) && (
                       <line
-                        x1={orientation === 'vertical' ? margin.left : margin.left + (s.data.find(p => p.reference?.normal)!.reference!.normal! - chartData.minValue) / chartData.valueRange * chartWidth}
-                        y1={orientation === 'vertical' ? margin.top + (1 - (s.data.find(p => p.reference?.normal)!.reference!.normal! - chartData.minValue) / chartData.valueRange) * chartHeight : margin.top}
-                        x2={orientation === 'vertical' ? margin.left + chartWidth : margin.left + (s.data.find(p => p.reference?.normal)!.reference!.normal! - chartData.minValue) / chartData.valueRange * chartWidth}
-                        y2={orientation === 'vertical' ? margin.top + (1 - (s.data.find(p => p.reference?.normal)!.reference!.normal! - chartData.minValue) / chartData.valueRange) * chartHeight : margin.top + chartHeight}
+                        x1={orientation === 'vertical' ? margin.left : margin.left + (s.data.find(p => p.reference?.normal)!.reference!.normal! - 0) / Math.max(chartData.maxValue, 2) * chartWidth}
+                        y1={orientation === 'vertical' ? margin.top + (1 - (s.data.find(p => p.reference?.normal)!.reference!.normal! - 0) / Math.max(chartData.maxValue, 2)) * chartHeight : margin.top}
+                        x2={orientation === 'vertical' ? margin.left + chartWidth : margin.left + (s.data.find(p => p.reference?.normal)!.reference!.normal! - 0) / Math.max(chartData.maxValue, 2) * chartWidth}
+                        y2={orientation === 'vertical' ? margin.top + (1 - (s.data.find(p => p.reference?.normal)!.reference!.normal! - 0) / Math.max(chartData.maxValue, 2)) * chartHeight : margin.top + chartHeight}
                         className="wello-bar-chart__reference-line wello-bar-chart__reference-line--normal"
                       />
                     )}
@@ -326,7 +348,7 @@ const BarChart: React.FC<BarChartProps> = ({
             <g key={`group-${groupIndex}`} className="wello-bar-chart__group">
               {group.bars.map((bar, barIndex) => {
                 const barDimensions = getBarDimensions(groupIndex, barIndex, bar.value, dimensions);
-                const barColor = bar.color || (barIndex === 0 ? 'var(--color-primary)' : `var(--color-gray-${500 + barIndex * 100})`);
+                const barColor = '#7c746a'; // 브랜드 브라운 컬러 사용
 
                 return (
                   <g key={`${group.label}-${bar.seriesId}`}>
@@ -337,6 +359,7 @@ const BarChart: React.FC<BarChartProps> = ({
                       width={barDimensions.width}
                       height={barDimensions.height}
                       className={`wello-bar-chart__bar ${bar.status ? `wello-bar-chart__bar--${bar.status}` : ''}`}
+                      fill={barColor}
                       style={{ fill: barColor }}
                       onMouseEnter={(e) => handleBarHover(e, bar.point, bar.seriesName, bar.unit)}
                       onMouseLeave={handleMouseLeave}
@@ -383,6 +406,7 @@ const BarChart: React.FC<BarChartProps> = ({
                   y={margin.top + chartHeight + 20}
                   className="wello-bar-chart__axis-label"
                   textAnchor="middle"
+                  dominantBaseline="middle"
                 >
                   {group.label}
                 </text>
@@ -414,7 +438,10 @@ const BarChart: React.FC<BarChartProps> = ({
             {/* Y축 레이블 */}
             {Array.from({ length: 5 }, (_, i) => {
               const ratio = i / 4;
-              const value = chartData.minValue + (1 - ratio) * chartData.valueRange;
+              // Y축을 0부터 시작하도록 수정
+              const minY = 0;
+              const maxY = Math.max(chartData.maxValue, 2); // 최소 2까지 표시
+              const value = minY + (1 - ratio) * (maxY - minY);
               const y = margin.top + ratio * chartHeight;
               
               return (
@@ -424,6 +451,7 @@ const BarChart: React.FC<BarChartProps> = ({
                   y={y + 4}
                   className="wello-bar-chart__axis-label"
                   textAnchor="end"
+                  dominantBaseline="middle"
                 >
                   {Math.round(value)}
                 </text>

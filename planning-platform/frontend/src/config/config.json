@@ -1,0 +1,20 @@
+{
+  "openai": {
+    "apiKey": "sk-proj-your-openai-api-key-here",
+    "model": "gpt-4",
+    "maxTokens": 2000,
+    "temperature": 0.7
+  },
+  "api": {
+    "baseUrl": "https://xogxog.com",
+    "endpoints": {
+      "healthAnalysis": "/wello-api/v1/health-analysis/analyze"
+    }
+  },
+  "features": {
+    "aiAnalysis": true,
+    "drugInteractionCheck": true,
+    "nutritionRecommendations": true
+  }
+}
+

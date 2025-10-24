@@ -6,6 +6,7 @@ import { TILKO_API, HTTP_METHODS, API_HEADERS } from '../constants/api';
 import { NavigationHelper, STANDARD_NAVIGATION } from '../constants/navigation';
 import { STORAGE_KEYS, StorageManager, TilkoSessionStorage } from '../constants/storage';
 import { useWebSocketAuth } from '../hooks/useWebSocketAuth';
+import useApiCallPrevention from '../hooks/useApiCallPrevention';
 import splashIcon from '../assets/splash.png';
 
 // 인증 아이콘 이미지 import
@@ -41,6 +42,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const navigate = useNavigate();
   const { state } = useWelloData();
   const { patient, layoutConfig } = state;
+
+  // API 호출 중복 방지
+  const apiCallPrevention = useApiCallPrevention({
+    debounceMs: 500,
+    throttleMs: 2000,
+    preventDuplicates: true,
+    maxRetries: 2
+  });
   
   // 인증 방식 선택 (기본값: 카카오톡)
   const [selectedAuthType, setSelectedAuthType] = useState('0'); // 0: 카카오톡
@@ -97,15 +106,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     StorageManager.removeItemWithEvent(key, 'tilko-status-change');
   };
   
-  // 로딩 중 순환 메시지
+  // 로딩 중 순환 메시지 - 더 구체적이고 단계별로 개선
   const loadingMessages = [
-    '국민건강보험공단으로부터 최근 10년간 건강검진 정보와 병원/약국 이용 이력을 연동해요.',
-    '상황에 따라 최대 1분 정도 소요 될 수 있어요. 잠시만 기다려주세요.',
-    '수집된 건강정보를 기반으로 올 해 받으실 검진에 대해서 설계해드려요',
-    '소중한 건강정보를 안전하게 처리하고 있어요.',
-    '건강정보 기반으로 맞춤형 추천 콘텐츠를 받으실 수 있어요.',
-    '기다려 주셔서 감사해요. 얼마남지 않았어요.',
-    '철저한 보안으로 소중한 건강정보를 지켜드릴게요.'
+    '🏥 국민건강보험공단에서 건강검진 데이터를 가져오고 있어요...',
+    '💊 병원 및 약국 처방전 정보를 수집하고 있어요...',
+    '📊 수집된 건강정보를 안전하게 분석하고 있어요...',
+    '🔒 개인정보를 암호화하여 안전하게 저장하고 있어요...',
+    '✨ 맞춤형 건강 트렌드 분석을 준비하고 있어요...',
+    '⏰ 잠시만 기다려주세요. 곧 완료됩니다...',
+    '🎯 최종 검토 중입니다. 거의 다 끝났어요!'
   ];
   
   // 상태 폴링 관련
@@ -892,23 +901,27 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                   StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
                   
                   setCurrentStatus('completed');
-                  setTypingText('데이터 수집이 완료되었습니다!\n결과 페이지로 이동합니다...');
+                  setTypingText('✅ 건강정보 수집이 완료되었습니다!\n🎯 트렌드 분석 결과를 확인해보세요...');
                   
-                  // 데이터 저장 확인 후 즉시 이동 (지연 제거)
-                  console.log('🚀 [수집완료] 결과 페이지로 즉시 이동');
+                  // 사용자에게 완료 메시지를 보여준 후 이동 (1.5초 지연)
+                  console.log('🚀 [수집완료] 결과 페이지로 이동 준비');
                   
-                  // URL 파라미터 포함해서 이동
-                  const urlParams = new URLSearchParams(window.location.search);
-                  const uuid = urlParams.get('uuid');
-                  const hospital = urlParams.get('hospital');
-                  
-                  if (uuid && hospital) {
-                    navigate(`/results-trend?uuid=${uuid}&hospital=${hospital}`);
-                    console.log('📍 [수집완료] URL 파라미터와 함께 이동:', { uuid, hospital });
-                  } else {
-                    navigate('/results-trend');
-                    console.log('⚠️ [수집완료] URL 파라미터 없이 이동');
-                  }
+                  setTimeout(() => {
+                    // URL 파라미터 포함해서 이동
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const uuid = urlParams.get('uuid');
+                    const hospital = urlParams.get('hospital');
+                    
+                    console.log('📍 [수집완료] 트렌드 페이지로 이동 시작:', { uuid, hospital });
+                    
+                    if (uuid && hospital) {
+                      navigate(`/results-trend?uuid=${uuid}&hospital=${hospital}`);
+                      console.log('✅ [수집완료] URL 파라미터와 함께 이동 완료');
+                    } else {
+                      navigate('/results-trend');
+                      console.log('⚠️ [수집완료] URL 파라미터 없이 이동 완료');
+                    }
+                  }, 1500);
                   
                   return; // 폴링 종료
                 }
@@ -1443,11 +1456,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           headers: API_HEADERS.JSON
         });
 
-        if (!authResponse.ok) {
-          throw new Error('인증 요청 실패');
-        }
-
         const authResult = await authResponse.json();
+        
+        if (!authResponse.ok) {
+          // 백엔드에서 보내는 구체적인 에러 메시지 사용
+          const errorMessage = authResult.detail || '인증 요청 실패';
+          throw new Error(errorMessage);
+        }
         
         if (authResult.success) {
           setCurrentStatus('auth_pending');
@@ -1619,11 +1634,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             headers: API_HEADERS.JSON
           });
 
-          if (!authResponse.ok) {
-            throw new Error('인증 요청 실패');
-          }
-
           const authResult = await authResponse.json();
+          
+          if (!authResponse.ok) {
+            // 백엔드에서 보내는 구체적인 에러 메시지 사용
+            const errorMessage = authResult.detail || '인증 요청 실패';
+            throw new Error(errorMessage);
+          }
           
           if (authResult.success) {
             setAuthRequested(true);
@@ -1690,11 +1707,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           if (result.status === 'authenticated') {
             console.log('✅ [인증완료] 실제 인증 완료 확인됨 - 데이터 수집 시작');
             
-            // 데이터 수집 시작
-            const collectResponse = await fetch(TILKO_API.COLLECT_HEALTH_DATA(sessionId), {
-              method: HTTP_METHODS.POST,
-              headers: API_HEADERS.JSON
-            });
+            // 🛡️ 데이터 수집 시작 (중복 방지 적용)
+            const collectResponse = await apiCallPrevention.safeApiCall(
+              async (signal) => fetch(TILKO_API.COLLECT_HEALTH_DATA(sessionId), {
+                method: HTTP_METHODS.POST,
+                headers: API_HEADERS.JSON,
+                signal
+              }),
+              `collect_data_${sessionId}`
+            );
 
             if (collectResponse.ok) {
               const collectResult = await collectResponse.json();
@@ -2654,15 +2675,22 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             </div>
           </div>
           
-          {/* 진행률 표시 */}
-          <p style={{ fontSize: '14px', color: '#999', textAlign: 'center' }}>
-            {currentStatus === 'manual_collecting' ? '데이터 수집을 시작합니다...' :
-             currentStatus === 'collecting' ? '건강정보를 수집하고 있습니다...' :
-             currentStatus === 'data_collecting' ? '건강정보를 수집하고 있습니다...' :
-             currentStatus === 'fetching_health_data' ? '🏥 건강검진 데이터 수집 중...' :
-             currentStatus === 'fetching_prescription_data' ? '💊 처방전 데이터 수집 중...' :
-             '데이터를 수집하고 있습니다...'}
-          </p>
+          {/* 진행률 표시 - 더 구체적인 단계별 안내 */}
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <p style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>
+              {currentStatus === 'manual_collecting' ? '🚀 데이터 수집을 시작합니다...' :
+               currentStatus === 'collecting' ? '📡 국민건강보험공단과 연결 중...' :
+               currentStatus === 'data_collecting' ? '🔄 건강정보를 수집하고 있습니다...' :
+               currentStatus === 'fetching_health_data' ? '🏥 건강검진 데이터 수집 중...' :
+               currentStatus === 'fetching_prescription_data' ? '💊 처방전 데이터 수집 중...' :
+               '📊 데이터를 분석하고 있습니다...'}
+            </p>
+            
+            {/* 예상 소요 시간 안내 */}
+            <p style={{ fontSize: '12px', color: '#999' }}>
+              예상 소요 시간: 30초 ~ 1분
+            </p>
+          </div>
         </div>
       </div>
     );

@@ -4,6 +4,7 @@
  */
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import useGlobalSessionDetection from '../../hooks/useGlobalSessionDetection';
 import AdvancedSearch from '../../components/search/AdvancedSearch';
 import BarChart from '../../components/charts/BarChart';
 import { useSavedFilters } from '../../hooks/useSavedFilters';
@@ -27,6 +28,9 @@ interface PrescriptionStats {
 const PrescriptionHistory: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+
+  // 전역 세션 감지
+  useGlobalSessionDetection({ enabled: true });
   const [prescriptionData, setPrescriptionData] = useState<TilkoPrescriptionRaw[]>([]);
   const [stats, setStats] = useState<PrescriptionStats | null>(null);
   const [filters, setFilters] = useState<FilterState>({

@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.openapi.utils import get_openapi
 import os
 
-from .api.v1.endpoints import patients, hospitals, health, checkup_design, auth, tilko_auth, websocket_auth, wello_data
+from .api.v1.endpoints import patients, hospitals, health, checkup_design, auth, tilko_auth, websocket_auth, wello_data, file_management, health_analysis
 from .core.config import settings
 from .data.redis_session_manager import redis_session_manager as session_manager
 
@@ -44,6 +44,8 @@ app.include_router(patients.router, prefix="/api/v1/patients", tags=["patients"]
 app.include_router(hospitals.router, prefix="/api/v1/hospitals", tags=["hospitals"])
 app.include_router(checkup_design.router, prefix="/api/v1/checkup-design", tags=["checkup-design"])
 app.include_router(wello_data.router, prefix="/api/v1/wello", tags=["wello"])
+app.include_router(file_management.router, prefix="/api/v1/admin", tags=["admin"])
+app.include_router(health_analysis.router, prefix="/api/v1/health-analysis", tags=["health-analysis"])
 
 @app.on_event("startup")
 async def startup_event():
@@ -57,6 +59,14 @@ async def startup_event():
     cleaned = session_manager.cleanup_expired_sessions()
     if cleaned > 0:
         print(f"🧹 [초기정리] {cleaned}개 만료된 세션 정리 완료")
+    
+    # 파일 → DB 처리 스케줄러 시작
+    try:
+        from .tasks.file_to_db_processor import start_file_processor
+        start_file_processor()
+        print("✅ [파일처리] 파일 → DB 처리 스케줄러 시작 완료")
+    except Exception as e:
+        print(f"⚠️ [파일처리] 스케줄러 시작 실패: {e}")
     
     print("✅ [시스템] 서버 시작 완료")
 

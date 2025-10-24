@@ -4,6 +4,7 @@
  */
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import useGlobalSessionDetection from '../../hooks/useGlobalSessionDetection';
 import LineChart from '../../components/charts/LineChart';
 import BarChart from '../../components/charts/BarChart';
 import FilterSection from '../../components/health/FilterSection';
@@ -25,6 +26,9 @@ interface TrendAnalysis {
 const HealthTrends: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+
+  // 전역 세션 감지
+  useGlobalSessionDetection({ enabled: true });
   const [healthData, setHealthData] = useState<TilkoHealthCheckupRaw[]>([]);
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['공복혈당', '총콜레스테롤', '혈압(최고/최저)']);
   const [filters, setFilters] = useState<FilterState>({

@@ -4,6 +4,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import useGlobalSessionDetection from '../../hooks/useGlobalSessionDetection';
 import LineChart from '../../components/charts/LineChart';
 import BarChart from '../../components/charts/BarChart';
 import PieChart from '../../components/charts/PieChart';
@@ -35,6 +36,9 @@ const HealthDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [healthData, setHealthData] = useState<TilkoHealthCheckupRaw[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+
+  // 전역 세션 감지 (진행 중인 인증/수집 세션이 있으면 적절한 화면으로 리다이렉트)
+  useGlobalSessionDetection({ enabled: true });
 
   // 데이터 로드
   useEffect(() => {
