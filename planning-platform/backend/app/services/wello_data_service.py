@@ -365,12 +365,16 @@ class WelloDataService:
                                     blood_sugar = int(float(value))
                                 elif '총콜레스테롤' in name and value:
                                     cholesterol = int(float(value))
-                                elif 'HDL' in name and '콜레스테롤' in name and value:
+                                    print(f"✅ [총콜레스테롤] 파싱 성공: {name} = {value}")
+                                elif ('HDL' in name or '고밀도' in name) and '콜레스테롤' in name and value:
                                     hdl_cholesterol = int(float(value))
-                                elif 'LDL' in name and '콜레스테롤' in name and value:
+                                    print(f"✅ [HDL 콜레스테롤] 파싱 성공: {name} = {value}")
+                                elif ('LDL' in name or '저밀도' in name) and '콜레스테롤' in name and value:
                                     ldl_cholesterol = int(float(value))
+                                    print(f"✅ [LDL 콜레스테롤] 파싱 성공: {name} = {value}")
                                 elif '중성지방' in name and value:
                                     triglyceride = int(float(value))
+                                    print(f"✅ [중성지방] 파싱 성공: {name} = {value}")
                                 elif '혈색소' in name and value:
                                     hemoglobin = float(value)
                             except (ValueError, TypeError):

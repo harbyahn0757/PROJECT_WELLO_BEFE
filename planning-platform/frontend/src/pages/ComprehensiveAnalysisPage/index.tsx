@@ -67,6 +67,144 @@ const ComprehensiveAnalysisPage: React.FC = () => {
   // 의료기관 방문추이 슬라이더 상태
   const [activeVisitDotIndex, setActiveVisitDotIndex] = useState(0);
   
+  // GPT 분석 요청 함수 (useCallback으로 먼저 정의)
+  const analyzeHealthData = useCallback(async () => {
+    if (healthData.length === 0 && prescriptionData.length === 0) {
+      setError('분석할 건강 데이터가 없습니다.');
+      return;
+    }
+
+    setIsAnalyzing(true);
+    setError(null);
+    setAnalysisProgress(0);
+    setAnalysisStep('데이터 준비 중...');
+
+    try {
+      // 진행률 업데이트
+      setAnalysisProgress(20);
+      setAnalysisStep('건강 데이터 분석 중...');
+      
+      console.log('🧠 [GPT분석] 분석 요청 시작');
+      console.log('📊 [GPT분석] 전송 데이터:', {
+        healthDataCount: healthData.length,
+        prescriptionDataCount: prescriptionData.length,
+        healthSample: healthData.slice(0, 1),
+        prescriptionSample: prescriptionData.slice(0, 1)
+      });
+      
+      // 진행률 업데이트
+      setAnalysisProgress(50);
+      setAnalysisStep('AI 분석 요청 중...');
+      
+      // DB 데이터를 백엔드가 기대하는 형식으로 변환
+      const healthDataForAPI = healthData.map(item => ({
+        ...item,
+        // 필요한 필드들 확인 및 변환
+        checkup_date: (item as any).checkup_date || item.CheckUpDate,
+        year: (item as any).year || item.Year,
+        location: (item as any).location || item.Location
+      }));
+
+      const prescriptionDataForAPI = prescriptionData.map(item => ({
+        ...item,
+        // 필요한 필드들 확인 및 변환
+        treatment_date: (item as any).treatment_date || (item as any).JinRyoGaesiIl,
+        hospital_name: (item as any).hospital_name || (item as any).ByungEuiwonYakGukMyung
+      }));
+
+      const requestData = {
+        health_data: healthDataForAPI,
+        prescription_data: prescriptionDataForAPI
+      };
+
+      console.log('📤 [GPT분석] API 요청 데이터:', requestData);
+
+      const response = await fetch('/wello-api/v1/health-analysis/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      // 진행률 업데이트
+      setAnalysisProgress(80);
+      setAnalysisStep('분석 결과 처리 중...');
+
+      const result = await response.json();
+      console.log('📥 [GPT분석] API 응답:', result);
+
+      if (result.success && result.analysis) {
+        // 진행률 완료
+        setAnalysisProgress(100);
+        setAnalysisStep('분석 완료!');
+        setGptAnalysis(result.analysis);
+        
+        // localStorage에 분석 결과 저장 (플로팅 버튼 상태 업데이트용)
+        localStorage.setItem('gpt_analysis_result', JSON.stringify(result.analysis));
+        
+        // 플로팅 버튼 상태 업데이트 이벤트 발생
+        window.dispatchEvent(new CustomEvent('gpt-analysis-completed'));
+        
+        // 분석 완료 후 결과 섹션으로 부드럽게 스크롤
+        setTimeout(() => {
+          const analysisResultsSection = document.querySelector('.gpt-analysis-section');
+          if (analysisResultsSection) {
+            analysisResultsSection.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'start' 
+            });
+          }
+        }, 500);
+      } else {
+        throw new Error('분석 결과가 올바르지 않습니다.');
+      }
+    } catch (error) {
+      console.error('❌ [GPT분석] 분석 실패:', error);
+      console.log('🔄 [GPT분석] 목 데이터로 폴백');
+      // 목 데이터로 폴백
+      const mockResult = getMockAnalysisResult();
+      setGptAnalysis(mockResult);
+      
+      // localStorage에 목 분석 결과 저장 (플로팅 버튼 상태 업데이트용)
+      localStorage.setItem('gpt_analysis_result', JSON.stringify(mockResult));
+      
+      // 플로팅 버튼 상태 업데이트 이벤트 발생
+      window.dispatchEvent(new CustomEvent('gpt-analysis-completed'));
+      
+      // 목 데이터 설정 후에도 스크롤
+      setTimeout(() => {
+        const analysisResultsSection = document.querySelector('.gpt-analysis-section');
+        if (analysisResultsSection) {
+          analysisResultsSection.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        }
+      }, 500);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [healthData, prescriptionData]);
+
+  // 플로팅 버튼에서 AI 분석 시작 이벤트 리스너
+  useEffect(() => {
+    const handleStartAnalysis = () => {
+      console.log('🎯 [ComprehensiveAnalysisPage] 플로팅 버튼에서 AI 분석 시작 요청');
+      analyzeHealthData();
+    };
+    
+    window.addEventListener('start-ai-analysis', handleStartAnalysis);
+    
+    return () => {
+      window.removeEventListener('start-ai-analysis', handleStartAnalysis);
+    };
+  }, [analyzeHealthData]);
+  
   // 헬퍼 함수들
   const getFieldNameForMetric = (metric: string): string => {
     switch (metric) {
@@ -748,6 +886,26 @@ const ComprehensiveAnalysisPage: React.FC = () => {
         prescriptionDataCount: result.data?.prescription_data?.length || 0
       });
       
+      // API 응답의 첫 번째 건강 데이터 상세 구조 로깅
+      if (result.data?.health_data?.[0]) {
+        const firstHealthData = result.data.health_data[0];
+        console.log('🔍 [API 구조] 첫 번째 건강 데이터 상세:', {
+          keys: Object.keys(firstHealthData),
+          hasInspections: !!firstHealthData.Inspections,
+          inspectionsCount: firstHealthData.Inspections?.length || 0,
+          inspectionsSample: firstHealthData.Inspections?.[0] || null,
+          rawDataKeys: firstHealthData.raw_data ? Object.keys(firstHealthData.raw_data) : null,
+          sampleData: {
+            Year: firstHealthData.Year,
+            CheckUpDate: firstHealthData.CheckUpDate,
+            cholesterol: firstHealthData.cholesterol,
+            hdl_cholesterol: firstHealthData.hdl_cholesterol,
+            ldl_cholesterol: firstHealthData.ldl_cholesterol,
+            triglyceride: firstHealthData.triglyceride
+          }
+        });
+      }
+      
       if (result.success && result.data) {
         // API에서 오는 데이터는 직접 배열 형태 (ResultList 속성 없음)
         if (result.data.health_data && Array.isArray(result.data.health_data) && result.data.health_data.length > 0) {
@@ -823,126 +981,6 @@ const ComprehensiveAnalysisPage: React.FC = () => {
     }
   };
 
-  // GPT 분석 요청
-  const analyzeHealthData = async () => {
-    if (healthData.length === 0 && prescriptionData.length === 0) {
-      setError('분석할 건강 데이터가 없습니다.');
-      return;
-    }
-
-    setIsAnalyzing(true);
-    setError(null);
-    setAnalysisProgress(0);
-    setAnalysisStep('데이터 준비 중...');
-
-    try {
-      // 진행률 업데이트
-      setAnalysisProgress(20);
-      setAnalysisStep('건강 데이터 분석 중...');
-      
-      console.log('🧠 [GPT분석] 분석 요청 시작');
-      console.log('📊 [GPT분석] 전송 데이터:', {
-        healthDataCount: healthData.length,
-        prescriptionDataCount: prescriptionData.length,
-        healthSample: healthData.slice(0, 1),
-        prescriptionSample: prescriptionData.slice(0, 1)
-      });
-      
-      // 진행률 업데이트
-      setAnalysisProgress(50);
-      setAnalysisStep('AI 분석 요청 중...');
-      
-      // DB 데이터를 백엔드가 기대하는 형식으로 변환
-      const formattedHealthData = healthData.map((item: any) => ({
-        date: item.checkup_date || new Date().toISOString().split('T')[0],
-        year: item.year || '2024',
-        inspections: [{
-          name: '건강검진',
-          items: [
-            { name: '혈압(수축기)', value: String(item.blood_pressure_high || 0), unit: 'mmHg' },
-            { name: '혈압(이완기)', value: String(item.blood_pressure_low || 0), unit: 'mmHg' },
-            { name: '혈당', value: String(item.blood_sugar || 0), unit: 'mg/dL' },
-            { name: '콜레스테롤', value: String(item.cholesterol || 0), unit: 'mg/dL' },
-            { name: 'BMI', value: String(item.bmi || 0), unit: 'kg/m²' }
-          ]
-        }]
-      }));
-
-      const formattedPrescriptionData = prescriptionData.map((item: any) => ({
-        date: item.treatment_date || new Date().toISOString().split('T')[0],
-        hospital: item.hospital_name || '병원',
-        medications: [{
-          name: '처방약',
-          dosage: '1회',
-          frequency: '1일 1회'
-        }]
-      }));
-
-      // 백엔드 health-analysis API 호출
-      const response = await fetch('/wello-api/v1/health-analysis/analyze', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          health_data: formattedHealthData,
-          prescription_data: formattedPrescriptionData,
-          analysis_type: 'comprehensive'
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`분석 요청 실패: ${response.status}`);
-      }
-
-      // 진행률 업데이트
-      setAnalysisProgress(80);
-      setAnalysisStep('분석 결과 처리 중...');
-      
-      const result = await response.json();
-      console.log('✅ [GPT분석] 분석 결과 수신:', result);
-      
-      if (result.success && result.analysis) {
-        // 진행률 완료
-        setAnalysisProgress(100);
-        setAnalysisStep('분석 완료!');
-        setGptAnalysis(result.analysis);
-        
-        // 분석 완료 후 결과 섹션으로 부드럽게 스크롤
-        setTimeout(() => {
-          const analysisResultsSection = document.querySelector('.gpt-analysis-section');
-          if (analysisResultsSection) {
-            analysisResultsSection.scrollIntoView({ 
-              behavior: 'smooth', 
-              block: 'start' 
-            });
-          }
-        }, 500); // 0.5초 후 스크롤 (애니메이션 완료 후)
-        
-    } else {
-        throw new Error('분석 결과가 올바르지 않습니다.');
-      }
-    } catch (error) {
-      console.error('❌ [GPT분석] 분석 실패:', error);
-      console.log('🔄 [GPT분석] 목 데이터로 폴백');
-      // 목 데이터로 폴백
-      setGptAnalysis(getMockAnalysisResult());
-      
-      // 목 데이터 설정 후에도 스크롤
-      setTimeout(() => {
-        const analysisResultsSection = document.querySelector('.gpt-analysis-section');
-        if (analysisResultsSection) {
-          analysisResultsSection.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start' 
-          });
-        }
-      }, 500);
-      
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
 
   // 목 데이터 (개발용)
   const getMockAnalysisResult = (): GPTAnalysisResult => ({
@@ -1008,7 +1046,8 @@ const ComprehensiveAnalysisPage: React.FC = () => {
         </div>
 
         <div className="comprehensive-analysis-content">
-        {/* AI 분석 리포트 카드 */}
+        {/* AI 분석 리포트 카드 - gptAnalysis가 있을 때만 표시 */}
+        {gptAnalysis && (
         <section className="analysis-card gpt-analysis-section">
           <div className="card-header">
             <h2 className="section-title">AI 건강 분석 리포트</h2>
@@ -1098,6 +1137,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
             </div>
           )}
         </section>
+        )}
 
         {/* 건강 추이 차트 카드 */}
         <section className="analysis-card">
@@ -1139,49 +1179,8 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                 // 기존 로직 유지
                 return (() => {
                 const fieldName = getFieldNameForMetric(metric);
-                // 최신 데이터에서 값 추출 (더 정확하게)
-                const latestValue = healthData.length > 0 ? (() => {
-                  const rawValue = (healthData[0] as any)[fieldName];
-                  
-                  // 콜레스테롤 관련 디버깅 (첫 번째 항목만)
-                  if ((metric.includes('콜레스테롤') || metric.includes('중성지방')) && index === 0) {
-                    console.log(`📊 [건강지표] ${metric} 필드 매핑:`, {
-                      metric,
-                      fieldName,
-                      rawValue,
-                      availableFields: Object.keys(healthData[0]),
-                      cholesterolFields: Object.keys(healthData[0]).filter(key => 
-                        key.toLowerCase().includes('cholesterol') || 
-                        key.toLowerCase().includes('triglyceride') ||
-                        key.includes('콜레스테롤') || 
-                        key.includes('중성지방')
-                      ),
-                      actualFieldValues: Object.keys(healthData[0])
-                        .filter(key => 
-                          key.toLowerCase().includes('cholesterol') || 
-                          key.toLowerCase().includes('triglyceride') ||
-                          key.includes('콜레스테롤') || 
-                          key.includes('중성지방')
-                        )
-                        .reduce((acc, key) => ({ ...acc, [key]: (healthData[0] as any)[key] }), {})
-                    });
-                  }
-                  
-                  if (typeof rawValue === 'string') {
-                    const parsed = parseFloat(rawValue);
-                    return isNaN(parsed) ? 0 : parsed;
-                  } else if (typeof rawValue === 'number') {
-                    return isNaN(rawValue) ? 0 : rawValue;
-                  }
-                  return 0;
-                })() : 0;
-
-                // 건강 상태 정보 가져오기
-                const healthStatus = healthData.length > 0 ? 
-                  getHealthStatus(metric, latestValue, healthData[0]) : 
-                  { status: 'normal' as const, text: '정상', date: '' };
                 
-                // 해당 지표의 개별 차트 데이터 생성
+                // 해당 지표의 개별 차트 데이터 생성 (먼저 선언)
                 const metricChartData = healthData.length > 0 ? [{
                   id: `metric-${index}`,
                   name: metric,
@@ -1247,6 +1246,29 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   })()
                 }] : [];
                 
+                // 그래프 데이터에서 최신 값 추출 (간단하고 확실한 방법)
+                const latestValue = (() => {
+                  // 해당 지표의 차트 데이터 찾기
+                  const chartSeries = metricChartData.find(series => series.name === metric);
+                  if (chartSeries && chartSeries.data && chartSeries.data.length > 0) {
+                    // 최신 데이터 (배열의 마지막 요소)
+                    const latestData = chartSeries.data[chartSeries.data.length - 1];
+                    console.log(`✅ [${metric}] 그래프 데이터에서 최신값 추출:`, {
+                      metric,
+                      value: latestData.value,
+                      date: latestData.date,
+                      source: 'chartData'
+                    });
+                    return latestData.value;
+                  }
+                  return 0;
+                })();
+
+                // 건강 상태 정보 가져오기
+                const healthStatus = healthData.length > 0 ? 
+                  getHealthStatus(metric, latestValue, healthData[0]) : 
+                  { status: 'normal' as const, text: '정상', date: '' };
+                
                 return (
                   <div 
                     key={metric}
@@ -1307,15 +1329,70 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                           ) || [];
                           
                           if (validData.length < 2) {
+                            // 단일 데이터에서도 건강 범위 표시
+                            const healthRanges = getHealthRanges(metric, healthData[0], 'M');
+                            
                             return (
-                              <div className="single-data">
-                                <div className="single-point">
+                              <div className="single-data-with-ranges">
+                                {/* 건강 범위 배경 */}
+                                {healthRanges && (
+                                  <div className="health-ranges-background">
+                                    {healthRanges.normal && (
+                                      <div 
+                                        className="range-zone normal-zone"
+                                        style={{
+                                          backgroundColor: 'rgba(34, 197, 94, 0.15)',
+                                          position: 'absolute',
+                                          left: 0,
+                                          right: 0,
+                                          height: '100%',
+                                          zIndex: 1
+                                        }}
+                                      >
+                                        <span className="range-label">정상</span>
+                                      </div>
+                                    )}
+                                    {healthRanges.borderline && (
+                                      <div 
+                                        className="range-zone borderline-zone"
+                                        style={{
+                                          backgroundColor: 'rgba(251, 146, 60, 0.15)',
+                                          position: 'absolute',
+                                          left: 0,
+                                          right: 0,
+                                          height: '100%',
+                                          zIndex: 1
+                                        }}
+                                      >
+                                        <span className="range-label">경계</span>
+                                      </div>
+                                    )}
+                                    {healthRanges.abnormal && (
+                                      <div 
+                                        className="range-zone abnormal-zone"
+                                        style={{
+                                          backgroundColor: 'rgba(220, 38, 127, 0.12)',
+                                          position: 'absolute',
+                                          left: 0,
+                                          right: 0,
+                                          height: '100%',
+                                          zIndex: 1
+                                        }}
+                                      >
+                                        <span className="range-label">이상</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                {/* 단일 데이터 포인트 */}
+                                <div className="single-point" style={{ position: 'relative', zIndex: 2 }}>
                                   <div className="point-dot"></div>
                                   <div className="point-value">
                                     {validData.length > 0 ? validData[0]?.value?.toFixed(1) || '-' : '-'}
                                   </div>
                                 </div>
-                                <p className="single-data-label">데이터 부족</p>
+                                <p className="single-data-label">단일 데이터</p>
                               </div>
                             );
                           }
@@ -1418,7 +1495,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   <BarChart 
                     series={prescriptionChartData}
                     width={window.innerWidth <= 768 ? Math.min(window.innerWidth * 0.8, 320) : 350}
-                    height={250}
+                    height={170} // 건강지표와 동일한 높이 (250px → 170px)
                   />
                 ) : (
                   <div className="chart-loading">
@@ -1445,7 +1522,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   <BarChart 
                     series={hospitalVisitChartData}
                     width={window.innerWidth <= 768 ? Math.min(window.innerWidth * 0.8, 320) : 350}
-                    height={250}
+                    height={170} // 건강지표와 동일한 높이 (250px → 170px)
                   />
                 ) : (
                   <div className="chart-loading">
@@ -1492,7 +1569,8 @@ const ComprehensiveAnalysisPage: React.FC = () => {
           </div>
         </section>
 
-        {/* 약물 상호작용 분석 카드 */}
+        {/* 약물 상호작용 분석 카드 - gptAnalysis가 있을 때만 표시 */}
+        {gptAnalysis && (
         <section className="analysis-card">
           <div className="card-header">
             <h2 className="section-title">약물 상호작용 분석</h2>
@@ -1536,6 +1614,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
             )}
           </div>
         </section>
+        )}
 
         {/* 영양 권장사항 카드 */}
         {gptAnalysis?.nutritionRecommendations && (
@@ -1597,7 +1676,8 @@ const ComprehensiveAnalysisPage: React.FC = () => {
           </section>
         )}
 
-        {/* 데이터 출처 및 면책 조항 */}
+        {/* 데이터 출처 및 면책 조항 - gptAnalysis가 있을 때만 표시 */}
+        {gptAnalysis && (
         <section className="analysis-card">
           <div className="card-header">
             <h2 className="section-title">데이터 출처 및 면책 조항</h2>
@@ -1619,6 +1699,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
             </div>
           </div>
         </section>
+        )}
 
         {/* 에러 표시 */}
         {error && (

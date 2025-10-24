@@ -207,6 +207,39 @@ const FloatingButton: React.FC = () => {
       }
     }
     
+    // comprehensive-analysis 페이지에서는 AI 분석 시작 버튼
+    if (path === '/comprehensive-analysis' || path.includes('/comprehensive-analysis')) {
+      // AI 분석 완료 상태 확인 (localStorage에서)
+      const gptAnalysisResult = localStorage.getItem('gpt_analysis_result');
+      
+      // AI 분석이 완료되면 플로팅 버튼 숨기기
+      if (gptAnalysisResult) {
+        return null; // 플로팅 버튼 숨김
+      }
+      
+      return {
+        text: (
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img 
+              src="/wello/wello-icon.png" 
+              alt="Wello" 
+              style={{ 
+                width: '20px', 
+                height: '20px'
+              }} 
+            />
+            AI 종합 분석
+          </span>
+        ),
+        onClick: () => {
+          console.log('🧠 [플로팅버튼] AI 종합 분석 시작');
+          // ComprehensiveAnalysisPage의 analyzeHealthData 함수 호출
+          const event = new CustomEvent('start-ai-analysis');
+          window.dispatchEvent(event);
+        }
+      };
+    }
+    
     // 기본 (메인페이지 등) - 모든 화면에서 동일한 역할
     return {
       text: '건강검진 예약하기',
@@ -222,6 +255,11 @@ const FloatingButton: React.FC = () => {
   };
 
   const buttonConfig = React.useMemo(() => getButtonConfig(), [location.pathname, isAuthWaiting, isAuthMethodSelection, buttonUpdateTrigger]);
+
+  // buttonConfig가 null이면 플로팅 버튼 숨기기
+  if (!buttonConfig) {
+    return null;
+  }
 
   return (
     <div className="floating-button-container">
