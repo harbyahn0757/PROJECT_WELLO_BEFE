@@ -104,6 +104,71 @@ const ComprehensiveAnalysisPage: React.FC = () => {
     }
   };
 
+  // 건강지표별 정상/비정상 판정 함수
+  const getHealthStatus = (metric: string, value: number): { status: 'normal' | 'warning' | 'danger', text: string } => {
+    // 신장, 체중은 정상/비정상 판정이 없음
+    if (metric === '신장' || metric === '체중') {
+      return { status: 'normal', text: '측정' };
+    }
+    
+    switch (metric) {
+      case 'BMI':
+        if (value < 18.5) return { status: 'warning', text: '저체중' };
+        if (value <= 24.9) return { status: 'normal', text: '정상' };
+        if (value <= 29.9) return { status: 'warning', text: '과체중' };
+        return { status: 'danger', text: '비만' };
+        
+      case '허리둘레':
+        // 일반적으로 남성 90cm, 여성 85cm 기준 (성별 정보가 없으므로 남성 기준 사용)
+        if (value < 90) return { status: 'normal', text: '정상' };
+        return { status: 'danger', text: '질환의심' };
+        
+      case '혈압 (수축기)':
+        if (value < 120) return { status: 'normal', text: '정상' };
+        if (value < 140) return { status: 'warning', text: '주의' };
+        return { status: 'danger', text: '고혈압' };
+        
+      case '혈압 (이완기)':
+        if (value < 80) return { status: 'normal', text: '정상' };
+        if (value < 90) return { status: 'warning', text: '주의' };
+        return { status: 'danger', text: '고혈압' };
+        
+      case '혈당':
+        if (value < 100) return { status: 'normal', text: '정상' };
+        if (value < 126) return { status: 'warning', text: '주의' };
+        return { status: 'danger', text: '당뇨의심' };
+        
+      case '총콜레스테롤':
+        if (value < 200) return { status: 'normal', text: '정상' };
+        if (value < 240) return { status: 'warning', text: '경계' };
+        return { status: 'danger', text: '위험' };
+        
+      case 'HDL 콜레스테롤':
+        if (value >= 60) return { status: 'normal', text: '좋음' };
+        if (value >= 40) return { status: 'normal', text: '정상' };
+        return { status: 'warning', text: '낮음' };
+        
+      case 'LDL 콜레스테롤':
+        if (value < 100) return { status: 'normal', text: '정상' };
+        if (value < 130) return { status: 'warning', text: '경계' };
+        return { status: 'danger', text: '위험' };
+        
+      case '중성지방':
+        if (value < 150) return { status: 'normal', text: '정상' };
+        if (value < 200) return { status: 'warning', text: '경계' };
+        return { status: 'danger', text: '위험' };
+        
+      case '헤모글로빈':
+        // 일반적으로 남성 13-17, 여성 12-15 기준 (중간값 사용)
+        if (value >= 12 && value <= 17) return { status: 'normal', text: '정상' };
+        if (value < 12) return { status: 'warning', text: '빈혈의심' };
+        return { status: 'warning', text: '높음' };
+        
+      default:
+        return { status: 'normal', text: '정상' };
+    }
+  };
+
   // 차트 데이터 검증 및 정리 함수
   const validateChartData = useCallback((data: any) => {
     if (!data || typeof data !== 'object') return null;
@@ -831,9 +896,10 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                 // 기존 로직 유지
                 return (() => {
                 const fieldName = getFieldNameForMetric(metric);
-                // 최신 데이터에서 값 추출 (더 정확하게)
-                const latestValue = healthData.length > 0 ? (() => {
-                  const rawValue = (healthData[0] as any)[fieldName];
+                // 최신 데이터에서 값과 검사일 추출
+                const latestData = healthData.length > 0 ? healthData[0] : null;
+                const latestValue = latestData ? (() => {
+                  const rawValue = (latestData as any)[fieldName];
                   
                   // 콜레스테롤 관련 디버깅 (첫 번째 항목만)
                   if ((metric.includes('콜레스테롤') || metric.includes('중성지방')) && index === 0) {
@@ -867,6 +933,10 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   }
                   return 0;
                 })() : 0;
+                
+                // 건강 상태 판정 및 검사일 추출
+                const healthStatus = getHealthStatus(metric, latestValue);
+                const checkupDate = latestData ? `${latestData.year || '2024'}.${latestData.checkup_date || '01/01'}` : '';
                 
                 // 해당 지표의 개별 차트 데이터 생성
                 const metricChartData = healthData.length > 0 ? [{
@@ -940,7 +1010,16 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                     className="health-metric-card"
                   >
                     <div className="metric-header">
-                      <div className="status-badge status-normal">정상</div>
+                      <div className="status-info">
+                        <div className={`status-badge status-${healthStatus.status}`}>
+                          {healthStatus.text}
+                        </div>
+                        {checkupDate && (
+                          <div className="checkup-date">
+                            {checkupDate}
+                          </div>
+                        )}
+                      </div>
                       <h3 className="metric-title">{metric}</h3>
                       <div className="metric-value">
                         <span className="value">

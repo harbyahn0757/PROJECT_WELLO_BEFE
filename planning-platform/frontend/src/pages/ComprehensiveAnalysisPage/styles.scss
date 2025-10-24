@@ -1040,26 +1040,40 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
     margin-bottom: $spacing-sm; // 숫자-그래프 간격 줄임
     position: relative;
       
-      .status-badge {
+      .status-info {
         position: absolute;
         top: 0;
         right: 0;
-        padding: 2px 8px;
-        border-radius: 8px;
-        font-size: 10px;
-        font-weight: 600;
-        color: white;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 2px;
         
-        &.status-normal {
-          background: $brand-brown;
+        .status-badge {
+          padding: 2px 8px;
+          border-radius: 8px;
+          font-size: 10px;
+          font-weight: 600;
+          color: white;
+          
+          &.status-normal {
+            background: $brand-brown;
+          }
+          
+          &.status-warning {
+            background: $warning;
+          }
+          
+          &.status-danger {
+            background: #ef4444;
+          }
         }
         
-        &.status-warning {
-          background: $warning;
-        }
-        
-        &.status-abnormal {
-          background: #ef4444;
+        .checkup-date {
+          font-size: 8px;
+          color: $gray-500;
+          font-weight: 400;
+          white-space: nowrap;
         }
       }
       
