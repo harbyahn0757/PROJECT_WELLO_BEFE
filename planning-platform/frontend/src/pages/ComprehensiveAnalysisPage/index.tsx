@@ -860,9 +860,10 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   }
                   
                   if (typeof rawValue === 'string') {
-                    return parseFloat(rawValue) || 0;
+                    const parsed = parseFloat(rawValue);
+                    return isNaN(parsed) ? 0 : parsed;
                   } else if (typeof rawValue === 'number') {
-                    return rawValue;
+                    return isNaN(rawValue) ? 0 : rawValue;
                   }
                   return 0;
                 })() : 0;

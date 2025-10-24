@@ -392,7 +392,7 @@ const LineChart: React.FC<LineChartProps> = ({
               className="wello-line-chart__axis-line"
             />
             
-              {/* X축 레이블 - 데이터가 있는 년도만 표시, 최대 5개 */}
+              {/* X축 레이블 - 데이터가 있는 년도와 빈 슬롯에 파비콘 표시 */}
               {(() => {
                 // 실제 데이터에서 년도 추출
                 const dataYears = new Set<number>();
@@ -412,26 +412,42 @@ const LineChart: React.FC<LineChartProps> = ({
                   .sort((a, b) => b - a) // 최신 년도 순
                   .slice(0, 5); // 최대 5개 (최신 순 유지)
                 
-                if (sortedYears.length === 0) return null;
-                
-                return sortedYears.map((year, index) => {
-                  // 5개 고정 위치에 배치 (데이터 년도 수와 관계없이)
+                // 5개 고정 슬롯 생성 (데이터가 있는 곳은 년도, 없는 곳은 파비콘)
+                return Array.from({ length: 5 }, (_, index) => {
                   const x = margin.left + (chartWidth / 4) * index;
-                
-                return (
-                  <g key={`x-label-${year}`}>
-                    <text
-                      x={x}
-                      y={margin.top + chartHeight + 12}
-                      className="wello-line-chart__axis-label"
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                    >
-                      {year.toString().slice(-2)}년
-                    </text>
-                  </g>
-                );
-              });
+                  const year = sortedYears[index];
+                  
+                  if (year) {
+                    // 데이터가 있는 경우 년도 표시
+                    return (
+                      <g key={`x-label-${year}`}>
+                        <text
+                          x={x}
+                          y={margin.top + chartHeight + 12}
+                          className="wello-line-chart__axis-label"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                        >
+                          {year.toString().slice(-2)}년
+                        </text>
+                      </g>
+                    );
+                  } else {
+                    // 빈 슬롯에는 파비콘 표시
+                    return (
+                      <g key={`x-empty-${index}`}>
+                        <image
+                          x={x - 8}
+                          y={margin.top + chartHeight + 4}
+                          width="16"
+                          height="16"
+                          href="/wello/wello-icon.png"
+                          opacity="0.3"
+                        />
+                      </g>
+                    );
+                  }
+                });
             })()}
             
             {xAxisLabel && (
@@ -456,9 +472,9 @@ const LineChart: React.FC<LineChartProps> = ({
               className="wello-line-chart__axis-line"
             />
             
-            {/* Y축 레이블 (0만 제외, 간격 넓게) */}
-            {Array.from({ length: 4 }, (_, i) => {
-              const ratio = i / 3; // 4개로 줄여서 간격 넓게
+            {/* Y축 레이블 (0만 제외, 간격 적절하게) */}
+            {Array.from({ length: 6 }, (_, i) => {
+              const ratio = i / 5; // 6개로 늘려서 더 세밀한 간격
               const value = chartData.minValue + (1 - ratio) * (chartData.maxValue - chartData.minValue);
               const roundedValue = Math.round(value);
               
