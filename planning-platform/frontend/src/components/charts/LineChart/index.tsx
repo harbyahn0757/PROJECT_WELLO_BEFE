@@ -481,9 +481,9 @@ const LineChart: React.FC<LineChartProps> = ({
               // 0은 표시하지 않음
               if (roundedValue === 0) return null;
               
-              // 전체 차트 높이 활용하여 라벨 간격 넓히기 (95% 사용)
-              const usableHeight = chartHeight * 0.95;
-              const topPadding = chartHeight * 0.025;
+              // Y축 위쪽은 고정하고 아래쪽으로 더 늘려서 라벨 간격 넓히기
+              const usableHeight = chartHeight * 1.0; // 전체 높이 사용
+              const topPadding = chartHeight * 0.05;   // 위쪽은 5% 고정
               const y = margin.top + topPadding + ratio * usableHeight;
               
               return (
