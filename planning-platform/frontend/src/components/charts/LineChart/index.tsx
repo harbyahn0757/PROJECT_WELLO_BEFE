@@ -160,11 +160,10 @@ const LineChart: React.FC<LineChartProps> = ({
       });
     });
     
-    // 최신 5년만 선택하여 정렬
+    // 최신 5년만 선택하여 최신 순 유지
     const sortedYears = Array.from(allYears)
       .sort((a, b) => b - a) // 최신 년도 순
-      .slice(0, 5) // 최대 5개
-      .sort((a, b) => a - b); // 오름차순으로 다시 정렬
+      .slice(0, 5); // 최대 5개 (최신 순 유지)
     
     // 해당 년도의 인덱스 찾기
     const yearIndex = sortedYears.indexOf(pointYear);
@@ -408,11 +407,10 @@ const LineChart: React.FC<LineChartProps> = ({
                   });
                 });
                 
-                // 최신 5년만 선택하여 정렬
+                // 최신 5년만 선택하여 최신 순 유지
                 const sortedYears = Array.from(dataYears)
                   .sort((a, b) => b - a) // 최신 년도 순
-                  .slice(0, 5) // 최대 5개
-                  .sort((a, b) => a - b); // 오름차순으로 다시 정렬
+                  .slice(0, 5); // 최대 5개 (최신 순 유지)
                 
                 if (sortedYears.length === 0) return null;
                 
