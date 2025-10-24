@@ -472,16 +472,19 @@ const LineChart: React.FC<LineChartProps> = ({
               className="wello-line-chart__axis-line"
             />
             
-            {/* Y축 레이블 (0만 제외, 간격 적절하게) */}
-            {Array.from({ length: 6 }, (_, i) => {
-              const ratio = i / 5; // 6개로 늘려서 더 세밀한 간격
+            {/* Y축 레이블 (0만 제외, 간격 넓게) */}
+            {Array.from({ length: 4 }, (_, i) => {
+              const ratio = i / 3; // 4개로 간격 넓게
               const value = chartData.minValue + (1 - ratio) * (chartData.maxValue - chartData.minValue);
               const roundedValue = Math.round(value);
               
               // 0은 표시하지 않음
               if (roundedValue === 0) return null;
               
-              const y = margin.top + ratio * chartHeight;
+              // 상하 여백을 두고 라벨 배치 (전체 높이의 80%만 사용)
+              const usableHeight = chartHeight * 0.8;
+              const topPadding = chartHeight * 0.1;
+              const y = margin.top + topPadding + ratio * usableHeight;
               
               return (
                 <g key={`y-label-${i}`}>
