@@ -70,6 +70,10 @@ const ComprehensiveAnalysisPage: React.FC = () => {
   // 헬퍼 함수들
   const getFieldNameForMetric = (metric: string): string => {
     switch (metric) {
+      case '신장': return 'height';
+      case '체중': return 'weight';
+      case 'BMI': return 'bmi';
+      case '허리둘레': return 'waist_circumference';
       case '혈압 (수축기)': return 'blood_pressure_high';
       case '혈압 (이완기)': return 'blood_pressure_low';
       case '혈당': return 'blood_sugar';
@@ -77,7 +81,6 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       case 'HDL 콜레스테롤': return 'hdl_cholesterol';
       case 'LDL 콜레스테롤': return 'ldl_cholesterol';
       case '중성지방': return 'triglyceride';
-      case 'BMI': return 'bmi';
       case '헤모글로빈': return 'hemoglobin';
       default: return 'blood_pressure_high';
     }
@@ -85,6 +88,10 @@ const ComprehensiveAnalysisPage: React.FC = () => {
   
   const getUnitForMetric = (metric: string): string => {
     switch (metric) {
+      case '신장': return 'cm';
+      case '체중': return 'kg';
+      case 'BMI': return 'kg/m²';
+      case '허리둘레': return 'cm';
       case '혈압 (수축기)':
       case '혈압 (이완기)': return 'mmHg';
       case '혈당': return 'mg/dL';
@@ -92,7 +99,6 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       case 'HDL 콜레스테롤':
       case 'LDL 콜레스테롤':
       case '중성지방': return 'mg/dL';
-      case 'BMI': return 'kg/m²';
       case '헤모글로빈': return 'g/dL';
       default: return '';
     }
@@ -140,9 +146,13 @@ const ComprehensiveAnalysisPage: React.FC = () => {
     }
     
     try {
-      // 검진 항목들 추출 및 설정
+      // 검진 항목들 추출 및 설정 (데이터베이스 필드 순서대로)
       if (healthData.length > 0 && healthMetrics.length === 0) {
         const metrics = [
+          '신장',
+          '체중',
+          'BMI',
+          '허리둘레',
           '혈압 (수축기)',
           '혈압 (이완기)', 
           '혈당',
@@ -150,7 +160,6 @@ const ComprehensiveAnalysisPage: React.FC = () => {
           'HDL 콜레스테롤',
           'LDL 콜레스테롤',
           '중성지방',
-          'BMI',
           '헤모글로빈'
         ];
         setHealthMetrics(metrics);
@@ -161,6 +170,10 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       let fieldName = '';
       
       switch (selectedMetric) {
+        case '신장': fieldName = 'height'; break;
+        case '체중': fieldName = 'weight'; break;
+        case 'BMI': fieldName = 'bmi'; break;
+        case '허리둘레': fieldName = 'waist_circumference'; break;
         case '혈압 (수축기)': fieldName = 'blood_pressure_high'; break;
         case '혈압 (이완기)': fieldName = 'blood_pressure_low'; break;
         case '혈당': fieldName = 'blood_sugar'; break;
@@ -168,7 +181,6 @@ const ComprehensiveAnalysisPage: React.FC = () => {
         case 'HDL 콜레스테롤': fieldName = 'hdl_cholesterol'; break;
         case 'LDL 콜레스테롤': fieldName = 'ldl_cholesterol'; break;
         case '중성지방': fieldName = 'triglyceride'; break;
-        case 'BMI': fieldName = 'bmi'; break;
         case '헤모글로빈': fieldName = 'hemoglobin'; break;
         default: fieldName = 'blood_pressure_high';
       }
@@ -793,8 +805,8 @@ const ComprehensiveAnalysisPage: React.FC = () => {
             <div className="health-metrics-wrapper">
               <div className="health-metrics-container">
                 <div className="health-metrics-slider">
-              {/* 5개 고정 슬롯으로 표시 */}
-              {Array.from({ length: 5 }, (_, index) => {
+              {/* 12개 고정 슬롯으로 표시 (모든 건강지표 포함) */}
+              {Array.from({ length: 12 }, (_, index) => {
                 const metric = healthMetrics[index];
                 
                 // 빈 슬롯인 경우 파비콘 표시
@@ -1006,9 +1018,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
               })}
               </div>
               
-              {/* 닷 인디케이터 - 5개 고정 */}
+              {/* 닷 인디케이터 - 12개 고정 */}
               <div className="slider-dots">
-                {Array.from({ length: 5 }, (_, index) => (
+                {Array.from({ length: 12 }, (_, index) => (
                     <div 
                       key={index}
                       className={`dot ${index === activeDotIndex ? 'active' : ''}`}
