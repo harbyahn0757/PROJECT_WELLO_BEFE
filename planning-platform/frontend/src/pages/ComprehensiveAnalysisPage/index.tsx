@@ -219,7 +219,6 @@ const ComprehensiveAnalysisPage: React.FC = () => {
         data: Object.entries(yearlyData)
           .sort(([a], [b]) => b.localeCompare(a)) // 최신 년도 순 정렬
           .slice(0, 5) // 최신 5년만 선택
-          .sort(([a], [b]) => a.localeCompare(b)) // 다시 오름차순 정렬
           .map(([year, count]) => {
             // 데이터 검증
             const finalValue = parseInt(count.toString());
@@ -268,6 +267,13 @@ const ComprehensiveAnalysisPage: React.FC = () => {
         }
       });
       
+      // 디버깅: 병원 방문 데이터 구조 확인
+      console.log('🏥 [병원방문] 데이터 집계 결과:', {
+        healthDataCount: healthData.length,
+        yearlyData,
+        sampleHealthData: healthData[0]
+      });
+      
       // 년도별 데이터를 차트 형식으로 변환 (최신 5년만)
       const chartData = [{
         name: '년도별 병원 방문 건수',
@@ -275,7 +281,6 @@ const ComprehensiveAnalysisPage: React.FC = () => {
         data: Object.entries(yearlyData)
           .sort(([a], [b]) => b.localeCompare(a)) // 최신 년도 순 정렬
           .slice(0, 5) // 최신 5년만 선택
-          .sort(([a], [b]) => a.localeCompare(b)) // 다시 오름차순 정렬
           .map(([year, count]) => {
             // 데이터 검증
             const finalValue = parseInt(count.toString());
@@ -820,14 +825,25 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   
                   // 콜레스테롤 관련 디버깅 (첫 번째 항목만)
                   if ((metric.includes('콜레스테롤') || metric.includes('중성지방')) && index === 0) {
-                    console.log(`📊 [건강지표] 데이터 필드 매핑:`, {
+                    console.log(`📊 [건강지표] ${metric} 필드 매핑:`, {
+                      metric,
+                      fieldName,
+                      rawValue,
                       availableFields: Object.keys(healthData[0]),
                       cholesterolFields: Object.keys(healthData[0]).filter(key => 
                         key.toLowerCase().includes('cholesterol') || 
                         key.toLowerCase().includes('triglyceride') ||
                         key.includes('콜레스테롤') || 
                         key.includes('중성지방')
-                      )
+                      ),
+                      actualFieldValues: Object.keys(healthData[0])
+                        .filter(key => 
+                          key.toLowerCase().includes('cholesterol') || 
+                          key.toLowerCase().includes('triglyceride') ||
+                          key.includes('콜레스테롤') || 
+                          key.includes('중성지방')
+                        )
+                        .reduce((acc, key) => ({ ...acc, [key]: (healthData[0] as any)[key] }), {})
                     });
                   }
                   
@@ -877,7 +893,6 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                     return Object.values(yearlyData)
                       .sort((a: any, b: any) => b.year.localeCompare(a.year)) // 최신 년도 순 정렬
                       .slice(0, 5) // 최신 5년만 선택
-                      .sort((a: any, b: any) => a.year.localeCompare(b.year)) // 다시 오름차순 정렬
                       .map((data: any) => {
                       let dateString;
                       try {
@@ -902,8 +917,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                         label: `${data.year.slice(-2)}년`, // 00년 형식으로 변경
                         status: 'normal' as const
                       };
-                    }).filter((item): item is NonNullable<typeof item> => item !== null) // null 값 제거
-                    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()); // 오래된 년도가 앞에 오도록 정렬 (차트에서 왼쪽부터 오래된 순)
+                    }).filter((item): item is NonNullable<typeof item> => item !== null); // null 값 제거
                   })()
                 }] : [];
                 

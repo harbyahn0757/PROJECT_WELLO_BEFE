@@ -360,7 +360,10 @@ const BarChart: React.FC<BarChartProps> = ({
                       height={barDimensions.height}
                       className={`wello-bar-chart__bar ${bar.status ? `wello-bar-chart__bar--${bar.status}` : ''}`}
                       fill={barColor}
-                      style={{ fill: barColor }}
+                      style={{ 
+                        fill: `${barColor} !important`,
+                        stroke: '#8b7d6b !important'
+                      }}
                       onMouseEnter={(e) => handleBarHover(e, bar.point, bar.seriesName, bar.unit)}
                       onMouseLeave={handleMouseLeave}
                       onClick={() => onBarClick?.(bar.point, series.find(s => s.id === bar.seriesId)!)}

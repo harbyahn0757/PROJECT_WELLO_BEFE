@@ -425,10 +425,11 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
     }
   }
   
-  // 로딩 상태
+  // 로딩 상태 - AI 분석 리포트 높이 줄임
   .analysis-loading {
-    padding: $spacing-2xl;
+    padding: $spacing-lg; // 패딩 줄임 (2xl → lg)
     text-align: center;
+    min-height: 200px; // 최소 높이 설정
   }
   
   .loading-content {
@@ -502,11 +503,11 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
     align-items: center;
     justify-content: center;
     width: 100%;
-    min-height: 300px;
+    min-height: 250px; // 높이 줄임 (300px → 250px)
     background: $gray-50;
     border-radius: $border-radius-md;
     border: 1px dashed $gray-300;
-    padding: $spacing-2xl;
+    padding: $spacing-lg; // 패딩 줄임 (2xl → lg)
     text-align: center;
     
     .loading-spinner {
@@ -938,7 +939,7 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: $spacing-2xl;
+  padding: $spacing-lg; // 패딩 줄임 (2xl → lg)
   text-align: center;
   
   .loading-spinner {
@@ -1364,7 +1365,7 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 250px;
+      height: 200px; // 높이 줄임 (250px → 200px)
       
       .loading-spinner {
         margin-bottom: $spacing-sm;
