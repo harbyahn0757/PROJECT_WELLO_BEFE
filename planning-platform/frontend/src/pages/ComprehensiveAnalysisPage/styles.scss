@@ -1040,39 +1040,48 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
     margin-bottom: $spacing-sm; // 숫자-그래프 간격 줄임
     position: relative;
       
-      .status-info {
+      .status-badge {
         position: absolute;
         top: 0;
         right: 0;
+        padding: 6px 10px;
+        border-radius: 8px;
+        font-size: 10px;
+        font-weight: 600;
+        color: white;
         display: flex;
         flex-direction: column;
-        align-items: flex-end;
+        align-items: center;
         gap: 2px;
+        min-width: 50px;
         
-        .status-badge {
-          padding: 2px 8px;
-          border-radius: 8px;
-          font-size: 10px;
-          font-weight: 600;
-          color: white;
-          
-          &.status-normal {
-            background: $brand-brown;
-          }
-          
-          &.status-warning {
-            background: $warning;
-          }
-          
-          &.status-danger {
-            background: #ef4444;
-          }
+        &.status-normal {
+          background: $brand-brown;
         }
         
-        .checkup-date {
+        &.status-warning {
+          background: $warning;
+        }
+        
+        &.status-abnormal {
+          background: #ef4444;
+        }
+        
+        &.status-neutral {
+          background: $gray-500;
+        }
+        
+        .status-text {
+          font-size: 10px;
+          font-weight: 600;
+          line-height: 1;
+        }
+        
+        .status-date {
           font-size: 8px;
-          color: $gray-500;
           font-weight: 400;
+          opacity: 0.9;
+          line-height: 1;
           white-space: nowrap;
         }
       }
@@ -1288,7 +1297,7 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   overflow-x: auto;
   scroll-behavior: smooth;
   scroll-snap-type: x mandatory;
-  padding: $spacing-xs $spacing-lg $spacing-lg $spacing-lg; // 건강지표와 동일하게 좌우 패딩 추가
+  padding: $spacing-xs 0 $spacing-lg 0; // 원래대로 복원
   
   // 모바일에서는 스크롤바 숨김
   @media (max-width: $breakpoint-md) {
@@ -1329,7 +1338,14 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   padding: $spacing-md;
   scroll-snap-align: start;
   
-  // 패딩으로 간격 처리하므로 margin 제거
+  // 첫 번째와 마지막 카드에 여백 추가 (건강지표와 동일)
+  &:first-child {
+    margin-left: $spacing-lg;
+  }
+  
+  &:last-child {
+    margin-right: $spacing-lg;
+  }
   
   // 모바일: 화면 너비의 85%
   @media (max-width: $breakpoint-md) {
@@ -1345,6 +1361,14 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   // 데스크톱: 더 큰 고정 너비
   @media (min-width: $breakpoint-lg) {
     min-width: 380px;
+  }
+  
+  &:first-child {
+    margin-left: $spacing-lg;
+  }
+  
+  &:last-child {
+    margin-right: $spacing-lg;
   }
   
   .trend-header {

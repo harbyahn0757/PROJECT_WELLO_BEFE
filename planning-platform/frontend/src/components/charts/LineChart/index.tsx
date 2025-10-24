@@ -174,7 +174,11 @@ const LineChart: React.FC<LineChartProps> = ({
     
     const x = margin.left + (chartWidth / 4) * yearIndex;
     
-    const y = margin.top + (1 - (value - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight;
+    // Y축 라벨 범위 확장에 맞게 점 위치도 조정
+    const valueRatio = (value - chartData.minValue) / (chartData.maxValue - chartData.minValue);
+    const expandedHeight = chartHeight * 1.1; // Y축 라벨과 동일한 확장 비율
+    const expandedTopPadding = -chartHeight * 0.05; // Y축 라벨과 동일한 상단 확장
+    const y = margin.top + expandedTopPadding + (1 - valueRatio) * expandedHeight;
 
     // 최종 좌표 유효성 검사
     const finalX = isNaN(x) || !isFinite(x) ? margin.left : x;
@@ -481,9 +485,9 @@ const LineChart: React.FC<LineChartProps> = ({
               // 0은 표시하지 않음
               if (roundedValue === 0) return null;
               
-              // 전체 차트 높이 활용하여 라벨 간격 넓히기 (95% 사용)
-              const usableHeight = chartHeight * 0.95;
-              const topPadding = chartHeight * 0.025;
+              // Y축 라벨 범위 확장 - 위쪽을 더 높이고 아래쪽을 더 아래로
+              const usableHeight = chartHeight * 1.1; // 110% 사용 (차트 영역 초과)
+              const topPadding = -chartHeight * 0.05; // 위쪽으로 5% 확장
               const y = margin.top + topPadding + ratio * usableHeight;
               
               return (

@@ -104,68 +104,126 @@ const ComprehensiveAnalysisPage: React.FC = () => {
     }
   };
 
-  // 건강지표별 정상/비정상 판정 함수
-  const getHealthStatus = (metric: string, value: number): { status: 'normal' | 'warning' | 'danger', text: string } => {
-    // 신장, 체중은 정상/비정상 판정이 없음
-    if (metric === '신장' || metric === '체중') {
-      return { status: 'normal', text: '측정' };
+  // 건강지표 상태 판단 함수
+  const getHealthStatus = (metric: string, value: number, healthDataItem: any): { status: 'normal' | 'warning' | 'abnormal' | 'neutral', text: string, date: string } => {
+    // 신장은 정상/비정상 구분 없이 중립
+    if (metric === '신장') {
+      return {
+        status: 'neutral',
+        text: '측정',
+        date: healthDataItem?.checkup_date || ''
+      };
     }
+
+    // raw_data에서 상태 정보 추출
+    const rawData = healthDataItem?.raw_data;
+    if (!rawData) {
+      return {
+        status: 'normal',
+        text: '정상',
+        date: healthDataItem?.checkup_date || ''
+      };
+    }
+
+    // Code 필드 기반 판단 (전체 검진 결과)
+    const code = rawData.Code || '';
+    let overallStatus: 'normal' | 'warning' | 'abnormal' = 'normal';
     
-    switch (metric) {
-      case 'BMI':
-        if (value < 18.5) return { status: 'warning', text: '저체중' };
-        if (value <= 24.9) return { status: 'normal', text: '정상' };
-        if (value <= 29.9) return { status: 'warning', text: '과체중' };
-        return { status: 'danger', text: '비만' };
-        
-      case '허리둘레':
-        // 일반적으로 남성 90cm, 여성 85cm 기준 (성별 정보가 없으므로 남성 기준 사용)
-        if (value < 90) return { status: 'normal', text: '정상' };
-        return { status: 'danger', text: '질환의심' };
-        
-      case '혈압 (수축기)':
-        if (value < 120) return { status: 'normal', text: '정상' };
-        if (value < 140) return { status: 'warning', text: '주의' };
-        return { status: 'danger', text: '고혈압' };
-        
-      case '혈압 (이완기)':
-        if (value < 80) return { status: 'normal', text: '정상' };
-        if (value < 90) return { status: 'warning', text: '주의' };
-        return { status: 'danger', text: '고혈압' };
-        
-      case '혈당':
-        if (value < 100) return { status: 'normal', text: '정상' };
-        if (value < 126) return { status: 'warning', text: '주의' };
-        return { status: 'danger', text: '당뇨의심' };
-        
-      case '총콜레스테롤':
-        if (value < 200) return { status: 'normal', text: '정상' };
-        if (value < 240) return { status: 'warning', text: '경계' };
-        return { status: 'danger', text: '위험' };
-        
-      case 'HDL 콜레스테롤':
-        if (value >= 60) return { status: 'normal', text: '좋음' };
-        if (value >= 40) return { status: 'normal', text: '정상' };
-        return { status: 'warning', text: '낮음' };
-        
-      case 'LDL 콜레스테롤':
-        if (value < 100) return { status: 'normal', text: '정상' };
-        if (value < 130) return { status: 'warning', text: '경계' };
-        return { status: 'danger', text: '위험' };
-        
-      case '중성지방':
-        if (value < 150) return { status: 'normal', text: '정상' };
-        if (value < 200) return { status: 'warning', text: '경계' };
-        return { status: 'danger', text: '위험' };
-        
-      case '헤모글로빈':
-        // 일반적으로 남성 13-17, 여성 12-15 기준 (중간값 사용)
-        if (value >= 12 && value <= 17) return { status: 'normal', text: '정상' };
-        if (value < 12) return { status: 'warning', text: '빈혈의심' };
-        return { status: 'warning', text: '높음' };
-        
-      default:
-        return { status: 'normal', text: '정상' };
+    if (code.includes('정상') || code === '정A') {
+      overallStatus = 'normal';
+    } else if (code.includes('의심') || code === '의심') {
+      overallStatus = 'warning';
+    } else if (code.includes('질환') || code.includes('이상')) {
+      overallStatus = 'abnormal';
+    }
+
+    // 개별 항목 상태 확인 (Inspections에서 해당 지표 찾기)
+    const fieldName = getFieldNameForMetric(metric);
+    let itemStatus = overallStatus;
+    
+    if (rawData.Inspections && Array.isArray(rawData.Inspections)) {
+      for (const inspection of rawData.Inspections) {
+        if (inspection.Illnesses && Array.isArray(inspection.Illnesses)) {
+          for (const illness of inspection.Illnesses) {
+            if (illness.Items && Array.isArray(illness.Items)) {
+              const item = illness.Items.find((item: any) => 
+                item.Name && (
+                  item.Name.includes(metric.replace(' (수축기)', '').replace(' (이완기)', '')) ||
+                  (metric.includes('혈압') && item.Name.includes('혈압')) ||
+                  (metric.includes('콜레스테롤') && item.Name.includes('콜레스테롤')) ||
+                  (metric === '중성지방' && item.Name.includes('중성지방')) ||
+                  (metric === '헤모글로빈' && item.Name.includes('혈색소'))
+                )
+              );
+              
+              if (item && item.ItemReferences && Array.isArray(item.ItemReferences)) {
+                // ItemReferences 기반 정상범위 체크
+                const itemValue = parseFloat(item.Value);
+                if (!isNaN(itemValue)) {
+                  for (const ref of item.ItemReferences) {
+                    if (ref.Name === '질환의심' && isInRange(itemValue, ref.Value)) {
+                      itemStatus = 'abnormal';
+                      break;
+                    } else if ((ref.Name === '정상(B)' || ref.Name === '정상(경계)') && isInRange(itemValue, ref.Value)) {
+                      itemStatus = 'warning';
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    const statusText = itemStatus === 'normal' ? '정상' : 
+                      itemStatus === 'warning' ? '경계' : '이상';
+    
+    return {
+      status: itemStatus,
+      text: statusText,
+      date: rawData.CheckUpDate || healthDataItem?.checkup_date || ''
+    };
+  };
+
+  // 범위 체크 함수
+  const isInRange = (value: number, rangeStr: string): boolean => {
+    if (!rangeStr) return false;
+    
+    try {
+      // "120-140" 형태
+      if (rangeStr.includes('-')) {
+        const [min, max] = rangeStr.split('-').map(s => parseFloat(s.trim()));
+        return !isNaN(min) && !isNaN(max) && value >= min && value <= max;
+      }
+      
+      // ">=120" 형태
+      if (rangeStr.includes('>=')) {
+        const min = parseFloat(rangeStr.replace('>=', '').trim());
+        return !isNaN(min) && value >= min;
+      }
+      
+      // "<=140" 형태
+      if (rangeStr.includes('<=')) {
+        const max = parseFloat(rangeStr.replace('<=', '').trim());
+        return !isNaN(max) && value <= max;
+      }
+      
+      // ">120" 형태
+      if (rangeStr.includes('>')) {
+        const min = parseFloat(rangeStr.replace('>', '').trim());
+        return !isNaN(min) && value > min;
+      }
+      
+      // "<140" 형태
+      if (rangeStr.includes('<')) {
+        const max = parseFloat(rangeStr.replace('<', '').trim());
+        return !isNaN(max) && value < max;
+      }
+      
+      return false;
+    } catch (error) {
+      return false;
     }
   };
 
@@ -253,9 +311,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       const chartData = healthData.map((item: any) => ({
         name: selectedMetric,
         data: [{
-          date: item.CheckUpDate || new Date().toISOString(),
+          date: item.checkup_date || new Date().toISOString(),
           value: parseFloat((item as any)[fieldName]) || 0,
-          label: `${item.Year || '2024'}년 검진`,
+          label: `${item.year || '2024'}년 검진`,
           status: 'normal' as const
         }]
       })).filter(series => series.data[0].value > 0);
@@ -333,8 +391,8 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       const yearlyData: { [year: string]: number } = {};
       
       healthData.forEach((item: any) => {
-        // Year 필드는 "YYYY년" 형식이므로 "년" 제거
-        const year = item.Year ? item.Year.replace('년', '') : '2024';
+        // year 필드는 "YYYY년" 형식이므로 "년" 제거
+        const year = item.year ? item.year.replace('년', '') : '2024';
         
         // 각 건강검진은 1회 병원 방문으로 계산
         if (yearlyData[year]) {
@@ -611,8 +669,8 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       
       // DB 데이터를 백엔드가 기대하는 형식으로 변환
       const formattedHealthData = healthData.map((item: any) => ({
-        date: item.CheckUpDate || new Date().toISOString().split('T')[0],
-        year: item.Year || '2024',
+        date: item.checkup_date || new Date().toISOString().split('T')[0],
+        year: item.year || '2024',
         inspections: [{
           name: '건강검진',
           items: [
@@ -896,10 +954,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                 // 기존 로직 유지
                 return (() => {
                 const fieldName = getFieldNameForMetric(metric);
-                // 최신 데이터에서 값과 검사일 추출
-                const latestData = healthData.length > 0 ? healthData[0] : null;
-                const latestValue = latestData ? (() => {
-                  const rawValue = (latestData as any)[fieldName];
+                // 최신 데이터에서 값 추출 (더 정확하게)
+                const latestValue = healthData.length > 0 ? (() => {
+                  const rawValue = (healthData[0] as any)[fieldName];
                   
                   // 콜레스테롤 관련 디버깅 (첫 번째 항목만)
                   if ((metric.includes('콜레스테롤') || metric.includes('중성지방')) && index === 0) {
@@ -933,10 +990,11 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   }
                   return 0;
                 })() : 0;
-                
-                // 건강 상태 판정 및 검사일 추출
-                const healthStatus = getHealthStatus(metric, latestValue);
-                const checkupDate = latestData ? `${latestData.Year || '2024'}.${latestData.CheckUpDate || '01/01'}` : '';
+
+                // 건강 상태 정보 가져오기
+                const healthStatus = healthData.length > 0 ? 
+                  getHealthStatus(metric, latestValue, healthData[0]) : 
+                  { status: 'normal' as const, text: '정상', date: '' };
                 
                 // 해당 지표의 개별 차트 데이터 생성
                 const metricChartData = healthData.length > 0 ? [{
@@ -947,8 +1005,8 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                     const yearlyData: { [year: string]: any } = {};
                     
                     healthData.forEach((item: any) => {
-                      // Year 필드는 "YYYY년" 형식이므로 "년" 제거
-                      const year = item.Year ? item.Year.replace('년', '') : '2024';
+                      // year 필드는 "YYYY년" 형식이므로 "년" 제거
+                      const year = item.year ? item.year.replace('년', '') : '2024';
                       let value = 0;
                       
                       // 필드 타입에 따른 값 추출
@@ -966,7 +1024,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                         yearlyData[year] = {
                           year,
                           value,
-                          checkup_date: item.CheckUpDate,
+                          checkup_date: item.checkup_date,
                           item
                         };
                       }
@@ -979,7 +1037,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                       .map((data: any) => {
                       let dateString;
                       try {
-                        // CheckUpDate는 "MM/DD" 형식
+                        // checkup_date는 "MM/DD" 형식
                         const checkupDate = data.checkup_date || '01/01';
                         const [month, day] = checkupDate.split('/');
                         dateString = `${data.year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
@@ -1010,14 +1068,12 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                     className="health-metric-card"
                   >
                     <div className="metric-header">
-                      <div className="status-info">
-                        <div className={`status-badge status-${healthStatus.status}`}>
-                          {healthStatus.text}
-                        </div>
-                        {checkupDate && (
-                          <div className="checkup-date">
-                            {checkupDate}
-                          </div>
+                      <div className={`status-badge status-${healthStatus.status}`}>
+                        <span className="status-text">{healthStatus.text}</span>
+                        {healthStatus.date && (
+                          <span className="status-date">
+                            {healthData[0]?.year?.slice(0, 2) || '24'}년 {healthStatus.date}
+                          </span>
                         )}
                       </div>
                       <h3 className="metric-title">{metric}</h3>
