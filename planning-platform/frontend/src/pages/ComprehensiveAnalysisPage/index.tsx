@@ -186,6 +186,195 @@ const ComprehensiveAnalysisPage: React.FC = () => {
     };
   };
 
+  // 다중 건강 범위 추출 함수
+  const getHealthRanges = (metric: string, healthDataItem: any, gender: string = 'M'): {
+    normal: { min: number; max: number } | null;
+    borderline: { min: number; max: number } | null;
+    abnormal: { min: number; max: number } | null;
+  } | null => {
+    if (!healthDataItem?.raw_data) return null;
+    
+    const rawData = healthDataItem.raw_data;
+    
+    if (rawData.Inspections && Array.isArray(rawData.Inspections)) {
+      for (const inspection of rawData.Inspections) {
+        if (inspection.Illnesses && Array.isArray(inspection.Illnesses)) {
+          for (const illness of inspection.Illnesses) {
+            if (illness.Items && Array.isArray(illness.Items)) {
+              const item = illness.Items.find((item: any) => 
+                item.Name && (
+                  item.Name.includes(metric.replace(' (수축기)', '').replace(' (이완기)', '')) ||
+                  (metric.includes('혈압') && item.Name.includes('혈압')) ||
+                  (metric.includes('콜레스테롤') && item.Name.includes('콜레스테롤')) ||
+                  (metric === '중성지방' && item.Name.includes('중성지방')) ||
+                  (metric === '헤모글로빈' && item.Name.includes('혈색소'))
+                )
+              );
+              
+              if (item && item.ItemReferences && Array.isArray(item.ItemReferences)) {
+                const ranges = {
+                  normal: null as { min: number; max: number } | null,
+                  borderline: null as { min: number; max: number } | null,
+                  abnormal: null as { min: number; max: number } | null
+                };
+                
+                // 정상(A) 범위
+                const normalRef = item.ItemReferences.find((ref: any) => ref.Name === '정상(A)');
+                if (normalRef && normalRef.Value) {
+                  ranges.normal = parseNormalRange(normalRef.Value, gender, metric);
+                }
+                
+                // 정상(B) 또는 경계 범위
+                const borderlineRef = item.ItemReferences.find((ref: any) => ref.Name === '정상(B)');
+                if (borderlineRef && borderlineRef.Value) {
+                  ranges.borderline = parseNormalRange(borderlineRef.Value, gender, metric);
+                }
+                
+                // 질환의심 범위
+                const abnormalRef = item.ItemReferences.find((ref: any) => ref.Name === '질환의심');
+                if (abnormalRef && abnormalRef.Value) {
+                  ranges.abnormal = parseNormalRange(abnormalRef.Value, gender, metric);
+                }
+                
+                return ranges;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return null;
+  };
+
+  // 정상 범위 추출 함수 (기존 호환성 유지)
+  const getNormalRanges = (metric: string, healthDataItem: any, gender: string = 'M'): { min: number; max: number } | null => {
+    if (!healthDataItem?.raw_data) return null;
+    
+    const rawData = healthDataItem.raw_data;
+    
+    if (rawData.Inspections && Array.isArray(rawData.Inspections)) {
+      for (const inspection of rawData.Inspections) {
+        if (inspection.Illnesses && Array.isArray(inspection.Illnesses)) {
+          for (const illness of inspection.Illnesses) {
+            if (illness.Items && Array.isArray(illness.Items)) {
+              const item = illness.Items.find((item: any) => 
+                item.Name && (
+                  item.Name.includes(metric.replace(' (수축기)', '').replace(' (이완기)', '')) ||
+                  (metric.includes('혈압') && item.Name.includes('혈압')) ||
+                  (metric.includes('콜레스테롤') && item.Name.includes('콜레스테롤')) ||
+                  (metric === '중성지방' && item.Name.includes('중성지방')) ||
+                  (metric === '헤모글로빈' && item.Name.includes('혈색소'))
+                )
+              );
+              
+              if (item && item.ItemReferences && Array.isArray(item.ItemReferences)) {
+                // 정상(A) 범위 우선 사용
+                const normalRef = item.ItemReferences.find((ref: any) => ref.Name === '정상(A)');
+                if (normalRef && normalRef.Value) {
+                  return parseNormalRange(normalRef.Value, gender, metric);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return null;
+  };
+
+  // 정상 범위 문자열 파싱 함수
+  const parseNormalRange = (rangeStr: string, gender: string = 'M', metric: string): { min: number; max: number } | null => {
+    try {
+      // 성별 구분 처리 (예: "남: 13-16.5 / 여: 12-15.5")
+      if (rangeStr.includes('남') && rangeStr.includes('여')) {
+        const parts = rangeStr.split('/');
+        const targetPart = gender === 'M' ? 
+          parts.find(p => p.includes('남'))?.trim() : 
+          parts.find(p => p.includes('여'))?.trim();
+        
+        if (targetPart) {
+          const cleanRange = targetPart.replace(/남:|여:/, '').trim();
+          return parseSimpleRange(cleanRange);
+        }
+      }
+      
+      // 혈압 특수 처리 (예: "120미만 이며/80미만", "120-139 또는 /80-89")
+      if (metric.includes('혈압')) {
+        if (metric.includes('수축기')) {
+          // 수축기 처리
+          const systolicMinMatch = rangeStr.match(/(\d+)미만/);
+          if (systolicMinMatch) {
+            return { min: 0, max: parseInt(systolicMinMatch[1]) - 1 };
+          }
+          const systolicRangeMatch = rangeStr.match(/(\d+)-(\d+)/);
+          if (systolicRangeMatch) {
+            return { min: parseInt(systolicRangeMatch[1]), max: parseInt(systolicRangeMatch[2]) };
+          }
+          const systolicAboveMatch = rangeStr.match(/(\d+)이상/);
+          if (systolicAboveMatch) {
+            return { min: parseInt(systolicAboveMatch[1]), max: 300 }; // 임의의 큰 값
+          }
+        } else if (metric.includes('이완기')) {
+          // 이완기 처리 - "또는 /" 뒤의 값들 추출
+          const diastolicMinMatch = rangeStr.match(/\/(\d+)미만/);
+          if (diastolicMinMatch) {
+            return { min: 0, max: parseInt(diastolicMinMatch[1]) - 1 };
+          }
+          // "또는 /80-89" 형태 처리
+          const diastolicRangeMatch = rangeStr.match(/\/(\d+)-(\d+)/);
+          if (diastolicRangeMatch) {
+            return { min: parseInt(diastolicRangeMatch[1]), max: parseInt(diastolicRangeMatch[2]) };
+          }
+          // "또는 /90이상" 형태 처리
+          const diastolicAboveMatch = rangeStr.match(/\/(\d+)이상/);
+          if (diastolicAboveMatch) {
+            return { min: parseInt(diastolicAboveMatch[1]), max: 200 }; // 임의의 큰 값
+          }
+        }
+      }
+      
+      // 일반 범위 처리
+      return parseSimpleRange(rangeStr);
+      
+    } catch (error) {
+      console.warn('정상 범위 파싱 실패:', rangeStr, error);
+      return null;
+    }
+  };
+
+  // 단순 범위 파싱 함수
+  const parseSimpleRange = (rangeStr: string): { min: number; max: number } | null => {
+    // "18.5-24.9" 형태
+    if (rangeStr.includes('-')) {
+      const [minStr, maxStr] = rangeStr.split('-');
+      const min = parseFloat(minStr.trim());
+      const max = parseFloat(maxStr.trim());
+      if (!isNaN(min) && !isNaN(max)) {
+        return { min, max };
+      }
+    }
+    
+    // "100미만" 형태
+    if (rangeStr.includes('미만')) {
+      const match = rangeStr.match(/(\d+(?:\.\d+)?)미만/);
+      if (match) {
+        return { min: 0, max: parseFloat(match[1]) - 0.1 };
+      }
+    }
+    
+    // "60이상" 형태
+    if (rangeStr.includes('이상')) {
+      const match = rangeStr.match(/(\d+(?:\.\d+)?)이상/);
+      if (match) {
+        return { min: parseFloat(match[1]), max: 1000 }; // 임의의 큰 값
+      }
+    }
+    
+    return null;
+  };
+
   // 범위 체크 함수
   const isInRange = (value: number, rangeStr: string): boolean => {
     if (!rangeStr) return false;
@@ -457,11 +646,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       if (cards.length === 0) return;
 
       const sliderRect = slider.getBoundingClientRect();
-      // 패딩을 고려한 실제 콘텐츠 영역의 중앙 계산
-      const paddingLeft = parseFloat(getComputedStyle(slider).paddingLeft) || 0;
-      const paddingRight = parseFloat(getComputedStyle(slider).paddingRight) || 0;
-      const contentWidth = sliderRect.width - paddingLeft - paddingRight;
-      const sliderCenter = sliderRect.left + paddingLeft + contentWidth / 2;
+      // 패딩 계산 제거 - wrapper에서 패딩 처리하므로 슬라이더 전체 너비 사용
+      const contentWidth = sliderRect.width;
+      const sliderCenter = sliderRect.left + contentWidth / 2;
 
       let closestIndex = 0;
       let closestDistance = Infinity;
@@ -494,11 +681,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       if (cards.length === 0) return;
 
       const sliderRect = slider.getBoundingClientRect();
-      // 패딩을 고려한 실제 콘텐츠 영역의 중앙 계산
-      const paddingLeft = parseFloat(getComputedStyle(slider).paddingLeft) || 0;
-      const paddingRight = parseFloat(getComputedStyle(slider).paddingRight) || 0;
-      const contentWidth = sliderRect.width - paddingLeft - paddingRight;
-      const sliderCenter = sliderRect.left + paddingLeft + contentWidth / 2;
+      // 패딩 계산 제거 - wrapper에서 패딩 처리하므로 슬라이더 전체 너비 사용
+      const contentWidth = sliderRect.width;
+      const sliderCenter = sliderRect.left + contentWidth / 2;
 
       let closestIndex = 0;
       let closestDistance = Infinity;
@@ -1072,7 +1257,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                         <span className="status-text">{healthStatus.text}</span>
                         {healthStatus.date && (
                           <span className="status-date">
-                            {healthData[0]?.year?.slice(0, 2) || '24'}년 {healthStatus.date}
+                            {healthData[0]?.Year?.slice(0, 2) || '24'}년 {healthStatus.date}
                           </span>
                         )}
                       </div>
@@ -1135,6 +1320,23 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                             );
                           }
                           
+                          // 차트 데이터 검증 완료
+                          
+                          // 다중 건강 범위 추출 (최신 데이터 기준)
+                          const healthRanges = getHealthRanges(metric, healthData[0], 'M'); // 성별은 추후 환자 정보에서 가져올 수 있음
+                          
+                          // 모든 건강지표 파싱 상태 확인
+                          console.log(`🎯 [${metric}] 건강범위 파싱 결과:`, {
+                            metric,
+                            healthRanges,
+                            hasAllRanges: !!(healthRanges?.normal && healthRanges?.borderline && healthRanges?.abnormal),
+                            missingRanges: {
+                              normal: !healthRanges?.normal,
+                              borderline: !healthRanges?.borderline, 
+                              abnormal: !healthRanges?.abnormal
+                            }
+                          });
+                          
                           return (
                             <LineChart 
                               series={[{
@@ -1142,7 +1344,8 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                                 data: validData
                               }]}
                               width={260}
-                              height={120}
+                              height={170}
+                              healthRanges={healthRanges || undefined}
                             />
                           );
                         }
@@ -1166,19 +1369,15 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                         const card = document.querySelectorAll('.health-metric-card')[index] as HTMLElement;
                         if (slider && card) {
                           // 패딩을 고려한 정확한 스크롤 위치 계산
-                          const paddingLeft = parseFloat(getComputedStyle(slider).paddingLeft) || 0;
-                          const paddingRight = parseFloat(getComputedStyle(slider).paddingRight) || 0;
-                          
-                          // 카드의 현재 위치와 목표 위치 계산
-                          const cardOffsetLeft = card.offsetLeft; // 슬라이더 내에서의 카드 위치
-                          const sliderClientWidth = slider.clientWidth; // 패딩 포함한 슬라이더 너비
+                          // 단순화된 스크롤 계산 - wrapper에서 패딩 처리하므로 복잡한 계산 불필요
+                          const cardOffsetLeft = card.offsetLeft;
+                          const sliderClientWidth = slider.clientWidth;
                           const cardWidth = card.offsetWidth;
                           
-                          // 카드가 패딩을 고려한 중앙에 오도록 스크롤 위치 계산
-                          const availableWidth = sliderClientWidth - paddingLeft - paddingRight;
-                          let targetScrollLeft = cardOffsetLeft - paddingLeft - (availableWidth - cardWidth) / 2;
+                          // 카드가 중앙에 오도록 스크롤 위치 계산
+                          let targetScrollLeft = cardOffsetLeft - (sliderClientWidth - cardWidth) / 2;
                           
-                          // 스크롤 위치 제한 (패딩 영역을 침범하지 않도록)
+                          // 스크롤 위치 제한
                           const maxScrollLeft = slider.scrollWidth - sliderClientWidth;
                           targetScrollLeft = Math.max(0, Math.min(targetScrollLeft, maxScrollLeft));
                           
@@ -1277,12 +1476,11 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                 if (slider) {
                   const card = document.querySelectorAll('.visit-trend-card')[1] as HTMLElement;
                   if (card) {
-                    const paddingLeft = parseFloat(getComputedStyle(slider).paddingLeft) || 0;
+                    // 단순화된 스크롤 계산 - wrapper에서 패딩 처리하므로 복잡한 계산 불필요
                     const cardOffsetLeft = card.offsetLeft;
                     const sliderClientWidth = slider.clientWidth;
                     const cardWidth = card.offsetWidth;
-                    const availableWidth = sliderClientWidth - paddingLeft * 2;
-                    let targetScrollLeft = cardOffsetLeft - paddingLeft - (availableWidth - cardWidth) / 2;
+                    let targetScrollLeft = cardOffsetLeft - (sliderClientWidth - cardWidth) / 2;
                     const maxScrollLeft = slider.scrollWidth - sliderClientWidth;
                     targetScrollLeft = Math.max(0, Math.min(targetScrollLeft, maxScrollLeft));
                     slider.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });

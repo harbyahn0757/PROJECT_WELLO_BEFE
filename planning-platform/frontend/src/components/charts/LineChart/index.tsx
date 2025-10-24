@@ -39,6 +39,12 @@ export interface LineChartProps extends BaseChartProps {
   dateFormat?: 'short' | 'long';
   valueFormat?: (value: number) => string;
   onPointHover?: (point: LineChartDataPoint, series: LineChartSeries) => void;
+  normalRange?: { min: number; max: number }; // 정상 범위 표시
+  healthRanges?: { // 다중 건강 범위 표시
+    normal: { min: number; max: number } | null;
+    borderline: { min: number; max: number } | null;
+    abnormal: { min: number; max: number } | null;
+  };
 }
 
 const LineChart: React.FC<LineChartProps> = ({
@@ -48,6 +54,8 @@ const LineChart: React.FC<LineChartProps> = ({
   showGrid = true,
   showReferenceLines = true,
   dateFormat = 'short',
+  normalRange,
+  healthRanges,
   valueFormat = (value) => value.toString(),
   onPointHover,
   ...baseProps
@@ -176,13 +184,15 @@ const LineChart: React.FC<LineChartProps> = ({
     
     // Y축 라벨 범위 확장에 맞게 점 위치도 조정
     const valueRatio = (value - chartData.minValue) / (chartData.maxValue - chartData.minValue);
-    const expandedHeight = chartHeight * 1.1; // Y축 라벨과 동일한 확장 비율
-    const expandedTopPadding = -chartHeight * 0.05; // Y축 라벨과 동일한 상단 확장
+    const expandedHeight = chartHeight * 1.2; // Y축 라벨과 동일한 확장 비율 (120%)
+    const expandedTopPadding = chartHeight * 0.05; // Y축 라벨과 동일한 상단 패딩 (5% 고정)
     const y = margin.top + expandedTopPadding + (1 - valueRatio) * expandedHeight;
 
     // 최종 좌표 유효성 검사
     const finalX = isNaN(x) || !isFinite(x) ? margin.left : x;
     const finalY = isNaN(y) || !isFinite(y) ? margin.top + chartHeight / 2 : y;
+
+    // 데이터 점 위치 계산 완료 - 디버깅 로그 제거
 
     return { x: finalX, y: finalY };
   };
@@ -485,10 +495,12 @@ const LineChart: React.FC<LineChartProps> = ({
               // 0은 표시하지 않음
               if (roundedValue === 0) return null;
               
-              // Y축 라벨 범위 확장 - 위쪽을 더 높이고 아래쪽을 더 아래로
-              const usableHeight = chartHeight * 1.1; // 110% 사용 (차트 영역 초과)
-              const topPadding = -chartHeight * 0.05; // 위쪽으로 5% 확장
+              // Y축 라벨 범위 확장 - 위는 고정, 아래만 늘림
+              const usableHeight = chartHeight * 1.2; // 120% 사용 (아래쪽으로 확장)
+              const topPadding = chartHeight * 0.05; // 위쪽 고정 (5% 여유)
               const y = margin.top + topPadding + ratio * usableHeight;
+              
+              // Y축 계산 완료 - 디버깅 로그 제거
               
               return (
                 <g key={`y-label-${i}`}>
@@ -517,6 +529,174 @@ const LineChart: React.FC<LineChartProps> = ({
               </text>
             )}
           </g>
+
+          {/* 다중 건강 범위 영역 */}
+          {healthRanges && (() => {
+            const renderRangeZone = (range: { min: number; max: number } | null, color: string, opacity: number, label: string, strokeOpacity: number = 0.3) => {
+              if (!range) return null;
+              
+              const rangeMinY = margin.top + chartHeight * 0.05 + (1 - (range.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+              const rangeMaxY = margin.top + chartHeight * 0.05 + (1 - (range.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+              
+              // 범위가 차트 범위와 겹치는 경우만 표시
+              if (range.max >= chartData.minValue && range.min <= chartData.maxValue) {
+                const clampedMinY = Math.max(rangeMinY, margin.top);
+                const clampedMaxY = Math.min(rangeMaxY, margin.top + chartHeight);
+                const rectHeight = Math.max(0, clampedMaxY - clampedMinY);
+                
+                if (rectHeight > 5) { // 최소 높이 확보
+                  return (
+                    <rect
+                      key={label}
+                      x={margin.left}
+                      y={clampedMinY}
+                      width={chartWidth}
+                      height={rectHeight}
+                      fill={`rgba(${color}, ${opacity})`}
+                      stroke={`rgba(${color}, ${strokeOpacity})`}
+                      strokeWidth="1"
+                      strokeDasharray="2,2"
+                    />
+                  );
+                }
+              }
+              return null;
+            };
+
+            return (
+              <g className="wello-line-chart__health-zones">
+                {/* 정상 범위 (초록색) */}
+                {renderRangeZone(healthRanges.normal, '34, 197, 94', 0.15, '정상')}
+                
+                {/* 경계 범위 (더 진한 주황색) */}
+                {renderRangeZone(healthRanges.borderline, '251, 146, 60', 0.15, '경계')}
+                
+                {/* 이상 범위 (더 진한 빨간색) */}
+                {renderRangeZone(healthRanges.abnormal, '220, 38, 127', 0.12, '이상')}
+                
+                {/* 범위 라벨들 - 각 영역 내부에 배치 */}
+                {healthRanges.normal && (() => {
+                  const normalMinY = margin.top + chartHeight * 0.05 + (1 - (healthRanges.normal.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+                  const normalMaxY = margin.top + chartHeight * 0.05 + (1 - (healthRanges.normal.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+                  const clampedMinY = Math.max(normalMinY, margin.top);
+                  const clampedMaxY = Math.min(normalMaxY, margin.top + chartHeight);
+                  const centerY = clampedMinY + (clampedMaxY - clampedMinY) / 2;
+                  
+                  if (clampedMaxY - clampedMinY > 15) { // 충분한 높이가 있을 때만 표시
+                    return (
+                      <text
+                        x={margin.left + 8}
+                        y={centerY}
+                        className="wello-line-chart__range-label"
+                        textAnchor="start"
+                        dominantBaseline="middle"
+                        fill="rgba(34, 197, 94, 0.9)"
+                        fontSize="10"
+                        fontWeight="600"
+                      >
+                        정상
+                      </text>
+                    );
+                  }
+                  return null;
+                })()}
+                
+                {healthRanges.borderline && (() => {
+                  const borderlineMinY = margin.top + chartHeight * 0.05 + (1 - (healthRanges.borderline.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+                  const borderlineMaxY = margin.top + chartHeight * 0.05 + (1 - (healthRanges.borderline.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+                  const clampedMinY = Math.max(borderlineMinY, margin.top);
+                  const clampedMaxY = Math.min(borderlineMaxY, margin.top + chartHeight);
+                  const centerY = clampedMinY + (clampedMaxY - clampedMinY) / 2;
+                  
+                  if (clampedMaxY - clampedMinY > 15) { // 충분한 높이가 있을 때만 표시
+                    return (
+                      <text
+                        x={margin.left + 8}
+                        y={centerY}
+                        className="wello-line-chart__range-label"
+                        textAnchor="start"
+                        dominantBaseline="middle"
+                        fill="rgba(251, 146, 60, 0.9)"
+                        fontSize="10"
+                        fontWeight="600"
+                      >
+                        경계
+                      </text>
+                    );
+                  }
+                  return null;
+                })()}
+                
+                {healthRanges.abnormal && (() => {
+                  const abnormalMinY = margin.top + chartHeight * 0.05 + (1 - (healthRanges.abnormal.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+                  const abnormalMaxY = margin.top + chartHeight * 0.05 + (1 - (healthRanges.abnormal.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+                  const clampedMinY = Math.max(abnormalMinY, margin.top);
+                  const clampedMaxY = Math.min(abnormalMaxY, margin.top + chartHeight);
+                  const centerY = clampedMinY + (clampedMaxY - clampedMinY) / 2;
+                  
+                  if (clampedMaxY - clampedMinY > 15) { // 충분한 높이가 있을 때만 표시
+                    return (
+                      <text
+                        x={margin.left + 8}
+                        y={centerY}
+                        className="wello-line-chart__range-label"
+                        textAnchor="start"
+                        dominantBaseline="middle"
+                        fill="rgba(220, 38, 127, 0.9)"
+                        fontSize="10"
+                        fontWeight="600"
+                      >
+                        이상
+                      </text>
+                    );
+                  }
+                  return null;
+                })()}
+              </g>
+            );
+          })()}
+
+          {/* 기존 단일 정상 범위 (healthRanges가 없을 때만) */}
+          {!healthRanges && normalRange && (() => {
+            const normalMinY = margin.top + chartHeight * 0.05 + (1 - (normalRange.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+            const normalMaxY = margin.top + chartHeight * 0.05 + (1 - (normalRange.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+            
+            if (normalRange.max >= chartData.minValue && normalRange.min <= chartData.maxValue) {
+              const clampedMinY = Math.max(normalMinY, margin.top);
+              const clampedMaxY = Math.min(normalMaxY, margin.top + chartHeight);
+              const rectHeight = Math.max(0, clampedMaxY - clampedMinY);
+              
+              if (rectHeight > 0) {
+                return (
+                  <g className="wello-line-chart__normal-zone">
+                    <rect
+                      x={margin.left}
+                      y={clampedMinY}
+                      width={chartWidth}
+                      height={rectHeight}
+                      fill="rgba(34, 197, 94, 0.15)"
+                      stroke="rgba(34, 197, 94, 0.3)"
+                      strokeWidth="1"
+                      strokeDasharray="3,3"
+                    />
+                    <text
+                      x={margin.left + chartWidth - 5}
+                      y={clampedMinY + rectHeight / 2}
+                      className="wello-line-chart__normal-zone-label"
+                      textAnchor="end"
+                      dominantBaseline="middle"
+                      fill="rgba(34, 197, 94, 0.8)"
+                      fontSize="10"
+                      fontWeight="500"
+                    >
+                      정상범위
+                    </text>
+                  </g>
+                );
+              }
+            }
+            return null;
+          })()}
         </svg>
 
         {/* 툴팁 */}
