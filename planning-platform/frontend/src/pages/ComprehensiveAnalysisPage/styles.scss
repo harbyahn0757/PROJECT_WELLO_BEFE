@@ -1288,7 +1288,7 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   overflow-x: auto;
   scroll-behavior: smooth;
   scroll-snap-type: x mandatory;
-  padding: $spacing-xs 0 $spacing-lg 0; // 원래대로 복원
+  padding: $spacing-xs $spacing-lg $spacing-lg $spacing-lg; // 건강지표와 동일하게 좌우 패딩 추가
   
   // 모바일에서는 스크롤바 숨김
   @media (max-width: $breakpoint-md) {
@@ -1329,14 +1329,7 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   padding: $spacing-md;
   scroll-snap-align: start;
   
-  // 첫 번째와 마지막 카드에 여백 추가 (건강지표와 동일)
-  &:first-child {
-    margin-left: $spacing-lg;
-  }
-  
-  &:last-child {
-    margin-right: $spacing-lg;
-  }
+  // 패딩으로 간격 처리하므로 margin 제거
   
   // 모바일: 화면 너비의 85%
   @media (max-width: $breakpoint-md) {
@@ -1352,14 +1345,6 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   // 데스크톱: 더 큰 고정 너비
   @media (min-width: $breakpoint-lg) {
     min-width: 380px;
-  }
-  
-  &:first-child {
-    margin-left: $spacing-lg;
-  }
-  
-  &:last-child {
-    margin-right: $spacing-lg;
   }
   
   .trend-header {
