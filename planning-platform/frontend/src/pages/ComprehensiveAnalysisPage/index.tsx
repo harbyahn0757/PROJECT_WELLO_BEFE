@@ -253,9 +253,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       const chartData = healthData.map((item: any) => ({
         name: selectedMetric,
         data: [{
-          date: item.checkup_date || new Date().toISOString(),
+          date: item.CheckUpDate || new Date().toISOString(),
           value: parseFloat((item as any)[fieldName]) || 0,
-          label: `${item.year || '2024'}년 검진`,
+          label: `${item.Year || '2024'}년 검진`,
           status: 'normal' as const
         }]
       })).filter(series => series.data[0].value > 0);
@@ -333,8 +333,8 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       const yearlyData: { [year: string]: number } = {};
       
       healthData.forEach((item: any) => {
-        // year 필드는 "YYYY년" 형식이므로 "년" 제거
-        const year = item.year ? item.year.replace('년', '') : '2024';
+        // Year 필드는 "YYYY년" 형식이므로 "년" 제거
+        const year = item.Year ? item.Year.replace('년', '') : '2024';
         
         // 각 건강검진은 1회 병원 방문으로 계산
         if (yearlyData[year]) {
@@ -611,8 +611,8 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       
       // DB 데이터를 백엔드가 기대하는 형식으로 변환
       const formattedHealthData = healthData.map((item: any) => ({
-        date: item.checkup_date || new Date().toISOString().split('T')[0],
-        year: item.year || '2024',
+        date: item.CheckUpDate || new Date().toISOString().split('T')[0],
+        year: item.Year || '2024',
         inspections: [{
           name: '건강검진',
           items: [
@@ -936,7 +936,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                 
                 // 건강 상태 판정 및 검사일 추출
                 const healthStatus = getHealthStatus(metric, latestValue);
-                const checkupDate = latestData ? `${latestData.year || '2024'}.${latestData.checkup_date || '01/01'}` : '';
+                const checkupDate = latestData ? `${latestData.Year || '2024'}.${latestData.CheckUpDate || '01/01'}` : '';
                 
                 // 해당 지표의 개별 차트 데이터 생성
                 const metricChartData = healthData.length > 0 ? [{
@@ -947,8 +947,8 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                     const yearlyData: { [year: string]: any } = {};
                     
                     healthData.forEach((item: any) => {
-                      // year 필드는 "YYYY년" 형식이므로 "년" 제거
-                      const year = item.year ? item.year.replace('년', '') : '2024';
+                      // Year 필드는 "YYYY년" 형식이므로 "년" 제거
+                      const year = item.Year ? item.Year.replace('년', '') : '2024';
                       let value = 0;
                       
                       // 필드 타입에 따른 값 추출
@@ -966,7 +966,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                         yearlyData[year] = {
                           year,
                           value,
-                          checkup_date: item.checkup_date,
+                          checkup_date: item.CheckUpDate,
                           item
                         };
                       }
@@ -979,7 +979,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                       .map((data: any) => {
                       let dateString;
                       try {
-                        // checkup_date는 "MM/DD" 형식
+                        // CheckUpDate는 "MM/DD" 형식
                         const checkupDate = data.checkup_date || '01/01';
                         const [month, day] = checkupDate.split('/');
                         dateString = `${data.year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
