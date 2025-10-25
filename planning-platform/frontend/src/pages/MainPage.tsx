@@ -241,14 +241,8 @@ const MainPage: React.FC = () => {
                 
               } catch (error) {
                 console.warn('⚠️ [비밀번호확인] 실패:', error);
-                // 에러 시에는 기존 로직대로 진행 (세션 확인)
-                const isValid = await isPasswordAuthValid(uuid, hospitalId);
-                if (isValid) {
-                  console.log('✅ [비밀번호] 인증 유효 - 바로 이동');
-                  navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
-                  return;
-                }
-                
+                // 🔒 보안 강화: API 오류 시에도 비밀번호 모달 표시
+                console.log('🔐 [비밀번호] API 오류로 인한 비밀번호 확인 필요');
                 setPendingNavigation(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
                 setPasswordModalType('confirm');
                 setShowPasswordModal(true);

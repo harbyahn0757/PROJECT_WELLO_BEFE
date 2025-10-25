@@ -44,9 +44,9 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   // 환자 이름 추출 (기본값: "사용자")
   const patientName = state.patient?.name || '사용자';
 
-  // 비밀번호 세션 가드 - 세션 만료 시 메인 페이지로 리디렉션
+  // 비밀번호 세션 가드 - 직접 접속 시에는 체크하지 않음
   usePasswordSessionGuard({
-    enabled: true,
+    enabled: false, // 🔧 직접 접속 허용을 위해 비활성화
     checkInterval: 30000 // 30초마다 체크
   });
 

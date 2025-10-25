@@ -54,20 +54,20 @@ const FloatingButton: React.FC = () => {
   
   React.useEffect(() => {
     const checkHideStatus = () => {
-      const isConfirming = localStorage.getItem('tilko_info_confirming') === 'true';
-      const authWaiting = localStorage.getItem('tilko_auth_waiting') === 'true';
-      const authMethodSelection = localStorage.getItem('tilko_auth_method_selection') === 'true';
+      // 🔧 단순화: 핵심 상태만 체크
       const isDataCollecting = localStorage.getItem('tilko_manual_collect') === 'true';
       const passwordModalOpen = localStorage.getItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN) === 'true';
+      const authWaiting = localStorage.getItem('tilko_auth_waiting') === 'true';
+      const authMethodSelection = localStorage.getItem('tilko_auth_method_selection') === 'true';
       
-      // 정보 확인 중이거나 데이터 수집 중이거나 비밀번호 모달이 열려있으면 무조건 숨김
-      const shouldHide = isConfirming || isDataCollecting || passwordModalOpen;
+      // 데이터 수집 중이거나 비밀번호 모달이 열려있으면 숨김
+      const shouldHide = isDataCollecting || passwordModalOpen;
       setHideFloatingButton(shouldHide);
       setIsAuthWaiting(authWaiting);
       setIsAuthMethodSelection(authMethodSelection);
       setIsPasswordModalOpen(passwordModalOpen);
       
-      // console.log('🔄 [플로팅버튼] 상태 확인:', { isConfirming, authWaiting, authMethodSelection, isDataCollecting, passwordModalOpen, shouldHide });
+      console.log('🔄 [플로팅버튼] 상태 확인:', { isDataCollecting, passwordModalOpen, shouldHide });
     };
     
     // 초기 상태 확인
@@ -75,9 +75,8 @@ const FloatingButton: React.FC = () => {
     
     // storage 이벤트 리스너 (다른 탭에서의 변경사항 감지)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'tilko_info_confirming' || e.key === 'tilko_auth_waiting' || 
-          e.key === 'tilko_auth_method_selection' || e.key === 'tilko_manual_collect' ||
-          e.key === STORAGE_KEYS.PASSWORD_MODAL_OPEN) {
+      if (e.key === 'tilko_manual_collect' || e.key === STORAGE_KEYS.PASSWORD_MODAL_OPEN ||
+          e.key === 'tilko_auth_waiting' || e.key === 'tilko_auth_method_selection') {
         checkHideStatus();
       }
     };
@@ -173,44 +172,31 @@ const FloatingButton: React.FC = () => {
       }
     }
     
-    // results-trend 페이지에서 데이터가 있으면 분석보기 버튼으로 변경
+    // results-trend 페이지에서는 항상 AI 분석 버튼 표시
     if (path === '/results-trend' || path.includes('/results-trend')) {
-      const collectedDataStr = localStorage.getItem('tilko_collected_data');
-      if (collectedDataStr) {
-        try {
-          const collectedData = JSON.parse(collectedDataStr);
-          const hasHealthData = collectedData.health_data?.ResultList?.length > 0;
-          const hasPrescriptionData = collectedData.prescription_data?.ResultList?.length > 0;
-          
-          if (hasHealthData || hasPrescriptionData) {
-            return {
-              text: (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <img 
-                    src="/wello/wello-icon.png" 
-                    alt="Wello" 
-                    style={{ 
-                      width: '20px', 
-                      height: '20px'
-                    }} 
-                  />
-                  AI 종합 분석보기
-                </span>
-              ),
-              onClick: () => {
-                console.log('🧠 [플로팅버튼] 종합 분석 페이지로 이동');
-                const urlParams = new URLSearchParams(window.location.search);
-                const uuid = urlParams.get('uuid');
-                const hospital = urlParams.get('hospital');
-                const queryString = uuid && hospital ? `?uuid=${uuid}&hospital=${hospital}` : '';
-                window.location.href = `/wello/comprehensive-analysis${queryString}`;
-              }
-            };
-          }
-        } catch (error) {
-          console.error('데이터 파싱 오류:', error);
+      return {
+        text: (
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img 
+              src="/wello/wello-icon.png" 
+              alt="Wello" 
+              style={{ 
+                width: '20px', 
+                height: '20px'
+              }} 
+            />
+            AI 종합 분석보기
+          </span>
+        ),
+        onClick: () => {
+          console.log('🧠 [플로팅버튼] 종합 분석 페이지로 이동');
+          const urlParams = new URLSearchParams(window.location.search);
+          const uuid = urlParams.get('uuid');
+          const hospital = urlParams.get('hospital');
+          const queryString = uuid && hospital ? `?uuid=${uuid}&hospital=${hospital}` : '';
+          window.location.href = `/wello/comprehensive-analysis${queryString}`;
         }
-      }
+      };
     }
     
     // comprehensive-analysis 페이지에서는 AI 분석 시작/재분석 버튼
