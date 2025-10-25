@@ -15,6 +15,7 @@ import {
 } from '../../utils/healthDataTransformers';
 import { TilkoHealthCheckupRaw, TilkoPrescriptionRaw } from '../../types/health';
 import { WELLO_API, API_ENDPOINTS } from '../../constants/api';
+import { WelloIndexedDB } from '../../services/WelloIndexedDB';
 import config from '../../config/config.json';
 import './styles.scss';
 import '../../components/health/HealthDataViewer/styles.scss';
@@ -62,7 +63,11 @@ const ComprehensiveAnalysisPage: React.FC = () => {
   
   // 건강 지표 슬라이더 상태
   const [selectedHealthMetric, setSelectedHealthMetric] = useState(0);
-  const [healthMetrics, setHealthMetrics] = useState<string[]>([]);
+  const [healthMetrics, setHealthMetrics] = useState<string[]>([
+    '신장', '체중', 'BMI', '허리둘레', '혈압 (수축기)', 
+    '혈압 (이완기)', '혈당', '총콜레스테롤', 'HDL 콜레스테롤', 
+    'LDL 콜레스테롤', '중성지방', '헤모글로빈'
+  ]); // 초기값으로 미리 설정하여 접힘 현상 방지
   
   // 의료기관 방문추이 슬라이더 상태
   const [activeVisitDotIndex, setActiveVisitDotIndex] = useState(0);
@@ -605,24 +610,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
     }
     
     try {
-      // 검진 항목들 추출 및 설정 (데이터베이스 필드 순서대로)
-      if (healthData.length > 0 && healthMetrics.length === 0) {
-        const metrics = [
-          '신장',
-          '체중',
-          'BMI',
-          '허리둘레',
-          '혈압 (수축기)',
-          '혈압 (이완기)', 
-          '혈당',
-          '총콜레스테롤',
-          'HDL 콜레스테롤',
-          'LDL 콜레스테롤',
-          '중성지방',
-          '헤모글로빈'
-        ];
-        setHealthMetrics(metrics);
-      }
+      // 건강 지표는 이미 초기값으로 설정되어 있음 (중복 설정 방지)
       
       // 선택된 지표에 따라 데이터 변환
       const selectedMetric = healthMetrics[selectedHealthMetric] || '혈압 (수축기)';
@@ -677,16 +665,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
         const hospitalName = item.hospital_name || item.ByungEuiwonYakGukMyung || '';
         const isPharmacy = treatmentType === '처방조제' || hospitalName.includes('약국');
         
-        // 처음 5개 아이템 디버깅
-        if (index < 5) {
-          console.log(`💊 [약국필터] ${index}번째 데이터:`, {
-            treatmentType,
-            hospitalName,
-            isPharmacy,
-            treatment_date: item.treatment_date,
-            year: item.treatment_date ? item.treatment_date.split('-')[0] : '2024'
-          });
-        }
+        // 약국 데이터 필터링 (디버깅 로그 제거)
         
         // 약국인 경우만 집계
         if (!isPharmacy) return;
@@ -702,24 +681,11 @@ const ComprehensiveAnalysisPage: React.FC = () => {
         }
       });
       
-      // 디버깅: 약국 방문 데이터 구조 확인
-      console.log('💊 [약국방문] 데이터 집계 결과 (약국만):', {
-        prescriptionDataCount: prescriptionData.length,
-        pharmacyOnlyCount: prescriptionData.filter((item: any) => {
-          const treatmentType = item.treatment_type || item.JinRyoHyungTae || '';
-          const hospitalName = item.hospital_name || item.ByungEuiwonYakGukMyung || '';
-          const isPharmacy = treatmentType === '처방조제' || hospitalName.includes('약국');
-          return isPharmacy;
-        }).length,
-        yearlyDataKeys: Object.keys(yearlyData),
-        yearlyDataValues: yearlyData,
-        yearlyDataEntries: Object.entries(yearlyData),
-        samplePrescriptionData: prescriptionData[0]
-      });
-      
-      // 전역 변수로 저장 (디버깅용)
-      (window as any).lastPharmacyYearlyData = yearlyData;
-      (window as any).lastPrescriptionData = prescriptionData;
+      // 전역 변수로 저장 (디버깅용 - 필요시에만 사용)
+      if (process.env.NODE_ENV === 'development') {
+        (window as any).lastPharmacyYearlyData = yearlyData;
+        (window as any).lastPrescriptionData = prescriptionData;
+      }
       
       // 년도별 데이터를 차트 형식으로 변환 (최신 5년만)
       const chartData = [{
@@ -804,23 +770,10 @@ const ComprehensiveAnalysisPage: React.FC = () => {
         yearlyVisitCounts[year] = visitSet.size;
       });
       
-      // 디버깅: 병원 방문 데이터 구조 확인
-      console.log('🏥 [병원방문] 데이터 집계 결과 (병원만):', {
-        prescriptionDataCount: prescriptionData.length,
-        hospitalOnlyCount: prescriptionData.filter((item: any) => {
-          const treatmentType = item.treatment_type || item.JinRyoHyungTae || '';
-          const hospitalName = item.hospital_name || item.ByungEuiwonYakGukMyung || '';
-          const isPharmacy = treatmentType === '처방조제' || hospitalName.includes('약국');
-          return !isPharmacy;
-        }).length,
-        yearlyVisitCountsKeys: Object.keys(yearlyVisitCounts),
-        yearlyVisitCountsValues: yearlyVisitCounts,
-        yearlyVisitCountsEntries: Object.entries(yearlyVisitCounts),
-        samplePrescriptionData: prescriptionData[0]
-      });
-      
-      // 전역 변수로 저장 (디버깅용)
-      (window as any).lastHospitalYearlyData = yearlyVisitCounts;
+      // 전역 변수로 저장 (디버깅용 - 필요시에만 사용)
+      if (process.env.NODE_ENV === 'development') {
+        (window as any).lastHospitalYearlyData = yearlyVisitCounts;
+      }
       
       // 년도별 데이터를 차트 형식으로 변환 (최신 10년으로 확장)
       const chartData = [{
@@ -938,10 +891,41 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       const hospital = urlParams.get('hospital');
       
       if (!uuid || !hospital) {
-        // URL 파라미터가 없으면 localStorage에서 시도
+        // URL 파라미터가 없으면 IndexedDB에서 시도
+        console.log('📭 [종합분석] URL 파라미터 없음, IndexedDB에서 데이터 검색');
+        
+        try {
+          // 모든 건강 데이터 조회하여 가장 최근 것 사용
+          const allHealthData = await WelloIndexedDB.getAllHealthData();
+          
+          if (allHealthData.length > 0) {
+            // 가장 최근 업데이트된 데이터 선택
+            const latestData = allHealthData.sort((a, b) => 
+              new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+            )[0];
+            
+            console.log('✅ [IndexedDB] 최신 데이터 로드:', {
+              uuid: latestData.uuid,
+              patientName: latestData.patientName,
+              건강검진개수: latestData.healthData.length,
+              처방전개수: latestData.prescriptionData.length,
+              업데이트: latestData.updatedAt
+            });
+            
+            setHealthData(latestData.healthData);
+            setPrescriptionData(latestData.prescriptionData);
+            setIsLoadingVisitData(false);
+            return;
+          }
+        } catch (indexedDBError) {
+          console.error('❌ [IndexedDB] 데이터 로드 실패:', indexedDBError);
+        }
+        
+        // IndexedDB 실패 시 localStorage 폴백
         const collectedDataStr = localStorage.getItem('tilko_collected_data');
         if (collectedDataStr) {
           const collectedData = JSON.parse(collectedDataStr);
+          console.log('📊 [폴백] localStorage에서 데이터 로드');
           
           if (collectedData.health_data?.ResultList) {
             setHealthData(collectedData.health_data.ResultList);
@@ -951,10 +935,35 @@ const ComprehensiveAnalysisPage: React.FC = () => {
             setPrescriptionData(collectedData.prescription_data.ResultList);
           }
           
-          // 로딩 완료
           setIsLoadingVisitData(false);
         }
         return;
+      }
+
+      // UUID가 있으면 먼저 IndexedDB에서 확인
+      console.log('🔍 [종합분석] IndexedDB에서 특정 환자 데이터 조회:', uuid);
+      
+      try {
+        const indexedDBRecord = await WelloIndexedDB.getHealthData(uuid);
+        
+        if (indexedDBRecord) {
+          console.log('✅ [IndexedDB] 환자 데이터 로드 성공:', {
+            uuid: indexedDBRecord.uuid,
+            patientName: indexedDBRecord.patientName,
+            건강검진개수: indexedDBRecord.healthData.length,
+            처방전개수: indexedDBRecord.prescriptionData.length,
+            업데이트: indexedDBRecord.updatedAt
+          });
+          
+          setHealthData(indexedDBRecord.healthData);
+          setPrescriptionData(indexedDBRecord.prescriptionData);
+          setIsLoadingVisitData(false);
+          return;
+        } else {
+          console.log('📭 [IndexedDB] 해당 환자 데이터 없음, API 호출 진행');
+        }
+      } catch (indexedDBError) {
+        console.error('❌ [IndexedDB] 특정 환자 데이터 조회 실패:', indexedDBError);
       }
 
       // 실제 API 호출로 데이터 가져오기
@@ -1119,22 +1128,22 @@ const ComprehensiveAnalysisPage: React.FC = () => {
     }
   });
 
-  const handleBackClick = () => {
-    navigate(-1);
-  };
-
-    return (
+  return (
     <div className="health-data-viewer">
       <div className="question__content">
-        {/* 뒤로가기 버튼 - results-trend와 동일한 구조 */}
+        {/* 뒤로가기 버튼 - results-trend와 완전히 동일한 구조 */}
         <div className="back-button-container">
-          <button className="back-button" onClick={() => navigate('/results-trend')}>
+          <button className="back-button" onClick={() => navigate(-1)}>
             ←
           </button>
         </div>
 
-        <div className="question__title" style={{ marginTop: '60px' }}>
-          <h1 className="question__title-text">AI 종합 건강 분석</h1>
+        {/* 타이틀 - results-trend와 동일한 marginTop */}
+        <div className="question__title" style={{ marginTop: '10px' }}>
+          <div className="title-content">
+            <h1 className="question__title-text">AI 종합 건강 분석</h1>
+            <p className="title-subtitle">AI 기반 건강 상태 분석 및 맞춤형 건강 관리 제안</p>
+          </div>
         </div>
 
         <div className="comprehensive-analysis-content">

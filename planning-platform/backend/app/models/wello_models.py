@@ -37,6 +37,14 @@ class WelloPatient(Base):
     has_prescription_data = Column(Boolean, default=False)
     last_data_update = Column(DateTime(timezone=True), nullable=True)
     
+    # 🔐 비밀번호 관련 필드
+    password_hash = Column(String(255), nullable=True)  # bcrypt 해시
+    password_set_at = Column(DateTime(timezone=True), nullable=True)  # 설정 시간
+    last_password_prompt = Column(DateTime(timezone=True), nullable=True)  # 마지막 권유 시간
+    password_attempts = Column(Integer, default=0)  # 연속 실패 횟수
+    password_locked_until = Column(DateTime(timezone=True), nullable=True)  # 잠금 해제 시간
+    last_access_at = Column(DateTime(timezone=True), nullable=True)  # 마지막 접근 시간
+    
     # 메타데이터
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

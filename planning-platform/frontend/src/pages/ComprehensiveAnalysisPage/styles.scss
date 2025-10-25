@@ -834,6 +834,14 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   }
 }
 
+// 타이틀 서브타이틀 스타일 추가
+.title-subtitle {
+  font-size: $font-sm;
+  color: $gray-600;
+  margin: $spacing-xs 0 0 0;
+  line-height: 1.4;
+}
+
 // 면책조항 간단 박스
 .disclaimer-box {
   background: #f8f9fa;

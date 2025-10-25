@@ -1,0 +1,149 @@
+// SCSS 변수 import
+@use '../../../styles/variables' as *;
+@use '../../../styles/mixins' as *;
+
+// 웰로 아이콘 깜박이는 애니메이션 (공통)
+@keyframes faviconBlink {
+  0%, 100% { 
+    opacity: 1; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.3; 
+    transform: scale(0.95);
+  }
+}
+
+// 웰로 모달 오버레이 (공통)
+.wello-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+
+// 웰로 모달 (공통)
+.wello-modal {
+  background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
+  border-radius: 16px;
+  padding: 32px 24px;
+  text-align: center;
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  position: relative;
+  overflow: hidden;
+  max-width: 90vw;
+  max-height: 90vh;
+
+  // 배경 그라데이션 효과
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, 
+      rgba(255, 255, 255, 0.1) 0%, 
+      transparent 50%, 
+      rgba(255, 255, 255, 0.05) 100%);
+    pointer-events: none;
+  }
+
+  // 크기 변형
+  &--small {
+    width: 280px;
+    padding: 24px 20px;
+  }
+
+  &--medium {
+    width: 320px;
+    padding: 32px 24px;
+  }
+
+  &--large {
+    width: 400px;
+    padding: 40px 32px;
+  }
+}
+
+// 웰로 아이콘 (공통)
+.wello-modal-icon {
+  text-align: center;
+  margin-bottom: 20px;
+  
+  .wello-icon-blink {
+    width: 56px;
+    height: 56px;
+    animation: faviconBlink 1.5s ease-in-out infinite;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+  }
+}
+
+// 닫기 버튼 (공통)
+.wello-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+// 모달 컨텐츠 (공통)
+.wello-modal-content {
+  position: relative;
+  z-index: 1;
+}
+
+// 반응형 디자인
+@media (max-width: 480px) {
+  .wello-modal {
+    &--small {
+      width: 260px;
+      padding: 20px 16px;
+    }
+
+    &--medium {
+      width: 280px;
+      padding: 28px 20px;
+    }
+
+    &--large {
+      width: 320px;
+      padding: 32px 24px;
+    }
+  }
+
+  .wello-modal-icon .wello-icon-blink {
+    width: 48px;
+    height: 48px;
+  }
+}

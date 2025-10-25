@@ -8,6 +8,8 @@ import UnifiedHealthTimeline from '../UnifiedHealthTimeline/index';
 import { useWelloData } from '../../../contexts/WelloDataContext';
 import { API_ENDPOINTS } from '../../../config/api';
 import { useNavigate } from 'react-router-dom';
+import { WelloIndexedDB, HealthDataRecord } from '../../../services/WelloIndexedDB';
+import usePasswordSessionGuard from '../../../hooks/usePasswordSessionGuard';
 import './styles.scss';
 
 const pillIconPath = `${process.env.PUBLIC_URL || ''}/free-icon-pill-5405585.png`;
@@ -41,6 +43,12 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   
   // 환자 이름 추출 (기본값: "사용자")
   const patientName = state.patient?.name || '사용자';
+
+  // 비밀번호 세션 가드 - 세션 만료 시 메인 페이지로 리디렉션
+  usePasswordSessionGuard({
+    enabled: true,
+    checkInterval: 30000 // 30초마다 체크
+  });
 
   useEffect(() => {
     // DB에서 저장된 데이터 로드 또는 localStorage에서 최근 수집된 데이터 로드
@@ -123,13 +131,70 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
                 setTimeout(() => setShowToast(false), 3000); // 3초 후 자동 숨김
               }
               
-              // 🔄 [플로팅버튼] localStorage에 데이터 저장 (플로팅 버튼 "AI 종합 분석보기" 활성화용)
-              const collectedData = {
-                health_data: healthDataFormatted,
-                prescription_data: prescriptionDataFormatted
-              };
-              localStorage.setItem('tilko_collected_data', JSON.stringify(collectedData));
-              console.log('💾 [결과페이지] localStorage에 데이터 저장 완료 (플로팅 버튼 업데이트용)');
+              // 🔄 [IndexedDB] 건강 데이터 저장 (AI 종합 분석용)
+              try {
+                const healthRecord: HealthDataRecord = {
+                  uuid: uuid!,
+                  patientName: state.patient?.name || '사용자',
+                  hospitalId: hospital!,
+                  healthData: healthDataFormatted?.ResultList || [],
+                  prescriptionData: prescriptionDataFormatted?.ResultList || [],
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                  dataSource: 'api'
+                };
+
+                const saveSuccess = await WelloIndexedDB.saveHealthData(healthRecord);
+                
+                if (saveSuccess) {
+                  console.log('✅ [IndexedDB] 건강 데이터 저장 성공:', {
+                    uuid: uuid,
+                    건강검진개수: healthDataFormatted?.ResultList?.length || 0,
+                    처방전개수: prescriptionDataFormatted?.ResultList?.length || 0,
+                    데이터크기: `${(JSON.stringify(healthRecord).length/1024).toFixed(1)}KB`
+                  });
+
+                  // localStorage에는 최소 플래그만 저장 (기존 호환성)
+                  localStorage.setItem('tilko_collected_data', JSON.stringify({
+                    health_data: { ResultList: [] }, // 빈 배열로 플래그만
+                    prescription_data: { ResultList: [] }, // 빈 배열로 플래그만
+                    collected_at: new Date().toISOString(),
+                    source: 'indexeddb',
+                    uuid: uuid,
+                    dataSize: `${(JSON.stringify(healthRecord).length/1024).toFixed(1)}KB`
+                  }));
+                } else {
+                  throw new Error('IndexedDB 저장 실패');
+                }
+                
+              } catch (error: any) {
+                console.error('❌ [IndexedDB 저장 오류]', {
+                  오류타입: error.name,
+                  오류메시지: error.message,
+                  건강검진개수: healthDataFormatted?.ResultList?.length || 0,
+                  처방전개수: prescriptionDataFormatted?.ResultList?.length || 0
+                });
+                
+                // IndexedDB 실패 시 localStorage 폴백
+                try {
+                  console.log('🔄 [폴백] localStorage로 최소 데이터 저장');
+                  const minimalData = {
+                    health_data: healthDataFormatted,
+                    prescription_data: { ResultList: prescriptionDataFormatted?.ResultList?.slice(0, 10) || [] }, // 처방전 10개만
+                    collected_at: new Date().toISOString(),
+                    source: 'localStorage_fallback'
+                  };
+                  localStorage.setItem('tilko_collected_data', JSON.stringify(minimalData));
+                  console.log('✅ [폴백] localStorage 저장 완료');
+                  
+                } catch (fallbackError: any) {
+                  console.error('❌ [폴백 실패]', fallbackError.message);
+                  // 사용자에게 알림
+                  setShowToast(true);
+                  setLastUpdateTime('저장공간 부족으로 일부 기능 제한');
+                  setTimeout(() => setShowToast(false), 5000);
+                }
+              }
               
               // 플로팅 버튼 업데이트를 위한 이벤트 발생
               window.dispatchEvent(new Event('localStorageChange'));
@@ -142,36 +207,77 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
           }
         }
 
-        // DB에서 데이터를 가져올 수 없는 경우 localStorage에서 로드
-        const collectedDataStr = localStorage.getItem('tilko_collected_data');
-        if (collectedDataStr) {
-          const collectedData = JSON.parse(collectedDataStr);
-          console.log('📊 [결과페이지] localStorage에서 데이터 로드:', collectedData);
-          console.log('🕒 [결과페이지] collected_at 값:', collectedData.collected_at);
-          console.log('🕒 [결과페이지] collected_at 타입:', typeof collectedData.collected_at);
+        // DB에서 데이터를 가져올 수 없는 경우 IndexedDB에서 로드
+        if (uuid) {
+          console.log('📊 [결과페이지] IndexedDB에서 데이터 로드 시도:', uuid);
           
-          setHealthData(collectedData.health_data);
-          setPrescriptionData(collectedData.prescription_data);
-          
-          // localStorage에서 수집 시간 설정
-          if (collectedData.collected_at) {
-            console.log('✅ [결과페이지] 수집 시간 설정:', collectedData.collected_at);
-            setLastUpdateTime(collectedData.collected_at);
-            // 토스트 메시지 표시
-            setShowToast(true);
-            setTimeout(() => setShowToast(false), 3000); // 3초 후 자동 숨김
-          } else {
-            console.warn('⚠️ [결과페이지] collected_at 필드가 없습니다');
-            // 대안: 현재 시간을 사용
-            const fallbackTime = new Date().toISOString();
-            setLastUpdateTime(fallbackTime);
-            console.log('🔄 [결과페이지] 대안 시간 사용:', fallbackTime);
-            // 토스트 메시지 표시
-            setShowToast(true);
-            setTimeout(() => setShowToast(false), 3000); // 3초 후 자동 숨김
+          try {
+            const indexedDBRecord = await WelloIndexedDB.getHealthData(uuid);
+            
+            if (indexedDBRecord) {
+              console.log('✅ [IndexedDB] 데이터 로드 성공:', indexedDBRecord);
+              
+              // IndexedDB 데이터를 Tilko 형식으로 변환
+              const healthDataFormatted = {
+                ResultList: indexedDBRecord.healthData
+              };
+              const prescriptionDataFormatted = {
+                ResultList: indexedDBRecord.prescriptionData
+              };
+              
+              setHealthData(healthDataFormatted);
+              setPrescriptionData(prescriptionDataFormatted);
+              setLastUpdateTime(indexedDBRecord.updatedAt);
+              
+              // 토스트 메시지 표시
+              setShowToast(true);
+              setTimeout(() => setShowToast(false), 3000);
+              
+            } else {
+              // IndexedDB에 데이터가 없으면 localStorage 확인 (폴백)
+              console.log('📭 [IndexedDB] 데이터 없음, localStorage 확인');
+              
+              const collectedDataStr = localStorage.getItem('tilko_collected_data');
+              if (collectedDataStr) {
+                const collectedData = JSON.parse(collectedDataStr);
+                console.log('📊 [폴백] localStorage에서 데이터 로드:', collectedData);
+                
+                setHealthData(collectedData.health_data);
+                setPrescriptionData(collectedData.prescription_data);
+                
+                if (collectedData.collected_at) {
+                  setLastUpdateTime(collectedData.collected_at);
+                  setShowToast(true);
+                  setTimeout(() => setShowToast(false), 3000);
+                } else {
+                  const fallbackTime = new Date().toISOString();
+                  setLastUpdateTime(fallbackTime);
+                  setShowToast(true);
+                  setTimeout(() => setShowToast(false), 3000);
+                }
+              } else {
+                console.warn('⚠️ [결과페이지] IndexedDB와 localStorage 모두에 저장된 데이터가 없습니다');
+              }
+            }
+            
+          } catch (error) {
+            console.error('❌ [IndexedDB] 데이터 로드 실패:', error);
+            
+            // IndexedDB 실패 시 localStorage 폴백
+            const collectedDataStr = localStorage.getItem('tilko_collected_data');
+            if (collectedDataStr) {
+              const collectedData = JSON.parse(collectedDataStr);
+              console.log('📊 [폴백] localStorage에서 데이터 로드:', collectedData);
+              
+              setHealthData(collectedData.health_data);
+              setPrescriptionData(collectedData.prescription_data);
+              setLastUpdateTime(collectedData.collected_at || new Date().toISOString());
+              setShowToast(true);
+              setTimeout(() => setShowToast(false), 3000);
+            }
           }
         } else {
-          console.warn('⚠️ [결과페이지] 저장된 데이터가 없습니다');
+          console.warn('⚠️ [결과페이지] UUID가 없어 데이터를 로드할 수 없습니다');
         }
         
       } catch (err) {

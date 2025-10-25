@@ -45,6 +45,36 @@ export const API_ENDPOINTS = {
   
   // 약품 상세정보 관련
   DRUG_DETAIL: (drugCode: string) => createApiUrl(`/wello-api/v1/wello/drug-detail/${drugCode}`),
+  
+  // 비밀번호 관련
+  PASSWORD: {
+    CHECK_PASSWORD: (uuid: string, hospitalId: string) => 
+      createApiUrl(`/wello-api/v1/patients/${uuid}/password/check?hospital_id=${hospitalId}`),
+    SET_PASSWORD: (uuid: string, hospitalId: string) => 
+      createApiUrl(`/wello-api/v1/patients/${uuid}/password/set?hospital_id=${hospitalId}`),
+    VERIFY_PASSWORD: (uuid: string, hospitalId: string) => 
+      createApiUrl(`/wello-api/v1/patients/${uuid}/password/verify?hospital_id=${hospitalId}`),
+    CHANGE_PASSWORD: (uuid: string, hospitalId: string) => 
+      createApiUrl(`/wello-api/v1/patients/${uuid}/password/change?hospital_id=${hospitalId}`),
+        PROMPT_CHECK: (uuid: string, hospitalId: string) => 
+          createApiUrl(`/wello-api/v1/patients/${uuid}/password/should-prompt?hospital_id=${hospitalId}`),
+    PROMPT_UPDATE: (uuid: string, hospitalId: string) => 
+      createApiUrl(`/wello-api/v1/patients/${uuid}/password/update-prompt?hospital_id=${hospitalId}`),
+    ACCESS_UPDATE: (uuid: string, hospitalId: string) => 
+      createApiUrl(`/wello-api/v1/patients/${uuid}/password/access-update?hospital_id=${hospitalId}`),
+    
+    // 세션 관리 API
+    CREATE_SESSION: (uuid: string, hospitalId: string) => 
+      createApiUrl(`/wello-api/v1/patients/${uuid}/sessions/create?hospital_id=${hospitalId}`),
+    VERIFY_SESSION: () => 
+      createApiUrl(`/wello-api/v1/sessions/verify`),
+    INVALIDATE_SESSION: (sessionToken: string) => 
+      createApiUrl(`/wello-api/v1/sessions/${sessionToken}`),
+    GET_SESSIONS: (uuid: string, hospitalId: string) => 
+      createApiUrl(`/wello-api/v1/patients/${uuid}/sessions?hospital_id=${hospitalId}`),
+    CLEANUP_SESSIONS: () => 
+      createApiUrl(`/wello-api/v1/sessions/cleanup`)
+  }
 };
 
 // 디버그 정보

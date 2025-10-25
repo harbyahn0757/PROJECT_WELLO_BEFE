@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.openapi.utils import get_openapi
 import os
 
-from .api.v1.endpoints import patients, hospitals, health, checkup_design, auth, tilko_auth, websocket_auth, wello_data, file_management, health_analysis
+from .api.v1.endpoints import patients, hospitals, health, checkup_design, auth, tilko_auth, websocket_auth, wello_data, file_management, health_analysis, password
 from .core.config import settings
 from .data.redis_session_manager import redis_session_manager as session_manager
 
@@ -45,6 +45,7 @@ app.include_router(hospitals.router, prefix="/api/v1/hospitals", tags=["hospital
 app.include_router(checkup_design.router, prefix="/api/v1/checkup-design", tags=["checkup-design"])
 app.include_router(wello_data.router, prefix="/api/v1/wello", tags=["wello"])
 app.include_router(file_management.router, prefix="/api/v1/admin", tags=["admin"])
+app.include_router(password.router, prefix="/api/v1", tags=["password"])
 app.include_router(health_analysis.router, prefix="/api/v1/health-analysis", tags=["health-analysis"])
 
 @app.on_event("startup")

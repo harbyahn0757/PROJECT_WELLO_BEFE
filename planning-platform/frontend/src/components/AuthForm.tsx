@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useWelloData } from '../contexts/WelloDataContext';
 import { PatientDataConverter, PatientDataValidator, GenderConverter } from '../types/patient';
 import { TILKO_API, HTTP_METHODS, API_HEADERS } from '../constants/api';
+import PasswordModal from './PasswordModal';
+import { PasswordModalType } from './PasswordModal/types';
 import { NavigationHelper, STANDARD_NAVIGATION } from '../constants/navigation';
 import { STORAGE_KEYS, StorageManager, TilkoSessionStorage } from '../constants/storage';
 import { useWebSocketAuth } from '../hooks/useWebSocketAuth';
@@ -111,7 +113,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     '🏥 국민건강보험공단에서 건강검진 데이터를 가져오고 있어요...',
     '💊 병원 및 약국 처방전 정보를 수집하고 있어요...',
     '📊 수집된 건강정보를 안전하게 분석하고 있어요...',
-    '🔒 개인정보를 암호화하여 안전하게 저장하고 있어요...',
+    '🛡️ 개인정보를 암호화하여 안전하게 저장하고 있어요...',
     '✨ 맞춤형 건강 트렌드 분석을 준비하고 있어요...',
     '⏰ 잠시만 기다려주세요. 곧 완료됩니다...',
     '🎯 최종 검토 중입니다. 거의 다 끝났어요!'
@@ -307,6 +309,39 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const [tokenReceived, setTokenReceived] = useState<boolean>(false);
   const [tokenRetryCount, setTokenRetryCount] = useState<number>(0);
   const [tokenTimeout, setTokenTimeout] = useState<NodeJS.Timeout | null>(null);
+  
+  // 비밀번호 설정 모달 상태
+  const [showPasswordSetupModal, setShowPasswordSetupModal] = useState(false);
+  const [passwordSetupData, setPasswordSetupData] = useState<{uuid: string, hospital: string} | null>(null);
+
+  // 비밀번호 설정 모달 핸들러
+  const handlePasswordSetupSuccess = (type: PasswordModalType) => {
+    console.log('✅ [비밀번호] 설정 완료 - 결과 페이지로 이동');
+    setShowPasswordSetupModal(false);
+    
+    if (passwordSetupData?.uuid && passwordSetupData?.hospital) {
+      const targetUrl = `/results-trend?uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
+      console.log('🚀 [비밀번호설정완료] 결과 페이지로 이동:', targetUrl);
+      navigate(targetUrl);
+    } else {
+      console.warn('⚠️ [비밀번호설정완료] UUID/병원 정보 부족');
+      navigate('/results-trend');
+    }
+  };
+
+  const handlePasswordSetupCancel = () => {
+    console.log('⏭️ [비밀번호] 설정 건너뛰기 - 결과 페이지로 이동');
+    setShowPasswordSetupModal(false);
+    
+    if (passwordSetupData?.uuid && passwordSetupData?.hospital) {
+      const targetUrl = `/results-trend?uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
+      console.log('🚀 [비밀번호건너뛰기] 결과 페이지로 이동:', targetUrl);
+      navigate(targetUrl);
+    } else {
+      console.warn('⚠️ [비밀번호건너뛰기] UUID/병원 정보 부족');
+      navigate('/results-trend');
+    }
+  };
   
   // 타이핑 효과 타이머 관리
   const titleTypingTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -901,27 +936,28 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                   StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
                   
                   setCurrentStatus('completed');
-                  setTypingText('✅ 건강정보 수집이 완료되었습니다!\n🎯 트렌드 분석 결과를 확인해보세요...');
+                  setTypingText('✅ 건강정보 수집이 완료되었습니다!\n🔐 안전한 이용을 위해 비밀번호를 설정해주세요...');
                   
-                  // 사용자에게 완료 메시지를 보여준 후 이동 (1.5초 지연)
-                  console.log('🚀 [수집완료] 결과 페이지로 이동 준비');
+                  // 사용자에게 완료 메시지를 보여준 후 비밀번호 설정 모달 표시 (2초 지연)
+                  console.log('🔐 [수집완료] 비밀번호 설정 모달 표시 준비');
                   
                   setTimeout(() => {
-                    // URL 파라미터 포함해서 이동
+                    // URL 파라미터 추출
                     const urlParams = new URLSearchParams(window.location.search);
                     const uuid = urlParams.get('uuid');
                     const hospital = urlParams.get('hospital');
                     
-                    console.log('📍 [수집완료] 트렌드 페이지로 이동 시작:', { uuid, hospital });
-                    
                     if (uuid && hospital) {
-                      navigate(`/results-trend?uuid=${uuid}&hospital=${hospital}`);
-                      console.log('✅ [수집완료] URL 파라미터와 함께 이동 완료');
+                      console.log('🔐 [수집완료] 비밀번호 설정 모달 표시:', { uuid, hospital });
+                      
+                      // 비밀번호 설정 모달 표시
+                      setShowPasswordSetupModal(true);
+                      setPasswordSetupData({ uuid, hospital });
                     } else {
+                      console.warn('⚠️ [수집완료] UUID/병원ID 없음 - 결과 페이지로 바로 이동');
                       navigate('/results-trend');
-                      console.log('⚠️ [수집완료] URL 파라미터 없이 이동 완료');
                     }
-                  }, 1500);
+                  }, 2000);
                   
                   return; // 폴링 종료
                 }
@@ -3207,6 +3243,20 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* 비밀번호 설정 모달 */}
+      {showPasswordSetupModal && passwordSetupData && (
+        <PasswordModal
+          isOpen={showPasswordSetupModal}
+          onClose={handlePasswordSetupCancel}
+          onSuccess={handlePasswordSetupSuccess}
+          onCancel={handlePasswordSetupCancel}
+          type="setup"
+          uuid={passwordSetupData.uuid}
+          hospitalId={passwordSetupData.hospital}
+          initialMessage="안전한 이용을 위해 비밀번호를 설정해주세요"
+        />
       )}
     </>
   );

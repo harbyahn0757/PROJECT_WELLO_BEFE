@@ -11,10 +11,16 @@
   bottom: 0;
   background: rgba(124, 116, 106, 0.4); // 메인 브랜드 컬러 기반
   display: flex;
-  align-items: center;
+  align-items: flex-end; // 모바일에서 아래쪽 배치
   justify-content: center;
   z-index: 9999;
-  padding: 20px;
+  padding: 0;
+
+  // 데스크톱에서는 중앙 배치
+  @media (min-width: 768px) {
+    align-items: center;
+    padding: 20px;
+  }
   
   .drug-detail-modal {
     background: $background-beige; // 메인 화면과 동일한 배경

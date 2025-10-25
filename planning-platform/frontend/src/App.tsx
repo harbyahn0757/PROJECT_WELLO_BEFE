@@ -49,6 +49,7 @@ const FloatingButton: React.FC = () => {
   const [hideFloatingButton, setHideFloatingButton] = React.useState(false);
   const [isAuthWaiting, setIsAuthWaiting] = React.useState(false);
   const [isAuthMethodSelection, setIsAuthMethodSelection] = React.useState(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
   const [buttonUpdateTrigger, setButtonUpdateTrigger] = React.useState(0);
   
   React.useEffect(() => {
@@ -57,14 +58,16 @@ const FloatingButton: React.FC = () => {
       const authWaiting = localStorage.getItem('tilko_auth_waiting') === 'true';
       const authMethodSelection = localStorage.getItem('tilko_auth_method_selection') === 'true';
       const isDataCollecting = localStorage.getItem('tilko_manual_collect') === 'true';
+      const passwordModalOpen = localStorage.getItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN) === 'true';
       
-      // 정보 확인 중이거나 데이터 수집 중에는 무조건 숨김
-      const shouldHide = isConfirming || isDataCollecting;
+      // 정보 확인 중이거나 데이터 수집 중이거나 비밀번호 모달이 열려있으면 무조건 숨김
+      const shouldHide = isConfirming || isDataCollecting || passwordModalOpen;
       setHideFloatingButton(shouldHide);
       setIsAuthWaiting(authWaiting);
       setIsAuthMethodSelection(authMethodSelection);
+      setIsPasswordModalOpen(passwordModalOpen);
       
-      // console.log('🔄 [플로팅버튼] 상태 확인:', { isConfirming, authWaiting, authMethodSelection, isDataCollecting, shouldHide });
+      // console.log('🔄 [플로팅버튼] 상태 확인:', { isConfirming, authWaiting, authMethodSelection, isDataCollecting, passwordModalOpen, shouldHide });
     };
     
     // 초기 상태 확인
@@ -73,7 +76,8 @@ const FloatingButton: React.FC = () => {
     // storage 이벤트 리스너 (다른 탭에서의 변경사항 감지)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'tilko_info_confirming' || e.key === 'tilko_auth_waiting' || 
-          e.key === 'tilko_auth_method_selection' || e.key === 'tilko_manual_collect') {
+          e.key === 'tilko_auth_method_selection' || e.key === 'tilko_manual_collect' ||
+          e.key === STORAGE_KEYS.PASSWORD_MODAL_OPEN) {
         checkHideStatus();
       }
     };
@@ -88,11 +92,13 @@ const FloatingButton: React.FC = () => {
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('tilko-status-change', handleCustomEvent);
     window.addEventListener('localStorageChange', handleCustomEvent);
+    window.addEventListener('password-modal-change', handleCustomEvent);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('tilko-status-change', handleCustomEvent);
       window.removeEventListener('localStorageChange', handleCustomEvent);
+      window.removeEventListener('password-modal-change', handleCustomEvent);
     };
   }, []);
   
@@ -261,8 +267,8 @@ const FloatingButton: React.FC = () => {
 
   const buttonConfig = React.useMemo(() => getButtonConfig(), [location.pathname, isAuthWaiting, isAuthMethodSelection, buttonUpdateTrigger]);
 
-  // buttonConfig가 null이면 플로팅 버튼 숨기기
-  if (!buttonConfig) {
+  // buttonConfig가 null이거나 비밀번호 모달이 열려있으면 플로팅 버튼 숨기기
+  if (!buttonConfig || isPasswordModalOpen) {
     return null;
   }
 
@@ -394,14 +400,40 @@ const AppContent: React.FC = () => {
   //   }
   // }, [state.layoutConfig]);
 
+  // 레이아웃 설정이 없는 경우 기본 레이아웃 사용
+  const layoutConfig = state.layoutConfig || {
+    layoutType: 'vertical' as LayoutType,
+    showAIButton: false,
+    showFloatingButton: true,
+    title: 'WELLO 건강검진 플랫폼',
+    subtitle: '건강한 내일을 위한 첫걸음을 시작하세요.',
+    headerMainTitle: '',
+    headerImage: "/wello/doctor-image.png",
+    headerImageAlt: "의사가 정면으로 청진기를 들고 있는 전문적인 의료 배경 이미지",
+    headerSlogan: "행복한 건강생활의 평생 동반자",
+    headerLogoTitle: "건강검진센터",
+    headerLogoSubtitle: "",
+    hospitalName: '건강검진센터',
+    brandColor: '#4b5563',
+    logoPosition: 'center',
+  };
+
+  // 플로팅 버튼 표시 조건: 기본적으로 항상 표시 (layoutConfig 로딩 전에도)
+  const shouldShowFloatingButton = layoutConfig.showFloatingButton !== false;
+
   if (state.isLoading) {
     return (
       <div className="app">
-        <div className="loading-container">
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-            <p>데이터를 불러오는 중...</p>
+        <div className="main-container">
+          <div className="loading-container">
+            <div className="loading-spinner">
+              <div className="spinner"></div>
+              <p>데이터를 불러오는 중...</p>
+            </div>
           </div>
+          
+          {/* 로딩 중에도 플로팅 버튼 표시 */}
+          {shouldShowFloatingButton && <FloatingButton />}
         </div>
       </div>
     );
@@ -425,24 +457,6 @@ const AppContent: React.FC = () => {
       </div>
     );
   }
-
-  // 레이아웃 설정이 없는 경우 기본 레이아웃 사용
-  const layoutConfig = state.layoutConfig || {
-    layoutType: 'vertical' as LayoutType,
-    showAIButton: false,
-    showFloatingButton: true,
-    title: 'WELLO 건강검진 플랫폼',
-    subtitle: '건강한 내일을 위한 첫걸음을 시작하세요.',
-    headerMainTitle: '',
-    headerImage: "/wello/doctor-image.png",
-    headerImageAlt: "의사가 정면으로 청진기를 들고 있는 전문적인 의료 배경 이미지",
-    headerSlogan: "행복한 건강생활의 평생 동반자",
-    headerLogoTitle: "건강검진센터",
-    headerLogoSubtitle: "",
-    hospitalName: '건강검진센터',
-    brandColor: '#4b5563',
-    logoPosition: 'center',
-  };
 
   // 레이아웃 컴포넌트 선택
   const LayoutComponent = 
@@ -500,7 +514,7 @@ const AppContent: React.FC = () => {
         </Routes>
         
         {/* 플로팅 버튼 조건부 렌더링 */}
-        {layoutConfig.showFloatingButton && <FloatingButton />}
+        {shouldShowFloatingButton && <FloatingButton />}
         
         {/* AI 버튼 조건부 렌더링 */}
         {layoutConfig.showAIButton && <ResultsTrendButton />}

@@ -1,10 +1,17 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/Card';
 import { useWelloData } from '../contexts/WelloDataContext';
 import { API_ENDPOINTS } from '../config/api';
 import { LayoutType } from '../constants/layoutTypes';
 import { TILKO_API } from '../constants/api';
+import PasswordModal from '../components/PasswordModal';
+import SessionStatusModal from '../components/SessionStatusModal';
+import { PasswordModalType } from '../components/PasswordModal/types';
+import { PASSWORD_POLICY } from '../constants/passwordMessages';
+import { PasswordService } from '../components/PasswordModal/PasswordService';
+import { PasswordSessionService } from '../services/PasswordSessionService';
+import useGlobalSessionDetection from '../hooks/useGlobalSessionDetection';
 
 const MainPage: React.FC = () => {
   const { state } = useWelloData();
@@ -12,85 +19,156 @@ const MainPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 세션 복구 체크 (컴포넌트 마운트 시)
+  // 비밀번호 관련 state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordModalType, setPasswordModalType] = useState<PasswordModalType>('confirm');
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  
+  // 세션 상태 모달 관련 state
+  const [showSessionStatusModal, setShowSessionStatusModal] = useState(false);
+  const [sessionExpiresAt, setSessionExpiresAt] = useState<string | null>(null);
+
+  // 전역 세션 감지 (비밀번호 모달이 열려있을 때는 비활성화)
+  useGlobalSessionDetection({ 
+    enabled: !showPasswordModal,
+    checkInterval: 30000 
+  });
+
+  // 비밀번호 세션 정리 (컴포넌트 마운트 시 한 번만)
   useEffect(() => {
-    const checkAndRecoverSession = async () => {
-      try {
-        console.log('🔍 [메인페이지] 세션 복구 체크 시작');
-        
-        // 로컬 스토리지에서 세션 ID 확인
-        const savedSessionId = localStorage.getItem('tilko_session_id');
-        const savedSessionData = localStorage.getItem('tilko_session_data');
-        
-        console.log('📋 [메인페이지] localStorage 확인:', {
-          sessionId: savedSessionId,
-          sessionData: savedSessionData ? 'exists' : 'null'
-        });
-        
-        if (savedSessionId && savedSessionData) {
-          const sessionData = JSON.parse(savedSessionData);
-          
-          // 세션이 5분 이내에 생성된 경우만 복구 (기존 1분에서 5분으로 확장)
-          const sessionAge = Date.now() - new Date(sessionData.created_at).getTime();
-          const fiveMinutes = 5 * 60 * 1000;
-          
-          console.log('⏰ [메인페이지] 세션 시간 확인:', {
-            sessionAge: Math.floor(sessionAge / 1000) + '초',
-            limit: '300초',
-            valid: sessionAge < fiveMinutes
-          });
-          
-          if (sessionAge < fiveMinutes) {
-            console.log('🔄 [메인페이지] 기존 세션 발견, 상태 확인 중:', savedSessionId);
-            
-            // 서버에서 세션 상태 확인
-            const response = await fetch(TILKO_API.SESSION_STATUS(savedSessionId));
-            
-            if (response.ok) {
-              const result = await response.json();
-              
-              console.log('📊 [메인페이지] 서버 세션 상태:', result);
-              
-              if (result.success && result.status && result.status !== 'error') {
-                console.log('✅ [메인페이지] 진행 중인 세션 발견:', result.status);
-                
-                // 인증 관련 상태면 로그인 페이지로 리다이렉트
-                if (['auth_pending', 'auth_completed', 'authenticated', 'auth_waiting'].includes(result.status)) {
-                  const urlParams = new URLSearchParams(location.search);
-                  const uuid = urlParams.get('uuid');
-                  const hospital = urlParams.get('hospital');
-                  
-                  console.log('🎯 [메인페이지] URL 파라미터 확인:', { uuid, hospital });
-                  
-                  if (uuid && hospital) {
-                    console.log('🔄 [메인페이지] 인증 진행 중인 세션 → 로그인 페이지로 리다이렉트');
-                    navigate(`/login?uuid=${uuid}&hospital=${hospital}`);
-                    return;
-                  } else {
-                    console.warn('⚠️ [메인페이지] UUID 또는 Hospital 파라미터 누락');
-                  }
-                } else {
-                  console.log('ℹ️ [메인페이지] 인증 관련 상태가 아님:', result.status);
-                }
-              } else {
-                console.log('⚠️ [메인페이지] 세션 상태 응답 오류:', result);
-              }
-            } else {
-              console.error('❌ [메인페이지] 세션 상태 API 호출 실패:', response.status);
-            }
-          } else {
-            console.log('⏰ [메인페이지] 세션이 만료됨 (5분 초과)');
-          }
-        } else {
-          console.log('📭 [메인페이지] 저장된 세션 없음');
-        }
-      } catch (error) {
-        console.error('❌ [메인페이지] 세션 복구 확인 실패:', error);
-      }
-    };
+    // 기존 전역 세션 데이터 정리 (한 번만 실행)
+    PasswordSessionService.cleanupLegacySessions();
     
-    checkAndRecoverSession();
-  }, [navigate, location.search]);
+    // 비밀번호 모달 상태 정리 (MainPage 로드 시 항상 false로 초기화)
+    localStorage.removeItem('password_modal_open');
+    window.dispatchEvent(new CustomEvent('password-modal-change'));
+    
+    console.log('🧹 [메인페이지] 비밀번호 세션 및 모달 상태 정리 완료');
+  }, []); // 빈 배열로 한 번만 실행
+
+  // 비밀번호 인증 상태 확인 함수 (세션 상태 모달 포함)
+  // PasswordSessionService만 사용 (폴백 제거)
+  const isPasswordAuthValid = async (uuid?: string, hospitalId?: string): Promise<boolean> => {
+    try {
+      // 필수 파라미터 검증
+      if (!uuid || !hospitalId) {
+        console.warn('⚠️ [메인] UUID 또는 hospitalId 누락 - 인증 실패');
+        return false;
+      }
+      
+      // 세션 상태 모달 표시
+      setShowSessionStatusModal(true);
+      
+      const sessionResult = await PasswordSessionService.isSessionValid(uuid, hospitalId);
+      if (sessionResult.success) {
+        // 세션 만료 시간 설정
+        if (sessionResult.expiresAt) {
+          setSessionExpiresAt(sessionResult.expiresAt);
+        }
+        
+        console.log('✅ [메인] 세션 유효 - 세션 상태 모달 표시');
+        return true;
+      }
+      
+      // 세션 무효 시 모달 즉시 닫기
+      setShowSessionStatusModal(false);
+      console.log('❌ [메인] 세션 무효 - 재인증 필요');
+      return false;
+      
+    } catch (error) {
+      // 에러 시 모달 즉시 닫기
+      setShowSessionStatusModal(false);
+      console.error('❌ [메인] 세션 확인 오류:', error);
+      return false;
+    }
+  };
+
+  // 비밀번호 인증 성공 후 세션 생성
+  const setPasswordAuthTime = async (): Promise<void> => {
+    // URL 파라미터에서 환자 정보 추출
+    const urlParams = new URLSearchParams(location.search);
+    const uuid = urlParams.get('uuid');
+    const hospitalId = urlParams.get('hospital');
+    
+    if (!uuid || !hospitalId) {
+      console.error('❌ [메인] UUID 또는 hospitalId 누락 - 세션 생성 불가');
+      return;
+    }
+    
+    try {
+      const success = await PasswordSessionService.createSession(uuid, hospitalId);
+      if (success) {
+        console.log('✅ [메인] 세션 생성 완료');
+      } else {
+        console.error('❌ [메인] 세션 생성 실패');
+      }
+    } catch (error) {
+      console.error('❌ [메인] 세션 생성 오류:', error);
+    }
+  };
+
+  // 데이터 존재 여부 확인
+  const checkHasData = async (uuid: string, hospitalId: string): Promise<boolean> => {
+    try {
+      const response = await fetch(API_ENDPOINTS.CHECK_EXISTING_DATA(uuid, hospitalId));
+      if (response.ok) {
+        const result = await response.json();
+        return result.data && result.data.exists && (result.data.health_data_count > 0 || result.data.prescription_data_count > 0);
+      }
+    } catch (error) {
+      console.warn('⚠️ [데이터확인] 실패:', error);
+    }
+    return false;
+  };
+
+  // 비밀번호 확인 후 네비게이션 처리
+  const handlePasswordSuccess = async (type: PasswordModalType) => {
+    console.log('✅ [비밀번호] 인증 성공:', type);
+    
+    // 비밀번호 설정/확인 완료 시
+    await setPasswordAuthTime();
+    setShowPasswordModal(false);
+    
+    if (pendingNavigation) {
+      console.log('🚀 [네비게이션] 대기 중인 페이지로 이동:', pendingNavigation);
+      navigate(pendingNavigation);
+      setPendingNavigation(null);
+    }
+  };
+
+  // 비밀번호 모달 취소 처리
+  const handlePasswordCancel = () => {
+    console.log('❌ [비밀번호] 인증 취소');
+    
+    // 설정 모달에서 "나중에 하기" 선택 시 → 바로 페이지 이동
+    if (passwordModalType === 'setup' && pendingNavigation) {
+      console.log('🚪 [비밀번호] 설정 거부 - 바로 페이지 이동:', pendingNavigation);
+      navigate(pendingNavigation);
+    }
+    
+    setShowPasswordModal(false);
+    setPendingNavigation(null);
+  };
+
+  // 비밀번호 모달 단순 닫기 (페이지 이동 없음)
+  const handlePasswordClose = () => {
+    console.log('🚪 [비밀번호] 모달 닫기 - 메인 페이지 유지');
+    setShowPasswordModal(false);
+    setPendingNavigation(null);
+  };
+
+  // 세션 상태 모달 완료 핸들러
+  const handleSessionStatusComplete = () => {
+    console.log('✅ [세션상태] 모달 완료 - 페이지 이동 진행');
+    setShowSessionStatusModal(false);
+    
+    // 대기 중인 네비게이션이 있으면 실행
+    if (pendingNavigation) {
+      console.log('🚀 [네비게이션] 세션 확인 완료 후 이동:', pendingNavigation);
+      navigate(pendingNavigation);
+      setPendingNavigation(null);
+    }
+  };
 
   // 데이터가 없는 경우 로딩 표시
   if (!layoutConfig || !patient || !hospital) {
@@ -105,27 +183,75 @@ const MainPage: React.FC = () => {
   }
 
   const handleCardClick = async (cardType: string) => {
+    // URL 파라미터에서 환자 정보 추출
+    const urlParams = new URLSearchParams(location.search);
+    const uuid = urlParams.get('uuid');
+    const hospitalId = urlParams.get('hospital');
+
     switch (cardType) {
       case 'chart':
-        // URL 파라미터에서 환자 정보 추출
-        const urlParams = new URLSearchParams(location.search);
-        const uuid = urlParams.get('uuid');
-        const hospitalId = urlParams.get('hospital');
-        
         if (uuid && hospitalId) {
           try {
             console.log('🔍 [메인페이지] 기존 데이터 확인 중...', { uuid, hospitalId });
             
             // 기존 데이터 확인
-            const response = await fetch(API_ENDPOINTS.CHECK_EXISTING_DATA(uuid, hospitalId));
-            if (response.ok) {
-              const result = await response.json();
-              console.log('✅ [메인페이지] 기존 데이터 확인 결과:', result);
+            const hasData = await checkHasData(uuid, hospitalId);
+            
+            if (hasData) {
+              console.log('📊 [메인페이지] 기존 데이터 발견!');
               
-              // 기존 데이터가 있으면 바로 결과 페이지로 이동
-              if (result.data && result.data.exists && (result.data.health_data_count > 0 || result.data.prescription_data_count > 0)) {
-                console.log('📊 [메인페이지] 기존 데이터 발견! 결과 페이지로 이동');
-                navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+              // 먼저 비밀번호 설정 여부 확인
+              try {
+                const passwordStatus = await PasswordService.checkPasswordStatus(uuid, hospitalId);
+                
+                if (!passwordStatus.has_password) {
+                  // 비밀번호가 없으면 설정 권유 여부 확인
+                  console.log('❓ [비밀번호] 설정되지 않음 - 권유 여부 확인');
+                  const promptResponse = await PasswordService.checkPromptPasswordSetup(uuid, hospitalId);
+                  
+                  if (promptResponse.should_prompt) {
+                    // 권유해야 하는 경우 - 바로 설정 모드로 진입
+                    console.log('💡 [비밀번호] 설정 권유 필요 - 바로 설정 모드');
+                    setPendingNavigation(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                    setPasswordModalType('setup');
+                    setShowPasswordModal(true);
+                    return;
+                  } else {
+                    // 권유하지 않는 경우 (이미 거부했거나 최근에 물어봄)
+                    console.log('⏭️ [비밀번호] 권유 생략 - 바로 이동');
+                    navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                    return;
+                  }
+                }
+                
+                // 비밀번호가 있으면 세션 기반 인증 상태 확인
+                const isValid = await isPasswordAuthValid(uuid, hospitalId);
+                if (isValid) {
+                  console.log('✅ [비밀번호] 인증 유효 - 바로 이동');
+                  navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                  return;
+                }
+                
+                // 비밀번호 확인 필요
+                console.log('🔐 [비밀번호] 인증 필요');
+                setPendingNavigation(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                setPasswordModalType('confirm');
+                setShowPasswordModal(true);
+                return;
+                
+              } catch (error) {
+                console.warn('⚠️ [비밀번호확인] 실패:', error);
+                // 에러 시에는 기존 로직대로 진행 (세션 확인)
+                const isValid = await isPasswordAuthValid(uuid, hospitalId);
+                if (isValid) {
+                  console.log('✅ [비밀번호] 인증 유효 - 바로 이동');
+                  navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                  return;
+                }
+                
+                setPendingNavigation(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                setPasswordModalType('confirm');
+                setShowPasswordModal(true);
                 return;
               }
             }
@@ -135,21 +261,83 @@ const MainPage: React.FC = () => {
         }
         
         // 기존 데이터가 없거나 확인 실패 시 인증페이지로 이동
-        const queryString = location.search; // ?uuid=...&hospital=... 형태
+        const queryString = location.search;
         const fromPath = location.pathname + location.search + location.hash;
         const loginPath = `/login${queryString}`;
         console.log('🚀 [메인페이지] 인증페이지로 이동:', loginPath);
         navigate(loginPath, { state: { from: fromPath } });
         break;
+        
       case 'design':
-        navigate('/survey/checkup-design');  // 백엔드 연동 설문조사
-        break;
       case 'habit':
-        navigate('/survey/health-habits');  // 백엔드 연동 설문조사
-        break;
       case 'prediction':
-        navigate('/survey/disease-prediction');  // 백엔드 연동 설문조사
+        // 데이터가 있는 사용자는 모든 버튼에서 비밀번호 확인
+        if (uuid && hospitalId) {
+          try {
+            const hasData = await checkHasData(uuid, hospitalId);
+            
+            if (hasData) {
+              // 먼저 비밀번호 설정 여부 확인
+              try {
+                const passwordStatus = await PasswordService.checkPasswordStatus(uuid, hospitalId);
+                
+                if (!passwordStatus.has_password) {
+                  // 비밀번호가 없으면 설정 권유
+                  console.log('❓ [비밀번호] 설정되지 않음 - 설정 권유');
+                  const targetPath = cardType === 'design' ? '/survey/checkup-design' :
+                                   cardType === 'habit' ? '/survey/health-habits' :
+                                   '/survey/disease-prediction';
+                  setPendingNavigation(targetPath);
+                  setPasswordModalType('prompt');
+                  setShowPasswordModal(true);
+                  return;
+                }
+                
+                // 비밀번호가 있으면 세션 기반 인증 상태 확인
+                const isValid = await isPasswordAuthValid(uuid, hospitalId);
+                if (isValid) {
+                  console.log('✅ [비밀번호] 인증 유효 - 바로 이동');
+                  const targetPath = cardType === 'design' ? '/survey/checkup-design' :
+                                   cardType === 'habit' ? '/survey/health-habits' :
+                                   '/survey/disease-prediction';
+                  navigate(targetPath);
+                  return;
+                }
+                
+                // 비밀번호 확인 필요
+                console.log('🔐 [비밀번호] 인증 필요');
+                const targetPath = cardType === 'design' ? '/survey/checkup-design' :
+                                 cardType === 'habit' ? '/survey/health-habits' :
+                                 '/survey/disease-prediction';
+                setPendingNavigation(targetPath);
+                setPasswordModalType('confirm');
+                setShowPasswordModal(true);
+                return;
+                
+              } catch (error) {
+                console.warn('⚠️ [비밀번호확인] 실패:', error);
+                // 에러 시에는 기존 로직대로 진행
+                const targetPath = cardType === 'design' ? '/survey/checkup-design' :
+                                 cardType === 'habit' ? '/survey/health-habits' :
+                                 '/survey/disease-prediction';
+                setPendingNavigation(targetPath);
+                setPasswordModalType('confirm');
+                setShowPasswordModal(true);
+                return;
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ [데이터확인] 실패:', error);
+          }
+        }
+        
+        // 데이터가 없으면 바로 이동
+        const targetPath = cardType === 'design' ? '/survey/checkup-design' :
+                          cardType === 'habit' ? '/survey/health-habits' :
+                          '/survey/disease-prediction';
+        navigate(targetPath);
         break;
+        
       default:
         break;
     }
@@ -300,9 +488,37 @@ const MainPage: React.FC = () => {
     </>
   );
 
-  return layoutConfig.layoutType === LayoutType.HORIZONTAL 
-    ? renderHorizontalContent()
-    : renderVerticalContent();
+  return (
+    <>
+      {layoutConfig.layoutType === LayoutType.HORIZONTAL 
+        ? renderHorizontalContent()
+        : renderVerticalContent()}
+      
+      {/* 비밀번호 모달 */}
+      {showPasswordModal && (() => {
+        const urlParams = new URLSearchParams(location.search);
+        return (
+          <PasswordModal
+            isOpen={showPasswordModal}
+            onClose={handlePasswordClose}
+            onSuccess={handlePasswordSuccess}
+            onCancel={handlePasswordCancel}
+            type={passwordModalType}
+            uuid={urlParams.get('uuid') || ''}
+            hospitalId={urlParams.get('hospital') || ''}
+            initialMessage="데이터 접근을 위해 비밀번호를 입력해주세요."
+          />
+        );
+      })()}
+
+      {/* 세션 상태 모달 */}
+      <SessionStatusModal
+        isOpen={showSessionStatusModal}
+        sessionExpiresAt={sessionExpiresAt || undefined}
+        onComplete={handleSessionStatusComplete}
+      />
+    </>
+  );
 };
 
 export default MainPage;
