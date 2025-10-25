@@ -73,7 +73,7 @@ $success-color: #51cf66;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 8px 24px 20px; // 상단 패딩을 대폭 줄임 (16px → 8px)
+  padding: 8px 16px 20px; // 좌우 패딩 줄임 (24px → 16px)
   position: relative;
   text-align: center;
 }
@@ -135,7 +135,7 @@ $success-color: #51cf66;
 
 // 모달 컨텐츠
 .password-modal-content {
-  padding: 24px;
+  padding: 16px; // 좌우 패딩 줄임 (24px → 16px)
 }
 
 .password-message {
@@ -366,9 +366,12 @@ $success-color: #51cf66;
     max-width: calc(100vw - 32px);
   }
 
-  .password-modal-header,
+  .password-modal-header {
+    padding: 8px 12px 20px; // 모바일에서 좌우 패딩 더 줄임 (20px → 12px)
+  }
+  
   .password-modal-content {
-    padding: 20px;
+    padding: 12px; // 모바일에서 좌우 패딩 더 줄임 (20px → 12px)
   }
 
   .keypad-button {
