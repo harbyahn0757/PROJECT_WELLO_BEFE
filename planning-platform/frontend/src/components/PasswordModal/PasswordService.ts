@@ -59,7 +59,7 @@ export class PasswordService {
     try {
       const result = await this.request<any>('POST', url, { password });
       return {
-        success: result.success || true,
+        success: result.success,
         message: result.message || '비밀번호 확인 성공'
       };
     } catch (error: any) {
