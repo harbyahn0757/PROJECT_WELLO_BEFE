@@ -78,17 +78,14 @@ const BarChart: React.FC<BarChartProps> = ({
     const allPoints = series.flatMap(s => s.data);
     if (!allPoints.length) return null;
 
-    // 값 범위 계산 - 유효한 값만 필터링
+    // 값 범위 계산 - 실제 데이터 값만 사용 (reference 값 제외)
     const values = allPoints.map(p => p.value).filter(v => 
       typeof v === 'number' && !isNaN(v) && isFinite(v)
     );
-    const referenceValues = allPoints.flatMap(p => 
-      p.reference ? [p.reference.min, p.reference.max, p.reference.normal].filter(v => 
-        typeof v === 'number' && !isNaN(v) && isFinite(v)
-      ) : []
-    ) as number[];
     
-    const allValues = [...values, ...referenceValues];
+    // BarChart에서는 reference 값을 Y축 범위 계산에 포함하지 않음
+    // (LineChart와 달리 BarChart는 실제 데이터 값 범위만 표시)
+    const allValues = values;
     
     // 유효한 값이 없으면 기본값 사용
     if (allValues.length === 0) {
@@ -272,7 +269,18 @@ const BarChart: React.FC<BarChartProps> = ({
       );
     }
 
-    const { width, height, margin } = dimensions;
+    // X축 라벨을 위한 여유 공간 확보 및 Y축 라벨 공간 최적화
+    const adjustedDimensions = {
+      ...dimensions,
+      margin: {
+        ...dimensions.margin,
+        bottom: Math.max(dimensions.margin.bottom, 35), // 최소 35px 확보
+        left: Math.min(dimensions.margin.left, 25), // Y축 라벨 공간 축소 (45px → 25px)
+        right: Math.min(dimensions.margin.right, 5) // 오른쪽 여백 최소화 (15px → 5px)
+      }
+    };
+    
+    const { width, height, margin } = adjustedDimensions;
     const chartWidth = width - margin.left - margin.right;
     const chartHeight = height - margin.top - margin.bottom;
 
@@ -347,7 +355,7 @@ const BarChart: React.FC<BarChartProps> = ({
           {chartData.groups.map((group, groupIndex) => (
             <g key={`group-${groupIndex}`} className="wello-bar-chart__group">
               {group.bars.map((bar, barIndex) => {
-                const barDimensions = getBarDimensions(groupIndex, barIndex, bar.value, dimensions);
+                const barDimensions = getBarDimensions(groupIndex, barIndex, bar.value, adjustedDimensions);
                 const barColor = '#7c746a'; // 브랜드 브라운 컬러 사용
 
                 return (

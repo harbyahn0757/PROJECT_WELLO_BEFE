@@ -67,6 +67,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
   // 의료기관 방문추이 슬라이더 상태
   const [activeVisitDotIndex, setActiveVisitDotIndex] = useState(0);
   
+  // 의료기관 방문추이 로딩 상태
+  const [isLoadingVisitData, setIsLoadingVisitData] = useState(true);
+  
   // GPT 분석 요청 함수 (useCallback으로 먼저 정의)
   const analyzeHealthData = useCallback(async () => {
     if (healthData.length === 0 && prescriptionData.length === 0) {
@@ -78,6 +81,12 @@ const ComprehensiveAnalysisPage: React.FC = () => {
     setError(null);
     setAnalysisProgress(0);
     setAnalysisStep('데이터 준비 중...');
+    
+    // 재분석인 경우 기존 결과 초기화
+    if (gptAnalysis) {
+      console.log('🔄 [GPT분석] 재분석 시작 - 기존 결과 초기화');
+      setGptAnalysis(null);
+    }
 
     try {
       // 진행률 업데이트
@@ -659,10 +668,29 @@ const ComprehensiveAnalysisPage: React.FC = () => {
     }
     
     try {
-      // DB 처방전 데이터를 년도별 약국 방문 건수로 집계
+      // DB 처방전 데이터를 년도별 약국 방문 건수로 집계 (약국만 필터링)
       const yearlyData: { [year: string]: number } = {};
       
-      prescriptionData.forEach((item: any) => {
+      prescriptionData.forEach((item: any, index: number) => {
+        // 약국 여부 판단 (UnifiedHealthTimeline 로직 사용)
+        const treatmentType = item.treatment_type || item.JinRyoHyungTae || '';
+        const hospitalName = item.hospital_name || item.ByungEuiwonYakGukMyung || '';
+        const isPharmacy = treatmentType === '처방조제' || hospitalName.includes('약국');
+        
+        // 처음 5개 아이템 디버깅
+        if (index < 5) {
+          console.log(`💊 [약국필터] ${index}번째 데이터:`, {
+            treatmentType,
+            hospitalName,
+            isPharmacy,
+            treatment_date: item.treatment_date,
+            year: item.treatment_date ? item.treatment_date.split('-')[0] : '2024'
+          });
+        }
+        
+        // 약국인 경우만 집계
+        if (!isPharmacy) return;
+        
         // treatment_date는 "YYYY-MM-DD" 형식
         const year = item.treatment_date ? item.treatment_date.split('-')[0] : '2024';
         
@@ -674,13 +702,32 @@ const ComprehensiveAnalysisPage: React.FC = () => {
         }
       });
       
+      // 디버깅: 약국 방문 데이터 구조 확인
+      console.log('💊 [약국방문] 데이터 집계 결과 (약국만):', {
+        prescriptionDataCount: prescriptionData.length,
+        pharmacyOnlyCount: prescriptionData.filter((item: any) => {
+          const treatmentType = item.treatment_type || item.JinRyoHyungTae || '';
+          const hospitalName = item.hospital_name || item.ByungEuiwonYakGukMyung || '';
+          const isPharmacy = treatmentType === '처방조제' || hospitalName.includes('약국');
+          return isPharmacy;
+        }).length,
+        yearlyDataKeys: Object.keys(yearlyData),
+        yearlyDataValues: yearlyData,
+        yearlyDataEntries: Object.entries(yearlyData),
+        samplePrescriptionData: prescriptionData[0]
+      });
+      
+      // 전역 변수로 저장 (디버깅용)
+      (window as any).lastPharmacyYearlyData = yearlyData;
+      (window as any).lastPrescriptionData = prescriptionData;
+      
       // 년도별 데이터를 차트 형식으로 변환 (최신 5년만)
       const chartData = [{
         name: '년도별 약국 방문 건수',
         yAxisLabel: '방문 건수',
         data: Object.entries(yearlyData)
           .sort(([a], [b]) => b.localeCompare(a)) // 최신 년도 순 정렬
-          .slice(0, 5) // 최신 5년만 선택
+          .slice(0, 10) // 최신 10년으로 확장하여 더 많은 데이터 확인
           .map(([year, count]) => {
             // 데이터 검증
             const finalValue = parseInt(count.toString());
@@ -692,7 +739,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
             return {
               date: `${year}-01-01`,
               value: finalValue,
-              label: `${year}년`,
+              label: `${year.slice(-2)}년`, // 2025 → 25년
               status: 'normal' as const
             };
           })
@@ -707,42 +754,81 @@ const ComprehensiveAnalysisPage: React.FC = () => {
     }
   }, [prescriptionData, validateChartData]);
 
-  // 병원 방문 추이 데이터 (건강검진 데이터 기반)
+  // 병원 방문 추이 데이터 (처방전 데이터 기반, 병원만 필터링)
   const hospitalVisitChartData = useMemo(() => {
-    if (healthData.length === 0) {
+    if (prescriptionData.length === 0) {
       return [];
     }
     
     try {
-      // 건강검진 데이터를 년도별 병원 방문으로 집계
-      const yearlyData: { [year: string]: number } = {};
+      // 처방전 데이터를 년도별 병원 방문으로 집계 (병원만 필터링)
+      const yearlyData: { [year: string]: Set<string> } = {};
       
-      healthData.forEach((item: any) => {
-        // year 필드는 "YYYY년" 형식이므로 "년" 제거
-        const year = item.year ? item.year.replace('년', '') : '2024';
+      prescriptionData.forEach((item: any) => {
+        // 약국 여부 판단 (UnifiedHealthTimeline 로직 사용)
+        const treatmentType = item.treatment_type || item.JinRyoHyungTae || '';
+        const hospitalName = item.hospital_name || item.ByungEuiwonYakGukMyung || '';
+        const isPharmacy = treatmentType === '처방조제' || hospitalName.includes('약국');
         
-        // 각 건강검진은 1회 병원 방문으로 계산
-        if (yearlyData[year]) {
-          yearlyData[year] += 1;
-        } else {
-          yearlyData[year] = 1;
+        // 병원인 경우만 집계 (약국 제외)
+        if (isPharmacy) return;
+        
+        // 처방전 날짜에서 년도 추출
+        let year = '2024'; // 기본값
+        
+        if (item.treatment_date) {
+          // treatment_date에서 년도 추출 (YYYY-MM-DD 형식)
+          year = item.treatment_date.substring(0, 4);
+        } else if (item.TreatDate) {
+          // TreatDate에서 년도 추출
+          year = item.TreatDate.substring(0, 4);
+        } else if (item.Year) {
+          // Year 필드에서 년도 추출 ("YYYY년" 형식)
+          year = item.Year.replace('년', '');
         }
+        
+        // 병원명으로 방문 횟수 집계 (같은 병원 같은 날 = 1회 방문)
+        const hospitalKey = hospitalName || 'Unknown';
+        const dateKey = item.treatment_date || item.TreatDate || `${year}-01-01`;
+        const visitKey = `${hospitalKey}_${dateKey}`;
+        
+        if (!yearlyData[year]) {
+          yearlyData[year] = new Set();
+        }
+        yearlyData[year].add(visitKey);
+      });
+      
+      // Set을 숫자로 변환 (고유한 방문 횟수)
+      const yearlyVisitCounts: { [year: string]: number } = {};
+      Object.entries(yearlyData).forEach(([year, visitSet]) => {
+        yearlyVisitCounts[year] = visitSet.size;
       });
       
       // 디버깅: 병원 방문 데이터 구조 확인
-      console.log('🏥 [병원방문] 데이터 집계 결과:', {
-        healthDataCount: healthData.length,
-        yearlyData,
-        sampleHealthData: healthData[0]
+      console.log('🏥 [병원방문] 데이터 집계 결과 (병원만):', {
+        prescriptionDataCount: prescriptionData.length,
+        hospitalOnlyCount: prescriptionData.filter((item: any) => {
+          const treatmentType = item.treatment_type || item.JinRyoHyungTae || '';
+          const hospitalName = item.hospital_name || item.ByungEuiwonYakGukMyung || '';
+          const isPharmacy = treatmentType === '처방조제' || hospitalName.includes('약국');
+          return !isPharmacy;
+        }).length,
+        yearlyVisitCountsKeys: Object.keys(yearlyVisitCounts),
+        yearlyVisitCountsValues: yearlyVisitCounts,
+        yearlyVisitCountsEntries: Object.entries(yearlyVisitCounts),
+        samplePrescriptionData: prescriptionData[0]
       });
       
-      // 년도별 데이터를 차트 형식으로 변환 (최신 5년만)
+      // 전역 변수로 저장 (디버깅용)
+      (window as any).lastHospitalYearlyData = yearlyVisitCounts;
+      
+      // 년도별 데이터를 차트 형식으로 변환 (최신 10년으로 확장)
       const chartData = [{
         name: '년도별 병원 방문 건수',
         yAxisLabel: '방문 건수',
-        data: Object.entries(yearlyData)
+        data: Object.entries(yearlyVisitCounts)
           .sort(([a], [b]) => b.localeCompare(a)) // 최신 년도 순 정렬
-          .slice(0, 5) // 최신 5년만 선택
+          .slice(0, 10) // 최신 10년으로 확장하여 더 많은 데이터 확인
           .map(([year, count]) => {
             // 데이터 검증
             const finalValue = parseInt(count.toString());
@@ -754,7 +840,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
             return {
               date: `${year}-01-01`,
               value: finalValue,
-              label: `${year}년`,
+              label: `${year.slice(-2)}년`, // 2025 → 25년
               status: 'normal' as const
             };
           })
@@ -767,7 +853,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       console.error('❌ [차트변환] 병원 방문 차트 데이터 변환 실패:', error);
       return [];
     }
-  }, [healthData, validateChartData]);
+  }, [prescriptionData, validateChartData]);
 
   // 데이터 로드
   useEffect(() => {
@@ -864,6 +950,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
           if (collectedData.prescription_data?.ResultList) {
             setPrescriptionData(collectedData.prescription_data.ResultList);
           }
+          
+          // 로딩 완료
+          setIsLoadingVisitData(false);
         }
         return;
       }
@@ -915,6 +1004,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
         if (result.data.prescription_data && Array.isArray(result.data.prescription_data) && result.data.prescription_data.length > 0) {
           setPrescriptionData(result.data.prescription_data);
         }
+        
+        // 로딩 완료
+        setIsLoadingVisitData(false);
         
              // localStorage에 Tilko 형식으로 저장 (다른 페이지와 호환성 위해)
              // 용량 문제로 처방전 데이터는 요약만 저장
@@ -1046,99 +1138,6 @@ const ComprehensiveAnalysisPage: React.FC = () => {
         </div>
 
         <div className="comprehensive-analysis-content">
-        {/* AI 분석 리포트 카드 - gptAnalysis가 있을 때만 표시 */}
-        {gptAnalysis && (
-        <section className="analysis-card gpt-analysis-section">
-          <div className="card-header">
-            <h2 className="section-title">AI 건강 분석 리포트</h2>
-            <div className="analysis-badge">
-              <span className="badge-text">GPT-4 분석</span>
-        </div>
-      </div>
-
-          {gptAnalysis ? (
-            <div className="analysis-results">
-              {/* 종합 소견 */}
-              <div className="summary-section">
-                <h3 className="subsection-title">종합 소견</h3>
-                <div className="summary-content">
-                  <p className="summary-text">{gptAnalysis.summary}</p>
-                </div>
-        </div>
-              
-              {/* 주요 건강 지표 */}
-              <div className="insights-section">
-                <h3 className="subsection-title">주요 건강 지표 분석</h3>
-        <div className="insights-grid">
-                  {gptAnalysis.insights.map((insight, index) => (
-                    <div key={index} className={`insight-item ${insight.status}`}>
-                      <div className="insight-header">
-                        <h4 className="insight-category">{insight.category}</h4>
-                        <span className={`status-indicator ${insight.status}`}>
-                          {insight.status === 'good' ? '정상' : 
-                           insight.status === 'warning' ? '주의' : '위험'}
-                        </span>
-                      </div>
-                      <p className="insight-message">{insight.message}</p>
-                      {insight.recommendation && (
-                        <div className="insight-recommendation">
-                          <strong>권장사항:</strong> {insight.recommendation}
-                        </div>
-                      )}
-            </div>
-          ))}
-        </div>
-      </div>
-          </div>
-          ) : (
-            <div className="analysis-loading">
-              <div className="loading-content">
-                <div className="loading-spinner">
-                  <img 
-                    src="/wello/wello-icon.png" 
-                    alt="분석 중" 
-                    className="spinner-icon"
-            />
-          </div>
-                <p className="loading-text">AI가 건강 데이터를 분석하고 있습니다...</p>
-                
-                {/* 분석 진행률 표시 */}
-                {isAnalyzing && (
-                  <div className="analysis-progress">
-                    <div className="progress-bar-container">
-                      <div 
-                        className="progress-bar" 
-                        style={{ width: `${analysisProgress}%` }}
-                      ></div>
-                    </div>
-                    <p className="progress-text">{analysisStep} ({analysisProgress}%)</p>
-        </div>
-      )}
-
-                <button 
-                  onClick={analyzeHealthData} 
-                  disabled={isAnalyzing}
-                  className={`analyze-button ${isAnalyzing ? 'loading' : ''}`}
-                >
-                  {isAnalyzing ? (
-                    <>
-                      <img 
-                        src="/wello/wello-icon.png" 
-                        alt="분석 중" 
-                        className="button-spinner"
-                      />
-                      분석 중...
-                    </>
-                  ) : (
-                    'AI 분석 시작'
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-        </section>
-        )}
-
         {/* 건강 추이 차트 카드 */}
         <section className="analysis-card">
           <div className="card-header">
@@ -1491,13 +1490,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                 <h3 className="trend-title">약국 방문 추이</h3>
               </div>
               <div className="trend-chart">
-                {prescriptionChartData.length > 0 && prescriptionChartData[0].data.length > 0 ? (
-                  <BarChart 
-                    series={prescriptionChartData}
-                    width={window.innerWidth <= 768 ? Math.min(window.innerWidth * 0.8, 320) : 350}
-                    height={170} // 건강지표와 동일한 높이 (250px → 170px)
-                  />
-                ) : (
+                {isLoadingVisitData ? (
                   <div className="chart-loading">
                     <div className="loading-spinner">
                       <img 
@@ -1507,6 +1500,24 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                       />
                     </div>
                     <p className="loading-text">처방 데이터 분석 중...</p>
+                  </div>
+                ) : prescriptionChartData.length > 0 && prescriptionChartData[0].data.length > 0 ? (
+                  <BarChart 
+                    series={prescriptionChartData}
+                    width={window.innerWidth <= 768 ? Math.min(window.innerWidth * 0.8, 250) : 280}
+                    height={170} // 건강지표와 동일한 높이 (250px → 170px)
+                  />
+                ) : (
+                  <div className="chart-loading">
+                    <div className="loading-spinner">
+                      <img 
+                        src="/wello/wello-icon.png" 
+                        alt="데이터 없음" 
+                        className="spinner-icon"
+                        style={{ opacity: 0.5, animation: 'none' }}
+                      />
+                    </div>
+                    <p className="loading-text">처방 데이터가 없습니다</p>
                   </div>
                 )}
               </div>
@@ -1518,13 +1529,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                 <h3 className="trend-title">병원 방문 추이</h3>
               </div>
               <div className="trend-chart">
-                {hospitalVisitChartData.length > 0 && hospitalVisitChartData[0].data.length > 0 ? (
-                  <BarChart 
-                    series={hospitalVisitChartData}
-                    width={window.innerWidth <= 768 ? Math.min(window.innerWidth * 0.8, 320) : 350}
-                    height={170} // 건강지표와 동일한 높이 (250px → 170px)
-                  />
-                ) : (
+                {isLoadingVisitData ? (
                   <div className="chart-loading">
                     <div className="loading-spinner">
                       <img 
@@ -1534,7 +1539,25 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                       />
                     </div>
                     <p className="loading-text">병원 방문 데이터 분석 중...</p>
-                </div>
+                  </div>
+                ) : hospitalVisitChartData.length > 0 && hospitalVisitChartData[0].data.length > 0 ? (
+                  <BarChart 
+                    series={hospitalVisitChartData}
+                    width={window.innerWidth <= 768 ? Math.min(window.innerWidth * 0.8, 250) : 280}
+                    height={170} // 건강지표와 동일한 높이 (250px → 170px)
+                  />
+                ) : (
+                  <div className="chart-loading">
+                    <div className="loading-spinner">
+                      <img 
+                        src="/wello/wello-icon.png" 
+                        alt="데이터 없음" 
+                        className="spinner-icon"
+                        style={{ opacity: 0.5, animation: 'none' }}
+                      />
+                    </div>
+                    <p className="loading-text">병원 방문 데이터가 없습니다</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -1568,6 +1591,99 @@ const ComprehensiveAnalysisPage: React.FC = () => {
             </div>
           </div>
         </section>
+
+        {/* AI 분석 리포트 카드 - gptAnalysis가 있을 때만 표시 */}
+        {gptAnalysis && (
+        <section className="analysis-card gpt-analysis-section">
+          <div className="card-header">
+            <h2 className="section-title">AI 건강 분석 리포트</h2>
+            <div className="analysis-badge">
+              <span className="badge-text">GPT-4 분석</span>
+        </div>
+      </div>
+
+          {gptAnalysis ? (
+            <div className="analysis-results">
+              {/* 종합 소견 */}
+              <div className="summary-section">
+                <h3 className="subsection-title">종합 소견</h3>
+                <div className="summary-content">
+                  <p className="summary-text">{gptAnalysis.summary}</p>
+                </div>
+        </div>
+              
+              {/* 주요 건강 지표 */}
+              <div className="insights-section">
+                <h3 className="subsection-title">주요 건강 지표 분석</h3>
+        <div className="insights-grid">
+                  {gptAnalysis.insights.map((insight, index) => (
+                    <div key={index} className={`insight-item ${insight.status}`}>
+                      <div className="insight-header">
+                        <h4 className="insight-category">{insight.category}</h4>
+                        <span className={`status-indicator ${insight.status}`}>
+                          {insight.status === 'good' ? '정상' : 
+                           insight.status === 'warning' ? '주의' : '위험'}
+                        </span>
+                      </div>
+                      <p className="insight-message">{insight.message}</p>
+                      {insight.recommendation && (
+                        <div className="insight-recommendation">
+                          <strong>권장사항:</strong> {insight.recommendation}
+                        </div>
+                      )}
+            </div>
+          ))}
+        </div>
+      </div>
+          </div>
+          ) : (
+            <div className="analysis-loading">
+              <div className="loading-content">
+                <div className="loading-spinner">
+                  <img 
+                    src="/wello/wello-icon.png" 
+                    alt="분석 중" 
+                    className="spinner-icon"
+            />
+          </div>
+                <p className="loading-text">AI가 건강 데이터를 분석하고 있습니다...</p>
+                
+                {/* 분석 진행률 표시 */}
+                {isAnalyzing && (
+                  <div className="analysis-progress">
+                    <div className="progress-bar-container">
+                      <div 
+                        className="progress-bar" 
+                        style={{ width: `${analysisProgress}%` }}
+                      ></div>
+                    </div>
+                    <p className="progress-text">{analysisStep} ({analysisProgress}%)</p>
+        </div>
+      )}
+
+                <button 
+                  onClick={analyzeHealthData} 
+                  disabled={isAnalyzing}
+                  className={`analyze-button ${isAnalyzing ? 'loading' : ''}`}
+                >
+                  {isAnalyzing ? (
+                    <>
+                      <img 
+                        src="/wello/wello-icon.png" 
+                        alt="분석 중" 
+                        className="button-spinner"
+                      />
+                      분석 중...
+                    </>
+                  ) : (
+                    'AI 분석 시작'
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+        )}
 
         {/* 약물 상호작용 분석 카드 - gptAnalysis가 있을 때만 표시 */}
         {gptAnalysis && (
@@ -1676,29 +1792,22 @@ const ComprehensiveAnalysisPage: React.FC = () => {
           </section>
         )}
 
-        {/* 데이터 출처 및 면책 조항 - gptAnalysis가 있을 때만 표시 */}
+        {/* 데이터 출처 및 면책 조항 - 간단한 회색 박스 */}
         {gptAnalysis && (
-        <section className="analysis-card">
-          <div className="card-header">
-            <h2 className="section-title">데이터 출처 및 면책 조항</h2>
-            <div className="chart-info">
-              <span className="info-text">중요 안내</span>
+          <div className="disclaimer-box">
+            <div className="disclaimer-content">
+              <h3 className="disclaimer-title">데이터 출처 및 면책 조항</h3>
+              <div className="disclaimer-text">
+                <p>• 본 분석은 제공된 건강검진 결과와 처방전 데이터를 기반으로 합니다.</p>
+                <p>• AI 분석 결과는 참고용이며, 의학적 진단이나 치료를 대체할 수 없습니다.</p>
+                <p>• 건강상 문제가 있으시면 반드시 의료진과 상담하시기 바랍니다.</p>
+                <p>• 약물 복용 전 의사나 약사와 상의하시기 바랍니다.</p>
+              </div>
+              <div className="data-source">
+                <p><strong>데이터 출처:</strong> 건강보험공단 건강검진 결과, 의료기관 처방전 | <strong>분석 엔진:</strong> OpenAI GPT-4</p>
+              </div>
             </div>
           </div>
-          
-          <div className="analysis-results">
-            <div className="disclaimer-text">
-              <p>• 본 분석은 제공된 건강검진 결과와 처방전 데이터를 기반으로 합니다.</p>
-              <p>• AI 분석 결과는 참고용이며, 의학적 진단이나 치료를 대체할 수 없습니다.</p>
-              <p>• 건강상 문제가 있으시면 반드시 의료진과 상담하시기 바랍니다.</p>
-              <p>• 약물 복용 전 의사나 약사와 상의하시기 바랍니다.</p>
-            </div>
-            <div className="data-source">
-              <p><strong>데이터 출처:</strong> 건강보험공단 건강검진 결과, 의료기관 처방전</p>
-              <p><strong>분석 엔진:</strong> OpenAI GPT-4</p>
-            </div>
-          </div>
-        </section>
         )}
 
         {/* 에러 표시 */}

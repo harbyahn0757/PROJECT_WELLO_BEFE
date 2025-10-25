@@ -207,15 +207,13 @@ const FloatingButton: React.FC = () => {
       }
     }
     
-    // comprehensive-analysis 페이지에서는 AI 분석 시작 버튼
+    // comprehensive-analysis 페이지에서는 AI 분석 시작/재분석 버튼
     if (path === '/comprehensive-analysis' || path.includes('/comprehensive-analysis')) {
       // AI 분석 완료 상태 확인 (localStorage에서)
       const gptAnalysisResult = localStorage.getItem('gpt_analysis_result');
       
-      // AI 분석이 완료되면 플로팅 버튼 숨기기
-      if (gptAnalysisResult) {
-        return null; // 플로팅 버튼 숨김
-      }
+      // AI 분석 완료 여부에 따라 버튼 텍스트 변경
+      const buttonText = gptAnalysisResult ? 'AI 재분석' : 'AI 종합 분석';
       
       return {
         text: (
@@ -228,11 +226,18 @@ const FloatingButton: React.FC = () => {
                 height: '20px'
               }} 
             />
-            AI 종합 분석
+            {buttonText}
           </span>
         ),
         onClick: () => {
-          console.log('🧠 [플로팅버튼] AI 종합 분석 시작');
+          console.log(`🧠 [플로팅버튼] ${buttonText} 시작`);
+          
+          // 재분석인 경우 기존 결과 삭제
+          if (gptAnalysisResult) {
+            localStorage.removeItem('gpt_analysis_result');
+            console.log('🗑️ [플로팅버튼] 기존 AI 분석 결과 삭제 - 재분석 시작');
+          }
+          
           // ComprehensiveAnalysisPage의 analyzeHealthData 함수 호출
           const event = new CustomEvent('start-ai-analysis');
           window.dispatchEvent(event);
