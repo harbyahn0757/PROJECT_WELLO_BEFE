@@ -161,7 +161,7 @@ const AIAnalysisSection: React.FC = () => {
   }, [handleStartAnalysis]);
 
   return (
-    <div className="ai-analysis-section-content">
+    <div className="ai-analysis-section">
       {/* AI 분석 시작 버튼 (분석 결과가 없을 때만 표시) */}
       {!gptAnalysis && !isAnalyzing && (
         <div className="analysis-start-section">

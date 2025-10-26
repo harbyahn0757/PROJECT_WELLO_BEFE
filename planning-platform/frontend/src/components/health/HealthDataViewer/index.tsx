@@ -640,22 +640,20 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
               >
                 {isTransitioning ? (
                   <div className="button-spinner" />
-                ) : (
+                ) : viewMode === 'trends' ? (
+                  // 🔧 trends 모드: 햄버거 메뉴 아이콘 (3줄)
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    {/* AI/뇌 상징 아이콘 */}
-                    <path d="M12 2C8.5 2 6 4.5 6 8c0 1.5.5 3 1.5 4.5L6 16c-.5.5-.5 1.5 0 2s1.5.5 2 0l3.5-1.5c1.5 1 3 1.5 4.5 1.5 3.5 0 6-2.5 6-6s-2.5-6-6-6z"/>
-                    <circle cx="9" cy="9" r="1"/>
-                    <circle cx="15" cy="9" r="1"/>
-                    <path d="M9 13c1 1 3 1 4 0"/>
-                    <path d="M12 2v4"/>
-                    <path d="M12 18v4"/>
-                    <path d="M4.93 4.93l2.83 2.83"/>
-                    <path d="M16.24 16.24l2.83 2.83"/>
-                    <path d="M2 12h4"/>
-                    <path d="M18 12h4"/>
-                    <path d="M4.93 19.07l2.83-2.83"/>
-                    <path d="M16.24 7.76l2.83-2.83"/>
+                    <line x1="3" y1="6" x2="21" y2="6"/>
+                    <line x1="3" y1="12" x2="21" y2="12"/>
+                    <line x1="3" y1="18" x2="21" y2="18"/>
                   </svg>
+                ) : (
+                  // 🔧 timeline 모드: ChatGPT 아이콘
+                  <img 
+                    src="/wello/icons8-chatgpt-50.png" 
+                    alt="AI 분석" 
+                    style={{ width: '16px', height: '16px', objectFit: 'contain' }}
+                  />
                 )}
               </button>
               <button

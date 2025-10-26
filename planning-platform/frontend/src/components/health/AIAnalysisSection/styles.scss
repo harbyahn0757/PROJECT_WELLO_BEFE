@@ -1,14 +1,32 @@
 // AI 분석 섹션 스타일 - 기존 analysis-card 구조 활용
 @import '../../../styles/variables';
 
+// 🔧 AI 분석 섹션 - TrendsSection과 동일한 구조 적용
 .ai-analysis-section {
+  // 🔧 TrendsSection과 동일한 애니메이션 및 패딩
+  animation: fadeInUp 0.4s ease-out;
+  padding-top: 20px;
+  
   // 🔧 TrendsSection 마지막 카드는 :last-child로 margin-bottom: 0이므로 여기서 간격 추가
   margin-top: 24px;
-  // 🔧 question__content의 border: 12px solid transparent와 동일한 좌우 여백
-  padding: 0 12px;
   
-  // AI 분석 카드 - 기존 analysis-card와 완전히 동일한 구조
+  // 🔧 AI 분석 시작/진행 섹션들도 analysis-card처럼 처리
+  .analysis-start-section,
+  .analysis-progress-section {
+    margin-bottom: 24px;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+  
+  // 🔧 AI 분석 카드 - 기존 analysis-card와 완전히 동일한 구조
   .analysis-card {
+    margin-bottom: 24px;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
     background: #ffffff;
     border-radius: 16px;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
