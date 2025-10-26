@@ -82,24 +82,26 @@
     }
   }
 
-  // TrendsSection과 UnifiedHealthTimeline 페이드 애니메이션
-  .trends-section,
-  .unified-health-timeline {
-    animation: fadeInUp 0.4s ease-out;
-  }
+// TrendsSection과 UnifiedHealthTimeline 페이드 애니메이션
+.trends-section,
+.unified-health-timeline {
+  animation: fadeInUp 0.4s ease-out;
+}
 
-  // 🔧 TrendsSection 상단 패딩 추가 (토글 버튼과 간격)
-  .trends-section {
-    padding-top: 20px;
+// 🔧 TrendsSection 상단 패딩 추가 (토글 버튼과 간격)
+.trends-section {
+  padding-top: 20px;
+  
+  .analysis-card {
+    margin-bottom: 24px;
     
-    .analysis-card {
-      margin-bottom: 24px;
-      
-      &:last-child {
-        margin-bottom: 0;
-      }
+    &:last-child {
+      margin-bottom: 0;
     }
   }
+}
+
+    // AI 분석 섹션은 별도 스타일 파일에서 관리
 
   // 토글 버튼 로딩 상태 스타일
   .toggle-btn {

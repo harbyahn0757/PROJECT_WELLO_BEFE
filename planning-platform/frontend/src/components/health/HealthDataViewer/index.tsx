@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import { WelloIndexedDB, HealthDataRecord } from '../../../services/WelloIndexedDB';
 import usePasswordSessionGuard from '../../../hooks/usePasswordSessionGuard';
 import { STORAGE_KEYS } from '../../../constants/storage';
+import AIAnalysisSection from '../AIAnalysisSection'; // 🔧 AI 분석 섹션 컴포넌트
 import './styles.scss';
 
 const pillIconPath = `${process.env.PUBLIC_URL || ''}/free-icon-pill-5405585.png`;
@@ -36,6 +37,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   });
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isLoadingTrends] = useState(false);
+  const [showAIAnalysis, setShowAIAnalysis] = useState(false); // 🔧 AI 분석 섹션 표시 상태
   
   // Pull-to-refresh 관련 상태
   const [isPulling, setIsPulling] = useState(false);
@@ -87,6 +89,34 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
     window.dispatchEvent(new CustomEvent('password-modal-change'));
     console.log('🧹 [결과페이지] 비밀번호 모달 상태 정리 완료');
   }, []); // 컴포넌트 마운트 시 한 번만 실행
+
+  // 🔧 AI 분석 섹션 표시 이벤트 리스너
+  useEffect(() => {
+    const handleShowAIAnalysis = () => {
+      console.log('🧠 [결과페이지] AI 분석 섹션 표시 요청 받음');
+      setShowAIAnalysis(true);
+      
+      // 🔧 바로 AI 분석 시작 이벤트 발생
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('start-ai-analysis'));
+        
+        // AI 분석 섹션으로 스크롤
+        const aiSection = document.querySelector('.ai-analysis-section');
+        if (aiSection) {
+          aiSection.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'start' 
+          });
+        }
+      }, 100);
+    };
+
+    window.addEventListener('show-ai-analysis-section', handleShowAIAnalysis);
+    
+    return () => {
+      window.removeEventListener('show-ai-analysis-section', handleShowAIAnalysis);
+    };
+  }, []);
 
   // 🔧 토글 버튼 핸들러 (분석 = 뷰 토글, 검진/약국/진료 = 필터)
   const handleToggleClick = async (mode: string) => {
@@ -611,13 +641,20 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
                 {isTransitioning ? (
                   <div className="button-spinner" />
                 ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <line x1="8" y1="6" x2="21" y2="6"></line>
-                    <line x1="8" y1="12" x2="21" y2="12"></line>
-                    <line x1="8" y1="18" x2="21" y2="18"></line>
-                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    {/* AI/뇌 상징 아이콘 */}
+                    <path d="M12 2C8.5 2 6 4.5 6 8c0 1.5.5 3 1.5 4.5L6 16c-.5.5-.5 1.5 0 2s1.5.5 2 0l3.5-1.5c1.5 1 3 1.5 4.5 1.5 3.5 0 6-2.5 6-6s-2.5-6-6-6z"/>
+                    <circle cx="9" cy="9" r="1"/>
+                    <circle cx="15" cy="9" r="1"/>
+                    <path d="M9 13c1 1 3 1 4 0"/>
+                    <path d="M12 2v4"/>
+                    <path d="M12 18v4"/>
+                    <path d="M4.93 4.93l2.83 2.83"/>
+                    <path d="M16.24 16.24l2.83 2.83"/>
+                    <path d="M2 12h4"/>
+                    <path d="M18 12h4"/>
+                    <path d="M4.93 19.07l2.83-2.83"/>
+                    <path d="M16.24 7.76l2.83-2.83"/>
                   </svg>
                 )}
               </button>
@@ -696,6 +733,11 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
             loading={loading}
             filterMode={filterMode}
           />
+        )}
+
+        {/* 🔧 AI 종합 분석 섹션 (조건부 표시) */}
+        {showAIAnalysis && (
+          <AIAnalysisSection />
         )}
       </div>
 
