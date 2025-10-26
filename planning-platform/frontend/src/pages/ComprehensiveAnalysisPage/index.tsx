@@ -1254,27 +1254,84 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   })()
                 }] : [];
                 
-                // 그래프 데이터에서 최신 값 추출 (간단하고 확실한 방법)
-                const latestValue = (() => {
-                  // 해당 지표의 차트 데이터 찾기
-                  const chartSeries = metricChartData.find(series => series.name === metric);
-                  if (chartSeries && chartSeries.data && chartSeries.data.length > 0) {
-                    // 최신 데이터 (배열의 마지막 요소)
-                    const latestData = chartSeries.data[chartSeries.data.length - 1];
-                    console.log(`✅ [${metric}] 그래프 데이터에서 최신값 추출:`, {
-                      metric,
-                      value: latestData.value,
-                      date: latestData.date,
-                      source: 'chartData'
-                    });
-                    return latestData.value;
-                  }
-                  return 0;
-                })();
+                // 🔧 최신 건강 데이터 올바른 추출 (날짜 기준 정렬)
+                const getLatestHealthData = () => {
+                  if (!healthData || healthData.length === 0) return null;
+                  
+                  // 날짜 기준으로 정렬하여 최신 데이터 찾기
+                  const sortedData = [...healthData].sort((a, b) => {
+                    const dateA = new Date(a.CheckUpDate || a.Year || '1900-01-01');
+                    const dateB = new Date(b.CheckUpDate || b.Year || '1900-01-01');
+                    return dateB.getTime() - dateA.getTime(); // 내림차순 (최신 먼저)
+                  });
+                  
+                  console.log(`🔍 [${metric}] 건강 데이터 정렬 결과:`, {
+                    metric,
+                    totalCount: healthData.length,
+                    latestDate: sortedData[0]?.CheckUpDate || sortedData[0]?.Year,
+                    source: 'healthData'
+                  });
+                  
+                  return sortedData[0]; // 가장 최신 데이터
+                };
 
-                // 건강 상태 정보 가져오기
-                const healthStatus = healthData.length > 0 ? 
-                  getHealthStatus(metric, latestValue, healthData[0]) : 
+                // 🔧 건강지표 값 직접 추출 (raw_data 우선)
+                const getValueFromHealthData = (healthDataItem: any, metric: string): number => {
+                  if (!healthDataItem) return 0;
+                  
+                  // raw_data에서 직접 추출 시도
+                  if (healthDataItem.raw_data?.Inspections) {
+                    for (const inspection of healthDataItem.raw_data.Inspections) {
+                      if (inspection.Illnesses) {
+                        for (const illness of inspection.Illnesses) {
+                          if (illness.Items) {
+                            const item = illness.Items.find((item: any) => {
+                              if (!item.Name) return false;
+                              const itemName = item.Name.toLowerCase();
+                              const metricName = metric.toLowerCase().replace(' (수축기)', '').replace(' (이완기)', '');
+                              
+                              return itemName.includes(metricName) ||
+                                     (metric.includes('혈압') && itemName.includes('혈압')) ||
+                                     (metric.includes('콜레스테롤') && itemName.includes('콜레스테롤')) ||
+                                     (metric === '중성지방' && itemName.includes('중성지방')) ||
+                                     (metric === '헤모글로빈' && (itemName.includes('혈색소') || itemName.includes('헤모글로빈')));
+                            });
+                            
+                            if (item && item.Value) {
+                              const value = parseFloat(item.Value);
+                              console.log(`✅ [${metric}] raw_data에서 값 추출:`, {
+                                metric,
+                                itemName: item.Name,
+                                value,
+                                source: 'raw_data'
+                              });
+                              return isNaN(value) ? 0 : value;
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                  
+                  // 폴백: 기존 필드에서 추출
+                  const fieldName = getFieldNameForMetric(metric);
+                  const value = parseFloat(healthDataItem[fieldName]) || 0;
+                  console.log(`⚠️ [${metric}] 폴백으로 값 추출:`, {
+                    metric,
+                    fieldName,
+                    value,
+                    source: 'fallback'
+                  });
+                  return value;
+                };
+
+                const latestHealthData = getLatestHealthData();
+                const latestValue = latestHealthData ? 
+                  getValueFromHealthData(latestHealthData, metric) : 0;
+
+                // 🔧 상태 판단 (최신 데이터 기준)
+                const healthStatus = latestHealthData ? 
+                  getHealthStatus(metric, latestValue, latestHealthData) : 
                   { status: 'normal' as const, text: '정상', date: '' };
                 
                 return (

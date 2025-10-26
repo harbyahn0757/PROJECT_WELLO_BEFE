@@ -92,12 +92,14 @@ const FloatingButton: React.FC = () => {
     window.addEventListener('tilko-status-change', handleCustomEvent);
     window.addEventListener('localStorageChange', handleCustomEvent);
     window.addEventListener('password-modal-change', handleCustomEvent);
+    window.addEventListener('wello-view-mode-change', handleCustomEvent);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('tilko-status-change', handleCustomEvent);
       window.removeEventListener('localStorageChange', handleCustomEvent);
       window.removeEventListener('password-modal-change', handleCustomEvent);
+      window.removeEventListener('wello-view-mode-change', handleCustomEvent);
     };
   }, []);
   
@@ -172,31 +174,39 @@ const FloatingButton: React.FC = () => {
       }
     }
     
-    // results-trend 페이지에서는 항상 AI 분석 버튼 표시
+    // results-trend 페이지에서는 trends 모드일 때만 AI 분석 버튼 표시
     if (path === '/results-trend' || path.includes('/results-trend')) {
-      return {
-        text: (
-          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img 
-              src="/wello/wello-icon.png" 
-              alt="Wello" 
-              style={{ 
-                width: '20px', 
-                height: '20px'
-              }} 
-            />
-            AI 종합 분석보기
-          </span>
-        ),
-        onClick: () => {
-          console.log('🧠 [플로팅버튼] 종합 분석 페이지로 이동');
-          const urlParams = new URLSearchParams(window.location.search);
-          const uuid = urlParams.get('uuid');
-          const hospital = urlParams.get('hospital');
-          const queryString = uuid && hospital ? `?uuid=${uuid}&hospital=${hospital}` : '';
-          window.location.href = `/wello/comprehensive-analysis${queryString}`;
-        }
-      };
+      // 🔧 viewMode 확인 (trends 모드에서만 플로팅 버튼 표시)
+      const currentViewMode = localStorage.getItem('wello_view_mode') || 'trends';
+      
+      if (currentViewMode === 'trends') {
+        return {
+          text: (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <img 
+                src="/wello/wello-icon.png" 
+                alt="Wello" 
+                style={{ 
+                  width: '20px', 
+                  height: '20px'
+                }} 
+              />
+              AI 종합 분석보기
+            </span>
+          ),
+          onClick: () => {
+            console.log('🧠 [플로팅버튼] 종합 분석 페이지로 이동');
+            const urlParams = new URLSearchParams(window.location.search);
+            const uuid = urlParams.get('uuid');
+            const hospital = urlParams.get('hospital');
+            const queryString = uuid && hospital ? `?uuid=${uuid}&hospital=${hospital}` : '';
+            window.location.href = `/wello/comprehensive-analysis${queryString}`;
+          }
+        };
+      } else {
+        // timeline 모드에서는 플로팅 버튼 숨김
+        return null;
+      }
     }
     
     // comprehensive-analysis 페이지에서는 AI 분석 시작/재분석 버튼

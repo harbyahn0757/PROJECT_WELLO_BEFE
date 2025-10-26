@@ -54,6 +54,104 @@
     overflow-y: auto;
   }
 
+  // 🔧 화면 전환 애니메이션
+  .view-transition-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+    padding: 40px 20px;
+    
+    .loading-spinner {
+      margin-bottom: 16px;
+      
+      .spinner-icon {
+        display: block;
+        margin: 0 auto;
+        opacity: 0.8;
+      }
+    }
+    
+    .loading-text {
+      font-size: 14px;
+      color: var(--color-text-secondary, #6b7280);
+      text-align: center;
+      margin: 0;
+      font-weight: 500;
+    }
+  }
+
+  // TrendsSection과 UnifiedHealthTimeline 페이드 애니메이션
+  .trends-section,
+  .unified-health-timeline {
+    animation: fadeInUp 0.4s ease-out;
+  }
+
+  // 토글 버튼 로딩 상태 스타일
+  .toggle-btn {
+    position: relative;
+    transition: all 0.2s ease;
+    
+    &.loading {
+      opacity: 0.7;
+      cursor: not-allowed;
+      
+      .button-spinner {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 16px;
+        height: 16px;
+        border: 2px solid transparent;
+        border-top: 2px solid currentColor;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      svg, img {
+        opacity: 0.3;
+      }
+    }
+    
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+
+  // 애니메이션 키프레임
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes spin {
+    from {
+      transform: translate(-50%, -50%) rotate(0deg);
+    }
+    to {
+      transform: translate(-50%, -50%) rotate(360deg);
+    }
+  }
+
+  @keyframes faviconBlink {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.6;
+      transform: scale(1.1);
+    }
+  }
+
   // Pull-to-refresh 스타일
   .pull-to-refresh-indicator {
     display: flex;

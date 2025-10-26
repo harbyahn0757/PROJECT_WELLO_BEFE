@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { HealthDataViewerProps } from '../../../types/health';
 import UnifiedHealthTimeline from '../UnifiedHealthTimeline/index';
+import TrendsSection from './TrendsSection';
 import { useWelloData } from '../../../contexts/WelloDataContext';
 import { API_ENDPOINTS } from '../../../config/api';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +28,15 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   const [prescriptionData, setPrescriptionData] = useState<any>(null);
   const [filterMode, setFilterMode] = useState<'all' | 'checkup' | 'pharmacy' | 'treatment'>('all');
   
+  // 🔧 뷰 모드 상태 추가 (trends: 추이분석, timeline: 타임라인)
+  const [viewMode, setViewMode] = useState<'trends' | 'timeline'>(() => {
+    // localStorage에서 저장된 viewMode 복원 (기본값: trends)
+    const savedViewMode = localStorage.getItem('wello_view_mode') as 'trends' | 'timeline';
+    return savedViewMode || 'trends';
+  });
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isLoadingTrends] = useState(false);
+  
   // Pull-to-refresh 관련 상태
   const [isPulling, setIsPulling] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
@@ -45,6 +55,25 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   // 환자 이름 추출 (기본값: "사용자")
   const patientName = state.patient?.name || '사용자';
 
+  // 🔧 페이지 타이틀 동적 변경 로직
+  const getPageTitle = () => {
+    if (viewMode === 'trends') {
+      return `${patientName}님의 건강 추이 분석`;
+    } else {
+      // timeline 모드
+      switch (filterMode) {
+        case 'checkup':
+          return `${patientName}님의 건강검진 기록`;
+        case 'pharmacy':
+          return `${patientName}님의 약국 방문 기록`;
+        case 'treatment':
+          return `${patientName}님의 진료 기록`;
+        default:
+          return `${patientName}님의 전체 건강 기록`;
+      }
+    }
+  };
+
   // 비밀번호 세션 가드 - 직접 접속 시에는 체크하지 않음
   usePasswordSessionGuard({
     enabled: false, // 🔧 직접 접속 허용을 위해 비활성화
@@ -58,6 +87,50 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
     window.dispatchEvent(new CustomEvent('password-modal-change'));
     console.log('🧹 [결과페이지] 비밀번호 모달 상태 정리 완료');
   }, []); // 컴포넌트 마운트 시 한 번만 실행
+
+  // 🔧 토글 버튼 핸들러 (분석 = 뷰 토글, 검진/약국/진료 = 필터)
+  const handleToggleClick = async (mode: string) => {
+    if (isTransitioning) return; // 전환 중이면 무시
+    
+    setIsTransitioning(true);
+    console.log(`🔄 [토글] ${mode} 버튼 클릭 - 전환 시작`);
+    
+    // 짧은 로딩 애니메이션
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    if (mode === 'all') {
+      // [분석] 버튼 - 뷰 모드 토글
+      const newViewMode = viewMode === 'trends' ? 'timeline' : 'trends';
+      setViewMode(newViewMode);
+      setFilterMode('all');
+      
+      // 🔧 localStorage에 viewMode 저장
+      localStorage.setItem('wello_view_mode', newViewMode);
+      
+      // 🔧 플로팅 버튼 업데이트를 위한 커스텀 이벤트 발생
+      window.dispatchEvent(new CustomEvent('wello-view-mode-change', {
+        detail: { viewMode: newViewMode, filterMode: 'all' }
+      }));
+      
+      console.log(`🔄 [토글] 뷰 모드 변경: ${viewMode} → ${newViewMode}`);
+    } else {
+      // [검진/약국/진료] 버튼 - 타임라인 + 필터
+      setViewMode('timeline');
+      setFilterMode(mode as 'checkup' | 'pharmacy' | 'treatment');
+      
+      // 🔧 localStorage에 viewMode 저장
+      localStorage.setItem('wello_view_mode', 'timeline');
+      
+      // 🔧 플로팅 버튼 업데이트를 위한 커스텀 이벤트 발생
+      window.dispatchEvent(new CustomEvent('wello-view-mode-change', {
+        detail: { viewMode: 'timeline', filterMode: mode }
+      }));
+      
+      console.log(`🔄 [토글] 필터 모드: ${mode}, 뷰: timeline`);
+    }
+    
+    setIsTransitioning(false);
+  };
 
   useEffect(() => {
     // DB에서 저장된 데이터 로드 또는 localStorage에서 최근 수집된 데이터 로드
@@ -520,61 +593,108 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
         <div className="question__title" style={{ marginTop: '10px' }}>
           <div className="title-with-toggle">
             <div className="title-content">
-              <h1 className="question__title-text">{patientName}님의 건강 기록 타임라인</h1>
+              <h1 className="question__title-text">{getPageTitle()}</h1>
             </div>
             
-            {/* 토글 버튼들을 여기로 이동 */}
+            {/* 🔧 토글 버튼들 (분석=뷰토글, 검진/약국/진료=필터) */}
             <div className="external-view-toggle">
               <button
-                className={`toggle-btn ${filterMode === 'all' ? 'active' : ''}`}
-                onClick={() => setFilterMode('all')}
-                title="모두 보기"
+                className={`toggle-btn ${isTransitioning ? 'loading' : ''} ${
+                  (viewMode === 'trends' || (viewMode === 'timeline' && filterMode === 'all')) ? 'active' : ''
+                }`}
+                onClick={() => handleToggleClick('all')}
+                disabled={isTransitioning}
+                title={viewMode === 'trends' ? '타임라인 보기' : '분석 보기'}
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <line x1="8" y1="6" x2="21" y2="6"></line>
-                  <line x1="8" y1="12" x2="21" y2="12"></line>
-                  <line x1="8" y1="18" x2="21" y2="18"></line>
-                  <line x1="3" y1="6" x2="3.01" y2="6"></line>
-                  <line x1="3" y1="12" x2="3.01" y2="12"></line>
-                  <line x1="3" y1="18" x2="3.01" y2="18"></line>
-                </svg>
+                {isTransitioning ? (
+                  <div className="button-spinner" />
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <line x1="8" y1="6" x2="21" y2="6"></line>
+                    <line x1="8" y1="12" x2="21" y2="12"></line>
+                    <line x1="8" y1="18" x2="21" y2="18"></line>
+                    <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                    <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                    <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                  </svg>
+                )}
               </button>
               <button
-                className={`toggle-btn ${filterMode === 'checkup' ? 'active' : ''}`}
-                onClick={() => setFilterMode('checkup')}
+                className={`toggle-btn ${isTransitioning ? 'loading' : ''} ${filterMode === 'checkup' ? 'active' : ''}`}
+                onClick={() => handleToggleClick('checkup')}
+                disabled={isTransitioning}
                 title="검진만 보기"
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                </svg>
+                {isTransitioning ? (
+                  <div className="button-spinner" />
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+                  </svg>
+                )}
               </button>
               <button
-                className={`toggle-btn pharmacy ${filterMode === 'pharmacy' ? 'active' : ''}`}
-                onClick={() => setFilterMode('pharmacy')}
+                className={`toggle-btn pharmacy ${isTransitioning ? 'loading' : ''} ${filterMode === 'pharmacy' ? 'active' : ''}`}
+                onClick={() => handleToggleClick('pharmacy')}
+                disabled={isTransitioning}
                 title="약국만 보기"
               >
-                <img src={pillIconPath} alt="약국" />
+                {isTransitioning ? (
+                  <div className="button-spinner" />
+                ) : (
+                  <img src={pillIconPath} alt="약국" />
+                )}
               </button>
               <button
-                className={`toggle-btn ${filterMode === 'treatment' ? 'active' : ''}`}
-                onClick={() => setFilterMode('treatment')}
+                className={`toggle-btn ${isTransitioning ? 'loading' : ''} ${filterMode === 'treatment' ? 'active' : ''}`}
+                onClick={() => handleToggleClick('treatment')}
+                disabled={isTransitioning}
                 title="진료만 보기"
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/>
-                </svg>
+                {isTransitioning ? (
+                  <div className="button-spinner" />
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/>
+                  </svg>
+                )}
               </button>
             </div>
           </div>
         </div>
 
-        {/* 통합 타임라인 컴포넌트 */}
-        <UnifiedHealthTimeline 
-          healthData={healthData}
-          prescriptionData={prescriptionData}
-          loading={loading}
-          filterMode={filterMode}
-        />
+        {/* 🔧 조건부 렌더링: viewMode에 따라 TrendsSection 또는 UnifiedHealthTimeline 표시 */}
+        {isTransitioning ? (
+          <div className="view-transition-loading">
+            <div className="loading-spinner">
+              <img 
+                src="/wello/wello-icon.png" 
+                alt="전환 중" 
+                className="spinner-icon"
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  animation: 'faviconBlink 1.5s ease-in-out infinite'
+                }}
+              />
+            </div>
+            <p className="loading-text">화면을 전환하는 중...</p>
+          </div>
+        ) : viewMode === 'trends' ? (
+          <TrendsSection 
+            healthData={healthData}
+            prescriptionData={prescriptionData}
+            filterMode={filterMode}
+            isLoading={isLoadingTrends}
+          />
+        ) : (
+          <UnifiedHealthTimeline 
+            healthData={healthData}
+            prescriptionData={prescriptionData}
+            loading={loading}
+            filterMode={filterMode}
+          />
+        )}
       </div>
 
       {/* 새로고침 확인 모달 */}
