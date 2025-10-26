@@ -10,6 +10,7 @@ import { API_ENDPOINTS } from '../../../config/api';
 import { useNavigate } from 'react-router-dom';
 import { WelloIndexedDB, HealthDataRecord } from '../../../services/WelloIndexedDB';
 import usePasswordSessionGuard from '../../../hooks/usePasswordSessionGuard';
+import { STORAGE_KEYS } from '../../../constants/storage';
 import './styles.scss';
 
 const pillIconPath = `${process.env.PUBLIC_URL || ''}/free-icon-pill-5405585.png`;
@@ -49,6 +50,14 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
     enabled: false, // 🔧 직접 접속 허용을 위해 비활성화
     checkInterval: 30000 // 30초마다 체크
   });
+
+  // 🔧 플로팅 버튼 표시를 위한 비밀번호 모달 상태 정리
+  useEffect(() => {
+    // 결과 페이지 로드 시 비밀번호 모달 상태 정리
+    localStorage.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
+    window.dispatchEvent(new CustomEvent('password-modal-change'));
+    console.log('🧹 [결과페이지] 비밀번호 모달 상태 정리 완료');
+  }, []); // 컴포넌트 마운트 시 한 번만 실행
 
   useEffect(() => {
     // DB에서 저장된 데이터 로드 또는 localStorage에서 최근 수집된 데이터 로드
