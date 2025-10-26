@@ -167,34 +167,38 @@
   flex-shrink: 0;
 }
 
-// 툴팁 (전역 스타일)
+// 툴팁 (전역 스타일) - 베이지톤 자연스러운 버전
 .wello-chart-tooltip {
   position: absolute;
-  background-color: var(--color-gray-900);
-  color: var(--color-text-inverse);
-  padding: var(--spacing-xs) var(--spacing-sm);
+  background-color: rgba(245, 240, 230, 0.95);
+  color: #5d4e37;
+  padding: 6px 10px; // 🔧 패딩 조정 (더 작게)
   border-radius: var(--border-radius-md);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-tight);
   pointer-events: none;
-  z-index: 1000;
-  box-shadow: var(--shadow-lg);
+  z-index: 9999; // 🔧 z-index 최고로 설정 (카드나 그래프 섹션에서 잘리지 않도록)
+  box-shadow: 0 4px 12px rgba(139, 125, 107, 0.15);
   opacity: 0;
   transition: opacity 0.2s ease-in-out;
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(210, 200, 185, 0.3);
+  min-width: 100px;
+  max-width: 200px;
 
   &--visible {
     opacity: 1;
   }
 
-  // 툴팁 화살표
+  // 툴팁 화살표 (베이지톤)
   &::after {
     content: '';
     position: absolute;
     top: 100%;
     left: 50%;
     transform: translateX(-50%);
-    border: 4px solid transparent;
-    border-top-color: var(--color-gray-900);
+    border: 5px solid transparent;
+    border-top-color: rgba(245, 240, 230, 0.95);
   }
 }
 

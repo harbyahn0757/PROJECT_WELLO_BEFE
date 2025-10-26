@@ -88,6 +88,19 @@
     animation: fadeInUp 0.4s ease-out;
   }
 
+  // 🔧 TrendsSection 상단 패딩 추가 (토글 버튼과 간격)
+  .trends-section {
+    padding-top: 20px;
+    
+    .analysis-card {
+      margin-bottom: 24px;
+      
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
   // 토글 버튼 로딩 상태 스타일
   .toggle-btn {
     position: relative;

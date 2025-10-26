@@ -163,6 +163,8 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
                 healthDataFormatted = {
                   ResultList: health_data.map((item: any) => ({
                     ...item.raw_data,
+                    // 🔧 raw_data 필드 보존 (상태 판정에 필요)
+                    raw_data: item.raw_data,
                     // DB에서 파싱된 필드들 추가
                     height: item.height,
                     weight: item.weight,
@@ -682,8 +684,8 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
           </div>
         ) : viewMode === 'trends' ? (
           <TrendsSection 
-            healthData={healthData}
-            prescriptionData={prescriptionData}
+            healthData={healthData?.ResultList || []}
+            prescriptionData={prescriptionData?.ResultList || []}
             filterMode={filterMode}
             isLoading={isLoadingTrends}
           />

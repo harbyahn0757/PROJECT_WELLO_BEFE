@@ -249,21 +249,61 @@ const LineChart: React.FC<LineChartProps> = ({
     return date.toLocaleDateString('ko-KR');
   };
 
+  // 상태 텍스트 한국어 변환
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'normal': return '정상';
+      case 'warning': return '경계';
+      case 'danger': return '이상';
+      case 'abnormal': return '이상';
+      default: return status;
+    }
+  };
+
   // 포인트 호버 처리
   const handlePointHover = (
     event: React.MouseEvent,
     point: LineChartDataPoint,
     seriesData: LineChartSeries
   ) => {
+    console.log('🔍 [툴팁] 포인트 호버 이벤트:', { point, seriesData: seriesData.name });
+    
     const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    if (!rect) {
+      console.warn('⚠️ [툴팁] SVG rect를 찾을 수 없음');
+      return;
+    }
 
+    // 🔧 간단한 툴팁 내용 (병원명 | 상태, 수치만)
+    const statusText = point.status ? getStatusText(point.status) : '';
+    // 실제 데이터에서 병원명 추출
+    const locationText = (point as any).location || 
+                        (point as any).hospitalName || 
+                        (point as any).item?.Location ||
+                        "병원";
+    
+    console.log('🔍 [툴팁] 데이터 추출:', { 
+      statusText, 
+      locationText, 
+      pointData: point,
+      hasLocation: !!(point as any).location,
+      hasHospitalName: !!(point as any).hospitalName,
+      hasItemLocation: !!(point as any).item?.Location
+    });
+    
+    // 🔧 신장 같은 경우 상태가 없으므로 병원명만 표시
+    const headerText = statusText ? `${locationText} | ${statusText}` : locationText;
+    
     const tooltipContent = `
-      <div class="wello-chart-tooltip__title">${seriesData.name}</div>
-      <div class="wello-chart-tooltip__date">${formatDate(new Date(point.date))}</div>
-      <div class="wello-chart-tooltip__value">${valueFormat(point.value)} ${seriesData.unit || ''}</div>
-      ${point.status ? `<div class="wello-chart-tooltip__status status-${point.status}">${point.status}</div>` : ''}
+      <div class="wello-chart-tooltip__header">${headerText}</div>
+      <div class="wello-chart-tooltip__value">${valueFormat(point.value)}${seriesData.unit ? ` ${seriesData.unit}` : ''}</div>
     `;
+
+    console.log('🔍 [툴팁] 툴팁 설정:', { 
+      x: event.clientX - rect.left, 
+      y: event.clientY - rect.top, 
+      content: tooltipContent 
+    });
 
     setTooltip({
       visible: true,
@@ -381,15 +421,27 @@ const LineChart: React.FC<LineChartProps> = ({
                     key={`${seriesData.id}-point-${pointIndex}`}
                     cx={x}
                     cy={y}
-                    r={4}
+                    r={6} // 🔧 반지름을 늘려서 클릭 영역 확대
                     className={`wello-line-chart__point ${point.status ? `wello-line-chart__point--${point.status}` : ''}`}
                     style={{
                       fill: '#7c746a', // 플로팅 버튼 색상으로 고정
                       stroke: '#ffffff',
-                      strokeWidth: 2
+                      strokeWidth: 2,
+                      cursor: 'pointer', // 🔧 커서 포인터 추가
+                      pointerEvents: 'all' // 🔧 포인터 이벤트 명시적 활성화
                     }}
-                    onMouseEnter={(e) => handlePointHover(e, point, seriesData)}
-                    onMouseLeave={handleMouseLeave}
+                    onMouseEnter={(e) => {
+                      console.log(`🔍 [툴팁] 포인트 마우스 엔터: ${seriesData.name}, 값: ${point.value}`);
+                      handlePointHover(e, point, seriesData);
+                    }}
+                    onMouseLeave={() => {
+                      console.log(`🔍 [툴팁] 포인트 마우스 리브: ${seriesData.name}`);
+                      handleMouseLeave();
+                    }}
+                    onClick={(e) => {
+                      console.log(`🔍 [툴팁] 포인트 클릭: ${seriesData.name}, 값: ${point.value}`);
+                      handlePointHover(e, point, seriesData);
+                    }}
                   />
                 );
               })}
@@ -708,6 +760,7 @@ const LineChart: React.FC<LineChartProps> = ({
               top: tooltip.y - 10
             }}
             dangerouslySetInnerHTML={{ __html: tooltip.content }}
+            onMouseEnter={() => console.log('🔍 [툴팁] 툴팁 렌더링됨:', tooltip)}
           />
         )}
       </div>
