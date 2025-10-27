@@ -543,16 +543,7 @@ AI 분석 시작
                 <p className="summary-text">{gptAnalysis.summary}</p>
               )}
               
-              {/* 주요 지표 변화 슬라이더 */}
-              {gptAnalysis.healthJourney?.keyMilestones && (
-                <div className="metrics-changes-section">
-                  <h4 className="metrics-title">주요 지표 변화</h4>
-                  <HealthJourneyChartSlider
-                    healthData={healthData}
-                    keyChanges={gptAnalysis.healthJourney.keyMilestones.flatMap(m => m.keyChanges || [])}
-                  />
-                </div>
-              )}
+              {/* 주요 지표 변화 슬라이더는 별도 건강 여정 섹션에서 처리 */}
             </div>
           </div>
 
@@ -578,7 +569,15 @@ AI 분석 시작
                   {/* 총론 섹션 */}
                   <div className="health-journey-summary">
                     <p className="journey-timeline">{gptAnalysis.healthJourney.timeline}</p>
-                    
+                  </div>
+
+                  {/* 주요 지표 변화 슬라이더 */}
+                  <div className="health-journey-charts">
+                    <h4 className="charts-title">주요 건강 지표 변화</h4>
+                    <HealthJourneyChartSlider
+                      healthData={healthData}
+                      keyChanges={gptAnalysis.healthJourney.keyMilestones?.flatMap(m => m.keyChanges || []) || []}
+                    />
                   </div>
 
                   {/* 년도별 상세 분석 - 타임라인 형식 */}
@@ -662,42 +661,72 @@ AI 분석 시작
             </div>
             {!collapsedSections.healthIndicators && (
               <div className="simple-section-content">
-                <div className="insights-grid">
-                  {(gptAnalysis.insights || []).map((insight, index) => (
-                    <div key={index} className={`insight-item ${insight.status}`}>
-                      <div className="insight-header">
-                        <h4 className="insight-category">{insight.category}</h4>
-                        <span className={`status-indicator ${insight.status}`}>
-                          {insight.status === 'good' ? '정상' : 
-                           insight.status === 'warning' ? '주의' : '위험'}
-                        </span>
+                <div className="insights-slider-wrapper">
+                  <div className="insights-slider">
+                    {(gptAnalysis.insights || []).map((insight, index) => (
+                      <div key={index} className={`insight-card ${insight.status}`}>
+                        <div className="insight-header">
+                          <h4 className="insight-category">{insight.category}</h4>
+                          <span className={`status-indicator ${insight.status}`}>
+                            {insight.status === 'good' ? '정상' : 
+                             insight.status === 'warning' ? '주의' : '위험'}
+                          </span>
+                        </div>
+                        
+                        {/* 지표별 미니 차트 */}
+                        <div className="insight-chart-container">
+                          <HealthJourneyMiniChart
+                            healthData={healthData}
+                            metric={getMetricForInsight(insight.category)}
+                            title={insight.category}
+                          />
+                        </div>
+                        
+                        <p className="insight-message">{insight.message}</p>
+                        {insight.recommendation && (
+                          <div className="insight-recommendation">
+                            <strong>권장사항:</strong> {insight.recommendation}
+                          </div>
+                        )}
+                        
+                        {/* 근거 데이터 표시 */}
+                        <div className="insight-evidence">
+                          <div className="evidence-label">근거 데이터</div>
+                          <div className="evidence-content">
+                            {getEvidenceForInsight(insight, healthData)}
+                          </div>
+                        </div>
                       </div>
-                      
-                      {/* 지표별 미니 차트 추가 */}
-                      <div className="insight-chart-container">
-                        <HealthJourneyMiniChart
-                          healthData={healthData}
-                          metric={getMetricForInsight(insight.category)}
-                          title={insight.category}
+                    ))}
+                  </div>
+                  
+                  {/* 슬라이더 닷 네비게이션 */}
+                  {gptAnalysis.insights && gptAnalysis.insights.length > 1 && (
+                    <div className="insights-dots">
+                      {gptAnalysis.insights.map((_, index) => (
+                        <button
+                          key={index}
+                          className={`insight-dot ${index === 0 ? 'active' : ''}`}
+                          onClick={() => {
+                            const slider = document.querySelector('.insights-slider') as HTMLElement;
+                            if (slider) {
+                              const cardWidth = slider.querySelector('.insight-card')?.clientWidth || 0;
+                              const gap = 16; // CSS gap 값
+                              slider.scrollTo({
+                                left: (cardWidth + gap) * index,
+                                behavior: 'smooth'
+                              });
+                              
+                              // 닷 활성화 상태 업데이트
+                              document.querySelectorAll('.insight-dot').forEach((dot, i) => {
+                                dot.classList.toggle('active', i === index);
+                              });
+                            }
+                          }}
                         />
-                      </div>
-                      
-                      <p className="insight-message">{insight.message}</p>
-                      {insight.recommendation && (
-                        <div className="insight-recommendation">
-                          <strong>권장사항:</strong> {insight.recommendation}
-                        </div>
-                      )}
-                      
-                      {/* 근거 데이터 표시 */}
-                      <div className="insight-evidence">
-                        <div className="evidence-label">근거 데이터</div>
-                        <div className="evidence-content">
-                          {getEvidenceForInsight(insight, healthData)}
-                        </div>
-                      </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}

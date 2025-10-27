@@ -157,7 +157,7 @@ const HealthJourneyChartSlider: React.FC<HealthJourneyChartSliderProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex]);
+  }, [goToPrevious, goToNext]);
 
   if (availableMetrics.length === 0) {
     return (

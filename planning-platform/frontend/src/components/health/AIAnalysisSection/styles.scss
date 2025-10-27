@@ -952,6 +952,174 @@
     }
   }
 
+  // 인사이트 카드 슬라이더 스타일
+  .insights-slider-wrapper {
+    margin: 16px 0;
+    
+    .insights-slider {
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      gap: 16px;
+      padding: 0 4px 16px 4px;
+      
+      // 스크롤바 숨기기
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      &::-webkit-scrollbar {
+        display: none;
+      }
+      
+      .insight-card {
+        min-width: 320px;
+        max-width: 340px;
+        flex-shrink: 0;
+        scroll-snap-align: start;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        &.good {
+          border-left: 4px solid #10b981;
+        }
+        
+        &.warning {
+          border-left: 4px solid #f59e0b;
+        }
+        
+        &.danger {
+          border-left: 4px solid #ef4444;
+        }
+        
+        .insight-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+          
+          .insight-category {
+            font-size: 16px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0;
+            font-family: 'Pretendard', sans-serif;
+          }
+          
+          .status-indicator {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+            
+            &.good {
+              background: rgba(16, 185, 129, 0.1);
+              color: #10b981;
+            }
+            
+            &.warning {
+              background: rgba(245, 158, 11, 0.1);
+              color: #f59e0b;
+            }
+            
+            &.danger {
+              background: rgba(239, 68, 68, 0.1);
+              color: #ef4444;
+            }
+          }
+        }
+        
+        .insight-chart-container {
+          margin: 16px 0;
+          border-radius: 8px;
+          overflow: hidden;
+          background: #fafafa;
+        }
+        
+        .insight-message {
+          font-size: 14px;
+          line-height: 1.5;
+          color: #6b7280;
+          margin: 12px 0;
+        }
+        
+        .insight-recommendation {
+          margin: 12px 0;
+          padding: 12px;
+          background: #f0f9ff;
+          border-left: 3px solid #0ea5e9;
+          border-radius: 4px;
+          
+          strong {
+            font-size: 12px;
+            color: #374151;
+            font-weight: 600;
+          }
+          
+          p {
+            font-size: 13px;
+            line-height: 1.4;
+            color: #0c4a6e;
+            margin: 4px 0 0 0;
+          }
+        }
+        
+        .insight-evidence {
+          margin-top: 16px;
+          padding-top: 12px;
+          border-top: 1px solid #e5e7eb;
+          
+          .evidence-label {
+            font-size: 11px;
+            color: #9ca3af;
+            font-weight: 500;
+            margin-bottom: 4px;
+          }
+          
+          .evidence-content {
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.4;
+          }
+        }
+      }
+    }
+    
+    .insights-dots {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 12px;
+      
+      .insight-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        border: none;
+        background: #d1d5db;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        
+        &:hover {
+          background: rgba(124, 116, 106, 0.5);
+        }
+        
+        &.active {
+          background: #7c746a;
+          transform: scale(1.2);
+        }
+      }
+    }
+  }
+
   // 영양 권장사항 슬라이더 스타일
   .nutrition-slider-wrapper {
     margin: 16px 0;
