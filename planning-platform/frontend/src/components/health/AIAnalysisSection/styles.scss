@@ -43,16 +43,30 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 24px; // 기존과 동일한 패딩
-      border-bottom: 1px solid #e5e7eb;
-      background: #8b7355; // AI 전용 갈색 배경
+      padding: 20px 24px 16px 24px;
+      border-bottom: none;
+      background: transparent;
       
       .section-title {
-        font-size: 16px;
+        font-size: 18px;
         font-weight: 600;
-        color: #ffffff; // 어두운 배경에 흰색 텍스트
+        color: #374151;
         margin: 0;
         font-family: 'Pretendard', sans-serif;
+        position: relative;
+        padding-left: 12px;
+        
+        &::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 3px;
+          height: 16px;
+          background: #7c746a;
+          border-radius: 2px;
+        }
       }
       
       .chart-info {
@@ -61,7 +75,7 @@
         
         .info-text {
           font-size: 12px;
-          color: #f5f5dc; // 연한 베이지색
+          color: #9ca3af;
           font-weight: 400;
           background: transparent;
           padding: 0;
@@ -86,32 +100,46 @@
       }
       
       .ai-sub-header {
-        background: #f9fafb;
-        padding: 16px 24px; // 패딩 증가
-        border-bottom: 1px solid #e5e7eb;
-        border-left: 4px solid #6b7280;
+        background: transparent;
+        padding: 16px 24px 12px 24px;
+        border-bottom: none;
+        border-left: none;
         
         .ai-sub-title {
-          font-size: 15px;
-          font-weight: 600;
+          font-size: 16px;
+          font-weight: 500;
           color: #374151;
           margin: 0;
           font-family: 'Pretendard', sans-serif;
+          position: relative;
+          padding-left: 16px;
+          
+          &::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 2px;
+            height: 12px;
+            background: #9ca3af;
+            border-radius: 1px;
+          }
         }
       }
       
       .ai-sub-content {
-        padding: 24px; // 기존 analysis-card와 동일한 패딩
-        border-left: 4px solid #f3f4f6;
+        padding: 0 24px 24px 24px;
         
         // 종합 소견 텍스트
         .summary-text {
           font-size: 14px;
-          color: #4a5568;
-          line-height: 1.6;
+          color: #374151;
+          line-height: 1.7;
           margin: 0;
-          padding-left: 12px; // 🔧 내용 들여쓰기
           font-family: 'Pretendard', sans-serif;
+          white-space: pre-line; // 줄바꿈 유지
+          word-break: keep-all; // 한글 단어 단위로 줄바꿈
         }
         
         // 인사이트 그리드
@@ -528,9 +556,13 @@
       .slider-info {
         display: flex;
         align-items: center;
-        gap: 4px;
-        font-size: 12px;
-        color: #6b7280;
+        gap: 8px;
+        
+        .info-text {
+          font-size: 12px;
+          color: #9ca3af;
+          font-weight: 400;
+        }
         
         .current-slide {
           font-weight: 600;
@@ -648,6 +680,274 @@
     }
   }
 
+  // 영양 권장사항 슬라이더 스타일
+  .nutrition-slider-wrapper {
+    margin: 16px 0;
+    
+    .nutrition-slider {
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      gap: 16px;
+      padding: 0 4px 16px 4px;
+      
+      // 스크롤바 숨기기
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      &::-webkit-scrollbar {
+        display: none;
+      }
+      
+      .nutrition-card {
+        min-width: 300px;
+        max-width: 320px;
+        flex-shrink: 0;
+        scroll-snap-align: start;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #f5f5dc;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .nutrition-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+          
+          .nutrition-category {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0;
+            font-family: 'Pretendard', sans-serif;
+          }
+          
+          .category-badge {
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+            
+            &.recommend {
+              background: rgba(124, 116, 106, 0.1); // 브랜드 갈색 연한 배경
+              color: #7c746a; // 브랜드 갈색
+            }
+            
+            &.avoid {
+              background: rgba(245, 158, 11, 0.1); // 따뜻한 주황 연한 배경
+              color: #f59e0b; // 따뜻한 주황
+            }
+          }
+        }
+        
+        .nutrition-foods {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-bottom: 12px;
+          
+          .food-tag {
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 16px;
+            font-weight: 500;
+            
+            &.recommend {
+              background: rgba(124, 116, 106, 0.05); // 브랜드 갈색 매우 연한 배경
+              color: #7c746a; // 브랜드 갈색
+              border: 1px solid rgba(124, 116, 106, 0.2);
+            }
+            
+            &.avoid {
+              background: rgba(245, 158, 11, 0.05); // 따뜻한 주황 매우 연한 배경
+              color: #f59e0b; // 따뜻한 주황
+              border: 1px solid rgba(245, 158, 11, 0.2);
+            }
+          }
+        }
+        
+        .nutrition-reason {
+          font-size: 13px;
+          line-height: 1.5;
+          color: #6b7280;
+          margin: 0;
+        }
+      }
+    }
+    
+    .nutrition-dots {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 12px;
+      
+      .nutrition-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        border: none;
+        background: #d1d5db;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        
+        &:hover {
+          background: rgba(124, 116, 106, 0.5); // 브랜드 갈색 호버
+        }
+        
+        &.active {
+          background: #7c746a; // 브랜드 갈색
+          transform: scale(1.2);
+        }
+      }
+    }
+  }
+
+  // 약물 상호작용 슬라이더 스타일
+  .interactions-slider-wrapper {
+    margin: 16px 0;
+    
+    .interactions-slider {
+      display: flex;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      gap: 16px;
+      padding: 0 4px 16px 4px;
+      
+      // 스크롤바 숨기기
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      &::-webkit-scrollbar {
+        display: none;
+      }
+      
+      .interaction-card {
+        min-width: 300px;
+        max-width: 320px;
+        flex-shrink: 0;
+        scroll-snap-align: start;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid #f5f5dc;
+        border-radius: 12px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        .interaction-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 12px;
+          gap: 12px;
+          
+          .interaction-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0;
+            font-family: 'Pretendard', sans-serif;
+            flex: 1;
+            line-height: 1.4;
+          }
+          
+          .severity-badge {
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+            flex-shrink: 0;
+            
+            &.mild {
+              background: rgba(124, 116, 106, 0.1); // 브랜드 갈색 연한 배경
+              color: #7c746a; // 브랜드 갈색
+            }
+            
+            &.medium {
+              background: rgba(245, 158, 11, 0.1); // 따뜻한 주황 연한 배경
+              color: #f59e0b; // 따뜻한 주황
+            }
+            
+            &.severe {
+              background: rgba(239, 68, 68, 0.1); // 빨강 연한 배경
+              color: #ef4444; // 빨강
+            }
+          }
+        }
+        
+        .drug-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-bottom: 12px;
+          
+          .drug-tag {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-weight: 500;
+            background: rgba(124, 116, 106, 0.05); // 브랜드 갈색 매우 연한 배경
+            color: #7c746a; // 브랜드 갈색
+            border: 1px solid rgba(124, 116, 106, 0.2);
+          }
+        }
+        
+        .interaction-recommendation {
+          strong {
+            font-size: 12px;
+            color: #374151;
+            font-weight: 600;
+          }
+          
+          p {
+            font-size: 13px;
+            line-height: 1.5;
+            color: #6b7280;
+            margin: 4px 0 0 0;
+          }
+        }
+      }
+    }
+    
+    .interactions-dots {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 12px;
+      
+      .interaction-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        border: none;
+        background: #d1d5db;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        
+        &:hover {
+          background: rgba(124, 116, 106, 0.5); // 브랜드 갈색 호버
+        }
+        
+        &.active {
+          background: #7c746a; // 브랜드 갈색
+          transform: scale(1.2);
+        }
+      }
+    }
+  }
+
   // 미니 차트 스타일
   .health-journey-mini-chart {
     .chart-header {
@@ -754,6 +1054,144 @@
     }
   }
 
+  // 분석 진행 상태 스타일
+  .analysis-progress-section {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 20px;
+    text-align: center;
+    
+    .progress-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      
+      .loading-spinner {
+        .spinner-icon {
+          filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+        }
+      }
+      
+      .progress-info {
+        .progress-step {
+          font-size: 15px;
+          color: #374151;
+          margin: 0 0 8px 0;
+          font-weight: 600;
+          min-height: 50px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: fadeInUp 0.5s ease-out;
+          font-family: 'Pretendard', sans-serif;
+          transition: all 0.3s ease;
+        }
+        
+        .progress-description {
+          p {
+            font-size: 13px;
+            color: #6b7280;
+            margin: 0;
+            font-weight: 400;
+          }
+        }
+      }
+    }
+  }
+
+  // AI 간단 섹션 (건강 여정 등) - 애니메이션 개선
+  .ai-simple-section {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    margin-bottom: 16px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    
+    .simple-section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px 12px 20px;
+      background: transparent;
+      border-bottom: none;
+      transition: all 0.2s ease;
+      
+      .simple-section-title {
+        font-size: 16px;
+        font-weight: 500;
+        color: #374151;
+        margin: 0;
+        font-family: 'Pretendard', sans-serif;
+        transition: color 0.2s ease;
+        position: relative;
+        padding-left: 16px;
+        
+        &::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 2px;
+          height: 12px;
+          background: #9ca3af;
+          border-radius: 1px;
+        }
+      }
+      
+      .collapse-indicator {
+        display: flex;
+        align-items: center;
+        
+        .toggle-icon {
+          width: 16px;
+          height: 16px;
+          color: #6b7280;
+          transition: all 0.3s ease;
+          
+          &.collapsed {
+            transform: rotate(-90deg);
+            color: #7c746a; // 브랜드 갈색
+          }
+          
+          &.expanded {
+            transform: rotate(0deg);
+            color: #7c746a; // 브랜드 갈색
+          }
+          
+          &:hover {
+            color: #696158; // 브랜드 갈색 호버
+            transform: scale(1.1);
+          }
+        }
+      }
+    }
+    
+    .simple-section-content {
+      padding: 20px;
+      transition: all 0.3s ease;
+      animation: fadeInUp 0.3s ease-out;
+    }
+    
+    // 접혔을 때 애니메이션
+    &.collapsed {
+      .simple-section-content {
+        max-height: 0;
+        padding: 0 20px;
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+    }
+  }
+
   // 건강 여정 스타일
   .health-journey-summary {
     margin-bottom: 24px;
@@ -792,20 +1230,20 @@
       }
       
       .overview-positive {
-        background: #f0fdf4;
-        border: 1px solid #bbf7d0;
+        background: rgba(124, 116, 106, 0.05); // 브랜드 갈색 매우 연한 배경
+        border: 1px solid rgba(124, 116, 106, 0.2); // 브랜드 갈색 연한 보더
         
         h4 {
-          color: #166534;
+          color: #7c746a; // 브랜드 갈색
         }
       }
       
       .overview-negative {
-        background: #fef2f2;
-        border: 1px solid #fecaca;
+        background: rgba(245, 158, 11, 0.05); // 따뜻한 주황 매우 연한 배경 (브랜드 톤)
+        border: 1px solid rgba(245, 158, 11, 0.2); // 따뜻한 주황 연한 보더
         
         h4 {
-          color: #dc2626;
+          color: #f59e0b; // 따뜻한 주황 (브랜드 톤에 맞는 경고색)
         }
         
         .concern-item {
@@ -816,7 +1254,7 @@
           
           .metric-name {
             font-weight: 600;
-            color: #dc2626;
+            color: #f59e0b; // 따뜻한 주황으로 통일
             font-size: 13px;
           }
           
@@ -851,6 +1289,8 @@
     
     .timeline-container {
       position: relative;
+      max-width: 100%;
+      overflow-x: hidden;
       
       .timeline-item {
         display: flex;
@@ -892,6 +1332,8 @@
           border: 1px solid #e5e7eb;
           border-radius: 8px;
           padding: 16px;
+          min-width: 0; // flex 아이템이 줄어들 수 있도록
+          overflow: hidden;
           
           .timeline-header {
             display: flex;
@@ -941,22 +1383,26 @@
             
             .changes-grid {
               display: grid;
-              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+              grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
               gap: 12px;
+              max-width: 100%;
+              overflow: hidden;
               
               .change-card {
                 padding: 12px;
                 border-radius: 6px;
                 border: 1px solid #e5e7eb;
+                min-width: 0; // flex 아이템이 줄어들 수 있도록
+                word-wrap: break-word; // 긴 텍스트 줄바꿈
                 
                 &.improved {
-                  background: #f0fdf4;
-                  border-color: #bbf7d0;
+                  background: rgba(124, 116, 106, 0.05); // 브랜드 갈색 매우 연한 배경
+                  border-color: rgba(124, 116, 106, 0.2); // 브랜드 갈색 연한 보더
                 }
                 
                 &.worsened {
-                  background: #fef2f2;
-                  border-color: #fecaca;
+                  background: rgba(245, 158, 11, 0.05); // 따뜻한 주황 매우 연한 배경
+                  border-color: rgba(245, 158, 11, 0.2); // 따뜻한 주황 연한 보더
                 }
                 
                 &.stable {
@@ -983,13 +1429,13 @@
                     font-weight: 500;
                     
                     &.improved {
-                      background: #dcfce7;
-                      color: #166534;
+                      background: rgba(124, 116, 106, 0.1); // 브랜드 갈색 연한 배경
+                      color: #7c746a; // 브랜드 갈색
                     }
                     
                     &.worsened {
-                      background: #fee2e2;
-                      color: #dc2626;
+                      background: rgba(245, 158, 11, 0.1); // 따뜻한 주황 연한 배경
+                      color: #f59e0b; // 따뜻한 주황
                     }
                     
                     &.stable {
@@ -1026,6 +1472,256 @@
                   color: #6b7280;
                   margin: 0;
                 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 종합소견 인사이트 섹션 스타일
+  .summary-insights-section {
+    margin-top: 24px;
+    
+    .insights-section-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #374151;
+      margin: 0 0 16px 0;
+      font-family: 'Pretendard', sans-serif;
+    }
+    
+    .insights-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 12px;
+      
+      .summary-insight-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 16px;
+        transition: all 0.2s ease;
+        
+        &:hover {
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+        
+        &.good {
+          border-color: rgba(124, 116, 106, 0.3);
+          background: rgba(124, 116, 106, 0.02);
+        }
+        
+        &.warning {
+          border-color: rgba(245, 158, 11, 0.3);
+          background: rgba(245, 158, 11, 0.02);
+        }
+        
+        &.danger {
+          border-color: rgba(239, 68, 68, 0.3);
+          background: rgba(239, 68, 68, 0.02);
+        }
+        
+        .insight-card-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+          
+          .insight-category {
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin: 0;
+            font-family: 'Pretendard', sans-serif;
+          }
+          
+          .status-badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            
+            &.good {
+              background: rgba(124, 116, 106, 0.1);
+              color: #7c746a;
+            }
+            
+            &.warning {
+              background: rgba(245, 158, 11, 0.1);
+              color: #f59e0b;
+            }
+            
+            &.danger {
+              background: rgba(239, 68, 68, 0.1);
+              color: #ef4444;
+            }
+          }
+        }
+        
+        .insight-message {
+          font-size: 13px;
+          color: #6b7280;
+          line-height: 1.5;
+          margin: 0 0 8px 0;
+        }
+        
+        .insight-recommendation {
+          font-size: 12px;
+          color: #4b5563;
+          line-height: 1.4;
+          
+          strong {
+            color: #374151;
+          }
+        }
+      }
+    }
+  }
+
+  // 영양 권장사항 그룹 스타일
+  .nutrition-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    
+    .nutrition-group {
+      .group-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: #374151;
+        margin: 0 0 12px 0;
+        font-family: 'Pretendard', sans-serif;
+      }
+      
+      .nutrition-items-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        
+        .nutrition-item {
+          padding: 16px;
+          border-radius: 8px;
+          border: 1px solid #e5e7eb;
+          
+          &.recommend {
+            background: rgba(124, 116, 106, 0.05);
+            border-color: rgba(124, 116, 106, 0.2);
+          }
+          
+          &.avoid {
+            background: rgba(245, 158, 11, 0.05);
+            border-color: rgba(245, 158, 11, 0.2);
+          }
+          
+          .nutrition-foods {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 8px;
+            
+            .food-tag {
+              display: inline-block;
+              padding: 4px 8px;
+              border-radius: 4px;
+              font-size: 12px;
+              font-weight: 500;
+              
+              &.recommend {
+                background: rgba(124, 116, 106, 0.1);
+                color: #7c746a;
+              }
+              
+              &.avoid {
+                background: rgba(245, 158, 11, 0.1);
+                color: #f59e0b;
+              }
+            }
+          }
+          
+          .nutrition-reason {
+            font-size: 13px;
+            color: #6b7280;
+            line-height: 1.5;
+            margin: 0;
+          }
+        }
+      }
+    }
+  }
+
+  // 모바일 반응형 스타일
+  @media (max-width: 768px) {
+    .yearly-timeline {
+      .timeline-container {
+        .timeline-item {
+          flex-direction: column;
+          
+          .timeline-marker {
+            margin-right: 0;
+            margin-bottom: 12px;
+            align-self: flex-start;
+            
+            .marker-line {
+              display: none; // 모바일에서는 연결선 숨김
+            }
+          }
+          
+          .timeline-content {
+            width: 100%;
+            
+            .timeline-header {
+              flex-direction: column;
+              align-items: flex-start;
+              gap: 8px;
+            }
+            
+            .changes-grid {
+              grid-template-columns: 1fr; // 모바일에서는 1열로
+              gap: 8px;
+              
+              .change-card {
+                padding: 10px;
+                
+                .change-header {
+                  flex-direction: column;
+                  align-items: flex-start;
+                  gap: 4px;
+                }
+                
+                .change-values {
+                  font-size: 12px;
+                }
+                
+                .change-significance {
+                  font-size: 11px;
+                  line-height: 1.4;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @media (max-width: 480px) {
+    .yearly-timeline {
+      .timeline-container {
+        .timeline-item {
+          .timeline-content {
+            padding: 12px;
+            
+            .timeline-section {
+              margin-bottom: 12px;
+              
+              h6 {
+                font-size: 12px;
+              }
+              
+              p {
+                font-size: 11px;
               }
             }
           }

@@ -735,7 +735,11 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
 
         {/* 🔧 AI 종합 분석 섹션 (조건부 표시) */}
         {showAIAnalysis && (
-          <AIAnalysisSection />
+          <AIAnalysisSection 
+            healthData={healthData?.ResultList || []}
+            prescriptionData={prescriptionData?.ResultList || []}
+            patientInfo={state.patient || undefined}
+          />
         )}
       </div>
 

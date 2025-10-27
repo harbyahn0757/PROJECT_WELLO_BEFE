@@ -148,3 +148,4 @@ jspm_packages/
 # 테스트 이미지 (필요시)
 test-images/
 temp/
+planning-platform/backend/config.env

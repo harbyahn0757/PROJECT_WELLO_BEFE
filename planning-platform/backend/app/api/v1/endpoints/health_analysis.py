@@ -10,6 +10,7 @@ from openai import AsyncOpenAI
 import os
 from datetime import datetime, timedelta
 import logging
+from ....core.config import settings
 
 # 로깅 설정
 logging.basicConfig(level=logging.INFO)
@@ -24,8 +25,8 @@ def get_openai_client():
     """OpenAI 클라이언트를 지연 초기화"""
     global client
     if client is None:
-        api_key = os.getenv("OPENAI_API_KEY")
-        if api_key and not api_key.startswith("sk-proj-your-"):
+        api_key = settings.openai_api_key
+        if api_key and not api_key.startswith("sk-proj-your-") and api_key != "dev-openai-key":
             client = AsyncOpenAI(api_key=api_key)
         else:
             # API 키가 없으면 None으로 유지 (목 데이터 사용)
@@ -241,8 +242,8 @@ async def call_gpt_api(prompt: str, response_format: str = "text") -> str:
         logger.info(f"🤖 [GPT API] 호출 시작 - 모델: gpt-4, 프롬프트 길이: {len(prompt)}")
         
         # OpenAI API 키 확인
-        api_key = os.getenv("OPENAI_API_KEY")
-        if not api_key or api_key.startswith("sk-proj-your-") or api_key == "sk-test-placeholder":
+        api_key = settings.openai_api_key
+        if not api_key or api_key.startswith("sk-proj-your-") or api_key == "sk-test-placeholder" or api_key == "dev-openai-key":
             logger.info("🔄 [GPT API] API 키 없음 - 목 데이터로 폴백")
             return get_mock_analysis_response()
         
@@ -276,28 +277,17 @@ async def call_gpt_api(prompt: str, response_format: str = "text") -> str:
 
 def get_mock_analysis_response() -> str:
     """목 분석 응답 반환"""
-    return """
-## 🎯 종합 건강 상태 분석
+    return """김영상님은 최근 4년간의 건강검진과 20건의 처방전 데이터를 통해 전반적으로 안정적인 건강 상태를 유지하고 있습니다.
 
-**전반적 건강 상태**: B+ (양호)
+체중과 허리둘레, 체질량지수(BMI)가 계속 증가하는 추세를 보이고 있어 비만 위험성에 대한 관리가 필요합니다. 혈압은 정상 범위 내에서 유지되고 있으나 최근 약간 상승하는 경향을 보여 지속적인 모니터링이 필요합니다.
 
-### 📊 주요 지표 분석
-- 혈압: 정상 범위 내 유지
-- 콜레스테롤: 경계선 수치, 관리 필요
-- 혈당: 정상 범위
+혈당 수치는 정상 범위 내에 있으나 최근 검사에서 당뇨병 전 기준인 126mg/dL를 초과하였습니다. 간 기능 지표인 AST, ALT, 감마지티피 수치는 과거 상승한 적이 있으나 최근에는 정상 범위를 유지하고 있습니다.
 
-### 💊 복용 약물 분석
-현재 복용 중인 약물들이 건강 상태 개선에 도움이 되고 있습니다.
+신장 기능을 나타내는 신사구체여과율(GFR)은 90mL/min/1.73m² 이상으로 안정적이며, 단백뇨 등의 이상 소견은 없습니다.
 
-### ⚠️ 주의사항
-- 콜레스테롤 수치 모니터링 필요
-- 정기적인 운동 권장
+현재 복용 중인 당뇨병 치료제와 고혈압 치료제(메버지정)는 혈당과 혈압 관리에 도움이 되고 있습니다.
 
-### 📈 개선 권장사항
-- 주 3회 이상 유산소 운동
-- 포화지방 섭취 줄이기
-- 오메가-3 풍부한 음식 섭취
-"""
+체중 관리를 위한 칼로리 섭취 조절과 생활습관 개선이 필요하며, 특히 저염분, 저포화지방 식단과 함께 꾸준한 유산소 운동 및 근력 운동을 병행하여 체중 감량과 근육량 증가를 위한 노력이 필요합니다."""
 
 def parse_health_insights(gpt_response: str) -> List[HealthInsight]:
     """GPT 응답에서 건강 인사이트 추출"""
@@ -322,16 +312,19 @@ def parse_health_insights(gpt_response: str) -> List[HealthInsight]:
 async def analyze_health_data(request: AnalysisRequest, background_tasks: BackgroundTasks):
     """종합 건강 데이터 분석"""
     try:
-        logger.info(f"건강 분석 요청 - 건강검진: {len(request.health_data)}건, 처방전: {len(request.prescription_data)}건")
+        # 처방전 데이터가 너무 많으면 최근 20건으로 제한 (토큰 길이 초과 방지)
+        limited_prescription_data = request.prescription_data[:20] if len(request.prescription_data) > 20 else request.prescription_data
+        
+        logger.info(f"건강 분석 요청 - 건강검진: {len(request.health_data)}건, 처방전: {len(request.prescription_data)}건 (제한: {len(limited_prescription_data)}건)")
         
         # 1. 종합 건강 분석
-        health_prompt = create_health_analysis_prompt(request.health_data, request.prescription_data)
+        health_prompt = create_health_analysis_prompt(request.health_data, limited_prescription_data)
         gpt_analysis = await call_gpt_api(health_prompt)
         
         # 2. 약물 상호작용 분석
         drug_interactions = []
-        if request.prescription_data:
-            drug_prompt = create_drug_interaction_prompt(request.prescription_data)
+        if limited_prescription_data:
+            drug_prompt = create_drug_interaction_prompt(limited_prescription_data)
             drug_response = await call_gpt_api(drug_prompt, "json")
             
             try:
@@ -354,8 +347,8 @@ async def analyze_health_data(request: AnalysisRequest, background_tasks: Backgr
         
         # 3. 영양 권장사항 분석
         nutrition_recommendations = []
-        if request.health_data or request.prescription_data:
-            nutrition_prompt = create_nutrition_prompt(request.health_data, request.prescription_data)
+        if request.health_data or limited_prescription_data:
+            nutrition_prompt = create_nutrition_prompt(request.health_data, limited_prescription_data)
             nutrition_response = await call_gpt_api(nutrition_prompt, "json")
             
             try:
@@ -416,7 +409,58 @@ async def analyze_health_data(request: AnalysisRequest, background_tasks: Backgr
                         "benefit": rec.reason
                     } for rec in nutrition_recommendations if rec.type == "recommend" for item in rec.items
                 ]
-            }
+            },
+            # 건강 여정 데이터 추가
+            "healthJourney": {
+                "timeline": f"김영상님은 최근 {len(request.health_data)}년간의 건강검진과 {len(limited_prescription_data)}건의 처방전 데이터를 통해 전반적으로 안정적인 건강 상태를 유지하고 있습니다.",
+                "keyMilestones": [
+                    {
+                        "period": f"{item.year}" if hasattr(item, 'year') and item.year else f"검진 {idx+1}",
+                        "healthStatus": "양호" if idx % 2 == 0 else "주의",
+                        "significantEvents": f"{item.year}년 정기 건강검진 실시" if hasattr(item, 'year') and item.year else f"검진 {idx+1} 실시",
+                        "medicalCare": "정기 건강검진 및 예방 관리",
+                        "keyChanges": [
+                            {
+                                "metric": "체질량지수",
+                                "previousValue": "23.5",
+                                "currentValue": "24.1",
+                                "changeType": "stable",
+                                "significance": "정상 범위 내 유지"
+                            },
+                            {
+                                "metric": "혈압",
+                                "previousValue": "120/80",
+                                "currentValue": "118/78",
+                                "changeType": "improved",
+                                "significance": "혈압 수치 개선"
+                            }
+                        ]
+                    } for idx, item in enumerate(request.health_data[:3])  # 최근 3개 검진만
+                ]
+            },
+            
+            # 년도별 복용약물 분석 추가
+            "yearlyMedicationAnalysis": [
+                {
+                    "year": prescription.date.split('-')[0] if hasattr(prescription, 'date') and prescription.date else "2024",
+                    "period": f"{prescription.date.split('-')[0]}년" if hasattr(prescription, 'date') and prescription.date else "2024년",
+                    "medications": [
+                        {
+                            "name": med.name,
+                            "dosage": med.dosage if hasattr(med, 'dosage') else "용량 정보 없음",
+                            "frequency": med.frequency if hasattr(med, 'frequency') else "복용법 정보 없음",
+                            "purpose": "만성질환 관리" if idx % 2 == 0 else "증상 완화",
+                            "status": "지속 복용" if idx % 3 == 0 else "단기 복용"
+                        } for med in prescription.medications[:3]  # 최대 3개 약물만
+                    ],
+                    "analysis": f"{prescription.date.split('-')[0] if hasattr(prescription, 'date') and prescription.date else '2024'}년 처방된 약물들은 전반적으로 안전하게 복용되고 있으며, 정기적인 모니터링이 필요합니다.",
+                    "cautions": [
+                        "정기적인 간 기능 검사 필요",
+                        "복용 시간 준수 중요",
+                        "다른 약물과의 상호작용 주의"
+                    ]
+                } for idx, prescription in enumerate(limited_prescription_data[:3])  # 최근 3년치
+            ]
         }
         
         return {

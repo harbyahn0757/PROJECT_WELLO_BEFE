@@ -41,7 +41,9 @@ export const TILKO_API = {
 export const WELLO_API = {
   PATIENT_DATA: (patientId: string) => `/wello-api/v1/wello/patients/${patientId}`,
   HEALTH_RECORDS: (patientId: string) => `/wello-api/v1/wello/patients/${patientId}/health-records`,
-  PATIENT_HEALTH_DATA: (uuid: string, hospitalId: string) => `/wello-api/v1/wello/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`
+  PATIENT_HEALTH_DATA: (uuid: string, hospitalId: string) => `/wello-api/v1/wello/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`,
+  // AI 분석 엔드포인트
+  HEALTH_ANALYSIS: () => `/wello-api/v1/health-analysis/analyze`
 } as const;
 
 // 기타 API 엔드포인트 (하위 호환성)
