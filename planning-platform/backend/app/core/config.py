@@ -108,7 +108,7 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(default="dev-openai-key", env="OPENAI_API_KEY")
     
     model_config = {
-        "env_file": ["config.env", ".env"],
+        "env_file": [".env.local", "config.env", ".env"],
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
         "extra": "ignore"

@@ -6,7 +6,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { WelloIndexedDB } from '../../../services/WelloIndexedDB';
 import { WELLO_API } from '../../../constants/api';
 import HealthJourneyChartSlider from './HealthJourneyChartSlider';
+import HealthJourneyMiniChart from './HealthJourneyMiniChart';
 import { TilkoHealthCheckupRaw, TilkoPrescriptionRaw } from '../../../types/health';
+import chatgptIcon from '../../../assets/images/icons8-chatgpt-50.png';
 import './styles.scss';
 
 interface HealthInsight {
@@ -33,6 +35,23 @@ interface NutritionRecommendation {
 
 interface GPTAnalysisResult {
   summary?: string;
+  structuredSummary?: {
+    overallGrade: string;
+    analysisDate: string;
+    dataRange: string;
+    keyFindings: Array<{
+      category: string;
+      status: string;
+      title: string;
+      description: string;
+    }>;
+    riskFactors: Array<{
+      factor: string;
+      level: string;
+      description: string;
+    }>;
+    recommendations: string[];
+  };
   insights?: HealthInsight[];
   drugInteractions?: DrugInteraction[];
   nutritionRecommendations?: NutritionRecommendation[];
@@ -115,6 +134,50 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
       ...prev,
       [sectionKey]: !prev[sectionKey]
     }));
+  };
+
+  // 인사이트 카테고리에 따른 메트릭 매핑
+  const getMetricForInsight = (category: string): string => {
+    switch (category) {
+      case '체중 관리':
+        return 'BMI';
+      case '심혈관 건강':
+        return 'blood_pressure_high';
+      case '혈당 관리':
+        return 'blood_sugar';
+      default:
+        return 'BMI';
+    }
+  };
+
+  // 인사이트별 근거 데이터 생성
+  const getEvidenceForInsight = (insight: any, healthData: any[]): string => {
+    if (!healthData || healthData.length === 0) return '데이터 없음';
+    
+    const latestData = healthData[0];
+    const category = insight.category;
+    
+    switch (category) {
+      case '체중 관리':
+        const bmi = latestData?.bmi;
+        const weight = latestData?.weight;
+        const height = latestData?.height;
+        return `최근 검진 (${latestData?.year || '2024'}년): BMI ${bmi || 'N/A'}${weight ? `, 체중 ${weight}kg` : ''}${height ? `, 신장 ${height}cm` : ''}`;
+      
+      case '심혈관 건강':
+        const systolic = latestData?.blood_pressure_high;
+        const diastolic = latestData?.blood_pressure_low;
+        const cholesterol = latestData?.cholesterol;
+        return `최근 검진 (${latestData?.year || '2024'}년): 혈압 ${systolic || 'N/A'}/${diastolic || 'N/A'}mmHg${cholesterol ? `, 총콜레스테롤 ${cholesterol}mg/dL` : ''}`;
+      
+      case '혈당 관리':
+        const glucose = latestData?.blood_sugar;
+        const hba1c = latestData?.hba1c;
+        return `최근 검진 (${latestData?.year || '2024'}년): 공복혈당 ${glucose || 'N/A'}mg/dL${hba1c ? `, 당화혈색소 ${hba1c}%` : ''}`;
+      
+      default:
+        return `최근 검진 (${latestData?.year || '2024'}년) 기준`;
+    }
   };
 
   // 건강 데이터를 백엔드 API 형식으로 변환
@@ -203,7 +266,7 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
 
   // 순환 메시지 배열 - 캐주얼한 톤
   const rotatingMessages = [
-    '종합 소견을 작성하고 있어요',
+    '전체적인 건강 상태를 살펴보고 있어요',
     '건강 여정을 정리하고 있어요', 
     '건강 지표를 꼼꼼히 분석하고 있어요',
     '약물 상호작용을 체크하고 있어요',
@@ -337,7 +400,7 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
                 <>
                   <div className="button-spinner">
                     <img 
-                      src={`${process.env.PUBLIC_URL}/wello/icons8-chatgpt-50.png`}
+                      src={chatgptIcon}
                       alt="분석 중" 
                       className="spinner-icon"
                     />
@@ -360,7 +423,7 @@ AI 분석 시작
           <div className="progress-content">
             <div className="loading-spinner">
               <img 
-                src={`${process.env.PUBLIC_URL}/wello/icons8-chatgpt-50.png`}
+                src={chatgptIcon}
                 alt="분석 중" 
                 className="spinner-icon"
                 style={{
@@ -396,32 +459,76 @@ AI 분석 시작
               <h3 className="ai-sub-title">종합 소견</h3>
             </div>
             <div className="ai-sub-content">
-              <p className="summary-text">{gptAnalysis.summary}</p>
-              
-              {/* 중요한 지표와 결과 인사이트 */}
-              {(gptAnalysis.insights && gptAnalysis.insights.length > 0) && (
-                <div className="summary-insights-section">
-                  <h4 className="insights-section-title">주요 지표 결과</h4>
-                  <div className="insights-cards-grid">
-                    {gptAnalysis.insights.slice(0, 3).map((insight, index) => (
-                      <div key={index} className={`summary-insight-card ${insight.status}`}>
-                        <div className="insight-card-header">
-                          <h5 className="insight-category">{insight.category}</h5>
-                          <span className={`status-badge ${insight.status}`}>
-                            {insight.status === 'good' ? '정상' : 
-                             insight.status === 'warning' ? '주의' : '위험'}
-                          </span>
-                        </div>
-                        <p className="insight-message">{insight.message}</p>
-                        {insight.recommendation && (
-                          <div className="insight-recommendation">
-                            <strong>권장사항:</strong> {insight.recommendation}
-                          </div>
-                        )}
+              {gptAnalysis.structuredSummary ? (
+                <div className="structured-summary">
+                  {/* 전체 건강 등급 및 기본 정보 */}
+                  <div className="summary-header">
+                    <div className="grade-section">
+                      <div className={`health-grade grade-${gptAnalysis.structuredSummary.overallGrade.toLowerCase()}`}>
+                        {gptAnalysis.structuredSummary.overallGrade}
                       </div>
-                    ))}
+                      <div className="grade-info">
+                        <div className="analysis-date">{gptAnalysis.structuredSummary.analysisDate} 분석</div>
+                        <div className="data-range">{gptAnalysis.structuredSummary.dataRange}</div>
+                      </div>
+                    </div>
                   </div>
+
+                  {/* 주요 발견사항 */}
+                  {gptAnalysis.structuredSummary.keyFindings.length > 0 && (
+                    <div className="key-findings-section">
+                      <h4 className="section-subtitle">주요 발견사항</h4>
+                      <div className="findings-grid">
+                        {gptAnalysis.structuredSummary.keyFindings.map((finding, index) => (
+                          <div key={index} className={`finding-card ${finding.status}`}>
+                            <div className="finding-header">
+                              <span className="finding-title">{finding.title}</span>
+                              <span className={`status-indicator ${finding.status}`}>
+                                {finding.status === 'good' ? '정상' : 
+                                 finding.status === 'warning' ? '주의' : '위험'}
+                              </span>
+                            </div>
+                            <p className="finding-description">{finding.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 위험 요소 */}
+                  {gptAnalysis.structuredSummary.riskFactors.length > 0 && (
+                    <div className="risk-factors-section">
+                      <h4 className="section-subtitle">주의 필요 사항</h4>
+                      <div className="risk-factors-list">
+                        {gptAnalysis.structuredSummary.riskFactors.map((risk, index) => (
+                          <div key={index} className="risk-factor-item">
+                            <div className="risk-header">
+                              <span className="risk-factor">{risk.factor}</span>
+                              <span className={`risk-level ${risk.level === '높음' ? 'high' : 'medium'}`}>
+                                {risk.level}
+                              </span>
+                            </div>
+                            <p className="risk-description">{risk.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 권장사항 */}
+                  {gptAnalysis.structuredSummary.recommendations.length > 0 && (
+                    <div className="recommendations-section">
+                      <h4 className="section-subtitle">권장사항</h4>
+                      <ul className="recommendations-list">
+                        {gptAnalysis.structuredSummary.recommendations.map((recommendation, index) => (
+                          <li key={index} className="recommendation-item">{recommendation}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
+              ) : (
+                <p className="summary-text">{gptAnalysis.summary}</p>
               )}
               
               {/* 주요 지표 변화 슬라이더 */}
@@ -553,12 +660,30 @@ AI 분석 시작
                            insight.status === 'warning' ? '주의' : '위험'}
                         </span>
                       </div>
+                      
+                      {/* 지표별 미니 차트 추가 */}
+                      <div className="insight-chart-container">
+                        <HealthJourneyMiniChart
+                          healthData={healthData}
+                          metric={getMetricForInsight(insight.category)}
+                          title={insight.category}
+                        />
+                      </div>
+                      
                       <p className="insight-message">{insight.message}</p>
                       {insight.recommendation && (
                         <div className="insight-recommendation">
                           <strong>권장사항:</strong> {insight.recommendation}
                         </div>
                       )}
+                      
+                      {/* 근거 데이터 표시 */}
+                      <div className="insight-evidence">
+                        <div className="evidence-label">근거 데이터</div>
+                        <div className="evidence-content">
+                          {getEvidenceForInsight(insight, healthData)}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

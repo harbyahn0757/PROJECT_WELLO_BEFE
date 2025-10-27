@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import './styles.scss';
 
 interface PasswordKeypadProps {
   onKeyPress: (key: string) => void;
   onDelete: () => void;
+  onCancel?: () => void;
   onConfirm?: () => void;
   disabled?: boolean;
   showConfirmButton?: boolean;
@@ -12,12 +13,22 @@ interface PasswordKeypadProps {
 const PasswordKeypad: React.FC<PasswordKeypadProps> = ({
   onKeyPress,
   onDelete,
+  onCancel,
   onConfirm,
   disabled = false,
   showConfirmButton = false
 }) => {
-  // 일반적인 키패드 레이아웃 (1-9, 0은 하단 중앙)
-  const keyLayout = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+  // 랜덤 배치된 키패드 레이아웃 (1-9)
+  const keyLayout = useMemo(() => {
+    const numbers = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    // Fisher-Yates 셔플 알고리즘으로 랜덤 배치
+    const shuffled = [...numbers];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }, []); // 컴포넌트 마운트 시 한 번만 랜덤 배치
 
   const handleKeyPress = (key: string) => {
     if (disabled) return;
@@ -29,12 +40,15 @@ const PasswordKeypad: React.FC<PasswordKeypadProps> = ({
     onDelete();
   };
 
+  const handleCancel = () => {
+    if (disabled || !onCancel) return;
+    onCancel();
+  };
+
   const handleConfirm = () => {
     if (disabled || !onConfirm) return;
     onConfirm();
   };
-
-  // 랜덤 배치 기능 제거
 
   return (
     <div className="password-keypad">
@@ -51,9 +65,15 @@ const PasswordKeypad: React.FC<PasswordKeypadProps> = ({
         ))}
       </div>
       
-      {/* 하단 버튼들 - 0과 삭제 */}
+      {/* 하단 버튼들 - 취소, 0, 삭제 */}
       <div className="keypad-bottom-row">
-        <div className="keypad-empty"></div>
+        <button
+          className="keypad-button cancel-key"
+          onClick={handleCancel}
+          disabled={disabled}
+        >
+          취소
+        </button>
         <button
           className="keypad-button number-key"
           onClick={() => handleKeyPress('0')}

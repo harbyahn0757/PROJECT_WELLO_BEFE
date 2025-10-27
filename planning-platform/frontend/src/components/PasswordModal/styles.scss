@@ -73,7 +73,7 @@ $success-color: #51cf66;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 8px 12px 20px; // 좌우 패딩 더 줄임 (16px → 12px)
+  padding: 8px 6px 20px; // 좌우 패딩 더 줄임 (12px → 6px)
   position: relative;
   text-align: center;
 }
@@ -135,7 +135,7 @@ $success-color: #51cf66;
 
 // 모달 컨텐츠
 .password-modal-content {
-  padding: 12px; // 좌우 패딩 더 줄임 (16px → 12px)
+  padding: 4px; // 좌우 패딩 더 줄임 (12px → 4px)
 }
 
 .password-message {
@@ -202,16 +202,16 @@ $success-color: #51cf66;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
-  max-width: 240px;
+  max-width: 264px; // 버튼 크기 증가에 맞춰 조정 (240px → 264px)
   margin: 0 auto 12px auto;
 }
 
-// 하단 행 (0과 삭제 버튼)
+// 하단 행 (취소, 0, 삭제 버튼)
 .keypad-bottom-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 12px;
-  max-width: 240px;
+  max-width: 264px; // 버튼 크기 증가에 맞춰 조정 (240px → 264px)
   margin: 0 auto;
 }
 
@@ -221,12 +221,12 @@ $success-color: #51cf66;
 }
 
 .keypad-button {
-  width: 64px;
-  height: 64px;
+  width: 72px;  // 버튼 크기 증가 (64px → 72px)
+  height: 72px; // 버튼 크기 증가 (64px → 72px)
   border: 2px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  font-size: 20px;
+  font-size: 22px; // 폰트 크기도 증가 (20px → 22px)
   font-weight: 600;
   color: white;
   cursor: pointer;
@@ -256,12 +256,26 @@ $success-color: #51cf66;
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.2);
     color: rgba(255, 255, 255, 0.8);
-    font-size: 18px;
+    font-size: 20px; // 삭제 버튼 폰트 크기 증가 (18px → 20px)
 
     &:hover:not(:disabled) {
       background: rgba(255, 255, 255, 0.1);
       border-color: rgba(255, 255, 255, 0.4);
       color: white;
+    }
+  }
+
+  &.cancel-key {
+    background: rgba(255, 107, 107, 0.1); // 취소 버튼은 빨간색 계열
+    border-color: rgba(255, 107, 107, 0.3);
+    color: rgba(255, 107, 107, 0.9);
+    font-size: 14px; // 취소 버튼은 텍스트이므로 작은 폰트
+    font-weight: 500;
+
+    &:hover:not(:disabled) {
+      background: rgba(255, 107, 107, 0.2);
+      border-color: rgba(255, 107, 107, 0.5);
+      color: #ff6b6b;
     }
   }
 
@@ -367,22 +381,26 @@ $success-color: #51cf66;
   }
 
   .password-modal-header {
-    padding: 8px 8px 20px; // 모바일에서 좌우 패딩 더 줄임 (12px → 8px)
+    padding: 8px 2px 20px; // 모바일에서 좌우 패딩 더 줄임 (8px → 2px)
   }
   
   .password-modal-content {
-    padding: 8px; // 모바일에서 좌우 패딩 더 줄임 (12px → 8px)
+    padding: 2px; // 모바일에서 좌우 패딩 더 줄임 (8px → 2px)
   }
 
   .keypad-button {
-    width: 56px;
-    height: 56px;
-    font-size: 18px;
+    width: 64px;  // 모바일에서도 크기 증가 (56px → 64px)
+    height: 64px; // 모바일에서도 크기 증가 (56px → 64px)
+    font-size: 20px; // 모바일 폰트 크기 증가 (18px → 20px)
+    
+    &.cancel-key {
+      font-size: 12px; // 모바일에서 취소 버튼 폰트 크기
+    }
   }
 
-  .keypad-grid {
+  .keypad-grid, .keypad-bottom-row {
     gap: 10px;
-    max-width: 200px;
+    max-width: 224px; // 모바일 그리드 크기 조정 (200px → 224px)
   }
 
   .password-modal-title {

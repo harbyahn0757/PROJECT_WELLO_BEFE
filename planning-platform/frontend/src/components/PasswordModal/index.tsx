@@ -303,27 +303,15 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
             </div>
           )}
 
-          {!isPromptMode && (
+          {!isPromptMode && isInitialSetup && (
             <div className="password-modal-actions">
-              {isInitialSetup ? (
-                // 최초 설정 시에는 "나중에 하기" 버튼
-                <button 
-                  className="password-button secondary"
-                  onClick={handlePromptSkip}
-                  disabled={loading}
-                >
-                  나중에 하기
-                </button>
-              ) : (
-                // 기존 취소 버튼
-                <button 
-                  className="password-button secondary"
-                  onClick={handleCancel}
-                  disabled={loading}
-                >
-                  취소
-                </button>
-              )}
+              <button 
+                className="password-button secondary"
+                onClick={handlePromptSkip}
+                disabled={loading}
+              >
+                나중에 하기
+              </button>
             </div>
           )}
         </div>

@@ -33,25 +33,9 @@ app.add_middleware(
 # 정적 파일 서빙 (React 빌드 파일)
 static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
 if os.path.exists(static_dir):
+    # 정적 파일을 /wello 경로에 마운트 (우선순위 높음)
+    app.mount("/wello", StaticFiles(directory=static_dir, html=True), name="wello_static")
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
-    
-    # React SPA 라우팅 지원을 위한 fallback
-    @app.get("/wello/{path:path}")
-    async def serve_spa(path: str):
-        """React SPA 라우팅을 위한 fallback - 모든 /wello/* 경로를 index.html로 처리"""
-        index_file = os.path.join(static_dir, "index.html")
-        if os.path.exists(index_file):
-            return FileResponse(index_file)
-        return {"error": "SPA index.html not found"}
-    
-    # 루트 /wello 경로도 처리
-    @app.get("/wello")
-    async def serve_spa_root():
-        """React SPA 루트 경로 처리"""
-        index_file = os.path.join(static_dir, "index.html")
-        if os.path.exists(index_file):
-            return FileResponse(index_file)
-        return {"error": "SPA index.html not found"}
 
 # API 라우터 등록
 app.include_router(health.router, prefix="/api/v1/health", tags=["health"])
