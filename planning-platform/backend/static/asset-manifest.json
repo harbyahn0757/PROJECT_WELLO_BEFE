@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/wello/static/css/main.f2a64ae2.css",
-    "main.js": "/wello/static/js/main.a53c9761.js",
+    "main.css": "/wello/static/css/main.b6df160e.css",
+    "main.js": "/wello/static/js/main.f6dd85d6.js",
     "static/media/splash.png": "/wello/static/media/splash.1f680ea4aaba8a82038a.png",
     "static/media/pass.png": "/wello/static/media/pass.203049a9f19b1e505577.png",
     "index.html": "/wello/index.html",
-    "main.f2a64ae2.css.map": "/wello/static/css/main.f2a64ae2.css.map",
-    "main.a53c9761.js.map": "/wello/static/js/main.a53c9761.js.map"
+    "main.b6df160e.css.map": "/wello/static/css/main.b6df160e.css.map",
+    "main.f6dd85d6.js.map": "/wello/static/js/main.f6dd85d6.js.map"
   },
   "entrypoints": [
-    "static/css/main.f2a64ae2.css",
-    "static/js/main.a53c9761.js"
+    "static/css/main.b6df160e.css",
+    "static/js/main.f6dd85d6.js"
   ]
 }
