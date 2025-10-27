@@ -15,27 +15,31 @@ interface HealthJourneyMiniChartProps {
   className?: string;
 }
 
-// 지표별 필드명 매핑 (TrendsSection에서 추출)
-const getFieldNameForMetric = (metric: string): string => {
-  const fieldMap: { [key: string]: string } = {
-    '체질량지수': 'BMI',
-    'BMI': 'BMI',
-    '허리둘레': '허리둘레',
-    '공복혈당': '공복혈당',
-    '수축기혈압': '수축기혈압',
-    '이완기혈압': '이완기혈압',
-    '총콜레스테롤': '총콜레스테롤',
-    '중성지방': '중성지방',
-    '헤모글로빈': '헤모글로빈',
-    '체중': '체중'
+// 지표별 필드명 매핑 (실제 데이터 구조에 맞게 수정)
+const getFieldNameForMetric = (metric: string): string[] => {
+  const fieldMap: { [key: string]: string[] } = {
+    '체질량지수': ['BMI', '체질량지수', 'Body Mass Index'],
+    'BMI': ['BMI', '체질량지수', 'Body Mass Index'],
+    '허리둘레': ['허리둘레', '복부둘레'],
+    '공복혈당': ['공복혈당', '혈당', '글루코스', 'Glucose'],
+    '수축기혈압': ['수축기혈압', '수축기', 'SBP'],
+    '이완기혈압': ['이완기혈압', '이완기', 'DBP'],
+    '총콜레스테롤': ['총콜레스테롤', '콜레스테롤', 'Total Cholesterol'],
+    '중성지방': ['중성지방', 'TG', 'Triglyceride'],
+    '헤모글로빈': ['헤모글로빈', 'Hemoglobin', 'Hb'],
+    '체중': ['체중', 'Weight'],
+    'blood_pressure_high': ['수축기혈압', '수축기', 'SBP'],
+    'blood_sugar': ['공복혈당', '혈당', '글루코스', 'Glucose']
   };
-  return fieldMap[metric] || metric;
+  return fieldMap[metric] || [metric];
 };
 
-// 건강검진 데이터에서 특정 지표 값 추출 (TrendsSection에서 추출)
+// 건강검진 데이터에서 특정 지표 값 추출 (여러 필드명 시도)
 const getValueFromHealthData = (healthDataItem: any, metric: string): number => {
   try {
-    const fieldName = getFieldNameForMetric(metric);
+    const possibleFieldNames = getFieldNameForMetric(metric);
+    
+    console.log(`🔍 [HealthJourneyMiniChart] ${metric} 필드명 시도:`, possibleFieldNames);
     
     // Inspections에서 검색 (TilkoHealthCheckupRaw 구조)
     if (healthDataItem.Inspections && Array.isArray(healthDataItem.Inspections)) {
@@ -44,10 +48,18 @@ const getValueFromHealthData = (healthDataItem: any, metric: string): number => 
           for (const illness of inspection.Illnesses) {
             if (illness.Items && Array.isArray(illness.Items)) {
               for (const item of illness.Items) {
-                if (item.Name === fieldName && item.Value) {
-                  const value = parseFloat(item.Value);
-                  if (!isNaN(value) && isFinite(value)) {
-                    return value;
+                // 여러 필드명 중 하나라도 매치되면 값 반환
+                for (const fieldName of possibleFieldNames) {
+                  if (item.Name === fieldName && item.Value) {
+                    const value = parseFloat(item.Value);
+                    if (!isNaN(value) && isFinite(value)) {
+                      console.log(`✅ [HealthJourneyMiniChart] ${metric} 값 발견:`, {
+                        fieldName,
+                        value,
+                        itemName: item.Name
+                      });
+                      return value;
+                    }
                   }
                 }
               }
@@ -56,6 +68,12 @@ const getValueFromHealthData = (healthDataItem: any, metric: string): number => 
         }
       }
     }
+    
+    // 값을 찾지 못한 경우 디버깅 정보 출력
+    console.log(`❌ [HealthJourneyMiniChart] ${metric} 값 없음:`, {
+      possibleFieldNames,
+      availableItems: healthDataItem.Inspections?.[0]?.Illnesses?.[0]?.Items?.map((item: any) => item.Name) || []
+    });
     
     return 0;
   } catch (error) {
@@ -82,13 +100,55 @@ const HealthJourneyMiniChart: React.FC<HealthJourneyMiniChartProps> = ({
     const yearlyData = healthData
       .map(item => {
         const value = getValueFromHealthData(item, metric);
-        const date = item.CheckUpDate || '';
-        const year = date ? new Date(date).getFullYear() : 0;
+        
+        // 다양한 날짜 형식 처리
+        let year = 0;
+        const checkUpDate = item.CheckUpDate || '';
+        const yearField = (item as any).year || (item as any).Year || '';
+        
+        // 1. year 필드가 있는 경우 우선 사용
+        if (yearField) {
+          const yearMatch = yearField.toString().match(/(\d{4})/);
+          if (yearMatch) {
+            year = parseInt(yearMatch[1]);
+          }
+        }
+        
+        // 2. CheckUpDate에서 년도 추출
+        if (year === 0 && checkUpDate) {
+          // YYYY-MM-DD 형식
+          if (checkUpDate.includes('-')) {
+            const dateParts = checkUpDate.split('-');
+            if (dateParts.length >= 1 && dateParts[0].length === 4) {
+              year = parseInt(dateParts[0]);
+            }
+          }
+          // YYYYMMDD 형식
+          else if (checkUpDate.length >= 4) {
+            const yearStr = checkUpDate.substring(0, 4);
+            if (/^\d{4}$/.test(yearStr)) {
+              year = parseInt(yearStr);
+            }
+          }
+        }
+        
+        // 3. 현재 년도 기본값 (유효하지 않은 경우)
+        if (year < 2000 || year > new Date().getFullYear()) {
+          year = new Date().getFullYear();
+        }
+        
+        console.log('🔍 [HealthJourneyMiniChart] 년도 파싱:', {
+          metric,
+          checkUpDate,
+          yearField,
+          parsedYear: year,
+          value
+        });
         
         return {
           year,
           value,
-          date,
+          date: checkUpDate,
           originalItem: item
         };
       })
@@ -178,9 +238,9 @@ const HealthJourneyMiniChart: React.FC<HealthJourneyMiniChartProps> = ({
       <div className="chart-header">
         <h5 className="chart-title">{title}</h5>
         <div className={`trend-indicator ${trendAnalysis.trend}`}>
-          {trendAnalysis.trend === 'improved' && '📈 개선'}
-          {trendAnalysis.trend === 'worsened' && '📉 주의'}
-          {trendAnalysis.trend === 'stable' && '➡️ 안정'}
+          {trendAnalysis.trend === 'improved' && '개선'}
+          {trendAnalysis.trend === 'worsened' && '주의'}
+          {trendAnalysis.trend === 'stable' && '안정'}
           <span className="change-percent">
             {trendAnalysis.change > 0 ? '+' : ''}{trendAnalysis.change}%
           </span>

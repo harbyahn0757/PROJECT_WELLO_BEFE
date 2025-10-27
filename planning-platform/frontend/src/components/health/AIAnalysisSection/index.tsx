@@ -218,7 +218,25 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
     const analysis = apiResponse.analysis || {};
     
     return {
-      summary: analysis.summary || '분서 결과를 불러올 수 없습니다.',
+      summary: analysis.summary || '분석 결과를 불러올 수 없습니다.',
+      // 구조화된 종합소견 매핑 추가
+      structuredSummary: analysis.structuredSummary ? {
+        overallGrade: analysis.structuredSummary.overallGrade || 'C',
+        analysisDate: analysis.structuredSummary.analysisDate || '분석 일자 없음',
+        dataRange: analysis.structuredSummary.dataRange || '데이터 범위 없음',
+        keyFindings: analysis.structuredSummary.keyFindings?.map((finding: any) => ({
+          category: finding.category || '',
+          status: finding.status || 'good',
+          title: finding.title || '',
+          description: finding.description || ''
+        })) || [],
+        riskFactors: analysis.structuredSummary.riskFactors?.map((risk: any) => ({
+          factor: risk.factor || '',
+          level: risk.level || '보통',
+          description: risk.description || ''
+        })) || [],
+        recommendations: analysis.structuredSummary.recommendations || []
+      } : undefined,
       insights: analysis.insights?.map((insight: any) => ({
         category: insight.category || '',
         status: insight.status || 'good',
@@ -315,8 +333,8 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
       
       setGptAnalysis(convertedResult);
 
-      // localStorage에 분석 결과 저장
-      localStorage.setItem('gpt_analysis_result', JSON.stringify(convertedResult));
+      // localStorage 저장 비활성화 - 항상 최신 구조화된 데이터 사용
+      // localStorage.setItem('gpt_analysis_result', JSON.stringify(convertedResult));
 
       // 분석 완료 후 스크롤
       setTimeout(() => {
@@ -359,11 +377,13 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
     }
   }, [isAnalyzing, analyzeHealthData]); // gptAnalysis 의존성 제거로 항상 새로운 분석 실행
 
-  // 컴포넌트 마운트 시 기존 분석 결과 로드 (구조화된 종합소견 적용을 위해 임시 비활성화)
+  // 컴포넌트 마운트 시 기존 분석 결과 완전 클리어
   useEffect(() => {
-    // localStorage 캐시를 사용하지 않고 항상 새로운 분석 실행
-    console.log('🔍 [AI분석] localStorage 캐시 사용 안함 - 항상 새로운 분석 실행');
+    // localStorage 캐시를 완전히 제거하고 상태 초기화
+    console.log('🔍 [AI분석] localStorage 캐시 완전 제거 - 구조화된 종합소견 적용');
     localStorage.removeItem('gpt_analysis_result'); // 기존 캐시 제거
+    setGptAnalysis(null); // 상태도 초기화
+    setError(null); // 에러 상태도 초기화
   }, []);
 
   // 자동 분석 시작 이벤트 리스너

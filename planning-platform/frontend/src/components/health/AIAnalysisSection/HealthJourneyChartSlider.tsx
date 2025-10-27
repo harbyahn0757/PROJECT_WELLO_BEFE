@@ -209,41 +209,19 @@ const HealthJourneyChartSlider: React.FC<HealthJourneyChartSliderProps> = ({
         </div>
       </div>
 
-      {/* 네비게이션 컨트롤 */}
+      {/* 네비게이션 컨트롤 - 닷 인디케이터만 표시 */}
       <div className="slider-controls">
-        <button
-          className="slider-btn slider-btn-prev"
-          onClick={goToPrevious}
-          disabled={isTransitioning}
-          aria-label="이전 지표"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="15,18 9,12 15,6"></polyline>
-          </svg>
-        </button>
-
-        <div className="slider-dots">
+        <div className="slider-dots compact">
           {availableMetrics.map((_, index) => (
             <button
               key={index}
-              className={`slider-dot ${index === currentIndex ? 'active' : ''}`}
+              className={`slider-dot compact ${index === currentIndex ? 'active' : ''}`}
               onClick={() => goToSlide(index)}
               disabled={isTransitioning}
               aria-label={`${index + 1}번째 지표로 이동`}
             />
           ))}
         </div>
-
-        <button
-          className="slider-btn slider-btn-next"
-          onClick={goToNext}
-          disabled={isTransitioning}
-          aria-label="다음 지표"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="9,18 15,12 9,6"></polyline>
-          </svg>
-        </button>
       </div>
     </div>
   );
