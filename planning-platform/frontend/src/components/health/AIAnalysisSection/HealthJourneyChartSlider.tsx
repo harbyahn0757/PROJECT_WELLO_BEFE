@@ -157,7 +157,7 @@ const HealthJourneyChartSlider: React.FC<HealthJourneyChartSliderProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [goToPrevious, goToNext]);
+  }, [currentIndex, availableMetrics.length]);
 
   if (availableMetrics.length === 0) {
     return (
@@ -171,15 +171,6 @@ const HealthJourneyChartSlider: React.FC<HealthJourneyChartSliderProps> = ({
 
   return (
     <div className="health-journey-chart-slider">
-      <div className="slider-header">
-        <h4 className="slider-title">주요 건강 지표 변화</h4>
-        <div className="slider-info">
-          <span className="current-slide">{currentIndex + 1}</span>
-          <span className="slide-separator">/</span>
-          <span className="total-slides">{availableMetrics.length}</span>
-        </div>
-      </div>
-
       <div className="slider-container" ref={sliderRef}>
         <div 
           className="slider-track"
@@ -190,20 +181,14 @@ const HealthJourneyChartSlider: React.FC<HealthJourneyChartSliderProps> = ({
         >
           {availableMetrics.map((metric, index) => (
             <div key={metric.key} className="slider-slide">
-              <div className="chart-card">
-                <div className="chart-description">
-                  <p>{metric.description}</p>
-                </div>
-                
-                <HealthJourneyMiniChart
-                  healthData={healthData}
-                  metric={metric.key}
-                  title={metric.title}
-                  unit={metric.unit}
-                  motivationalMessage={getMotivationalMessage(metric.key)}
-                  className="slider-chart"
-                />
-              </div>
+              <HealthJourneyMiniChart
+                healthData={healthData}
+                metric={metric.key}
+                title={metric.title}
+                unit={metric.unit}
+                motivationalMessage={getMotivationalMessage(metric.key)}
+                className="slider-chart"
+              />
             </div>
           ))}
         </div>

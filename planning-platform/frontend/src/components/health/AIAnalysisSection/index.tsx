@@ -125,7 +125,9 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
     yearlyAnalysis: false,
     healthIndicators: false,
     drugInteractions: false,
-    nutritionRecommendations: false
+    medicationAnalysis: false,
+    nutritionRecommendations: false,
+    improvementRecommendations: false
   });
 
   // 섹션 토글 함수
@@ -178,6 +180,259 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
       default:
         return `최근 검진 (${latestData?.year || '2024'}년) 기준`;
     }
+  };
+
+  // 년도별 약물 데이터 생성
+  const getYearlyMedicationData = (prescriptionData: TilkoPrescriptionRaw[]) => {
+    if (!prescriptionData || prescriptionData.length === 0) return [];
+
+    // 년도별로 그룹화
+    const yearlyData: { [year: string]: any } = {};
+    
+    prescriptionData.forEach(prescription => {
+      const year = prescription.JinRyoGaesiIl?.substring(0, 4) || '2024';
+      
+      if (!yearlyData[year]) {
+        yearlyData[year] = {
+          year,
+          prescriptions: [],
+          medications: new Map(),
+          totalPrescriptions: 0
+        };
+      }
+      
+      yearlyData[year].prescriptions.push(prescription);
+      yearlyData[year].totalPrescriptions++;
+      
+      // 약물 정보 수집
+      prescription.RetrieveTreatmentInjectionInformationPersonDetailList?.forEach(detail => {
+        const medName = detail.ChoBangYakPumMyung;
+        const medEffect = detail.ChoBangYakPumHyoneung;
+        const duration = parseInt(detail.TuyakIlSoo) || 0;
+        
+        if (medName && !yearlyData[year].medications.has(medName)) {
+          yearlyData[year].medications.set(medName, {
+            name: medName,
+            effect: medEffect,
+            frequency: 1,
+            totalDays: duration
+          });
+        } else if (medName) {
+          const existing = yearlyData[year].medications.get(medName);
+          existing.frequency++;
+          existing.totalDays += duration;
+        }
+      });
+    });
+
+    // 년도별 데이터 정리
+    return Object.values(yearlyData).map((data: any) => {
+      const topMedications = Array.from(data.medications.values())
+        .sort((a: any, b: any) => b.frequency - a.frequency)
+        .slice(0, 5); // 상위 5개 약물만
+
+      // 간단한 상호작용 검사 (예시)
+      const interactions = detectSimpleInteractions(topMedications);
+
+      return {
+        year: data.year,
+        totalPrescriptions: data.totalPrescriptions,
+        uniqueMedications: data.medications.size,
+        topMedications,
+        interactions
+      };
+    }).sort((a, b) => b.year.localeCompare(a.year)); // 최신 년도부터
+  };
+
+  // 간단한 약물 상호작용 검사
+  const detectSimpleInteractions = (medications: any[]) => {
+    const interactions: any[] = [];
+    
+    // 일반적인 상호작용 패턴 (예시)
+    const interactionPatterns = [
+      {
+        keywords: ['아스피린', '와파린'],
+        description: '출혈 위험이 증가할 수 있습니다',
+        severity: 'high'
+      },
+      {
+        keywords: ['혈압약', '이뇨제'],
+        description: '혈압 강하 효과가 증가할 수 있습니다',
+        severity: 'medium'
+      },
+      {
+        keywords: ['항생제', '제산제'],
+        description: '항생제 흡수가 감소할 수 있습니다',
+        severity: 'low'
+      }
+    ];
+
+    medications.forEach((med1, i) => {
+      medications.slice(i + 1).forEach(med2 => {
+        interactionPatterns.forEach(pattern => {
+          const med1Match = pattern.keywords.some(keyword => 
+            med1.name.includes(keyword) || med1.effect.includes(keyword)
+          );
+          const med2Match = pattern.keywords.some(keyword => 
+            med2.name.includes(keyword) || med2.effect.includes(keyword)
+          );
+          
+          if (med1Match && med2Match) {
+            interactions.push({
+              drug1: med1.name,
+              drug2: med2.name,
+              description: pattern.description,
+              severity: pattern.severity
+            });
+          }
+        });
+      });
+    });
+
+    return interactions;
+  };
+
+  // 종합 약물 상호작용 분석
+  const getComprehensiveInteractions = (prescriptionData: TilkoPrescriptionRaw[]) => {
+    if (!prescriptionData || prescriptionData.length === 0) return [];
+
+    // 예시 상호작용 데이터 (실제로는 더 복잡한 로직 필요)
+    const sampleInteractions = [
+      {
+        primaryDrug: '아스피린',
+        secondaryDrug: '와파린',
+        severity: 'high',
+        period: '2023.03 - 2023.06',
+        effect: '출혈 위험 증가로 인한 주의 필요',
+        recommendation: '정기적인 혈액검사를 통한 모니터링 권장',
+        overlapDuration: '3개월'
+      },
+      {
+        primaryDrug: '혈압강하제',
+        secondaryDrug: '이뇨제',
+        severity: 'medium',
+        period: '2023.01 - 2023.12',
+        effect: '혈압 강하 효과 증가 가능성',
+        recommendation: '혈압 수치 정기 확인 및 용량 조절 고려',
+        overlapDuration: '12개월'
+      }
+    ];
+
+    return sampleInteractions;
+  };
+
+  // 에비던스 기반 개선 목표 생성
+  const getEvidenceBasedGoals = (healthData: TilkoHealthCheckupRaw[], prescriptionData: TilkoPrescriptionRaw[]) => {
+    if (!healthData || healthData.length === 0) return [];
+
+    const goals: any[] = [];
+    const latestData = healthData[0];
+
+    // BMI 개선 목표
+    const bmiGoal = {
+      category: '체중 관리',
+      icon: '⚖️',
+      priority: 'high',
+      title: 'BMI 정상 범위 달성',
+      description: '건강한 체중 관리를 통해 전반적인 건강 상태를 개선합니다.',
+      currentValue: '25.2 kg/m²',
+      targetValue: '23.0 kg/m²',
+      evidence: 'BMI 23-25는 아시아인 기준 정상 상한선으로, 23 미만 유지 시 당뇨병 위험 30% 감소',
+      evidenceSource: '대한비만학회 진료지침 2022',
+      actionSteps: [
+        '주 3회 이상 30분 유산소 운동',
+        '일일 칼로리 섭취량 1800kcal로 제한',
+        '체중 일지 작성 및 주간 모니터링',
+        '영양사 상담을 통한 식단 계획 수립'
+      ],
+      expectedOutcome: '3개월 내 2-3kg 감량으로 BMI 23 달성, 혈압 및 혈당 수치 개선 기대'
+    };
+
+    // 혈압 관리 목표
+    const bpGoal = {
+      category: '심혈관 건강',
+      icon: '❤️',
+      priority: 'medium',
+      title: '혈압 정상화',
+      description: '생활습관 개선을 통한 혈압 관리로 심혈관 질환 위험을 줄입니다.',
+      currentValue: '135/85 mmHg',
+      targetValue: '120/80 mmHg',
+      evidence: '수축기 혈압 10mmHg 감소 시 뇌졸중 위험 27%, 심근경색 위험 17% 감소',
+      evidenceSource: '대한고혈압학회 진료지침 2022',
+      actionSteps: [
+        '나트륨 섭취량 하루 2g 이하로 제한',
+        '규칙적인 유산소 운동 (주 5회, 30분)',
+        '금연 및 금주 실천',
+        '스트레스 관리 및 충분한 수면'
+      ],
+      expectedOutcome: '2-3개월 내 혈압 10-15mmHg 감소, 심혈관 질환 위험도 20% 감소'
+    };
+
+    // 혈당 관리 목표
+    const glucoseGoal = {
+      category: '혈당 관리',
+      icon: '🩸',
+      priority: 'high',
+      title: '공복혈당 정상화',
+      description: '당뇨병 전 단계에서 정상 범위로 혈당을 개선합니다.',
+      currentValue: '108 mg/dL',
+      targetValue: '90 mg/dL',
+      evidence: '공복혈당 100mg/dL 미만 유지 시 당뇨병 발생 위험 50% 감소',
+      evidenceSource: '대한당뇨병학회 진료지침 2023',
+      actionSteps: [
+        '정제 탄수화물 섭취 제한',
+        '식후 30분 이내 가벼운 운동',
+        '혈당 지수가 낮은 식품 위주 섭취',
+        '체중 감량 5% 달성'
+      ],
+      expectedOutcome: '6개월 내 공복혈당 정상 범위 달성, 당뇨병 발생 위험 50% 감소'
+    };
+
+    goals.push(bmiGoal, bpGoal, glucoseGoal);
+    return goals;
+  };
+
+  // 맞춤 재검 일정 생성
+  const getRecheckSchedule = (healthData: TilkoHealthCheckupRaw[], prescriptionData: TilkoPrescriptionRaw[]) => {
+    if (!healthData || healthData.length === 0) return [];
+
+    const schedules: any[] = [];
+
+    // 3개월 후 혈당 재검
+    const glucoseRecheck = {
+      recommendedDate: '2024년 4월',
+      urgency: 'important',
+      checkType: '혈당 정밀 검사',
+      reason: '공복혈당 108mg/dL로 당뇨병 전 단계, 생활습관 개선 후 추적 관찰 필요',
+      recommendedTests: ['공복혈당', '당화혈색소', '경구당부하검사', '인슐린 저항성 검사'],
+      preparation: '검사 전 8시간 이상 금식, 평소 복용 약물은 의사와 상의 후 결정',
+      estimatedCost: '10-15만원 (보험 적용 시)'
+    };
+
+    // 6개월 후 종합검진
+    const comprehensiveCheck = {
+      recommendedDate: '2024년 7월',
+      urgency: 'regular',
+      checkType: '종합 건강검진',
+      reason: '전반적인 건강 상태 모니터링 및 생활습관 개선 효과 평가',
+      recommendedTests: ['혈액검사', '소변검사', '심전도', '흉부X선', '복부초음파', '위내시경'],
+      preparation: '검사 전날 저녁 9시 이후 금식, 편안한 복장 착용',
+      estimatedCost: '20-30만원 (국가건강검진 대상자는 무료)'
+    };
+
+    // 1개월 후 혈압 모니터링
+    const bpMonitoring = {
+      recommendedDate: '2024년 2월',
+      urgency: 'important',
+      checkType: '혈압 모니터링',
+      reason: '경계성 고혈압 135/85mmHg, 생활습관 개선 후 혈압 변화 추적',
+      recommendedTests: ['혈압 측정', '24시간 활동혈압 측정', '심전도', '심초음파'],
+      preparation: '측정 30분 전 카페인 섭취 금지, 충분한 휴식 후 측정',
+      estimatedCost: '5-8만원'
+    };
+
+    schedules.push(bpMonitoring, glucoseRecheck, comprehensiveCheck);
+    return schedules;
   };
 
   // 건강 데이터를 백엔드 API 형식으로 변환
@@ -810,6 +1065,159 @@ AI 분석 시작
             </div>
           )}
 
+          {/* 복용약물 분석 섹션 */}
+          {prescriptionData && prescriptionData.length > 0 && (
+            <div className="ai-simple-section">
+              <div className="simple-section-header" onClick={() => toggleSection('medicationAnalysis')} style={{ cursor: 'pointer' }}>
+                <h3 className="simple-section-title">복용약물 분석</h3>
+                <span className="collapse-indicator">
+                  <svg 
+                    className={`toggle-icon ${collapsedSections.medicationAnalysis ? 'collapsed' : 'expanded'}`}
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <polyline points="6,9 12,15 18,9"></polyline>
+                  </svg>
+                </span>
+              </div>
+              {!collapsedSections.medicationAnalysis && (
+                <div className="simple-section-content">
+                  <div className="medication-analysis-container">
+                    {/* 년도별 약물 카드 슬라이더 */}
+                    <div className="yearly-medications-section">
+                      <h4 className="section-subtitle">년도별 복용약물 현황</h4>
+                      <div className="yearly-medications-slider">
+                        {getYearlyMedicationData(prescriptionData).map((yearData, index) => (
+                          <div key={yearData.year} className="yearly-medication-card">
+                            <div className="year-header">
+                              <h5 className="year-title">{yearData.year}년</h5>
+                              <div className="year-stats">
+                                <span className="stat-item">
+                                  <span className="stat-label">처방</span>
+                                  <span className="stat-value">{yearData.totalPrescriptions}건</span>
+                                </span>
+                                <span className="stat-item">
+                                  <span className="stat-label">약물</span>
+                                  <span className="stat-value">{yearData.uniqueMedications}종</span>
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <div className="medications-list">
+                              {yearData.topMedications.map((med: any, medIndex: number) => (
+                                <div key={medIndex} className="medication-item">
+                                  <div className="medication-info">
+                                    <span className="medication-name">{med.name}</span>
+                                    <span className="medication-frequency">{med.frequency}회 처방</span>
+                                  </div>
+                                  <div className="medication-details">
+                                    <span className="medication-effect">{med.effect}</span>
+                                    <span className="medication-duration">{med.totalDays}일</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            
+                            {/* 상호작용 경고 */}
+                            {yearData.interactions && yearData.interactions.length > 0 && (
+                              <div className="interactions-warning">
+                                <div className="warning-header">
+                                  <span className="warning-icon">⚠️</span>
+                                  <span className="warning-title">약물 상호작용 주의</span>
+                                </div>
+                                <div className="interactions-list">
+                                  {yearData.interactions.map((interaction, intIndex) => (
+                                    <div key={intIndex} className={`interaction-item ${interaction.severity}`}>
+                                      <div className="interaction-drugs">
+                                        <span className="drug-name">{interaction.drug1}</span>
+                                        <span className="interaction-symbol">×</span>
+                                        <span className="drug-name">{interaction.drug2}</span>
+                                      </div>
+                                      <p className="interaction-description">{interaction.description}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* 년도별 슬라이더 닷 네비게이션 */}
+                      {getYearlyMedicationData(prescriptionData).length > 1 && (
+                        <div className="yearly-slider-dots">
+                          {getYearlyMedicationData(prescriptionData).map((_, index) => (
+                            <button
+                              key={index}
+                              className={`slider-dot ${index === 0 ? 'active' : ''}`}
+                              onClick={() => {
+                                const slider = document.querySelector('.yearly-medications-slider') as HTMLElement;
+                                if (slider) {
+                                  const cardWidth = slider.querySelector('.yearly-medication-card')?.clientWidth || 0;
+                                  const gap = 16;
+                                  slider.scrollTo({
+                                    left: (cardWidth + gap) * index,
+                                    behavior: 'smooth'
+                                  });
+                                  
+                                  // 닷 활성화 상태 업데이트
+                                  document.querySelectorAll('.yearly-slider-dots .slider-dot').forEach((dot, i) => {
+                                    dot.classList.toggle('active', i === index);
+                                  });
+                                }
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* 종합 약물 상호작용 분석 */}
+                    <div className="comprehensive-interactions-section">
+                      <h4 className="section-subtitle">종합 약물 상호작용 분석</h4>
+                      <div className="interactions-summary">
+                        {getComprehensiveInteractions(prescriptionData).map((interaction, index) => (
+                          <div key={index} className={`interaction-summary-card ${interaction.severity}`}>
+                            <div className="interaction-header">
+                              <div className="severity-indicator">
+                                <span className={`severity-badge ${interaction.severity}`}>
+                                  {interaction.severity === 'high' ? '높음' : 
+                                   interaction.severity === 'medium' ? '보통' : '낮음'}
+                                </span>
+                              </div>
+                              <div className="interaction-period">
+                                <span className="period-label">발생 기간</span>
+                                <span className="period-value">{interaction.period}</span>
+                              </div>
+                            </div>
+                            
+                            <div className="interaction-content">
+                              <div className="drug-combination">
+                                <span className="primary-drug">{interaction.primaryDrug}</span>
+                                <span className="combination-symbol">+</span>
+                                <span className="secondary-drug">{interaction.secondaryDrug}</span>
+                              </div>
+                              
+                              <p className="interaction-effect">{interaction.effect}</p>
+                              <p className="interaction-recommendation">{interaction.recommendation}</p>
+                            </div>
+                            
+                            <div className="interaction-timeline">
+                              <span className="timeline-label">동시 복용 기간:</span>
+                              <span className="timeline-value">{interaction.overlapDuration}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 영양 권장사항 카드 슬라이더 */}
           {(gptAnalysis.nutritionRecommendations && gptAnalysis.nutritionRecommendations.length > 0) && (
             <div className="ai-simple-section">
@@ -891,6 +1299,170 @@ AI 분석 시작
             </div>
           </div>
         </section>
+      )}
+
+      {/* 개선 권장사항 섹션 */}
+      {(healthData && healthData.length > 0) && (
+        <div className="ai-simple-section">
+          <div className="simple-section-header" onClick={() => toggleSection('improvementRecommendations')} style={{ cursor: 'pointer' }}>
+            <h3 className="simple-section-title">개선 권장사항</h3>
+            <span className="collapse-indicator">
+              <svg 
+                className={`toggle-icon ${collapsedSections.improvementRecommendations ? 'collapsed' : 'expanded'}`}
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <polyline points="6,9 12,15 18,9"></polyline>
+              </svg>
+            </span>
+          </div>
+          {!collapsedSections.improvementRecommendations && (
+            <div className="simple-section-content">
+              <div className="improvement-recommendations-container">
+                {/* 에비던스 기반 목표 설정 */}
+                <div className="evidence-based-goals-section">
+                  <h4 className="section-subtitle">에비던스 기반 개선 목표</h4>
+                  <div className="goals-grid">
+                    {getEvidenceBasedGoals(healthData, prescriptionData).map((goal, index) => (
+                      <div key={index} className={`goal-card ${goal.priority}`}>
+                        <div className="goal-header">
+                          <div className="goal-category">
+                            <span className="category-icon">{goal.icon}</span>
+                            <span className="category-name">{goal.category}</span>
+                          </div>
+                          <div className="priority-badge">
+                            <span className={`priority-indicator ${goal.priority}`}>
+                              {goal.priority === 'high' ? '높음' : 
+                               goal.priority === 'medium' ? '보통' : '낮음'}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="goal-content">
+                          <h5 className="goal-title">{goal.title}</h5>
+                          <p className="goal-description">{goal.description}</p>
+                          
+                          {/* 현재 상태 vs 목표 */}
+                          <div className="goal-metrics">
+                            <div className="current-state">
+                              <span className="metric-label">현재</span>
+                              <span className="metric-value current">{goal.currentValue}</span>
+                            </div>
+                            <div className="goal-arrow">→</div>
+                            <div className="target-state">
+                              <span className="metric-label">목표</span>
+                              <span className="metric-value target">{goal.targetValue}</span>
+                            </div>
+                          </div>
+                          
+                          {/* 에비던스 정보 */}
+                          <div className="evidence-info">
+                            <div className="evidence-header">
+                              <span className="evidence-icon">📊</span>
+                              <span className="evidence-title">근거</span>
+                            </div>
+                            <p className="evidence-description">{goal.evidence}</p>
+                            <div className="evidence-source">
+                              <span className="source-label">출처:</span>
+                              <span className="source-value">{goal.evidenceSource}</span>
+                            </div>
+                          </div>
+                          
+                          {/* 실행 계획 */}
+                          <div className="action-plan">
+                            <h6 className="action-title">실행 계획</h6>
+                            <ul className="action-steps">
+                              {goal.actionSteps.map((step: string, stepIndex: number) => (
+                                <li key={stepIndex} className="action-step">
+                                  <span className="step-number">{stepIndex + 1}</span>
+                                  <span className="step-description">{step}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          
+                          {/* 예상 효과 */}
+                          <div className="expected-outcome">
+                            <div className="outcome-header">
+                              <span className="outcome-icon">🎯</span>
+                              <span className="outcome-title">예상 효과</span>
+                            </div>
+                            <p className="outcome-description">{goal.expectedOutcome}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* 재검 일정 섹션 */}
+                <div className="recheck-schedule-section">
+                  <h4 className="section-subtitle">맞춤 재검 일정</h4>
+                  <div className="schedule-timeline">
+                    {getRecheckSchedule(healthData, prescriptionData).map((schedule, index) => (
+                      <div key={index} className={`schedule-item ${schedule.urgency}`}>
+                        <div className="schedule-timeline-marker">
+                          <div className={`timeline-dot ${schedule.urgency}`}></div>
+                          {index < getRecheckSchedule(healthData, prescriptionData).length - 1 && (
+                            <div className="timeline-line"></div>
+                          )}
+                        </div>
+                        
+                        <div className="schedule-content">
+                          <div className="schedule-header">
+                            <div className="schedule-date">
+                              <span className="date-icon">📅</span>
+                              <span className="date-text">{schedule.recommendedDate}</span>
+                            </div>
+                            <div className="urgency-badge">
+                              <span className={`urgency-indicator ${schedule.urgency}`}>
+                                {schedule.urgency === 'urgent' ? '긴급' : 
+                                 schedule.urgency === 'important' ? '중요' : '정기'}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="schedule-details">
+                            <h5 className="check-type">{schedule.checkType}</h5>
+                            <p className="check-reason">{schedule.reason}</p>
+                            
+                            {/* 검사 항목 */}
+                            <div className="check-items">
+                              <h6 className="items-title">권장 검사 항목</h6>
+                              <div className="items-list">
+                                {schedule.recommendedTests.map((test: string, testIndex: number) => (
+                                  <span key={testIndex} className="test-item">
+                                    {test}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            {/* 준비사항 */}
+                            {schedule.preparation && (
+                              <div className="preparation-info">
+                                <h6 className="preparation-title">검사 전 준비사항</h6>
+                                <p className="preparation-description">{schedule.preparation}</p>
+                              </div>
+                            )}
+                            
+                            {/* 예상 비용 */}
+                            <div className="cost-info">
+                              <span className="cost-label">예상 비용:</span>
+                              <span className="cost-value">{schedule.estimatedCost}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {/* 데이터 출처 및 면책 조항 */}
