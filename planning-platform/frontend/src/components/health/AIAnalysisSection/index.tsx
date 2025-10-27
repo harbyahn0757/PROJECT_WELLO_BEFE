@@ -346,32 +346,24 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
   const handleStartAnalysis = useCallback(() => {
     console.log('🚀 [AI분석] 자동 분석 시작 요청 받음');
     console.log('🔍 [AI분석] 현재 상태:', { hasGptAnalysis: !!gptAnalysis, isAnalyzing });
-    
-    // 기존 분석 결과 강제 클리어 (디버깅용)
+
+    // 기존 분석 결과 강제 클리어 (구조화된 종합소견 적용을 위해)
     localStorage.removeItem('gpt_analysis_result');
     setGptAnalysis(null);
-    
+
     if (!isAnalyzing) {
       console.log('🔄 [AI분석] 새로운 분석 시작');
       analyzeHealthData();
     } else {
       console.log('⚠️ [AI분석] 이미 분석 중이므로 건너뜀');
     }
-  }, [gptAnalysis, isAnalyzing, analyzeHealthData]);
+  }, [isAnalyzing, analyzeHealthData]); // gptAnalysis 의존성 제거로 항상 새로운 분석 실행
 
-  // 컴포넌트 마운트 시 기존 분석 결과 로드
+  // 컴포넌트 마운트 시 기존 분석 결과 로드 (구조화된 종합소견 적용을 위해 임시 비활성화)
   useEffect(() => {
-    const savedAnalysis = localStorage.getItem('gpt_analysis_result');
-    console.log('🔍 [AI분석] localStorage 확인:', { hasSavedAnalysis: !!savedAnalysis });
-    if (savedAnalysis) {
-      try {
-        const parsedAnalysis = JSON.parse(savedAnalysis);
-        console.log('🔍 [AI분석] 저장된 분석 결과 로드:', parsedAnalysis?.summary?.substring(0, 50) + '...');
-        setGptAnalysis(parsedAnalysis);
-      } catch (error) {
-        console.error('저장된 분석 결과 로드 실패:', error);
-      }
-    }
+    // localStorage 캐시를 사용하지 않고 항상 새로운 분석 실행
+    console.log('🔍 [AI분석] localStorage 캐시 사용 안함 - 항상 새로운 분석 실행');
+    localStorage.removeItem('gpt_analysis_result'); // 기존 캐시 제거
   }, []);
 
   // 자동 분석 시작 이벤트 리스너

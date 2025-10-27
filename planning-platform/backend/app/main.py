@@ -37,7 +37,7 @@ if os.path.exists(static_dir):
     app.mount("/wello", StaticFiles(directory=static_dir, html=True), name="wello_static")
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-# API 라우터 등록
+# API 라우터 등록 (기본 경로)
 app.include_router(health.router, prefix="/api/v1/health", tags=["health"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(tilko_auth.router, prefix="/api/v1/tilko", tags=["tilko"])
@@ -49,6 +49,19 @@ app.include_router(wello_data.router, prefix="/api/v1/wello", tags=["wello"])
 app.include_router(file_management.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(password.router, prefix="/api/v1", tags=["password"])
 app.include_router(health_analysis.router, prefix="/api/v1/health-analysis", tags=["health-analysis"])
+
+# 배포환경을 위한 wello-api 경로 추가 (프록시 없이 직접 접근)
+app.include_router(health.router, prefix="/wello-api/v1/health", tags=["health-wello"])
+app.include_router(auth.router, prefix="/wello-api/v1/auth", tags=["auth-wello"])
+app.include_router(tilko_auth.router, prefix="/wello-api/v1/tilko", tags=["tilko-wello"])
+app.include_router(websocket_auth.router, prefix="/wello-api/v1/tilko", tags=["websocket-wello"])
+app.include_router(patients.router, prefix="/wello-api/v1/patients", tags=["patients-wello"])
+app.include_router(hospitals.router, prefix="/wello-api/v1/hospitals", tags=["hospitals-wello"])
+app.include_router(checkup_design.router, prefix="/wello-api/v1/checkup-design", tags=["checkup-design-wello"])
+app.include_router(wello_data.router, prefix="/wello-api/v1/wello", tags=["wello-wello"])
+app.include_router(file_management.router, prefix="/wello-api/v1/admin", tags=["admin-wello"])
+app.include_router(password.router, prefix="/wello-api/v1", tags=["password-wello"])
+app.include_router(health_analysis.router, prefix="/wello-api/v1/health-analysis", tags=["health-analysis-wello"])
 
 @app.on_event("startup")
 async def startup_event():
