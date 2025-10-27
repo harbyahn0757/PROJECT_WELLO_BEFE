@@ -63,6 +63,31 @@ app.include_router(file_management.router, prefix="/wello-api/v1/admin", tags=["
 app.include_router(password.router, prefix="/wello-api/v1", tags=["password-wello"])
 app.include_router(health_analysis.router, prefix="/wello-api/v1/health-analysis", tags=["health-analysis-wello"])
 
+# React Router를 위한 catch-all 라우트 (모든 API 라우터 등록 후에 추가)
+@app.get("/wello/{full_path:path}")
+async def serve_react_app(full_path: str):
+    """React Router의 클라이언트 사이드 라우팅을 위한 catch-all 라우트"""
+    static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
+    index_file = os.path.join(static_dir, "index.html")
+    
+    # API 경로는 제외 (이미 위에서 처리됨)
+    if full_path.startswith("api/") or full_path.startswith("wello-api/"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="API endpoint not found")
+    
+    # 정적 파일이 실제로 존재하는지 확인
+    file_path = os.path.join(static_dir, full_path)
+    if os.path.isfile(file_path):
+        # 실제 파일이 존재하면 해당 파일 반환
+        return FileResponse(file_path)
+    
+    # 그 외의 모든 경우에는 React 앱의 index.html 반환
+    if os.path.exists(index_file):
+        return FileResponse(index_file)
+    else:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="React app not found")
+
 @app.on_event("startup")
 async def startup_event():
     """앱 시작 시 이벤트"""
