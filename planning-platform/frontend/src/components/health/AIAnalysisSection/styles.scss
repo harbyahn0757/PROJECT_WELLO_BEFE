@@ -506,4 +506,531 @@
       font-family: 'Pretendard', sans-serif;
     }
   }
+
+  // 건강 여정 차트 슬라이더 스타일
+  .health-journey-chart-slider {
+    margin: 20px 0;
+    
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      
+      .slider-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #374151;
+        margin: 0;
+        font-family: 'Pretendard', sans-serif;
+      }
+      
+      .slider-info {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: #6b7280;
+        
+        .current-slide {
+          font-weight: 600;
+          color: #7c746a;
+        }
+      }
+    }
+    
+    .slider-container {
+      overflow: hidden;
+      border-radius: 8px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      
+      .slider-track {
+        display: flex;
+        width: 100%;
+        
+        .slider-slide {
+          min-width: 100%;
+          flex-shrink: 0;
+          
+          .chart-card {
+            padding: 20px;
+            background: white;
+            
+            .chart-description {
+              margin-bottom: 12px;
+              
+              p {
+                font-size: 13px;
+                color: #6b7280;
+                margin: 0;
+                line-height: 1.4;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    .slider-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      
+      .slider-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        background: white;
+        color: #6b7280;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        
+        &:hover:not(:disabled) {
+          background: #f3f4f6;
+          border-color: #7c746a;
+          color: #7c746a;
+        }
+        
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        
+        svg {
+          width: 16px;
+          height: 16px;
+        }
+      }
+      
+      .slider-dots {
+        display: flex;
+        gap: 8px;
+        
+        .slider-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          border: none;
+          background: #d1d5db;
+          cursor: pointer;
+          transition: background-color 0.2s ease;
+          
+          &:hover:not(:disabled) {
+            background: #9ca3af;
+          }
+          
+          &.active {
+            background: #7c746a;
+          }
+          
+          &:disabled {
+            cursor: not-allowed;
+          }
+        }
+      }
+    }
+    
+    .slider-empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: #6b7280;
+      
+      p {
+        margin: 0;
+        font-size: 14px;
+      }
+    }
+  }
+
+  // 미니 차트 스타일
+  .health-journey-mini-chart {
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      
+      .chart-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #374151;
+        margin: 0;
+        font-family: 'Pretendard', sans-serif;
+      }
+      
+      .trend-indicator {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        padding: 4px 8px;
+        border-radius: 4px;
+        
+        &.improved {
+          background: #dcfce7;
+          color: #166534;
+        }
+        
+        &.worsened {
+          background: #fef2f2;
+          color: #dc2626;
+        }
+        
+        &.stable {
+          background: #f3f4f6;
+          color: #6b7280;
+        }
+        
+        .change-percent {
+          font-weight: 600;
+        }
+      }
+    }
+    
+    .chart-container {
+      margin: 12px 0;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fafafa;
+    }
+    
+    .chart-empty {
+      text-align: center;
+      padding: 40px 20px;
+      color: #9ca3af;
+      
+      p {
+        margin: 0;
+        font-size: 13px;
+      }
+    }
+    
+    .motivational-message {
+      margin: 12px 0;
+      padding: 12px;
+      background: #f0f9ff;
+      border-left: 3px solid #0ea5e9;
+      border-radius: 4px;
+      
+      p {
+        margin: 0;
+        font-size: 13px;
+        color: #0c4a6e;
+        line-height: 1.4;
+      }
+    }
+    
+    .chart-summary {
+      margin-top: 12px;
+      
+      .summary-stats {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: 12px;
+        color: #6b7280;
+        
+        .first-value, .last-value {
+          font-weight: 500;
+        }
+        
+        .last-value {
+          color: #374151;
+          font-weight: 600;
+        }
+        
+        .arrow {
+          color: #9ca3af;
+        }
+      }
+    }
+  }
+
+  // 건강 여정 스타일
+  .health-journey-summary {
+    margin-bottom: 24px;
+    
+    .journey-timeline {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #374151;
+      margin-bottom: 20px;
+      padding: 16px;
+      background: #f8fafc;
+      border-radius: 8px;
+      border-left: 4px solid #7c746a;
+    }
+    
+    .journey-overview {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 20px;
+      
+      @media (max-width: 768px) {
+        grid-template-columns: 1fr;
+      }
+      
+      .overview-positive, .overview-negative {
+        padding: 16px;
+        border-radius: 8px;
+        
+        h4 {
+          font-size: 14px;
+          font-weight: 600;
+          margin: 0 0 12px 0;
+          font-family: 'Pretendard', sans-serif;
+        }
+      }
+      
+      .overview-positive {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        
+        h4 {
+          color: #166534;
+        }
+      }
+      
+      .overview-negative {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        
+        h4 {
+          color: #dc2626;
+        }
+        
+        .concern-item {
+          margin-bottom: 12px;
+          padding: 8px;
+          background: white;
+          border-radius: 4px;
+          
+          .metric-name {
+            font-weight: 600;
+            color: #dc2626;
+            font-size: 13px;
+          }
+          
+          .change-detail {
+            font-size: 12px;
+            color: #6b7280;
+            margin-left: 8px;
+          }
+          
+          .significance {
+            font-size: 12px;
+            color: #374151;
+            margin: 4px 0 0 0;
+            line-height: 1.4;
+          }
+        }
+      }
+    }
+  }
+
+  // 년도별 타임라인 스타일
+  .yearly-timeline {
+    margin-top: 24px;
+    
+    > h4 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #374151;
+      margin: 0 0 16px 0;
+      font-family: 'Pretendard', sans-serif;
+    }
+    
+    .timeline-container {
+      position: relative;
+      
+      .timeline-item {
+        display: flex;
+        margin-bottom: 24px;
+        
+        &:last-child {
+          .timeline-marker .marker-line {
+            display: none;
+          }
+        }
+        
+        .timeline-marker {
+          position: relative;
+          margin-right: 16px;
+          
+          .marker-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #7c746a;
+            border: 3px solid white;
+            box-shadow: 0 0 0 2px #7c746a;
+          }
+          
+          .marker-line {
+            position: absolute;
+            left: 50%;
+            top: 12px;
+            width: 2px;
+            height: 40px;
+            background: #e5e7eb;
+            transform: translateX(-50%);
+          }
+        }
+        
+        .timeline-content {
+          flex: 1;
+          background: white;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 16px;
+          
+          .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            
+            .timeline-period {
+              font-size: 15px;
+              font-weight: 600;
+              color: #7c746a;
+              margin: 0;
+            }
+            
+            .timeline-status {
+              font-size: 12px;
+              padding: 4px 8px;
+              background: #f3f4f6;
+              color: #6b7280;
+              border-radius: 4px;
+            }
+          }
+          
+          .timeline-body {
+            .timeline-section {
+              margin-bottom: 16px;
+              
+              &:last-child {
+                margin-bottom: 0;
+              }
+              
+              h6 {
+                font-size: 13px;
+                font-weight: 600;
+                color: #374151;
+                margin: 0 0 6px 0;
+                font-family: 'Pretendard', sans-serif;
+              }
+              
+              p {
+                font-size: 13px;
+                line-height: 1.5;
+                color: #6b7280;
+                margin: 0;
+              }
+            }
+            
+            .changes-grid {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+              gap: 12px;
+              
+              .change-card {
+                padding: 12px;
+                border-radius: 6px;
+                border: 1px solid #e5e7eb;
+                
+                &.improved {
+                  background: #f0fdf4;
+                  border-color: #bbf7d0;
+                }
+                
+                &.worsened {
+                  background: #fef2f2;
+                  border-color: #fecaca;
+                }
+                
+                &.stable {
+                  background: #f8fafc;
+                  border-color: #e2e8f0;
+                }
+                
+                .change-header {
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                  margin-bottom: 8px;
+                  
+                  .change-metric {
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: #374151;
+                  }
+                  
+                  .change-badge {
+                    font-size: 10px;
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    font-weight: 500;
+                    
+                    &.improved {
+                      background: #dcfce7;
+                      color: #166534;
+                    }
+                    
+                    &.worsened {
+                      background: #fee2e2;
+                      color: #dc2626;
+                    }
+                    
+                    &.stable {
+                      background: #f1f5f9;
+                      color: #64748b;
+                    }
+                  }
+                }
+                
+                .change-values {
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                  margin-bottom: 6px;
+                  font-size: 12px;
+                  
+                  .prev-value {
+                    color: #9ca3af;
+                  }
+                  
+                  .arrow {
+                    color: #6b7280;
+                  }
+                  
+                  .current-value {
+                    font-weight: 600;
+                    color: #374151;
+                  }
+                }
+                
+                .change-significance {
+                  font-size: 11px;
+                  line-height: 1.4;
+                  color: #6b7280;
+                  margin: 0;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }

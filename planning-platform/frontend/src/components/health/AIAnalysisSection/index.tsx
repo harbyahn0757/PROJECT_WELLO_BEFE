@@ -5,6 +5,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { WelloIndexedDB } from '../../../services/WelloIndexedDB';
 import { WELLO_API } from '../../../constants/api';
+import HealthJourneyChartSlider from './HealthJourneyChartSlider';
+import { TilkoHealthCheckupRaw, TilkoPrescriptionRaw } from '../../../types/health';
 import './styles.scss';
 
 interface HealthInsight {
@@ -27,18 +29,86 @@ interface NutritionRecommendation {
 }
 
 interface GPTAnalysisResult {
-  summary: string;
-  insights: HealthInsight[];
-  drugInteractions: DrugInteraction[];
-  nutritionRecommendations: NutritionRecommendation[];
+  summary?: string;
+  insights?: HealthInsight[];
+  drugInteractions?: DrugInteraction[];
+  nutritionRecommendations?: NutritionRecommendation[];
+  // 새로운 GPT 응답 구조
+  healthJourney?: {
+    timeline: string;
+    keyMilestones?: Array<{
+      period: string;
+      healthStatus: string;
+      significantEvents: string;
+      medicalCare: string;
+      keyChanges?: Array<{
+        metric: string;
+        previousValue: string;
+        currentValue: string;
+        changeType: 'improved' | 'worsened' | 'stable';
+        significance: string;
+      }>;
+    }>;
+  };
+  yearlyAnalysis?: Array<{
+    year: string;
+    majorIssues: string[];
+    improvements: string[];
+    concerns: string[];
+    treatmentChanges: string[];
+    keyMetrics: {
+      critical: Array<{ name: string; value: string; trend: string }>;
+      improved: Array<{ name: string; value: string; change: string }>;
+      worsened: Array<{ name: string; value: string; change: string }>;
+    };
+  }>;
+  currentAnalysis?: {
+    summary: string;
+    insights: Array<{
+      category: string;
+      status: string;
+      message: string;
+      recommendation: string;
+      evidence: {
+        data_source: string;
+        value: string;
+        reference_range: string;
+        interpretation: string;
+        trend: string;
+      };
+    }>;
+    medicalDisclaimer: string;
+  };
 }
 
-const AIAnalysisSection: React.FC = () => {
+interface AIAnalysisSectionProps {
+  healthData?: TilkoHealthCheckupRaw[];
+  prescriptionData?: TilkoPrescriptionRaw[];
+  patientInfo?: { name?: string; [key: string]: any };
+}
+
+const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
+  healthData = [],
+  prescriptionData = [],
+  patientInfo = {}
+}) => {
   const [gptAnalysis, setGptAnalysis] = useState<GPTAnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [analysisStep, setAnalysisStep] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [collapsedSections, setCollapsedSections] = useState<{ [key: string]: boolean }>({
+    healthJourney: false,
+    yearlyAnalysis: false
+  });
+
+  // 섹션 토글 함수
+  const toggleSection = (sectionKey: string) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey]
+    }));
+  };
 
   // Mock 분석 결과 (개발용)
   const getMockAnalysisResult = (): GPTAnalysisResult => ({
@@ -251,7 +321,7 @@ const AIAnalysisSection: React.FC = () => {
             </div>
             <div className="ai-sub-content">
               <div className="insights-grid">
-                {gptAnalysis.insights.map((insight, index) => (
+                {(gptAnalysis.insights || []).map((insight, index) => (
                   <div key={index} className={`insight-item ${insight.status}`}>
                     <div className="insight-header">
                       <h4 className="insight-category">{insight.category}</h4>
@@ -273,14 +343,14 @@ const AIAnalysisSection: React.FC = () => {
           </div>
 
           {/* 약물 상호작용 카드 */}
-          {gptAnalysis.drugInteractions.length > 0 && (
+          {(gptAnalysis.drugInteractions && gptAnalysis.drugInteractions.length > 0) && (
             <div className="ai-sub-card">
               <div className="ai-sub-header">
                 <h3 className="ai-sub-title">약물 상호작용 주의사항</h3>
               </div>
               <div className="ai-sub-content">
                 <div className="interactions-list">
-                  {gptAnalysis.drugInteractions.map((interaction, index) => (
+                  {(gptAnalysis.drugInteractions || []).map((interaction, index) => (
                     <div key={index} className={`interaction-item ${interaction.severity}`}>
                       <div className="interaction-header">
                         <h4 className="interaction-drugs">{interaction.drugs.join(' + ')}</h4>
@@ -298,14 +368,14 @@ const AIAnalysisSection: React.FC = () => {
           )}
 
           {/* 영양 권장사항 카드 */}
-          {gptAnalysis.nutritionRecommendations.length > 0 && (
+          {(gptAnalysis.nutritionRecommendations && gptAnalysis.nutritionRecommendations.length > 0) && (
             <div className="ai-sub-card">
               <div className="ai-sub-header">
                 <h3 className="ai-sub-title">맞춤 영양 권장사항</h3>
               </div>
               <div className="ai-sub-content">
                 <div className="nutrition-grid">
-                  {gptAnalysis.nutritionRecommendations.map((nutrition, index) => (
+                  {(gptAnalysis.nutritionRecommendations || []).map((nutrition, index) => (
                     <div key={index} className="nutrition-item">
                       <h4 className="nutrition-category">{nutrition.category}</h4>
                       <div className="nutrition-foods">
@@ -321,15 +391,132 @@ const AIAnalysisSection: React.FC = () => {
             </div>
           )}
 
+          {/* 건강 여정 섹션 */}
+          {gptAnalysis.healthJourney && (
+            <div className="ai-simple-section">
+              <div className="simple-section-header" onClick={() => toggleSection('healthJourney')} style={{ cursor: 'pointer' }}>
+                <h3 className="simple-section-title">건강 여정</h3>
+                <span className="collapse-indicator">
+                  <svg 
+                    className={`toggle-icon ${collapsedSections.healthJourney ? 'collapsed' : 'expanded'}`}
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <polyline points="6,9 12,15 18,9"></polyline>
+                  </svg>
+                </span>
+              </div>
+              {!collapsedSections.healthJourney && (
+                <div className="simple-section-content">
+                  {/* 총론 섹션 */}
+                  <div className="health-journey-summary">
+                    <p className="journey-timeline">{gptAnalysis.healthJourney.timeline}</p>
+                    
+                    {/* 좋은 점과 나쁜 점 요약 */}
+                    <div className="journey-overview">
+                      <div className="overview-positive">
+                        <h4>👍 긍정적 변화</h4>
+                        <div className="positive-trends">
+                          {/* 차트 슬라이더 - 개선된 지표들 */}
+                          <HealthJourneyChartSlider
+                            healthData={healthData}
+                            keyChanges={gptAnalysis.healthJourney.keyMilestones?.flatMap(m => m.keyChanges?.filter(c => c.changeType === 'improved') || []) || []}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="overview-negative">
+                        <h4>⚠️ 주의 필요 사항</h4>
+                        <div className="negative-trends">
+                          {/* 주의가 필요한 지표들 */}
+                          {gptAnalysis.healthJourney.keyMilestones?.flatMap(m => 
+                            m.keyChanges?.filter(c => c.changeType === 'worsened').map((change, index) => (
+                              <div key={index} className="concern-item">
+                                <span className="metric-name">{change.metric}</span>
+                                <span className="change-detail">{change.previousValue} → {change.currentValue}</span>
+                                <p className="significance">{change.significance}</p>
+                              </div>
+                            )) || []
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 년도별 상세 분석 - 타임라인 형식 */}
+                  <div className="yearly-timeline">
+                    <h4>📅 년도별 상세 분석</h4>
+                    <div className="timeline-container">
+                      {gptAnalysis.healthJourney.keyMilestones && gptAnalysis.healthJourney.keyMilestones.map((milestone, index) => (
+                        <div key={index} className="timeline-item">
+                          <div className="timeline-marker">
+                            <div className="marker-dot"></div>
+                            <div className="marker-line"></div>
+                          </div>
+                          
+                          <div className="timeline-content">
+                            <div className="timeline-header">
+                              <h5 className="timeline-period">{milestone.period}</h5>
+                              <span className="timeline-status">{milestone.healthStatus}</span>
+                            </div>
+                            
+                            <div className="timeline-body">
+                              <div className="timeline-section">
+                                <h6>주요 건강 이벤트</h6>
+                                <p>{milestone.significantEvents}</p>
+                              </div>
+                              
+                              <div className="timeline-section">
+                                <h6>의료 서비스</h6>
+                                <p>{milestone.medicalCare}</p>
+                              </div>
+                              
+                              {milestone.keyChanges && milestone.keyChanges.length > 0 && (
+                                <div className="timeline-section">
+                                  <h6>주요 변화</h6>
+                                  <div className="changes-grid">
+                                    {milestone.keyChanges.map((change, changeIndex) => (
+                                      <div key={changeIndex} className={`change-card ${change.changeType}`}>
+                                        <div className="change-header">
+                                          <span className="change-metric">{change.metric}</span>
+                                          <span className={`change-badge ${change.changeType}`}>
+                                            {change.changeType === 'improved' ? '개선' : 
+                                             change.changeType === 'worsened' ? '주의' : '안정'}
+                                          </span>
+                                        </div>
+                                        <div className="change-values">
+                                          <span className="prev-value">{change.previousValue}</span>
+                                          <span className="arrow">→</span>
+                                          <span className="current-value">{change.currentValue}</span>
+                                        </div>
+                                        <p className="change-significance">{change.significance}</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* 재분석 카드 */}
-          <div className="ai-sub-card reanalysis-card">
-            <div className="ai-sub-content" style={{ textAlign: 'center' }}>
+          <div className="ai-simple-section reanalysis-card">
+            <div className="simple-section-content" style={{ textAlign: 'center' }}>
               <button 
                 className="reanalyze-button"
                 onClick={analyzeHealthData}
                 disabled={isAnalyzing}
               >
-                🔄 재분석하기
+                재분석하기
               </button>
             </div>
           </div>
