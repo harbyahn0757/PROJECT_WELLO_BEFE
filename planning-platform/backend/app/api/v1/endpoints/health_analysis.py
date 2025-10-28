@@ -163,6 +163,71 @@ def save_prompt_log(prompt: str, health_data: List[Any] = None, prescription_dat
     except Exception as e:
         logger.error(f"❌ [프롬프트 로그] 저장 실패: {str(e)}")
 
+def save_response_log(response: str, health_data: List[Any] = None, prescription_data: List[Any] = None):
+    """GPT 응답을 로그 파일에 저장"""
+    try:
+        # 로그 디렉토리 생성
+        log_dir = "logs"
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # 날짜별 로그 파일
+        today = datetime.now().strftime("%Y%m%d")
+        log_file = f"{log_dir}/gpt_responses_{today}.log"
+        
+        # JSON 파싱 시도
+        try:
+            parsed_response = json.loads(response)
+            findings_count = len(parsed_response.get('structured_summary', {}).get('keyFindings', []))
+            is_valid_json = True
+            findings_summary = [
+                {
+                    "category": f.get('category', 'N/A'),
+                    "status": f.get('status', 'N/A'), 
+                    "title": f.get('title', 'N/A')
+                } for f in parsed_response.get('structured_summary', {}).get('keyFindings', [])
+            ]
+        except:
+            findings_count = 0
+            is_valid_json = False
+            findings_summary = []
+        
+        # 로그 엔트리 생성
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "response_length": len(response),
+            "is_valid_json": is_valid_json,
+            "findings_count": findings_count,
+            "health_data_count": len(health_data) if health_data else 0,
+            "prescription_data_count": len(prescription_data) if prescription_data else 0,
+            "findings_summary": findings_summary
+        }
+        
+        # 로그 파일에 추가
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"{'='*80}\n")
+            f.write(f"GPT 응답 로그 - {log_entry['timestamp']}\n")
+            f.write(f"{'='*80}\n")
+            f.write(f"응답 길이: {log_entry['response_length']} 문자\n")
+            f.write(f"JSON 유효성: {log_entry['is_valid_json']}\n")
+            f.write(f"발견사항 개수: {log_entry['findings_count']}개\n")
+            f.write(f"건강검진 데이터: {log_entry['health_data_count']}건\n")
+            f.write(f"처방전 데이터: {log_entry['prescription_data_count']}건\n")
+            
+            if findings_summary:
+                f.write(f"\n[발견사항 요약]\n{'-'*40}\n")
+                for i, finding in enumerate(findings_summary, 1):
+                    f.write(f"{i}. {finding['category']} - {finding['status']} - {finding['title']}\n")
+                f.write(f"{'-'*40}\n")
+            
+            f.write(f"\n[GPT 응답 내용]\n{'-'*40}\n")
+            f.write(f"{response}\n")
+            f.write(f"{'-'*40}\n\n")
+        
+        logger.info(f"📄 [응답 로그] 저장 완료: {log_file} (발견사항: {findings_count}개)")
+        
+    except Exception as e:
+        logger.error(f"❌ [응답 로그] 저장 실패: {str(e)}")
+
 class HealthDataItem(BaseModel):
     name: str
     value: str
@@ -442,7 +507,7 @@ def create_unified_analysis_prompt(health_data: List[HealthDataItem], prescripti
           "혈당": "혈당 추이에 대한 상세 분석",
           "콜레스테롤": "콜레스테롤 추이에 대한 상세 분석"
         }},
-        "chartExplanation": "이 그래프가 보여주는 데이터의 의미와 추세 설명"
+        "chartExplanation": "이 그래프가 보여주는 데이터의 의미와 추세 설명 , 년도별 변경사항와 최근 데이터추세를 기반으로 설명"
       }},
       {{
         "category": "심혈관 건강",
@@ -613,6 +678,9 @@ async def call_gpt_api(prompt: str, response_format: str = "text", health_data: 
         
         result = response.choices[0].message.content
         logger.info(f"✅ [GPT API] 응답 수신 완료 - 응답 길이: {len(result) if result else 0}")
+        
+        # GPT 응답도 로그에 저장
+        save_response_log(result, health_data, prescription_data)
         
         return result or get_mock_analysis_response(health_data, prescription_data)
         
@@ -1413,8 +1481,19 @@ async def analyze_health_data(request: AnalysisRequest, background_tasks: Backgr
         gpt_data = {}
         
         try:
+            # GPT 응답에서 JSON 코드블록 제거 (정규식 사용)
+            import re
+            cleaned_response = gpt_response.strip()
+            # ```json으로 시작하는 코드블록 제거
+            cleaned_response = re.sub(r'^```json\s*', '', cleaned_response, flags=re.MULTILINE)
+            # ```으로 끝나는 코드블록 제거  
+            cleaned_response = re.sub(r'\s*```$', '', cleaned_response, flags=re.MULTILINE)
+            cleaned_response = cleaned_response.strip()
+            
+            logger.info(f"🧹 JSON 코드블록 정리 완료 - 길이: {len(cleaned_response)}")
+            
             # GPT 응답 파싱 시도
-            gpt_data = json.loads(gpt_response)
+            gpt_data = json.loads(cleaned_response)
             logger.info("✅ GPT JSON 응답 파싱 성공")
             
             # 1. 기본 분석 데이터 추출
