@@ -425,7 +425,7 @@ def create_unified_analysis_prompt(health_data: List[HealthDataItem], prescripti
     "dataRange": "분석 대상 데이터 기간",
     "keyFindings": [
       {{
-        "category": "체중 관리|심혈관 건강|혈당 관리|콜레스테롤|간 기능|신장 기능",
+        "category": "체중 관리",
         "status": "좋음|보통|걱정",
         "title": "발견사항 제목",
         "description": "상세 설명",
@@ -443,6 +443,24 @@ def create_unified_analysis_prompt(health_data: List[HealthDataItem], prescripti
           "콜레스테롤": "콜레스테롤 추이에 대한 상세 분석"
         }},
         "chartExplanation": "이 그래프가 보여주는 데이터의 의미와 추세 설명"
+      }},
+      {{
+        "category": "심혈관 건강",
+        "status": "좋음|보통|걱정",
+        "title": "심혈관 건강 상태",
+        "description": "혈압과 콜레스테롤 분석",
+        "dataEvidence": {{"checkupDate": "검진날짜", "actualValues": "실제수치", "koreanNorm": "한국기준", "academicSource": "학술근거"}},
+        "trendAnalysis": {{"혈압 (수축기)": "수축기혈압 분석", "혈압 (이완기)": "이완기혈압 분석"}},
+        "chartExplanation": "혈압 차트 설명"
+      }},
+      {{
+        "category": "혈당 관리", 
+        "status": "좋음|보통|걱정",
+        "title": "혈당 관리 상태",
+        "description": "공복혈당 분석",
+        "dataEvidence": {{"checkupDate": "검진날짜", "actualValues": "실제수치", "koreanNorm": "한국기준", "academicSource": "학술근거"}},
+        "trendAnalysis": {{"혈당": "혈당 추이 분석"}},
+        "chartExplanation": "혈당 차트 설명"
       }}
     ],
     "riskFactors": [
@@ -459,7 +477,7 @@ def create_unified_analysis_prompt(health_data: List[HealthDataItem], prescripti
 
 **분석 지침:**
 1. **등급 기준**: 좋아(정상범위), 평범(경계선), 걱정(위험범위)으로 구분
-2. **균형 잡힌 발견사항**: 좋은 점과 걱정되는 점을 모두 포함하여 최소 3-4개 제시 (체중관리, 심혈관, 혈당관리는 필수 포함)
+2. **균형 잡힌 발견사항**: 반드시 최소 3개 이상 제시 - ①체중관리(BMI/허리둘레) ②심혈관건강(혈압/콜레스테롤) ③혈당관리 각각 별도 항목으로 필수 포함
 3. **한국인 기준**: 대한의학회, 질병관리청 기준 정상 범위 적용
    - 공복혈당: 정상 70-99mg/dL, 당뇨전단계 100-125mg/dL, 당뇨 ≥126mg/dL
    - BMI: 정상 18.5-22.9, 과체중 23-24.9, 비만 ≥25
@@ -470,7 +488,7 @@ def create_unified_analysis_prompt(health_data: List[HealthDataItem], prescripti
 7. **위험 요소 통합**: 중복되는 위험 요소는 하나로 통합하여 제시
 8. **추세 분석**: 수치 변화의 의미와 향후 전망을 포함
 9. **처방약 고려**: 현재 복용 중인 약물을 고려한 격려 메시지 포함 (검진 시점 , 병원방문과 약국처방 시점과 약물을 복합적으로 고려)
-10. **필수 분석 항목**: BMI/체중관리, 혈당관리, 심혈관건강등 검진관련 지표는 반드시 keyFindings에 각각 별도 카테고리로 포함 
+10. **필수 분석 항목**: keyFindings 배열에 반드시 다음 3개 카테고리 포함 - "체중 관리"(BMI 37.0 분석), "심혈관 건강"(혈압 분석), "혈당 관리"(공복혈당 124mg/dL 분석) 
 11. JSON 형식을 정확히 준수
 
 **건강검진 데이터:**
