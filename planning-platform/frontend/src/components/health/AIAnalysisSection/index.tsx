@@ -451,6 +451,14 @@ const FindingChartSection: React.FC<{
             />
           </div>
           
+          {/* 차트 설명 */}
+          {finding?.chartExplanation && (
+            <div className="chart-explanation">
+              <h6>차트 분석</h6>
+              <p>{finding.chartExplanation}</p>
+            </div>
+          )}
+          
           {/* GPT 추이 분석 */}
           <TrendAnalysisSection 
             currentMetric={currentMetric}
