@@ -210,7 +210,7 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
     switch (category) {
       case '체중 관리':
       case '체중':
-        return ['BMI', '허리둘레'];
+        return ['BMI', '체중', '허리둘레'];
       case '심혈관 건강':
       case '혈압':
         return ['혈압 (수축기)', '혈압 (이완기)', '총콜레스테롤', 'HDL 콜레스테롤', 'LDL 콜레스테롤'];
@@ -236,6 +236,7 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
     const fieldMap: { [key: string]: string } = {
       'BMI': 'bmi',
       '체질량지수': 'bmi',
+      '체중': 'weight',
       '허리둘레': 'waist_circumference',
       '공복혈당': 'blood_sugar',
       '혈당': 'blood_sugar',
@@ -376,6 +377,7 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
   const getHealthRangesForMetric = (metric: string) => {
     const rangeMap: { [key: string]: any } = {
       'BMI': { normal: { min: 18.5, max: 23.0 }, warning: { min: 23.0, max: 25.0 } },
+      '체중': { normal: { min: 50, max: 80 }, warning: { min: 80, max: 100 } }, // 일반적인 성인 기준
       '허리둘레': { normal: { min: 0, max: 90 }, warning: { min: 90, max: 102 } }, // 남성 기준, 여성은 85/95
       '수축기혈압': { normal: { min: 0, max: 120 }, warning: { min: 120, max: 140 } },
       '이완기혈압': { normal: { min: 0, max: 80 }, warning: { min: 80, max: 90 } },
@@ -580,13 +582,26 @@ const TrendAnalysisSection: React.FC<{
       // 구조화된 종합소견 매핑 추가
       structuredSummary: analysis.structuredSummary ? {
         overallGrade: analysis.structuredSummary.overallGrade || 'C',
+        gradeEvidence: analysis.structuredSummary.gradeEvidence ? {
+          koreanStandard: analysis.structuredSummary.gradeEvidence.koreanStandard || '',
+          reasoning: analysis.structuredSummary.gradeEvidence.reasoning || '',
+          dataPoints: analysis.structuredSummary.gradeEvidence.dataPoints || []
+        } : undefined,
         analysisDate: analysis.structuredSummary.analysisDate || '분석 일자 없음',
         dataRange: analysis.structuredSummary.dataRange || '데이터 범위 없음',
         keyFindings: analysis.structuredSummary.keyFindings?.map((finding: any) => ({
           category: finding.category || '',
           status: finding.status || 'good',
           title: finding.title || '',
-          description: finding.description || ''
+          description: finding.description || '',
+          dataEvidence: finding.dataEvidence ? {
+            checkupDate: finding.dataEvidence.checkupDate || '',
+            actualValues: finding.dataEvidence.actualValues || '',
+            koreanNorm: finding.dataEvidence.koreanNorm || '',
+            academicSource: finding.dataEvidence.academicSource || ''
+          } : undefined,
+          trendAnalysis: finding.trendAnalysis || {},
+          chartExplanation: finding.chartExplanation || ''
         })) || [],
         riskFactors: analysis.structuredSummary.riskFactors?.map((risk: any) => ({
           factor: risk.factor || '',
@@ -837,7 +852,7 @@ AI 분석 시작
             <div className="ai-sub-header">
               <h3 className="ai-sub-title">종합 소견</h3>
             </div>
-            <div className="ai-sub-content">
+            <div className="ai-sub-content structured-summary-container">
               {gptAnalysis.structuredSummary ? (
                 <div className="structured-summary">
                   {/* 전체 건강 등급 및 기본 정보 */}
@@ -932,13 +947,20 @@ AI 분석 시작
                               <div className="details-content">
                                 <div className="detail-section">
                                   <h6>상세 분석</h6>
-                                  <p>
-                                    {finding.category === '혈압' && '수축기/이완기 혈압 수치를 기반으로 한 심혈관 건강 평가입니다.'}
-                                    {finding.category === '혈당' && '공복혈당 수치를 통한 당뇨병 위험도 평가입니다.'}
-                                    {finding.category === '콜레스테롤' && '총콜레스테롤, HDL, LDL 수치를 종합한 지질 대사 평가입니다.'}
-                                    {finding.category === '체중' && 'BMI와 허리둘레를 통한 비만도 및 대사 건강 평가입니다.'}
-                                    {!['혈압', '혈당', '콜레스테롤', '체중'].includes(finding.category) && '해당 지표의 정상 범위 대비 현재 상태를 분석한 결과입니다.'}
-                                  </p>
+                                  <p>{finding.description}</p>
+                                  
+                                  {/* GPT 데이터 근거 표시 */}
+                                  {finding.dataEvidence && (
+                                    <div className="data-evidence">
+                                      <h6>검진 근거</h6>
+                                      <ul>
+                                        <li><strong>검진일:</strong> {finding.dataEvidence.checkupDate}</li>
+                                        <li><strong>실제 수치:</strong> {finding.dataEvidence.actualValues}</li>
+                                        <li><strong>한국인 기준:</strong> {finding.dataEvidence.koreanNorm}</li>
+                                        <li><strong>학술 근거:</strong> {finding.dataEvidence.academicSource}</li>
+                                      </ul>
+                                    </div>
+                                  )}
                                 </div>
                                 
                                 <div className="detail-section">
@@ -1054,7 +1076,7 @@ AI 분석 시작
                                 '건강검진 데이터 기반'
                               }
                             </span>
-                          </div>
+                  </div>
                         </div>
                         <div className="reference-standards">
                           <span className="standards-icon"></span>
@@ -1096,8 +1118,8 @@ AI 분석 시작
                         }) || []}
                       </div>
                     </div>
-                  </div>
-
+                          </div>
+                          
                   {/* 년도별 상세 분석 - 개선된 타임라인 형식 */}
                   <div className="health-journey-timeline simple">
                     <h4>건강 여정 타임라인</h4>
@@ -1111,8 +1133,8 @@ AI 분석 시작
                                 {milestone.healthStatus}
                               </span>
                             </div>
-                          </div>
-                          
+                            </div>
+                            
                           <div className="year-content">
                             
                             {/* 주요 이벤트 */}
@@ -1130,13 +1152,13 @@ AI 분석 시작
                                 <div className="item-content">{milestone.medicalCare}</div>
                               </div>
                             )}
-                            
+                              
                             {/* 주요 변화 리스트 */}
-                            {milestone.keyChanges && milestone.keyChanges.length > 0 && (
+                              {milestone.keyChanges && milestone.keyChanges.length > 0 && (
                               <div className="timeline-item">
                                 <div className="item-label">주요 변화 ({milestone.keyChanges.length}개)</div>
                                 <div className="changes-list">
-                                  {milestone.keyChanges.map((change, changeIndex) => (
+                                    {milestone.keyChanges.map((change, changeIndex) => (
                                     <div key={`change-${milestone.period}-${change.metric}-${changeIndex}`} className={`change-item-simple ${change.changeType}`}>
                                       <div className="change-summary">
                                         <span className="metric-name">{change.metric}</span>
@@ -1144,21 +1166,21 @@ AI 분석 시작
                                           {change.previousValue} → {change.currentValue}
                                         </span>
                                         <span className={`change-status ${change.changeType}`}>
-                                          {change.changeType === 'improved' ? '개선' : 
+                                            {change.changeType === 'improved' ? '개선' : 
                                            change.changeType === 'worsened' ? '악화' : '유지'}
-                                        </span>
-                                      </div>
+                                          </span>
+                                        </div>
                                       {change.significance && (
                                         <div className="change-note">{change.significance}</div>
                                       )}
-                                    </div>
-                                  ))}
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
+                              )}
                           </div>
                         </div>
-                        ))}
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -1169,23 +1191,23 @@ AI 분석 시작
 
           {/* 약물 상호작용 카드 슬라이더 */}
           {(gptAnalysis.drugInteractions && gptAnalysis.drugInteractions.length > 0) && (
-            <div className="ai-simple-section">
+          <div className="ai-simple-section">
               <div className="simple-section-header" onClick={() => toggleSection('drugInteractions')} style={{ cursor: 'pointer' }}>
                 <h3 className="simple-section-title">약물 상호작용 주의사항</h3>
-                <span className="collapse-indicator">
-                  <svg 
+              <span className="collapse-indicator">
+                <svg 
                     className={`toggle-icon ${collapsedSections.drugInteractions ? 'collapsed' : 'expanded'}`}
-                    viewBox="0 0 24 24" 
-                    fill="none" 
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <polyline points="6,9 12,15 18,9"></polyline>
-                  </svg>
-                </span>
-              </div>
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <polyline points="6,9 12,15 18,9"></polyline>
+                </svg>
+              </span>
+            </div>
               {!collapsedSections.drugInteractions && (
-                <div className="simple-section-content">
+              <div className="simple-section-content">
                 <div className="interactions-slider-wrapper">
                   <div className="interactions-slider">
                     {(gptAnalysis.drugInteractions || []).map((interaction, index) => (
@@ -1240,9 +1262,9 @@ AI 분석 시작
                     </div>
                   )}
                 </div>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
+          </div>
           )}
 
           {/* 복용약물 분석 섹션 */}
@@ -1277,10 +1299,10 @@ AI 분석 시작
                                 <span className="stat-item">
                                   <span className="stat-label">약물</span>
                                   <span className="stat-value">{yearData.medications?.length || 0}종</span>
-                                </span>
+                          </span>
                               </div>
-                            </div>
-                            
+                        </div>
+                        
                             <div className="medications-list">
                               {(yearData.medications || []).map((med: any, medIndex: number) => (
                                 <div key={medIndex} className="medication-item">
@@ -1293,8 +1315,8 @@ AI 분석 시작
                                     <span className="medication-duration">{med.status}</span>
                                   </div>
                                 </div>
-                              ))}
-                            </div>
+                            ))}
+                          </div>
                             
                             {/* 분석 및 주의사항 */}
                             <div className="medication-analysis">
@@ -1312,39 +1334,39 @@ AI 분석 시작
                                   ))}
                                 </div>
                               )}
-                            </div>
-                          </div>
-                        ))}
+                        </div>
                       </div>
-                      
+                    ))}
+                  </div>
+                  
                       {/* 년도별 슬라이더 닷 네비게이션 */}
                       {(gptAnalysis.yearlyMedicationAnalysis || []).length > 1 && (
                         <div className="yearly-slider-dots">
                           {(gptAnalysis.yearlyMedicationAnalysis || []).map((_: any, index: number) => (
-                            <button
-                              key={index}
+                        <button
+                          key={index}
                               className={`slider-dot ${index === 0 ? 'active' : ''}`}
-                              onClick={() => {
+                          onClick={() => {
                                 const slider = document.querySelector('.yearly-medications-slider') as HTMLElement;
-                                if (slider) {
+                            if (slider) {
                                   const cardWidth = slider.querySelector('.yearly-medication-card')?.clientWidth || 0;
                                   const gap = 16;
-                                  slider.scrollTo({
+                              slider.scrollTo({
                                     left: (cardWidth + gap) * index,
-                                    behavior: 'smooth'
-                                  });
+                                behavior: 'smooth'
+                              });
                                   
                                   // 닷 활성화 상태 업데이트
                                   document.querySelectorAll('.yearly-slider-dots .slider-dot').forEach((dot, i) => {
                                     dot.classList.toggle('active', i === index);
-                                  });
-                                }
-                              }}
-                            />
-                          ))}
-                        </div>
-                      )}
+                              });
+                            }
+                          }}
+                        />
+                      ))}
                     </div>
+                  )}
+                </div>
                     
                     {/* 종합 약물 상호작용 분석 (고도화 + 근거 데이터) */}
                     <div className="comprehensive-interactions-section with-evidence">
@@ -1427,8 +1449,8 @@ AI 분석 시작
                                   <div className="interaction-mechanism">
                                     <h5 className="detail-title">작용 기전</h5>
                                     <p>{interaction.mechanism}</p>
-                                  </div>
-                                )}
+                </div>
+              )}
                                 
                                 <div className="interaction-recommendation">
                                   <h5 className="detail-title">권장사항</h5>
@@ -1439,8 +1461,8 @@ AI 분석 시작
                                   <div className="interaction-monitoring">
                                     <h5 className="detail-title">모니터링</h5>
                                     <p>{interaction.monitoring}</p>
-                                  </div>
-                                )}
+            </div>
+          )}
                               </div>
                             </div>
                             
@@ -1658,8 +1680,8 @@ AI 분석 시작
               >
                 <polyline points="6,9 12,15 18,9"></polyline>
               </svg>
-            </span>
-          </div>
+                                  </span>
+                              </div>
           {!collapsedSections.improvementRecommendations && (
             <div className="simple-section-content">
               <div className="improvement-recommendations-container">
@@ -1673,7 +1695,7 @@ AI 분석 시작
                           <div className="goal-category">
                             <span className="category-icon">{goal.icon}</span>
                             <span className="category-name">{goal.category}</span>
-                          </div>
+                            </div>
                           <div className="priority-badge">
                             <span className={`priority-indicator ${goal.priority}`}>
                               {goal.priority === 'high' ? '높음' : 
@@ -1723,18 +1745,18 @@ AI 분석 시작
                                 </li>
                               ))}
                             </ul>
-                          </div>
+                      </div>
                           
                           {/* 예상 효과 */}
                           <div className="expected-outcome">
                             <div className="outcome-header">
                               <span className="outcome-icon"></span>
                               <span className="outcome-title">{goal.expectedOutcome?.title || '예상 효과'}</span>
-                            </div>
+                    </div>
                             <p className="outcome-description">{goal.expectedOutcome?.description || ''}</p>
-                          </div>
-                        </div>
-                      </div>
+                  </div>
+                </div>
+            </div>
                     ))}
                   </div>
                 </div>
@@ -1780,8 +1802,8 @@ AI 분석 시작
                                     {test}
                                   </span>
                                 ))}
-                              </div>
-                            </div>
+            </div>
+          </div>
                             
                             {/* 준비사항 */}
                             {schedule.preparation && (
