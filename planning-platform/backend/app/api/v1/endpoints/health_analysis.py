@@ -91,6 +91,78 @@ def get_openai_client():
             client = None
     return client
 
+def save_prompt_log(prompt: str, health_data: List[Any] = None, prescription_data: List[Any] = None, response_format: str = "text"):
+    """프롬프트와 변수들을 로그 파일에 저장 (동기 버전)"""
+    try:
+        # 로그 디렉토리 생성
+        log_dir = "logs"
+        os.makedirs(log_dir, exist_ok=True)
+        
+        # 로그 파일명 (날짜별)
+        today = datetime.now().strftime("%Y%m%d")
+        log_file = f"{log_dir}/gpt_prompts_{today}.log"
+        
+        # 로그 데이터 구성
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "response_format": response_format,
+            "prompt_length": len(prompt),
+            "prompt": prompt,
+            "health_data_count": len(health_data) if health_data else 0,
+            "prescription_data_count": len(prescription_data) if prescription_data else 0,
+            "health_data_summary": [],
+            "prescription_data_summary": []
+        }
+        
+        # 건강검진 데이터 요약
+        if health_data:
+            for i, item in enumerate(health_data[:3]):  # 최대 3개만 로그
+                log_entry["health_data_summary"].append({
+                    "index": i,
+                    "date": item.date if hasattr(item, 'date') else "N/A",
+                    "inspections_count": len(item.inspections) if hasattr(item, 'inspections') and item.inspections else 0
+                })
+        
+        # 처방전 데이터 요약
+        if prescription_data:
+            for i, item in enumerate(prescription_data[:3]):  # 최대 3개만 로그
+                log_entry["prescription_data_summary"].append({
+                    "index": i,
+                    "date": item.date if hasattr(item, 'date') else "N/A",
+                    "hospital": item.hospital if hasattr(item, 'hospital') else "N/A",
+                    "medications_count": len(item.medications) if hasattr(item, 'medications') and item.medications else 0
+                })
+        
+        # 파일에 로그 저장 (표준 라이브러리 사용)
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"\n{'='*80}\n")
+            f.write(f"[{log_entry['timestamp']}] GPT 프롬프트 로그\n")
+            f.write(f"{'='*80}\n")
+            f.write(f"응답 형식: {log_entry['response_format']}\n")
+            f.write(f"프롬프트 길이: {log_entry['prompt_length']} 문자\n")
+            f.write(f"건강검진 데이터: {log_entry['health_data_count']}건\n")
+            f.write(f"처방전 데이터: {log_entry['prescription_data_count']}건\n")
+            f.write(f"\n[프롬프트 내용]\n{'-'*40}\n")
+            f.write(f"{prompt}\n")
+            f.write(f"{'-'*40}\n")
+            
+            if log_entry["health_data_summary"]:
+                f.write(f"\n[건강검진 데이터 요약]\n")
+                for summary in log_entry["health_data_summary"]:
+                    f.write(f"  {summary['index']+1}. 날짜: {summary['date']}, 검사항목: {summary['inspections_count']}개\n")
+            
+            if log_entry["prescription_data_summary"]:
+                f.write(f"\n[처방전 데이터 요약]\n")
+                for summary in log_entry["prescription_data_summary"]:
+                    f.write(f"  {summary['index']+1}. 날짜: {summary['date']}, 병원: {summary['hospital']}, 약물: {summary['medications_count']}개\n")
+            
+            f.write(f"\n{'='*80}\n\n")
+        
+        logger.info(f"📝 [프롬프트 로그] 저장 완료: {log_file}")
+        
+    except Exception as e:
+        logger.error(f"❌ [프롬프트 로그] 저장 실패: {str(e)}")
+
 class HealthDataItem(BaseModel):
     name: str
     value: str
@@ -251,6 +323,198 @@ def create_drug_interaction_prompt(prescription_data: List[PrescriptionData]) ->
     
     return prompt
 
+def create_unified_analysis_prompt(health_data: List[HealthDataItem], prescription_data: List[PrescriptionData], analysis_level: int = 3) -> str:
+    """회원 등급별 통합 분석 프롬프트 생성
+    
+    Args:
+        health_data: 건강검진 데이터
+        prescription_data: 처방전 데이터  
+        analysis_level: 분석 레벨 (1=기본, 2=기본+약물, 3=풀분석)
+    """
+    
+    # 건강검진 데이터 포맷팅
+    health_summary = ""
+    if health_data:
+        for i, item in enumerate(health_data[:4], 1):  # 최대 4건
+            health_summary += f"\n{i}. 검진일: {getattr(item, 'date', 'N/A')}\n"
+            
+            # 계측검사
+            if hasattr(item, 'inspections') and item.inspections:
+                for inspection in item.inspections:
+                    # 직접 items가 있는 경우
+                    if hasattr(inspection, 'items') and inspection.items:
+                        health_summary += f"   - {getattr(inspection, 'name', '계측검사')}:\n"
+                        for test_item in inspection.items:  # 모든 항목 포함
+                            name = getattr(test_item, 'name', 'N/A')
+                            value = getattr(test_item, 'value', 'N/A')
+                            unit = getattr(test_item, 'unit', '')
+                            # 중요 지표는 반드시 포함
+                            if any(keyword in name.lower() for keyword in ['혈당', '혈압', 'bmi', '체질량', '허리', '콜레스테롤']):
+                                health_summary += f"     * 🔴 {name}: {value} {unit} (중요지표)\n"
+                            else:
+                                health_summary += f"     * {name}: {value} {unit}\n"
+                    # illnesses 안에 items가 있는 경우 (기존 구조)
+                    elif hasattr(inspection, 'illnesses') and inspection.illnesses:
+                        for illness in inspection.illnesses:
+                            if hasattr(illness, 'items') and illness.items:
+                                health_summary += "   - 계측검사:\n"
+                                for test_item in illness.items:  # 모든 항목 포함
+                                    name = getattr(test_item, 'name', 'N/A')
+                                    value = getattr(test_item, 'value', 'N/A')
+                                    unit = getattr(test_item, 'unit', '')
+                                    # 중요 지표는 반드시 포함
+                                    if any(keyword in name.lower() for keyword in ['혈당', '혈압', 'bmi', '체질량', '허리', '콜레스테롤']):
+                                        health_summary += f"     * 🔴 {name}: {value} {unit} (중요지표)\n"
+                                    else:
+                                        health_summary += f"     * {name}: {value} {unit}\n"
+    
+    # 처방전 데이터 포맷팅
+    prescription_summary = ""
+    if prescription_data:
+        for i, prescription in enumerate(prescription_data[:10], 1):  # 최대 10건
+            date = getattr(prescription, 'date', 'N/A')
+            hospital = getattr(prescription, 'hospital', 'N/A')
+            prescription_summary += f"\n{i}. 처방일: {date}\n   병원: {hospital}\n"
+            
+            if hasattr(prescription, 'medications') and prescription.medications:
+                prescription_summary += "   약물:\n"
+                for med in prescription.medications[:5]:  # 약물 최대 5개
+                    med_name = getattr(med, 'name', 'N/A')
+                    prescription_summary += f"   - {med_name}\n"
+    
+    # 기존 프롬프트 구조를 정확히 복사해서 통합
+    prompt = f"""당신은 전문 의료 데이터 분석가입니다. 제공된 건강검진 데이터와 처방전 데이터를 종합적으로 분석하여 다음 JSON 형식으로 정확히 응답해주세요:
+
+{{
+  "summary": "## 🎯 종합 건강 상태 분석\\n\\n**전반적 건강 상태**: [A+/A/B+/B/C+/C/D 등급으로 평가]\\n\\n### 📊 주요 지표 분석\\n[각 건강 지표별 상세 분석]\\n\\n### 💊 복용 약물 분석\\n[처방 약물 분석 및 패턴]\\n\\n### ⚠️ 주의사항\\n[주의해야 할 건강 상태나 위험 요소]\\n\\n### 📈 개선 권장사항\\n[구체적인 개선 방안]","""
+
+    # 레벨 2 이상: 약물 상호작용 분석 추가 (기존 구조 정확히 매칭)
+    if analysis_level >= 2:
+        prompt += """
+  "drug_interactions": [
+    {
+      "drug_name": "약물명",
+      "interaction_type": "avoid|caution|monitor",
+      "description": "상호작용 설명",
+      "foods": ["주의해야 할 음식들"],
+      "supplements": ["주의해야 할 건강기능식품들"]
+    }
+  ],"""
+
+    # 레벨 3: 영양 권장사항 추가 (기존 구조 정확히 매칭)
+    if analysis_level >= 3:
+        prompt += """
+  "nutrition_recommendations": [
+    {
+      "type": "avoid|recommend",
+      "category": "food|supplement", 
+      "items": ["구체적인 음식/건기식 목록"],
+      "reason": "권장/금지 이유"
+    }
+  ],"""
+
+    prompt += f"""
+  "structured_summary": {{
+    "overallGrade": "좋아|평범|걱정",
+    "gradeEvidence": {{
+      "koreanStandard": "한국인 기준 정상 범위 설명",
+      "reasoning": "이 등급으로 판단한 구체적 근거",
+      "dataPoints": ["실제 검진 수치와 날짜 기반 근거"]
+    }},
+    "analysisDate": "분석 수행 날짜",
+    "dataRange": "분석 대상 데이터 기간",
+    "keyFindings": [
+      {{
+        "category": "체중 관리|심혈관 건강|혈당 관리|콜레스테롤|간 기능|신장 기능",
+        "status": "좋음|보통|걱정",
+        "title": "발견사항 제목",
+        "description": "상세 설명",
+        "dataEvidence": {{
+          "checkupDate": "검진 날짜",
+          "actualValues": "실제 측정 수치",
+          "koreanNorm": "한국인 정상 범위",
+          "academicSource": "학술 근거"
+        }},
+        "trendAnalysis": {{
+          "BMI": "BMI 수치 변화와 개선/악화 추세, 동기부여 메시지 포함",
+          "허리둘레": "허리둘레 변화 추세 분석",
+          "혈압": "혈압 추이에 대한 상세 분석",
+          "혈당": "혈당 추이에 대한 상세 분석",
+          "콜레스테롤": "콜레스테롤 추이에 대한 상세 분석"
+        }},
+        "chartExplanation": "이 그래프가 보여주는 데이터의 의미와 추세 설명"
+      }}
+    ],
+    "riskFactors": [
+      {{
+        "factor": "위험 요소명",
+        "level": "낮음|보통|높음",
+        "description": "위험 요소에 대한 설명",
+        "evidence": "한국인 기준 학술 근거"
+      }}
+    ],
+    "recommendations": ["구체적인 권장사항들"]
+  }}
+}}
+
+**분석 지침:**
+1. **등급 기준**: 좋아(정상범위), 평범(경계선), 걱정(위험범위)으로 구분
+2. **균형 잡힌 발견사항**: 좋은 점과 걱정되는 점을 모두 포함하여 최소 2-3개 제시
+3. **한국인 기준**: 대한의학회, 질병관리청 기준 정상 범위 적용
+   - 공복혈당: 정상 70-99mg/dL, 당뇨전단계 100-125mg/dL, 당뇨 ≥126mg/dL
+   - BMI: 정상 18.5-22.9, 과체중 23-24.9, 비만 ≥25
+   - 혈압: 정상 <120/80, 고혈압전단계 120-139/80-89, 고혈압 ≥140/90
+4. **데이터 기반**: 실제 검진 날짜, 수치를 명시하여 구체적 근거 제시
+5. **동기부여**: 개선 추세 시 긍정적 메시지, 악화 시에도 희망적 톤 유지
+6. **학술 근거**: 각 판단에 대한 의학적 근거와 출처 명시
+7. **위험 요소 통합**: 중복되는 위험 요소는 하나로 통합하여 제시
+8. **추세 분석**: 수치 변화의 의미와 향후 전망을 포함
+9. **처방약 고려**: 현재 복용 중인 약물을 고려한 격려 메시지 포함
+10. **필수 분석 항목**: 혈당, 혈압, 체중 관련 지표는 반드시 분석 포함
+11. JSON 형식을 정확히 준수
+
+**건강검진 데이터:**
+{health_summary}
+
+**처방전 데이터:**
+{prescription_summary}"""
+
+    return prompt
+
+def create_trend_analysis_prompt(metric_name: str, chart_data: List[dict], latest_value: float) -> str:
+    """특정 지표의 추이 분석을 위한 GPT 프롬프트 생성"""
+    
+    # 차트 데이터를 텍스트로 변환
+    trend_data = ""
+    if chart_data:
+        trend_data = "\n".join([f"- {data.get('date', 'N/A')}년: {data.get('value', 'N/A')}" for data in chart_data])
+    
+    prompt = f"""
+당신은 전문 의료 데이터 분석가입니다. 다음 건강 지표의 추이를 분석해주세요.
+
+**분석 대상 지표**: {metric_name}
+**최신 수치**: {latest_value}
+
+**연도별 추이 데이터**:
+{trend_data if trend_data else "데이터 없음"}
+
+다음 형식으로 분석해주세요:
+
+1. **추이 패턴**: 전반적인 변화 양상 (증가/감소/안정/변동)
+2. **주요 변화점**: 특별히 주목할 만한 변화가 있었던 시점
+3. **현재 상태 평가**: 최신 수치에 대한 의학적 평가
+4. **판단 근거**: 어떤 기준값이나 정상범위를 기준으로 판단했는지 명시
+5. **향후 관찰 포인트**: 지속적으로 모니터링해야 할 사항
+
+**응답 조건**:
+- 의학적으로 정확하고 이해하기 쉽게 설명
+- 구체적인 수치와 근거 제시
+- 3-4문장으로 간결하게 작성
+- 전문용어 사용 시 쉬운 설명 병기
+"""
+    
+    return prompt
+
 def create_nutrition_prompt(health_data: List[HealthCheckup], prescription_data: List[PrescriptionData]) -> str:
     """영양 권장사항을 위한 프롬프트 생성"""
     
@@ -294,10 +558,13 @@ def create_nutrition_prompt(health_data: List[HealthCheckup], prescription_data:
     
     return prompt
 
-async def call_gpt_api(prompt: str, response_format: str = "text", health_data: List[HealthCheckup] = None, prescription_data: List[PrescriptionData] = None) -> str:
+async def call_gpt_api(prompt: str, response_format: str = "text", health_data: List[Any] = None, prescription_data: List[Any] = None) -> str:
     """GPT API 호출"""
     try:
         logger.info(f"🤖 [GPT API] 호출 시작 - 모델: gpt-4, 프롬프트 길이: {len(prompt)}")
+        
+        # 프롬프트 로그 파일에 저장
+        save_prompt_log(prompt, health_data, prescription_data, response_format)
         
         # OpenAI API 키 확인
         api_key = settings.openai_api_key
@@ -333,7 +600,7 @@ async def call_gpt_api(prompt: str, response_format: str = "text", health_data: 
         logger.info("🔄 [GPT API] 에러 시 목 데이터로 폴백")
         return get_mock_analysis_response(health_data, prescription_data)
 
-def get_mock_analysis_response(health_data: List[HealthCheckup] = None, prescription_data: List[PrescriptionData] = None) -> str:
+def get_mock_analysis_response(health_data: List[Any] = None, prescription_data: List[Any] = None) -> str:
     """실제 데이터 기반 분석 응답 생성"""
     
     # 기본값 설정
@@ -827,79 +1094,369 @@ def get_finding_title(insight: HealthInsight) -> str:
     else:
         return f"{insight.category} 위험"
 
+def generate_improvement_recommendations(health_data: List[HealthCheckup], prescription_data: List[PrescriptionData], health_insights: List[HealthInsight]) -> List[dict]:
+    """개선 권장사항 생성 (GPT 호출 없이 백엔드 로직)"""
+    recommendations = []
+    
+    if not health_data:
+        return []
+    
+    latest_health = health_data[0]
+    
+    # 건강검진 데이터에서 값 추출 함수
+    def get_health_value_rec(checkup: HealthCheckup, item_name: str) -> Optional[str]:
+        for inspection in checkup.inspections:
+            for item in inspection.items:
+                if item_name.lower() in item.name.lower():
+                    return item.value
+        return None
+    
+    # BMI 개선 권장사항
+    bmi_value_str = get_health_value_rec(latest_health, 'BMI')
+    if bmi_value_str:
+        bmi_value = safe_float(bmi_value_str)
+        if bmi_value >= 25:
+            recommendations.append({
+                "category": "체중 관리",
+                "icon": "⚖️",
+                "priority": "high",
+                "title": "체중 감량 목표 설정",
+                "description": f"현재 BMI {bmi_value:.1f}에서 정상 범위로 개선이 필요합니다",
+                "currentState": {
+                    "label": "현재 BMI",
+                    "value": f"{bmi_value:.1f} kg/m²"
+                },
+                "targetState": {
+                    "label": "목표 BMI", 
+                    "value": "23.0 kg/m² 이하"
+                },
+                "evidence": {
+                    "title": "근거",
+                    "description": "BMI 25 이상은 과체중으로 분류되며, 당뇨병, 고혈압, 심혈관 질환 위험을 증가시킵니다",
+                    "source": "대한비만학회 가이드라인"
+                },
+                "actionPlan": {
+                    "title": "실행 계획",
+                    "steps": [
+                        "주 3-4회, 30분 이상 유산소 운동",
+                        "일일 칼로리 섭취량 500kcal 감소",
+                        "식사 일지 작성 및 관리",
+                        "월 1회 체중 및 체성분 측정"
+                    ]
+                },
+                "expectedOutcome": {
+                    "title": "예상 효과",
+                    "description": "3-6개월 내 BMI 2-3 포인트 감소, 심혈관 위험도 20% 감소"
+                }
+            })
+        elif bmi_value >= 23:
+            recommendations.append({
+                "category": "체중 관리",
+                "icon": "⚖️", 
+                "priority": "medium",
+                "title": "체중 유지 및 관리",
+                "description": f"현재 BMI {bmi_value:.1f}로 정상 상한선에 근접, 유지 관리가 필요합니다",
+                "currentState": {
+                    "label": "현재 BMI",
+                    "value": f"{bmi_value:.1f} kg/m²"
+                },
+                "targetState": {
+                    "label": "목표 BMI",
+                    "value": "22.0 kg/m² 이하"
+                },
+                "evidence": {
+                    "title": "근거",
+                    "description": "BMI 23-25는 과체중 전 단계로, 예방적 관리가 중요합니다",
+                    "source": "아시아-태평양 비만 기준"
+                },
+                "actionPlan": {
+                    "title": "실행 계획",
+                    "steps": [
+                        "주 2-3회 규칙적인 운동",
+                        "균형 잡힌 식단 유지",
+                        "간식 및 야식 제한",
+                        "정기적인 체중 모니터링"
+                    ]
+                },
+                "expectedOutcome": {
+                    "title": "예상 효과",
+                    "description": "현재 체중 유지 및 추가 증가 방지"
+                }
+            })
+    
+    # 혈압 개선 권장사항
+    bp_high_str = get_health_value_rec(latest_health, '수축기혈압')
+    bp_low_str = get_health_value_rec(latest_health, '이완기혈압')
+    
+    if bp_high_str:
+        bp_high = safe_int(bp_high_str)
+        bp_low = safe_int(bp_low_str) if bp_low_str else 0
+        
+        if bp_high >= 140 or bp_low >= 90:
+            recommendations.append({
+                "category": "혈압 관리",
+                "icon": "🫀",
+                "priority": "high",
+                "title": "고혈압 관리 및 개선",
+                "description": f"현재 혈압 {bp_high}/{bp_low}mmHg로 고혈압 범위입니다",
+                "currentState": {
+                    "label": "현재 혈압",
+                    "value": f"{bp_high}/{bp_low} mmHg"
+                },
+                "targetState": {
+                    "label": "목표 혈압",
+                    "value": "120/80 mmHg 이하"
+                },
+                "evidence": {
+                    "title": "근거",
+                    "description": "고혈압은 심근경색, 뇌졸중 위험을 2-3배 증가시킵니다",
+                    "source": "대한고혈압학회 진료지침"
+                },
+                "actionPlan": {
+                    "title": "실행 계획",
+                    "steps": [
+                        "나트륨 섭취량 하루 2g 이하로 제한",
+                        "주 5회 이상 30분 유산소 운동",
+                        "금연 및 금주",
+                        "스트레스 관리 및 충분한 수면"
+                    ]
+                },
+                "expectedOutcome": {
+                    "title": "예상 효과",
+                    "description": "3개월 내 수축기혈압 10-15mmHg 감소 가능"
+                }
+            })
+        elif bp_high >= 120 or bp_low >= 80:
+            recommendations.append({
+                "category": "혈압 관리",
+                "icon": "🫀",
+                "priority": "medium", 
+                "title": "혈압 상승 예방",
+                "description": f"현재 혈압 {bp_high}/{bp_low}mmHg로 정상 상한선에 근접합니다",
+                "currentState": {
+                    "label": "현재 혈압",
+                    "value": f"{bp_high}/{bp_low} mmHg"
+                },
+                "targetState": {
+                    "label": "목표 혈압",
+                    "value": "115/75 mmHg 이하"
+                },
+                "evidence": {
+                    "title": "근거",
+                    "description": "정상 고치 혈압은 향후 고혈압 발생 위험이 높습니다",
+                    "source": "미국심장학회 가이드라인"
+                },
+                "actionPlan": {
+                    "title": "실행 계획",
+                    "steps": [
+                        "저염식 식단 실천",
+                        "규칙적인 운동 습관 형성",
+                        "체중 관리",
+                        "정기적인 혈압 측정"
+                    ]
+                },
+                "expectedOutcome": {
+                    "title": "예상 효과",
+                    "description": "고혈압 진행 예방 및 심혈관 건강 유지"
+                }
+            })
+    
+    # 혈당 개선 권장사항
+    glucose_str = get_health_value_rec(latest_health, '공복혈당')
+    if glucose_str:
+        glucose = safe_int(glucose_str)
+        if glucose >= 126:
+            recommendations.append({
+                "category": "혈당 관리",
+                "icon": "🩸",
+                "priority": "high",
+                "title": "당뇨병 관리",
+                "description": f"현재 공복혈당 {glucose}mg/dL로 당뇨병 범위입니다",
+                "currentState": {
+                    "label": "현재 공복혈당",
+                    "value": f"{glucose} mg/dL"
+                },
+                "targetState": {
+                    "label": "목표 공복혈당",
+                    "value": "100 mg/dL 이하"
+                },
+                "evidence": {
+                    "title": "근거",
+                    "description": "당뇨병은 합병증 발생 위험이 높아 적극적인 관리가 필요합니다",
+                    "source": "대한당뇨병학회 진료지침"
+                },
+                "actionPlan": {
+                    "title": "실행 계획",
+                    "steps": [
+                        "탄수화물 섭취량 조절",
+                        "식후 혈당 관리를 위한 운동",
+                        "정기적인 혈당 측정",
+                        "전문의 상담 및 약물 치료"
+                    ]
+                },
+                "expectedOutcome": {
+                    "title": "예상 효과",
+                    "description": "혈당 조절 및 당뇨 합병증 예방"
+                }
+            })
+        elif glucose >= 100:
+            recommendations.append({
+                "category": "혈당 관리",
+                "icon": "🩸",
+                "priority": "medium",
+                "title": "당뇨병 전 단계 관리",
+                "description": f"현재 공복혈당 {glucose}mg/dL로 당뇨병 전 단계입니다",
+                "currentState": {
+                    "label": "현재 공복혈당",
+                    "value": f"{glucose} mg/dL"
+                },
+                "targetState": {
+                    "label": "목표 공복혈당",
+                    "value": "90 mg/dL 이하"
+                },
+                "evidence": {
+                    "title": "근거",
+                    "description": "당뇨병 전 단계에서 생활습관 개선으로 당뇨병 발생을 58% 예방할 수 있습니다",
+                    "source": "당뇨병 예방 프로그램 연구"
+                },
+                "actionPlan": {
+                    "title": "실행 계획",
+                    "steps": [
+                        "체중 5-10% 감량",
+                        "주 150분 이상 중등도 운동",
+                        "정제당 및 단순당 섭취 제한",
+                        "3-6개월마다 혈당 검사"
+                    ]
+                },
+                "expectedOutcome": {
+                    "title": "예상 효과",
+                    "description": "당뇨병 발생 위험 50% 이상 감소"
+                }
+            })
+    
+    # 기본 권장사항 (인사이트 기반)
+    if not recommendations:
+        recommendations.append({
+            "category": "전반적 건강",
+            "icon": "🌟",
+            "priority": "low",
+            "title": "건강한 생활습관 유지",
+            "description": "현재 건강 상태를 유지하며 예방적 관리를 실천하세요",
+            "currentState": {
+                "label": "현재 상태",
+                "value": "양호"
+            },
+            "targetState": {
+                "label": "목표",
+                "value": "지속적 건강 유지"
+            },
+            "evidence": {
+                "title": "근거",
+                "description": "규칙적인 건강검진과 생활습관 관리가 질병 예방에 효과적입니다",
+                "source": "국민건강보험공단 건강검진 가이드"
+            },
+            "actionPlan": {
+                "title": "실행 계획",
+                "steps": [
+                    "균형 잡힌 식단 유지",
+                    "규칙적인 운동 습관",
+                    "충분한 수면과 휴식",
+                    "정기적인 건강검진"
+                ]
+            },
+            "expectedOutcome": {
+                "title": "예상 효과",
+                "description": "건강한 노화 및 만성질환 예방"
+            }
+        })
+    
+    return recommendations[:5]  # 최대 5개까지
+
 @router.post("/analyze")
-async def analyze_health_data(request: AnalysisRequest, background_tasks: BackgroundTasks):
-    """종합 건강 데이터 분석"""
+async def analyze_health_data(request: AnalysisRequest, background_tasks: BackgroundTasks, analysis_level: int = 3):
+    """통합 건강 데이터 분석 (단일 GPT 호출)"""
     try:
         # 처방전 데이터가 너무 많으면 최근 20건으로 제한 (토큰 길이 초과 방지)
         limited_prescription_data = request.prescription_data[:20] if len(request.prescription_data) > 20 else request.prescription_data
         
-        logger.info(f"건강 분석 요청 - 건강검진: {len(request.health_data)}건, 처방전: {len(request.prescription_data)}건 (제한: {len(limited_prescription_data)}건)")
+        logger.info(f"통합 건강 분석 요청 - 레벨: {analysis_level}, 건강검진: {len(request.health_data)}건, 처방전: {len(request.prescription_data)}건 (제한: {len(limited_prescription_data)}건)")
         
-        # 1. 종합 건강 분석
-        health_prompt = create_health_analysis_prompt(request.health_data, limited_prescription_data)
-        gpt_analysis = await call_gpt_api(health_prompt, "text", request.health_data, limited_prescription_data)
+        # 통합 프롬프트로 단일 GPT 호출
+        unified_prompt = create_unified_analysis_prompt(request.health_data, limited_prescription_data, analysis_level)
+        gpt_response = await call_gpt_api(unified_prompt, "json", request.health_data, limited_prescription_data)
         
-        # 2. 약물 상호작용 분석
+        # 기본값 초기화
+        gpt_analysis = "분석 결과를 불러올 수 없습니다."
         drug_interactions = []
-        if limited_prescription_data:
-            drug_prompt = create_drug_interaction_prompt(limited_prescription_data)
-            drug_response = await call_gpt_api(drug_prompt, "json", request.health_data, limited_prescription_data)
-            
-            try:
-                drug_data = json.loads(drug_response)
-                drug_interactions = [
-                    DrugInteraction(**interaction) 
-                    for interaction in drug_data.get("drug_interactions", [])
-                ]
-            except json.JSONDecodeError:
-                logger.warning("약물 상호작용 JSON 파싱 실패, 기본값 사용")
-                drug_interactions = [
-                    DrugInteraction(
-                        drug_name="처방 약물",
-                        interaction_type="caution",
-                        description="복용 중인 약물과 상호작용할 수 있습니다",
-                        foods=["자몽", "녹차", "유제품"],
-                        supplements=["칼슘", "철분", "비타민K"]
-                    )
-                ]
-        
-        # 3. 영양 권장사항 분석
         nutrition_recommendations = []
-        if request.health_data or limited_prescription_data:
-            nutrition_prompt = create_nutrition_prompt(request.health_data, limited_prescription_data)
-            nutrition_response = await call_gpt_api(nutrition_prompt, "json", request.health_data, limited_prescription_data)
-            
-            try:
-                nutrition_data = json.loads(nutrition_response)
-                nutrition_recommendations = [
-                    NutritionRecommendation(**rec)
-                    for rec in nutrition_data.get("nutrition_recommendations", [])
-                ]
-            except json.JSONDecodeError:
-                logger.warning("영양 권장사항 JSON 파싱 실패, 기본값 사용")
-                nutrition_recommendations = [
-                    NutritionRecommendation(
-                        type="recommend",
-                        category="food",
-                        items=["연어", "견과류", "올리브오일", "브로콜리"],
-                        reason="심혈관 건강 개선을 위한 오메가-3와 항산화 성분 공급"
-                    ),
-                    NutritionRecommendation(
-                        type="avoid",
-                        category="food", 
-                        items=["트랜스지방", "과도한 나트륨", "정제당"],
-                        reason="만성질환 위험 증가 방지"
-                    )
-                ]
+        gpt_data = {}
         
-        # 4. 건강 인사이트 생성
+        try:
+            # GPT 응답 파싱 시도
+            gpt_data = json.loads(gpt_response)
+            logger.info("✅ GPT JSON 응답 파싱 성공")
+            
+            # 1. 기본 분석 데이터 추출
+            gpt_analysis = gpt_data.get("summary", "분석 결과를 불러올 수 없습니다.")
+            
+            # 2. 약물 상호작용 데이터 처리 (기존 방식 그대로)
+            if analysis_level >= 2 and "drug_interactions" in gpt_data:
+                try:
+                    drug_interactions = [
+                        DrugInteraction(**interaction) 
+                        for interaction in gpt_data["drug_interactions"]
+                    ]
+                    logger.info(f"✅ 약물 상호작용 데이터 파싱 성공: {len(drug_interactions)}건")
+                except Exception as e:
+                    logger.warning(f"약물 상호작용 파싱 실패: {str(e)}, 기본값 사용")
+                    drug_interactions = [
+                        DrugInteraction(
+                            drug_name="처방 약물",
+                            interaction_type="caution",
+                            description="복용 중인 약물과 상호작용할 수 있습니다",
+                            foods=["자몽", "녹차", "유제품"],
+                            supplements=["칼슘", "철분", "비타민K"]
+                        )
+                    ]
+            
+            # 3. 영양 권장사항 데이터 처리 (기존 방식 그대로)
+            if analysis_level >= 3 and "nutrition_recommendations" in gpt_data:
+                try:
+                    nutrition_recommendations = [
+                        NutritionRecommendation(**rec)
+                        for rec in gpt_data["nutrition_recommendations"]
+                    ]
+                    logger.info(f"✅ 영양 권장사항 데이터 파싱 성공: {len(nutrition_recommendations)}건")
+                except Exception as e:
+                    logger.warning(f"영양 권장사항 파싱 실패: {str(e)}, 기본값 사용")
+                    nutrition_recommendations = [
+                        NutritionRecommendation(
+                            type="recommend",
+                            category="food",
+                            items=["연어", "견과류", "올리브오일", "브로콜리"],
+                            reason="심혈관 건강 개선을 위한 오메가-3와 항산화 성분 공급"
+                        ),
+                        NutritionRecommendation(
+                            type="avoid",
+                            category="food", 
+                            items=["트랜스지방", "과도한 나트륨", "정제당"],
+                            reason="만성질환 위험 증가 방지"
+                        )
+                    ]
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ GPT 응답 JSON 파싱 실패: {str(e)}")
+            logger.error(f"GPT 원본 응답 (처음 200자): {gpt_response[:200]}...")
+            # 파싱 실패 시 텍스트 응답을 그대로 사용
+            gpt_analysis = gpt_response if gpt_response else "건강 분석 결과를 처리하는 중 오류가 발생했습니다."
+        
+        # 4. 건강 인사이트 생성 (기존 방식 그대로)
         health_insights = parse_health_insights(gpt_analysis, request.health_data)
         
-        # 프론트엔드 형식에 맞춘 응답 구조
+        # 프론트엔드 형식에 맞춘 응답 구조 (기존 방식 100% 유지)
         analysis_result = {
             "summary": gpt_analysis,
-            "structuredSummary": generate_structured_summary(request.health_data, limited_prescription_data, health_insights),
+            "structuredSummary": gpt_data.get("structured_summary", generate_structured_summary(request.health_data, limited_prescription_data, health_insights)),
             "insights": [
                 {
                     "category": insight.category,
@@ -916,20 +1473,16 @@ async def analyze_health_data(request: AnalysisRequest, background_tasks: Backgr
                     "recommendation": f"주의사항: {', '.join(interaction.foods + interaction.supplements)}"
                 } for interaction in drug_interactions
             ],
-            "nutritionRecommendations": {
-                "avoid": [
-                    {
-                        "name": item,
-                        "reason": rec.reason
-                    } for rec in nutrition_recommendations if rec.type == "avoid" for item in rec.items
-                ],
-                "recommend": [
-                    {
-                        "name": item,
-                        "benefit": rec.reason
-                    } for rec in nutrition_recommendations if rec.type == "recommend" for item in rec.items
-                ]
-            },
+            "nutritionRecommendations": [
+                {
+                    "category": "추천 식품",
+                    "foods": [item for rec in nutrition_recommendations if rec.type == "recommend" for item in rec.items]
+                },
+                {
+                    "category": "피해야 할 식품", 
+                    "foods": [item for rec in nutrition_recommendations if rec.type == "avoid" for item in rec.items]
+                }
+            ] if nutrition_recommendations else [],
             # 건강 여정 데이터 - 실제 데이터 기반 생성
             "healthJourney": generate_health_journey(request.health_data, limited_prescription_data),
             
@@ -954,7 +1507,13 @@ async def analyze_health_data(request: AnalysisRequest, background_tasks: Backgr
                         "다른 약물과의 상호작용 주의"
                     ]
                 } for idx, prescription in enumerate(limited_prescription_data[:3])  # 최근 3년치
-            ]
+            ],
+            
+            # 개선 권장사항 추가 (백엔드 로직)
+            "improvementRecommendations": generate_improvement_recommendations(request.health_data, limited_prescription_data, health_insights),
+            
+            # 재검 일정 (선언만 - 빈 배열)
+            "recheckSchedule": []
         }
         
         return {
@@ -994,6 +1553,34 @@ async def analyze_drug_interactions(prescription_data: List[PrescriptionData]):
             
     except Exception as e:
         logger.error(f"약물 상호작용 분석 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"분석 실패: {str(e)}")
+
+@router.post("/trend-analysis")
+async def analyze_trend(request: dict):
+    """특정 지표의 추이 분석"""
+    try:
+        metric_name = request.get("metric_name", "")
+        chart_data = request.get("chart_data", [])
+        latest_value = request.get("latest_value", 0)
+        
+        if not metric_name or not chart_data:
+            raise HTTPException(status_code=400, detail="지표명과 차트 데이터가 필요합니다")
+        
+        # 추이 분석 프롬프트 생성
+        prompt = create_trend_analysis_prompt(metric_name, chart_data, latest_value)
+        
+        # GPT API 호출
+        analysis_result = await call_gpt_api(prompt, "text")
+        
+        return {
+            "metric_name": metric_name,
+            "analysis": analysis_result,
+            "latest_value": latest_value,
+            "data_points": len(chart_data)
+        }
+        
+    except Exception as e:
+        logger.error(f"추이 분석 실패: {str(e)}")
         raise HTTPException(status_code=500, detail=f"분석 실패: {str(e)}")
 
 @router.get("/health")

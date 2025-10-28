@@ -1092,6 +1092,14 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
     border-color: $brand-brown;
   }
   
+  // 하이라이트 효과 (주요 발견사항에서 차트 링크 클릭 시)
+  &.highlight {
+    border: 2px solid #3b82f6 !important;
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3) !important;
+    transform: scale(1.02) !important;
+    background: rgba(59, 130, 246, 0.05) !important;
+  }
+  
   .metric-header {
     display: flex;
     flex-direction: column;

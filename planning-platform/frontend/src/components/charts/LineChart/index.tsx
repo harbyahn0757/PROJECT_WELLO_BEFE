@@ -592,7 +592,7 @@ const LineChart: React.FC<LineChartProps> = ({
                 const { x, y } = getCoordinates(point, dimensions);
                 return (
                   <circle
-                    key={`${seriesData.id}-point-${pointIndex}`}
+                    key={`${seriesData.id}-point-${point.date}-${pointIndex}`}
                     cx={x}
                     cy={y}
                     r={6} // 🔧 반지름을 늘려서 클릭 영역 확대

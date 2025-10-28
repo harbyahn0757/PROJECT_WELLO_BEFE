@@ -179,6 +179,9 @@ const HealthJourneyChartSlider: React.FC<HealthJourneyChartSliderProps> = ({
 }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [currentX, setCurrentX] = useState(0);
   const sliderRef = useRef<HTMLDivElement>(null);
 
   // 실제 데이터가 있는 지표만 필터링
@@ -215,7 +218,7 @@ const HealthJourneyChartSlider: React.FC<HealthJourneyChartSliderProps> = ({
     if (keyChange) {
       switch (keyChange.changeType) {
         case 'improved':
-          return `${keyChange.significance} 개선되었습니다! 계속 노력해보세요! 💪`;
+          return `${keyChange.significance} 개선되었습니다! 계속 노력해보세요!`;
         case 'worsened':
           return `${keyChange.significance} 주의가 필요합니다. 생활습관 개선을 권장합니다.`;
         case 'stable':
@@ -261,6 +264,66 @@ const HealthJourneyChartSlider: React.FC<HealthJourneyChartSliderProps> = ({
     goToSlide(newIndex);
   };
 
+  // 드래그 이벤트 핸들러
+  const handleDragStart = (clientX: number) => {
+    setIsDragging(true);
+    setStartX(clientX);
+    setCurrentX(clientX);
+  };
+
+  const handleDragMove = (clientX: number) => {
+    if (!isDragging) return;
+    setCurrentX(clientX);
+  };
+
+  const handleDragEnd = () => {
+    if (!isDragging) return;
+    
+    const diff = startX - currentX;
+    const threshold = 50; // 최소 드래그 거리
+    
+    if (Math.abs(diff) > threshold) {
+      if (diff > 0) {
+        // 왼쪽으로 드래그 -> 다음 슬라이드
+        goToNext();
+      } else {
+        // 오른쪽으로 드래그 -> 이전 슬라이드
+        goToPrevious();
+      }
+    }
+    
+    setIsDragging(false);
+    setStartX(0);
+    setCurrentX(0);
+  };
+
+  // 마우스 이벤트
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    handleDragStart(e.clientX);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    handleDragMove(e.clientX);
+  };
+
+  const handleMouseUp = () => {
+    handleDragEnd();
+  };
+
+  // 터치 이벤트
+  const handleTouchStart = (e: React.TouchEvent) => {
+    handleDragStart(e.touches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    handleDragMove(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    handleDragEnd();
+  };
+
   // 키보드 네비게이션
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -273,7 +336,7 @@ const HealthJourneyChartSlider: React.FC<HealthJourneyChartSliderProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentIndex, availableMetrics.length]);
+  }, [goToPrevious, goToNext]);
 
   if (availableMetrics.length === 0) {
     return (
@@ -287,7 +350,18 @@ const HealthJourneyChartSlider: React.FC<HealthJourneyChartSliderProps> = ({
 
   return (
     <div className="health-journey-chart-slider">
-      <div className="slider-container" ref={sliderRef}>
+      <div 
+        className="slider-container" 
+        ref={sliderRef}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
+      >
         <div 
           className="slider-track"
           style={{

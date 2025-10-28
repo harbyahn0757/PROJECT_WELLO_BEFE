@@ -28,7 +28,7 @@ const getFieldNameForMetric = (metric: string): string[] => {
     '중성지방': ['중성지방', 'TG', 'Triglyceride'],
     '헤모글로빈': ['헤모글로빈', 'Hemoglobin', 'Hb'],
     '체중': ['체중', 'Weight'],
-    'blood_pressure_high': ['수축기혈압', '수축기', 'SBP'],
+    'blood_pressure_high': ['수축기혈압', '수축기', 'SBP', '혈압'],
     'blood_sugar': ['공복혈당', '혈당', '글루코스', 'Glucose']
   };
   return fieldMap[metric] || [metric];
@@ -48,18 +48,29 @@ const getValueFromHealthData = (healthDataItem: any, metric: string): number => 
           for (const illness of inspection.Illnesses) {
             if (illness.Items && Array.isArray(illness.Items)) {
               for (const item of illness.Items) {
-                // 여러 필드명 중 하나라도 매치되면 값 반환
-                for (const fieldName of possibleFieldNames) {
-                  if (item.Name === fieldName && item.Value) {
-                    const value = parseFloat(item.Value);
-                    if (!isNaN(value) && isFinite(value)) {
-                      console.log(`✅ [HealthJourneyMiniChart] ${metric} 값 발견:`, {
-                        fieldName,
-                        value,
-                        itemName: item.Name
-                      });
-                      return value;
-                    }
+                if (!item.Name || !item.Value || item.Value.trim() === "") continue;
+                
+                const itemName = item.Name.toLowerCase();
+                const metricName = metric.toLowerCase();
+                
+                // TrendsSection과 동일한 매칭 로직 적용
+                const isMatch = possibleFieldNames.some(fieldName => itemName.includes(fieldName.toLowerCase())) ||
+                               (metric.includes('혈압') && itemName.includes('혈압')) ||
+                               (metric.includes('blood_pressure') && itemName.includes('혈압')) ||
+                               (metric.includes('콜레스테롤') && itemName.includes('콜레스테롤')) ||
+                               (metric === '중성지방' && itemName.includes('중성지방')) ||
+                               (metric === '헤모글로빈' && (itemName.includes('혈색소') || itemName.includes('헤모글로빈')));
+                
+                if (isMatch) {
+                  const value = parseFloat(item.Value);
+                  if (!isNaN(value) && isFinite(value)) {
+                    console.log(`✅ [HealthJourneyMiniChart] ${metric} 값 발견:`, {
+                      metric,
+                      itemName: item.Name,
+                      value,
+                      source: 'improved_matching'
+                    });
+                    return value;
                   }
                 }
               }
