@@ -428,7 +428,10 @@ const FindingChartSection: React.FC<{
                 <button
                   key={metric}
                   className={`metric-tab ${index === currentMetricIndex ? 'active' : ''}`}
-                  onClick={() => setCurrentMetricIndex(index)}
+                  onClick={(e) => {
+                    e.stopPropagation(); // 이벤트 버블링 방지
+                    setCurrentMetricIndex(index);
+                  }}
                 >
                   {metric}
                 </button>
