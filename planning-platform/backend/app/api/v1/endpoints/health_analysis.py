@@ -561,7 +561,7 @@ def create_nutrition_prompt(health_data: List[HealthCheckup], prescription_data:
 async def call_gpt_api(prompt: str, response_format: str = "text", health_data: List[Any] = None, prescription_data: List[Any] = None) -> str:
     """GPT API 호출"""
     try:
-        logger.info(f"🤖 [GPT API] 호출 시작 - 모델: gpt-4, 프롬프트 길이: {len(prompt)}")
+        logger.info(f"🤖 [GPT API] 호출 시작 - 모델: gpt-4o-mini, 프롬프트 길이: {len(prompt)}")
         
         # 프롬프트 로그 파일에 저장
         save_prompt_log(prompt, health_data, prescription_data, response_format)
@@ -581,7 +581,7 @@ async def call_gpt_api(prompt: str, response_format: str = "text", health_data: 
             return get_mock_analysis_response()
         
         response = await openai_client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "당신은 전문 의료 데이터 분석가입니다."},
                 {"role": "user", "content": prompt}
