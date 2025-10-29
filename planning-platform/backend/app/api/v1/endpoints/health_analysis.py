@@ -396,6 +396,7 @@ def create_unified_analysis_prompt(health_data: List[HealthDataItem], prescripti
         prescription_data: 처방전 데이터  
         analysis_level: 분석 레벨 (1=기본, 2=기본+약물, 3=풀분석)
     """
+    from datetime import datetime
     
     # 건강검진 데이터 포맷팅
     health_summary = ""
@@ -486,7 +487,7 @@ def create_unified_analysis_prompt(health_data: List[HealthDataItem], prescripti
       "reasoning": "이 등급으로 판단한 구체적 근거",
       "dataPoints": ["실제 검진 수치와 날짜 기반 근거"]
     }},
-    "analysisDate": "분석 수행 날짜",
+    "analysisDate": "{datetime.now().strftime('%Y-%m-%d')}",
     "dataRange": "분석 대상 데이터 기간",
     "keyFindings": [
       {{
@@ -571,6 +572,10 @@ def create_unified_analysis_prompt(health_data: List[HealthDataItem], prescripti
 **처방전 데이터:**
 {prescription_summary}"""
 
+    # 현재 날짜로 analysisDate 교체
+    current_date = datetime.now().strftime('%Y-%m-%d')
+    prompt = prompt.replace('"{datetime.now().strftime(\'%Y-%m-%d\')}"', f'"{current_date}"')
+    
     return prompt
 
 def create_trend_analysis_prompt(metric_name: str, chart_data: List[dict], latest_value: float) -> str:

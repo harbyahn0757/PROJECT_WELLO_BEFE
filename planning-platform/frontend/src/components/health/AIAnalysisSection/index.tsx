@@ -205,6 +205,99 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
     }));
   };
 
+  // 건강 타임라인 생성 함수
+  const generateHealthTimeline = (healthData: any[], prescriptionData: any[]) => {
+    // 년도별 데이터 그룹화
+    const yearlyData: { [year: string]: any } = {};
+    
+    // 건강검진 데이터 처리
+    healthData?.forEach(item => {
+      const year = item.year?.replace('년', '') || new Date(item.checkup_date || item.date).getFullYear().toString();
+      if (!yearlyData[year]) {
+        yearlyData[year] = { checkups: [], prescriptions: [], visits: 0, medications: new Set() };
+      }
+      yearlyData[year].checkups.push(item);
+    });
+
+    // 처방전 데이터 처리
+    prescriptionData?.forEach(item => {
+      const year = new Date(item.date || item.prescription_date).getFullYear().toString();
+      if (!yearlyData[year]) {
+        yearlyData[year] = { checkups: [], prescriptions: [], visits: 0, medications: new Set() };
+      }
+      yearlyData[year].prescriptions.push(item);
+      yearlyData[year].visits++;
+      
+      // 약물 정보 수집
+      if (item.medications) {
+        item.medications.forEach((med: any) => {
+          yearlyData[year].medications.add(med.name || med.ChoBangYakPumMyung);
+        });
+      }
+    });
+
+    // 년도별 정렬 (최신순)
+    const sortedYears = Object.keys(yearlyData).sort((a, b) => parseInt(b) - parseInt(a));
+
+    return (
+      <div className="health-timeline-modern">
+        {sortedYears.map((year, index) => {
+          const data = yearlyData[year];
+          const checkupCount = data.checkups.length;
+          const visitCount = data.visits;
+          const medicationCount = data.medications.size;
+          
+          return (
+            <div key={year} className="timeline-year-item">
+              <div className="timeline-connector">
+                <div className="year-dot"></div>
+                {index < sortedYears.length - 1 && <div className="year-line"></div>}
+              </div>
+              
+              <div className="timeline-content">
+                <div className="year-header">
+                  <h4 className="year-title">{year}년</h4>
+                  <div className="year-stats">
+                    {checkupCount > 0 && <span className="stat-badge checkup">검진 {checkupCount}회</span>}
+                    {visitCount > 0 && <span className="stat-badge visit">병원 {visitCount}회</span>}
+                    {medicationCount > 0 && <span className="stat-badge medication">처방약 {medicationCount}종</span>}
+                  </div>
+                </div>
+                
+                <div className="year-details">
+                  {/* 검진 주요사항 */}
+                  {checkupCount > 0 && (
+                    <div className="detail-section">
+                      <h6>주요 검진 결과</h6>
+                      <ul>
+                        {data.checkups.slice(0, 3).map((checkup: any, idx: number) => (
+                          <li key={idx}>
+                            {checkup.location || '병원'} - {new Date(checkup.checkup_date || checkup.date).toLocaleDateString()}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {/* 처방약 인사이트 */}
+                  {medicationCount > 0 && (
+                    <div className="detail-section">
+                      <h6>처방약 인사이트</h6>
+                      <p>
+                        {medicationCount}종의 약물 처방으로 {visitCount}회 병원 방문. 
+                        {medicationCount > 3 ? '다양한 약물 관리가 필요한 시기' : '안정적인 약물 치료 진행'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // 인사이트 카테고리에 따른 메트릭 매핑 (다중 지표 지원)
   const getMetricsForInsight = (category: string): string[] => {
     switch (category) {
@@ -421,6 +514,14 @@ const FindingChartSection: React.FC<{
   return (
     <div className="detail-section">
       <h6>{category} 추이 차트</h6>
+      
+      {/* 차트 설명을 제목 바로 아래로 이동 */}
+      {finding?.chartExplanation && (
+        <div className="chart-explanation">
+          <p>{finding.chartExplanation}</p>
+        </div>
+      )}
+      
       <div className="finding-chart-container">
         <div className="finding-chart-slider">
           {/* 다중 지표 네비게이션 */}
@@ -450,14 +551,6 @@ const FindingChartSection: React.FC<{
               healthRanges={healthRanges}
             />
           </div>
-          
-          {/* 차트 설명 */}
-          {finding?.chartExplanation && (
-            <div className="chart-explanation">
-              <h6>차트 분석</h6>
-              <p>{finding.chartExplanation}</p>
-            </div>
-          )}
           
           {/* GPT 추이 분석 */}
           <TrendAnalysisSection 
@@ -869,40 +962,6 @@ AI 분석 시작
                       <div className={`health-grade grade-${gptAnalysis.structuredSummary.overallGrade.toLowerCase()}`}>
                         {gptAnalysis.structuredSummary.overallGrade}
                       </div>
-                      {/* 등급 근거 표시 */}
-                      {gptAnalysis.structuredSummary.gradeEvidence && (
-                        <div className="grade-evidence">
-                          <div className="evidence-toggle" onClick={() => {
-                            const evidenceEl = document.getElementById('grade-evidence-detail');
-                            if (evidenceEl) {
-                              evidenceEl.style.display = evidenceEl.style.display === 'none' ? 'block' : 'none';
-                            }
-                          }}>
-                            <span>등급 근거 보기</span>
-                            <span className="toggle-icon">▼</span>
-                          </div>
-                          <div id="grade-evidence-detail" className="evidence-detail" style={{ display: 'none' }}>
-                            <div className="evidence-section">
-                              <h6>한국인 기준</h6>
-                              <p>{gptAnalysis.structuredSummary.gradeEvidence.koreanStandard}</p>
-                            </div>
-                            <div className="evidence-section">
-                              <h6>판단 근거</h6>
-                              <p>{gptAnalysis.structuredSummary.gradeEvidence.reasoning}</p>
-                            </div>
-                            {gptAnalysis.structuredSummary.gradeEvidence.dataPoints && (
-                              <div className="evidence-section">
-                                <h6>검진 데이터 근거</h6>
-                                <ul>
-                                  {gptAnalysis.structuredSummary.gradeEvidence.dataPoints.map((point: string, idx: number) => (
-                                    <li key={idx}>{point}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
                       <div className="grade-info">
                         <div className="analysis-date">{gptAnalysis.structuredSummary.analysisDate} 분석</div>
                         <div className="data-range">{gptAnalysis.structuredSummary.dataRange}</div>
@@ -1040,6 +1099,41 @@ AI 분석 시작
                       </ul>
                     </div>
                   )}
+                  
+                  {/* 등급 근거 보기 - 카드 하단에 배치 */}
+                  {gptAnalysis.structuredSummary.gradeEvidence && (
+                    <div className="grade-evidence-bottom">
+                      <div className="evidence-toggle" onClick={() => {
+                        const evidenceEl = document.getElementById('grade-evidence-detail-bottom');
+                        if (evidenceEl) {
+                          evidenceEl.style.display = evidenceEl.style.display === 'none' ? 'block' : 'none';
+                        }
+                      }}>
+                        <span>등급 근거 보기</span>
+                        <span className="toggle-icon">▼</span>
+                      </div>
+                      <div id="grade-evidence-detail-bottom" className="evidence-detail" style={{ display: 'none' }}>
+                        <div className="evidence-section">
+                          <h6>한국인 기준</h6>
+                          <p>{gptAnalysis.structuredSummary.gradeEvidence.koreanStandard}</p>
+                        </div>
+                        <div className="evidence-section">
+                          <h6>판단 근거</h6>
+                          <p>{gptAnalysis.structuredSummary.gradeEvidence.reasoning}</p>
+                        </div>
+                        {gptAnalysis.structuredSummary.gradeEvidence.dataPoints && (
+                          <div className="evidence-section">
+                            <h6>검진 데이터 근거</h6>
+                            <ul>
+                              {gptAnalysis.structuredSummary.gradeEvidence.dataPoints.map((point: string, idx: number) => (
+                                <li key={idx}>{point}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <p className="summary-text">{gptAnalysis.summary}</p>
@@ -1049,11 +1143,10 @@ AI 분석 시작
             </div>
           </div>
 
-          {/* 건강 여정 섹션 - 2번째로 이동 */}
-          {gptAnalysis.healthJourney && (
-            <div className="ai-simple-section">
-              <div className="simple-section-header" onClick={() => toggleSection('healthJourney')} style={{ cursor: 'pointer' }}>
-                <h3 className="simple-section-title">건강 여정</h3>
+          {/* 건강 여정 타임라인 - 2번째로 이동 */}
+          <div className="ai-simple-section">
+            <div className="simple-section-header" onClick={() => toggleSection('healthJourney')} style={{ cursor: 'pointer' }}>
+              <h3 className="simple-section-title">건강 여정 타임라인</h3>
                 <span className="collapse-indicator">
                   <svg 
                     className={`toggle-icon ${collapsedSections.healthJourney ? 'collapsed' : 'expanded'}`}
@@ -1068,6 +1161,10 @@ AI 분석 시작
               </div>
               {!collapsedSections.healthJourney && (
                 <div className="simple-section-content">
+                  {/* 새로운 타임라인 디자인 */}
+                  <div className="health-timeline-container">
+                    {generateHealthTimeline(healthData, prescriptionData)}
+                  </div>
 
                   {/* 주요 지표 변화 슬라이더 (근거 데이터 통합) */}
                   <div className="health-journey-charts with-evidence">
@@ -1194,7 +1291,6 @@ AI 분석 시작
                 </div>
               )}
             </div>
-          )}
           
 
           {/* 약물 상호작용 카드 슬라이더 */}
