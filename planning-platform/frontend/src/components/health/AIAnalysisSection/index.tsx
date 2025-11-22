@@ -9,6 +9,7 @@ import HealthJourneyChartSlider from './HealthJourneyChartSlider';
 import LineChart from '../../charts/LineChart';
 import { TilkoHealthCheckupRaw, TilkoPrescriptionRaw } from '../../../types/health';
 import chatgptIcon from '../../../assets/images/icons8-chatgpt-50.png';
+import { WELLO_LOGO_IMAGE } from '../../../constants/images';
 import './styles.scss';
 
 interface HealthInsight {
@@ -205,33 +206,84 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
     }));
   };
 
-  // 건강 타임라인 생성 함수
+  // 통합 건강 타임라인 생성 함수 (년도별 이벤트 정리)
   const generateHealthTimeline = (healthData: any[], prescriptionData: any[]) => {
-    // 년도별 데이터 그룹화
+    // 년도별 데이터 그룹화 및 이벤트 정리
     const yearlyData: { [year: string]: any } = {};
     
     // 건강검진 데이터 처리
     healthData?.forEach(item => {
       const year = item.year?.replace('년', '') || new Date(item.checkup_date || item.date).getFullYear().toString();
       if (!yearlyData[year]) {
-        yearlyData[year] = { checkups: [], prescriptions: [], visits: 0, medications: new Set() };
+        yearlyData[year] = { 
+          checkups: [], 
+          prescriptions: [], 
+          visits: 0, 
+          medications: new Set(),
+          keyEvents: [],
+          healthStatus: '정상'
+        };
       }
       yearlyData[year].checkups.push(item);
+      
+      // 주요 건강 이벤트 추출
+      if (item.Inspections) {
+        item.Inspections.forEach((inspection: any) => {
+          if (inspection.Illnesses) {
+            inspection.Illnesses.forEach((illness: any) => {
+              if (illness.Items) {
+                illness.Items.forEach((testItem: any) => {
+                  if (testItem.Name && testItem.Value) {
+                    // 주요 지표만 이벤트로 추가
+                    if (['BMI', '혈압', '공복혈당', '총콜레스테롤'].some(key => testItem.Name.includes(key))) {
+                      yearlyData[year].keyEvents.push({
+                        type: 'checkup',
+                        name: testItem.Name,
+                        value: testItem.Value,
+                        unit: testItem.Unit || '',
+                        date: item.CheckUpDate || item.date
+                      });
+                    }
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
     });
 
     // 처방전 데이터 처리
     prescriptionData?.forEach(item => {
       const year = new Date(item.date || item.prescription_date).getFullYear().toString();
       if (!yearlyData[year]) {
-        yearlyData[year] = { checkups: [], prescriptions: [], visits: 0, medications: new Set() };
+        yearlyData[year] = { 
+          checkups: [], 
+          prescriptions: [], 
+          visits: 0, 
+          medications: new Set(),
+          keyEvents: [],
+          healthStatus: '정상'
+        };
       }
       yearlyData[year].prescriptions.push(item);
       yearlyData[year].visits++;
       
-      // 약물 정보 수집
+      // 약물 정보 및 이벤트 수집
       if (item.medications) {
         item.medications.forEach((med: any) => {
-          yearlyData[year].medications.add(med.name || med.ChoBangYakPumMyung);
+          const medName = med.name || med.ChoBangYakPumMyung;
+          yearlyData[year].medications.add(medName);
+          
+          // 주요 약물 처방 이벤트 추가
+          if (medName && ['혈압', '당뇨', '콜레스테롤', '고지혈'].some(key => medName.includes(key))) {
+            yearlyData[year].keyEvents.push({
+              type: 'prescription',
+              name: medName,
+              date: item.date || item.prescription_date,
+              hospital: item.hospital || '병원'
+            });
+          }
         });
       }
     });
@@ -240,60 +292,72 @@ const AIAnalysisSection: React.FC<AIAnalysisSectionProps> = ({
     const sortedYears = Object.keys(yearlyData).sort((a, b) => parseInt(b) - parseInt(a));
 
     return (
-      <div className="health-timeline-modern">
-        {sortedYears.map((year, index) => {
-          const data = yearlyData[year];
-          const checkupCount = data.checkups.length;
-          const visitCount = data.visits;
-          const medicationCount = data.medications.size;
-          
-          return (
-            <div key={year} className="timeline-year-item">
-              <div className="timeline-connector">
-                <div className="year-dot"></div>
-                {index < sortedYears.length - 1 && <div className="year-line"></div>}
-              </div>
-              
-              <div className="timeline-content">
-                <div className="year-header">
-                  <h4 className="year-title">{year}년</h4>
-                  <div className="year-stats">
-                    {checkupCount > 0 && <span className="stat-badge checkup">검진 {checkupCount}회</span>}
-                    {visitCount > 0 && <span className="stat-badge visit">병원 {visitCount}회</span>}
-                    {medicationCount > 0 && <span className="stat-badge medication">처방약 {medicationCount}종</span>}
-                  </div>
+      <div className="health-timeline-unified">
+        <div className="timeline-header">
+          <h4>건강 여정 타임라인</h4>
+          <p className="timeline-description">년도별 주요 건강 이벤트와 의료 활동을 정리했습니다.</p>
+        </div>
+        
+        <div className="timeline-container">
+          {sortedYears.map((year, index) => {
+            const data = yearlyData[year];
+            const checkupCount = data.checkups.length;
+            const visitCount = data.visits;
+            const medicationCount = data.medications.size;
+            const eventCount = data.keyEvents.length;
+            
+            return (
+              <div key={year} className="timeline-year-unified">
+                <div className="year-marker">
+                  <div className="year-dot"></div>
+                  {index < sortedYears.length - 1 && <div className="year-line"></div>}
                 </div>
                 
-                <div className="year-details">
-                  {/* 검진 주요사항 */}
-                  {checkupCount > 0 && (
-                    <div className="detail-section">
-                      <h6>주요 검진 결과</h6>
-                      <ul>
-                        {data.checkups.slice(0, 3).map((checkup: any, idx: number) => (
-                          <li key={idx}>
-                            {checkup.location || '병원'} - {new Date(checkup.checkup_date || checkup.date).toLocaleDateString()}
-                          </li>
+                <div className="year-content">
+                  <div className="year-header">
+                    <h5 className="year-title">{year}년</h5>
+                    <div className="year-summary">
+                      {checkupCount > 0 && <span className="summary-item checkup">검진 {checkupCount}회</span>}
+                      {visitCount > 0 && <span className="summary-item visit">병원 {visitCount}회</span>}
+                      {medicationCount > 0 && <span className="summary-item medication">처방약 {medicationCount}종</span>}
+                    </div>
+                  </div>
+                  
+                  {/* 주요 이벤트 리스트 */}
+                  {eventCount > 0 && (
+                    <div className="year-events">
+                      <h6>주요 이벤트 ({eventCount}건)</h6>
+                      <div className="events-list">
+                        {data.keyEvents.slice(0, 5).map((event: any, idx: number) => (
+                          <div key={idx} className={`event-item ${event.type}`}>
+                            <div className="event-content">
+                              <span className="event-name">{event.name}</span>
+                              {event.value && <span className="event-value">{event.value}{event.unit}</span>}
+                              {event.hospital && <span className="event-location">{event.hospital}</span>}
+                            </div>
+                            <div className="event-date">{new Date(event.date).toLocaleDateString()}</div>
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     </div>
                   )}
                   
-                  {/* 처방약 인사이트 */}
-                  {medicationCount > 0 && (
-                    <div className="detail-section">
-                      <h6>처방약 인사이트</h6>
-                      <p>
-                        {medicationCount}종의 약물 처방으로 {visitCount}회 병원 방문. 
-                        {medicationCount > 3 ? '다양한 약물 관리가 필요한 시기' : '안정적인 약물 치료 진행'}
-                      </p>
-                    </div>
-                  )}
+                  {/* 년도별 인사이트 */}
+                  <div className="year-insight">
+                    {checkupCount > 0 && visitCount > 0 ? 
+                      `정기 검진과 함께 ${visitCount}회 병원 방문으로 적극적인 건강 관리` :
+                      checkupCount > 0 ? 
+                        '정기 검진을 통한 건강 상태 점검' :
+                        visitCount > 0 ? 
+                          `${visitCount}회 병원 방문으로 치료 중심의 관리` :
+                          '건강 관리 활동 기록 없음'
+                    }
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     );
   };
@@ -881,7 +945,14 @@ const TrendAnalysisSection: React.FC<{
   }, [handleStartAnalysis]);
 
   return (
-    <div className="ai-analysis-section">
+    <section className="analysis-card ai-analysis-section">
+      <div className="card-header">
+        <h2 className="section-title">AI 종합 분석 결과</h2>
+        <div className="chart-info">
+          <span className="info-text">GPT-4 기반 분석</span>
+        </div>
+      </div>
+      
       {/* AI 분석 시작 버튼 (분석 결과가 없을 때만 표시) */}
       {!gptAnalysis && !isAnalyzing && (
         <div className="analysis-start-section">
@@ -920,12 +991,9 @@ AI 분석 시작
           <div className="progress-content">
             <div className="loading-spinner">
               <img 
-                src={chatgptIcon}
+                src={WELLO_LOGO_IMAGE}
                 alt="분석 중" 
-                className="spinner-icon"
-                style={{
-                  animation: 'faviconBlink 1.5s ease-in-out infinite'
-                }}
+                className="wello-icon-blink"
               />
             </div>
             <div className="progress-info">
@@ -1224,70 +1292,6 @@ AI 분석 시작
                       </div>
                     </div>
                           </div>
-                          
-                  {/* 년도별 상세 분석 - 개선된 타임라인 형식 */}
-                  <div className="health-journey-timeline simple">
-                    <h4>건강 여정 타임라인</h4>
-                    <div className="timeline-list">
-                      {gptAnalysis.healthJourney?.keyMilestones && gptAnalysis.healthJourney.keyMilestones.map((milestone, index) => (
-                        <div key={`milestone-${milestone.period}-${index}`} className="timeline-year-card">
-                          <div className="year-header">
-                            <div className="year-info">
-                              <h5 className="year-title">{milestone.period}</h5>
-                              <span className={`health-status ${milestone.healthStatus?.includes('양호') ? 'good' : 'normal'}`}>
-                                {milestone.healthStatus}
-                              </span>
-                            </div>
-                            </div>
-                            
-                          <div className="year-content">
-                            
-                            {/* 주요 이벤트 */}
-                            {milestone.significantEvents && (
-                              <div className="timeline-item">
-                                <div className="item-label">주요 이벤트</div>
-                                <div className="item-content">{milestone.significantEvents}</div>
-                              </div>
-                            )}
-                            
-                            {/* 의료 서비스 */}
-                            {milestone.medicalCare && (
-                              <div className="timeline-item">
-                                <div className="item-label">의료 서비스</div>
-                                <div className="item-content">{milestone.medicalCare}</div>
-                              </div>
-                            )}
-                              
-                            {/* 주요 변화 리스트 */}
-                              {milestone.keyChanges && milestone.keyChanges.length > 0 && (
-                              <div className="timeline-item">
-                                <div className="item-label">주요 변화 ({milestone.keyChanges.length}개)</div>
-                                <div className="changes-list">
-                                    {milestone.keyChanges.map((change, changeIndex) => (
-                                    <div key={`change-${milestone.period}-${change.metric}-${changeIndex}`} className={`change-item-simple ${change.changeType}`}>
-                                      <div className="change-summary">
-                                        <span className="metric-name">{change.metric}</span>
-                                        <span className="change-values">
-                                          {change.previousValue} → {change.currentValue}
-                                        </span>
-                                        <span className={`change-status ${change.changeType}`}>
-                                            {change.changeType === 'improved' ? '개선' : 
-                                           change.changeType === 'worsened' ? '악화' : '유지'}
-                                          </span>
-                                        </div>
-                                      {change.significance && (
-                                        <div className="change-note">{change.significance}</div>
-                                      )}
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
@@ -1966,7 +1970,7 @@ AI 분석 시작
           <p>{error}</p>
         </div>
       )}
-    </div>
+    </section>
   );
 };
 

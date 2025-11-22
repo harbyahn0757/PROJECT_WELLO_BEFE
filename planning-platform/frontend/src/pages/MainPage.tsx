@@ -50,6 +50,65 @@ const MainPage: React.FC = () => {
     console.log('🧹 [메인페이지] 비밀번호 세션 및 모달 상태 정리 완료');
   }, []); // 빈 배열로 한 번만 실행
 
+  // 페이지 처음 로드 시 상단으로 스크롤
+  useEffect(() => {
+    // 컴포넌트 마운트 시 상단으로 스크롤
+    window.scrollTo(0, 0);
+    
+    // 약간의 지연 후 다시 확인 (레이아웃 렌더링 완료 후)
+    const timer = setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [location.search]); // URL 파라미터 변경 시에도 실행
+
+  // 스크롤 이벤트 처리: 하단 스크롤 시 버튼과 카드 겹침 방지
+  useEffect(() => {
+    const handleScroll = () => {
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.scrollHeight;
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      const scrollBottom = scrollTop + windowHeight;
+      
+      // 하단 근처에서 스크롤 시 (버튼 높이 + 여백 고려)
+      const buttonHeight = 56; // 플로팅 버튼 높이
+      const buttonBottomMargin = 12; // 버튼 하단 여백 (0.75rem)
+      const safeMargin = 20; // 추가 안전 여백
+      const threshold = buttonHeight + buttonBottomMargin + safeMargin;
+      
+      // 스크롤이 거의 끝에 도달했을 때
+      if (scrollBottom >= documentHeight - threshold) {
+        // 마지막 카드와 버튼 사이 여백 확보를 위해 약간 위로 스크롤
+        const targetScroll = documentHeight - windowHeight - threshold;
+        if (targetScroll > 0 && Math.abs(scrollTop - targetScroll) > 5) {
+          window.scrollTo({
+            top: targetScroll,
+            behavior: 'smooth'
+          });
+        }
+      }
+    };
+
+    // 스크롤 이벤트 리스너 추가 (throttle 적용)
+    let ticking = false;
+    const throttledHandleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', throttledHandleScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('scroll', throttledHandleScroll);
+    };
+  }, []);
+
   // 비밀번호 인증 상태 확인 함수 (세션 상태 모달 포함)
   // PasswordSessionService만 사용 (폴백 제거)
   const isPasswordAuthValid = async (uuid?: string, hospitalId?: string): Promise<boolean> => {
@@ -468,6 +527,15 @@ const MainPage: React.FC = () => {
             onClick={() => handleCardClick('design')}
             imageUrl={checkupDesignImage}
             imageAlt="검진항목 설계하기"
+          />
+          <Card
+            type="vertical"
+            icon="prediction"
+            title="질병예측 리포트 보기"
+            description="AI 기반 건강 데이터 분석으로\n질병 예측 리포트를 확인하세요"
+            onClick={() => handleCardClick('prediction')}
+            imageUrl={trendsChartImage}
+            imageAlt="질병예측 리포트"
           />
         </div>
       </div>

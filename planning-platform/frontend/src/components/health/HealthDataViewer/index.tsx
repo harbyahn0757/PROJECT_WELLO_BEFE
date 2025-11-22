@@ -12,7 +12,10 @@ import { useNavigate } from 'react-router-dom';
 import { WelloIndexedDB, HealthDataRecord } from '../../../services/WelloIndexedDB';
 import usePasswordSessionGuard from '../../../hooks/usePasswordSessionGuard';
 import { STORAGE_KEYS } from '../../../constants/storage';
+import { WELLO_LOGO_IMAGE } from '../../../constants/images';
 import AIAnalysisSection from '../AIAnalysisSection'; // 🔧 AI 분석 섹션 컴포넌트
+import HealthTrendsHeader from '../HealthTrendsHeader'; // 새 헤더 컴포넌트
+import HealthTrendsToggle from '../HealthTrendsToggle'; // 새 토글 컴포넌트
 import './styles.scss';
 
 const pillIconPath = `${process.env.PUBLIC_URL || ''}/free-icon-pill-5405585.png`;
@@ -522,17 +525,11 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
           {/* 중앙 정렬된 스피너 */}
           <div className="centered-loading-container">
             <div className="loading-spinner">
-              <div className="favicon-blink-spinner">
-                <img 
-                  src="/wello/wello-icon.png" 
-                  alt="로딩 중" 
-                  style={{
-                    width: '48px',
-                    height: '48px',
-                    animation: 'faviconBlink 1.5s ease-in-out infinite'
-                  }}
-                />
-              </div>
+              <img 
+                src={WELLO_LOGO_IMAGE}
+                alt="로딩 중" 
+                className="wello-icon-blink"
+              />
               <p className="loading-spinner__message">{patientName}님의 건강 데이터를 불러오는 중...</p>
             </div>
           </div>
@@ -575,8 +572,29 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
 
   return (
     <div className="health-data-viewer">
+      {/* 새 헤더 컴포넌트 */}
+      <HealthTrendsHeader
+        onBack={handleBack}
+        lastUpdateTime={lastUpdateTime}
+        patientName={patientName}
+      />
+
+      {/* 새 토글 컴포넌트 */}
+      <HealthTrendsToggle
+        activeTab={viewMode}
+        onTabChange={(tab) => {
+          if (tab === 'trends') {
+            setViewMode('trends');
+            setFilterMode('all');
+          } else {
+            setViewMode('timeline');
+            setFilterMode('all');
+          }
+        }}
+      />
+
       <div 
-        className="question__content"
+        className="health-trends-content"
         ref={containerRef}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
@@ -607,112 +625,15 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
             </div>
           </div>
         )}
-        {/* 뒤로가기 버튼 */}
-        <div className="back-button-container">
-          <button className="back-button" onClick={handleBack}>
-            ←
-          </button>
-        </div>
-
-        {/* 마지막 업데이트 시간 (우상단 플로팅) */}
-        {lastUpdateTime && (
-          <div className="last-update-floating">
-            <span className="update-text">마지막 업데이트: {formatLastUpdateTime(lastUpdateTime)}</span>
-          </div>
-        )}
-
-        {/* 타이틀 */}
-        <div className="question__title" style={{ marginTop: '10px' }}>
-          <div className="title-with-toggle">
-            <div className="title-content">
-              <h1 className="question__title-text">{getPageTitle()}</h1>
-            </div>
-            
-            {/* 🔧 토글 버튼들 (분석=뷰토글, 검진/약국/진료=필터) */}
-            <div className="external-view-toggle">
-              <button
-                className={`toggle-btn ${isTransitioning ? 'loading' : ''} ${
-                  (viewMode === 'trends' || (viewMode === 'timeline' && filterMode === 'all')) ? 'active' : ''
-                }`}
-                onClick={() => handleToggleClick('all')}
-                disabled={isTransitioning}
-                title={viewMode === 'trends' ? '타임라인 보기' : '분석 보기'}
-              >
-                {isTransitioning ? (
-                  <div className="button-spinner" />
-                ) : viewMode === 'trends' ? (
-                  // 🔧 trends 모드: 햄버거 메뉴 아이콘 (3줄)
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="3" y1="6" x2="21" y2="6"/>
-                    <line x1="3" y1="12" x2="21" y2="12"/>
-                    <line x1="3" y1="18" x2="21" y2="18"/>
-                  </svg>
-                ) : (
-                  // 🔧 timeline 모드: ChatGPT 아이콘
-                  <img 
-                    src="/wello/icons8-chatgpt-50.png" 
-                    alt="AI 분석" 
-                    style={{ width: '16px', height: '16px', objectFit: 'contain' }}
-                  />
-                )}
-              </button>
-              <button
-                className={`toggle-btn ${isTransitioning ? 'loading' : ''} ${filterMode === 'checkup' ? 'active' : ''}`}
-                onClick={() => handleToggleClick('checkup')}
-                disabled={isTransitioning}
-                title="검진만 보기"
-              >
-                {isTransitioning ? (
-                  <div className="button-spinner" />
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
-                  </svg>
-                )}
-              </button>
-              <button
-                className={`toggle-btn pharmacy ${isTransitioning ? 'loading' : ''} ${filterMode === 'pharmacy' ? 'active' : ''}`}
-                onClick={() => handleToggleClick('pharmacy')}
-                disabled={isTransitioning}
-                title="약국만 보기"
-              >
-                {isTransitioning ? (
-                  <div className="button-spinner" />
-                ) : (
-                  <img src={pillIconPath} alt="약국" />
-                )}
-              </button>
-              <button
-                className={`toggle-btn ${isTransitioning ? 'loading' : ''} ${filterMode === 'treatment' ? 'active' : ''}`}
-                onClick={() => handleToggleClick('treatment')}
-                disabled={isTransitioning}
-                title="진료만 보기"
-              >
-                {isTransitioning ? (
-                  <div className="button-spinner" />
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/>
-                  </svg>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
 
         {/* 🔧 조건부 렌더링: viewMode에 따라 TrendsSection 또는 UnifiedHealthTimeline 표시 */}
         {isTransitioning ? (
           <div className="view-transition-loading">
             <div className="loading-spinner">
               <img 
-                src="/wello/wello-icon.png" 
+                src={WELLO_LOGO_IMAGE}
                 alt="전환 중" 
-                className="spinner-icon"
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  animation: 'faviconBlink 1.5s ease-in-out infinite'
-                }}
+                className="wello-icon-blink"
               />
             </div>
             <p className="loading-text">화면을 전환하는 중...</p>

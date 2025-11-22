@@ -3,6 +3,7 @@
  * 모든 모달에서 공통으로 사용되는 구조와 스타일을 제공
  */
 import React from 'react';
+import { WELLO_LOGO_IMAGE } from '../../constants/images';
 import './styles.scss';
 
 interface WelloModalProps {
@@ -33,7 +34,7 @@ const WelloModal: React.FC<WelloModalProps> = ({
         {showWelloIcon && (
           <div className="wello-modal-icon">
             <img 
-              src="/wello/wello-icon.png" 
+              src={WELLO_LOGO_IMAGE}
               alt="웰로 아이콘" 
               className="wello-icon-blink"
             />

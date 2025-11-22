@@ -1,0 +1,37 @@
+/**
+ * BackButton 스타일
+ * 랜딩페이지의 건강검진 결과지 다시보기 카드 오른쪽 버튼과 동일한 디자인
+ */
+@use '../../../styles/variables' as *;
+
+.back-button {
+  width: 27px !important;
+  height: 27px !important;
+  border-radius: 6px !important; // 사각형에 가까운 라운드 처리
+  background-color: $white !important; // 흰색 배경
+  color: $brand-brown-text !important; // 브라운 화살표 (#A16A51)
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+  
+  &__svg {
+    width: 16px !important; // 화살표 크기
+    height: 16px !important;
+    color: $brand-brown-dark !important; // 브라운 화살표 (#A16A51)
+  }
+  
+  &:hover {
+    background-color: rgba($brand-brown-dark, 0.1);
+    transform: scale(1.05);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+}
+

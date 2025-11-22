@@ -5,18 +5,18 @@
 .main-page {
   width: 100%;
   min-height: 100vh;
-  background: #FEF9EE !important; // 기본 배경색 (상단 섹션과 동일)
+  background: $background-cream !important; // 기본 배경색 (상단 섹션과 동일)
   padding: 0 !important; // 모든 패딩 제거
   margin: 0 !important; // 모든 마진 제거
   
   // 헤더 + 인사말 섹션 (하나의 영역)
   &__header-greeting-section {
     background: #FEF9EE !important; // 상단 인사말 섹션 배경색
-    padding: 0 $spacing-md $spacing-lg !important; // 상단 패딩 완전 제거
+    padding: 0 1rem $spacing-lg 1rem !important; // 좌우 패딩 최소화 (1rem = 16px)
     margin: 0 !important; // 모든 마진 제거
     border-radius: 0 0 $border-radius-xl $border-radius-xl; // 하단만 둥글게
     border-bottom: none !important; // 외곽선 제거
-    box-shadow: 0 1px 2px rgba(128, 128, 128, 0.08) !important; // 그림자 효과 줄이기
+    box-shadow: $shadow-subtle !important; // 그림자 효과 줄이기
     position: relative !important; // z-index 적용을 위한 position 설정
     z-index: 10 !important; // 상단 섹션이 앞에 나오도록 z-index 설정
   }
@@ -77,7 +77,7 @@
     &-title {
       font-size: 22px !important; // 제일 위 영역 폰트 크기 22px
       font-weight: $font-weight-normal !important; // "안녕하세요"는 기본 두께
-      color: #000000 !important; // 검정
+      color: $black !important; // 검정
       margin: 0 !important; // 모든 마진 제거
       margin-left: 0 !important; // 왼쪽 정렬
       padding: 0 !important; // 모든 패딩 제거
@@ -88,13 +88,13 @@
       font-family: var(--font-family-greeting) !important; // Noto Sans KR
       
       .patient-name {
-        color: #000000 !important; // 검정
+        color: $black !important; // 검정
         font-weight: $font-weight-bold !important; // 사람 이름은 두껍게
         font-family: var(--font-family-greeting) !important; // Noto Sans KR
       }
       
       .greeting-text {
-        color: #000000 !important; // 검정
+        color: $black !important; // 검정
         font-weight: 300 !important; // 얇게
         font-family: var(--font-family-greeting) !important; // Noto Sans KR
       }
@@ -114,7 +114,7 @@
       font-family: var(--font-family-greeting) !important; // Noto Sans KR
       
       .hospital-name {
-        color: #A16A51 !important; // 병원명만 브라운 색상
+        color: $brand-brown-dark !important; // 병원명만 브라운 색상
         font-family: var(--font-family-greeting) !important; // Noto Sans KR
       }
       
@@ -127,7 +127,7 @@
     
     &-message {
       font-size: 14px !important; // 아래 작은 텍스트 14px
-      color: #565656 !important; // 회색 텍스트 (#565656)
+      color: $gray-450 !important; // 회색 텍스트
       line-height: 1.2 !important; // 줄바꿈 간격 최소화
       margin: 0 !important; // 모든 마진 제거
       margin-left: 0 !important; // 왼쪽 마진 제거
@@ -139,7 +139,7 @@
       font-family: var(--font-family-greeting) !important; // Noto Sans KR
       
       .hospital-name {
-        color: #A16A51 !important; // 병원명만 브라운 색상
+        color: $brand-brown-dark !important; // 병원명만 브라운 색상
         font-family: var(--font-family-greeting) !important; // Noto Sans KR
       }
       
@@ -173,10 +173,10 @@
   // 나머지 카드 섹션 (흰색 배경으로 구분)
   &__secondary-cards-section {
     padding-top: 12px !important; // 상단 패딩 12px
-    padding-left: 16px !important; // 좌측 패딩 16px
-    padding-right: 16px !important; // 우측 패딩 16px
-    padding-bottom: 64px !important; // 하단 패딩 64px (플로팅 버튼과 겹치지 않도록)
-    background: #FFFCF6 !important; // 하단 카드 섹션 배경색
+    padding-left: 1rem !important; // 좌측 패딩 1rem (16px)
+    padding-right: 1rem !important; // 우측 패딩 1rem (16px)
+    padding-bottom: 5.5rem !important; // 하단 패딩 증가 (플로팅 버튼과 겹침 방지: 64px -> 5.5rem = 88px)
+    background: #FEF9EE !important; // 하단 카드 섹션 배경색 (상단과 동일하게 통일)
     margin-top: 0 !important; // 구분선으로 구분되므로 마진 제거
     margin-bottom: 0 !important; // 하단 마진 제거
     border-radius: $border-radius-xl $border-radius-xl 0 0; // 상단만 둥글게
@@ -222,7 +222,7 @@
   
   // 첫 번째 카드 특별 스타일 (베이지 배경, 브라운 아이콘)
   &__card {
-    background: rgba(255, 255, 255, 0.9);
+    background: $overlay-strong;
     backdrop-filter: blur(16px);
     padding: $spacing-sm $spacing-md; // 상하 패딩 줄임
     border-radius: $border-radius-xl;
@@ -240,7 +240,7 @@
     }
     
     &--primary {
-      background: #E8DCC8 !important; // 건강검진 결과지 다시보기 버튼 배경색 (더 어두운 베이지)
+      background: $brand-brown-card !important; // 건강검진 결과지 다시보기 버튼 배경색 (더 어두운 베이지)
       min-height: 60px !important; // 높이 줄임
       border: none !important; // 외곽선 제거
     }
@@ -258,7 +258,7 @@
       width: 40px !important; // 아이콘 크기 더 작게 (48px -> 40px)
       height: 40px !important;
       border-radius: 50% !important; // 브라운 배경 동그라미
-      background-color: #A16A51 !important; // 브라운 배경
+      background-color: $brand-brown-dark !important; // 브라운 배경
       color: white !important;
       display: flex;
       align-items: center !important; // 정확히 중간 정렬
@@ -266,7 +266,7 @@
       flex-shrink: 0;
       
       &--brown {
-        background-color: #A16A51 !important; // 브라운 배경
+        background-color: $brand-brown-dark !important; // 브라운 배경
       }
       
       &-svg {
@@ -287,7 +287,7 @@
     &-title {
       font-size: 14px !important; // 폰트 크기 -2 (16px -> 14px)
       font-weight: $font-weight-bold !important; // 두껍게
-      color: #A16A51 !important; // 건강검진 결과지 다시보기 텍스트 색상
+      color: $brand-brown-dark !important; // 건강검진 결과지 다시보기 텍스트 색상
       margin: 0 !important; // 모든 마진 제거
       margin-bottom: 0 !important; // 하단 마진 제거
       padding: 0 !important; // 모든 패딩 제거
@@ -302,7 +302,7 @@
     
     &-description {
       font-size: 12px !important; // 폰트 크기 더 작게 ($font-sm보다 작게)
-      color: #8B6F5E !important; // 브라운톤 색상
+      color: $brand-brown-text !important; // 브라운톤 색상
       line-height: 1.2 !important; // 줄바꿈 간격 최소화
       margin: 0 !important; // 모든 마진 제거
       margin-top: 0 !important; // 상단 마진 제거
@@ -335,7 +335,7 @@
       width: 27px !important; // 15% 줄임 (32px * 0.85 = 27.2px)
       height: 27px !important;
       border-radius: 6px !important; // 사각형에 가까운 라운드 처리
-      background-color: #FFFFFF !important; // 흰색 배경
+      background-color: $white !important; // 흰색 배경
       color: #A16A51 !important; // 브라운 화살표
       display: flex;
       align-items: center;
@@ -391,15 +391,26 @@
 // 반응형 디자인
 @include respond-to(md) {
   .main-page {
+    // 데스크톱에서도 모바일과 동일한 스타일 유지 (폰트 크기 조정만)
+    &__header-greeting-section {
+      // 데스크톱에서도 동일한 패딩 유지
+      padding: 0 $spacing-lg $spacing-xl !important;
+    }
+    
     &__greeting {
-      padding: $spacing-2xl $spacing-lg;
+      // 데스크톱에서도 동일한 스타일 유지 (폰트 크기만 약간 조정)
+      padding: 0 0 $spacing-md 0 !important;
       
       &-title {
-        font-size: $font-3xl;
+        font-size: 24px !important; // 모바일 22px에서 약간 증가
       }
       
       &-subtitle {
-        font-size: $font-2xl;
+        font-size: 24px !important; // 모바일 22px에서 약간 증가
+      }
+      
+      &-message {
+        font-size: 15px !important; // 모바일 14px에서 약간 증가
       }
     }
     
@@ -408,12 +419,12 @@
       padding-top: 0 !important;
       padding-bottom: 0 !important;
       gap: 8px !important; // 카드 간격 8px
-      max-width: 600px;
+      max-width: 100%; // 컨테이너 너비에 맞춤
       margin: 0 auto;
     }
     
     &__footer {
-      padding: $spacing-2xl $spacing-lg;
+      padding: $spacing-xl $spacing-lg;
     }
   }
 }

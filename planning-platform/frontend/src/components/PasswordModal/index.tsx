@@ -230,13 +230,17 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
   return (
     <div className="password-modal-overlay">
       <div className="password-modal">
-        {/* 웰로 아이콘 (상단, 깜박이는 효과) */}
+        {/* 웰노 로고 (상단, 깜박이는 효과) */}
         <div className="password-modal-icon">
           <img 
-            src="/wello/wello-icon.png" 
-            alt="웰로 아이콘" 
+            src={require('../../assets/images/welno_logo 2.png')}
+            alt="웰노 로고" 
             className="wello-icon-blink"
           />
+          {/* 닫기 버튼을 아이콘 영역으로 이동 */}
+          <button className="password-modal-close" onClick={onClose}>
+            ×
+          </button>
         </div>
 
         <div className="password-modal-header">
@@ -252,10 +256,6 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
               </span>
             ))}
           </p>
-          
-          <button className="password-modal-close" onClick={onClose}>
-            ×
-          </button>
         </div>
 
         <div className="password-modal-content">

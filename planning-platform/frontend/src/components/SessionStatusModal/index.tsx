@@ -3,6 +3,7 @@
  * 세션 유효성 확인 중 표시되는 로딩 화면
  */
 import React, { useState, useEffect } from 'react';
+import { WELLO_LOGO_IMAGE } from '../../constants/images';
 import './styles.scss';
 
 interface SessionStatusModalProps {
@@ -74,7 +75,7 @@ const SessionStatusModal: React.FC<SessionStatusModalProps> = ({
         {/* 웰로 아이콘 (깜박이는 효과) */}
         <div className="session-status-icon">
           <img 
-            src="/wello/wello-icon.png" 
+            src={WELLO_LOGO_IMAGE}
             alt="웰로 아이콘" 
             className="wello-icon-blink"
           />

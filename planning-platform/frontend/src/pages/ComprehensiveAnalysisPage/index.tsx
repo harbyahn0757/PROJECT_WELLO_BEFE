@@ -16,6 +16,7 @@ import {
 import { TilkoHealthCheckupRaw, TilkoPrescriptionRaw } from '../../types/health';
 import { WELLO_API, API_ENDPOINTS } from '../../constants/api';
 import { WelloIndexedDB } from '../../services/WelloIndexedDB';
+import { WELLO_LOGO_IMAGE } from '../../constants/images';
 import config from '../../config/config.json';
 import './styles.scss';
 import '../../components/health/HealthDataViewer/styles.scss';
@@ -1174,7 +1175,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                     >
                       <div className="empty-content">
                         <img 
-                          src="/wello/wello-icon.png" 
+                          src={WELLO_LOGO_IMAGE} 
                           alt="빈 슬롯" 
                           className="empty-icon"
                         />
@@ -1560,9 +1561,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   <div className="chart-loading">
                     <div className="loading-spinner">
                       <img 
-                        src="/wello/wello-icon.png" 
+                        src={WELLO_LOGO_IMAGE} 
                         alt="로딩 중" 
-                        className="spinner-icon"
+                        className="wello-icon-blink"
                       />
                     </div>
                     <p className="loading-text">처방 데이터 분석 중...</p>
@@ -1577,9 +1578,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   <div className="chart-loading">
                     <div className="loading-spinner">
                       <img 
-                        src="/wello/wello-icon.png" 
+                        src={WELLO_LOGO_IMAGE} 
                         alt="데이터 없음" 
-                        className="spinner-icon"
+                        className="wello-icon-blink"
                         style={{ opacity: 0.5, animation: 'none' }}
                       />
                     </div>
@@ -1599,9 +1600,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   <div className="chart-loading">
                     <div className="loading-spinner">
                       <img 
-                        src="/wello/wello-icon.png" 
+                        src={WELLO_LOGO_IMAGE} 
                         alt="로딩 중" 
-                        className="spinner-icon"
+                        className="wello-icon-blink"
                       />
                     </div>
                     <p className="loading-text">병원 방문 데이터 분석 중...</p>
@@ -1616,9 +1617,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   <div className="chart-loading">
                     <div className="loading-spinner">
                       <img 
-                        src="/wello/wello-icon.png" 
+                        src={WELLO_LOGO_IMAGE} 
                         alt="데이터 없음" 
-                        className="spinner-icon"
+                        className="wello-icon-blink"
                         style={{ opacity: 0.5, animation: 'none' }}
                       />
                     </div>
@@ -1707,9 +1708,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
               <div className="loading-content">
                 <div className="loading-spinner">
                   <img 
-                    src="/wello/wello-icon.png" 
+                    src={WELLO_LOGO_IMAGE}
                     alt="분석 중" 
-                    className="spinner-icon"
+                    className="wello-icon-blink"
             />
           </div>
                 <p className="loading-text">AI가 건강 데이터를 분석하고 있습니다...</p>
@@ -1735,7 +1736,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   {isAnalyzing ? (
                     <>
                       <img 
-                        src="/wello/wello-icon.png" 
+                        src={WELLO_LOGO_IMAGE} 
                         alt="분석 중" 
                         className="button-spinner"
                       />
@@ -1816,7 +1817,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                     <h3 className="nutrition-title">피해야 할 음식</h3>
                     <div className="warning-icon">
                       <img 
-                        src="/wello/wello-icon.png" 
+                        src={WELLO_LOGO_IMAGE} 
                         alt="주의" 
                         className="status-icon warning"
                       />
@@ -1838,7 +1839,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                     <h3 className="nutrition-title">권장 음식</h3>
                     <div className="recommend-icon">
                       <img 
-                        src="/wello/wello-icon.png" 
+                        src={WELLO_LOGO_IMAGE} 
                         alt="권장" 
                         className="status-icon recommend"
                       />

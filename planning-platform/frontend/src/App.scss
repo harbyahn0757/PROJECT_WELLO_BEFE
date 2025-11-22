@@ -61,6 +61,7 @@
   width: 100%;
   overflow-x: hidden; // 가로 스크롤 방지
   position: relative;
+  background: #FEF9EE !important; // 전체 화면 배경색 (브라운 스킨)
   
   // 상단 여백 완전 제거
   &::before {
@@ -98,7 +99,28 @@
     border-radius: $border-radius-xl;
     box-shadow: $shadow-lg;
     max-height: 900px;
-    height: 100vh;
+    height: auto; // 고정 높이 제거 (내용에 맞게 조정)
+    min-height: 100vh; // 최소 높이 유지
+    background: transparent; // 배경은 .app에서 처리
+  }
+}
+
+// health-data-viewer가 포함된 main-container는 전체 폭 사용
+// (스타일은 아래 :has() 선택자로 처리)
+
+// results-trend 페이지의 main-container는 전체 폭 사용
+body:has([href*="results-trend"]) .main-container,
+.main-container:has(.health-data-viewer) {
+  max-width: 100% !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  
+  @include respond-to(md) {
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
   }
 }
 
@@ -394,40 +416,45 @@
 // 플로팅 버튼 자체 스타일 (브라운 스킨) - solid 스타일
 .floating-button {
   position: fixed !important;
-  bottom: 0.75rem !important; // 하단에서 조금 더 내리기
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-  width: 90% !important; // 화면 너비의 90%로 확대
-  max-width: 400px !important; // 최대 너비 제한
-  min-width: 280px !important; // 최소 너비 보장
-  min-height: 56px !important; // 버튼 높이 더 크게
+  bottom: 0 !important; // 하단에 완전히 붙이기
+  left: 0 !important; // 왼쪽부터 시작
+  right: 0 !important; // 오른쪽까지 (스크롤바 영역 포함)
+  width: 100vw !important; // 뷰포트 전체 너비 (스크롤바 포함)
+  max-width: 100vw !important; // 최대 너비 제한 제거
+  min-width: 100vw !important; // 최소 너비도 100vw
+  min-height: 48px !important; // 버튼 높이 조금 줄이기 (56px -> 48px)
   background-color: #55433B !important; // 버튼 색상 (#55433B)
   color: #FFFFFF !important; // 흰색 폰트
   border: none !important; // 테두리 제거
   box-shadow: 0 4px 12px rgba(124, 116, 106, 0.3) !important; // 버튼에 그림자 추가
-  padding: 1rem 1.5rem !important; // 상하 패딩 증가 (높이 더 크게)
-  font-size: var(--font-size-base) !important; // font-base 값
+  padding: 0.75rem 1rem !important; // 좌우 패딩 유지 (텍스트 가독성)
+  font-size: 17px !important; // 폰트 크기 조금 크게 (16px -> 17px)
   font-weight: var(--font-weight-semibold) !important;
-  border-radius: 8px !important; // 모서리만 약간 라운드 처리 (사각형 형태)
+  font-family: var(--font-family-greeting) !important; // 인사말과 같은 폰트 (Noto Sans KR)
+  border-radius: 0 !important; // 모서리 라운드 제거 (완전 사각형)
   transition: all 0.3s ease !important;
   z-index: 1000 !important;
+  transform: none !important; // transform 제거 (left/right로 위치 조정)
+  box-sizing: border-box !important; // 패딩 포함 전체 너비 계산
   
-  // 모바일에서는 전체 너비 사용
+  // 모든 화면 크기에서 동일하게 적용
   @media (max-width: 767px) {
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    max-width: 90% !important;
-    bottom: 0.75rem !important; // 모바일에서도 조금 더 내리기
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    transform: none !important;
+    bottom: 0 !important; // 하단에 완전히 붙이기
   }
   
   &:hover {
     background-color: #4A3A32 !important; // 호버시 더 진한 색상
-    transform: translateX(-50%) translateY(-1px) !important; // 살짝 위로 올라가는 효과
+    transform: translateY(-1px) !important; // 살짝 위로 올라가는 효과
     box-shadow: 0 6px 16px rgba(85, 67, 59, 0.4) !important; // 호버시 그림자 강화
   }
   
   &:active {
-    transform: translateX(-50%) translateY(0) !important; // 클릭시 원래 위치로
+    transform: translateY(0) !important; // 클릭시 원래 위치로
   }
 }
 

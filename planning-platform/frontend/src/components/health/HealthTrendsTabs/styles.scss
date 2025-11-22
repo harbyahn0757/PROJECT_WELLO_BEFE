@@ -1,0 +1,72 @@
+/**
+ * HealthTrendsToggle 스타일
+ * 2개의 큰 토글 버튼: 선택됨(연한 브라운), 비선택(진한 브라운)
+ */
+@use '../../../styles/variables' as *;
+@use '../../../styles/mixins' as *;
+
+.health-trends-toggle {
+  display: flex;
+  width: 100%;
+  background: transparent;
+  gap: 0;
+  margin: 0;
+  margin-bottom: $spacing-md !important; // 하단 간격 (콘텐츠와의 간격)
+  padding: 0;
+  border-bottom: 1px solid $border-beige;
+  position: sticky; // 스크롤 시 헤더 아래에 고정
+  top: 0; // 헤더 바로 아래
+  z-index: 99; // 헤더보다 낮지만 다른 요소보다 높음
+  background: $background-cream; // 배경색 추가 (스크롤 시 투명하지 않도록)
+  
+  &__button {
+    flex: 1;
+    padding: 0.875rem 1rem;
+    background: $brand-brown-dark; // 비선택: 진한 브라운
+    color: $white;
+    border: none;
+    border-radius: 0;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    position: relative;
+    
+    // 선택된 토글
+    &--active {
+      background: $background-cream !important; // 선택: 연한 브라운 (메인 페이지 배경색)
+      color: $brand-brown-darker !important; // 진한 브라운 텍스트
+      font-weight: 600;
+      
+      // 선택된 토글 하단 강조선
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: $brand-brown-darker;
+      }
+    }
+    
+    &:hover:not(&--active) {
+      background: $brand-brown-hover-dark; // 호버 시 더 진한 브라운
+    }
+    
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+  
+  // 모바일 반응형
+  @media (max-width: 767px) {
+    &__button {
+      padding: 0.75rem 0.5rem;
+      font-size: 13px;
+    }
+  }
+}
+

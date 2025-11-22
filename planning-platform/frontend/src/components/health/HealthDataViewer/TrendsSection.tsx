@@ -6,6 +6,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import LineChart from '../../charts/LineChart';
 import BarChart from '../../charts/BarChart';
 import { TilkoHealthCheckupRaw, TilkoPrescriptionRaw } from '../../../types/health';
+import { WELLO_LOGO_IMAGE } from '../../../constants/images';
 import '../../../pages/ComprehensiveAnalysisPage/styles.scss';
 
 interface TrendsSectionProps {
@@ -23,8 +24,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
 }) => {
   // 건강 지표 슬라이더 상태
   const [activeDotIndex, setActiveDotIndex] = useState(0);
-  const [activeVisitDotIndex, setActiveVisitDotIndex] = useState(0);
-  const [isLoadingVisitData, setIsLoadingVisitData] = useState(true);
+  // 의료기관 방문 추이 관련 상태 제거됨 (의료 기록 타임라인 토글에 포함)
   
   // 건강 지표 목록
   const healthMetrics = [
@@ -413,140 +413,8 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     };
   };
 
-  // 🔧 처방전 차트 데이터 생성 (약국 방문 추이)
-  const prescriptionChartData = useMemo(() => {
-    if (!Array.isArray(prescriptionData) || prescriptionData.length === 0) {
-      return [];
-    }
-    
-    try {
-      // DB 처방전 데이터를 년도별 약국 방문 건수로 집계 (약국만 필터링)
-      const yearlyData: { [year: string]: number } = {};
-      
-      prescriptionData.forEach((item: any) => {
-        // 약국 여부 판단 (UnifiedHealthTimeline 로직 사용)
-        const treatmentType = item.treatment_type || item.JinRyoHyungTae || '';
-        const hospitalName = item.hospital_name || item.ByungEuiwonYakGukMyung || '';
-        const isPharmacy = treatmentType === '처방조제' || hospitalName.includes('약국');
-        
-        // 약국인 경우만 집계
-        if (!isPharmacy) return;
-        
-        // treatment_date는 "YYYY-MM-DD" 형식
-        const year = item.treatment_date ? item.treatment_date.split('-')[0] : '2024';
-        
-        // 각 처방전은 1회 약국 방문으로 계산
-        if (yearlyData[year]) {
-          yearlyData[year] += 1;
-        } else {
-          yearlyData[year] = 1;
-        }
-      });
-      
-      // 년도별 데이터를 차트 형식으로 변환 (최신 5년만)
-      const chartData = [{
-        id: 'pharmacy-visits',
-        name: '년도별 약국 방문 건수',
-        yAxisLabel: '방문 건수',
-        data: Object.entries(yearlyData)
-          .sort(([a], [b]) => b.localeCompare(a)) // 최신 년도 순 정렬
-          .slice(0, 5) // 최신 5년만
-          .map(([year, count]) => {
-            // 데이터 검증
-            const finalValue = parseInt(count.toString());
-            if (isNaN(finalValue) || !isFinite(finalValue) || finalValue < 0) {
-              return null;
-            }
-
-            return {
-              date: `${year}-01-01`,
-              value: finalValue,
-              label: `${year.slice(-2)}년`,
-              status: 'normal' as const
-            };
-          }).filter((item): item is NonNullable<typeof item> => item !== null)
-      }];
-      
-      return chartData;
-    } catch (error) {
-      console.error('❌ [처방차트] 처방전 차트 데이터 변환 실패:', error);
-      return [];
-    }
-  }, [prescriptionData]);
-
-  // 🔧 병원 방문 차트 데이터 생성 (병원만 필터링)
-  const hospitalVisitChartData = useMemo(() => {
-    if (!Array.isArray(prescriptionData) || prescriptionData.length === 0) {
-      return [];
-    }
-    
-    try {
-      // 처방전 데이터를 년도별 병원 방문으로 집계 (병원만 필터링)
-      const yearlyData: { [year: string]: Set<string> } = {};
-      
-      prescriptionData.forEach((item: any) => {
-        // 약국 여부 판단 (UnifiedHealthTimeline 로직 사용)
-        const treatmentType = item.treatment_type || item.JinRyoHyungTae || '';
-        const hospitalName = item.hospital_name || item.ByungEuiwonYakGukMyung || '';
-        const isPharmacy = treatmentType === '처방조제' || hospitalName.includes('약국');
-        
-        // 병원인 경우만 집계 (약국 제외)
-        if (isPharmacy) return;
-        
-        // 처방전 날짜에서 년도 추출
-        let year = '2024'; // 기본값
-        
-        if (item.treatment_date) {
-          // treatment_date에서 년도 추출 (YYYY-MM-DD 형식)
-          year = item.treatment_date.substring(0, 4);
-        } else if (item.TreatDate) {
-          // TreatDate에서 년도 추출
-          year = item.TreatDate.substring(0, 4);
-        } else if (item.Year) {
-          // Year 필드에서 년도 추출 ("YYYY년" 형식)
-          year = item.Year.replace('년', '');
-        }
-        
-        // 병원명으로 방문 횟수 집계 (같은 병원 같은 날 = 1회 방문)
-        const hospitalKey = hospitalName || 'Unknown';
-        const dateKey = item.treatment_date || item.TreatDate || `${year}-01-01`;
-        const visitKey = `${hospitalKey}_${dateKey}`;
-        
-        if (!yearlyData[year]) {
-          yearlyData[year] = new Set();
-        }
-        yearlyData[year].add(visitKey);
-      });
-      
-      // 년도별 데이터를 차트 형식으로 변환 (최신 5년만)
-      const chartData = [{
-        id: 'hospital-visits',
-        name: '년도별 병원 방문 건수',
-        yAxisLabel: '방문 건수',
-        data: Object.entries(yearlyData)
-          .sort(([a], [b]) => b.localeCompare(a)) // 최신 년도 순 정렬
-          .slice(0, 5) // 최신 5년만
-          .map(([year, visitSet]) => {
-            const finalValue = visitSet.size;
-            if (isNaN(finalValue) || !isFinite(finalValue) || finalValue < 0) {
-              return null;
-            }
-
-            return {
-              date: `${year}-01-01`,
-              value: finalValue,
-              label: `${year.slice(-2)}년`,
-              status: 'normal' as const
-            };
-          }).filter((item): item is NonNullable<typeof item> => item !== null)
-      }];
-      
-      return chartData;
-    } catch (error) {
-      console.error('❌ [병원차트] 병원 방문 차트 데이터 변환 실패:', error);
-      return [];
-    }
-  }, [prescriptionData]);
+  // 🔧 처방전 차트 데이터 및 병원 방문 차트 데이터 제거됨
+  // 의료기관 방문 추이 섹션이 UnifiedHealthTimeline으로 이동 예정
 
   // 로딩 상태 및 데이터 디버깅
   useEffect(() => {
@@ -560,10 +428,6 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
       prescriptionDataIsArray: Array.isArray(prescriptionData),
       prescriptionDataLength: Array.isArray(prescriptionData) ? prescriptionData.length : 'N/A'
     });
-    
-    setIsLoadingVisitData(true);
-    const timer = setTimeout(() => setIsLoadingVisitData(false), 500);
-    return () => clearTimeout(timer);
   }, [healthData, prescriptionData]);
 
   // 닷 슬라이더 스크롤 동기화
@@ -600,53 +464,16 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     return () => slider.removeEventListener('scroll', handleScroll);
   }, [healthData]);
 
-  // 방문 추이 닷 슬라이더 스크롤 동기화
-  useEffect(() => {
-    const slider = document.querySelector('.visit-trends-slider') as HTMLElement;
-    if (!slider) return;
-
-    const handleVisitScroll = () => {
-      const cards = document.querySelectorAll('.visit-trend-card');
-      if (cards.length === 0) return;
-
-      const sliderRect = slider.getBoundingClientRect();
-      const contentWidth = sliderRect.width;
-      const sliderCenter = sliderRect.left + contentWidth / 2;
-
-      let closestIndex = 0;
-      let closestDistance = Infinity;
-
-      cards.forEach((card, index) => {
-        const cardRect = card.getBoundingClientRect();
-        const cardCenter = cardRect.left + cardRect.width / 2;
-        const distance = Math.abs(cardCenter - sliderCenter);
-
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestIndex = index;
-        }
-      });
-
-      setActiveVisitDotIndex(closestIndex);
-    };
-
-    slider.addEventListener('scroll', handleVisitScroll);
-    return () => slider.removeEventListener('scroll', handleVisitScroll);
-  }, [prescriptionData]);
+  // 방문 추이 닷 슬라이더 스크롤 동기화 제거됨 (의료기관 방문 추이 섹션이 제거되어 불필요)
 
   if (isLoading) {
     return (
       <div className="trends-loading">
         <div className="loading-spinner">
           <img 
-            src="/wello/wello-icon.png" 
+            src={WELLO_LOGO_IMAGE}
             alt="로딩 중" 
-            className="spinner-icon"
-            style={{
-              width: '48px',
-              height: '48px',
-              animation: 'faviconBlink 1.5s ease-in-out infinite'
-            }}
+            className="wello-icon-blink"
           />
         </div>
         <p className="loading-text">건강 추이를 분석하는 중...</p>
@@ -658,12 +485,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     <div className="trends-section">
       {/* 건강지표 추이 분석 카드 */}
       <section className="analysis-card">
-        <div className="card-header">
-          <h2 className="section-title">건강지표 추이 분석</h2>
-          <div className="chart-info">
-            <span className="info-text">12개 주요 지표</span>
-          </div>
-        </div>
+        {/* 헤더 영역 제거됨 */}
         
         {/* 건강지표 컨테이너 */}
         <div className="health-metrics-wrapper">
@@ -1119,125 +941,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
         </div>
       </section>
 
-      {/* 방문 추이 분석 카드 */}
-      <section className="analysis-card">
-        <div className="card-header">
-          <h2 className="section-title">의료기관 방문 추이</h2>
-          <div className="chart-info">
-            <span className="info-text">약국 및 병원 방문 건수</span>
-          </div>
-        </div>
-        
-        {/* 방문 추이 컨테이너 */}
-        <div className="visit-trends-wrapper">
-          <div className="visit-trends-container">
-            <div className="visit-trends-slider">
-              {/* 약국 방문 추이 */}
-              <div className="visit-trend-card">
-                <div className="trend-header">
-                  <h3 className="trend-title">약국 방문 추이</h3>
-                </div>
-                <div className="trend-chart">
-                  {isLoadingVisitData ? (
-                    <div className="chart-loading">
-                      <div className="loading-spinner">
-                        <img 
-                          src="/wello/wello-icon.png" 
-                          alt="로딩 중" 
-                          className="spinner-icon"
-                        />
-                      </div>
-                      <p className="loading-text">처방 데이터 분석 중...</p>
-                    </div>
-                  ) : prescriptionChartData.length > 0 && prescriptionChartData[0].data.length > 0 ? (
-                    <BarChart 
-                      series={prescriptionChartData}
-                      width={280}
-                      height={170}
-                    />
-                  ) : (
-                    <div className="chart-loading">
-                      <div className="loading-spinner">
-                        <img 
-                          src="/wello/wello-icon.png" 
-                          alt="데이터 없음" 
-                          className="spinner-icon"
-                          style={{ opacity: 0.5, animation: 'none' }}
-                        />
-                      </div>
-                      <p className="loading-text">처방 데이터가 없습니다</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* 병원 방문 추이 */}
-              <div className="visit-trend-card">
-                <div className="trend-header">
-                  <h3 className="trend-title">병원 방문 추이</h3>
-                </div>
-                <div className="trend-chart">
-                  {isLoadingVisitData ? (
-                    <div className="chart-loading">
-                      <div className="loading-spinner">
-                        <img 
-                          src="/wello/wello-icon.png" 
-                          alt="로딩 중" 
-                          className="spinner-icon"
-                        />
-                      </div>
-                      <p className="loading-text">병원 방문 데이터 분석 중...</p>
-                    </div>
-                  ) : hospitalVisitChartData.length > 0 && hospitalVisitChartData[0].data.length > 0 ? (
-                    <BarChart 
-                      series={hospitalVisitChartData}
-                      width={280}
-                      height={170}
-                    />
-                  ) : (
-                    <div className="chart-loading">
-                      <div className="loading-spinner">
-                        <img 
-                          src="/wello/wello-icon.png" 
-                          alt="데이터 없음" 
-                          className="spinner-icon"
-                          style={{ opacity: 0.5, animation: 'none' }}
-                        />
-                      </div>
-                      <p className="loading-text">병원 방문 데이터가 없습니다</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-            {/* 닷 인디케이터 */}
-            <div className="visit-trends-dots">
-              <div className={`dot ${activeVisitDotIndex === 0 ? 'active' : ''}`} onClick={() => {
-                const slider = document.querySelector('.visit-trends-slider') as HTMLElement;
-                if (slider) {
-                  slider.scrollTo({ left: 0, behavior: 'smooth' });
-                }
-              }}></div>
-              <div className={`dot ${activeVisitDotIndex === 1 ? 'active' : ''}`} onClick={() => {
-                const slider = document.querySelector('.visit-trends-slider') as HTMLElement;
-                if (slider) {
-                  const card = document.querySelectorAll('.visit-trend-card')[1] as HTMLElement;
-                  if (card) {
-                    const cardOffsetLeft = card.offsetLeft;
-                    const sliderClientWidth = slider.clientWidth;
-                    const cardWidth = card.offsetWidth;
-                    let targetScrollLeft = cardOffsetLeft - (sliderClientWidth - cardWidth) / 2;
-                    const maxScrollLeft = slider.scrollWidth - sliderClientWidth;
-                    targetScrollLeft = Math.max(0, Math.min(targetScrollLeft, maxScrollLeft));
-                    slider.scrollTo({ left: targetScrollLeft, behavior: 'smooth' });
-                  }
-                }
-              }}></div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* 의료기관 방문 추이 섹션 제거됨 - 의료 기록 타임라인 토글에 포함 */}
     </div>
   );
 };

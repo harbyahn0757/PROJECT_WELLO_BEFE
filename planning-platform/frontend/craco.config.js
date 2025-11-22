@@ -57,6 +57,7 @@ module.exports = {
     compress: true,
     hot: false, // HMR 완전 비활성화
     liveReload: false, // Live Reload 비활성화
+    allowedHosts: 'all', // 모든 호스트 허용
     client: {
       webSocketTransport: 'sockjs', // SockJS 사용 (WebSocket 대신)
       overlay: false, // 오류 오버레이 비활성화

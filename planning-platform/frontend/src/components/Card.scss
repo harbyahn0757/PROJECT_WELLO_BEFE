@@ -18,21 +18,23 @@
   height: auto !important;
   
   &:hover {
-    box-shadow: $shadow-lg;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important; // 은은한 그림자 효과
   }
 
   // 클릭 가능한 카드 스타일
   &--clickable {
     cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
 
     &:hover {
-      transform: translateY(-2px);
-      box-shadow: $shadow-lg;
+      transform: translateY(-1px) !important; // 더 은은한 이동 (2px -> 1px)
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important; // 은은한 그림자
+      background: rgba(255, 255, 255, 0.85) !important; // 배경색 약간 밝게
     }
 
     &:active {
-      transform: translateY(0);
+      transform: translateY(0) !important;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
     }
 
     &:focus {

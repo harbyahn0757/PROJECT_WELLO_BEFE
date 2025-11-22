@@ -5,7 +5,8 @@
   box-sizing: border-box;
 }
 
-html, body {
+html {
+  scroll-behavior: smooth !important; // 부드러운 스크롤 효과 (은은하게)
   margin: 0 !important;
   padding: 0 !important;
   height: 100%;
@@ -16,6 +17,15 @@ html, body {
   // 모바일 브라우저 상단 공간 완전 제거
   -webkit-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0 !important;
+  padding: 0 !important;
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden; // 가로 스크롤 방지
+  position: relative;
 }
 
 body {
@@ -88,4 +98,31 @@ img {
   &:hover {
     background: $gray-500;
   }
+}
+
+// 비밀번호 입력창의 깜박이는 이미지 스타일 (전역 공용)
+@keyframes faviconBlink {
+  0%, 100% { 
+    opacity: 1; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.3; 
+    transform: scale(0.95);
+  }
+}
+
+// 페이지 전환 간 스피너 이미지 통일 스타일
+.wello-icon-blink,
+.spinner-icon.wello-icon-blink,
+.loading-spinner .wello-icon-blink,
+.loading-spinner img[src*="wello-icon"] {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  animation: faviconBlink 1.5s ease-in-out infinite;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  display: block;
+  margin: 0 auto;
+  padding: 0;
 }

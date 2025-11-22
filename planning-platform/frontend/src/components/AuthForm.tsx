@@ -9,6 +9,7 @@ import { NavigationHelper, STANDARD_NAVIGATION } from '../constants/navigation';
 import { STORAGE_KEYS, StorageManager, TilkoSessionStorage } from '../constants/storage';
 import { useWebSocketAuth } from '../hooks/useWebSocketAuth';
 import useApiCallPrevention from '../hooks/useApiCallPrevention';
+import { WELLO_LOGO_IMAGE } from '../constants/images';
 import splashIcon from '../assets/splash.png';
 
 // 인증 아이콘 이미지 import
@@ -2700,12 +2701,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'center' }}>
             <div className="favicon-blink-spinner">
               <img 
-                src="/wello/wello-icon.png" 
+                src={WELLO_LOGO_IMAGE}
                 alt="로딩 중" 
+                className="wello-icon-blink"
                 style={{
                   width: '48px',
-                  height: '48px',
-                  animation: 'faviconBlink 1.5s ease-in-out infinite'
+                  height: '48px'
                 }}
               />
             </div>

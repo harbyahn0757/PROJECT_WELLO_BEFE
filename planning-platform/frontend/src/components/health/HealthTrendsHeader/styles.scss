@@ -1,0 +1,135 @@
+/**
+ * HealthTrendsHeader 스타일
+ * 메인 페이지 인사말 섹션과 동일한 배경색 및 스타일 사용
+ */
+@use '../../../styles/variables' as *;
+@use '../../../styles/mixins' as *;
+
+.health-trends-header {
+  // 플로팅 버튼과 동일한 방식으로 화면 전체 너비 사용
+  position: fixed !important; // 플로팅 버튼과 동일 (부모 제약 없음)
+  top: 0 !important; // 상단 고정
+  left: 0 !important; // 왼쪽부터 시작 (플로팅 버튼과 동일)
+  right: 0 !important; // 오른쪽까지 (플로팅 버튼과 동일)
+  width: 100vw !important; // 뷰포트 전체 너비 (플로팅 버튼과 동일)
+  max-width: 100vw !important; // 최대 너비 제한 없음
+  min-width: 100vw !important; // 최소 너비도 100vw
+  box-sizing: border-box !important;
+  z-index: 100 !important; // 다른 요소 위에 표시
+  padding: 0 !important; // 좌우 빈 공간 제거
+  margin: 0 !important; // 모든 마진 제거
+  margin-left: calc(-50vw + 50%) !important; // 부모 컨테이너의 중앙 정렬 무시
+  margin-right: calc(-50vw + 50%) !important; // 부모 컨테이너의 중앙 정렬 무시
+  transform: none !important; // transform 제거 (left/right로 위치 조정)
+  
+  // 헤더 자체에 배경색과 스타일 적용 (단일 영역으로 통합)
+  background: #FEF9EE !important; // 헤더 배경색
+  border-radius: 0 0 24px 24px !important; // 하단만 둥글게 (더 넓은 둥근 처리, 12px -> 24px)
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important; // 바깥쪽 얇은 그림자 추가
+  height: 90px !important; // 현재 높이(60px)의 150% = 90px
+  display: flex !important;
+  align-items: center !important; // 세로 중앙 정렬
+  padding-left: $spacing-md !important; // 내부 요소를 위한 좌측 패딩
+  padding-right: $spacing-md !important; // 내부 요소를 위한 우측 패딩
+  position: relative !important; // 절대 위치 기준
+
+  // 안쪽 부분 (내부 구조 유지)
+  &__header-greeting-section {
+    width: 100% !important; // 부모 너비 전체 사용
+    height: 100% !important; // 부모 높이 전체 사용
+    margin: 0 !important;
+    padding: 0 !important; // 패딩 제거 (부모에서 처리)
+    position: relative !important;
+
+    // 뒤로가기 버튼 (좌측) - 절대 위치로 배치
+    .back-button {
+      position: absolute !important; // 절대 위치
+      left: $spacing-md !important; // 좌측 패딩 위치
+      top: 50% !important; // 세로 중앙
+      transform: translateY(-50%) !important; // 세로 중앙 정렬
+      z-index: 1 !important; // 다른 요소 위에
+    }
+  }
+
+  // 제목 영역 (헤더 영역 전체 기준 중앙 정렬)
+  &__center {
+    width: 100% !important; // 헤더 전체 너비 사용
+    display: flex;
+    flex-direction: column;
+    align-items: center; // X축 중앙 정렬 (헤더 영역 전체 기준)
+    justify-content: center; // Y축 중앙 정렬
+    gap: $spacing-xs; // 제목과 업데이트 정보 간격
+    position: absolute !important; // 절대 위치로 헤더 전체 기준 중앙 정렬
+    left: 0 !important;
+    right: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important; // 세로 중앙 정렬
+    z-index: 0 !important; // 버튼보다 뒤에
+  }
+
+  // 타이틀 - 폰트 사이즈 더 작게, 굵게 하지 않음, 중앙 정렬
+  &__title {
+    text-align: center; // 중앙 정렬
+    font-size: 18px !important; // 더 작게 (20px -> 18px)
+    font-weight: $font-weight-normal !important; // 굵게 하지 않음
+    color: $black !important;
+    font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif) !important; // 랜딩페이지와 동일
+    margin: 0 !important;
+    line-height: 1.2 !important;
+  }
+
+  // 마지막 업데이트 정보 (제목 아래, 중앙 정렬)
+  &__update {
+    display: flex;
+    align-items: center;
+    justify-content: center; // 중앙 정렬
+    gap: 4px;
+    font-size: $font-xs; // 12px
+    color: $gray-550;
+    font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+    
+    &-icon {
+      font-size: $font-xs;
+      color: $gray-550;
+    }
+    
+    &-text {
+      font-size: $font-xs;
+      color: $gray-550;
+    }
+  }
+
+  // 모바일 반응형
+  @media (max-width: 767px) {
+    padding: $spacing-sm $spacing-sm !important;
+    min-height: 52px;
+    gap: $spacing-sm;
+    
+    &__back-button {
+      width: 36px;
+      height: 36px;
+      
+      svg {
+        width: 18px;
+        height: 18px;
+      }
+    }
+    
+    &__title {
+      font-size: $font-base; // 16px
+    }
+    
+    &__update {
+      font-size: 11px;
+      
+      &-icon {
+        font-size: 11px;
+      }
+      
+      &-text {
+        font-size: 11px;
+      }
+    }
+  }
+}
+

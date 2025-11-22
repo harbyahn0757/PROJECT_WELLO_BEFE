@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import DrugDetailModal from '../DrugDetailModal';
 import { API_ENDPOINTS } from '../../../config/api';
+import { WELLO_LOGO_IMAGE } from '../../../constants/images';
 import './styles.scss';
 
 // 알약 이미지 경로
@@ -753,17 +754,11 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
       <div className="unified-timeline">
         <div className="timeline-loading">
           <div className="loading-spinner">
-            <div className="favicon-blink-spinner">
-              <img 
-                src="/wello/wello-icon.png" 
-                alt="로딩 중" 
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  animation: 'faviconBlink 1.5s ease-in-out infinite'
-                }}
-              />
-            </div>
+            <img 
+              src={WELLO_LOGO_IMAGE}
+              alt="로딩 중" 
+              className="wello-icon-blink"
+            />
             <p>건강 기록을 불러오는 중...</p>
           </div>
         </div>

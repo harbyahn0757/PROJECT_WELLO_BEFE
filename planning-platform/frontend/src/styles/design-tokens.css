@@ -16,10 +16,22 @@
   --color-gray-900: #171717;
   --color-black: #000000;
 
+  /* === 브라운 스킨 색상 시스템 === */
+  --color-brown-50: #f7e8d3;     /* 매우 연한 베이지 배경 */
+  --color-brown-100: #e8d5c0;   /* 연한 베이지 */
+  --color-brown-200: #d4c4b0;   /* 중간 연한 베이지 */
+  --color-brown-300: #b8a896;   /* 중간 베이지 */
+  --color-brown-400: #9d8e7c;   /* 중간 진한 베이지 */
+  --color-brown-500: #7c746a;   /* 메인 브라운 (브랜드 컬러) */
+  --color-brown-600: #696158;   /* 진한 브라운 (호버) */
+  --color-brown-700: #5a5248;   /* 매우 진한 브라운 */
+  --color-brown-800: #4a433a;   /* 거의 검은 브라운 */
+  --color-brown-900: #3a332b;   /* 최대 진한 브라운 */
+
   /* === 액센트 색상 (최소한의 컬러) === */
-  --color-primary: #525252;      /* 차분한 그레이 (메인) */
-  --color-primary-light: #737373;
-  --color-primary-dark: #404040;
+  --color-primary: var(--color-brown-500);      /* 브라운 (메인) */
+  --color-primary-light: var(--color-brown-400);
+  --color-primary-dark: var(--color-brown-600);
   
   --color-success: #059669;      /* 차분한 그린 (건강 정상) */
   --color-success-light: #10b981;
@@ -40,8 +52,8 @@
   --color-health-neutral: var(--color-gray-500);
 
   /* === 배경 색상 === */
-  --bg-primary: var(--color-white);
-  --bg-secondary: var(--color-gray-50);
+  --bg-primary: var(--color-brown-50);        /* 브라운 스킨 배경 */
+  --bg-secondary: var(--color-white);
   --bg-tertiary: var(--color-gray-100);
   --bg-card: var(--color-white);
   --bg-overlay: rgba(0, 0, 0, 0.5);
@@ -186,10 +198,16 @@
 .text-success { color: var(--color-success); }
 .text-warning { color: var(--color-warning); }
 .text-danger { color: var(--color-danger); }
+.text-brown { color: var(--color-brown-500); }
+.text-brown-light { color: var(--color-brown-400); }
+.text-brown-dark { color: var(--color-brown-600); }
 
 .bg-primary { background-color: var(--bg-primary); }
 .bg-secondary { background-color: var(--bg-secondary); }
 .bg-card { background-color: var(--bg-card); }
+.bg-brown { background-color: var(--color-brown-500); }
+.bg-brown-light { background-color: var(--color-brown-50); }
+.bg-brown-dark { background-color: var(--color-brown-600); }
 
 .border-light { border-color: var(--border-light); }
 .border-medium { border-color: var(--border-medium); }

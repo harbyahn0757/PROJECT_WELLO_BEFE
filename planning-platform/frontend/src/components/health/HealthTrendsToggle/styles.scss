@@ -1,0 +1,95 @@
+/**
+ * HealthTrendsToggle 스타일
+ * 2개의 큰 토글 버튼: 선택됨(진한 브라운), 비선택(투명)
+ * 랜딩페이지 폰트 시스템 사용
+ */
+@use '../../../styles/variables' as *;
+@use '../../../styles/mixins' as *;
+
+.health-trends-toggle {
+  width: 100vw !important; // 뷰포트 전체 너비 (헤더와 동일)
+  max-width: 100vw !important;
+  min-width: 100vw !important;
+  background: transparent !important; // 배경 투명 (크림색 제거)
+  margin: 0 !important;
+  margin-left: calc(-50vw + 50%) !important; // 부모 컨테이너의 중앙 정렬 무시
+  margin-right: calc(-50vw + 50%) !important; // 부모 컨테이너의 중앙 정렬 무시
+  margin-bottom: 0 !important; // fixed 요소는 margin-bottom이 효과 없음 (콘텐츠 padding-top으로 처리)
+  padding: 0 !important;
+  border-bottom: none !important; // 하단 선 제거
+  position: fixed !important; // 헤더와 동일하게 fixed
+  top: 120px !important; // 헤더 높이(90px) + 간격(30px) 아래 (빈 공간 증가)
+  left: 0 !important; // 왼쪽부터 시작 (헤더와 동일)
+  right: 0 !important; // 오른쪽까지 (헤더와 동일)
+  z-index: 99 !important; // 헤더보다 낮지만 다른 요소보다 높음
+  display: flex;
+  justify-content: center; // 중앙 정렬
+  box-sizing: border-box !important;
+  transform: none !important;
+  
+  // 토글을 감싸는 컨테이너 (고정 크기)
+  &__container {
+    display: flex;
+    width: 319px; // 고정 너비
+    height: 60px; // 고정 높이
+    background: #F8EDDA; // 감싸는 영역 배경색
+    padding: 10px; // 토글 버튼과 감싸는 영역 사이 간격
+    gap: 10px; // 토글 버튼 사이 간격
+    align-items: center;
+    justify-content: center;
+    border-radius: $border-radius-md; // 약간의 라운드 처리 (6px)
+  }
+  
+  &__button {
+    width: 145px; // 고정 너비
+    height: 40px; // 고정 높이
+    padding: 0;
+    background: transparent; // 비선택: 투명 배경
+    color: #A16A51; // 비선택: 브라운 텍스트 (#A16A51)
+    border: none;
+    border-radius: $border-radius-sm; // 약간의 라운드 처리 (4px)
+    font-size: 14px;
+    font-weight: 500;
+    font-family: $font-family-toggle !important; // 선언 파일의 기본 폰트 사용
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0; // 크기 고정
+    
+    // 선택된 토글
+    &--active {
+      background: #A16A51 !important; // 선택: 브라운 배경 (#A16A51)
+      color: $white !important; // 흰색 텍스트
+      font-weight: 600;
+    }
+    
+    &:hover:not(&--active) {
+      background: rgba(#A16A51, 0.1); // 호버 시 약간 진한 배경
+    }
+    
+    &:active {
+      transform: scale(0.98);
+    }
+  }
+  
+  // 모바일 반응형
+  @media (max-width: 767px) {
+    &__container {
+      width: calc(100% - 32px); // 모바일에서는 좌우 여백 고려
+      max-width: 319px;
+      padding: 8px;
+      gap: 8px;
+    }
+    
+    &__button {
+      width: calc(50% - 4px); // 모바일에서는 유연하게
+      min-width: 145px;
+      font-size: 13px;
+    }
+  }
+}
+
