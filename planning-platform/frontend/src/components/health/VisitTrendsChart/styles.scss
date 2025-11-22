@@ -19,7 +19,7 @@
   }
   
   .visit-trends-container {
-    margin-top: -12px !important; // 그래프를 위로 올리기 위해 음수 마진 추가 (더 강하게)
+    margin-top: -8px !important; // 그래프를 위로 올리기 위해 음수 마진 추가
     padding-top: 0 !important;
   }
   
@@ -78,29 +78,28 @@
     }
     
     .trend-chart {
-      margin-top: -8px !important; // 상단 마진 음수로 설정하여 위로 올림 (더 강하게)
+      margin-top: 0 !important; // 상단 마진 제거
       padding-top: 0 !important; // 상단 패딩 제거
-      margin-bottom: 0 !important; // 하단은 고정 (변경 없음)
+      margin-bottom: -20px !important; // 하단 마진 음수로 대폭 설정하여 여백 줄임
       padding-bottom: 0 !important; // 하단 패딩 제거
     }
   }
   
   // BarChart 내부 스타일 오버라이드 - 차트 내부 여백 조정
-  // 하단은 고정하고 상단만 위로 늘리기
   .wello-bar-chart {
-    // 상단 여백만 줄임 (하단은 고정)
-    margin-top: -20px !important; // 차트 상단 여백 대폭 줄임
+    // 상단 여백 줄임
+    margin-top: -10px !important; // 차트 상단 여백 줄임 (조정)
     padding-top: 0 !important;
-    margin-bottom: 0 !important; // 하단은 고정 (변경 없음)
+    margin-bottom: -30px !important; // 차트 하단 여백 대폭 줄임
     padding-bottom: 0 !important;
     
-    // SVG 상단 여백만 줄임 (하단은 고정)
+    // SVG 상단 여백 줄임
     &__svg {
-      margin-top: -20px !important; // SVG 상단 여백 대폭 줄임
+      margin-top: -10px !important; // SVG 상단 여백 줄임 (조정)
       padding-top: 0 !important;
-      margin-bottom: 0 !important; // 하단은 고정 (변경 없음)
+      margin-bottom: -30px !important; // SVG 하단 여백 대폭 줄임
       padding-bottom: 0 !important;
-      transform: translateY(-15px) !important; // 위로 이동하여 상단 여백 줄임 (하단 고정)
+      transform: translateY(-5px) !important; // 위로 이동 (조정)
     }
     
     // 그리드 라인 스타일 (더 구체적인 선택자 사용)
