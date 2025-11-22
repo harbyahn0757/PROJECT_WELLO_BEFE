@@ -1,8 +1,5 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
-import VerticalLayout from './layouts/VerticalLayout';
-import HorizontalLayout from './layouts/HorizontalLayout';
-import IntroLayout from './layouts/IntroLayout';
 import Button from './components/Button';
 import MainPage from './pages/MainPage';
 import CheckupDesignPage from './pages/CheckupDesignPage';
@@ -19,7 +16,6 @@ import PrescriptionHistory from './pages/PrescriptionHistory';
 import HealthComparison from './pages/HealthComparison';
 // import ComprehensiveAnalysisPage from './pages/ComprehensiveAnalysisPage'; // 제거됨
 import { LayoutType } from './constants/layoutTypes';
-import { debugLayoutMapping } from './utils/layoutMapper';
 import { WelloDataProvider, useWelloData } from './contexts/WelloDataContext';
 import { STORAGE_KEYS, StorageManager } from './constants/storage';
 import NotificationContainer from './components/common/NotificationContainer';
@@ -208,11 +204,11 @@ const FloatingButton: React.FC = () => {
     
     // comprehensive-analysis 페이지 제거됨
     
-    // 기본 (메인페이지 등) - 모든 화면에서 동일한 역할
+    // 기본 (메인페이지 등) - 브라운 스킨 디자인 반영
     return {
-      text: '건강검진 예약하기',
+      text: '검진 예약 하기',
       onClick: () => {
-        console.log('🎯 [플로팅버튼] 건강검진 예약 시작');
+        console.log('🎯 [플로팅버튼] 검진 예약 시작');
         if (window.handleKakaoLoginFromFloating) {
           window.handleKakaoLoginFromFloating();
         } else {
@@ -230,15 +226,13 @@ const FloatingButton: React.FC = () => {
   }
 
   return (
-    <div className="floating-button-container">
-      <Button
-        className="floating-button"
-        onClick={buttonConfig.onClick}
-        disabled={false}
-      >
-        {buttonConfig.text}
-      </Button>
-    </div>
+    <Button
+      className="floating-button"
+      onClick={buttonConfig.onClick}
+      disabled={false}
+    >
+      {buttonConfig.text}
+    </Button>
   );
 };
 
@@ -356,30 +350,14 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // 레이아웃 컴포넌트 선택
-  const LayoutComponent = 
-    layoutConfig.layoutType === LayoutType.HORIZONTAL ? HorizontalLayout :
-    layoutConfig.layoutType === LayoutType.INTRO ? IntroLayout :
-    VerticalLayout;
-
+  // 통합 레이아웃 사용 (세로형/가로형/인트로 제거)
   return (
     <div className="app">
       <div className="main-container">
         <Routes>
           <Route 
             path="/" 
-            element={
-              <LayoutComponent
-                headerImage={layoutConfig.headerImage}
-                headerImageAlt={layoutConfig.headerImageAlt}
-                headerSlogan={layoutConfig.headerSlogan}
-                headerLogoTitle={layoutConfig.headerLogoTitle}
-                headerLogoSubtitle={layoutConfig.headerLogoSubtitle}
-                headerMainTitle={layoutConfig.headerMainTitle}
-              >
-                <MainPage />
-              </LayoutComponent>
-            } 
+            element={<MainPage />} 
           />
           <Route path="/login" element={<AuthPage />} />
           <Route path="/collecting" element={<CollectingDataPage />} />
@@ -396,18 +374,7 @@ const AppContent: React.FC = () => {
           <Route path="/results-trend" element={<HealthDataViewer onBack={() => window.history.back()} />} />
           <Route 
             path="/results" 
-            element={
-              <LayoutComponent
-                headerImage={layoutConfig.headerImage}
-                headerImageAlt={layoutConfig.headerImageAlt}
-                headerSlogan={layoutConfig.headerSlogan}
-                headerLogoTitle={layoutConfig.headerLogoTitle}
-                headerLogoSubtitle={layoutConfig.headerLogoSubtitle}
-                headerMainTitle={layoutConfig.headerMainTitle}
-              >
-                <MainPage />
-              </LayoutComponent>
-            } 
+            element={<MainPage />} 
           />
         </Routes>
         

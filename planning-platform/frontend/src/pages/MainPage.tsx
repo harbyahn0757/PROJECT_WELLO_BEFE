@@ -3,8 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/Card';
 import { useWelloData } from '../contexts/WelloDataContext';
 import { API_ENDPOINTS } from '../config/api';
-import { LayoutType } from '../constants/layoutTypes';
-import { TILKO_API } from '../constants/api';
 import PasswordModal from '../components/PasswordModal';
 import SessionStatusModal from '../components/SessionStatusModal';
 import { PasswordModalType } from '../components/PasswordModal/types';
@@ -12,6 +10,12 @@ import { PASSWORD_POLICY } from '../constants/passwordMessages';
 import { PasswordService } from '../components/PasswordModal/PasswordService';
 import { PasswordSessionService } from '../services/PasswordSessionService';
 import useGlobalSessionDetection from '../hooks/useGlobalSessionDetection';
+import { getHospitalLogoUrl } from '../utils/hospitalLogoUtils';
+// 카드 이미지 import
+import trendsChartImage from '../assets/images/main/chart.png';
+import healthHabitImage from '../assets/images/main/check_1 1.png';
+import checkupDesignImage from '../assets/images/main/check_2 1.png';
+import './MainPage.scss';
 
 const MainPage: React.FC = () => {
   const { state } = useWelloData();
@@ -337,156 +341,143 @@ const MainPage: React.FC = () => {
     }
   };
 
-  // 가로형 레이아웃 컨텐츠
-  const renderHorizontalContent = () => (
+  // 최신 검진 일자 가져오기
+  const getLatestCheckupDate = (): string => {
+    try {
+      const storedData = localStorage.getItem('wello_health_data');
+      if (storedData) {
+        const parsedData = JSON.parse(storedData);
+        const healthCheckups = parsedData.health_data?.ResultList || [];
+        if (healthCheckups.length > 0) {
+          const latest = healthCheckups[0];
+          const year = (latest.Year || latest.year || '').toString().replace('년', '').slice(-2);
+          const date = latest.CheckUpDate || latest.checkup_date || '';
+          if (date && year) {
+            // "09/28" -> "24.09.28" 형태로 변환
+            const [month, day] = date.split('/');
+            return `${year}.${month}.${day}`;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('검진 일자 가져오기 실패:', error);
+    }
+    return '';
+  };
+
+  const latestCheckupDate = getLatestCheckupDate();
+
+  // 통합 레이아웃 컨텐츠 (이미지 디자인 반영)
+  const renderUnifiedContent = () => (
     <>
-      <div className="horizontal-cards">
-        <h1 className="horizontal-cards__title">
-          {layoutConfig.title.split('\n').map((line, index) => (
-            <React.Fragment key={index}>
-              {line.includes('님,') ? (
-                <>
-                  안녕하세요 <span className="patient-name">{line.replace('안녕하세요 ', '').replace('님,', '님')}</span>,
-                </>
-              ) : (
-                line
-              )}
-              {index < layoutConfig.title.split('\n').length - 1 && <br />}
-            </React.Fragment>
-          ))}
-        </h1>
-        <div className="horizontal-cards__subtitle">
-          {layoutConfig.subtitle.split('\n').map((line, index) => (
-            <React.Fragment key={index}>
-              {line.includes('에서') ? (
-                <>
-                  <span className="hospital-name">{line.replace('에서', '')}</span>에서
-                </>
-              ) : (
-                line
-              )}
-              {index < layoutConfig.subtitle.split('\n').length - 1 && <br />}
-            </React.Fragment>
-          ))}
-        </div>
-        <div className="swipe-area">
-          <div className="cards-horizontal">
-            <Card
-              type="horizontal"
-              icon="chart"
-              title="내 검진 결과 추이 보기"
-              description="공단검진결과를 이용해서 내 건강 추이를 확인하세요"
-              shortcutText="검진결과추이보러 가기"
-              onClick={() => handleCardClick('chart')}
+      {/* 헤더 + 인사말 섹션 (하나의 영역) */}
+      <div className="main-page__header-greeting-section">
+        {/* 헤더 (로고만 표시) */}
+        <div className="main-page__header">
+          <div className="main-page__header-logo">
+            <img 
+              src={getHospitalLogoUrl(hospital)} 
+              alt={`${hospital.name} 로고`}
+              className="main-page__header-logo-image"
+              onError={(e) => {
+                // 이미지 로드 실패 시 기본 W 아이콘으로 대체
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                const iconElement = target.nextElementSibling as HTMLElement;
+                if (iconElement) {
+                  iconElement.style.display = 'flex';
+                }
+              }}
             />
-            <Card
-              type="horizontal"
-              icon="design"
-              title="올해 검진 항목 설계"
-              description="내 검진결과를 이용해서 올해 검진 받으실 항목을 설계해봐요"
-              shortcutText="검진 플래닝 서비스 보기"
-              onClick={() => handleCardClick('design')}
-            />
-            <Card
-              type="horizontal"
-              icon="habit"
-              title="검진전 건강습관만들기"
-              description="검진데이터로 만드는 나만의 착한 습관을 만들어 보세요"
-              shortcutText="14일 플랜 짜기"
-              onClick={() => handleCardClick('habit')}
-            />
-            <Card
-              type="horizontal"
-              icon="prediction"
-              title="질병 예측 리포트 보기"
-              description="검진 전 작년 검진결과로 확인하는 질병 예측 리포트"
-              shortcutText="질병 예측 리포트 보기"
-              onClick={() => handleCardClick('prediction')}
-            />
-          </div>
-          <div className="swipe-area__hint">
-            ← {layoutConfig.headerLogoTitle}이 준비한 서비스를 확인해보세요 →
+            <div className="main-page__header-logo-icon" style={{ display: 'none' }}>W</div>
           </div>
         </div>
-        
-        {/* 가로형 전용 메시지 영역 */}
-        <div className="horizontal-message-section">
-          <p className="horizontal-message-section__text">
-            더 이상 미루지 마세요.<br />
-            {layoutConfig.headerLogoTitle} 전문의와 함께 당신의 건강을 체계적으로 관리할 시간입니다.
+
+        {/* 환자 인사말 (왼쪽 정렬, 정확한 줄바꿈) */}
+        <div className="main-page__greeting">
+          <h1 className="main-page__greeting-title">
+            <span className="greeting-text">안녕하세요</span> <span className="patient-name">{patient.name}</span><span className="greeting-text">님,</span>
+          </h1>
+          <p className="main-page__greeting-subtitle">
+            <span className="hospital-name">{hospital.name}</span> <span className="hospital-suffix">입니다.</span>
+          </p>
+          <p className="main-page__greeting-message">
+            <span className="hospital-name">{hospital.name}</span><span className="greeting-text">에서</span><br />
+            <span className="greeting-text-thin">더 의미있는 내원이 되시길 바라며</span><br />
+            <span className="greeting-text-thin">준비한 건강관리 서비스를 확인해보세요!</span>
           </p>
         </div>
-      </div>
-      <div className="footer-section footer-section--horizontal footer-section--compact">
-        <div className="footer-section__info">
-          <p>{layoutConfig.hospitalAddress || "서울특별시 강남구 테헤란로 123"}</p>
-          <p>문의: {layoutConfig.hospitalPhone || "02-1234-5678"}</p>
+
+        {/* 첫 번째 카드 (인사말 섹션 안에 포함) */}
+        <div className="main-page__primary-card-wrapper">
+          <div 
+            className="main-page__card main-page__card--primary"
+            onClick={() => handleCardClick('chart')}
+          >
+            <div className="main-page__card-main-row">
+              <div className="main-page__card-icon main-page__card-icon--brown">
+                <svg className="main-page__card-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+              </div>
+              <div className="main-page__card-content">
+                <h3 className="main-page__card-title main-page__card-title--brown">건강검진 결과지 다시보기</h3>
+                <p className="main-page__card-description">
+                  {latestCheckupDate ? `건강 검진 일자 : ${latestCheckupDate}` : '건강 검진 일자 확인'}
+                </p>
+              </div>
+              <div className="main-page__card-arrow-bottom">
+                <svg className="main-page__card-arrow-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    </>
-  );
 
-  // 세로형 레이아웃 컨텐츠
-  const renderVerticalContent = () => (
-    <>
-      <div className="title-section">
-        <h1 className="title-section__title">{layoutConfig.title}</h1>
-        <div className="title-section__subtitle">
-          {layoutConfig.subtitle.split('\n').map((line, index) => (
-            <React.Fragment key={index}>
-              {line}
-              {index < layoutConfig.subtitle.split('\n').length - 1 && <br />}
-            </React.Fragment>
-          ))}
-        </div>
-      </div>
-
-      <div className="cards-section">
-        <div className="cards-vertical">
+      {/* 나머지 카드 섹션 (별도 영역 - 흰색 배경) */}
+      <div className="main-page__secondary-cards-section">
+        <div className="main-page__cards">
           <Card
             type="vertical"
             icon="chart"
-            title="내 검진 결과 추이 보기"
-            description="공단검진결과를 이용해서 내 건강 추이를 확인하세요"
+            title="검진 결과 추이"
+            description="공단검진결과를 이용해서
+내 건강 추이를 확인하세요"
             onClick={() => handleCardClick('chart')}
-          />
-          <Card
-            type="vertical"
-            icon="design"
-            title="올해 검진 항목 설계"
-            description="내 검진결과를 이용해서 올해 검진 받으실 항목을 설계해봐요"
-            onClick={() => handleCardClick('design')}
+            imageUrl={trendsChartImage}
+            imageAlt="검진 결과 추이 그래프"
           />
           <Card
             type="vertical"
             icon="habit"
-            title="검진전 건강습관만들기"
-            description="검진데이터로 만드는 나만의 착한 습관을 만들어 보세요"
+            title="건강습관 만들기"
+            description="건강검진결과로 만드는
+나만의 착한 습관을 만들어보세요"
             onClick={() => handleCardClick('habit')}
+            imageUrl={healthHabitImage}
+            imageAlt="건강습관 만들기"
           />
           <Card
             type="vertical"
-            icon="prediction"
-            title="질병 예측 리포트 보기"
-            description="검진 전 작년 검진결과로 확인하는 질병 예측 리포트"
-            onClick={() => handleCardClick('prediction')}
+            icon="design"
+            title="검진항목 설계하기"
+            description="내 검진결과를 이용해서
+올해 건강검진 항목을 설계해보세요"
+            onClick={() => handleCardClick('design')}
+            imageUrl={checkupDesignImage}
+            imageAlt="검진항목 설계하기"
           />
         </div>
       </div>
 
-      <div className="footer-section">
-        <p className="footer-section__text">
-          더 이상 미루지 마세요.<br />{layoutConfig.headerLogoTitle} 전문의와 함께 당신의 건강을 체계적으로 관리할 시간입니다.
-        </p>
-      </div>
     </>
   );
 
   return (
-    <>
-      {layoutConfig.layoutType === LayoutType.HORIZONTAL 
-        ? renderHorizontalContent()
-        : renderVerticalContent()}
+    <div className="main-page">
+      {renderUnifiedContent()}
       
       {/* 비밀번호 모달 */}
       {showPasswordModal && (() => {
@@ -511,7 +502,7 @@ const MainPage: React.FC = () => {
         sessionExpiresAt={sessionExpiresAt || undefined}
         onComplete={handleSessionStatusComplete}
       />
-    </>
+    </div>
   );
 };
 

@@ -1,0 +1,29 @@
+/**
+ * WELLO 폰트 시스템 토큰
+ * 폰트 정의 및 사용 규칙
+ */
+
+/* === 폰트 패밀리 정의 === */
+:root {
+  /* 메인 폰트 - 인사말 및 헤더용 */
+  --font-family-greeting: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  /* 아이템 헤더 폰트 */
+  --font-family-item-header: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  /* 작은 글씨 폰트 - 아이템 설명용 */
+  /* 소라임 폰트 파일: /src/assets/fonts/soraime/ */
+  --font-family-item-description: '소라임', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  
+  /* 기본 폰트 (기존 호환성 유지) */
+  --font-family-primary: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+  --font-family-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+}
+
+/* === 폰트 사용 규칙 === */
+/* 
+ * 인사말 영역: --font-family-greeting (Noto Sans KR)
+ * 아이템 헤더: --font-family-item-header (Noto Sans KR)
+ * 아이템 설명: --font-family-item-description (소라임)
+ */
+

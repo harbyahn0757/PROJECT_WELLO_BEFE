@@ -81,7 +81,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: rgba(255, 255, 255, 0.5);
+  background: transparent; // MainPage에서 배경색 관리
   overflow-y: auto;
   overflow-x: hidden; // 가로 스크롤 방지
   position: relative;
@@ -391,56 +391,43 @@
   }
 }
 
-// 플로팅 버튼 컨테이너 (메인 컨테이너 내부에 위치)
-.floating-button-container {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 448px; // 메인 컨테이너와 동일한 최대 너비
-  background: rgba(255, 255, 255, 0.25); // 컨테이너 배경 더욱 투명하게 (75% 투명)
-  backdrop-filter: blur(35px) saturate(250%); // 강한 유리 효과
-  -webkit-backdrop-filter: blur(35px) saturate(250%); // Safari 지원
-  border-top: 1px solid rgba(255, 255, 255, 0.1); // 거의 보이지 않는 테두리
-  padding: 1rem; // spacing-md 값 직접 지정
-  z-index: 1000;
-  box-shadow: 0 -2px 40px rgba(0, 0, 0, 0.04); // 매우 연한 그림자
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  
-  // 모바일에서는 전체 너비 사용
-  @media (max-width: 767px) {
-    left: 0;
-    transform: none;
-    max-width: none;
-  }
-}
-
-// 플로팅 버튼 자체 스타일
+// 플로팅 버튼 자체 스타일 (브라운 스킨) - solid 스타일
 .floating-button {
-  background-color: #7c746a !important; // 브랜드 브라운 색상 직접 지정
-  color: #ffffff !important; // 흰색 글자
-  border: none !important; // 테두리 제거
-  box-shadow: 0 4px 12px rgba(124, 116, 106, 0.3) !important; // 버튼에 그림자 추가
+  position: fixed !important;
+  bottom: 0.75rem !important; // 하단에서 조금 더 내리기
+  left: 50% !important;
+  transform: translateX(-50%) !important;
   width: 90% !important; // 화면 너비의 90%로 확대
   max-width: 400px !important; // 최대 너비 제한
   min-width: 280px !important; // 최소 너비 보장
-  padding: 1rem 1.5rem !important; // spacing 값 직접 지정
-  font-size: 1rem !important; // font-base 값 직접 지정
-  font-weight: 600 !important;
-  border-radius: 0.75rem !important; // border-radius-xl 값 직접 지정
+  min-height: 56px !important; // 버튼 높이 더 크게
+  background-color: #55433B !important; // 버튼 색상 (#55433B)
+  color: #FFFFFF !important; // 흰색 폰트
+  border: none !important; // 테두리 제거
+  box-shadow: 0 4px 12px rgba(124, 116, 106, 0.3) !important; // 버튼에 그림자 추가
+  padding: 1rem 1.5rem !important; // 상하 패딩 증가 (높이 더 크게)
+  font-size: var(--font-size-base) !important; // font-base 값
+  font-weight: var(--font-weight-semibold) !important;
+  border-radius: 8px !important; // 모서리만 약간 라운드 처리 (사각형 형태)
   transition: all 0.3s ease !important;
+  z-index: 1000 !important;
+  
+  // 모바일에서는 전체 너비 사용
+  @media (max-width: 767px) {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    max-width: 90% !important;
+    bottom: 0.75rem !important; // 모바일에서도 조금 더 내리기
+  }
   
   &:hover {
-    background-color: #696158 !important; // 호버시 더 진한 브랜드 색 (변수값 직접 사용)
-    transform: translateY(-1px) !important; // 살짝 위로 올라가는 효과
-    box-shadow: 0 6px 16px rgba(139, 69, 19, 0.4) !important; // 호버시 그림자 강화
+    background-color: #4A3A32 !important; // 호버시 더 진한 색상
+    transform: translateX(-50%) translateY(-1px) !important; // 살짝 위로 올라가는 효과
+    box-shadow: 0 6px 16px rgba(85, 67, 59, 0.4) !important; // 호버시 그림자 강화
   }
   
   &:active {
-    transform: translateY(0) !important; // 클릭시 원래 위치로
+    transform: translateX(-50%) translateY(0) !important; // 클릭시 원래 위치로
   }
 }
 

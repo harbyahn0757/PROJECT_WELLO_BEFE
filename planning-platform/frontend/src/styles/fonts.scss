@@ -1,0 +1,37 @@
+/**
+ * WELLO 폰트 파일 로드
+ * 소라임 폰트 및 기타 커스텀 폰트 정의
+ */
+
+/* === 소라임 폰트 === */
+/* 폰트 파일 위치: /src/assets/fonts/soraime/ */
+/* 
+ * 폰트 파일이 있을 때만 주석을 해제하세요.
+ * 폰트 파일이 없으면 Noto Sans KR이 대체 폰트로 사용됩니다.
+ */
+
+/* 
+@font-face {
+  font-family: '소라임';
+  src: url('../assets/fonts/soraime/Soraime-Regular.woff2') format('woff2'),
+       url('../assets/fonts/soraime/Soraime-Regular.woff') format('woff'),
+       url('../assets/fonts/soraime/Soraime-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: '소라임';
+  src: url('../assets/fonts/soraime/Soraime-Bold.woff2') format('woff2'),
+       url('../assets/fonts/soraime/Soraime-Bold.woff') format('woff'),
+       url('../assets/fonts/soraime/Soraime-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+*/
+
+/* 폰트 파일이 없을 경우 대체 폰트 사용 */
+/* 소라임 폰트 파일을 /src/assets/fonts/soraime/ 폴더에 저장한 후 위의 주석을 해제하세요 */
+

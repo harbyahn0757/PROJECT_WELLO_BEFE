@@ -11,9 +11,11 @@ interface CardProps {
   description: string;
   shortcutText?: string; // 바로가기 텍스트 (선택적)
   onClick?: () => void; // 클릭 이벤트 핸들러
+  imageUrl?: string; // 오른쪽 이미지 URL (선택적)
+  imageAlt?: string; // 이미지 alt 텍스트
 }
 
-const Card: React.FC<CardProps> = ({ type, icon, title, description, shortcutText, onClick }) => {
+const Card: React.FC<CardProps> = ({ type, icon, title, description, shortcutText, onClick, imageUrl, imageAlt }) => {
   const renderIcon = () => {
     switch (icon) {
       case 'chart':
@@ -53,12 +55,30 @@ const Card: React.FC<CardProps> = ({ type, icon, title, description, shortcutTex
       tabIndex={onClick ? 0 : undefined}
     >
       <div className="card__main-content">
-        <div className="card__icon">
-          {renderIcon()}
-        </div>
+        {/* 아이콘 제거 - 이미지만 표시 */}
         <div className="card__content">
           <h3 className="card__title">{title}</h3>
           <p className="card__description">{description}</p>
+        </div>
+        {/* 오른쪽 이미지 영역 (배경색 없음) */}
+        <div className="card__image-area">
+          {imageUrl ? (
+            <img 
+              src={imageUrl} 
+              alt={imageAlt || title}
+              className="card__image"
+              onError={(e) => {
+                // 이미지 로드 실패 시 placeholder 표시
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+                target.parentElement?.classList.add('card__image-area--placeholder');
+              }}
+            />
+          ) : (
+            <div className="card__image-placeholder">
+              <span className="card__image-placeholder-text">이미지 영역</span>
+            </div>
+          )}
         </div>
       </div>
       {shortcutText && (
