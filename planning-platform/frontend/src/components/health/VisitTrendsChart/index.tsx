@@ -195,7 +195,7 @@ const VisitTrendsChart: React.FC<VisitTrendsChartProps> = ({
                   <BarChart 
                     series={prescriptionChartData}
                     width={window.innerWidth <= 768 ? Math.min(window.innerWidth * 0.8, 250) : 280}
-                    height={170}
+                    height={180}
                     showValues={true}
                   />
                 ) : (
@@ -235,7 +235,7 @@ const VisitTrendsChart: React.FC<VisitTrendsChartProps> = ({
                   <BarChart 
                     series={hospitalVisitChartData}
                     width={window.innerWidth <= 768 ? Math.min(window.innerWidth * 0.8, 250) : 280}
-                    height={170}
+                    height={180}
                     showValues={true}
                   />
                 ) : (

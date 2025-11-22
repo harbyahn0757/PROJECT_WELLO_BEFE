@@ -4,21 +4,22 @@
 @use '../../../styles/variables' as *;
 
 .visit-trends-wrapper {
+  // HealthDataViewer에서 사용 시 간격 조정
   .visit-trends-header {
-    margin-bottom: 2px !important; // 간격 대폭 줄임 (8px에서 2px로)
+    margin-bottom: 2px !important; // 간격 대폭 줄임
     text-align: left;
     
     .visit-trends-title {
-      font-size: 14px;
+      font-size: 14px !important;
       font-weight: $font-weight-bold;
-      color: #A16A51;
-      margin: 0;
+      color: #A16A51 !important;
+      margin: 0 !important;
       font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     }
   }
   
   .visit-trends-container {
-    margin-top: -8px !important; // 그래프를 위로 올리기 위해 음수 마진 추가 (더 강하게)
+    margin-top: -12px !important; // 그래프를 위로 올리기 위해 음수 마진 추가 (더 강하게)
     padding-top: 0 !important;
   }
   
@@ -41,7 +42,7 @@
     display: flex;
     justify-content: center;
     gap: $spacing-xs;
-    margin-top: $spacing-sm;
+    margin-top: $spacing-xs; // 하단 여백 줄임 (12px에서 8px로)
     
     .dot {
       width: 8px;
@@ -63,9 +64,10 @@
     }
   }
   
-  // 그래프 카드 내부 간격 조정 (ComprehensiveAnalysisPage 스타일 오버라이드)
+  // 그래프 카드 내부 간격 조정 (HealthDataViewer에서 사용 시)
   .visit-trend-card {
-    padding: $spacing-sm $spacing-lg $spacing-lg $spacing-lg !important; // 상단 패딩만 줄임 (12px, 나머지는 24px 유지)
+    padding: $spacing-sm $spacing-lg 8px $spacing-lg !important; // 상단 패딩 줄임 (12px), 하단 패딩 대폭 줄임 (8px)
+    // min-height 제거하여 카드 높이를 내용에 맞게 조정
     
     .trend-header {
       margin-bottom: 6px !important; // 제목과 그래프 사이 간격 대폭 줄임 (기본 16px에서 6px로)
@@ -76,13 +78,31 @@
     }
     
     .trend-chart {
-      margin-top: 0 !important; // 상단 마진 제거
+      margin-top: -8px !important; // 상단 마진 음수로 설정하여 위로 올림 (더 강하게)
       padding-top: 0 !important; // 상단 패딩 제거
+      margin-bottom: 0 !important; // 하단은 고정 (변경 없음)
+      padding-bottom: 0 !important; // 하단 패딩 제거
     }
   }
   
-  // BarChart 내부 그리드 라인 스타일 오버라이드
+  // BarChart 내부 스타일 오버라이드 - 차트 내부 여백 조정
+  // 하단은 고정하고 상단만 위로 늘리기
   .wello-bar-chart {
+    // 상단 여백만 줄임 (하단은 고정)
+    margin-top: -20px !important; // 차트 상단 여백 대폭 줄임
+    padding-top: 0 !important;
+    margin-bottom: 0 !important; // 하단은 고정 (변경 없음)
+    padding-bottom: 0 !important;
+    
+    // SVG 상단 여백만 줄임 (하단은 고정)
+    &__svg {
+      margin-top: -20px !important; // SVG 상단 여백 대폭 줄임
+      padding-top: 0 !important;
+      margin-bottom: 0 !important; // 하단은 고정 (변경 없음)
+      padding-bottom: 0 !important;
+      transform: translateY(-15px) !important; // 위로 이동하여 상단 여백 줄임 (하단 고정)
+    }
+    
     // 그리드 라인 스타일 (더 구체적인 선택자 사용)
     &__grid {
       line.wello-bar-chart__grid-line {

@@ -1316,13 +1316,13 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   }
   
   .visit-trends-header {
-    margin-bottom: $spacing-md;
+    margin-bottom: 2px !important; // 간격 대폭 줄임 (16px에서 2px로)
     text-align: left;
     
     .visit-trends-title {
-      font-size: $font-xl;
+      font-size: 14px !important; // 폰트 크기 조정
       font-weight: $font-weight-bold;
-      color: $gray-900;
+      color: #A16A51 !important; // 색상 변경
       margin: 0;
       font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     }
@@ -1331,6 +1331,8 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
 
 .visit-trends-container {
   position: relative;
+  margin-top: -8px !important; // 그래프를 위로 올리기 위해 음수 마진 추가
+  padding-top: 0 !important;
 }
 
 .visit-trends-slider {
@@ -1447,7 +1449,7 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   background: $white;
   border: 1px solid #f5f5dc; // 연한 베이지색 외곽선
   border-radius: $border-radius-md;
-  padding: $spacing-lg; // 건강지표 카드와 동일한 패딩 (24px)
+  padding: $spacing-sm $spacing-lg $spacing-sm $spacing-lg !important; // 상단/하단 패딩 줄임 (12px, 좌우는 24px 유지)
   scroll-snap-align: start;
   
   // wrapper에서 패딩 처리하므로 카드 마진 제거
@@ -1466,15 +1468,21 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   // 중복 마진 설정 제거됨 (wrapper 패딩으로 통일)
   
   .trend-header {
-    margin-bottom: $spacing-md;
+    margin-bottom: 6px !important; // 제목과 그래프 사이 간격 대폭 줄임 (16px에서 6px로)
     
     .trend-title {
       font-size: $font-base;
       font-weight: $font-weight-semibold;
       color: $gray-700;
       margin: 0;
+      margin-bottom: 0 !important; // 추가 마진 제거
       font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     }
+  }
+  
+  .trend-chart {
+    margin-top: 0 !important; // 상단 마진 제거
+    padding-top: 0 !important; // 상단 패딩 제거
   }
   
   .trend-chart {
