@@ -1,0 +1,24 @@
+/**
+ * ContentLayoutWithoutHeader 스타일
+ * 헤더가 없는 컨텐츠 레이아웃
+ */
+@use '../../styles/variables' as *;
+
+.content-layout-without-header {
+  min-height: 100vh;
+  width: 100%;
+  position: relative;
+  background: #F5F5F5; // 하단 영역 배경색
+  
+  // 컨텐츠 영역
+  &__content {
+    padding: 0 !important;
+    padding-bottom: 150px !important; // 플로팅 버튼 영역 확보
+    margin: 0 !important;
+    position: relative !important;
+    overflow-y: auto !important; // 스크롤 가능
+    background: #F5F5F5 !important; // 하단 영역 배경색
+    min-height: 100vh !important;
+  }
+}
+

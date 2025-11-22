@@ -4,7 +4,7 @@
  */
 
 // 기본 로고 이미지 (병원 로고가 없을 때 사용)
-import defaultHospitalLogo from '../assets/images/main/sample_wello_hos_logo.png';
+import defaultHospitalLogo from '../assets/images/main/hwkim_logo.png';
 
 /**
  * 병원 로고 이미지 URL을 가져옵니다.

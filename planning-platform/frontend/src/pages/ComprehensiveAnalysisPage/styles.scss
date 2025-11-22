@@ -235,6 +235,13 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   // 섹션 간 일관된 간격 (24px)
   margin-bottom: $spacing-lg;
   
+  // 트렌드 페이지에서 상단 마진 완전 제거
+  .health-data-viewer &,
+  .trends-section & {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+  }
+  
   // 마지막 카드는 하단 여백 제거
   &:last-child {
     margin-bottom: 0;
@@ -1013,17 +1020,14 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
 
 // 건강 지표 카드 슬라이더 - 각 카드에 그래프 포함
 // Health Metrics Wrapper (외부 패딩 처리)
+// 트렌드 페이지에서 토글 바로 아래 시작하도록 모든 간격 제거
 .health-metrics-wrapper {
-  padding-top: 30px !important; // 상단 패딩 30px (토글-카드 간격)
-  padding-left: $spacing-lg !important; // 좌측 패딩
-  padding-right: $spacing-lg !important; // 우측 패딩
-  padding-bottom: 0 !important; // 하단 패딩 제거
+  padding: 0 $spacing-lg 0 $spacing-lg !important; // 상하 패딩 완전 제거, 좌우만 유지
+  margin: 0 !important; // 모든 마진 완전 제거
   
   @media (max-width: 480px) {
-    padding-top: 30px !important; // 모바일에서도 상단 패딩 30px 유지
-    padding-left: $spacing-md !important; // 모바일 좌측 패딩
-    padding-right: $spacing-md !important; // 모바일 우측 패딩
-    padding-bottom: 0 !important; // 하단 패딩 제거
+    padding: 0 $spacing-md 0 $spacing-md !important; // 모바일에서도 상하 패딩 완전 제거
+    margin: 0 !important; // 모든 마진 완전 제거
   }
 }
 
@@ -1036,7 +1040,9 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   display: flex;
   gap: $spacing-md; // 카드 간격 줄임
   overflow-x: auto;
-  padding: 0 0 $spacing-sm 0 !important; // 상단/좌우 패딩 제거 (wrapper에서 처리), 하단 패딩만 유지
+  padding: 0 0 $spacing-sm 0 !important; // 상단/좌우 패딩 완전 제거, 하단 패딩만 유지
+  margin-top: 0 !important; // 상단 마진 완전 제거
+  margin-bottom: 0 !important; // 하단 마진 제거
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
   
@@ -1308,6 +1314,19 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   @media (max-width: 480px) {
     padding: 0 $spacing-md; // 모바일에서 패딩 조정
   }
+  
+  .visit-trends-header {
+    margin-bottom: $spacing-md;
+    text-align: left;
+    
+    .visit-trends-title {
+      font-size: $font-xl;
+      font-weight: $font-weight-bold;
+      color: $gray-900;
+      margin: 0;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    }
+  }
 }
 
 .visit-trends-container {
@@ -1450,10 +1469,11 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
     margin-bottom: $spacing-md;
     
     .trend-title {
-      font-size: $font-lg;
+      font-size: $font-base;
       font-weight: $font-weight-semibold;
-      color: $gray-800;
+      color: $gray-700;
       margin: 0;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     }
   }
   
@@ -1480,6 +1500,19 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
         font-size: $font-sm;
         color: $gray-600;
         margin: 0;
+      }
+    }
+  }
+  
+  // 건강검진 결과 추이 그래프 X축 폰트 스타일 (Poppins Regular 8px)
+  .health-metric-card {
+    .wello-bar-chart {
+      &__x-axis {
+        .wello-bar-chart__axis-text {
+          font-family: 'Poppins', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+          font-size: 8px !important;
+          font-weight: 400 !important; // Regular
+        }
       }
     }
   }

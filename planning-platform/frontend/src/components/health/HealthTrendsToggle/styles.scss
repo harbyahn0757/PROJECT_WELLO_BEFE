@@ -18,7 +18,7 @@
   padding: 0 !important;
   border-bottom: none !important; // 하단 선 제거
   position: fixed !important; // 헤더와 동일하게 fixed
-  top: 120px !important; // 헤더 높이(90px) + 간격(30px) 아래 (빈 공간 증가)
+  top: 100px !important; // 헤더 높이(90px) + 간격(10px) 아래 (간격 줄임)
   left: 0 !important; // 왼쪽부터 시작 (헤더와 동일)
   right: 0 !important; // 오른쪽까지 (헤더와 동일)
   z-index: 99 !important; // 헤더보다 낮지만 다른 요소보다 높음

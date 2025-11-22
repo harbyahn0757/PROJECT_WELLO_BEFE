@@ -13,19 +13,24 @@
   &__header-greeting-section {
     background: #FEF9EE !important; // 상단 인사말 섹션 배경색
     padding: 0 1rem $spacing-lg 1rem !important; // 좌우 패딩 최소화 (1rem = 16px)
+    padding-top: 0 !important; // 상단 패딩 명시적으로 0
     margin: 0 !important; // 모든 마진 제거
+    margin-top: 0 !important; // 상단 마진 명시적으로 0
     border-radius: 0 0 $border-radius-xl $border-radius-xl; // 하단만 둥글게
     border-bottom: none !important; // 외곽선 제거
     box-shadow: $shadow-subtle !important; // 그림자 효과 줄이기
     position: relative !important; // z-index 적용을 위한 position 설정
     z-index: 10 !important; // 상단 섹션이 앞에 나오도록 z-index 설정
+    overflow: hidden !important; // 내부 요소가 border-radius를 넘지 않도록
   }
   
   // 헤더 (로고 + 병원명)
   &__header {
     padding: 0 !important; // 모든 패딩 완전 제거
+    padding-top: 0 !important; // 상단 패딩 명시적으로 0
     margin: 0 !important; // 모든 마진 완전 제거
-    margin-bottom: -4px !important; // 음수 마진으로 간격 완전 제거
+    margin-top: -12px !important; // 상단 마진 음수로 설정하여 여백 반으로 줄임
+    margin-bottom: -18px !important; // 음수 마진으로 간격 조정 (이미지 크기 증가에 맞춰 조정)
     background: transparent;
     line-height: 0 !important; // 라인 높이 0으로 설정
     font-size: 0 !important; // 폰트 크기 0으로 설정 (인라인 여백 제거)
@@ -39,8 +44,8 @@
       font-size: 0 !important; // 폰트 크기 0으로 설정
       
       &-image {
-        width: 72px !important; // 로고 크기 2배 (36px * 2)
-        height: 72px !important;
+        width: 108px !important; // 로고 크기 150% (72px * 1.5)
+        height: 108px !important;
         object-fit: contain;
         flex-shrink: 0;
         border-radius: $border-radius-md;
@@ -48,7 +53,7 @@
         margin-bottom: 0 !important; // 하단 마진 완전 제거
         padding: 0 !important; // 모든 패딩 완전 제거
         display: block !important; // 인라인 여백 제거
-        vertical-align: top !important; // 상단 정렬
+        // vertical-align은 display: block일 때 무시되므로 제거
         line-height: 0 !important; // 라인 높이 0으로 설정
       }
       
@@ -63,7 +68,7 @@
     padding-top: 0 !important; // 상단 패딩 완전 제거
     padding-left: 0 !important; // 왼쪽 패딩 제거 (왼쪽 정렬)
     margin: 0 !important; // 모든 마진 완전 제거
-    margin-top: -4px !important; // 음수 마진으로 간격 완전 제거
+    margin-top: -18px !important; // 음수 마진으로 간격 조정 (이미지 크기 증가에 맞춰 조정)
     margin-left: 0 !important; // 왼쪽 마진 제거
     margin-bottom: 0 !important; // 하단 마진 제거
     text-align: left !important; // 왼쪽 정렬 강제
@@ -395,6 +400,8 @@
     &__header-greeting-section {
       // 데스크톱에서도 동일한 패딩 유지
       padding: 0 $spacing-lg $spacing-xl !important;
+      padding-top: 0 !important; // 상단 패딩 명시적으로 0
+      margin-top: 0 !important; // 상단 마진 명시적으로 0
     }
     
     &__greeting {

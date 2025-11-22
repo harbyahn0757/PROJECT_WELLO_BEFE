@@ -57,6 +57,115 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
   const [selectedDrugInfo, setSelectedDrugInfo] = useState<any>(null);
   const [selectedMedicationData, setSelectedMedicationData] = useState<any>(null);
   const [statusFilters, setStatusFilters] = useState<{ [recordId: string]: string | null }>({});
+  
+  // Sticky 날짜 헤더 상태 (현재 sticky된 날짜 정보)
+  const [stickyDateInfo, setStickyDateInfo] = useState<{ year: string; month: string; date: string } | null>(null);
+  
+  // Intersection Observer로 sticky 상태 감지 (더 정확하고 안정적)
+  useEffect(() => {
+    const scrollContainer = document.querySelector('.content-layout-with-header__body');
+    if (!scrollContainer) return;
+    
+    const dateSections = document.querySelectorAll('.date-section[data-year][data-month][data-date]');
+    if (dateSections.length === 0) return;
+    
+    const stickyTop = 184; // 토글 아래 위치
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // sticky 상태인 헤더 찾기 (상단에 고정된 것)
+        const stickyHeaders = Array.from(dateSections)
+          .map((section) => {
+            const header = section.querySelector('.date-header') as HTMLElement;
+            if (!header) return null;
+            
+            const rect = header.getBoundingClientRect();
+            // sticky 상태: 상단에 고정되어 있음
+            const isSticky = rect.top <= stickyTop + 2 && rect.top >= stickyTop - 2;
+            
+            if (isSticky) {
+              return {
+                section,
+                header,
+                top: rect.top,
+                year: section.getAttribute('data-year') || '',
+                month: section.getAttribute('data-month') || '',
+                date: section.getAttribute('data-date') || ''
+              };
+            }
+            return null;
+          })
+          .filter((item): item is NonNullable<typeof item> => item !== null)
+          .sort((a, b) => a.top - b.top); // 가장 위에 있는 것부터 정렬
+        
+        if (stickyHeaders.length > 0) {
+          const topSticky = stickyHeaders[0];
+          setStickyDateInfo({
+            year: topSticky.year,
+            month: topSticky.month,
+            date: topSticky.date
+          });
+        } else {
+          setStickyDateInfo(null);
+        }
+      },
+      {
+        root: scrollContainer,
+        rootMargin: `-${stickyTop}px 0px 0px 0px`,
+        threshold: [0, 0.1, 0.5, 1]
+      }
+    );
+    
+    // 스크롤 이벤트로도 감지 (Intersection Observer 보완)
+    const handleScroll = () => {
+      const dateHeaders = document.querySelectorAll('.date-header');
+      interface StickyHeaderInfo {
+        element: Element;
+        top: number;
+        year: string;
+        month: string;
+        date: string;
+      }
+      let topStickyHeader: StickyHeaderInfo | null = null;
+      
+      dateHeaders.forEach((header) => {
+        const rect = header.getBoundingClientRect();
+        const dateSection = header.closest('.date-section[data-year][data-month][data-date]') as Element | null;
+        
+        if (dateSection && rect.top <= stickyTop + 2 && rect.top >= stickyTop - 2) {
+          const year = dateSection.getAttribute('data-year') || '';
+          const month = dateSection.getAttribute('data-month') || '';
+          const date = dateSection.getAttribute('data-date') || '';
+          
+          if (!topStickyHeader || rect.top < topStickyHeader.top) {
+            topStickyHeader = {
+              element: header,
+              top: rect.top,
+              year,
+              month,
+              date
+            };
+          }
+        }
+      });
+      
+      if (topStickyHeader !== null) {
+        const { year, month, date } = topStickyHeader;
+        setStickyDateInfo({ year, month, date });
+      } else {
+        setStickyDateInfo(null);
+      }
+    };
+    
+    dateSections.forEach((section) => observer.observe(section));
+    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // 초기 실행
+    
+    return () => {
+      dateSections.forEach((section) => observer.unobserve(section));
+      scrollContainer.removeEventListener('scroll', handleScroll);
+    };
+  }, [groupedRecords]);
 
   // 약품 클릭 핸들러
   const handleDrugClick = async (medication: any) => {
@@ -879,10 +988,27 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
                               const dateB = parseInt(b.replace('일', ''));
                               return dateB - dateA;
                             })
-                            .map((date: string) => (
-                              <div key={`${year}-${month}-${date}`} className="date-section">
-                                <div className="date-header">
-                                  <span className="date-title">{date}</span>
+                            .map((date: string) => {
+                              const isSticky = stickyDateInfo?.year === year && 
+                                             stickyDateInfo?.month === month && 
+                                             stickyDateInfo?.date === date;
+                              
+                              return (
+                              <div 
+                                key={`${year}-${month}-${date}`} 
+                                className="date-section"
+                                data-year={year}
+                                data-month={month}
+                                data-date={date}
+                              >
+                                <div className={`date-header ${isSticky ? 'is-sticky' : ''}`}>
+                                  {isSticky ? (
+                                    <span className="date-title">
+                                      {year}년 {month} {date}
+                                    </span>
+                                  ) : (
+                                    <span className="date-title">{date}</span>
+                                  )}
                                 </div>
                                 
                                 <div className="records-list">
@@ -902,27 +1028,21 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
                       <div className="record-icon">
                         {record.isPharmacy ? (
                           <div className="icon-badge pharmacy">
-                            <img src={pillIconPath} alt="약국" />
+                            <span>약국</span>
                           </div>
                         ) : record.type === 'checkup' ? (
                           <div className="icon-badge checkup">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                            </svg>
+                            <span>검진</span>
                           </div>
                         ) : (
                           <div className="icon-badge prescription">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7Z"/>
-                            </svg>
+                            <span>진료</span>
                           </div>
                         )}
                       </div>
                       
                       <div className="record-info">
                         <div className="record-main">
-                          <span className="record-title">{record.title}</span>
-                          <span className="record-separator">|</span>
                           <span className="record-institution">{record.institution}</span>
                           {record.treatmentType && (
                             <>
@@ -1024,7 +1144,8 @@ const UnifiedHealthTimeline: React.FC<UnifiedHealthTimelineProps> = ({
                                   ))}
                                 </div>
                               </div>
-                            ))}
+                              );
+                            })}
                         </div>
                       </div>
                     );

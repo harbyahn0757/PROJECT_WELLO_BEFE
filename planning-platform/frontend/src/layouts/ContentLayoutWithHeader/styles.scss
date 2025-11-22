@@ -1,0 +1,103 @@
+/**
+ * ContentLayoutWithHeader 스타일
+ * 공용 헤더가 있는 컨텐츠 레이아웃
+ * 구조: 헤더(고정) > 토글(고정) > 컨텐츠(스크롤) > 플로팅 버튼(고정, 스크롤 밖)
+ */
+@use '../../styles/variables' as *;
+
+.content-layout-with-header {
+  width: 100%;
+  position: relative;
+  background: #F5F5F5;
+  // 전체 컨테이너는 스크롤 없음 (헤더와 토글은 fixed)
+  
+  // 헤더는 fixed 유지 (오버라이드하지 않음)
+  // 헤더: position: fixed, top: 0, height: 90px, z-index: 100
+  
+  // 토글은 fixed 유지 (오버라이드하지 않음)
+  // 토글: position: fixed, top: 100px (헤더 90px + 간격 10px), z-index: 99
+  
+  // 바디 영역 - 토글 아래부터 시작하는 스크롤 영역
+  &__body {
+    position: fixed;
+    // 토글: top: 100px, 토글 컨테이너 height: 60px
+    // 토글 끝: 100px + 60px = 160px
+    // 토글 아래 간격: 24px (원래 padding-bottom)
+    top: 184px; // 160px + 24px
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow-y: auto; // 컨텐츠가 넘칠 때만 스크롤
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    background: #F5F5F5;
+    padding-bottom: 80px; // 플로팅 버튼 영역 확보
+    will-change: scroll-position;
+    overscroll-behavior-y: contain;
+  }
+  
+  // 토글 영역 - fixed로 유지되므로 바디 밖에 위치
+  &__toggle {
+    // 토글은 fixed이므로 이 div는 공간을 차지하지 않음
+    // 토글 컴포넌트의 fixed 스타일은 그대로 유지
+    position: relative;
+    z-index: 99;
+    height: 0; // 공간 차지 안 함
+    overflow: hidden;
+  }
+  
+  // 토글이 없는 경우 - 바디가 헤더 바로 아래부터 시작
+  &:not(:has(.health-trends-toggle)) {
+    .content-layout-with-header__body {
+      top: 90px; // 헤더 높이만큼
+    }
+  }
+  
+  // 컨텐츠 영역 (카드)
+  &__content {
+    padding: 0;
+    margin-top: 0; // 토글과의 간격은 토글의 padding-bottom으로 처리
+    position: relative;
+    background: #F5F5F5;
+    // min-height 제거: 실제 컨텐츠 높이에 맞게 자동 조정
+    
+    // 모든 자식 요소의 상단 마진/패딩 강제 제거
+    > * {
+      margin-top: 0 !important;
+      padding-top: 0 !important;
+    }
+  }
+  
+  // 토글이 없는 경우
+  &:not(:has(.health-trends-toggle)) {
+    .content-layout-with-header__content {
+      margin-top: 0; // 토글이 없으면 컨텐츠가 헤더 바로 아래
+    }
+  }
+  
+  // Pull-to-refresh 인디케이터 스타일
+  .pull-to-refresh-indicator {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    
+    .refresh-icon {
+      font-size: 24px;
+      margin-bottom: 4px;
+    }
+    
+    .refresh-text {
+      font-size: 14px;
+      color: $gray-600;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+  }
+}
+

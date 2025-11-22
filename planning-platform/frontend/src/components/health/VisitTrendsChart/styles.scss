@@ -1,0 +1,166 @@
+/**
+ * VisitTrendsChart 스타일
+ */
+@use '../../../styles/variables' as *;
+
+.visit-trends-wrapper {
+  .visit-trends-header {
+    margin-bottom: 2px !important; // 간격 대폭 줄임 (8px에서 2px로)
+    text-align: left;
+    
+    .visit-trends-title {
+      font-size: 14px;
+      font-weight: $font-weight-bold;
+      color: #A16A51;
+      margin: 0;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    }
+  }
+  
+  .visit-trends-container {
+    margin-top: -8px !important; // 그래프를 위로 올리기 위해 음수 마진 추가 (더 강하게)
+    padding-top: 0 !important;
+  }
+  
+  .visit-trends-slider {
+    display: flex;
+    gap: $spacing-md;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    margin-top: 0; // 추가 여백 제거
+    
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .visit-trends-dots {
+    display: flex;
+    justify-content: center;
+    gap: $spacing-xs;
+    margin-top: $spacing-sm;
+    
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: $gray-300;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      
+      &.active {
+        background: #A16A51;
+        transform: scale(1.2);
+      }
+      
+      &:hover {
+        background: #8B5A3C;
+        transform: scale(1.1);
+      }
+    }
+  }
+  
+  // 그래프 카드 내부 간격 조정 (ComprehensiveAnalysisPage 스타일 오버라이드)
+  .visit-trend-card {
+    padding: $spacing-sm $spacing-lg $spacing-lg $spacing-lg !important; // 상단 패딩만 줄임 (12px, 나머지는 24px 유지)
+    
+    .trend-header {
+      margin-bottom: 6px !important; // 제목과 그래프 사이 간격 대폭 줄임 (기본 16px에서 6px로)
+      
+      .trend-title {
+        margin-bottom: 0 !important; // 추가 마진 제거
+      }
+    }
+    
+    .trend-chart {
+      margin-top: 0 !important; // 상단 마진 제거
+      padding-top: 0 !important; // 상단 패딩 제거
+    }
+  }
+  
+  // BarChart 내부 그리드 라인 스타일 오버라이드
+  .wello-bar-chart {
+    // 그리드 라인 스타일 (더 구체적인 선택자 사용)
+    &__grid {
+      line.wello-bar-chart__grid-line {
+        stroke: #E0E0E0 !important; // 더 연한 회색
+        stroke-width: 0.5 !important; // 더 얇게
+        stroke-dasharray: 2, 4 !important; // 점선 간격 조정
+        opacity: 0.4 !important; // 더 투명하게
+      }
+    }
+  }
+  
+  // 약국 방문 추이 카드 내부 바 색상 (더 구체적인 선택자로 우선순위 확보)
+  .visit-trend-card--pharmacy {
+    .wello-bar-chart__group {
+      .wello-bar-chart__bar,
+      .wello-bar-chart__bar[style],
+      .wello-bar-chart__bar[fill] {
+        fill: #FFEAE2 !important;
+        stroke: #FFEAE2 !important;
+      }
+    }
+    
+    .wello-bar-chart__value-label,
+    .wello-bar-chart__value-label[style],
+    .wello-bar-chart__value-label[fill] {
+      fill: #FE6F32 !important; // 약국 막대 위 폰트 색상
+    }
+  }
+  
+  // 병원 방문 추이 카드 내부 바 색상 (더 구체적인 선택자로 우선순위 확보)
+  .visit-trend-card--hospital {
+    .wello-bar-chart__group {
+      .wello-bar-chart__bar,
+      .wello-bar-chart__bar[style],
+      .wello-bar-chart__bar[fill] {
+        fill: #DDF2FF !important;
+        stroke: #DDF2FF !important;
+      }
+    }
+    
+    .wello-bar-chart__value-label,
+    .wello-bar-chart__value-label[style],
+    .wello-bar-chart__value-label[fill] {
+      fill: #327FEB !important; // 병원 방문 막대 위 폰트 색상
+    }
+  }
+  
+  // BarChart 내부 스타일 (공통)
+  .wello-bar-chart {
+    
+    // 축 라벨 폰트 색상
+    &__x-axis,
+    &__y-axis {
+      .wello-bar-chart__axis-label {
+        fill: #626262 !important; // 회색 계열
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+        font-size: 12px !important;
+      }
+      
+      .wello-bar-chart__axis-tick {
+        stroke: #E0E0E0 !important;
+        stroke-width: 0.5 !important;
+      }
+      
+      .wello-bar-chart__axis-text {
+        fill: #626262 !important; // 회색 계열
+        font-family: 'Poppins', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+        font-size: 8px !important;
+        font-weight: 400 !important; // Regular
+      }
+    }
+    
+    // 값 레이블 폰트 (Pretendard Bold 12px)
+    &__value-label {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+      font-size: 12px !important;
+      font-weight: $font-weight-bold !important;
+    }
+  }
+}
+

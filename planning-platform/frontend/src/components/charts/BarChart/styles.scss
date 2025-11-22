@@ -10,7 +10,10 @@
   &__svg {
     width: 100%;
     height: 100%;
-    overflow: visible;
+    overflow: visible !important;
+    // 값 레이블이 잘리지 않도록
+    overflow-y: visible !important;
+    overflow-x: visible !important;
   }
 
   &__empty {
@@ -86,11 +89,13 @@
     }
 
     .wello-bar-chart__value-label {
-      fill: var(--text-primary);
-      font-size: var(--font-size-xs);
-      font-weight: var(--font-weight-medium);
-      font-family: var(--font-family-primary);
-      pointer-events: none;
+      fill: var(--text-primary) !important;
+      font-size: var(--font-size-xs) !important;
+      font-weight: var(--font-weight-medium) !important;
+      font-family: var(--font-family-primary) !important;
+      pointer-events: none !important;
+      opacity: 1 !important;
+      visibility: visible !important;
     }
   }
 

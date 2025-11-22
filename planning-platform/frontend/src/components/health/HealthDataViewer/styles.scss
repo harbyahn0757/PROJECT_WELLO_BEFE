@@ -4,6 +4,7 @@
 @use '../../../styles/variables' as *;
 
 // main-container의 제한을 무시하고 전체 폭 사용
+// 트렌드 상태 전용 페이지 - 질문 영역 간섭 방지
 .main-container .health-data-viewer,
 .health-data-viewer {
   // 메인 스타일은 _health.scss에서 정의됨
@@ -23,17 +24,104 @@
   margin-left: -50vw !important;
   margin-right: -50vw !important;
   
-  // 컨텐츠 영역 (토글 하단부터 시작, 토글과의 간격 30px)
-  .health-trends-content {
-    padding-top: 210px !important; // 토글 하단(180px) + 간격(30px) = 210px
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-    padding-bottom: 0 !important;
-    margin: 0 !important; // 마진 완전 제거
-    position: relative !important;
-    overflow-y: auto !important; // 스크롤 가능
-    background: #F5F5F5 !important; // 하단 영역 배경색
-    min-height: calc(100vh - 210px) !important; // 최소 높이 설정
+  // 질문 영역 스타일 간섭 방지 (트렌드 상태 전용)
+  // _survey.scss의 .question__content 스타일이 이 페이지에 영향을 주지 않도록 격리
+  // 이 페이지는 트렌드 상태만 처리하므로 질문 관련 스타일 무효화
+  isolation: isolate; // 스타일 격리
+  
+  // question__content 스타일이 적용되지 않도록 명시적 오버라이드
+  & > * {
+    // _survey.scss의 .question__content 스타일이 자식 요소에 영향을 주지 않도록
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  // 로딩 상태 스타일
+  &__loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    padding: 40px 20px;
+    
+    .loading-spinner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      
+      .wello-icon-blink {
+        width: 48px;
+        height: 48px;
+      }
+      
+      &__message {
+        font-size: 16px;
+        color: $gray-600;
+        text-align: center;
+        margin: 0;
+        font-weight: 500;
+      }
+    }
+  }
+
+  // 에러 상태 스타일
+  &__error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    padding: 40px 20px;
+    
+    .error-message {
+      text-align: center;
+      max-width: 500px;
+      
+      &__icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+      }
+      
+      &__title {
+        font-size: 20px;
+        font-weight: 600;
+        color: $gray-900;
+        margin-bottom: 8px;
+      }
+      
+      &__text {
+        font-size: 14px;
+        color: $gray-600;
+        margin-bottom: 24px;
+      }
+      
+      &__actions {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+      }
+      
+      &__button {
+        padding: 12px 24px;
+        border-radius: $border-radius-md;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        
+        &--primary {
+          background: $brand-brown;
+          color: $white;
+          border: none;
+          
+          &:hover {
+            background: $brand-brown-hover;
+          }
+        }
+      }
+    }
   }
 
   // 🔧 화면 전환 애니메이션
@@ -72,19 +160,17 @@
 
 // 🔧 TrendsSection (컨텐츠 영역에서 패딩 처리하므로 제거)
 .trends-section {
-  padding-top: 0 !important; // 패딩 제거 (컨텐츠 영역에서 처리)
-  margin-top: 0 !important; // 마진 제거
+  padding-top: 0 !important; // 패딩 완전 제거 (토글 바로 아래)
+  padding-bottom: 0 !important; // 하단 패딩 제거
+  margin-top: 0 !important; // 마진 완전 제거
+  margin-bottom: 0 !important; // 하단 마진 제거
   
   .analysis-card {
     background: transparent !important; // 카드 영역 섹션 투명 처리
-    margin-bottom: $spacing-lg;
-    margin-top: 0 !important; // 상단 마진 제거
+    margin: 0 !important; // 모든 마진 완전 제거 (상하좌우)
+    padding: 0 !important; // 모든 패딩 완전 제거
     border: none !important; // 테두리 제거
     box-shadow: none !important; // 그림자 제거
-    
-    &:last-child {
-      margin-bottom: 0;
-    }
   }
 }
 

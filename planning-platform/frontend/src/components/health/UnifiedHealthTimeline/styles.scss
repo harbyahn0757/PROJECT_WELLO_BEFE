@@ -208,7 +208,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: $spacing-xs; // 년도 헤더 하단 간격 더 축소 (md → xs)
+      margin-bottom: 2px; // 년도-월 간격 더 줄임 (4px → 2px)
       padding-bottom: 2px; // 패딩 더 축소 (xs → 2px)
       border-bottom: 1px solid $gray-200; // 2px → 1px로 축소
       
@@ -252,16 +252,38 @@
     }
     
     .date-header {
+      position: sticky;
+      top: 0; // 스크롤 컨테이너 상단에 고정
+      z-index: 10; // 다른 요소 위에 표시
+      background: #F5F5F5; // 배경색 설정 (스크롤 시 투과 방지)
+      padding: 8px 0 4px 0; // 상하 패딩 추가 (고정 시 가독성 향상)
       margin-bottom: 2px; // 날짜 헤더 하단 간격 대폭 축소
+      margin-top: -8px; // 상단 패딩 상쇄
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); // 더 부드러운 전환 (ease-in-out)
       
       .date-title {
         font-size: $font-sm; // 폰트 크기 축소 (sm → xs)
-        font-weight: $font-weight-normal; // 폰트 굵기 축소 (medium → normal)
-        color: $gray-500; // 색상 연하게 (600 → 500)
-        background: transparent; // 배경 제거
-        padding: 0; // 패딩 제거
-        border-radius: 0; // 보더 반경 제거
+        font-weight: $font-weight-semibold; // sticky 시 가독성을 위해 semibold로 변경
+        color: $gray-700; // 색상 진하게 (500 → 700, 가독성 향상)
+        background: transparent;
+        padding: 0;
+        border-radius: 0;
         display: inline-block;
+      }
+      
+      // sticky 상태일 때 스타일 (년도/월/날짜 합쳐서 표시)
+      &.is-sticky {
+        padding: 10px 0 6px 0; // 패딩 조정
+        background: #F5F5F5;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); // 그림자 추가
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); // 부드러운 전환
+        
+        .date-title {
+          font-size: $font-base; // sticky 시 폰트 크기 증가
+          font-weight: $font-weight-semibold;
+          color: $gray-800; // 더 진한 색상
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); // 부드러운 전환
+        }
       }
     }
     
@@ -269,7 +291,7 @@
       display: flex;
       flex-direction: column;
       gap: $spacing-xs; // 카드 간격 더 축소 (sm → xs)
-      margin-left: -4px; // 카드들을 더 왼쪽으로 (음수 마진으로 더 당김)
+      margin-left: 8px; // 아이템 시작 x 좌표를 오른쪽으로 이동 (음수 → 양수)
       
       .record-item-wrapper {
         display: flex;
@@ -328,54 +350,39 @@
         }
         
         .record-icon {
-          margin-right: $spacing-sm; // md에서 sm으로 축소
+          margin-right: $spacing-md; // 간격 조금 늘림
           flex-shrink: 0;
           
           .icon-badge {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            position: relative;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none; // 외곽선 없음
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            font-size: 14px;
+            font-weight: $font-weight-medium;
+            white-space: nowrap;
             
-            svg {
-              display: block;
-              margin: auto;
+            span {
+              display: inline-block;
             }
             
             &.checkup {
-              background: rgba(139, 69, 19, 0.1); // 갈색 배경
-              border: 2px solid $brand-brown; // 갈색 보더
-              
-              svg {
-                width: 16px;
-                height: 16px;
-                color: $brand-brown; // 갈색 아이콘
-              }
+              background: #F5F0E8; // 베이지 배경
+              color: #8B4513; // 갈색 텍스트
             }
             
             &.prescription {
-              background: rgba(66, 153, 225, 0.1);
-              border: 2px solid $info;
-              
-              svg {
-                width: 16px;
-                height: 16px;
-                color: $info;
-              }
+              background: #E3F2FD; // 파란색 배경
+              color: #1976D2; // 파란색 텍스트
             }
             
             &.pharmacy {
-              background: rgba(245, 158, 11, 0.1);
-              border: 2px solid $warning;
-              
-              img {
-                width: 16px;
-                height: 16px;
-                object-fit: contain;
-              }
+              background: #FFF3E0; // 오렌지/피치 배경
+              color: #F57C00; // 오렌지 텍스트
             }
           }
         }
@@ -392,9 +399,11 @@
             flex-wrap: nowrap;
             white-space: nowrap;
             overflow: hidden; // 컨테이너 오버플로우 숨김
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            font-size: 14px;
             
             .record-title {
-              font-size: $font-base; // $font-sm에서 $font-base로 증가 (+2)
+              font-size: 14px;
               font-weight: $font-weight-semibold;
               color: $gray-900;
               flex-shrink: 0;
@@ -402,23 +411,24 @@
             
             .record-separator {
               color: $gray-400;
-              font-size: $font-base; // $font-sm에서 $font-base로 증가 (+2)
+              font-size: 14px;
               flex-shrink: 0;
             }
             
             .record-institution {
-              font-size: $font-base; // $font-sm에서 $font-base로 증가 (+2)
+              font-size: 14px;
               font-weight: $font-weight-medium;
               color: $gray-700;
               flex-shrink: 2; // 더 많이 축소 가능하도록
               min-width: 0;
               overflow: hidden;
               text-overflow: ellipsis;
-              max-width: 120px; // 최대 너비 제한
+              max-width: 180px; // 최대 너비 제한 증가 (120px → 180px)
+              margin-right: 4px; // 오른쪽 여유 공간 추가
             }
             
             .record-treatment {
-              font-size: $font-base; // $font-sm에서 $font-base로 증가 (+2)
+              font-size: 14px;
               color: $gray-600;
               flex-shrink: 3; // 가장 많이 축소 가능하도록
               min-width: 0;
@@ -470,10 +480,13 @@
             .visit-count,
             .medication-count,
             .prescription-count {
-              background: $gray-100;
-              color: $gray-700;
+              background: #F2F2F2;
+              color: #626262;
               padding: 2px 6px;
               border-radius: $border-radius-sm;
+              font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+              font-size: 10px;
+              font-weight: $font-weight-medium;
             }
           }
         }
@@ -973,8 +986,9 @@
         margin-right: $spacing-sm;
         
         .icon-badge {
-          width: 28px !important;
-          height: 28px !important;
+          width: 44px !important;
+          height: 44px !important;
+          font-size: 14px !important;
           
           svg {
             width: 14px !important;
@@ -1372,8 +1386,9 @@
           margin-right: 6px; // 모바일에서 더 작은 마진
           
           .icon-badge {
-            width: 24px; // 모바일에서 아이콘 더 작게
-            height: 24px;
+            width: 44px !important; // 모바일에서도 44px 유지
+            height: 44px !important;
+            font-size: 14px !important;
             
             svg {
               width: 12px;

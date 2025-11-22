@@ -3,7 +3,7 @@
  * 모든 모달에서 공통으로 사용되는 구조와 스타일을 제공
  */
 import React from 'react';
-import { WELLO_LOGO_IMAGE } from '../../constants/images';
+import { WELLO_LOGO_IMAGE } from '../../../constants/images';
 import './styles.scss';
 
 interface WelloModalProps {

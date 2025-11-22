@@ -279,7 +279,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
 
   // 건강지표 상태 판단 함수
   const getHealthStatus = (metric: string, value: number, healthDataItem: any): { status: 'normal' | 'warning' | 'abnormal' | 'neutral', text: string, date: string } => {
-    console.log(`🔍 [${metric}] 상태 판정 시작:`, { metric, value, healthDataItem: healthDataItem ? 'exists' : 'null' });
+    // 디버그 로그 제거
     
     if (metric === '신장') {
       return {
@@ -291,11 +291,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
 
     const rawData = healthDataItem?.raw_data;
     if (!rawData) {
-      console.log(`⚠️ [${metric}] raw_data 없음 - 기본 정상 반환`, {
-        healthDataItem: healthDataItem ? 'exists' : 'null',
-        healthDataItemKeys: healthDataItem ? Object.keys(healthDataItem) : [],
-        rawDataValue: healthDataItem?.raw_data
-      });
+      // raw_data 없음 - 기본 정상 반환 (로그 제거)
       return {
         status: 'normal',
         text: '정상',
@@ -314,7 +310,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
       overallStatus = 'abnormal';
     }
 
-    console.log(`🔍 [${metric}] 전체 상태 코드:`, { code, overallStatus });
+    // 전체 상태 코드 확인 (로그 제거)
 
     let itemStatus = overallStatus;
     let foundItem = false;
@@ -351,34 +347,20 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
               
               if (item) {
                 foundItem = true;
-                console.log(`✅ [${metric}] 매칭된 항목 발견:`, { 
-                  itemName: item.Name, 
-                  itemValue: item.Value, 
-                  hasReferences: !!(item.ItemReferences && Array.isArray(item.ItemReferences)),
-                  referencesCount: item.ItemReferences?.length || 0
-                });
+                // 매칭된 항목 발견 (로그 제거)
                 
                 if (item.ItemReferences && Array.isArray(item.ItemReferences)) {
                   const itemValue = parseFloat(item.Value);
-                  console.log(`🔍 [${metric}] 판정 범위 체크:`, { itemValue, references: item.ItemReferences });
                   
                   if (!isNaN(itemValue)) {
                     for (const ref of item.ItemReferences) {
                       const inRange = isInRange(itemValue, ref.Value);
-                      console.log(`🔍 [${metric}] 범위 체크:`, { 
-                        refName: ref.Name, 
-                        refValue: ref.Value, 
-                        itemValue, 
-                        inRange 
-                      });
                       
                       if (ref.Name === '질환의심' && inRange) {
                         itemStatus = 'abnormal';
-                        console.log(`🚨 [${metric}] 질환의심 범위에 해당 → 이상`);
                         break;
                       } else if ((ref.Name === '정상(B)' || ref.Name === '정상(경계)') && inRange) {
                         itemStatus = 'warning';
-                        console.log(`⚠️ [${metric}] 정상(B) 범위에 해당 → 경계`);
                       }
                     }
                   }
@@ -390,21 +372,12 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
       }
     }
 
-    if (!foundItem) {
-      console.log(`⚠️ [${metric}] 매칭된 항목 없음 - 전체 상태 사용:`, overallStatus);
-    }
+    // 매칭된 항목 없으면 전체 상태 사용 (로그 제거)
 
     const statusText = itemStatus === 'normal' ? '정상' : 
                       itemStatus === 'warning' ? '경계' : '이상';
     
-    console.log(`🎯 [${metric}] 최종 판정 결과:`, { 
-      metric, 
-      value, 
-      foundItem, 
-      overallStatus, 
-      itemStatus, 
-      statusText 
-    });
+    // 최종 판정 결과 (로그 제거)
     
     return {
       status: itemStatus,
@@ -415,20 +388,6 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
 
   // 🔧 처방전 차트 데이터 및 병원 방문 차트 데이터 제거됨
   // 의료기관 방문 추이 섹션이 UnifiedHealthTimeline으로 이동 예정
-
-  // 로딩 상태 및 데이터 디버깅
-  useEffect(() => {
-    console.log('🔍 [TrendsSection] 데이터 확인:', {
-      healthData: healthData,
-      healthDataType: typeof healthData,
-      healthDataIsArray: Array.isArray(healthData),
-      healthDataLength: Array.isArray(healthData) ? healthData.length : 'N/A',
-      prescriptionData: prescriptionData,
-      prescriptionDataType: typeof prescriptionData,
-      prescriptionDataIsArray: Array.isArray(prescriptionData),
-      prescriptionDataLength: Array.isArray(prescriptionData) ? prescriptionData.length : 'N/A'
-    });
-  }, [healthData, prescriptionData]);
 
   // 닷 슬라이더 스크롤 동기화
   useEffect(() => {
@@ -573,15 +532,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
           return yearB - yearA; // 최신 년도 먼저 (내림차순)
         });
         
-        console.log(`🔍 [${targetMetric}] 지표별 최신 데이터 선택:`, {
-          metric: targetMetric,
-          totalData: dataArray.length,
-          dataWithMetric: dataWithMetric.length,
-          selectedYear: sortedData[0]?.Year,
-          selectedDate: sortedData[0]?.CheckUpDate,
-          hasRawData: !!(sortedData[0]?.raw_data),
-          selectedDataKeys: sortedData[0] ? Object.keys(sortedData[0]) : []
-        });
+        // 지표별 최신 데이터 선택 (로그 제거)
         
         return sortedData[0];
       };
@@ -620,12 +571,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                             // 🔧 빈 문자열 체크 추가
                             if (item && item.Value && item.Value.trim() !== "") {
                               const value = parseFloat(item.Value);
-                              console.log(`✅ [${metric}] raw_data에서 값 추출:`, {
-                                metric,
-                                itemName: item.Name,
-                                value,
-                                source: 'raw_data'
-                              });
+                              // raw_data에서 값 추출 (로그 제거)
                               return isNaN(value) ? 0 : value;
                             }
                           }
@@ -710,33 +656,13 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                 const latestValue = latestHealthData ? 
                   getValueFromHealthData(latestHealthData, metric) : 0;
 
-                // 🔍 디버깅: 최신 데이터 및 상태 확인
-                console.log(`🔍 [${metric}] 최신 데이터 분석:`, {
-                  metric,
-                  latestHealthData: latestHealthData ? {
-                    year: latestHealthData.Year,
-                    checkupDate: latestHealthData.CheckUpDate,
-                    rawDataExists: !!(latestHealthData as any).raw_data,
-                    codeField: (latestHealthData as any).raw_data?.Code
-                  } : null,
-                  latestValue,
-                  healthDataAll: healthData.map(item => ({
-                    year: item.Year,
-                    checkupDate: item.CheckUpDate,
-                    code: (item as any).raw_data?.Code
-                  }))
-                });
+                // 🔍 디버깅: 최신 데이터 및 상태 확인 (로그 제거)
 
                 const healthStatus = latestHealthData ? 
                   getHealthStatus(metric, latestValue, latestHealthData) : 
                   { status: 'normal' as const, text: '정상', date: '' };
 
-                // 🔍 디버깅: 상태 판정 결과
-                console.log(`🔍 [${metric}] 상태 판정 결과:`, {
-                  metric,
-                  healthStatus,
-                  latestValue
-                });
+                // 상태 판정 결과 (로그 제거)
                 
                 return (
                   <div 
@@ -767,12 +693,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                         const hasData = metricChartData.length > 0 && metricChartData[0].data.length > 0;
                         const dataCount = hasData ? metricChartData[0].data.length : 0;
                         
-                        console.log(`🔍 [${metric}] 차트 렌더링 결정:`, {
-                          metric,
-                          dataCount,
-                          hasData,
-                          metricChartData: metricChartData[0]?.data
-                        });
+                        // 차트 렌더링 결정 (로그 제거)
 
                         if (dataCount === 0) {
                           console.log(`📊 [${metric}] 데이터 없음으로 렌더링`);
@@ -792,7 +713,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                                 style={{ cursor: 'pointer' }}
                                 onClick={() => {
                                   if (singlePoint) {
-                                    console.log(`🔍 [툴팁] 단일 데이터 포인트 클릭: ${metric}, 값: ${singlePoint.value}`);
+                                    // 툴팁 클릭 (로그 제거)
                                     
                                     // 간단한 알림으로 툴팁 대체
                                     const statusText = singlePoint.status ? 
@@ -824,15 +745,10 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                             !isNaN(new Date(point.date).getTime())
                           ) || [];
                           
-                          console.log(`🔍 [${metric}] validData 필터링 결과:`, {
-                            metric,
-                            originalDataLength: metricChartData[0]?.data?.length || 0,
-                            validDataLength: validData.length,
-                            validData
-                          });
+                          // validData 필터링 결과 (로그 제거)
 
                           if (validData.length < 2) {
-                            console.log(`📊 [${metric}] validData < 2이므로 단일 데이터로 렌더링`);
+                            // validData < 2이므로 단일 데이터로 렌더링 (로그 제거)
                             // 🔧 단일 데이터에도 툴팁 추가
                             const singleDataPoint = validData.length > 0 ? validData[0] : null;
                             
@@ -843,7 +759,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                                   style={{ cursor: 'pointer' }}
                                   onClick={() => {
                                     if (singleDataPoint) {
-                                      console.log(`🔍 [툴팁] 단일 데이터 포인트 클릭: ${metric}, 값: ${singleDataPoint.value}`);
+                                      // 툴팁 클릭 (로그 제거)
                                       
                                       // 간단한 알림으로 툴팁 대체
                                       const statusText = singleDataPoint.status ? 
@@ -869,26 +785,8 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                           // 🔧 다중 건강 범위 추출 (6ecb1ca 방식 복원)
                           const healthRanges = getHealthRanges(metric, latestHealthData, 'M'); // 성별은 추후 환자 정보에서 가져올 수 있음
                           
-                          // 🔧 모든 건강지표 파싱 상태 확인 (6ecb1ca 로직 복원)
-                          console.log(`🎯 [${metric}] 건강범위 파싱 결과:`, {
-                            metric,
-                            healthRanges,
-                            hasAllRanges: !!(healthRanges?.normal && healthRanges?.borderline && healthRanges?.abnormal),
-                            missingRanges: {
-                              normal: !healthRanges?.normal,
-                              borderline: !healthRanges?.borderline, 
-                              abnormal: !healthRanges?.abnormal
-                            }
-                          });
-                          
-                          console.log(`📊 [${metric}] LineChart 렌더링:`, {
-                            metric,
-                            validDataLength: validData.length,
-                            seriesData: {
-                              ...metricChartData[0],
-                              data: validData
-                            }
-                          });
+                          // 건강범위 파싱 결과 (로그 제거)
+                          // LineChart 렌더링 (로그 제거)
 
                           return (
                             <LineChart 

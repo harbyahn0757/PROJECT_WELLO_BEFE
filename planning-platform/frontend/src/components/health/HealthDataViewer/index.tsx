@@ -6,6 +6,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { HealthDataViewerProps } from '../../../types/health';
 import UnifiedHealthTimeline from '../UnifiedHealthTimeline/index';
 import TrendsSection from './TrendsSection';
+import VisitTrendsChart from '../VisitTrendsChart';
 import { useWelloData } from '../../../contexts/WelloDataContext';
 import { API_ENDPOINTS } from '../../../config/api';
 import { useNavigate } from 'react-router-dom';
@@ -14,8 +15,7 @@ import usePasswordSessionGuard from '../../../hooks/usePasswordSessionGuard';
 import { STORAGE_KEYS } from '../../../constants/storage';
 import { WELLO_LOGO_IMAGE } from '../../../constants/images';
 import AIAnalysisSection from '../AIAnalysisSection'; // 🔧 AI 분석 섹션 컴포넌트
-import HealthTrendsHeader from '../HealthTrendsHeader'; // 새 헤더 컴포넌트
-import HealthTrendsToggle from '../HealthTrendsToggle'; // 새 토글 컴포넌트
+import ContentLayoutWithHeader from '../../../layouts/ContentLayoutWithHeader'; // 컨텐츠 레이아웃 (헤더 있음)
 import './styles.scss';
 
 const pillIconPath = `${process.env.PUBLIC_URL || ''}/free-icon-pill-5405585.png`;
@@ -26,6 +26,8 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
 }) => {
   const { state } = useWelloData(); // 환자 데이터 가져오기
   const navigate = useNavigate();
+  
+  // 이 페이지는 트렌드 상태만 처리 (질문 상태 없음)
   const [loading, setLoading] = useState(true);
   const [error] = useState<string | null>(null);
   const [healthData, setHealthData] = useState<any>(null);
@@ -511,19 +513,17 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
     }
   };
 
+  // 로딩 상태: ContentLayoutWithHeader 사용 (일관된 레이아웃)
   if (loading) {
     return (
       <div className="health-data-viewer">
-        <div className="question__content">
-          {/* 뒤로가기 버튼 */}
-          <div className="back-button-container">
-            <button className="back-button" onClick={handleBack}>
-              ←
-            </button>
-          </div>
-
-          {/* 중앙 정렬된 스피너 */}
-          <div className="centered-loading-container">
+        <ContentLayoutWithHeader
+          onBack={handleBack}
+          lastUpdateTime={undefined}
+          patientName={patientName}
+          showToggle={false}
+        >
+          <div className="health-data-viewer__loading">
             <div className="loading-spinner">
               <img 
                 src={WELLO_LOGO_IMAGE}
@@ -533,54 +533,70 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
               <p className="loading-spinner__message">{patientName}님의 건강 데이터를 불러오는 중...</p>
             </div>
           </div>
-        </div>
+        </ContentLayoutWithHeader>
       </div>
     );
   }
 
+  // 에러 상태: ContentLayoutWithHeader 사용 (일관된 레이아웃)
   if (error) {
     return (
       <div className="health-data-viewer">
-        <div className="question__content">
-          <div className="back-button-container">
-            <button className="back-button" onClick={handleBack}>
-              ←
-            </button>
-          </div>
-
-          <div className="question__title" style={{ marginTop: '60px' }}>
-            <h1 className="question__title-text">검진 결과 조회</h1>
-          </div>
-
-          <div className="error-message">
-            <div className="error-message__icon">⚠️</div>
-            <div className="error-message__title">데이터 조회 실패</div>
-            <div className="error-message__text">{error}</div>
-            <div className="error-message__actions">
-              <button 
-                className="error-message__button error-message__button--primary"
-                onClick={() => window.location.reload()}
-              >
-                다시 시도
-              </button>
+        <ContentLayoutWithHeader
+          onBack={handleBack}
+          lastUpdateTime={undefined}
+          patientName={patientName}
+          showToggle={false}
+        >
+          <div className="health-data-viewer__error">
+            <div className="error-message">
+              <div className="error-message__icon">⚠️</div>
+              <div className="error-message__title">데이터 조회 실패</div>
+              <div className="error-message__text">{error}</div>
+              <div className="error-message__actions">
+                <button 
+                  className="error-message__button error-message__button--primary"
+                  onClick={() => window.location.reload()}
+                >
+                  다시 시도
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </ContentLayoutWithHeader>
       </div>
     );
   }
 
+  // Pull-to-refresh 인디케이터
+  const pullToRefreshIndicator = isPulling ? (
+    <div 
+      className="pull-to-refresh-indicator"
+      style={{
+        position: 'absolute',
+        top: `-${Math.min(pullDistance, 60)}px`,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        opacity: Math.min(pullDistance / 60, 1),
+        transition: 'opacity 0.2s ease-out'
+      }}
+    >
+      <div className="refresh-icon">
+        {pullDistance > 60 ? '↻' : '↓'}
+      </div>
+      <div className="refresh-text">
+        {pullDistance > 60 ? '놓으면 새로고침' : '아래로 당겨서 새로고침'}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div className="health-data-viewer">
-      {/* 새 헤더 컴포넌트 */}
-      <HealthTrendsHeader
+      <ContentLayoutWithHeader
         onBack={handleBack}
-        lastUpdateTime={lastUpdateTime}
+        lastUpdateTime={lastUpdateTime ?? undefined}
         patientName={patientName}
-      />
-
-      {/* 새 토글 컴포넌트 */}
-      <HealthTrendsToggle
+        showToggle={true}
         activeTab={viewMode}
         onTabChange={(tab) => {
           if (tab === 'trends') {
@@ -591,41 +607,14 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
             setFilterMode('all');
           }
         }}
-      />
-
-      <div 
-        className="health-trends-content"
-        ref={containerRef}
+        containerRef={containerRef}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        style={{
-          transform: isPulling ? `translateY(${pullDistance}px)` : 'translateY(0)',
-          transition: isPulling ? 'none' : 'transform 0.3s ease-out'
-        }}
+        transform={isPulling ? `translateY(${pullDistance}px)` : 'translateY(0)'}
+        transition={isPulling ? 'none' : 'transform 0.3s ease-out'}
+        pullToRefreshIndicator={pullToRefreshIndicator}
       >
-        {/* Pull-to-refresh 인디케이터 */}
-        {isPulling && (
-          <div 
-            className="pull-to-refresh-indicator"
-            style={{
-              position: 'absolute',
-              top: `-${Math.min(pullDistance, 60)}px`,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              opacity: Math.min(pullDistance / 60, 1),
-              transition: 'opacity 0.2s ease-out'
-            }}
-          >
-            <div className="refresh-icon">
-              {pullDistance > 60 ? '↻' : '↓'}
-            </div>
-            <div className="refresh-text">
-              {pullDistance > 60 ? '놓으면 새로고침' : '아래로 당겨서 새로고침'}
-            </div>
-          </div>
-        )}
-
         {/* 🔧 조건부 렌더링: viewMode에 따라 TrendsSection 또는 UnifiedHealthTimeline 표시 */}
         {isTransitioning ? (
           <div className="view-transition-loading">
@@ -646,12 +635,19 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
             isLoading={isLoadingTrends}
           />
         ) : (
-          <UnifiedHealthTimeline 
-            healthData={healthData}
-            prescriptionData={prescriptionData}
-            loading={loading}
-            filterMode={filterMode}
-          />
+          <>
+            {/* 타임라인 위에 병원/약국 방문 추이 그래프 표시 */}
+            <VisitTrendsChart 
+              prescriptionData={prescriptionData?.ResultList || []}
+              isLoading={loading}
+            />
+            <UnifiedHealthTimeline 
+              healthData={healthData}
+              prescriptionData={prescriptionData}
+              loading={loading}
+              filterMode={filterMode}
+            />
+          </>
         )}
 
         {/* 🔧 AI 종합 분석 섹션 (조건부 표시) */}
@@ -662,7 +658,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
             patientInfo={state.patient || undefined}
           />
         )}
-      </div>
+      </ContentLayoutWithHeader>
 
       {/* 새로고침 확인 모달 */}
       {showRefreshModal && (
