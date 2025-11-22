@@ -27,29 +27,36 @@
 
   // 그리드 라인
   &__grid-line {
-    stroke: var(--border-light);
-    stroke-width: 1;
-    stroke-dasharray: 2,2;
-    opacity: 0.5;
+    stroke: #E0E0E0;
+    stroke-width: 0.5;
+    stroke-dasharray: 2, 4;
+    opacity: 0.4;
   }
 
   // 참조선
   &__reference-lines {
     .wello-bar-chart__reference-line {
-      stroke-width: 2;
-      stroke-dasharray: 4,4;
-      opacity: 0.7;
+      stroke: #B0B0B0; // 기본 참조선 색상 (더 진한 회색)
+      stroke-width: 0.3; // 더 얇은 선
+      stroke-dasharray: 1, 2; // 더 촘촘한 점선 패턴
+      opacity: 0.8; // 더 진하게
 
       &--normal {
         stroke: var(--color-success);
+        stroke-width: 1;
+        opacity: 0.7;
       }
 
       &--min {
         stroke: var(--color-warning);
+        stroke-width: 1;
+        opacity: 0.7;
       }
 
       &--max {
         stroke: var(--color-danger);
+        stroke-width: 1;
+        opacity: 0.7;
       }
     }
   }
@@ -89,11 +96,11 @@
     }
 
     .wello-bar-chart__value-label {
-      fill: var(--text-primary) !important;
-      font-size: var(--font-size-xs) !important;
-      font-weight: var(--font-weight-medium) !important;
-      font-family: var(--font-family-primary) !important;
-      pointer-events: none !important;
+      fill: #626262 !important; // 명시적 색상 설정 (회색 계열로 가독성 향상)
+      font-size: 12px !important;
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+      font-weight: bold !important;
+      pointer-events: none;
       opacity: 1 !important;
       visibility: visible !important;
     }

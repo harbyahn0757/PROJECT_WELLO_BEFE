@@ -181,11 +181,11 @@
   }
   
   .visit-trends-container {
-    margin-top: -8px !important; // 그래프를 위로 올리기
+    margin-top: $spacing-sm !important; // 그래프 카드를 아래로 내림
   }
   
   .visit-trend-card {
-    padding: $spacing-sm $spacing-lg $spacing-lg $spacing-lg !important; // 상단 패딩만 줄임
+    padding: $spacing-sm $spacing-sm $spacing-lg $spacing-sm !important; // 좌우 패딩 최소화 ($spacing-lg → $spacing-sm)
     
     .trend-header {
       margin-bottom: 6px !important; // 제목과 그래프 사이 간격 줄임

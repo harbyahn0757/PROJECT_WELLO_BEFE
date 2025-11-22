@@ -127,3 +127,4 @@ CREATE TABLE IF NOT EXISTS wello.hospital_mapping (
 3. wello_hospitals 테이블 스키마 업데이트
 4. 프론트엔드에서 로고 이미지 표시 로직 구현
 
+

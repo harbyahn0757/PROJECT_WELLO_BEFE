@@ -74,17 +74,28 @@
         stroke-width: 3;
       }
 
-      // 건강 상태별 색상
+      // 건강 상태별 색상 (뱃지 색상과 동일하게)
       &--normal {
-        fill: var(--color-success) !important;
+        fill: #61A82C !important; // 정상: 초록색
       }
 
       &--warning {
-        fill: var(--color-warning) !important;
+        fill: #EE6A31 !important; // 경계: 주황색
       }
 
-      &--danger {
-        fill: var(--color-danger) !important;
+      &--danger,
+      &--abnormal {
+        fill: #D73F3F !important; // 이상: 빨간색
+      }
+
+      &--neutral,
+      &--unknown {
+        fill: #888888 !important; // 측정/미상: 회색
+      }
+      
+      // 마지막 포인트 확대 스타일
+      &--latest {
+        // 인라인 스타일로 크기 조정되므로 여기서는 색상만 보장
       }
     }
   }

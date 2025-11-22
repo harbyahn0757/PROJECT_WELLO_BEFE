@@ -59,7 +59,7 @@ const BaseChart: React.FC<BaseChartWithChildrenProps> = ({
   const [dimensions, setDimensions] = useState<ChartDimensions>({
     width: width || 400,
     height,
-    margin: { top: 10, right: 15, bottom: 20, left: 45 } // 모든 마진 최소화로 그래프 영역 최대 확보
+    margin: { top: 2, right: 15, bottom: 25, left: 45 } // 상단 여백 최소화 (5→2), 하단 여백 증가 (15→25)로 X축 레이블 공간 확보
   });
 
   // 반응형 크기 조정

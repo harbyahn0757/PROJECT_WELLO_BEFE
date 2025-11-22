@@ -188,7 +188,7 @@
     
     .month-section {
       margin-bottom: $spacing-sm; // 월 섹션 간격 더 축소 (md → sm)
-      margin-left: 4px; // 년도에서 들여쓰기 더 최소화 (8px → 4px)
+      margin-left: 8px; // 년도에서 들여쓰기 (16px → 8px)
       
       &:last-child {
         margin-bottom: 0;
@@ -197,7 +197,7 @@
     
     .date-section {
       margin-bottom: $spacing-xs; // 날짜 섹션 간격 더 축소 (sm → xs)
-      margin-left: 2px; // 월에서 들여쓰기 더 최소화 (8px → 2px)
+      margin-left: 12px; // 월에서 들여쓰기 (16px → 12px)
       
       &:last-child {
         margin-bottom: 0;
@@ -208,9 +208,18 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 2px; // 년도-월 간격 더 줄임 (4px → 2px)
-      padding-bottom: 2px; // 패딩 더 축소 (xs → 2px)
-      border-bottom: 1px solid $gray-200; // 2px → 1px로 축소
+      margin-bottom: 2px; // 년도-월 간격 최소화 (4px → 2px)
+      padding: 8px 0; // 상하 패딩 추가
+      border-bottom: none; // 하단 줄 제거
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); // 부드러운 전환
+      
+      // sticky 상태일 때만 sticky 적용
+      &.is-sticky {
+        position: sticky;
+        top: 0; // 스크롤 컨테이너 상단에 고정
+        z-index: 12; // date-header(10)보다 위
+        background: #F5F5F5; // 배경색 설정 (스크롤 시 투과 방지)
+      }
       
       .year-title {
         font-size: $font-lg; // $font-xl에서 $font-lg로 축소
@@ -233,8 +242,18 @@
       align-items: center;
       justify-content: space-between;
       margin-bottom: 2px; // 월 헤더 하단 간격 더 축소 (xs → 2px)
-      padding-bottom: 0; // 패딩 제거
+      margin-top: 0; // 년도와 가깝게 (음수 마진 제거)
+      padding: 8px 0; // 상하 패딩 추가
       border-bottom: none; // 하단 줄 제거
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); // 부드러운 전환
+      
+      // sticky 상태일 때만 sticky 적용
+      &.is-sticky {
+        position: sticky;
+        top: 0; // 스크롤 컨테이너 상단에 고정
+        z-index: 11; // date-header(10)보다 위, year-header(12)보다 아래
+        background: #F5F5F5; // 배경색 설정 (스크롤 시 투과 방지)
+      }
       
       .month-title {
         font-size: $font-base;
@@ -252,14 +271,18 @@
     }
     
     .date-header {
-      position: sticky;
-      top: 0; // 스크롤 컨테이너 상단에 고정
-      z-index: 10; // 다른 요소 위에 표시
-      background: #F5F5F5; // 배경색 설정 (스크롤 시 투과 방지)
       padding: 8px 0 4px 0; // 상하 패딩 추가 (고정 시 가독성 향상)
       margin-bottom: 2px; // 날짜 헤더 하단 간격 대폭 축소
       margin-top: -8px; // 상단 패딩 상쇄
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); // 더 부드러운 전환 (ease-in-out)
+      
+      // sticky 상태일 때만 sticky 적용
+      &.is-sticky {
+        position: sticky;
+        top: 0; // 스크롤 컨테이너 상단에 고정
+        z-index: 10; // 다른 요소 위에 표시
+        background: #F5F5F5; // 배경색 설정 (스크롤 시 투과 방지)
+      }
       
       .date-title {
         font-size: $font-sm; // 폰트 크기 축소 (sm → xs)
@@ -321,6 +344,39 @@
             background: rgba(255, 255, 255, 0.95); // 펼쳐졌을 때 더 불투명하게
             border-color: $brand-brown;
             box-shadow: $shadow-md;
+            
+            .record-content {
+              // DOM이 추가된 후 transition 활성화 (requestAnimationFrame으로 처리)
+              transition: max-height 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
+                          opacity 0.3s ease-out 0s,
+                          padding 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+              
+              max-height: 2000px; // 충분히 큰 값
+              padding: $spacing-lg; // 패딩 복원
+              will-change: max-height, opacity, padding; // 성능 최적화
+              
+              // 스피너가 있을 때: 뿌옅게 펼쳐지고 스피너는 선명하게
+              &.has-loading {
+                opacity: 0.3; // 뿌옅게 펼쳐짐
+                
+                .medication-loading {
+                  opacity: 1; // 스피너는 선명하게 (펼쳐질 때부터 보임)
+                }
+              }
+              
+              // 스피너가 없어지면: 뿌연 것도 부드럽게 사라지고 선명하게
+              &.has-content {
+                opacity: 1; // 전체 선명하게
+                transition: opacity 0.4s ease-out; // 부드럽게 전환
+              }
+            }
+            
+            // 닫힐 때: expanded가 제거되면서 전환
+            &:not(.expanded) .record-content {
+              transition: max-height 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                          opacity 0.4s ease-in 0s,
+                          padding 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            }
           }
           
           // 타입별 좌측 보더 (더 얇게)
@@ -334,6 +390,13 @@
           
           &.pharmacy {
             border-left: 2px solid $warning;
+          }
+          
+          // 검진 아이템 펼쳤을 때 배경색
+          &.checkup {
+            .record-content {
+              background: #FEF9EE; // 처방약품 섹션과 동일한 배경색
+            }
           }
         }
       }
@@ -425,6 +488,32 @@
               text-overflow: ellipsis;
               max-width: 180px; // 최대 너비 제한 증가 (120px → 180px)
               margin-right: 4px; // 오른쪽 여유 공간 추가
+              transition: all 0.2s ease;
+              
+              // 확장되지 않았을 때: 말줄임표
+              &:not(.expanded) {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
+              
+              // 확장되었을 때: 전체 표시
+              &.expanded {
+                max-width: none;
+                white-space: normal;
+                overflow: visible;
+                text-overflow: clip;
+                flex-shrink: 0;
+                word-break: break-word;
+              }
+              
+              // 7글자 이상일 때만 클릭 가능 및 호버 효과
+              &.clickable {
+                &:hover {
+                  color: $brand-brown;
+                  text-decoration: underline;
+                }
+              }
             }
             
             .record-treatment {
@@ -487,6 +576,33 @@
               font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
               font-size: 10px;
               font-weight: $font-weight-medium;
+            }
+            
+            // 검진 상태 뱃지 (정상, 경계, 이상)
+            .checkup-status-badge {
+              padding: 2px 6px;
+              border-radius: $border-radius-sm;
+              font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+              font-size: 10px;
+              font-weight: $font-weight-medium;
+              
+              &.status-normal {
+                background: rgba(139, 69, 19, 0.1); // 갈색 배경
+                color: $brand-brown; // 갈색 텍스트
+                border: 1px solid rgba(139, 69, 19, 0.3); // 갈색 보더
+              }
+              
+              &.status-warning {
+                background: rgba(245, 158, 11, 0.1);
+                color: $warning;
+                border: 1px solid rgba(245, 158, 11, 0.3);
+              }
+              
+              &.status-abnormal {
+                background: rgba(239, 68, 68, 0.1);
+                color: #ef4444;
+                border: 1px solid rgba(239, 68, 68, 0.3);
+              }
             }
           }
         }
@@ -574,7 +690,43 @@
         border-top: 1px solid $gray-100;
         padding: $spacing-lg;
         background: $gray-50;
-        animation: slideDown 0.3s ease;
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        will-change: max-height, opacity, padding; // 성능 최적화
+        // 초기에는 transition 없음 (덜컥거림 방지)
+        transition: none;
+        
+        // 약품 리스트 로딩 스피너 (WELLO 로고 아이콘 작고 투명하게)
+        .medication-loading {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 60px;
+          opacity: 1; // 펼쳐질 때부터 바로 보임
+          position: relative; // z-index를 위한 상대 위치
+          z-index: 1; // 스피너가 위에 보이도록
+          
+          .loading-spinner-small {
+            .wello-icon-blink-small {
+              width: 24px;
+              height: 24px;
+              object-fit: contain;
+              animation: faviconBlink 1.5s ease-in-out infinite;
+              opacity: 0.5; // 투명하게
+              filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+            }
+          }
+        }
+        
+        // 약품 리스트 페이드인
+        .medication-content-fade {
+          opacity: 0.3; // 뿌옅게 시작 (스피너가 있을 때)
+          animation: fadeInToFull 0.4s ease forwards; // 스피너 사라진 후 선명하게 (부드럽게)
+          position: relative;
+        }
       }
     }
   }
@@ -691,13 +843,16 @@
     }
     
     .medication-list {
+      margin-bottom: 8px; // 섹션 바깥쪽 여백 줄임
+      
       .detail-label {
-        font-size: $font-sm;
-        font-weight: $font-weight-medium;
-        color: $gray-500;
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        font-size: 12px; // 폰트 크기 12px
+        font-weight: $font-weight-medium; // 미디엄
+        color: #626262; // 폰트 색상
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        margin-bottom: $spacing-sm;
+        margin-bottom: 8px; // 여백 줄임
         display: block;
       }
       
@@ -705,11 +860,15 @@
         display: flex;
         flex-direction: column;
         gap: $spacing-xs;
+        background: #FEF9EE; // 배경색 추가
+        padding: $spacing-sm; // 내부 여백 추가
+        border-radius: $border-radius-md; // 모서리 둥글게
+        margin-top: 0; // 상단 여백 제거
         
         .medication-item {
           display: flex;
           flex-direction: column;
-          padding: $spacing-sm;
+          padding: 6px $spacing-sm; // 상하 여백 줄임 (상단 6px, 하단 6px)
           background: $white;
           border: 1px solid $gray-200;
           border-radius: $border-radius-md;
@@ -718,11 +877,11 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 4px;
+            margin-bottom: 1px; // 약품명과 효과 설명 사이 간격 더 줄임 (2px -> 1px)
             
             .medication-name {
-              font-size: $font-base;
-              font-weight: $font-weight-medium;
+              font-size: 14px; // 위에 글자 크기
+              font-weight: $font-weight-semibold; // 세미볼드
               color: $gray-900;
               flex: 1;
               
@@ -749,20 +908,22 @@
             }
             
             .medication-duration {
-              font-size: $font-sm;
-              color: $gray-500;
-              background: $gray-100;
-              padding: 2px 6px;
+              font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+              font-size: 10px; // 폰트 크기 10px
+              color: #A16A51; // 폰트 색상
+              background: #F8EDDA; // 배경색
+              padding: 1px 4px; // 뱃지 크기에 맞게 줄임
               border-radius: $border-radius-sm;
               flex-shrink: 0;
+              line-height: 1.2; // 줄 간격 조정
             }
           }
           
           .medication-description {
             .medication-effect {
-              font-size: $font-sm;
+              font-size: 12px; // 아래 글자 크기
+              font-weight: $font-weight-medium; // 미디엄
               color: $gray-600;
-              font-style: italic;
               line-height: 1.4;
             }
           }
@@ -1065,6 +1226,8 @@
 
 // 고도화된 검진 카드 스타일
 .advanced-checkup-details {
+  // 배경색 제거 (record-content에 적용)
+  
   .status-badges {
     display: flex;
     gap: $spacing-xs;
@@ -1127,35 +1290,48 @@
   
   .group-slider {
     display: flex;
-    gap: 4px;
-    margin-bottom: $spacing-lg;
-    background: $gray-100;
+    gap: 2px; // 간격 줄임 (4px -> 2px)
+    margin-bottom: 8px; // 탭과 카드 사이 간격 줄임 ($spacing-lg -> 8px)
+    background: transparent; // 배경색 투명
     border-radius: $border-radius-lg;
-    padding: 4px;
+    padding: 3px; // 패딩 줄임 (4px -> 3px)
     overflow-x: auto;
     
     .group-tab {
-      padding: 8px 12px;
+      padding: 4px 8px; // 패딩 줄임 (8px 12px -> 4px 8px)
       border: none;
-      background: transparent;
+      background: transparent; // 배경색 통일
       border-radius: $border-radius-md;
-      font-size: $font-sm;
+      font-size: 11px; // 폰트 크기 줄임 ($font-sm -> 11px)
       font-weight: $font-weight-medium;
       color: $gray-600;
       cursor: pointer;
       transition: all 0.2s ease;
       white-space: nowrap;
       flex-shrink: 0;
+      position: relative; // 하단 줄을 위한 상대 위치
       
       &:hover {
-        background: rgba(255, 255, 255, 0.5);
+        background: transparent; // 배경색 통일 (hover 시에도 배경 없음)
         color: $gray-800;
       }
       
       &.active {
-        background: $white;
-        color: $brand-brown; // 갈색으로 변경
-        box-shadow: $shadow-sm;
+        background: transparent; // 배경색 통일
+        color: #A16A51; // 하단 줄 색과 동일하게
+        box-shadow: none; // 그림자 제거
+        
+        // 하단에 A16A51 색으로 줄 그리기
+        &::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: #A16A51;
+          border-radius: 2px 2px 0 0;
+        }
       }
     }
   }
@@ -1218,6 +1394,8 @@
       backdrop-filter: blur(5px);
       scroll-snap-align: start;
       position: relative; // 뱃지 절대 위치를 위한 상대 위치
+      display: flex; // flex 레이아웃
+      flex-direction: column; // 세로 방향
       
       &:hover {
         background: rgba(255, 255, 255, 0.95);
@@ -1230,30 +1408,30 @@
       // 상태 뱃지 - 우상단 배치
       .status-badge {
         position: absolute;
-        top: $spacing-xs;
+        top: calc(#{$spacing-xs} + 4px); // 조금 아래로 이동
         right: $spacing-xs;
         padding: 1px 6px; // 2px 8px → 1px 6px로 축소
         border-radius: 8px; // 12px → 8px로 축소
-        font-size: 10px; // $font-xs보다 더 작게
+        font-size: 8px; // 10px - 2px
         font-weight: 600;
         color: white;
         
         &.status-normal {
-          background: $brand-brown; // 갈색으로 변경
+          background: #61A82C; // 정상 뱃지 색상
         }
         
         &.status-warning {
-          background: $warning;
+          background: #EE6A31; // 경계 뱃지 색상
         }
         
         &.status-abnormal {
-          background: #ef4444;
+          background: #D73F3F; // 이상 뱃지 색상
         }
       }
       
       // 항목명 스타일
       .item-name-only {
-        font-size: $font-base;
+        font-size: calc(#{$font-base} - 2px); // -2px
         font-weight: 600;
         color: $gray-800;
         margin-bottom: $spacing-xs;
@@ -1264,25 +1442,31 @@
       .body-measurements {
         display: flex;
         flex-direction: column;
-        gap: $spacing-xs;
+        gap: calc(#{$spacing-xs} / 2); // 간격 반으로 줄임
         margin-bottom: $spacing-sm;
         
         .measurement-item {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 4px 0;
+          padding: 2px 0; // 간격 반으로 줄임 (4px -> 2px)
           
           .measurement-label {
-            font-size: $font-base; // $font-sm에서 $font-base로 증가 (+2)
+            font-size: calc(#{$font-base} - 2px); // -2px
             color: $gray-600;
             font-weight: 500;
           }
           
           .measurement-value {
-            font-size: $font-lg; // $font-base에서 $font-lg로 증가 (+2)
+            font-size: calc(#{$font-lg} - 2px); // -2px
             font-weight: 600;
             color: $gray-900;
+            
+            .measurement-unit {
+              font-size: calc(#{$font-lg} - 6px); // -4px (현재보다 -4)
+              font-weight: 300; // 얇게 (볼드 제거)
+              margin-left: 2px;
+            }
           }
         }
       }
@@ -1290,20 +1474,29 @@
       // 기존 item-header-row 스타일 제거 (새로운 레이아웃으로 대체)
       
       .item-value-large {
-        font-size: $font-xl;
+        font-size: calc(#{$font-xl} - 2px); // -2px
         font-weight: $font-weight-bold;
         color: $gray-900;
         margin-bottom: $spacing-sm;
         text-align: center;
         padding: $spacing-xs 0;
+        
+        .item-unit {
+          font-size: calc(#{$font-xl} - 6px); // -4px (현재보다 -4)
+          font-weight: 300; // 얇게 (볼드 제거)
+          margin-left: 2px;
+        }
       }
       
       .item-references-compact {
+        margin-top: auto; // 카드 하단으로 밀어내기
+        padding-top: $spacing-xs; // 상단 여백
+        
         .reference-line {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          font-size: $font-sm;
+          font-size: calc(#{$font-sm} - 2px); // -2px
           color: $gray-600;
           margin-bottom: 2px;
           
@@ -1318,7 +1511,7 @@
           
           .ref-range {
             color: $gray-500;
-            font-size: $font-sm;
+            font-size: calc(#{$font-sm} - 2px); // -2px
           }
         }
       }
@@ -1403,8 +1596,8 @@
   .advanced-checkup-details {
     .group-slider {
       .group-tab {
-        padding: 6px 10px;
-        font-size: $font-sm;
+        padding: 4px 8px; // 패딩 줄임
+        font-size: 11px; // 폰트 크기 줄임
       }
     }
     
@@ -1478,6 +1671,24 @@
   }
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInToFull {
+  from {
+    opacity: 0.3; // 뿌옅게 시작
+  }
+  to {
+    opacity: 1; // 선명하게
+  }
+}
+
 // 닷 슬라이더 인디케이터
 .dot-indicators {
   display: flex;
@@ -1486,13 +1697,17 @@
   margin-top: $spacing-xs; // $spacing-sm → $spacing-xs로 축소
   
   .dot {
-    width: 6px; // 8px → 6px로 축소
-    height: 6px; // 8px → 6px로 축소
-    border-radius: 50%;
+    width: 6px; // 정확한 원형
+    height: 6px; // 정확한 원형 (width와 height 동일)
+    min-width: 6px; // 최소 너비 고정
+    min-height: 6px; // 최소 높이 고정
+    border-radius: 50%; // 완전한 원
     border: none;
+    padding: 0; // 패딩 제거
     background: $gray-300;
     cursor: pointer;
     transition: all 0.2s ease;
+    flex-shrink: 0; // 축소 방지
     
     &:hover {
       background: $gray-400;

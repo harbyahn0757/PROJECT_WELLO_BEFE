@@ -5,6 +5,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import BaseChart, { BaseChartProps, ChartDimensions } from '../BaseChart';
 import { HealthStatus } from '../../../types/health';
+import { WELLO_LOGO_IMAGE } from '../../../constants/images';
 import './styles.scss';
 
 export interface LineChartDataPoint {
@@ -67,6 +68,9 @@ const LineChart: React.FC<LineChartProps> = ({
     y: number;
     content: string;
   }>({ visible: false, x: 0, y: 0, content: '' });
+  
+  // 선택된 포인트 상태 관리 (시리즈별로 관리)
+  const [selectedPoints, setSelectedPoints] = useState<{ [seriesId: string]: string | null }>({});
 
   // 데이터 전처리 및 스케일 계산
   const chartData = useMemo(() => {
@@ -93,8 +97,25 @@ const LineChart: React.FC<LineChartProps> = ({
     
     const allValues = [...values, ...referenceValues];
     
+    // healthRanges에서 범위 값 추출 (Y축 동적 설정을 위해)
+    const healthRangeValues: number[] = [];
+    if (healthRanges) {
+      if (healthRanges.normal) {
+        healthRangeValues.push(healthRanges.normal.min, healthRanges.normal.max);
+      }
+      if (healthRanges.borderline) {
+        healthRangeValues.push(healthRanges.borderline.min, healthRanges.borderline.max);
+      }
+      if (healthRanges.abnormal) {
+        healthRangeValues.push(healthRanges.abnormal.min, healthRanges.abnormal.max);
+      }
+    }
+    
+    // 모든 값 통합 (데이터 값 + 참조선 값 + healthRanges 값)
+    const allRangeValues = [...allValues, ...healthRangeValues];
+    
     // 유효한 값이 없으면 기본값 사용
-    if (allValues.length === 0) {
+    if (allRangeValues.length === 0) {
       return {
         minDate: new Date(),
         maxDate: new Date(),
@@ -104,22 +125,60 @@ const LineChart: React.FC<LineChartProps> = ({
       };
     }
     
-    // 값 범위 계산 (최소값을 0으로 고정)
-    const minValue = 0; // 항상 0부터 시작
-    const maxValue = allValues.length > 0 ? Math.max(...allValues) : 100;
+    // 값 범위 계산 - healthRanges를 고려하여 Y축 범위 설정
+    let minValue = 0; // 기본값은 0부터 시작
+    let maxValue = allRangeValues.length > 0 ? Math.max(...allRangeValues) : 100;
     
-    // 여백 추가 (상단만 10%)
+    // healthRanges가 있으면 범위를 더 넓게 설정하여 모든 영역이 보이도록
+    if (healthRanges) {
+      const rangeMinValues: number[] = [];
+      const rangeMaxValues: number[] = [];
+      
+      if (healthRanges.normal) {
+        rangeMinValues.push(healthRanges.normal.min);
+        rangeMaxValues.push(healthRanges.normal.max);
+      }
+      if (healthRanges.borderline) {
+        rangeMinValues.push(healthRanges.borderline.min);
+        rangeMaxValues.push(healthRanges.borderline.max);
+      }
+      if (healthRanges.abnormal) {
+        rangeMinValues.push(healthRanges.abnormal.min);
+        rangeMaxValues.push(healthRanges.abnormal.max);
+      }
+      
+      // healthRanges의 최소값과 최대값을 고려
+      if (rangeMinValues.length > 0) {
+        const rangeMin = Math.min(...rangeMinValues);
+        // 데이터 최소값이 healthRanges 최소값보다 작으면 그 값 사용
+        if (allValues.length > 0) {
+          const dataMin = Math.min(...allValues);
+          minValue = Math.min(dataMin, rangeMin);
+        } else {
+          minValue = rangeMin;
+        }
+      }
+      
+      if (rangeMaxValues.length > 0) {
+        const rangeMax = Math.max(...rangeMaxValues);
+        // 데이터 최대값과 healthRanges 최대값 중 큰 값 사용
+        maxValue = Math.max(maxValue, rangeMax);
+      }
+    }
+    
+    // 여백 추가 (상단 5%, 하단 5%)
     const valueRange = maxValue - minValue || 1; // 0으로 나누기 방지
-    const padding = valueRange * 0.1;
+    const topPadding = valueRange * 0.05;
+    const bottomPadding = valueRange * 0.05;
 
     return {
       minDate,
       maxDate,
-      minValue: minValue, // 0으로 고정
-      maxValue: maxValue + padding,
+      minValue: Math.max(0, minValue - bottomPadding), // 음수 방지
+      maxValue: maxValue + topPadding,
       dateRange: maxDate.getTime() - minDate.getTime() || 1 // 0으로 나누기 방지
     };
-  }, [series]);
+  }, [series, healthRanges?.normal?.min, healthRanges?.normal?.max, healthRanges?.borderline?.min, healthRanges?.borderline?.max, healthRanges?.abnormal?.min, healthRanges?.abnormal?.max]);
 
   // 좌표 변환 함수 (NaN 방지)
   const getCoordinates = (
@@ -184,8 +243,8 @@ const LineChart: React.FC<LineChartProps> = ({
     
     // Y축 라벨 범위 확장에 맞게 점 위치도 조정
     const valueRatio = (value - chartData.minValue) / (chartData.maxValue - chartData.minValue);
-    const expandedHeight = chartHeight * 1.2; // Y축 라벨과 동일한 확장 비율 (120%)
-    const expandedTopPadding = chartHeight * 0.05; // Y축 라벨과 동일한 상단 패딩 (5% 고정)
+    const expandedHeight = chartHeight * 1.02; // Y축 라벨과 동일한 확장 비율 (102%로 최소화)
+    const expandedTopPadding = chartHeight * 0.005; // Y축 라벨과 동일한 상단 패딩 (0.5%로 최소화)
     const y = margin.top + expandedTopPadding + (1 - valueRatio) * expandedHeight;
 
     // 최종 좌표 유효성 검사
@@ -344,39 +403,45 @@ const LineChart: React.FC<LineChartProps> = ({
           aria-label={`${baseProps.title || '라인 차트'} - ${series.length}개 데이터 시리즈`}
         >
           {/* 배경 그리드 */}
-          {showGrid && (
-            <g className="wello-line-chart__grid">
-              {/* 세로 그리드 라인 */}
-              {Array.from({ length: 5 }, (_, i) => {
-                const x = margin.left + (i / 4) * chartWidth;
-                return (
-                  <line
-                    key={`v-grid-${i}`}
-                    x1={x}
-                    y1={margin.top}
-                    x2={x}
-                    y2={margin.top + chartHeight}
-                    className="wello-line-chart__grid-line"
-                  />
-                );
-              })}
-              
-              {/* 가로 그리드 라인 */}
-              {Array.from({ length: 5 }, (_, i) => {
-                const y = margin.top + (i / 4) * chartHeight;
-                return (
-                  <line
-                    key={`h-grid-${i}`}
-                    x1={margin.left}
-                    y1={y}
-                    x2={margin.left + chartWidth}
-                    y2={y}
-                    className="wello-line-chart__grid-line"
-                  />
-                );
-              })}
-            </g>
-          )}
+          {showGrid && (() => {
+            // Y축 그리드 라인을 4개로 증가 (기존 3개에서 변경)
+            const yGridLines = Array.from({ length: 5 }, (_, i) => i); // 0, 1, 2, 3, 4 (4개 구간)
+            // X축 그리드 라인은 기존 유지
+            const xGridLines = Array.from({ length: 5 }, (_, i) => i);
+            return (
+              <g className="wello-line-chart__grid">
+                {/* 세로 그리드 라인 */}
+                {xGridLines.map((i) => {
+                  const x = margin.left + (i / 4) * chartWidth;
+                  return (
+                    <line
+                      key={`v-grid-${i}`}
+                      x1={x}
+                      y1={margin.top}
+                      x2={x}
+                      y2={margin.top + chartHeight}
+                      className="wello-line-chart__grid-line"
+                    />
+                  );
+                })}
+                
+                {/* 가로 그리드 라인 - 4개 구간으로 분할 */}
+                {yGridLines.map((i) => {
+                  const y = margin.top + (i / 4) * chartHeight;
+                  return (
+                    <line
+                      key={`h-grid-${i}`}
+                      x1={margin.left}
+                      y1={y}
+                      x2={margin.left + chartWidth}
+                      y2={y}
+                      className="wello-line-chart__grid-line"
+                    />
+                  );
+                })}
+              </g>
+            );
+          })()}
 
           {/* 참조선 */}
           {showReferenceLines && series.map(seriesData => 
@@ -401,8 +466,9 @@ const LineChart: React.FC<LineChartProps> = ({
             const renderRangeZone = (range: { min: number; max: number } | null, color: string, opacity: number, label: string, strokeOpacity: number = 0.3) => {
               if (!range) return null;
               
-              const rangeMinY = margin.top + chartHeight * 0.05 + (1 - (range.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
-              const rangeMaxY = margin.top + chartHeight * 0.05 + (1 - (range.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+              // 여백 최소화: 상단 0.5%, 확장 비율 102%
+              const rangeMinY = margin.top + chartHeight * 0.005 + (1 - (range.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
+              const rangeMaxY = margin.top + chartHeight * 0.005 + (1 - (range.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
               
               // 범위가 차트 범위와 겹치는 경우만 표시
               if (range.max >= chartData.minValue && range.min <= chartData.maxValue) {
@@ -443,8 +509,8 @@ const LineChart: React.FC<LineChartProps> = ({
                 
                 {/* 범위 라벨들 - 각 영역 내부에 배치 */}
                 {healthRanges.normal && (() => {
-                  const normalMinY = margin.top + chartHeight * 0.05 + (1 - (healthRanges.normal.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
-                  const normalMaxY = margin.top + chartHeight * 0.05 + (1 - (healthRanges.normal.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+                  const normalMinY = margin.top + chartHeight * 0.005 + (1 - (healthRanges.normal.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
+                  const normalMaxY = margin.top + chartHeight * 0.005 + (1 - (healthRanges.normal.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
                   const clampedMinY = Math.max(normalMinY, margin.top);
                   const clampedMaxY = Math.min(normalMaxY, margin.top + chartHeight);
                   const centerY = clampedMinY + (clampedMaxY - clampedMinY) / 2;
@@ -470,8 +536,8 @@ const LineChart: React.FC<LineChartProps> = ({
                 })()}
                 
                 {healthRanges.borderline && (() => {
-                  const borderlineMinY = margin.top + chartHeight * 0.05 + (1 - (healthRanges.borderline.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
-                  const borderlineMaxY = margin.top + chartHeight * 0.05 + (1 - (healthRanges.borderline.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+                  const borderlineMinY = margin.top + chartHeight * 0.005 + (1 - (healthRanges.borderline.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
+                  const borderlineMaxY = margin.top + chartHeight * 0.005 + (1 - (healthRanges.borderline.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
                   const clampedMinY = Math.max(borderlineMinY, margin.top);
                   const clampedMaxY = Math.min(borderlineMaxY, margin.top + chartHeight);
                   const centerY = clampedMinY + (clampedMaxY - clampedMinY) / 2;
@@ -497,8 +563,8 @@ const LineChart: React.FC<LineChartProps> = ({
                 })()}
                 
                 {healthRanges.abnormal && (() => {
-                  const abnormalMinY = margin.top + chartHeight * 0.05 + (1 - (healthRanges.abnormal.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
-                  const abnormalMaxY = margin.top + chartHeight * 0.05 + (1 - (healthRanges.abnormal.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+                  const abnormalMinY = margin.top + chartHeight * 0.005 + (1 - (healthRanges.abnormal.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
+                  const abnormalMaxY = margin.top + chartHeight * 0.005 + (1 - (healthRanges.abnormal.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
                   const clampedMinY = Math.max(abnormalMinY, margin.top);
                   const clampedMaxY = Math.min(abnormalMaxY, margin.top + chartHeight);
                   const centerY = clampedMinY + (clampedMaxY - clampedMinY) / 2;
@@ -528,8 +594,8 @@ const LineChart: React.FC<LineChartProps> = ({
 
           {/* 기존 단일 정상 범위 (healthRanges가 없을 때만) */}
           {!healthRanges && normalRange && (() => {
-            const normalMinY = margin.top + chartHeight * 0.05 + (1 - (normalRange.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
-            const normalMaxY = margin.top + chartHeight * 0.05 + (1 - (normalRange.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.2;
+            const normalMinY = margin.top + chartHeight * 0.005 + (1 - (normalRange.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
+            const normalMaxY = margin.top + chartHeight * 0.005 + (1 - (normalRange.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
             
             if (normalRange.max >= chartData.minValue && normalRange.min <= chartData.maxValue) {
               const clampedMinY = Math.max(normalMinY, margin.top);
@@ -590,22 +656,55 @@ const LineChart: React.FC<LineChartProps> = ({
               {/* 데이터 포인트 */}
               {(seriesData.showPoints !== false) && seriesData.data.map((point, pointIndex) => {
                 const { x, y } = getCoordinates(point, dimensions);
+                
+                // 선택된 포인트 확인 (클릭된 포인트 또는 초기 상태에서 마지막 포인트)
+                const isLastPoint = pointIndex === seriesData.data.length - 1;
+                const selectedPointKey = selectedPoints[seriesData.id];
+                const isSelected = selectedPointKey 
+                  ? selectedPointKey === `${point.date}-${pointIndex}` 
+                  : isLastPoint; // 초기 상태에서는 마지막 포인트가 선택된 것처럼
+                
+                // 모든 점을 동일하게 크게 만들기 (선택된 포인트는 더 크게)
+                const radius = isSelected ? 10 : 8; // 모든 점을 크게 (기존 6→8, 선택된 점 14→10)
+                const strokeWidth = isSelected ? 3 : 2.5; // 외곽선 두께
+                
+                // 상태에 따른 외곽선 색상 결정 (뱃지 색상과 동일)
+                // 디버깅: 포인트 상태 확인
+                if (!point.status) {
+                  console.warn(`⚠️ [포인트 상태 없음] ${seriesData.name}, 날짜: ${point.date}, 값: ${point.value}`);
+                }
+                
+                let strokeColor = '#888888'; // 기본값: 측정 (회색)
+                if (point.status === 'normal') {
+                  strokeColor = '#61A82C'; // 정상: 초록색
+                } else if (point.status === 'warning') {
+                  strokeColor = '#EE6A31'; // 경계: 주황색
+                } else if (point.status === 'abnormal' || point.status === 'danger') {
+                  strokeColor = '#D73F3F'; // 이상: 빨간색
+                } else if (point.status === 'neutral' || point.status === 'unknown') {
+                  strokeColor = '#888888'; // 측정/미상: 회색
+                } else {
+                  // 상태가 없거나 알 수 없는 경우 기본 회색
+                  strokeColor = '#888888';
+                }
+                
                 return (
                   <circle
                     key={`${seriesData.id}-point-${point.date}-${pointIndex}`}
                     cx={x}
                     cy={y}
-                    r={6} // 🔧 반지름을 늘려서 클릭 영역 확대
-                    className={`wello-line-chart__point ${point.status ? `wello-line-chart__point--${point.status}` : ''}`}
+                    r={radius}
+                    className={`wello-line-chart__point ${point.status ? `wello-line-chart__point--${point.status}` : 'wello-line-chart__point--neutral'} ${isSelected ? 'wello-line-chart__point--selected' : ''}`}
                     style={{
-                      fill: '#7c746a', // 플로팅 버튼 색상으로 고정
-                      stroke: '#ffffff',
-                      strokeWidth: 2,
-                      cursor: 'pointer', // 🔧 커서 포인터 추가
-                      pointerEvents: 'all' // 🔧 포인터 이벤트 명시적 활성화
+                      fill: '#ffffff', // 내부는 흰색
+                      stroke: strokeColor, // 외곽선에 상태별 색상 적용
+                      strokeWidth: strokeWidth,
+                      cursor: 'pointer',
+                      pointerEvents: 'all',
+                      transition: 'r 0.2s ease, stroke-width 0.2s ease' // 부드러운 확대/축소 애니메이션
                     }}
                     onMouseEnter={(e) => {
-                      console.log(`🔍 [툴팁] 포인트 마우스 엔터: ${seriesData.name}, 값: ${point.value}`);
+                      console.log(`🔍 [툴팁] 포인트 마우스 엔터: ${seriesData.name}, 값: ${point.value}, 상태: ${point.status}`);
                       handlePointHover(e, point, seriesData);
                     }}
                     onMouseLeave={() => {
@@ -613,7 +712,13 @@ const LineChart: React.FC<LineChartProps> = ({
                       handleMouseLeave();
                     }}
                     onClick={(e) => {
-                      console.log(`🔍 [툴팁] 포인트 클릭: ${seriesData.name}, 값: ${point.value}`);
+                      e.stopPropagation();
+                      const pointKey = `${point.date}-${pointIndex}`;
+                      setSelectedPoints(prev => ({
+                        ...prev,
+                        [seriesData.id]: prev[seriesData.id] === pointKey ? null : pointKey // 같은 포인트 클릭 시 해제, 다른 포인트 클릭 시 선택
+                      }));
+                      console.log(`🔍 [포인트 클릭] ${seriesData.name}, 값: ${point.value}, 상태: ${point.status}, 날짜: ${point.date}`);
                       handlePointHover(e, point, seriesData);
                     }}
                   />
@@ -649,46 +754,47 @@ const LineChart: React.FC<LineChartProps> = ({
                 
                 // 최신 5년만 선택하여 최신 순 유지
                 const sortedYears = Array.from(dataYears)
-                  .sort((a, b) => b - a) // 최신 년도 순
-                  .slice(0, 5); // 최대 5개 (최신 순 유지)
+                  .sort((a, b) => b - a)
+                  .slice(0, 5);
                 
-                // 5개 고정 슬롯 생성 (데이터가 있는 곳은 년도, 없는 곳은 파비콘)
-                return Array.from({ length: 5 }, (_, index) => {
+                // 5개 고정 슬롯 생성
+                const xAxisSlots = Array.from({ length: 5 }, (_, index) => index);
+                return xAxisSlots.map((index) => {
                   const x = margin.left + (chartWidth / 4) * index;
                   const year = sortedYears[index];
                   
                   if (year) {
-                    // 데이터가 있는 경우 년도 표시
                     return (
                       <g key={`x-label-${year}`}>
                         <text
                           x={x}
-                          y={margin.top + chartHeight + 12}
+                          y={margin.top + chartHeight + 20}
                           className="wello-line-chart__axis-label"
                           textAnchor="middle"
                           dominantBaseline="middle"
+                          style={{ fontSize: '10px' }}
                         >
                           {year.toString().slice(-2)}년
                         </text>
                       </g>
                     );
                   } else {
-                    // 빈 슬롯에는 파비콘 표시
+                    // 데이터가 없는 년도에 웰노 이미지 표시
                     return (
                       <g key={`x-empty-${index}`}>
                         <image
                           x={x - 8}
-                          y={margin.top + chartHeight + 4}
+                          y={margin.top + chartHeight + 10}
                           width="16"
                           height="16"
-                          href="/wello/wello-icon.png"
+                          href={WELLO_LOGO_IMAGE || "/wello/wello-icon.png"}
                           opacity="0.3"
                         />
                       </g>
                     );
                   }
                 });
-            })()}
+              })()}
             
             {xAxisLabel && (
               <text
@@ -712,18 +818,18 @@ const LineChart: React.FC<LineChartProps> = ({
               className="wello-line-chart__axis-line"
             />
             
-            {/* Y축 레이블 (0만 제외, 간격 넓게) */}
-            {Array.from({ length: 4 }, (_, i) => {
-              const ratio = i / 3; // 4개로 간격 넓게
+            {/* Y축 레이블 - 4개로 증가 (기존 3개에서 변경) */}
+            {Array.from({ length: 5 }, (_, i) => {
+              const ratio = i / 4; // 5개 구간으로 분할 (0, 0.25, 0.5, 0.75, 1.0)
               const value = chartData.minValue + (1 - ratio) * (chartData.maxValue - chartData.minValue);
               const roundedValue = Math.round(value);
               
               // 0은 표시하지 않음
               if (roundedValue === 0) return null;
               
-              // Y축 라벨 범위 확장 - 위는 고정, 아래만 늘림
-              const usableHeight = chartHeight * 1.2; // 120% 사용 (아래쪽으로 확장)
-              const topPadding = chartHeight * 0.05; // 위쪽 고정 (5% 여유)
+              // Y축 라벨 범위 확장 - 위는 고정, 아래만 늘림 (여백 최소화)
+              const usableHeight = chartHeight * 1.02; // 102% 사용 (여백 최소화)
+              const topPadding = chartHeight * 0.005; // 위쪽 여유 최소화 (0.5%)
               const y = margin.top + topPadding + ratio * usableHeight;
               
               // Y축 계산 완료 - 디버깅 로그 제거

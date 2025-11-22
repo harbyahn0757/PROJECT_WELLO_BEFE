@@ -318,7 +318,7 @@ export interface ChartConfig {
 }
 
 // === 건강 상태 평가 ===
-export type HealthStatus = 'normal' | 'warning' | 'danger' | 'unknown';
+export type HealthStatus = 'normal' | 'warning' | 'danger' | 'abnormal' | 'neutral' | 'unknown';
 
 export interface HealthMetric {
   name: string;

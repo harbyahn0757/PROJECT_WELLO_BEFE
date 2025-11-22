@@ -1094,6 +1094,9 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   scroll-snap-align: start;
   position: relative;
   box-shadow: $shadow-sm;
+  min-height: 420px; // 카드 높이 증가
+  display: flex;
+  flex-direction: column;
   
   // 슬라이더 패딩으로 여백 처리하므로 카드 마진 제거
   
@@ -1135,15 +1138,15 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
         min-width: 50px;
         
         &.status-normal {
-          background: $brand-brown;
+          background: #61A82C; // 의료기록 타임라인 검진 카드 뱃지 색상과 동일
         }
         
         &.status-warning {
-          background: $warning;
+          background: #EE6A31; // 의료기록 타임라인 검진 카드 뱃지 색상과 동일
         }
         
         &.status-abnormal {
-          background: #ef4444;
+          background: #D73F3F; // 의료기록 타임라인 검진 카드 뱃지 색상과 동일
         }
         
         &.status-neutral {
@@ -1157,11 +1160,7 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
         }
         
         .status-date {
-          font-size: 8px;
-          font-weight: 400;
-          opacity: 0.9;
-          line-height: 1;
-          white-space: nowrap;
+          display: none; // 뱃지 내부 날짜 제거
         }
       }
       
@@ -1194,13 +1193,48 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
     
     .metric-chart {
       width: 100%;
-      height: 170px; // 그래프 높이 더 증가 (160px → 170px, 헤더 간격 줄인만큼 보상)
+      height: 200px; // 그래프 높이 증가 (170px → 200px, 카드 높이 대비 15% 증가)
       border-radius: $border-radius-md;
       background: rgba(245, 245, 220, 0.3); // 베이지 색상으로 변경하고 투명하게
       padding: 0; // 패딩 제거로 그래프 영역 최대화
       display: flex;
       align-items: center;
       justify-content: center;
+      flex: 1; // 남은 공간 차지
+      
+      // LineChart 스타일 통일 (의료기록타임라인과 동일)
+      .wello-line-chart {
+        &__x-axis,
+        &__y-axis {
+          .wello-line-chart__axis-label {
+            fill: #626262 !important; // 회색 계열 (의료기록타임라인과 동일)
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+            font-size: 12px !important;
+          }
+        }
+      }
+      
+      // BarChart 스타일 통일 (의료기록타임라인과 동일)
+      .wello-bar-chart {
+        &__x-axis,
+        &__y-axis {
+          .wello-bar-chart__axis-label {
+            fill: #626262 !important; // 회색 계열 (의료기록타임라인과 동일)
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+            font-size: 12px !important;
+          }
+        }
+        
+        // 값 레이블 폰트 (Pretendard Bold 12px)
+        &__value-label {
+          font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+          font-size: 12px !important;
+          font-weight: $font-weight-bold !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          fill: #626262 !important; // 기본 색상
+        }
+      }
       
       .no-data {
         display: flex;
@@ -1245,14 +1279,33 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
           }
         }
         
-        .single-data-label {
-          font-size: $font-xs;
-          color: $gray-500;
-          margin: 0;
-        }
+      .single-data-label {
+        font-size: $font-xs;
+        color: $gray-500;
+        margin: 0;
+      }
+    }
+    
+    // 측정일 표시 영역 (카드 하단)
+    .measurement-date {
+      margin-top: auto; // 카드 하단으로 밀어내기
+      padding-top: $spacing-xs; // 패딩 줄임
+      font-size: 10px; // 폰트 크기 작게 (기존 $font-xs보다 작게)
+      color: $gray-600;
+      text-align: right; // 오른쪽 정렬
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      
+      .date-label {
+        font-weight: 500;
+        margin-right: 4px;
+      }
+      
+      .date-value {
+        font-weight: 400;
       }
     }
   }
+}
 
 // 단일 데이터 포인트 애니메이션
 @keyframes pulse {

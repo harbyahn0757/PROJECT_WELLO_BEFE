@@ -57,7 +57,7 @@ const BarChart: React.FC<BarChartProps> = ({
   xAxisLabel,
   yAxisLabel,
   barSpacing = 4,
-  groupSpacing = 16,
+  groupSpacing = 28, // X축 간격 더 확보 (24 → 28)
   valueFormat = (value, unit) => `${value}${unit ? ` ${unit}` : ''}`,
   onBarClick,
   ...baseProps
@@ -134,18 +134,6 @@ const BarChart: React.FC<BarChartProps> = ({
           const point = s.data.find(p => p.label === label);
           const barValue = point?.value ?? 0;
           
-          // 디버깅: 데이터 매핑 확인
-          if (process.env.NODE_ENV === 'development') {
-            console.log('[BarChart] 데이터 매핑:', {
-              label,
-              seriesId: s.id,
-              pointFound: !!point,
-              pointValue: point?.value,
-              barValue,
-              allLabels: s.data.map(p => p.label)
-            });
-          }
-          
           return {
             seriesId: s.id,
             seriesName: s.name,
@@ -188,25 +176,33 @@ const BarChart: React.FC<BarChartProps> = ({
     };
   }, [series, groupBy]);
 
-  // 렌더링 후 텍스트 요소 확인
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development' && svgRef.current) {
-      const textElements = svgRef.current.querySelectorAll('.wello-bar-chart__value-label');
-      console.log('[BarChart] DOM에 렌더링된 텍스트 요소 개수:', textElements.length);
-      textElements.forEach((el, idx) => {
-        const textEl = el as SVGTextElement;
-        console.log(`[BarChart] 텍스트 ${idx + 1}:`, {
-          text: textEl.textContent,
-          x: textEl.getAttribute('x'),
-          y: textEl.getAttribute('y'),
-          fill: window.getComputedStyle(textEl).fill,
-          opacity: window.getComputedStyle(textEl).opacity,
-          visibility: window.getComputedStyle(textEl).visibility,
-          display: window.getComputedStyle(textEl).display
-        });
-      });
+
+  // 그리드 라인 배열 메모이제이션
+  const gridLines = useMemo(() => {
+    if (orientation === 'vertical') {
+      return Array.from({ length: 4 }, (_, i) => i);
+    } else {
+      return Array.from({ length: 5 }, (_, i) => i);
     }
-  }, [chartData, showValues]);
+  }, [orientation]);
+
+  // Y축 레이블 배열 메모이제이션
+  const yAxisLabels = useMemo(() => {
+    return Array.from({ length: 4 }, (_, i) => i);
+  }, []);
+
+  // 색상 결정 로직 통합
+  const getBarColor = (seriesId: string, status?: HealthStatus) => {
+    const seriesColor = series.find(s => s.id === seriesId)?.color;
+    if (seriesColor) return seriesColor;
+    
+    // 상태별 기본 색상
+    if (status === 'warning') return 'var(--color-warning)';
+    if (status === 'danger') return 'var(--color-danger)';
+    if (status === 'normal') return 'var(--color-success)';
+    
+    return '#7c746a'; // 기본 브랜드 브라운
+  };
 
   // 바 위치 계산
   const getBarDimensions = (
@@ -225,45 +221,27 @@ const BarChart: React.FC<BarChartProps> = ({
     const barsPerGroup = Math.max(...chartData.groups.map(g => g.bars.length));
     
     if (orientation === 'vertical') {
-      // 세로 바 차트
       const groupWidth = chartWidth / groupCount;
-      const barWidth = Math.max((groupWidth - groupSpacing) / barsPerGroup - barSpacing, 8);
-      
+      const barWidth = Math.max((groupWidth - groupSpacing) / barsPerGroup - barSpacing, 16); // 바 더 두껍게 (12 → 16)
       const groupX = margin.left + groupIndex * groupWidth + groupSpacing / 2;
       const barX = groupX + barIndex * (barWidth + barSpacing);
-      
-      // 바 높이를 0부터 시작하도록 계산
       const minY = 0;
       const maxY = Math.max(chartData.maxValue, 2);
       const barHeight = Math.max((value - minY) / (maxY - minY) * chartHeight, 2);
       const barY = margin.top + chartHeight - barHeight;
 
-      return {
-        x: barX,
-        y: barY,
-        width: barWidth,
-        height: barHeight
-      };
+      return { x: barX, y: barY, width: barWidth, height: barHeight };
     } else {
-      // 가로 바 차트
       const groupHeight = chartHeight / groupCount;
       const barHeight = Math.max((groupHeight - groupSpacing) / barsPerGroup - barSpacing, 8);
-      
       const groupY = margin.top + groupIndex * groupHeight + groupSpacing / 2;
       const barY = groupY + barIndex * (barHeight + barSpacing);
-      
-      // 바 너비를 0부터 시작하도록 계산
       const minY = 0;
       const maxY = Math.max(chartData.maxValue, 2);
       const barWidth = Math.max((value - minY) / (maxY - minY) * chartWidth, 2);
       const barX = margin.left;
 
-      return {
-        x: barX,
-        y: barY,
-        width: barWidth,
-        height: barHeight
-      };
+      return { x: barX, y: barY, width: barWidth, height: barHeight };
     }
   };
 
@@ -313,10 +291,10 @@ const BarChart: React.FC<BarChartProps> = ({
       ...dimensions,
       margin: {
         ...dimensions.margin,
-        top: Math.max(dimensions.margin.top, 20), // 값 레이블을 위한 상단 여백 확보
-        bottom: Math.max(dimensions.margin.bottom, 35), // 최소 35px 확보
-        left: Math.min(dimensions.margin.left, 25), // Y축 라벨 공간 축소 (45px → 25px)
-        right: Math.min(dimensions.margin.right, 5) // 오른쪽 여백 최소화 (15px → 5px)
+        top: Math.max(dimensions.margin.top, 10), // 값 레이블을 위한 상단 여백 최소화 (20 → 10)
+        bottom: Math.max(dimensions.margin.bottom, 35), // 최소 35px 확보 (하단 고정)
+        left: Math.min(dimensions.margin.left, 8), // Y축 라벨 공간 최소화 (12px → 8px)
+        right: Math.min(dimensions.margin.right, 0) // 오른쪽 여백 최소화 (0px 유지)
       }
     };
     
@@ -324,27 +302,25 @@ const BarChart: React.FC<BarChartProps> = ({
     const chartWidth = width - margin.left - margin.right;
     const chartHeight = height - margin.top - margin.bottom;
     
-    // 텍스트가 그래프 밖에 나오도록 상단 여유 공간 추가
-    const textPaddingTop = 20; // 텍스트를 위한 상단 여유 공간
-    const svgHeight = height + textPaddingTop;
+    // 값 레이블을 위한 상단 여유 공간 (값 레이블이 잘리지 않도록 충분히 확보)
+    const valueLabelPadding = 15;
 
     return (
       <div className="wello-bar-chart">
         <svg
           ref={svgRef}
           width={width}
-          height={svgHeight}
-          viewBox={`0 ${-textPaddingTop} ${width} ${svgHeight}`}
+          height={height + valueLabelPadding}
+          viewBox={`0 ${-valueLabelPadding} ${width} ${height + valueLabelPadding}`}
           className="wello-bar-chart__svg"
           role="img"
           aria-label={`${baseProps.title || '바 차트'} - ${chartData.groups.length}개 그룹, ${series.length}개 시리즈`}
-          style={{ overflow: 'visible' }}
         >
           {/* 배경 그리드 */}
           <g className="wello-bar-chart__grid">
             {orientation === 'vertical' ? (
-              // 세로 차트 - 가로 그리드 라인 (간격을 더 크게 하기 위해 4개 구간으로 변경)
-              Array.from({ length: 4 }, (_, i) => {
+              // 세로 차트 - 가로 그리드 라인
+              gridLines.map((i) => {
                 const y = margin.top + (i / 3) * chartHeight;
                 return (
                   <line
@@ -354,18 +330,12 @@ const BarChart: React.FC<BarChartProps> = ({
                     x2={margin.left + chartWidth}
                     y2={y}
                     className="wello-bar-chart__grid-line"
-                    style={{
-                      stroke: '#E0E0E0',
-                      strokeWidth: 0.5,
-                      strokeDasharray: '2, 4',
-                      opacity: 0.4
-                    }}
                   />
                 );
               })
             ) : (
               // 가로 차트 - 세로 그리드 라인
-              Array.from({ length: 5 }, (_, i) => {
+              gridLines.map((i) => {
                 const x = margin.left + (i / 4) * chartWidth;
                 return (
                   <line
@@ -375,19 +345,37 @@ const BarChart: React.FC<BarChartProps> = ({
                     x2={x}
                     y2={margin.top + chartHeight}
                     className="wello-bar-chart__grid-line"
-                    style={{
-                      stroke: '#E0E0E0',
-                      strokeWidth: 0.5,
-                      strokeDasharray: '2, 4',
-                      opacity: 0.4
-                    }}
                   />
                 );
               })
             )}
           </g>
 
-          {/* 참조선 */}
+          {/* Y축 값 기준 참조선 (얇은 점선) */}
+          {orientation === 'vertical' && (
+            <g className="wello-bar-chart__reference-lines">
+              {yAxisLabels.map((i) => {
+                const ratio = i / 3;
+                const minY = 0;
+                const maxY = Math.max(chartData.maxValue, 2);
+                const value = minY + (1 - ratio) * (maxY - minY);
+                const y = margin.top + ratio * chartHeight;
+                
+                return (
+                  <line
+                    key={`ref-line-${i}`}
+                    x1={margin.left}
+                    y1={y}
+                    x2={margin.left + chartWidth}
+                    y2={y}
+                    className="wello-bar-chart__reference-line"
+                  />
+                );
+              })}
+            </g>
+          )}
+
+          {/* 데이터 기반 참조선 (기존 기능) */}
           {showReferenceLines && series.some(s => s.data.some(p => p.reference)) && (
             <g className="wello-bar-chart__reference-lines">
               {series.map(s => 
@@ -409,17 +397,24 @@ const BarChart: React.FC<BarChartProps> = ({
             </g>
           )}
 
-          {/* 바 그룹 */}
+          {/* 바 그룹 및 값 레이블 (같은 그룹에 배치하여 구조 단순화) */}
           {chartData.groups.map((group, groupIndex) => (
             <g key={`group-${groupIndex}`} className="wello-bar-chart__group">
               {group.bars.map((bar, barIndex) => {
                 const barDimensions = getBarDimensions(groupIndex, barIndex, bar.value, adjustedDimensions);
-                // series의 color 속성을 우선 사용, 없으면 기본 색상
-                const seriesColor = series.find(s => s.id === bar.seriesId)?.color;
-                const barColor = seriesColor || '#7c746a'; // 기본 브랜드 브라운 컬러
+                const barColor = getBarColor(bar.seriesId, bar.status);
+                
+                const labelX = orientation === 'vertical'
+                  ? barDimensions.x + barDimensions.width / 2
+                  : barDimensions.x + barDimensions.width + 4;
+                
+                // 값 레이블 위치: 바 위에 표시 (더 위로 올림)
+                const labelY = orientation === 'vertical' 
+                  ? barDimensions.y - 12
+                  : barDimensions.y + barDimensions.height / 2 + 4;
 
                 return (
-                  <g key={`${group.label}-${bar.seriesId}`}>
+                  <g key={`${group.label}-${bar.seriesId}`} data-series-id={bar.seriesId}>
                     {/* 바 */}
                     <rect
                       x={barDimensions.x}
@@ -428,65 +423,26 @@ const BarChart: React.FC<BarChartProps> = ({
                       height={barDimensions.height}
                       className={`wello-bar-chart__bar ${bar.status ? `wello-bar-chart__bar--${bar.status}` : ''}`}
                       fill={barColor}
-                      style={{ 
-                        fill: barColor,
-                        stroke: seriesColor ? barColor : '#8b7d6b',
-                      }}
+                      data-series-id={bar.seriesId}
                       onMouseEnter={(e) => handleBarHover(e, bar.point, bar.seriesName, bar.unit)}
                       onMouseLeave={handleMouseLeave}
                       onClick={() => onBarClick?.(bar.point, series.find(s => s.id === bar.seriesId)!)}
                     />
+                    
+                    {/* 값 레이블 (바와 같은 그룹에 배치) */}
+                    {showValues && bar.value > 0 && (
+                      <text
+                        x={labelX}
+                        y={labelY}
+                        className="wello-bar-chart__value-label"
+                        textAnchor={orientation === 'vertical' ? 'middle' : 'start'}
+                        dominantBaseline={orientation === 'vertical' ? 'hanging' : 'middle'}
+                        data-series-id={bar.seriesId}
+                      >
+                        {valueFormat(bar.value, bar.unit || '')}
+                      </text>
+                    )}
                   </g>
-                );
-              })}
-            </g>
-          ))}
-
-          {/* 값 레이블 - 바 그룹 밖에 별도로 렌더링하여 가려지지 않도록 */}
-          {chartData.groups.map((group, groupIndex) => (
-            <g key={`value-labels-${groupIndex}`} className="wello-bar-chart__value-labels">
-              {group.bars.map((bar, barIndex) => {
-                if (!showValues || !bar.value || bar.value <= 0) return null;
-                
-                const barDimensions = getBarDimensions(groupIndex, barIndex, bar.value, adjustedDimensions);
-                const seriesColor = series.find(s => s.id === bar.seriesId)?.color;
-                const barColor = seriesColor || '#7c746a';
-                
-                const labelX = orientation === 'vertical'
-                  ? barDimensions.x + barDimensions.width / 2
-                  : barDimensions.x + barDimensions.width + 4;
-                
-                // 텍스트를 그래프 밖(위)에 표시 - viewBox가 -textPaddingTop부터 시작하므로 음수 y 사용
-                const labelY = orientation === 'vertical' 
-                  ? barDimensions.y - 18 // 그래프 영역 밖으로 확실히 배치
-                  : barDimensions.y + barDimensions.height / 2 + 4;
-                
-                // 값 레이블 색상: VisitTrendsChart에서 !important로 오버라이드하므로 여기서는 기본값만 설정
-                const valueLabelColor = barColor; // 기본값: 그래프 색상 (VisitTrendsChart에서 !important로 덮어씀)
-                
-                return (
-                  <text
-                    key={`value-${group.label}-${bar.seriesId}`}
-                    x={labelX}
-                    y={labelY}
-                    className="wello-bar-chart__value-label"
-                    textAnchor={orientation === 'vertical' ? 'middle' : 'start'}
-                    dominantBaseline={orientation === 'vertical' ? 'hanging' : 'middle'}
-                    fill={valueLabelColor}
-                    stroke="none"
-                    style={{ 
-                      fill: valueLabelColor,
-                      stroke: 'none',
-                      fontSize: '12px',
-                      fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
-                      fontWeight: 'bold',
-                      pointerEvents: 'none',
-                      opacity: 1,
-                      visibility: 'visible'
-                    }}
-                  >
-                    {valueFormat(bar.value, bar.unit || '')}
-                  </text>
                 );
               })}
             </g>
@@ -544,19 +500,18 @@ const BarChart: React.FC<BarChartProps> = ({
               className="wello-bar-chart__axis-line"
             />
             
-            {/* Y축 레이블 (간격을 더 크게 하기 위해 4개 구간으로 변경) */}
-            {Array.from({ length: 4 }, (_, i) => {
+            {/* Y축 레이블 */}
+            {yAxisLabels.map((i) => {
               const ratio = i / 3;
-              // Y축을 0부터 시작하도록 수정
               const minY = 0;
-              const maxY = Math.max(chartData.maxValue, 2); // 최소 2까지 표시
+              const maxY = Math.max(chartData.maxValue, 2);
               const value = minY + (1 - ratio) * (maxY - minY);
               const y = margin.top + ratio * chartHeight;
               
               return (
                 <text
                   key={`y-label-${i}`}
-                  x={margin.left - 10}
+                  x={margin.left - 2}
                   y={y + 4}
                   className="wello-bar-chart__axis-label"
                   textAnchor="end"
