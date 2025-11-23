@@ -44,18 +44,17 @@
     padding-bottom: $spacing-xs !important; // $spacing-sm에서 $spacing-xs로 더 줄임
   }
 
-  // 닫기 버튼 (오른쪽, BackButton 스타일 재사용)
-  &__close-button {
-    // BackButton 기본 스타일 유지 (27px × 27px, 흰색 배경, 브라운 색상)
-    // 오른쪽 정렬만 추가
-    margin-left: auto;
-    flex-shrink: 0;
-  }
-
-  &__close-icon {
-    // X 아이콘 스타일 (BackButton의 SVG 스타일 유지)
-    width: 16px !important;
-    height: 16px !important;
+  // 뒤로가기 버튼 (좌측, 다른 페이지와 동일한 위치)
+  &__header-with-back {
+    position: relative;
+    
+    .back-button-container {
+      position: absolute;
+      left: $spacing-md;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 1;
+    }
   }
 
   // 로딩 오버레이

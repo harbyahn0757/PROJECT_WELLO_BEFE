@@ -673,7 +673,15 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
     if (onBack) {
       onBack();
     } else {
-      window.history.back();
+      // URL 파라미터 유지하여 메인 페이지로 이동
+      const urlParams = new URLSearchParams(window.location.search);
+      const uuid = urlParams.get('uuid');
+      const hospital = urlParams.get('hospital');
+      if (uuid && hospital) {
+        navigate(`/?uuid=${uuid}&hospital=${hospital}`);
+      } else {
+        navigate('/');
+      }
     }
   };
 

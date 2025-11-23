@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import DynamicSurvey from '../components/DynamicSurvey';
 import { Survey, SurveyResponse, SurveySubmitRequest } from '../types/survey';
 import surveyService from '../services/surveyService';
 
 const CheckupDesignPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,15 +55,18 @@ const CheckupDesignPage: React.FC = () => {
       
       await surveyService.submitSurvey(request);
       
-      // 완료 후 검진 항목 추천 페이지로 이동
-      navigate('/checkup-recommendations', { state: { surveyResponse: response } });
+      // 완료 후 검진 항목 추천 페이지로 이동 (URL 파라미터 유지)
+      const queryString = location.search;
+      navigate(`/checkup-recommendations${queryString}`, { state: { surveyResponse: response } });
     } catch (error) {
       console.error('설문조사 제출 실패:', error);
     }
   };
 
   const handleBack = () => {
-    navigate('/');
+    // URL 파라미터 유지하여 메인 페이지로 이동
+    const queryString = location.search;
+    navigate(`/${queryString}`);
   };
 
   if (loading) {
@@ -86,7 +90,7 @@ const CheckupDesignPage: React.FC = () => {
           <div className="wrapper login">
             <div style={{ textAlign: 'center', padding: '50px' }}>
               <p>{error || '설문조사를 불러올 수 없습니다.'}</p>
-              <button onClick={() => navigate('/')} className="question__footer-button">
+              <button onClick={handleBack} className="question__footer-button">
                 돌아가기
               </button>
             </div>

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import DynamicSurvey from '../components/DynamicSurvey';
 import { Survey, SurveyResponse, SurveySubmitRequest } from '../types/survey';
 import surveyService from '../services/surveyService';
 
 const SurveyPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { surveyId } = useParams<{ surveyId: string }>();
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,30 +68,34 @@ const SurveyPage: React.FC = () => {
       
       await surveyService.submitSurvey(request);
       
-      // 설문조사 종류별 완료 후 이동 경로
+      // 설문조사 종류별 완료 후 이동 경로 (URL 파라미터 유지)
+      const queryString = location.search;
       switch (surveyId) {
         case 'checkup-design':
-          navigate('/checkup-recommendations', { state: { surveyResponse: response } });
+          navigate(`/checkup-recommendations${queryString}`, { state: { surveyResponse: response } });
           break;
         case 'health-habits':
-          navigate('/habits-plan', { state: { surveyResponse: response } });
+          navigate(`/habits-plan${queryString}`, { state: { surveyResponse: response } });
           break;
         case 'disease-prediction':
-          navigate('/prediction-results', { state: { surveyResponse: response } });
+          navigate(`/prediction-results${queryString}`, { state: { surveyResponse: response } });
           break;
         default:
-          navigate('/survey-complete', { state: { surveyResponse: response } });
+          navigate(`/survey-complete${queryString}`, { state: { surveyResponse: response } });
           break;
       }
     } catch (error) {
       console.error('설문조사 제출 실패:', error);
-      // 에러가 발생해도 완료 페이지로 이동
-      navigate('/survey-complete', { state: { surveyResponse: response } });
+      // 에러가 발생해도 완료 페이지로 이동 (URL 파라미터 유지)
+      const queryString = location.search;
+      navigate(`/survey-complete${queryString}`, { state: { surveyResponse: response } });
     }
   };
 
   const handleBack = () => {
-    navigate('/');
+    // URL 파라미터 유지하여 메인 페이지로 이동
+    const queryString = location.search;
+    navigate(`/${queryString}`);
   };
 
   if (loading) {
@@ -117,7 +122,7 @@ const SurveyPage: React.FC = () => {
           <div className="question__content-input-area" style={{ padding: '40px 20px', textAlign: 'center' }}>
             <p style={{ marginBottom: '20px', color: '#e74c3c' }}>{error || '설문조사를 불러올 수 없습니다.'}</p>
             <button 
-              onClick={() => navigate('/')}
+              onClick={handleBack}
               style={{
                 background: 'transparent',
                 color: '#666',

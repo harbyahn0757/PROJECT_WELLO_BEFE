@@ -223,6 +223,17 @@ const FloatingButton: React.FC = () => {
       };
     }
     
+    // 문진 완료 페이지에서는 검진 설계 페이지로 이동
+    if (path === '/questionnaire-complete' || path.includes('/questionnaire-complete')) {
+      return {
+        text: '검진 설계하기',
+        onClick: () => {
+          console.log('🎯 [플로팅버튼] 검진 설계 페이지로 이동');
+          navigate('/survey/checkup-design');
+        }
+      };
+    }
+    
     // 기본 (메인페이지 등) - 브라운 스킨 디자인 반영
     return {
       text: '검진 예약 하기',
@@ -387,7 +398,7 @@ const AppContent: React.FC = () => {
           <Route path="/prescriptions" element={<PrescriptionHistory />} />
           <Route path="/comparison" element={<HealthComparison />} />
           {/* <Route path="/comprehensive-analysis" element={<ComprehensiveAnalysisPage />} /> 제거됨 */}
-          <Route path="/results-trend" element={<HealthDataViewer onBack={() => window.history.back()} />} />
+          <Route path="/results-trend" element={<HealthDataViewer />} />
           <Route path="/appointment" element={<AppointmentPage />} />
           <Route 
             path="/results" 

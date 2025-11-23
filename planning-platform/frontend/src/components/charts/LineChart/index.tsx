@@ -47,6 +47,7 @@ export interface LineChartProps extends BaseChartProps {
     abnormal: { min: number; max: number; name?: string } | null;
   };
   allYears?: number[]; // 통합 년도 목록 (외부에서 전달받음)
+  metric?: string; // 지표명 (체중, 신장 등) - Y축 범위 계산에 사용
 }
 
 const LineChart: React.FC<LineChartProps> = ({
@@ -61,6 +62,7 @@ const LineChart: React.FC<LineChartProps> = ({
   valueFormat = (value) => value.toString(),
   onPointHover,
   allYears,
+  metric,
   ...baseProps
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -89,39 +91,11 @@ const LineChart: React.FC<LineChartProps> = ({
 
     // 값 범위 계산 (참조선 포함) - 유효한 값만 필터링
     const values = allPoints.map(p => p.value).filter(v => 
-      typeof v === 'number' && !isNaN(v) && isFinite(v)
+      typeof v === 'number' && !isNaN(v) && isFinite(v) && v > 0
     );
-    const referenceValues = allPoints.flatMap(p => 
-      p.reference ? [p.reference.min, p.reference.max, p.reference.optimal].filter(v => 
-        typeof v === 'number' && !isNaN(v) && isFinite(v)
-      ) : []
-    ) as number[];
-    
-    const allValues = [...values, ...referenceValues];
-    
-    // healthRanges에서 범위 값 추출 (Y축 동적 설정을 위해)
-    const healthRangeValues: number[] = [];
-    if (healthRanges) {
-      if (healthRanges.normal && healthRanges.normal.min !== null && healthRanges.normal.max !== null) {
-        healthRangeValues.push(healthRanges.normal.min, healthRanges.normal.max);
-      }
-      if (healthRanges.borderline && healthRanges.borderline.min !== null && healthRanges.borderline.max !== null) {
-        healthRangeValues.push(healthRanges.borderline.min, healthRanges.borderline.max);
-      }
-      if (healthRanges.abnormal && healthRanges.abnormal.min !== null && healthRanges.abnormal.max !== null) {
-        healthRangeValues.push(healthRanges.abnormal.min, healthRanges.abnormal.max);
-      }
-    }
-    
-    // 모든 값 통합 (데이터 값 + 참조선 값 + healthRanges 값)
-    const allRangeValues = [...allValues, ...healthRangeValues];
-    
-    // 값 범위 계산 - healthRanges를 고려하여 Y축 범위 설정
-    let minValue: number;
-    let maxValue: number;
     
     // 유효한 값이 없으면 기본값 사용
-    if (allRangeValues.length === 0) {
+    if (values.length === 0) {
       return {
         minDate: new Date(),
         maxDate: new Date(),
@@ -131,105 +105,131 @@ const LineChart: React.FC<LineChartProps> = ({
       };
     }
     
-    // healthRanges가 없을 때는 실제 데이터 값 범위 사용
-    if (!healthRanges) {
-      if (allValues.length > 0) {
-        minValue = Math.min(...allValues);
-        maxValue = Math.max(...allValues);
-        // 음수 방지
-        minValue = Math.max(0, minValue);
-      } else {
-        minValue = 0;
-        maxValue = 100;
-      }
+    // 실제 데이터의 최소값과 최대값 계산
+    const dataMin = Math.min(...values);
+    const dataMax = Math.max(...values);
+    
+    // 값 범위 계산 - healthRanges를 고려하여 Y축 범위 설정
+    let minValue: number;
+    let maxValue: number;
+    
+    // 체중/신장의 경우 실제 데이터 값만 사용 (healthRanges 무시)
+    if (metric === '체중' || metric === '신장') {
+      minValue = dataMin;
+      maxValue = dataMax;
+    } else if (!healthRanges) {
+      // healthRanges가 없을 때는 실제 데이터 값 범위 사용
+      minValue = dataMin;
+      maxValue = dataMax;
     } else {
       // healthRanges가 있을 때는 기존 로직 사용
-      minValue = 0; // 기본값은 0부터 시작
-      maxValue = allRangeValues.length > 0 ? Math.max(...allRangeValues.filter(v => v !== null && !isNaN(v))) : 100;
+      const referenceValues = allPoints.flatMap(p => 
+        p.reference ? [p.reference.min, p.reference.max, p.reference.optimal].filter(v => 
+          typeof v === 'number' && !isNaN(v) && isFinite(v)
+        ) : []
+      ) as number[];
       
-      // healthRanges가 있으면 범위를 더 넓게 설정하여 모든 영역이 보이도록
-      if (healthRanges) {
-      const rangeMinValues: number[] = [];
-      const rangeMaxValues: number[] = [];
+      const allValues = [...values, ...referenceValues];
       
+      // healthRanges에서 범위 값 추출 (Y축 동적 설정을 위해)
+      const healthRangeValues: number[] = [];
       if (healthRanges.normal && healthRanges.normal.min !== null && healthRanges.normal.max !== null) {
-        rangeMinValues.push(healthRanges.normal.min);
-        rangeMaxValues.push(healthRanges.normal.max);
+        healthRangeValues.push(healthRanges.normal.min, healthRanges.normal.max);
       }
       if (healthRanges.borderline && healthRanges.borderline.min !== null && healthRanges.borderline.max !== null) {
-        rangeMinValues.push(healthRanges.borderline.min);
-        rangeMaxValues.push(healthRanges.borderline.max);
+        healthRangeValues.push(healthRanges.borderline.min, healthRanges.borderline.max);
       }
       if (healthRanges.abnormal && healthRanges.abnormal.min !== null && healthRanges.abnormal.max !== null) {
-        rangeMinValues.push(healthRanges.abnormal.min);
-        rangeMaxValues.push(healthRanges.abnormal.max);
+        healthRangeValues.push(healthRanges.abnormal.min, healthRanges.abnormal.max);
       }
       
-      // healthRanges의 최소값과 최대값을 고려
-      if (rangeMinValues.length > 0) {
-        const rangeMin = Math.min(...rangeMinValues);
-        // 데이터 최소값이 healthRanges 최소값보다 작으면 그 값 사용
-        if (allValues.length > 0) {
-          const dataMin = Math.min(...allValues);
+      // 모든 값 통합 (데이터 값 + 참조선 값 + healthRanges 값)
+      const allRangeValues = [...allValues, ...healthRangeValues];
+      
+      if (allRangeValues.length === 0) {
+        minValue = dataMin;
+        maxValue = dataMax;
+      } else {
+        // healthRanges가 있으면 범위를 더 넓게 설정하여 모든 영역이 보이도록
+        const rangeMinValues: number[] = [];
+        const rangeMaxValues: number[] = [];
+        
+        if (healthRanges.normal && healthRanges.normal.min !== null && healthRanges.normal.max !== null) {
+          rangeMinValues.push(healthRanges.normal.min);
+          rangeMaxValues.push(healthRanges.normal.max);
+        }
+        if (healthRanges.borderline && healthRanges.borderline.min !== null && healthRanges.borderline.max !== null) {
+          rangeMinValues.push(healthRanges.borderline.min);
+          rangeMaxValues.push(healthRanges.borderline.max);
+        }
+        if (healthRanges.abnormal && healthRanges.abnormal.min !== null && healthRanges.abnormal.max !== null) {
+          rangeMinValues.push(healthRanges.abnormal.min);
+          rangeMaxValues.push(healthRanges.abnormal.max);
+        }
+        
+        // healthRanges의 최소값과 최대값을 고려
+        if (rangeMinValues.length > 0) {
+          const rangeMin = Math.min(...rangeMinValues);
           minValue = Math.min(dataMin, rangeMin);
         } else {
-          minValue = rangeMin;
+          minValue = dataMin;
         }
-      }
-      
-      if (rangeMaxValues.length > 0) {
-        const rangeMax = Math.max(...rangeMaxValues);
-        // 데이터 최대값과 healthRanges 최대값 중 큰 값 사용
-        // healthRanges.max가 null이면 실제 데이터 최대값 사용
-        if (allValues.length > 0) {
-          const dataMax = Math.max(...allValues);
-          // healthRanges.max가 실제 데이터보다 훨씬 크면 (예: min * 10), 실제 데이터 범위 사용
-          // 예: BMI의 경우 "30이상"이면 max가 300이 되는데, 실제 데이터는 37이므로 300을 사용하지 않음
-          // 하지만 정상 범위가 실제 데이터보다 높은 경우 (예: HDL 정상 60이상, 데이터 35-55)
-          // 정상 범위도 보이도록 Y축을 확장
+        
+        if (rangeMaxValues.length > 0) {
+          const rangeMax = Math.max(...rangeMaxValues);
+          // healthRanges.max가 실제 데이터보다 훨씬 크면 실제 데이터 범위 + 여백 사용
           if (rangeMax > dataMax * 3) {
-            // healthRanges.max가 실제 데이터의 3배 이상이면 실제 데이터 범위 + 여백 사용
-            // 단, 정상 범위의 min이 실제 데이터 max보다 크면 정상 범위도 포함하도록 확장
             const normalMin = healthRanges.normal?.min;
             if (normalMin && normalMin > dataMax) {
-              // 정상 범위가 실제 데이터보다 높으면 정상 범위까지 포함
-              maxValue = Math.max(dataMax * 1.2, normalMin * 1.1); // 정상 범위 + 10% 여백
+              maxValue = Math.max(dataMax * 1.2, normalMin * 1.1);
             } else {
-              maxValue = dataMax * 1.2; // 20% 여백
+              maxValue = dataMax * 1.2;
             }
           } else {
             maxValue = Math.max(dataMax, rangeMax);
           }
         } else {
-          maxValue = rangeMax;
+          const normalMin = healthRanges.normal?.min;
+          if (normalMin && normalMin > dataMax) {
+            maxValue = Math.max(dataMax * 1.2, normalMin * 1.1);
+          } else {
+            maxValue = dataMax;
+          }
         }
-      } else if (allValues.length > 0) {
-        // healthRanges.max가 null인 경우 실제 데이터 최대값 사용
-        // 단, 정상 범위의 min이 실제 데이터 max보다 크면 정상 범위도 포함
-        const dataMax = Math.max(...allValues);
-        const normalMin = healthRanges.normal?.min;
-        if (normalMin && normalMin > dataMax) {
-          maxValue = Math.max(dataMax * 1.2, normalMin * 1.1);
-        } else {
-          maxValue = dataMax;
-        }
-      }
       }
     }
     
-    // 여백 추가 (상단 5%, 하단 5%)
-    const valueRange = maxValue - minValue || 1; // 0으로 나누기 방지
-    const topPadding = valueRange * 0.05;
-    const bottomPadding = valueRange * 0.05;
+    // 지표별 Y축 범위 계산
+    let finalMinValue = minValue;
+    let finalMaxValue = maxValue;
+    
+    if (metric === '체중') {
+      // 체중: 실제 데이터 최소값/최대값 기준으로 위아래 10kg씩 여유
+      // dataMin, dataMax는 이미 계산되어 있음
+      finalMinValue = Math.max(0, dataMin - 10); // 음수 방지
+      finalMaxValue = dataMax + 10;
+    } else if (metric === '신장') {
+      // 신장: 실제 데이터 최소값/최대값 기준으로 위아래 10cm씩 여유
+      // dataMin, dataMax는 이미 계산되어 있음
+      finalMinValue = Math.max(0, dataMin - 10); // 음수 방지
+      finalMaxValue = dataMax + 10;
+    } else {
+      // 기타 지표: 기존 로직 유지 (상단 5%, 하단 5% 여백)
+      const valueRange = maxValue - minValue || 1; // 0으로 나누기 방지
+      const topPadding = valueRange * 0.05;
+      const bottomPadding = valueRange * 0.05;
+      finalMinValue = Math.max(0, minValue - bottomPadding); // 음수 방지
+      finalMaxValue = maxValue + topPadding;
+    }
 
     return {
       minDate,
       maxDate,
-      minValue: Math.max(0, minValue - bottomPadding), // 음수 방지
-      maxValue: maxValue + topPadding,
+      minValue: finalMinValue,
+      maxValue: finalMaxValue,
       dateRange: maxDate.getTime() - minDate.getTime() || 1 // 0으로 나누기 방지
     };
-  }, [series, healthRanges]);
+  }, [series, healthRanges, metric]);
 
   // 좌표 변환 함수 (NaN 방지)
   const getCoordinates = (

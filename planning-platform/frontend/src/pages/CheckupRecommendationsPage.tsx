@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useWelloData } from '../contexts/WelloDataContext';
 import { getHospitalLogoUrl } from '../utils/hospitalLogoUtils';
 import { WELLO_LOGO_IMAGE } from '../constants/images';
@@ -116,6 +116,7 @@ const CheckupRecommendationsPage: React.FC = () => {
   const { state } = useWelloData();
   const { patient, hospital } = state;
   const navigate = useNavigate();
+  const location = useLocation();
 
   // 로딩 상태 관리
   const [isLoading, setIsLoading] = useState(true);
@@ -216,9 +217,10 @@ const CheckupRecommendationsPage: React.FC = () => {
     });
   };
 
-  // 닫기 버튼 클릭 (이전 페이지로 부드럽게 이동)
+  // 닫기 버튼 클릭 (URL 파라미터 유지하여 메인 페이지로 이동)
   const handleCloseClick = () => {
-    navigate(-1);
+    const queryString = location.search;
+    navigate(`/${queryString}`);
   };
 
   // 강조 텍스트 렌더링
@@ -271,8 +273,8 @@ const CheckupRecommendationsPage: React.FC = () => {
 
       {/* 헤더 + 인사말 섹션 (MainPage 구조 재사용) */}
       <div className="main-page__header-greeting-section">
-        {/* 헤더 (로고 + 닫기 버튼) */}
-        <div className="main-page__header checkup-recommendations__header-with-close">
+        {/* 헤더 (로고 + 뒤로가기 버튼) */}
+        <div className="main-page__header checkup-recommendations__header-with-back">
           <div className="main-page__header-logo">
             <img
               src={getHospitalLogoUrl(hospital)}
@@ -291,23 +293,16 @@ const CheckupRecommendationsPage: React.FC = () => {
               W
             </div>
           </div>
-          {/* 닫기 버튼 (오른쪽, BackButton 스타일 재사용) */}
-          <button
-            className="back-button checkup-recommendations__close-button"
-            onClick={handleCloseClick}
-            aria-label="닫기"
-          >
-            <svg
-              className="back-button__svg checkup-recommendations__close-icon"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
+          {/* 뒤로가기 버튼 (좌측, 다른 페이지와 동일한 위치) */}
+          <div className="back-button-container">
+            <button
+              className="back-button"
+              onClick={handleCloseClick}
+              aria-label="뒤로가기"
             >
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
-          </button>
+              ←
+            </button>
+          </div>
         </div>
 
         {/* 환자 인사말 + 추천 설명 (MainPage 구조 재사용) */}

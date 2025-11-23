@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 // lodash 대신 네이티브 JavaScript 사용
 import { 
   IDocumentAnswer, 
@@ -9,6 +9,7 @@ import {
 
 const HealthQuestionnaireComplete: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [documentAnswer, setDocumentAnswer] = useState<IDocumentAnswer>(initialDocumentAnswer);
   const [subQuestionVisible, setSubQuestionVisible] = useState<ISubQuestionVisible>({
     disability: false,
@@ -144,13 +145,16 @@ const HealthQuestionnaireComplete: React.FC = () => {
       return;
     }
 
-    // 설문 완료 - 결과 페이지로 이동
+    // 설문 완료 - 결과 페이지로 이동 (URL 파라미터 유지)
     console.log('설문 완료:', documentAnswer);
-    navigate('/checkup-results');
+    const queryString = location.search;
+    navigate(`/checkup-results${queryString}`);
   };
 
   const handleBack = () => {
-    navigate('/');
+    // URL 파라미터 유지하여 메인 페이지로 이동
+    const queryString = location.search;
+    navigate(`/${queryString}`);
   };
 
   return (

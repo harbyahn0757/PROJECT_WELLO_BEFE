@@ -250,6 +250,7 @@ const MainPage: React.FC = () => {
     const urlParams = new URLSearchParams(location.search);
     const uuid = urlParams.get('uuid');
     const hospitalId = urlParams.get('hospital');
+    const queryString = location.search; // 함수 전체에서 사용할 queryString
 
     switch (cardType) {
       case 'chart':
@@ -318,7 +319,6 @@ const MainPage: React.FC = () => {
         }
         
         // 기존 데이터가 없거나 확인 실패 시 문진 페이지로 이동
-        const queryString = location.search;
         const questionnairePath = `/health-questionnaire${queryString}`;
         console.log('📋 [메인페이지] 데이터 없음 - 문진 페이지로 이동:', questionnairePath);
         navigate(questionnairePath);
@@ -343,7 +343,7 @@ const MainPage: React.FC = () => {
                   const targetPath = cardType === 'design' ? '/survey/checkup-design' :
                                    cardType === 'habit' ? '/survey/health-habits' :
                                    '/survey/disease-prediction';
-                  setPendingNavigation(targetPath);
+                  setPendingNavigation(`${targetPath}${queryString}`);
                   setPasswordModalType('prompt');
                   setShowPasswordModal(true);
                   return;
@@ -356,16 +356,16 @@ const MainPage: React.FC = () => {
                   const targetPath = cardType === 'design' ? '/survey/checkup-design' :
                                    cardType === 'habit' ? '/survey/health-habits' :
                                    '/survey/disease-prediction';
-                  navigate(targetPath);
+                  navigate(`${targetPath}${queryString}`);
                   return;
                 }
                 
                 // 비밀번호 확인 필요
                 console.log('🔐 [비밀번호] 인증 필요');
-                const targetPath = cardType === 'design' ? '/checkup-recommendations' :
+                const targetPath = cardType === 'design' ? '/survey/checkup-design' :
                                  cardType === 'habit' ? '/survey/health-habits' :
                                  '/survey/disease-prediction';
-                setPendingNavigation(targetPath);
+                setPendingNavigation(`${targetPath}${queryString}`);
                 setPasswordModalType('confirm');
                 setShowPasswordModal(true);
                 return;
@@ -373,10 +373,10 @@ const MainPage: React.FC = () => {
               } catch (error) {
                 console.warn('⚠️ [비밀번호확인] 실패:', error);
                 // 에러 시에는 기존 로직대로 진행
-                const targetPath = cardType === 'design' ? '/checkup-recommendations' :
+                const targetPath = cardType === 'design' ? '/survey/checkup-design' :
                                  cardType === 'habit' ? '/survey/health-habits' :
                                  '/survey/disease-prediction';
-                setPendingNavigation(targetPath);
+                setPendingNavigation(`${targetPath}${queryString}`);
                 setPasswordModalType('confirm');
                 setShowPasswordModal(true);
                 return;
@@ -387,11 +387,11 @@ const MainPage: React.FC = () => {
           }
         }
         
-        // 데이터가 없으면 바로 이동
+        // 데이터가 없으면 바로 이동 (URL 파라미터 유지)
         const targetPath = cardType === 'design' ? '/survey/checkup-design' :
                           cardType === 'habit' ? '/survey/health-habits' :
                           '/survey/disease-prediction';
-        navigate(targetPath);
+        navigate(`${targetPath}${queryString}`);
         break;
         
       default:
