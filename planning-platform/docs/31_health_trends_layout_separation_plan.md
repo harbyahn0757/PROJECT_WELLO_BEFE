@@ -85,3 +85,5 @@ frontend/src/components/health/
 - `trends-section`: `padding-top: 0`
 - `health-metrics-wrapper`: `padding-top: 0` (좌우만 유지)
 
+
+

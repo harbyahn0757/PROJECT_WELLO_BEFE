@@ -83,7 +83,7 @@
     display: flex;
     align-items: center;
     justify-content: center; // 중앙 정렬
-    gap: 4px;
+    gap: 6px;
     font-size: $font-xs; // 12px
     color: $gray-550;
     font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
@@ -96,6 +96,42 @@
     &-text {
       font-size: $font-xs;
       color: $gray-550;
+    }
+    
+  }
+  
+  // 새로고침 아이콘 (갈색 동그라미)
+  &__refresh-icon {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #A16A51;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      background: #8B5A3C;
+      transform: scale(1.1);
+    }
+    
+    &:active {
+      transform: scale(0.95);
+    }
+    
+    // 중앙에 작은 흰색 원 (i 아이콘 대신)
+    &-inner {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: white;
+      display: block;
     }
   }
 

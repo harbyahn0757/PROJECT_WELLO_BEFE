@@ -149,13 +149,58 @@ async def get_health_trends(
 ) -> Dict[str, Any]:
     """건강 지표 추이 데이터 조회"""
     try:
+        # 🔍 [API 로그] 요청 파라미터 확인
+        print(f"🔍 [API /health-trends] 요청 파라미터: uuid={uuid}, hospital_id={hospital_id}, metrics={metrics}")
+        
         # 환자 데이터 조회
         patient_data = await wello_data_service.get_patient_health_data(uuid, hospital_id)
         
         if "error" in patient_data:
+            print(f"❌ [API /health-trends] 환자 데이터 조회 실패: {patient_data['error']}")
             raise HTTPException(status_code=404, detail=patient_data["error"])
         
         health_data = patient_data.get("health_data", [])
+        
+        # 🔍 [API 로그] 조회된 건강검진 데이터 구조 확인
+        print(f"🔍 [API /health-trends] 조회된 건강검진 데이터 개수: {len(health_data)}")
+        if health_data:
+            print(f"🔍 [API /health-trends] 첫 번째 데이터 샘플:")
+            first_item = health_data[0]
+            print(f"  - year: {first_item.get('year')}")
+            print(f"  - checkup_date: {first_item.get('checkup_date')}")
+            print(f"  - location: {first_item.get('location')}")
+            print(f"  - raw_data 존재 여부: {bool(first_item.get('raw_data'))}")
+            if first_item.get('raw_data'):
+                raw_data = first_item.get('raw_data')
+                print(f"  - raw_data 타입: {type(raw_data)}")
+                if isinstance(raw_data, dict):
+                    print(f"  - raw_data 키: {list(raw_data.keys())[:10]}")  # 처음 10개 키만
+                    if 'Inspections' in raw_data:
+                        inspections = raw_data.get('Inspections', [])
+                        print(f"  - Inspections 개수: {len(inspections) if isinstance(inspections, list) else 0}")
+                        if isinstance(inspections, list) and len(inspections) > 0:
+                            first_inspection = inspections[0]
+                            if isinstance(first_inspection, dict) and 'Illnesses' in first_inspection:
+                                illnesses = first_inspection.get('Illnesses', [])
+                                print(f"  - 첫 번째 Inspection의 Illnesses 개수: {len(illnesses) if isinstance(illnesses, list) else 0}")
+                                if isinstance(illnesses, list) and len(illnesses) > 0:
+                                    first_illness = illnesses[0]
+                                    if isinstance(first_illness, dict) and 'Items' in first_illness:
+                                        items = first_illness.get('Items', [])
+                                        print(f"  - 첫 번째 Illness의 Items 개수: {len(items) if isinstance(items, list) else 0}")
+                                        if isinstance(items, list) and len(items) > 0:
+                                            first_item = items[0]
+                                            if isinstance(first_item, dict):
+                                                print(f"  - 첫 번째 Item Name: {first_item.get('Name')}")
+                                                print(f"  - 첫 번째 Item Value: {first_item.get('Value')}")
+                                                print(f"  - 첫 번째 Item ItemReferences 존재: {bool(first_item.get('ItemReferences'))}")
+                                                if first_item.get('ItemReferences'):
+                                                    refs = first_item.get('ItemReferences', [])
+                                                    print(f"  - ItemReferences 개수: {len(refs) if isinstance(refs, list) else 0}")
+                                                    if isinstance(refs, list):
+                                                        for ref in refs[:3]:  # 처음 3개만
+                                                            if isinstance(ref, dict):
+                                                                print(f"    - {ref.get('Name')}: {ref.get('Value')}")
         
         # 요청된 지표 파싱
         requested_metrics = []
@@ -236,6 +281,12 @@ async def get_health_trends(
         # 데이터 정렬 (날짜순)
         for metric_key in trends:
             trends[metric_key]["data"].sort(key=lambda x: (x.get("year", ""), x.get("checkup_date", "")))
+        
+        # 🔍 [API 로그] 응답 데이터 구조 확인
+        print(f"🔍 [API /health-trends] 응답 데이터 구조:")
+        print(f"  - trends 키: {list(trends.keys())}")
+        for metric_key, metric_data in trends.items():
+            print(f"  - {metric_key}: {len(metric_data.get('data', []))}개 데이터 포인트")
         
         return {
             "success": True,

@@ -78,6 +78,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: visible !important; // 🔧 모바일에서 원이 잘리지 않도록
 }
 
 // 로딩 스피너

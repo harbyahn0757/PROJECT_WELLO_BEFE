@@ -10,13 +10,23 @@ interface HealthTrendsHeaderProps {
   onBack: () => void;
   lastUpdateTime?: string | null;
   patientName?: string;
+  onRefresh?: () => void;
 }
 
 const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
   onBack,
   lastUpdateTime,
-  patientName
+  patientName,
+  onRefresh
 }) => {
+  // 새로고침 확인 핸들러
+  const handleRefreshClick = () => {
+    if (onRefresh) {
+      if (window.confirm('데이터를 새로고침하시겠습니까?')) {
+        onRefresh();
+      }
+    }
+  };
   // 마지막 업데이트 시간 포맷팅
   const formatLastUpdateTime = (time: string | null | undefined): string => {
     if (!time) return '';
@@ -59,7 +69,16 @@ const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
           </div>
           {lastUpdateTime && (
             <div className="health-trends-header__update">
-              <span className="health-trends-header__update-icon">ⓘ</span>
+              {onRefresh && (
+                <button 
+                  className="health-trends-header__refresh-icon"
+                  onClick={handleRefreshClick}
+                  aria-label="데이터 새로고침"
+                  type="button"
+                >
+                  <span className="health-trends-header__refresh-icon-inner"></span>
+                </button>
+              )}
               <span className="health-trends-header__update-text">
                 마지막 업데이트 : {formatLastUpdateTime(lastUpdateTime)}
               </span>

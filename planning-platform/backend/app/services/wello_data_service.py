@@ -560,6 +560,13 @@ class WelloDataService:
     async def get_patient_health_data(self, uuid: str, hospital_id: str) -> Dict[str, Any]:
         """환자의 모든 건강정보 조회"""
         try:
+            # 🔍 [DB 로그] 조회 파라미터 확인
+            print(f"\n{'='*80}")
+            print(f"🔍 [DB 원본 데이터 확인] 조회 시작")
+            print(f"  - uuid: {uuid}")
+            print(f"  - hospital_id: {hospital_id}")
+            print(f"{'='*80}\n")
+            
             conn = await asyncpg.connect(**self.db_config)
             
             # 환자 정보 조회
@@ -571,7 +578,14 @@ class WelloDataService:
             
             if not patient_row:
                 await conn.close()
+                print(f"❌ [DB 원본 데이터 확인] 환자를 찾을 수 없음: uuid={uuid}, hospital_id={hospital_id}")
                 return {"error": "환자를 찾을 수 없습니다"}
+            
+            patient_dict = dict(patient_row)
+            print(f"✅ [DB 원본 데이터 확인] 환자 정보:")
+            print(f"  - 이름: {patient_dict.get('name', 'N/A')}")
+            print(f"  - UUID: {patient_dict.get('uuid', 'N/A')}")
+            print(f"  - 병원 ID: {patient_dict.get('hospital_id', 'N/A')}\n")
             
             # 건강검진 데이터 조회 (patient_uuid 기준)
             health_query = """
@@ -584,6 +598,127 @@ class WelloDataService:
                 ORDER BY year DESC, checkup_date DESC
             """
             health_rows = await conn.fetch(health_query, uuid, hospital_id)
+            
+            print(f"📊 [DB 원본 데이터 확인] 건강검진 데이터 총 개수: {len(health_rows)}개\n")
+            
+            # 🔍 [DB 원본 데이터 확인] 모든 년도 수집
+            all_years = set()
+            year_data_map = {}
+            for row in health_rows:
+                year = row.get('year')
+                if year:
+                    all_years.add(year)
+                    if year not in year_data_map:
+                        year_data_map[year] = []
+                    year_data_map[year].append(row)
+            
+            print(f"📅 [DB 원본 데이터 확인] 전체 년도 목록:")
+            for year in sorted(all_years):
+                count = len(year_data_map[year])
+                print(f"  - {year}: {count}개 검진 데이터")
+            print()
+            
+            # 🔍 [DB 원본 데이터 확인] 각 년도별 상세 데이터 확인
+            for year in sorted(all_years, reverse=True):  # 최신 년도부터
+                year_data = year_data_map[year]
+                print(f"{'─'*80}")
+                print(f"📋 [DB 원본 데이터 확인] {year}년 데이터 ({len(year_data)}개):")
+                print(f"{'─'*80}")
+                
+                for idx, row in enumerate(year_data, 1):
+                    print(f"\n  [{idx}/{len(year_data)}] {year}년 {row.get('checkup_date', 'N/A')} 검진:")
+                    print(f"    - location: {row.get('location', 'N/A')}")
+                    print(f"    - code: {row.get('code', 'N/A')}")
+                    print(f"    - 파싱된 필드:")
+                    print(f"      * height: {row.get('height')}")
+                    print(f"      * weight: {row.get('weight')}")
+                    print(f"      * bmi: {row.get('bmi')}")
+                    print(f"      * blood_pressure: {row.get('blood_pressure_high')}/{row.get('blood_pressure_low')}")
+                    print(f"      * blood_sugar: {row.get('blood_sugar')}")
+                    print(f"      * cholesterol: {row.get('cholesterol')}")
+                    print(f"      * hdl_cholesterol: {row.get('hdl_cholesterol')}")
+                    print(f"      * ldl_cholesterol: {row.get('ldl_cholesterol')}")
+                    print(f"      * triglyceride: {row.get('triglyceride')}")
+                    print(f"      * hemoglobin: {row.get('hemoglobin')}")
+                    
+                    # raw_data 원본 확인
+                    raw_data = row.get('raw_data')
+                    print(f"    - raw_data 존재: {bool(raw_data)}")
+                    
+                    if raw_data:
+                        try:
+                            raw_data_parsed = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
+                            print(f"    - raw_data 타입: {type(raw_data_parsed)}")
+                            
+                            if isinstance(raw_data_parsed, dict):
+                                print(f"    - raw_data 최상위 키: {list(raw_data_parsed.keys())[:15]}")
+                                
+                                # Inspections 확인
+                                if 'Inspections' in raw_data_parsed:
+                                    inspections = raw_data_parsed.get('Inspections', [])
+                                    print(f"    - Inspections 개수: {len(inspections) if isinstance(inspections, list) else 0}")
+                                    
+                                    if isinstance(inspections, list) and len(inspections) > 0:
+                                        # 각 Inspection의 Items와 ItemReferences 확인
+                                        total_items = 0
+                                        items_with_refs = 0
+                                        refs_summary = {}
+                                        
+                                        for insp_idx, inspection in enumerate(inspections):
+                                            if isinstance(inspection, dict) and 'Illnesses' in inspection:
+                                                illnesses = inspection.get('Illnesses', [])
+                                                if isinstance(illnesses, list):
+                                                    for illness in illnesses:
+                                                        if isinstance(illness, dict) and 'Items' in illness:
+                                                            items = illness.get('Items', [])
+                                                            if isinstance(items, list):
+                                                                total_items += len(items)
+                                                                for item in items:
+                                                                    if isinstance(item, dict):
+                                                                        if item.get('ItemReferences'):
+                                                                            items_with_refs += 1
+                                                                            refs = item.get('ItemReferences', [])
+                                                                            if isinstance(refs, list):
+                                                                                for ref in refs:
+                                                                                    if isinstance(ref, dict):
+                                                                                        ref_name = ref.get('Name', 'Unknown')
+                                                                                        if ref_name not in refs_summary:
+                                                                                            refs_summary[ref_name] = 0
+                                                                                        refs_summary[ref_name] += 1
+                                        
+                                        print(f"    - 총 Items 개수: {total_items}")
+                                        print(f"    - ItemReferences를 가진 Items: {items_with_refs}개")
+                                        if refs_summary:
+                                            print(f"    - ItemReferences 종류:")
+                                            for ref_name, count in sorted(refs_summary.items()):
+                                                print(f"      * {ref_name}: {count}개")
+                                        
+                                        # 첫 번째 Inspection의 첫 번째 Illness의 첫 번째 Item 상세 확인
+                                        if len(inspections) > 0:
+                                            first_inspection = inspections[0]
+                                            if isinstance(first_inspection, dict) and 'Illnesses' in first_inspection:
+                                                illnesses = first_inspection.get('Illnesses', [])
+                                                if isinstance(illnesses, list) and len(illnesses) > 0:
+                                                    first_illness = illnesses[0]
+                                                    if isinstance(first_illness, dict) and 'Items' in first_illness:
+                                                        items = first_illness.get('Items', [])
+                                                        if isinstance(items, list) and len(items) > 0:
+                                                            print(f"\n    - 첫 번째 Item 샘플:")
+                                                            for item_idx, item in enumerate(items[:5]):  # 처음 5개만
+                                                                if isinstance(item, dict):
+                                                                    print(f"      [{item_idx+1}] {item.get('Name', 'N/A')}: {item.get('Value', 'N/A')} {item.get('Unit', '')}")
+                                                                    if item.get('ItemReferences'):
+                                                                        refs = item.get('ItemReferences', [])
+                                                                        if isinstance(refs, list):
+                                                                            print(f"          ItemReferences:")
+                                                                            for ref in refs[:3]:  # 처음 3개만
+                                                                                if isinstance(ref, dict):
+                                                                                    print(f"            - {ref.get('Name', 'N/A')}: {ref.get('Value', 'N/A')}")
+                        except Exception as e:
+                            print(f"    - raw_data 파싱 실패: {e}")
+                    print()
+            
+            print(f"{'='*80}\n")
             
             # 처방전 데이터 조회 (patient_uuid 기준)
             prescription_query = """
@@ -605,14 +740,59 @@ class WelloDataService:
             # 환자 정보에 last_update 필드 추가
             patient_dict = dict(patient_row)
             
+            # 🔍 [DB 로그] 반환 데이터 구조 확인
+            health_data_formatted = [
+                {
+                    **dict(row),
+                    "raw_data": json.loads(row['raw_data']) if row['raw_data'] else None
+                } for row in health_rows
+            ]
+            
+            print(f"🔍 [DB get_patient_health_data] 반환 데이터 구조:")
+            print(f"  - health_data 개수: {len(health_data_formatted)}")
+            print(f"  - 년도별 데이터 분포:")
+            year_distribution = {}
+            for item in health_data_formatted:
+                year = item.get('year')
+                if year:
+                    year_distribution[year] = year_distribution.get(year, 0) + 1
+            for year, count in sorted(year_distribution.items()):
+                print(f"    - {year}: {count}개")
+            
+            if health_data_formatted:
+                first_health = health_data_formatted[0]
+                print(f"  - 첫 번째 health_data:")
+                print(f"    - year: {first_health.get('year')}")
+                print(f"    - checkup_date: {first_health.get('checkup_date')}")
+                print(f"    - location: {first_health.get('location')}")
+                print(f"    - height: {first_health.get('height')}")
+                print(f"    - weight: {first_health.get('weight')}")
+                print(f"    - raw_data 존재: {bool(first_health.get('raw_data'))}")
+                if first_health.get('raw_data'):
+                    raw_data = first_health.get('raw_data')
+                    if isinstance(raw_data, dict) and 'Inspections' in raw_data:
+                        print(f"    - raw_data.Inspections 존재: True")
+                        inspections = raw_data.get('Inspections', [])
+                        if isinstance(inspections, list) and len(inspections) > 0:
+                            print(f"    - Inspections 개수: {len(inspections)}")
+                            # 각 Inspection의 Items에서 ItemReferences 확인
+                            item_refs_found = 0
+                            for inspection in inspections:
+                                if isinstance(inspection, dict) and 'Illnesses' in inspection:
+                                    illnesses = inspection.get('Illnesses', [])
+                                    if isinstance(illnesses, list):
+                                        for illness in illnesses:
+                                            if isinstance(illness, dict) and 'Items' in illness:
+                                                items = illness.get('Items', [])
+                                                if isinstance(items, list):
+                                                    for item in items:
+                                                        if isinstance(item, dict) and item.get('ItemReferences'):
+                                                            item_refs_found += 1
+                            print(f"    - ItemReferences를 가진 Items 개수: {item_refs_found}")
+            
             return {
                 "patient": patient_dict,
-                "health_data": [
-                    {
-                        **dict(row),
-                        "raw_data": json.loads(row['raw_data']) if row['raw_data'] else None
-                    } for row in health_rows
-                ],
+                "health_data": health_data_formatted,
                 "prescription_data": [
                     {
                         **dict(row),

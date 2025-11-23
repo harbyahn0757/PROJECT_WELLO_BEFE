@@ -20,6 +20,76 @@ import './styles.scss';
 
 const pillIconPath = `${process.env.PUBLIC_URL || ''}/free-icon-pill-5405585.png`;
 
+// 🔧 이미지 데이터 간소화 헬퍼 함수 (디버깅 로그용)
+const simplifyDataForLog = (data: any, maxDepth: number = 10, currentDepth: number = 0, isImportantPath: boolean = false): any => {
+  // 기본 타입은 그대로 반환
+  if (data === null || data === undefined || typeof data === 'boolean' || typeof data === 'number') {
+    return data;
+  }
+  
+  // 날짜 문자열은 그대로 반환
+  if (typeof data === 'string') {
+    // 이미지 데이터 체크 (base64 또는 매우 긴 문자열)
+    if (data.startsWith('data:image') || 
+        (data.length > 1000 && /^[A-Za-z0-9+/=\s]+$/.test(data) && data.length > 5000)) {
+      return `[Image Data: ${data.length} chars]`;
+    }
+    // 너무 긴 문자열은 잘라서 표시
+    if (data.length > 200) {
+      return `${data.substring(0, 200)}... [${data.length} chars]`;
+    }
+    return data;
+  }
+  
+  // 배열 처리
+  if (Array.isArray(data)) {
+    // Items나 ItemReferences는 중요한 경로이므로 더 깊이 표시
+    const effectiveMaxDepth = isImportantPath ? maxDepth + 5 : maxDepth;
+    if (currentDepth >= effectiveMaxDepth) {
+      return `[Array: ${data.length} items]`;
+    }
+    // 배열은 처음 5개만 표시
+    return data.slice(0, 5).map(item => simplifyDataForLog(item, maxDepth, currentDepth + 1, isImportantPath));
+  }
+  
+  // 객체 처리
+  if (typeof data === 'object') {
+    // Items나 ItemReferences는 중요한 경로이므로 더 깊이 표시
+    const effectiveMaxDepth = isImportantPath ? maxDepth + 5 : maxDepth;
+    if (currentDepth >= effectiveMaxDepth) {
+      return `[Object: ${Object.keys(data).length} keys]`;
+    }
+    
+    const simplified: any = {};
+    for (const key in data) {
+      if (data.hasOwnProperty(key)) {
+        const value = data[key];
+        
+        // 이미지 관련 키는 값 대신 존재 여부와 길이만 표시
+        if (key.toLowerCase().includes('image') || 
+            key.toLowerCase().includes('drugimage')) {
+          if (typeof value === 'string') {
+            simplified[key] = `[Image Data: ${value.length} chars]`;
+          } else if (value && typeof value === 'object') {
+            simplified[key] = '[Image Object]';
+          } else {
+            simplified[key] = value;
+          }
+        } else if (key === 'Items' || key === 'ItemReferences') {
+          // Items와 ItemReferences는 중요한 데이터이므로 더 깊이 표시
+          simplified[key] = simplifyDataForLog(value, maxDepth, currentDepth, true);
+        } else {
+          // 나머지는 재귀적으로 처리
+          simplified[key] = simplifyDataForLog(value, maxDepth, currentDepth + 1, isImportantPath);
+        }
+      }
+    }
+    return simplified;
+  }
+  
+  return data;
+};
+
 const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   onBack,
   onError
@@ -184,10 +254,66 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
           
           if (response.ok) {
             const result = await response.json();
-            console.log('✅ [결과페이지] DB 데이터 로드 성공:', result);
+            // 🔧 디버깅용 간소화된 데이터 로그 (이미지 데이터는 키만 표시)
+            const simplifiedResult = simplifyDataForLog(result);
+            console.log('✅ [결과페이지] DB 데이터 로드 성공:', simplifiedResult);
             
             if (result.success && result.data) {
               const { health_data, prescription_data } = result.data;
+              
+              // 🔍 [프론트엔드 로그] API 응답 데이터 구조 확인
+              console.log('🔍 [프론트엔드] API 응답 데이터 구조:');
+              console.log(`  - health_data 개수: ${health_data?.length || 0}`);
+              console.log(`  - prescription_data 개수: ${prescription_data?.length || 0}`);
+              
+              if (health_data && health_data.length > 0) {
+                console.log('🔍 [프론트엔드] 첫 번째 health_data 샘플:');
+                const firstItem = health_data[0];
+                console.log(`  - year: ${firstItem.year}`);
+                console.log(`  - checkup_date: ${firstItem.checkup_date}`);
+                console.log(`  - location: ${firstItem.location}`);
+                console.log(`  - raw_data 존재: ${!!firstItem.raw_data}`);
+                console.log(`  - raw_data 타입: ${typeof firstItem.raw_data}`);
+                
+                if (firstItem.raw_data) {
+                  const rawData = firstItem.raw_data;
+                  console.log(`  - raw_data 키: ${Object.keys(rawData).slice(0, 10).join(', ')}`);
+                  if (rawData.Inspections) {
+                    const inspections = rawData.Inspections;
+                    console.log(`  - Inspections 개수: ${Array.isArray(inspections) ? inspections.length : 0}`);
+                    if (Array.isArray(inspections) && inspections.length > 0) {
+                      const firstInspection = inspections[0];
+                      if (firstInspection.Illnesses) {
+                        const illnesses = firstInspection.Illnesses;
+                        console.log(`  - 첫 번째 Inspection의 Illnesses 개수: ${Array.isArray(illnesses) ? illnesses.length : 0}`);
+                        if (Array.isArray(illnesses) && illnesses.length > 0) {
+                          const firstIllness = illnesses[0];
+                          if (firstIllness.Items) {
+                            const items = firstIllness.Items;
+                            console.log(`  - 첫 번째 Illness의 Items 개수: ${Array.isArray(items) ? items.length : 0}`);
+                            if (Array.isArray(items) && items.length > 0) {
+                              for (let i = 0; i < Math.min(3, items.length); i++) {
+                                const item = items[i];
+                                console.log(`    - Item[${i}] Name: ${item.Name}, Value: ${item.Value}`);
+                                if (item.ItemReferences) {
+                                  const refs = item.ItemReferences;
+                                  console.log(`      ItemReferences 개수: ${Array.isArray(refs) ? refs.length : 0}`);
+                                  if (Array.isArray(refs) && refs.length > 0) {
+                                    for (let j = 0; j < Math.min(2, refs.length); j++) {
+                                      const ref = refs[j];
+                                      console.log(`        - ${ref.Name}: ${ref.Value}`);
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
               
               // 변수를 블록 밖에서 선언
               let healthDataFormatted = { ResultList: [] };
@@ -195,32 +321,68 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
               
               // DB 데이터를 Tilko 형식으로 변환 (파싱된 필드들도 포함)
               if (health_data && health_data.length > 0) {
+                // 🔍 [프론트엔드 로그] 변환 전 데이터 확인
+                console.log('🔍 [프론트엔드] DB→Tilko 형식 변환 시작');
+                console.log(`  - 변환할 health_data 개수: ${health_data.length}`);
+                
                 healthDataFormatted = {
-                  ResultList: health_data.map((item: any) => ({
-                    ...item.raw_data,
-                    // 🔧 raw_data 필드 보존 (상태 판정에 필요)
-                    raw_data: item.raw_data,
-                    // DB에서 파싱된 필드들 추가
-                    height: item.height,
-                    weight: item.weight,
-                    bmi: item.bmi,
-                    waist_circumference: item.waist_circumference,
-                    blood_pressure_high: item.blood_pressure_high,
-                    blood_pressure_low: item.blood_pressure_low,
-                    blood_sugar: item.blood_sugar,
-                    cholesterol: item.cholesterol,
-                    hdl_cholesterol: item.hdl_cholesterol,
-                    ldl_cholesterol: item.ldl_cholesterol,
-                    triglyceride: item.triglyceride,
-                    hemoglobin: item.hemoglobin,
-                    year: item.year,
-                    checkup_date: item.checkup_date,
-                    location: item.location,
-                    code: item.code
-                  }))
+                  ResultList: health_data.map((item: any, index: number) => {
+                    // 🔍 [프론트엔드 로그] 각 항목 변환 과정
+                    if (index === 0) {
+                      console.log(`  - 첫 번째 항목 변환:`);
+                      console.log(`    - 원본 year: ${item.year}`);
+                      console.log(`    - 원본 checkup_date: ${item.checkup_date}`);
+                      console.log(`    - 원본 raw_data 존재: ${!!item.raw_data}`);
+                    }
+                    
+                    const transformed = {
+                      ...item.raw_data,
+                      // 🔧 raw_data 필드 보존 (상태 판정에 필요)
+                      raw_data: item.raw_data,
+                      // DB에서 파싱된 필드들 추가
+                      height: item.height,
+                      weight: item.weight,
+                      bmi: item.bmi,
+                      waist_circumference: item.waist_circumference,
+                      blood_pressure_high: item.blood_pressure_high,
+                      blood_pressure_low: item.blood_pressure_low,
+                      blood_sugar: item.blood_sugar,
+                      cholesterol: item.cholesterol,
+                      hdl_cholesterol: item.hdl_cholesterol,
+                      ldl_cholesterol: item.ldl_cholesterol,
+                      triglyceride: item.triglyceride,
+                      hemoglobin: item.hemoglobin,
+                      year: item.year,
+                      checkup_date: item.checkup_date,
+                      location: item.location,
+                      code: item.code
+                    };
+                    
+                    if (index === 0) {
+                      console.log(`    - 변환 후 year: ${transformed.year}`);
+                      console.log(`    - 변환 후 checkup_date: ${transformed.checkup_date}`);
+                      console.log(`    - 변환 후 raw_data 존재: ${!!transformed.raw_data}`);
+                      console.log(`    - 변환 후 height: ${transformed.height}`);
+                      console.log(`    - 변환 후 weight: ${transformed.weight}`);
+                    }
+                    
+                    return transformed;
+                  })
                 };
+                
+                // 🔍 [프론트엔드 로그] 변환 완료 확인
+                console.log(`🔍 [프론트엔드] 변환 완료: ${healthDataFormatted.ResultList.length}개 항목`);
+                if (healthDataFormatted.ResultList.length > 0) {
+                  const firstItem = healthDataFormatted.ResultList[0] as any;
+                  console.log(`  - 첫 번째 변환된 항목의 year: ${firstItem?.year}`);
+                  console.log(`  - 첫 번째 변환된 항목의 checkup_date: ${firstItem?.checkup_date}`);
+                  console.log(`  - 첫 번째 변환된 항목의 raw_data 존재: ${!!firstItem?.raw_data}`);
+                }
+                
                 setHealthData(healthDataFormatted);
-                console.log('🏥 [결과페이지] 건강검진 데이터 설정 완료:', healthDataFormatted);
+                // 🔧 디버깅용 간소화된 데이터 로그
+                const simplifiedHealthData = simplifyDataForLog(healthDataFormatted);
+                console.log('🏥 [결과페이지] 건강검진 데이터 설정 완료:', simplifiedHealthData);
               }
               
               if (prescription_data && prescription_data.length > 0) {
@@ -239,7 +401,9 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
                   }))
                 };
                 setPrescriptionData(prescriptionDataFormatted);
-                console.log('💊 [결과페이지] 처방전 데이터 설정 완료:', prescriptionDataFormatted);
+                // 🔧 디버깅용 간소화된 데이터 로그
+                const simplifiedPrescriptionData = simplifyDataForLog(prescriptionDataFormatted);
+                console.log('💊 [결과페이지] 처방전 데이터 설정 완료:', simplifiedPrescriptionData);
               }
               
               // 마지막 업데이트 시간 설정
@@ -596,6 +760,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
         onBack={handleBack}
         lastUpdateTime={lastUpdateTime ?? undefined}
         patientName={patientName}
+        onRefresh={handleRefreshConfirm}
         showToggle={true}
         activeTab={viewMode}
         onTabChange={(tab) => {

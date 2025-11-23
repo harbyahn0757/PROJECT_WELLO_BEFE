@@ -448,12 +448,13 @@ const LineChart: React.FC<LineChartProps> = ({
     const chartHeight = height - margin.top - margin.bottom;
 
     return (
-      <div className="wello-line-chart">
+      <div className="wello-line-chart" style={{ overflow: 'visible' }}>
         <svg
           ref={svgRef}
           width={width}
           height={height}
           className="wello-line-chart__svg"
+          style={{ overflow: 'visible' }}
           role="img"
           aria-label={`${baseProps.title || '라인 차트'} - ${series.length}개 데이터 시리즈`}
         >
@@ -804,20 +805,21 @@ const LineChart: React.FC<LineChartProps> = ({
               {(seriesData.showPoints !== false) && seriesData.data.map((point, pointIndex) => {
                 const { x, y } = getCoordinates(point, dimensions);
                 
-                // 선택된 포인트 확인 (클릭된 포인트 또는 초기 상태에서 첫 번째 포인트)
+                // 🔧 선택된 포인트 확인: 클릭된 포인트 또는 초기 상태에서 최신 날짜(첫 번째 포인트)
+                // 데이터는 최신 년도 순으로 정렬되어 있으므로 첫 번째 포인트가 최신 데이터
                 const isFirstPoint = pointIndex === 0;
                 const selectedPointKey = selectedPoints[seriesData.id];
                 const isSelected = selectedPointKey 
                   ? selectedPointKey === `${point.date}-${pointIndex}` 
-                  : isFirstPoint; // 초기 상태에서는 첫 번째 포인트가 선택된 것처럼
+                  : isFirstPoint; // 🔧 초기 상태에서는 첫 번째 포인트(최신 날짜)가 선택된 것처럼
                 
-                // 원 크기 고정 (화면 크기와 무관하게 동일한 크기 유지)
+                // 🔧 원 크기 고정: 선택된 포인트 22px (radius 11), 비선택 11px (radius 5.5)
                 const radius = isSelected ? 11 : 5.5; // 선택된 포인트: 22*22 (radius 11), 비선택: 11*11 (radius 5.5)
-                const strokeWidth = 2; // 외곽선 두께 고정
+                const strokeWidth = 2; // 테두리 두께 고정
                 const innerRadius = isSelected ? 4.4 : 2.2; // 중앙 흰색 원 크기 - 선택/비선택에 비례 (선택: 8.8*8.8, 비선택: 4.4*4.4)
                 
                 // 상태에 따른 원 색상 결정 (뱃지 색상과 동일)
-                // 디버깅: 포인트 상태 확인
+                // 문제 발생 시에만 로그 출력
                 if (!point.status) {
                   console.warn(`⚠️ [포인트 상태 없음] ${seriesData.name}, 날짜: ${point.date}, 값: ${point.value}`);
                 }
@@ -838,26 +840,25 @@ const LineChart: React.FC<LineChartProps> = ({
                 
                 return (
                   <g key={`${seriesData.id}-point-${point.date}-${pointIndex}`}>
-                    {/* 외부 원 (상태별 색상) */}
+                    {/* 외부 원 (상태별 색상) - fill로 색상 채우고 내부 흰색 원을 위에 그리기 */}
                     <circle
                       cx={x}
                       cy={y}
-                      r={radius}
+                      r={radius} // 🔧 SVG 속성으로 직접 설정 - CSS 오버라이딩 방지
                       className={`wello-line-chart__point ${point.status ? `wello-line-chart__point--${point.status}` : 'wello-line-chart__point--neutral'} ${isSelected ? 'wello-line-chart__point--selected' : ''}`}
                       style={{
-                        fill: circleColor, // 상태별 색상으로 채움
+                        fill: circleColor, // 🔧 fill로 색상 채워서 원 크기가 명확하게 보이도록
                         stroke: circleColor, // 외곽선도 동일한 색상
                         strokeWidth: strokeWidth,
                         cursor: 'pointer',
                         pointerEvents: 'all',
-                        transition: 'r 0.2s ease, stroke-width 0.2s ease' // 부드러운 확대/축소 애니메이션
+                        // 🔧 SVG의 r 속성은 transition으로 제어할 수 없으므로 제거
+                        transition: 'stroke-width 0.2s ease, fill-opacity 0.2s ease'
                       }}
                       onMouseEnter={(e) => {
-                        console.log(`🔍 [툴팁] 포인트 마우스 엔터: ${seriesData.name}, 값: ${point.value}, 상태: ${point.status}`);
                         handlePointHover(e, point, seriesData);
                       }}
                       onMouseLeave={() => {
-                        console.log(`🔍 [툴팁] 포인트 마우스 리브: ${seriesData.name}`);
                         handleMouseLeave();
                       }}
                       onClick={(e) => {
@@ -867,11 +868,10 @@ const LineChart: React.FC<LineChartProps> = ({
                           ...prev,
                           [seriesData.id]: prev[seriesData.id] === pointKey ? null : pointKey // 같은 포인트 클릭 시 해제, 다른 포인트 클릭 시 선택
                         }));
-                        console.log(`🔍 [포인트 클릭] ${seriesData.name}, 값: ${point.value}, 상태: ${point.status}, 날짜: ${point.date}`);
                         handlePointHover(e, point, seriesData);
                       }}
                     />
-                    {/* 중앙 흰색 원 */}
+                    {/* 중앙 흰색 원 - 외부 원 위에 그려서 내부 흰색 원이 보이도록 */}
                     <circle
                       cx={x}
                       cy={y}
@@ -1039,7 +1039,6 @@ const LineChart: React.FC<LineChartProps> = ({
               top: tooltip.y - 10
             }}
             dangerouslySetInnerHTML={{ __html: tooltip.content }}
-            onMouseEnter={() => console.log('🔍 [툴팁] 툴팁 렌더링됨:', tooltip)}
           />
         )}
       </div>

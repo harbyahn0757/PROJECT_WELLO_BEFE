@@ -14,6 +14,7 @@ interface ContentLayoutWithHeaderProps {
   onBack?: () => void;
   lastUpdateTime?: string | null;
   patientName?: string;
+  onRefresh?: () => void;
   // 토글 props
   showToggle?: boolean;
   activeTab?: 'trends' | 'timeline';
@@ -33,6 +34,7 @@ const ContentLayoutWithHeader: React.FC<ContentLayoutWithHeaderProps> = ({
   onBack,
   lastUpdateTime,
   patientName,
+  onRefresh,
   showToggle = true,
   activeTab,
   onTabChange,
@@ -51,6 +53,7 @@ const ContentLayoutWithHeader: React.FC<ContentLayoutWithHeaderProps> = ({
         onBack={onBack || (() => {})}
         lastUpdateTime={lastUpdateTime}
         patientName={patientName}
+        onRefresh={onRefresh}
       />
 
       {/* 공용 토글 (고정) - fixed, 헤더 아래 */}

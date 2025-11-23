@@ -50,3 +50,4 @@ const HealthTrendsContentLayout: React.FC<HealthTrendsContentLayoutProps> = ({
 export default HealthTrendsContentLayout;
 
 
+

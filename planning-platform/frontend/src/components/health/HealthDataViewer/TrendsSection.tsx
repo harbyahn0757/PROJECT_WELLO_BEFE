@@ -181,26 +181,11 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     const item = foundItem;
     
     if (item && item.ItemReferences && Array.isArray(item.ItemReferences)) {
-      // 🔍 디버깅: 실제 ItemReferences 구조 확인
-      console.log(`🔍 [getHealthRanges] ${metric} - ItemReferences 구조:`, {
-        itemName: item.Name,
-        itemValue: item.Value,
-        itemReferences: item.ItemReferences.map((ref: any) => ({
-          Name: ref.Name,
-          Value: ref.Value,
-          전체객체: ref
-        }))
-      });
-      
       const ranges = {
         normal: null as { min: number; max: number; name?: string } | null,
         borderline: null as { min: number; max: number; name?: string } | null,
         abnormal: null as { min: number; max: number; name?: string } | null
       };
-      
-      // 🔍 디버깅: ItemReferences의 Name 값들 확인
-      const allRefNames = item.ItemReferences.map((ref: any) => ref.Name);
-      console.log(`🔍 [getHealthRanges] ${metric} - ItemReferences Name 목록:`, allRefNames);
       
       // 정상(A) 범위 - 다양한 Name 형식 시도
       const normalRef = item.ItemReferences.find((ref: any) => 
@@ -218,11 +203,6 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
             name: normalRef.Name // 🔧 ItemReferences의 Name 그대로 사용
           };
         }
-        console.log(`✅ [getHealthRanges] ${metric} - 정상(A) 범위 파싱:`, {
-          Name: normalRef.Name,
-          Value: normalRef.Value,
-          파싱결과: ranges.normal
-        });
       }
       
       // 정상(B) 또는 경계 범위 - 다양한 Name 형식 시도
@@ -243,11 +223,6 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
             name: borderlineRef.Name // 🔧 ItemReferences의 Name 그대로 사용
           };
         }
-        console.log(`✅ [getHealthRanges] ${metric} - 정상(B) 범위 파싱:`, {
-          Name: borderlineRef.Name,
-          Value: borderlineRef.Value,
-          파싱결과: ranges.borderline
-        });
       }
       
       // 질환의심 범위 - 다양한 Name 형식 시도
@@ -266,15 +241,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
             name: abnormalRef.Name // 🔧 ItemReferences의 Name 그대로 사용
           };
         }
-        console.log(`✅ [getHealthRanges] ${metric} - 질환의심 범위 파싱:`, {
-          Name: abnormalRef.Name,
-          Value: abnormalRef.Value,
-          파싱결과: ranges.abnormal
-        });
       }
-      
-      // 🔍 디버깅: 최종 ranges 결과
-      console.log(`🔍 [getHealthRanges] ${metric} - 최종 ranges:`, ranges);
       
       return ranges;
     } else {
@@ -942,18 +909,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                                     if (item && item.ItemReferences && Array.isArray(item.ItemReferences) && item.ItemReferences.length > 0) {
                                       const itemValue = parseFloat(item.Value);
                                       if (!isNaN(itemValue)) {
-                                        // 🔍 디버깅: ItemReferences 전체 출력
-                                        console.log(`🔍 [${metric}] ItemReferences 확인:`, {
-                                          itemName: item.Name,
-                                          itemValue: itemValue,
-                                          itemReferences: item.ItemReferences.map((ref: any) => ({
-                                            Name: ref.Name,
-                                            Value: ref.Value
-                                          }))
-                                        });
-                                        
-                                        // UnifiedHealthTimeline의 determineItemStatus 로직과 동일하게 적용
-                                        // 질환의심 범위 체크 (우선순위) - 다양한 Name 형식 시도
+                                        // 질환의심 범위 체크 (우선순위)
                                         const abnormal = item.ItemReferences.find((ref: any) => 
                                           ref.Name === '질환의심' || 
                                           ref.Name === '이상' ||
@@ -962,11 +918,10 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                                           ref.Name?.includes('이상')
                                         );
                                         if (abnormal && abnormal.Value && isInRange(itemValue, abnormal.Value, 'M')) {
-                                          console.log(`✅ [${metric}] 포인트 상태: abnormal (질환의심), 값: ${itemValue}, 범위: ${abnormal.Value}, Name: ${abnormal.Name}`);
                                           return 'abnormal' as const;
                                         }
                                         
-                                        // 정상(B) 또는 경계 범위 체크 - 다양한 Name 형식 시도
+                                        // 정상(B) 또는 경계 범위 체크
                                         const normalB = item.ItemReferences.find((ref: any) => 
                                           ref.Name === '정상(B)' || 
                                           ref.Name === '정상B' || 
@@ -977,11 +932,10 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                                           ref.Name?.includes('경계')
                                         );
                                         if (normalB && normalB.Value && isInRange(itemValue, normalB.Value, 'M')) {
-                                          console.log(`✅ [${metric}] 포인트 상태: warning (정상B), 값: ${itemValue}, 범위: ${normalB.Value}, Name: ${normalB.Name}`);
                                           return 'warning' as const;
                                         }
                                         
-                                        // 정상(A) 범위 체크 - 다양한 Name 형식 시도
+                                        // 정상(A) 범위 체크
                                         const normalA = item.ItemReferences.find((ref: any) => 
                                           ref.Name === '정상(A)' || 
                                           ref.Name === '정상A' || 
@@ -990,60 +944,21 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                                           ref.Name?.includes('정상A')
                                         );
                                         if (normalA && normalA.Value && isInRange(itemValue, normalA.Value, 'M')) {
-                                          console.log(`✅ [${metric}] 포인트 상태: normal (정상A), 값: ${itemValue}, 범위: ${normalA.Value}, Name: ${normalA.Name}`);
                                           return 'normal' as const;
-                                        }
-                                        
-                                        // normalB와 abnormal 사이의 값 처리
-                                        // normalB 범위를 초과했지만 abnormal 범위에 도달하지 않은 경우
-                                        if (normalB && normalB.Value && abnormal && abnormal.Value) {
-                                          // normalB 범위 파싱 (예: "130-139", "130미만")
-                                          let normalBMax: number | null = null;
-                                          if (normalB.Value.includes('-')) {
-                                            const parts = normalB.Value.split('-');
-                                            normalBMax = parseFloat(parts[1]?.replace(/[^0-9.-]/g, '') || '0');
-                                          } else if (normalB.Value.includes('미만')) {
-                                            const match = normalB.Value.match(/(\d+(?:\.\d+)?)미만/);
-                                            if (match) {
-                                              normalBMax = parseFloat(match[1]) - 0.1;
-                                            }
-                                          }
-                                          
-                                          // abnormal 범위 파싱 (예: "160이상", "160미만")
-                                          let abnormalMin: number | null = null;
-                                          if (abnormal.Value.includes('이상')) {
-                                            const match = abnormal.Value.match(/(\d+(?:\.\d+)?)이상/);
-                                            if (match) {
-                                              abnormalMin = parseFloat(match[1]);
-                                            }
-                                          } else if (abnormal.Value.includes('미만')) {
-                                            const match = abnormal.Value.match(/(\d+(?:\.\d+)?)미만/);
-                                            if (match) {
-                                              abnormalMin = parseFloat(match[1]);
-                                            }
-                                          } else if (abnormal.Value.includes('-')) {
-                                            const parts = abnormal.Value.split('-');
-                                            abnormalMin = parseFloat(parts[0]?.replace(/[^0-9.-]/g, '') || '0');
-                                          }
-                                          
-                                          // normalB 범위를 초과했지만 abnormal 범위에 도달하지 않은 경우 warning
-                                          if (normalBMax !== null && abnormalMin !== null && !isNaN(normalBMax) && !isNaN(abnormalMin)) {
-                                            if (itemValue > normalBMax && itemValue < abnormalMin) {
-                                              console.log(`✅ [${metric}] 포인트 상태: warning (normalB-abnormal 사이), 값: ${itemValue}, normalB 최대: ${normalBMax}, abnormal 최소: ${abnormalMin}`);
-                                              return 'warning' as const;
-                                            }
-                                          }
                                         }
                                         
                                         // 🔧 데이터 기준으로만 판단 - ItemReferences에 명시된 범위만 체크
                                         // 범위를 벗어난 경우는 데이터에 명시된 기준이 없으므로 판정하지 않음
-                                        // 🔍 디버깅: 범위 체크 실패 시 상세 정보
-                                        console.warn(`⚠️ [${metric}] 범위 체크 실패 - ItemReferences에 매칭되는 범위 없음:`, {
-                                          itemValue,
-                                          abnormal: abnormal ? { Name: abnormal.Name, Value: abnormal.Value } : '없음',
-                                          normalB: normalB ? { Name: normalB.Name, Value: normalB.Value } : '없음',
-                                          normalA: normalA ? { Name: normalA.Name, Value: normalA.Value } : '없음'
-                                        });
+                                        // 문제 발생 시에만 로그 출력
+                                        if (itemValue && !isNaN(itemValue)) {
+                                          console.warn(`⚠️ [${metric}] 범위 체크 실패 - ItemReferences에 매칭되는 범위 없음:`, {
+                                            itemValue,
+                                            itemName: item.Name,
+                                            abnormal: abnormal ? { Name: abnormal.Name, Value: abnormal.Value } : '없음',
+                                            normalB: normalB ? { Name: normalB.Name, Value: normalB.Value } : '없음',
+                                            normalA: normalA ? { Name: normalA.Name, Value: normalA.Value } : '없음'
+                                          });
+                                        }
                                       }
                                     }
                                   }
@@ -1058,39 +973,24 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                         if (latestHealthData) {
                           const healthRanges = getHealthRanges(metric, latestHealthData, 'M'); // 성별은 추후 환자 정보에서 가져올 수 있음
                           
-                          // 🔍 디버깅: healthRanges 확인
-                          if (healthRanges) {
-                            console.log(`🔍 [${metric}] healthRanges (2순위):`, {
-                              normal: healthRanges.normal,
-                              borderline: healthRanges.borderline,
-                              abnormal: healthRanges.abnormal,
-                              pointValue
-                            });
-                          } else {
-                            console.warn(`⚠️ [${metric}] healthRanges를 찾을 수 없음 (최신 데이터에서 ItemReferences 없음)`);
-                          }
-                          
                           if (healthRanges) {
                             // 🔧 데이터 기준으로만 판단 - ItemReferences에 명시된 범위만 체크
                             // 이상 범위 체크 (우선순위)
                             if (healthRanges.abnormal && pointValue >= healthRanges.abnormal.min && pointValue <= healthRanges.abnormal.max) {
-                              console.log(`✅ [${metric}] 포인트 상태: abnormal (healthRanges), 값: ${pointValue}, 범위: ${healthRanges.abnormal.min}-${healthRanges.abnormal.max}, Name: ${healthRanges.abnormal.name}`);
                               return 'abnormal' as const;
                             }
                             // 경계 범위 체크
                             if (healthRanges.borderline && pointValue >= healthRanges.borderline.min && pointValue <= healthRanges.borderline.max) {
-                              console.log(`✅ [${metric}] 포인트 상태: warning (healthRanges), 값: ${pointValue}, 범위: ${healthRanges.borderline.min}-${healthRanges.borderline.max}, Name: ${healthRanges.borderline.name}`);
                               return 'warning' as const;
                             }
                             // 정상 범위 체크
                             if (healthRanges.normal && pointValue >= healthRanges.normal.min && pointValue <= healthRanges.normal.max) {
-                              console.log(`✅ [${metric}] 포인트 상태: normal (healthRanges), 값: ${pointValue}, 범위: ${healthRanges.normal.min}-${healthRanges.normal.max}, Name: ${healthRanges.normal.name}`);
                               return 'normal' as const;
                             }
                             // 🔧 데이터에 명시된 범위에 해당하지 않는 경우 - 임의 판정하지 않음
+                            // 문제 발생 시에만 로그 출력
+                            console.warn(`⚠️ [${metric}] healthRanges 범위 체크 실패 - 값: ${pointValue}, normal: ${healthRanges.normal ? `${healthRanges.normal.min}-${healthRanges.normal.max}` : '없음'}, borderline: ${healthRanges.borderline ? `${healthRanges.borderline.min}-${healthRanges.borderline.max}` : '없음'}, abnormal: ${healthRanges.abnormal ? `${healthRanges.abnormal.min}-${healthRanges.abnormal.max}` : '없음'}`);
                           }
-                        } else {
-                          console.warn(`⚠️ [${metric}] 최신 데이터를 찾을 수 없음`);
                         }
                         
                         // 3순위: 기본값 (상태를 알 수 없을 때)
@@ -1098,7 +998,9 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                         if (metric === '신장') {
                           return 'neutral' as const;
                         }
-                        console.warn(`⚠️ [${metric}] 포인트 상태 계산 실패, 기본값 normal 반환, 값: ${pointValue}`);
+                        // 🔧 데이터에 명시된 범위에 해당하지 않는 경우 - 임의 판정하지 않음
+                        // 문제 발생 시에만 로그 출력
+                        console.warn(`⚠️ [${metric}] 포인트 상태 계산 실패 - 데이터에 명시된 범위에 해당하지 않음, 값: ${pointValue}`);
                         return 'normal' as const;
                       })();
 

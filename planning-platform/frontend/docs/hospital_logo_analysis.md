@@ -128,3 +128,4 @@ CREATE TABLE IF NOT EXISTS wello.hospital_mapping (
 4. 프론트엔드에서 로고 이미지 표시 로직 구현
 
 
+
