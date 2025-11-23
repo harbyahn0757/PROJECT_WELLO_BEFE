@@ -999,9 +999,10 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                           return 'neutral' as const;
                         }
                         // 🔧 데이터에 명시된 범위에 해당하지 않는 경우 - 임의 판정하지 않음
+                        // 범위를 벗어난 경우는 데이터에 명시된 기준이 없으므로 'neutral' 반환
                         // 문제 발생 시에만 로그 출력
                         console.warn(`⚠️ [${metric}] 포인트 상태 계산 실패 - 데이터에 명시된 범위에 해당하지 않음, 값: ${pointValue}`);
-                        return 'normal' as const;
+                        return 'neutral' as const;
                       })();
 
                       return {
@@ -1141,14 +1142,6 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                           }
                           
                           // 🔧 다중 건강 범위 추출 (6ecb1ca 방식 복원)
-                          // 🔍 디버깅: latestHealthData 확인
-                          console.log(`🔍 [LineChart 렌더링] ${metric} - latestHealthData 확인:`, {
-                            hasLatestHealthData: !!latestHealthData,
-                            hasRawData: !!latestHealthData?.raw_data,
-                            year: latestHealthData?.Year,
-                            checkupDate: latestHealthData?.checkup_date
-                          });
-                          
                           const healthRanges = getHealthRanges(metric, latestHealthData, 'M'); // 성별은 추후 환자 정보에서 가져올 수 있음
                           
                           // 건강범위 파싱 결과 (로그 제거)
