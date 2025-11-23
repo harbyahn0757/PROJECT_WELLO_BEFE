@@ -380,8 +380,6 @@ const LineChart: React.FC<LineChartProps> = ({
     point: LineChartDataPoint,
     seriesData: LineChartSeries
   ) => {
-    console.log('🔍 [툴팁] 포인트 호버 이벤트:', { point, seriesData: seriesData.name });
-    
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) {
       console.warn('⚠️ [툴팁] SVG rect를 찾을 수 없음');
@@ -396,15 +394,6 @@ const LineChart: React.FC<LineChartProps> = ({
                         (point as any).item?.Location ||
                         "병원";
     
-    console.log('🔍 [툴팁] 데이터 추출:', { 
-      statusText, 
-      locationText, 
-      pointData: point,
-      hasLocation: !!(point as any).location,
-      hasHospitalName: !!(point as any).hospitalName,
-      hasItemLocation: !!(point as any).item?.Location
-    });
-    
     // 🔧 신장 같은 경우 상태가 없으므로 병원명만 표시
     const headerText = statusText ? `${locationText} | ${statusText}` : locationText;
     
@@ -412,12 +401,6 @@ const LineChart: React.FC<LineChartProps> = ({
       <div class="wello-chart-tooltip__header">${headerText}</div>
       <div class="wello-chart-tooltip__value">${valueFormat(point.value)}${seriesData.unit ? ` ${seriesData.unit}` : ''}</div>
     `;
-
-    console.log('🔍 [툴팁] 툴팁 설정:', { 
-      x: event.clientX - rect.left, 
-      y: event.clientY - rect.top, 
-      content: tooltipContent 
-    });
 
     setTooltip({
       visible: true,
