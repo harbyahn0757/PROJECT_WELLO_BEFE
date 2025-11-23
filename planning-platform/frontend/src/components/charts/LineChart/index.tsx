@@ -41,11 +41,12 @@ export interface LineChartProps extends BaseChartProps {
   valueFormat?: (value: number) => string;
   onPointHover?: (point: LineChartDataPoint, series: LineChartSeries) => void;
   normalRange?: { min: number; max: number }; // 정상 범위 표시
-  healthRanges?: { // 다중 건강 범위 표시
-    normal: { min: number; max: number } | null;
-    borderline: { min: number; max: number } | null;
-    abnormal: { min: number; max: number } | null;
+  healthRanges?: { // 다중 건강 범위 표시 - ItemReferences의 Name 포함
+    normal: { min: number; max: number; name?: string } | null;
+    borderline: { min: number; max: number; name?: string } | null;
+    abnormal: { min: number; max: number; name?: string } | null;
   };
+  allYears?: number[]; // 통합 년도 목록 (외부에서 전달받음)
 }
 
 const LineChart: React.FC<LineChartProps> = ({
@@ -59,6 +60,7 @@ const LineChart: React.FC<LineChartProps> = ({
   healthRanges,
   valueFormat = (value) => value.toString(),
   onPointHover,
+  allYears,
   ...baseProps
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -100,19 +102,23 @@ const LineChart: React.FC<LineChartProps> = ({
     // healthRanges에서 범위 값 추출 (Y축 동적 설정을 위해)
     const healthRangeValues: number[] = [];
     if (healthRanges) {
-      if (healthRanges.normal) {
+      if (healthRanges.normal && healthRanges.normal.min !== null && healthRanges.normal.max !== null) {
         healthRangeValues.push(healthRanges.normal.min, healthRanges.normal.max);
       }
-      if (healthRanges.borderline) {
+      if (healthRanges.borderline && healthRanges.borderline.min !== null && healthRanges.borderline.max !== null) {
         healthRangeValues.push(healthRanges.borderline.min, healthRanges.borderline.max);
       }
-      if (healthRanges.abnormal) {
+      if (healthRanges.abnormal && healthRanges.abnormal.min !== null && healthRanges.abnormal.max !== null) {
         healthRangeValues.push(healthRanges.abnormal.min, healthRanges.abnormal.max);
       }
     }
     
     // 모든 값 통합 (데이터 값 + 참조선 값 + healthRanges 값)
     const allRangeValues = [...allValues, ...healthRangeValues];
+    
+    // 값 범위 계산 - healthRanges를 고려하여 Y축 범위 설정
+    let minValue: number;
+    let maxValue: number;
     
     // 유효한 값이 없으면 기본값 사용
     if (allRangeValues.length === 0) {
@@ -125,24 +131,36 @@ const LineChart: React.FC<LineChartProps> = ({
       };
     }
     
-    // 값 범위 계산 - healthRanges를 고려하여 Y축 범위 설정
-    let minValue = 0; // 기본값은 0부터 시작
-    let maxValue = allRangeValues.length > 0 ? Math.max(...allRangeValues) : 100;
-    
-    // healthRanges가 있으면 범위를 더 넓게 설정하여 모든 영역이 보이도록
-    if (healthRanges) {
+    // healthRanges가 없을 때는 실제 데이터 값 범위 사용
+    if (!healthRanges) {
+      if (allValues.length > 0) {
+        minValue = Math.min(...allValues);
+        maxValue = Math.max(...allValues);
+        // 음수 방지
+        minValue = Math.max(0, minValue);
+      } else {
+        minValue = 0;
+        maxValue = 100;
+      }
+    } else {
+      // healthRanges가 있을 때는 기존 로직 사용
+      minValue = 0; // 기본값은 0부터 시작
+      maxValue = allRangeValues.length > 0 ? Math.max(...allRangeValues.filter(v => v !== null && !isNaN(v))) : 100;
+      
+      // healthRanges가 있으면 범위를 더 넓게 설정하여 모든 영역이 보이도록
+      if (healthRanges) {
       const rangeMinValues: number[] = [];
       const rangeMaxValues: number[] = [];
       
-      if (healthRanges.normal) {
+      if (healthRanges.normal && healthRanges.normal.min !== null && healthRanges.normal.max !== null) {
         rangeMinValues.push(healthRanges.normal.min);
         rangeMaxValues.push(healthRanges.normal.max);
       }
-      if (healthRanges.borderline) {
+      if (healthRanges.borderline && healthRanges.borderline.min !== null && healthRanges.borderline.max !== null) {
         rangeMinValues.push(healthRanges.borderline.min);
         rangeMaxValues.push(healthRanges.borderline.max);
       }
-      if (healthRanges.abnormal) {
+      if (healthRanges.abnormal && healthRanges.abnormal.min !== null && healthRanges.abnormal.max !== null) {
         rangeMinValues.push(healthRanges.abnormal.min);
         rangeMaxValues.push(healthRanges.abnormal.max);
       }
@@ -162,7 +180,40 @@ const LineChart: React.FC<LineChartProps> = ({
       if (rangeMaxValues.length > 0) {
         const rangeMax = Math.max(...rangeMaxValues);
         // 데이터 최대값과 healthRanges 최대값 중 큰 값 사용
-        maxValue = Math.max(maxValue, rangeMax);
+        // healthRanges.max가 null이면 실제 데이터 최대값 사용
+        if (allValues.length > 0) {
+          const dataMax = Math.max(...allValues);
+          // healthRanges.max가 실제 데이터보다 훨씬 크면 (예: min * 10), 실제 데이터 범위 사용
+          // 예: BMI의 경우 "30이상"이면 max가 300이 되는데, 실제 데이터는 37이므로 300을 사용하지 않음
+          // 하지만 정상 범위가 실제 데이터보다 높은 경우 (예: HDL 정상 60이상, 데이터 35-55)
+          // 정상 범위도 보이도록 Y축을 확장
+          if (rangeMax > dataMax * 3) {
+            // healthRanges.max가 실제 데이터의 3배 이상이면 실제 데이터 범위 + 여백 사용
+            // 단, 정상 범위의 min이 실제 데이터 max보다 크면 정상 범위도 포함하도록 확장
+            const normalMin = healthRanges.normal?.min;
+            if (normalMin && normalMin > dataMax) {
+              // 정상 범위가 실제 데이터보다 높으면 정상 범위까지 포함
+              maxValue = Math.max(dataMax * 1.2, normalMin * 1.1); // 정상 범위 + 10% 여백
+            } else {
+              maxValue = dataMax * 1.2; // 20% 여백
+            }
+          } else {
+            maxValue = Math.max(dataMax, rangeMax);
+          }
+        } else {
+          maxValue = rangeMax;
+        }
+      } else if (allValues.length > 0) {
+        // healthRanges.max가 null인 경우 실제 데이터 최대값 사용
+        // 단, 정상 범위의 min이 실제 데이터 max보다 크면 정상 범위도 포함
+        const dataMax = Math.max(...allValues);
+        const normalMin = healthRanges.normal?.min;
+        if (normalMin && normalMin > dataMax) {
+          maxValue = Math.max(dataMax * 1.2, normalMin * 1.1);
+        } else {
+          maxValue = dataMax;
+        }
+      }
       }
     }
     
@@ -178,7 +229,7 @@ const LineChart: React.FC<LineChartProps> = ({
       maxValue: maxValue + topPadding,
       dateRange: maxDate.getTime() - minDate.getTime() || 1 // 0으로 나누기 방지
     };
-  }, [series, healthRanges?.normal?.min, healthRanges?.normal?.max, healthRanges?.borderline?.min, healthRanges?.borderline?.max, healthRanges?.abnormal?.min, healthRanges?.abnormal?.max]);
+  }, [series, healthRanges]);
 
   // 좌표 변환 함수 (NaN 방지)
   const getCoordinates = (
@@ -214,23 +265,26 @@ const LineChart: React.FC<LineChartProps> = ({
     // 데이터가 있는 년도 기준으로 X 좌표 계산
     const pointYear = date.getFullYear();
     
-    // 모든 시리즈에서 년도 추출
-    const allYears = new Set<number>();
-    series.forEach(s => {
-      s.data.forEach(p => {
-        if (p.date) {
-          const year = new Date(p.date).getFullYear();
-          if (!isNaN(year)) {
-            allYears.add(year);
+    // 통합 년도 목록 사용 (외부에서 전달받거나 시리즈에서 추출)
+    let sortedYears: number[];
+    if (allYears && allYears.length > 0) {
+      // 외부에서 전달받은 통합 년도 목록 사용
+      sortedYears = [...allYears].sort((a, b) => b - a); // 최신 년도 순
+    } else {
+      // 기존 로직: 모든 시리즈에서 년도 추출
+      const allYearsSet = new Set<number>();
+      series.forEach(s => {
+        s.data.forEach(p => {
+          if (p.date) {
+            const year = new Date(p.date).getFullYear();
+            if (!isNaN(year)) {
+              allYearsSet.add(year);
+            }
           }
-        }
+        });
       });
-    });
-    
-    // 최신 5년만 선택하여 최신 순 유지
-    const sortedYears = Array.from(allYears)
-      .sort((a, b) => b - a) // 최신 년도 순
-      .slice(0, 5); // 최대 5개 (최신 순 유지)
+      sortedYears = Array.from(allYearsSet).sort((a, b) => b - a); // 최신 년도 순
+    }
     
     // 해당 년도의 인덱스 찾기
     const yearIndex = sortedYears.indexOf(pointYear);
@@ -239,7 +293,8 @@ const LineChart: React.FC<LineChartProps> = ({
       return { x: margin.left, y: margin.top + chartHeight / 2 };
     }
     
-    const x = margin.left + (chartWidth / 4) * yearIndex;
+    // X축 좌표 계산: 년도 개수에 맞게 동적 계산
+    const x = margin.left + (chartWidth / (sortedYears.length - 1 || 1)) * yearIndex;
     
     // Y축 라벨 범위 확장에 맞게 점 위치도 조정
     const valueRatio = (value - chartData.minValue) / (chartData.maxValue - chartData.minValue);
@@ -406,13 +461,29 @@ const LineChart: React.FC<LineChartProps> = ({
           {showGrid && (() => {
             // Y축 그리드 라인을 4개로 증가 (기존 3개에서 변경)
             const yGridLines = Array.from({ length: 5 }, (_, i) => i); // 0, 1, 2, 3, 4 (4개 구간)
-            // X축 그리드 라인은 기존 유지
-            const xGridLines = Array.from({ length: 5 }, (_, i) => i);
+            // X축 그리드 라인: 통합 년도 목록에 맞게 동적 생성
+            const sortedYears = allYears && allYears.length > 0 
+              ? [...allYears].sort((a, b) => b - a)
+              : (() => {
+                  const allYearsSet = new Set<number>();
+                  series.forEach(s => {
+                    s.data.forEach(p => {
+                      if (p.date) {
+                        const year = new Date(p.date).getFullYear();
+                        if (!isNaN(year)) {
+                          allYearsSet.add(year);
+                        }
+                      }
+                    });
+                  });
+                  return Array.from(allYearsSet).sort((a, b) => b - a);
+                })();
+            const xGridLines = Array.from({ length: sortedYears.length }, (_, i) => i);
             return (
               <g className="wello-line-chart__grid">
                 {/* 세로 그리드 라인 */}
                 {xGridLines.map((i) => {
-                  const x = margin.left + (i / 4) * chartWidth;
+                  const x = margin.left + (i / (sortedYears.length - 1 || 1)) * chartWidth;
                   return (
                     <line
                       key={`v-grid-${i}`}
@@ -466,12 +537,33 @@ const LineChart: React.FC<LineChartProps> = ({
             const renderRangeZone = (range: { min: number; max: number } | null, color: string, opacity: number, label: string, strokeOpacity: number = 0.3) => {
               if (!range) return null;
               
-              // 여백 최소화: 상단 0.5%, 확장 비율 102%
-              const rangeMinY = margin.top + chartHeight * 0.005 + (1 - (range.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
-              const rangeMaxY = margin.top + chartHeight * 0.005 + (1 - (range.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
+              // 🔧 범위가 실제 데이터 범위를 벗어나는 경우 처리
+              // 예: 정상(A)가 "60이상"이고 max가 600인데, 실제 데이터는 35-55 범위인 경우
+              // 정상 범위의 min이 실제 데이터 max보다 크면 차트 상단까지 확장
+              let effectiveMin = range.min;
+              let effectiveMax = range.max;
               
-              // 범위가 차트 범위와 겹치는 경우만 표시
-              if (range.max >= chartData.minValue && range.min <= chartData.maxValue) {
+              // 범위의 min이 실제 데이터 max보다 크면 (예: 정상 60이상, 데이터 35-55)
+              // 차트 상단까지 확장하여 표시
+              if (range.min > chartData.maxValue) {
+                // 범위가 차트 범위를 완전히 벗어나면 표시하지 않음
+                // 하지만 사용자가 볼 수 있도록 차트 상단에 작은 영역으로 표시
+                effectiveMin = chartData.maxValue;
+                effectiveMax = Math.max(chartData.maxValue * 1.1, range.min); // 최소한 range.min까지
+              }
+              
+              // 범위의 max가 실제 데이터 min보다 작으면 차트 하단까지 확장
+              if (range.max < chartData.minValue) {
+                effectiveMin = Math.min(chartData.minValue * 0.9, range.max);
+                effectiveMax = chartData.minValue;
+              }
+              
+              // 여백 최소화: 상단 0.5%, 확장 비율 102%
+              const rangeMinY = margin.top + chartHeight * 0.005 + (1 - (effectiveMax - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
+              const rangeMaxY = margin.top + chartHeight * 0.005 + (1 - (effectiveMin - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
+              
+              // 범위가 차트 범위와 겹치는 경우만 표시 (또는 범위가 차트 범위를 포함하는 경우)
+              if (effectiveMax >= chartData.minValue && effectiveMin <= chartData.maxValue) {
                 const clampedMinY = Math.max(rangeMinY, margin.top);
                 const clampedMaxY = Math.min(rangeMaxY, margin.top + chartHeight);
                 const rectHeight = Math.max(0, clampedMaxY - clampedMinY);
@@ -496,21 +588,76 @@ const LineChart: React.FC<LineChartProps> = ({
               return null;
             };
 
+            // 🔧 영역 간 빈 공간 제거를 위한 범위 조정
+            const adjustRangesForContinuity = () => {
+              const adjusted = {
+                normal: healthRanges.normal ? { ...healthRanges.normal } : null,
+                borderline: healthRanges.borderline ? { ...healthRanges.borderline } : null,
+                abnormal: healthRanges.abnormal ? { ...healthRanges.abnormal } : null
+              };
+              
+              // 정상과 경계 사이 빈 공간 제거
+              if (adjusted.normal && adjusted.borderline) {
+                // 정상의 max가 경계의 min보다 작으면 경계의 min을 정상의 max로 조정
+                if (adjusted.normal.max < adjusted.borderline.min) {
+                  adjusted.borderline.min = adjusted.normal.max;
+                }
+                // 경계의 min이 정상의 max보다 크면 정상의 max를 경계의 min으로 조정
+                if (adjusted.borderline.min > adjusted.normal.max) {
+                  adjusted.normal.max = adjusted.borderline.min;
+                }
+              }
+              
+              // 경계와 이상 사이 빈 공간 제거
+              if (adjusted.borderline && adjusted.abnormal) {
+                // 경계의 max가 이상의 min보다 작으면 이상의 min을 경계의 max로 조정
+                if (adjusted.borderline.max < adjusted.abnormal.min) {
+                  adjusted.abnormal.min = adjusted.borderline.max;
+                }
+                // 이상의 min이 경계의 max보다 크면 경계의 max를 이상의 min으로 조정
+                if (adjusted.abnormal.min > adjusted.borderline.max) {
+                  adjusted.borderline.max = adjusted.abnormal.min;
+                }
+              }
+              
+              // 정상과 이상 사이 빈 공간 제거 (경계가 없는 경우)
+              if (adjusted.normal && adjusted.abnormal && !adjusted.borderline) {
+                // 정상의 max와 이상의 min 사이의 빈 공간 제거
+                // 예: 정상 max가 89.9이고 이상 min이 90이면, 둘 다 90으로 맞춤
+                if (adjusted.normal.max < adjusted.abnormal.min) {
+                  // 정상의 max를 이상의 min으로 조정 (연속성 확보)
+                  adjusted.normal.max = adjusted.abnormal.min;
+                }
+                // 이상의 min이 정상의 max보다 크면 정상의 max를 이상의 min으로 조정
+                if (adjusted.abnormal.min > adjusted.normal.max) {
+                  adjusted.normal.max = adjusted.abnormal.min;
+                }
+                // 이상의 min이 정상의 max보다 작으면 이상의 min을 정상의 max로 조정
+                if (adjusted.abnormal.min < adjusted.normal.max) {
+                  adjusted.abnormal.min = adjusted.normal.max;
+                }
+              }
+              
+              return adjusted;
+            };
+            
+            const adjustedRanges = adjustRangesForContinuity();
+
             return (
               <g className="wello-line-chart__health-zones" style={{ pointerEvents: 'none' }}>
-                {/* 정상 범위 (초록색) */}
-                {renderRangeZone(healthRanges.normal, '34, 197, 94', 0.15, '정상')}
+                {/* 정상 범위 (초록색) - ItemReferences의 Name 사용 */}
+                {renderRangeZone(adjustedRanges.normal, '34, 197, 94', 0.15, adjustedRanges.normal?.name || '정상')}
                 
-                {/* 경계 범위 (더 진한 주황색) */}
-                {renderRangeZone(healthRanges.borderline, '251, 146, 60', 0.15, '경계')}
+                {/* 경계 범위 (더 진한 주황색) - ItemReferences의 Name 사용 */}
+                {renderRangeZone(adjustedRanges.borderline, '251, 146, 60', 0.15, adjustedRanges.borderline?.name || '경계')}
                 
-                {/* 이상 범위 (더 진한 빨간색) */}
-                {renderRangeZone(healthRanges.abnormal, '220, 38, 127', 0.12, '이상')}
+                {/* 이상 범위 (더 진한 빨간색) - ItemReferences의 Name 사용 */}
+                {renderRangeZone(adjustedRanges.abnormal, '220, 38, 127', 0.12, adjustedRanges.abnormal?.name || '이상')}
                 
-                {/* 범위 라벨들 - 각 영역 내부에 배치 */}
-                {healthRanges.normal && (() => {
-                  const normalMinY = margin.top + chartHeight * 0.005 + (1 - (healthRanges.normal.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
-                  const normalMaxY = margin.top + chartHeight * 0.005 + (1 - (healthRanges.normal.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
+                {/* 범위 라벨들 - 각 영역 내부에 배치, ItemReferences의 Name 사용 */}
+                {adjustedRanges.normal && (() => {
+                  const normalMinY = margin.top + chartHeight * 0.005 + (1 - (adjustedRanges.normal.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
+                  const normalMaxY = margin.top + chartHeight * 0.005 + (1 - (adjustedRanges.normal.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
                   const clampedMinY = Math.max(normalMinY, margin.top);
                   const clampedMaxY = Math.min(normalMaxY, margin.top + chartHeight);
                   const centerY = clampedMinY + (clampedMaxY - clampedMinY) / 2;
@@ -528,16 +675,16 @@ const LineChart: React.FC<LineChartProps> = ({
                         fontWeight="600"
                         style={{ pointerEvents: 'none' }}
                       >
-                        정상
+                        {adjustedRanges.normal.name || '정상'}
                       </text>
                     );
                   }
                   return null;
                 })()}
                 
-                {healthRanges.borderline && (() => {
-                  const borderlineMinY = margin.top + chartHeight * 0.005 + (1 - (healthRanges.borderline.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
-                  const borderlineMaxY = margin.top + chartHeight * 0.005 + (1 - (healthRanges.borderline.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
+                {adjustedRanges.borderline && (() => {
+                  const borderlineMinY = margin.top + chartHeight * 0.005 + (1 - (adjustedRanges.borderline.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
+                  const borderlineMaxY = margin.top + chartHeight * 0.005 + (1 - (adjustedRanges.borderline.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
                   const clampedMinY = Math.max(borderlineMinY, margin.top);
                   const clampedMaxY = Math.min(borderlineMaxY, margin.top + chartHeight);
                   const centerY = clampedMinY + (clampedMaxY - clampedMinY) / 2;
@@ -555,16 +702,16 @@ const LineChart: React.FC<LineChartProps> = ({
                         fontWeight="600"
                         style={{ pointerEvents: 'none' }}
                       >
-                        경계
+                        {adjustedRanges.borderline.name || '경계'}
                       </text>
                     );
                   }
                   return null;
                 })()}
                 
-                {healthRanges.abnormal && (() => {
-                  const abnormalMinY = margin.top + chartHeight * 0.005 + (1 - (healthRanges.abnormal.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
-                  const abnormalMaxY = margin.top + chartHeight * 0.005 + (1 - (healthRanges.abnormal.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
+                {adjustedRanges.abnormal && (() => {
+                  const abnormalMinY = margin.top + chartHeight * 0.005 + (1 - (adjustedRanges.abnormal.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
+                  const abnormalMaxY = margin.top + chartHeight * 0.005 + (1 - (adjustedRanges.abnormal.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
                   const clampedMinY = Math.max(abnormalMinY, margin.top);
                   const clampedMaxY = Math.min(abnormalMaxY, margin.top + chartHeight);
                   const centerY = clampedMinY + (clampedMaxY - clampedMinY) / 2;
@@ -582,7 +729,7 @@ const LineChart: React.FC<LineChartProps> = ({
                         fontWeight="600"
                         style={{ pointerEvents: 'none' }}
                       >
-                        이상
+                        {adjustedRanges.abnormal.name || '이상'}
                       </text>
                     );
                   }
@@ -657,71 +804,84 @@ const LineChart: React.FC<LineChartProps> = ({
               {(seriesData.showPoints !== false) && seriesData.data.map((point, pointIndex) => {
                 const { x, y } = getCoordinates(point, dimensions);
                 
-                // 선택된 포인트 확인 (클릭된 포인트 또는 초기 상태에서 마지막 포인트)
-                const isLastPoint = pointIndex === seriesData.data.length - 1;
+                // 선택된 포인트 확인 (클릭된 포인트 또는 초기 상태에서 첫 번째 포인트)
+                const isFirstPoint = pointIndex === 0;
                 const selectedPointKey = selectedPoints[seriesData.id];
                 const isSelected = selectedPointKey 
                   ? selectedPointKey === `${point.date}-${pointIndex}` 
-                  : isLastPoint; // 초기 상태에서는 마지막 포인트가 선택된 것처럼
+                  : isFirstPoint; // 초기 상태에서는 첫 번째 포인트가 선택된 것처럼
                 
-                // 모든 점을 동일하게 크게 만들기 (선택된 포인트는 더 크게)
-                const radius = isSelected ? 10 : 8; // 모든 점을 크게 (기존 6→8, 선택된 점 14→10)
-                const strokeWidth = isSelected ? 3 : 2.5; // 외곽선 두께
+                // 원 크기 고정 (화면 크기와 무관하게 동일한 크기 유지)
+                const radius = isSelected ? 11 : 5.5; // 선택된 포인트: 22*22 (radius 11), 비선택: 11*11 (radius 5.5)
+                const strokeWidth = 2; // 외곽선 두께 고정
+                const innerRadius = isSelected ? 4.4 : 2.2; // 중앙 흰색 원 크기 - 선택/비선택에 비례 (선택: 8.8*8.8, 비선택: 4.4*4.4)
                 
-                // 상태에 따른 외곽선 색상 결정 (뱃지 색상과 동일)
+                // 상태에 따른 원 색상 결정 (뱃지 색상과 동일)
                 // 디버깅: 포인트 상태 확인
                 if (!point.status) {
                   console.warn(`⚠️ [포인트 상태 없음] ${seriesData.name}, 날짜: ${point.date}, 값: ${point.value}`);
                 }
                 
-                let strokeColor = '#888888'; // 기본값: 측정 (회색)
+                let circleColor = '#A16A51'; // 기본값: 측정 (갈색)
                 if (point.status === 'normal') {
-                  strokeColor = '#61A82C'; // 정상: 초록색
+                  circleColor = '#61A82C'; // 정상: 초록색
                 } else if (point.status === 'warning') {
-                  strokeColor = '#EE6A31'; // 경계: 주황색
+                  circleColor = '#EE6A31'; // 경계: 주황색
                 } else if (point.status === 'abnormal' || point.status === 'danger') {
-                  strokeColor = '#D73F3F'; // 이상: 빨간색
+                  circleColor = '#D73F3F'; // 이상: 빨간색
                 } else if (point.status === 'neutral' || point.status === 'unknown') {
-                  strokeColor = '#888888'; // 측정/미상: 회색
+                  circleColor = '#A16A51'; // 측정: 갈색
                 } else {
-                  // 상태가 없거나 알 수 없는 경우 기본 회색
-                  strokeColor = '#888888';
+                  // 상태가 없거나 알 수 없는 경우 기본 갈색
+                  circleColor = '#A16A51';
                 }
                 
                 return (
-                  <circle
-                    key={`${seriesData.id}-point-${point.date}-${pointIndex}`}
-                    cx={x}
-                    cy={y}
-                    r={radius}
-                    className={`wello-line-chart__point ${point.status ? `wello-line-chart__point--${point.status}` : 'wello-line-chart__point--neutral'} ${isSelected ? 'wello-line-chart__point--selected' : ''}`}
-                    style={{
-                      fill: '#ffffff', // 내부는 흰색
-                      stroke: strokeColor, // 외곽선에 상태별 색상 적용
-                      strokeWidth: strokeWidth,
-                      cursor: 'pointer',
-                      pointerEvents: 'all',
-                      transition: 'r 0.2s ease, stroke-width 0.2s ease' // 부드러운 확대/축소 애니메이션
-                    }}
-                    onMouseEnter={(e) => {
-                      console.log(`🔍 [툴팁] 포인트 마우스 엔터: ${seriesData.name}, 값: ${point.value}, 상태: ${point.status}`);
-                      handlePointHover(e, point, seriesData);
-                    }}
-                    onMouseLeave={() => {
-                      console.log(`🔍 [툴팁] 포인트 마우스 리브: ${seriesData.name}`);
-                      handleMouseLeave();
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const pointKey = `${point.date}-${pointIndex}`;
-                      setSelectedPoints(prev => ({
-                        ...prev,
-                        [seriesData.id]: prev[seriesData.id] === pointKey ? null : pointKey // 같은 포인트 클릭 시 해제, 다른 포인트 클릭 시 선택
-                      }));
-                      console.log(`🔍 [포인트 클릭] ${seriesData.name}, 값: ${point.value}, 상태: ${point.status}, 날짜: ${point.date}`);
-                      handlePointHover(e, point, seriesData);
-                    }}
-                  />
+                  <g key={`${seriesData.id}-point-${point.date}-${pointIndex}`}>
+                    {/* 외부 원 (상태별 색상) */}
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r={radius}
+                      className={`wello-line-chart__point ${point.status ? `wello-line-chart__point--${point.status}` : 'wello-line-chart__point--neutral'} ${isSelected ? 'wello-line-chart__point--selected' : ''}`}
+                      style={{
+                        fill: circleColor, // 상태별 색상으로 채움
+                        stroke: circleColor, // 외곽선도 동일한 색상
+                        strokeWidth: strokeWidth,
+                        cursor: 'pointer',
+                        pointerEvents: 'all',
+                        transition: 'r 0.2s ease, stroke-width 0.2s ease' // 부드러운 확대/축소 애니메이션
+                      }}
+                      onMouseEnter={(e) => {
+                        console.log(`🔍 [툴팁] 포인트 마우스 엔터: ${seriesData.name}, 값: ${point.value}, 상태: ${point.status}`);
+                        handlePointHover(e, point, seriesData);
+                      }}
+                      onMouseLeave={() => {
+                        console.log(`🔍 [툴팁] 포인트 마우스 리브: ${seriesData.name}`);
+                        handleMouseLeave();
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const pointKey = `${point.date}-${pointIndex}`;
+                        setSelectedPoints(prev => ({
+                          ...prev,
+                          [seriesData.id]: prev[seriesData.id] === pointKey ? null : pointKey // 같은 포인트 클릭 시 해제, 다른 포인트 클릭 시 선택
+                        }));
+                        console.log(`🔍 [포인트 클릭] ${seriesData.name}, 값: ${point.value}, 상태: ${point.status}, 날짜: ${point.date}`);
+                        handlePointHover(e, point, seriesData);
+                      }}
+                    />
+                    {/* 중앙 흰색 원 */}
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r={innerRadius}
+                      style={{
+                        fill: '#ffffff', // 흰색
+                        pointerEvents: 'none' // 클릭 이벤트는 외부 원에서만 처리
+                      }}
+                    />
+                  </g>
                 );
               })}
             </g>
@@ -752,15 +912,21 @@ const LineChart: React.FC<LineChartProps> = ({
                   });
                 });
                 
-                // 최신 5년만 선택하여 최신 순 유지
-                const sortedYears = Array.from(dataYears)
-                  .sort((a, b) => b - a)
-                  .slice(0, 5);
+                // 통합 년도 목록 사용 (외부에서 전달받거나 시리즈에서 추출)
+                let sortedYears: number[];
+                if (allYears && allYears.length > 0) {
+                  // 외부에서 전달받은 통합 년도 목록 사용
+                  sortedYears = [...allYears].sort((a, b) => b - a); // 최신 년도 순
+                } else {
+                  // 기존 로직: 모든 시리즈에서 년도 추출
+                  sortedYears = Array.from(dataYears)
+                    .sort((a, b) => b - a);
+                }
                 
-                // 5개 고정 슬롯 생성
-                const xAxisSlots = Array.from({ length: 5 }, (_, index) => index);
+                // 년도 개수에 맞게 동적 슬롯 생성
+                const xAxisSlots = Array.from({ length: sortedYears.length }, (_, index) => index);
                 return xAxisSlots.map((index) => {
-                  const x = margin.left + (chartWidth / 4) * index;
+                  const x = margin.left + (chartWidth / (sortedYears.length - 1 || 1)) * index;
                   const year = sortedYears[index];
                   
                   if (year) {
