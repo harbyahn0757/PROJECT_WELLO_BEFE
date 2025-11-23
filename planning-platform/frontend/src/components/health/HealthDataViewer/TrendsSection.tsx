@@ -1155,6 +1155,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                               }]}
                               width={260}
                               height={170}
+                              responsive={false}
                               healthRanges={healthRanges || undefined}
                               allYears={allYears.map(y => parseInt(y.toString(), 10))}
                             />

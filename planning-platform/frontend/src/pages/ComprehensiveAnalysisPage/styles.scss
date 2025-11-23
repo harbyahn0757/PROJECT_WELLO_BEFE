@@ -1045,6 +1045,7 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   margin-bottom: 0 !important; // 하단 마진 제거
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
+  touch-action: pan-x; // 수평 스와이프만 허용, 수직 드래그(pull-to-refresh) 방지
   
   // 스크롤바 숨김 (닷 슬라이더 사용)
   &::-webkit-scrollbar {
@@ -1295,7 +1296,7 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
     .measurement-date {
       margin-top: auto; // 카드 하단으로 밀어내기
       padding-top: $spacing-xs; // 패딩 줄임
-      font-size: 10px; // 폰트 크기 작게 (기존 $font-xs보다 작게)
+      font-size: 8px; // 폰트 크기 더 작게 (10px → 8px)
       color: $gray-600;
       text-align: right; // 오른쪽 정렬
       font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
