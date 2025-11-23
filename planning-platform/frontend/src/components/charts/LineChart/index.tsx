@@ -649,7 +649,7 @@ const LineChart: React.FC<LineChartProps> = ({
                   if (clampedMaxY - clampedMinY > 15) { // 충분한 높이가 있을 때만 표시
                     return (
                       <text
-                        x={margin.left + 8}
+                        x={margin.left + 30}
                         y={centerY}
                         className="wello-line-chart__range-label"
                         textAnchor="start"
@@ -676,7 +676,7 @@ const LineChart: React.FC<LineChartProps> = ({
                   if (clampedMaxY - clampedMinY > 15) { // 충분한 높이가 있을 때만 표시
                     return (
                       <text
-                        x={margin.left + 8}
+                        x={margin.left + 30}
                         y={centerY}
                         className="wello-line-chart__range-label"
                         textAnchor="start"
@@ -703,7 +703,7 @@ const LineChart: React.FC<LineChartProps> = ({
                   if (clampedMaxY - clampedMinY > 15) { // 충분한 높이가 있을 때만 표시
                     return (
                       <text
-                        x={margin.left + 8}
+                        x={margin.left + 30}
                         y={centerY}
                         className="wello-line-chart__range-label"
                         textAnchor="start"

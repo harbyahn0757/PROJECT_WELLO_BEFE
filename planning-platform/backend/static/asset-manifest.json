@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/wello/static/css/main.27e1dd59.css",
-    "main.js": "/wello/static/js/main.03b797ef.js",
+    "main.js": "/wello/static/js/main.2186fff6.js",
     "static/media/check_2 1.png": "/wello/static/media/check_2 1.f75418dbb00e3fe650d6.png",
     "static/media/hwkim_logo.png": "/wello/static/media/hwkim_logo.9758cdd8540fac9d9b9c.png",
     "static/media/splash.png": "/wello/static/media/splash.1f680ea4aaba8a82038a.png",
@@ -10,10 +10,10 @@
     "static/media/pass.png": "/wello/static/media/pass.203049a9f19b1e505577.png",
     "index.html": "/wello/index.html",
     "main.27e1dd59.css.map": "/wello/static/css/main.27e1dd59.css.map",
-    "main.03b797ef.js.map": "/wello/static/js/main.03b797ef.js.map"
+    "main.2186fff6.js.map": "/wello/static/js/main.2186fff6.js.map"
   },
   "entrypoints": [
     "static/css/main.27e1dd59.css",
-    "static/js/main.03b797ef.js"
+    "static/js/main.2186fff6.js"
   ]
 }
