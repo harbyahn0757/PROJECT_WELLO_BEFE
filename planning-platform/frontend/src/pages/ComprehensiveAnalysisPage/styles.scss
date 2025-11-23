@@ -1082,22 +1082,22 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   }
 }
 
-.health-metric-card {
-  min-width: 300px;
-  max-width: 320px;
-  flex-shrink: 0;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid #f5f5dc; // 연한 베이지색 외곽선
-  border-radius: $border-radius-lg;
-  padding: $spacing-lg;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-  scroll-snap-align: start;
-  position: relative;
-  box-shadow: $shadow-sm;
-  min-height: 316px; // 카드 높이 316px
-  display: flex;
-  flex-direction: column;
+  .health-metric-card {
+    min-width: 300px;
+    max-width: 320px;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #f5f5dc; // 연한 베이지색 외곽선
+    border-radius: $border-radius-lg;
+    padding: $spacing-lg;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    scroll-snap-align: start;
+    position: relative !important; // 측정일 absolute 배치를 위해 필수
+    box-shadow: $shadow-sm;
+    min-height: 316px; // 카드 높이 316px
+    display: flex;
+    flex-direction: column;
   
   // 슬라이더 패딩으로 여백 처리하므로 카드 마진 제거
   
@@ -1120,7 +1120,7 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
     gap: 4px; // 제목-결과값 간격 더 줄임 (8px → 4px)
-    margin-bottom: 8px; // 결과값-그래프 간격 더 줄임 (12px → 8px)
+    margin-bottom: 16px; // 결과값-그래프 간격 증가 (8px → 16px)
     position: relative;
       
       .status-badge {
@@ -1142,19 +1142,19 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
         min-width: 36px;
         
         &.status-normal {
-          background: #61A82C;
+          background: #61A82C; // 정상 배경색 (토큰화 필요 시 $badge-normal-bg로 변경 가능)
         }
         
         &.status-warning {
-          background: #EE6A31;
+          background: #EE6A31; // 경계 배경색 (토큰화 필요 시 $badge-warning-bg로 변경 가능)
         }
         
         &.status-abnormal {
-          background: #D73F3F;
+          background: #D73F3F; // 이상 배경색 (토큰화 필요 시 $badge-abnormal-bg로 변경 가능)
         }
         
         &.status-neutral {
-          background: #A16A51;
+          background: #A16A51; // 측정 배경색 (토큰화 필요 시 $brand-brown-dark로 변경 가능)
         }
         
         .status-text {
@@ -1198,15 +1198,16 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
     
     .metric-chart {
       width: 100%;
-      height: 200px; // 그래프 높이 증가 (170px → 200px, 카드 높이 대비 15% 증가)
+      height: 240px; // 그래프 높이 증가 (220px → 240px) - 그래프 영역 아래로 확장
       border-radius: $border-radius-md;
       background: rgba(245, 245, 220, 0.3); // 베이지 색상으로 변경하고 투명하게
       padding: 0; // 패딩 제거로 그래프 영역 최대화
       display: flex;
       align-items: center;
       justify-content: center;
-      flex: 1; // 남은 공간 차지
+      flex-shrink: 0; // flex: 1 제거, 고정 높이 사용
       overflow: visible !important; // 🔧 모바일에서 원이 잘리지 않도록
+      margin-bottom: $spacing-md; // 그래프와 측정일 사이 간격 추가
       
       // LineChart 스타일 통일 (의료기록타임라인과 동일)
       .wello-line-chart {
@@ -1292,22 +1293,41 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
       }
     }
     
-    // 측정일 표시 영역 (카드 하단)
+    // 측정일 표시 영역 (카드 내부 하단, 오른쪽 정렬) - 선택자 특이성 높임
+    & > .measurement-date,
     .measurement-date {
-      margin-top: auto; // 카드 하단으로 밀어내기
-      padding-top: $spacing-xs; // 패딩 줄임
-      font-size: 8px; // 폰트 크기 더 작게 (10px → 8px)
-      color: $gray-600;
-      text-align: right; // 오른쪽 정렬
-      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      font-size: 0.375rem !important; // 6px - 측정일용 매우 작은 글씨
+      color: $gray-600 !important; // 색상 토큰 사용 (_variables.scss에서 정의)
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+      position: absolute !important; // 절대 위치로 강제 배치
+      bottom: 8px !important; // 카드 내부 하단에서 8px 간격 (하드코딩)
+      right: 24px !important; // 카드 내부 오른쪽 끝 (카드 padding과 동일: 24px 하드코딩)
+      left: auto !important; // left 속성 제거
+      text-align: right !important; // 오른쪽 정렬
+      white-space: nowrap !important; // 줄바꿈 방지
+      z-index: 100 !important; // 다른 요소 위에 표시
+      width: auto !important; // 너비 자동
+      margin: 0 !important; // 마진 제거
+      padding: 0 !important; // 패딩 제거
+      display: flex !important; // flex로 변경하여 오른쪽 정렬 강제
+      justify-content: flex-end !important; // 오른쪽 정렬
+      align-items: center !important; // 수직 중앙 정렬
+      flex-direction: row !important; // 가로 방향
+      transform: none !important; // transform 제거
+      float: none !important; // float 제거
+      box-sizing: border-box !important; // 박스 모델 명시
+      min-width: auto !important; // 최소 너비 제거
+      max-width: none !important; // 최대 너비 제거
       
       .date-label {
-        font-weight: 500;
-        margin-right: 4px;
+        font-weight: $font-weight-medium !important; // 500
+        margin-right: 4px !important;
+        display: inline !important;
       }
       
       .date-value {
-        font-weight: 400;
+        font-weight: $font-weight-normal !important; // 400
+        display: inline !important;
       }
     }
   }
@@ -1360,7 +1380,8 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
       }
       
       .metric-chart {
-        height: 160px; // 모바일에서도 그래프 높이 증가 (150px → 160px)
+        height: 200px; // 모바일에서도 그래프 높이 증가 (180px → 200px)
+        margin-bottom: $spacing-sm; // 그래프와 측정일 사이 간격 추가
       }
     }
   }

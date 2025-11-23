@@ -70,7 +70,7 @@ const SurveyPage: React.FC = () => {
       // 설문조사 종류별 완료 후 이동 경로
       switch (surveyId) {
         case 'checkup-design':
-          navigate('/checkup-results', { state: { surveyResponse: response } });
+          navigate('/checkup-recommendations', { state: { surveyResponse: response } });
           break;
         case 'health-habits':
           navigate('/habits-plan', { state: { surveyResponse: response } });

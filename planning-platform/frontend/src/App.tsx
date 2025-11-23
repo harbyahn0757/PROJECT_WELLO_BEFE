@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from
 import Button from './components/Button';
 import MainPage from './pages/MainPage';
 import CheckupDesignPage from './pages/CheckupDesignPage';
+import CheckupRecommendationsPage from './pages/CheckupRecommendationsPage';
 import HealthHabitsPage from './pages/HealthHabitsPage';
 import HealthQuestionnaireComplete from './pages/HealthQuestionnaireComplete';
 import HealthQuestionnairePage from './pages/HealthQuestionnairePage';
@@ -15,6 +16,7 @@ import HealthTrends from './pages/HealthTrends';
 import PrescriptionHistory from './pages/PrescriptionHistory';
 import HealthComparison from './pages/HealthComparison';
 // import ComprehensiveAnalysisPage from './pages/ComprehensiveAnalysisPage'; // 제거됨
+import AppointmentPage from './pages/AppointmentPage';
 import { LayoutType } from './constants/layoutTypes';
 import { WelloDataProvider, useWelloData } from './contexts/WelloDataContext';
 import { STORAGE_KEYS, StorageManager } from './constants/storage';
@@ -32,6 +34,7 @@ declare global {
 // FloatingButton 컴포넌트 (페이지별 다른 텍스트와 기능)
 const FloatingButton: React.FC = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { state } = useWelloData();
   const { patient } = state;
   
@@ -204,16 +207,28 @@ const FloatingButton: React.FC = () => {
     
     // comprehensive-analysis 페이지 제거됨
     
+    // 예약 페이지에서는 플로팅 버튼 숨김 (하단 버튼 사용)
+    if (path === '/appointment' || path.includes('/appointment')) {
+      return null;
+    }
+    
+    // 검진 항목 추천 페이지에서는 플로팅 버튼 표시 (예약 기능)
+    if (path === '/checkup-recommendations' || path.includes('/checkup-recommendations')) {
+      return {
+        text: '검진 예약 하기',
+        onClick: () => {
+          console.log('🎯 [플로팅버튼] 검진 예약 페이지로 이동');
+          navigate('/appointment');
+        }
+      };
+    }
+    
     // 기본 (메인페이지 등) - 브라운 스킨 디자인 반영
     return {
       text: '검진 예약 하기',
       onClick: () => {
-        console.log('🎯 [플로팅버튼] 검진 예약 시작');
-        if (window.handleKakaoLoginFromFloating) {
-          window.handleKakaoLoginFromFloating();
-        } else {
-          console.warn('카카오 로그인 함수가 등록되지 않았습니다');
-        }
+        console.log('🎯 [플로팅버튼] 검진 예약 페이지로 이동');
+        navigate('/appointment');
       }
     };
   };
@@ -363,6 +378,7 @@ const AppContent: React.FC = () => {
           <Route path="/collecting" element={<CollectingDataPage />} />
           <Route path="/survey/:surveyId" element={<SurveyPage />} />
           <Route path="/survey/checkup-design" element={<CheckupDesignPage />} />
+          <Route path="/checkup-recommendations" element={<CheckupRecommendationsPage />} />
           <Route path="/survey/health-habits" element={<HealthHabitsPage />} />
           <Route path="/health-questionnaire" element={<HealthQuestionnairePage />} />
           <Route path="/questionnaire-complete" element={<HealthQuestionnaireComplete />} />
@@ -372,6 +388,7 @@ const AppContent: React.FC = () => {
           <Route path="/comparison" element={<HealthComparison />} />
           {/* <Route path="/comprehensive-analysis" element={<ComprehensiveAnalysisPage />} /> 제거됨 */}
           <Route path="/results-trend" element={<HealthDataViewer onBack={() => window.history.back()} />} />
+          <Route path="/appointment" element={<AppointmentPage />} />
           <Route 
             path="/results" 
             element={<MainPage />} 

@@ -638,22 +638,21 @@ const LineChart: React.FC<LineChartProps> = ({
                 {/* 이상 범위 (더 진한 빨간색) - ItemReferences의 Name 사용 */}
                 {renderRangeZone(adjustedRanges.abnormal, '220, 38, 127', 0.12, adjustedRanges.abnormal?.name || '이상')}
                 
-                {/* 범위 라벨들 - 각 영역 내부에 배치, ItemReferences의 Name 사용 */}
+                {/* 범위 라벨들 - 각 영역의 왼쪽 상단 모서리에 배치, ItemReferences의 Name 사용 */}
                 {adjustedRanges.normal && (() => {
                   const normalMinY = margin.top + chartHeight * 0.005 + (1 - (adjustedRanges.normal.max - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
                   const normalMaxY = margin.top + chartHeight * 0.005 + (1 - (adjustedRanges.normal.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
                   const clampedMinY = Math.max(normalMinY, margin.top);
                   const clampedMaxY = Math.min(normalMaxY, margin.top + chartHeight);
-                  const centerY = clampedMinY + (clampedMaxY - clampedMinY) / 2;
                   
                   if (clampedMaxY - clampedMinY > 15) { // 충분한 높이가 있을 때만 표시
                     return (
                       <text
-                        x={margin.left + 30}
-                        y={centerY}
+                        x={margin.left + 8}
+                        y={clampedMinY + 4}
                         className="wello-line-chart__range-label"
                         textAnchor="start"
-                        dominantBaseline="middle"
+                        dominantBaseline="hanging"
                         fill="rgba(34, 197, 94, 0.9)"
                         fontSize="10"
                         fontWeight="600"
@@ -671,16 +670,15 @@ const LineChart: React.FC<LineChartProps> = ({
                   const borderlineMaxY = margin.top + chartHeight * 0.005 + (1 - (adjustedRanges.borderline.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
                   const clampedMinY = Math.max(borderlineMinY, margin.top);
                   const clampedMaxY = Math.min(borderlineMaxY, margin.top + chartHeight);
-                  const centerY = clampedMinY + (clampedMaxY - clampedMinY) / 2;
                   
                   if (clampedMaxY - clampedMinY > 15) { // 충분한 높이가 있을 때만 표시
                     return (
                       <text
-                        x={margin.left + 30}
-                        y={centerY}
+                        x={margin.left + 8}
+                        y={clampedMinY + 4}
                         className="wello-line-chart__range-label"
                         textAnchor="start"
-                        dominantBaseline="middle"
+                        dominantBaseline="hanging"
                         fill="rgba(251, 146, 60, 0.9)"
                         fontSize="10"
                         fontWeight="600"
@@ -698,16 +696,15 @@ const LineChart: React.FC<LineChartProps> = ({
                   const abnormalMaxY = margin.top + chartHeight * 0.005 + (1 - (adjustedRanges.abnormal.min - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight * 1.02;
                   const clampedMinY = Math.max(abnormalMinY, margin.top);
                   const clampedMaxY = Math.min(abnormalMaxY, margin.top + chartHeight);
-                  const centerY = clampedMinY + (clampedMaxY - clampedMinY) / 2;
                   
                   if (clampedMaxY - clampedMinY > 15) { // 충분한 높이가 있을 때만 표시
                     return (
                       <text
-                        x={margin.left + 30}
-                        y={centerY}
+                        x={margin.left + 8}
+                        y={clampedMinY + 4}
                         className="wello-line-chart__range-label"
                         textAnchor="start"
-                        dominantBaseline="middle"
+                        dominantBaseline="hanging"
                         fill="rgba(220, 38, 127, 0.9)"
                         fontSize="10"
                         fontWeight="600"

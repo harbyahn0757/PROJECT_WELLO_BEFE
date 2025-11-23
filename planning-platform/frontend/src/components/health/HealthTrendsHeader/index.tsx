@@ -8,6 +8,7 @@ import './styles.scss';
 
 interface HealthTrendsHeaderProps {
   onBack: () => void;
+  title?: string; // 제목 (기본값: "건강 추이")
   lastUpdateTime?: string | null;
   patientName?: string;
   onRefresh?: () => void;
@@ -15,6 +16,7 @@ interface HealthTrendsHeaderProps {
 
 const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
   onBack,
+  title = '건강 추이', // 기본값
   lastUpdateTime,
   patientName,
   onRefresh
@@ -65,7 +67,7 @@ const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
         {/* 제목 및 업데이트 정보 (중앙) */}
         <div className="health-trends-header__center">
           <div className="health-trends-header__title">
-            건강 추이
+            {title}
           </div>
           {lastUpdateTime && (
             <div className="health-trends-header__update">

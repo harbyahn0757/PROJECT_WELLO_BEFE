@@ -1,0 +1,492 @@
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
+
+// 검진 항목 추천 페이지 스타일
+.checkup-recommendations {
+  width: 100%;
+  height: 100vh; // 전체 화면 높이
+  background: $background-cream;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; // 전체 스크롤 방지
+
+  // 헤더 영역 높이 더 줄이기 (MainPage 오버라이드)
+  .main-page__header-greeting-section {
+    padding-bottom: $spacing-sm !important; // $spacing-md에서 $spacing-sm으로 더 줄임
+    position: fixed !important; // 헤더 고정
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    background: $background-cream;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    max-height: 180px; // 최대 높이 제한
+  }
+
+  // 로고와 인사말 간격 더 줄이기
+  .main-page__header {
+    margin-bottom: -28px !important; // -24px에서 -28px로 더 줄임
+    
+    // 닫기 버튼이 있는 헤더 레이아웃
+    &.checkup-recommendations__header-with-close {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      position: relative;
+    }
+  }
+
+  .main-page__greeting {
+    margin-top: -28px !important; // -24px에서 -28px로 더 줄임
+    padding-bottom: $spacing-xs !important; // $spacing-sm에서 $spacing-xs로 더 줄임
+  }
+
+  // 닫기 버튼 (오른쪽, BackButton 스타일 재사용)
+  &__close-button {
+    // BackButton 기본 스타일 유지 (27px × 27px, 흰색 배경, 브라운 색상)
+    // 오른쪽 정렬만 추가
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  &__close-icon {
+    // X 아이콘 스타일 (BackButton의 SVG 스타일 유지)
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  // 로딩 오버레이
+  &__loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95); // 뿌연 배경
+    backdrop-filter: blur(4px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease-in;
+    
+    &.fade-out {
+      animation: fadeOut 0.5s ease-out forwards;
+    }
+  }
+
+  &__loading-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-lg;
+    text-align: center;
+  }
+
+  &__loading-spinner {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__loading-message {
+    font-size: $font-base;
+    color: $brand-brown-darker;
+    font-weight: $font-weight-medium;
+    font-family: var(--font-family-greeting);
+    margin: 0;
+    line-height: 1.5;
+    animation: fadeInUp 0.5s ease-out;
+  }
+
+  &__loading-progress {
+    width: 200px;
+    height: 4px;
+    background: $gray-200;
+    border-radius: $border-radius-full;
+    overflow: hidden;
+    position: relative;
+  }
+
+  &__loading-progress-bar {
+    height: 100%;
+    background: $brand-brown-dark;
+    border-radius: $border-radius-full;
+    transition: width 0.3s ease;
+    animation: progressGlow 1.5s ease-in-out infinite;
+  }
+
+  .main-page__greeting {
+    margin-top: -24px !important; // -18px에서 -24px로 더 줄임
+    padding-bottom: $spacing-sm !important; // $spacing-md에서 $spacing-sm로 줄임
+  }
+
+  // MainPage 스타일 재사용 (헤더는 MainPage.scss에서 관리)
+  // 정보 아이콘 + 텍스트 (greeting-message 내부)
+  // MainPage의 greeting-message 내부에 배치되므로 별도 스타일 필요
+  .main-page__greeting-message {
+    margin-top: $spacing-xs !important; // 상단 마진 줄이기
+    
+    .checkup-recommendations__info {
+      display: inline-flex;
+      align-items: flex-start;
+      gap: $spacing-xs;
+      font-size: $font-sm;
+      color: $gray-450;
+      line-height: 1.4;
+
+      &-icon {
+        font-size: 14px;
+        color: $gray-450;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+
+      &-text {
+        color: $gray-450;
+        font-weight: $font-weight-normal;
+        font-family: var(--font-family-greeting);
+      }
+    }
+  }
+
+  // 메인 콘텐츠 영역 (헤더 아래 스크롤 가능)
+  &__content {
+    padding: $spacing-md 1rem $spacing-lg 1rem; // 상단 패딩 줄임
+    background: $background-cream;
+    margin-top: 0; // 헤더와의 간격 제거
+  }
+
+  // 스크롤 가능한 콘텐츠 영역
+  &__scrollable-content {
+    flex: 1; // 남은 공간 모두 사용
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    // 헤더 높이만큼 상단 여백 추가 (동적 계산)
+    padding-top: calc(var(--header-height, 180px) + $spacing-xs);
+    padding-bottom: $spacing-lg; // 하단 여백만 유지
+  }
+
+  // 섹션 헤더 (제목 + 뱃지)
+  &__section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: $spacing-md;
+    margin-top: 0; // 헤더와의 간격 제거
+    padding-top: $spacing-xs; // 최소 간격만 유지
+  }
+
+  &__section-title {
+    font-size: $font-xl;
+    font-weight: $font-weight-bold;
+    color: $brand-brown-darker;
+    margin: 0;
+    font-family: var(--font-family-greeting);
+  }
+
+  &__total-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px; // 더 작은 패딩
+    background: $brand-brown-dark;
+    color: $white;
+    border-radius: $border-radius-full; // 완전한 필 모양
+    font-size: $font-xs; // 더 작은 폰트
+    font-weight: $font-weight-medium;
+    font-family: var(--font-family-greeting);
+    line-height: 1.2;
+    height: 20px; // 고정 높이로 일관성 유지
+  }
+
+  // 카드 리스트
+  &__cards {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+
+  // 검진 카드
+  &__card {
+    background: $white;
+    border-radius: $border-radius-xl;
+    box-shadow: $shadow-sm;
+    overflow: hidden;
+    transition: all 0.3s ease;
+
+    &--expanded {
+      box-shadow: $shadow-md;
+    }
+  }
+
+  // 카드 헤더
+  &__card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $spacing-md;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease;
+
+    &:hover {
+      background: $gray-50;
+    }
+
+    &-left {
+      display: flex;
+      align-items: center;
+      gap: $spacing-sm;
+    }
+  }
+
+  &__card-title {
+    font-size: $font-base;
+    font-weight: $font-weight-bold;
+    color: $black;
+    margin: 0;
+    font-family: var(--font-family-greeting);
+  }
+
+  &__card-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 10px; // 총 뱃지와 동일한 패딩
+    background: $brand-brown-dark;
+    color: $white;
+    border-radius: $border-radius-full; // 완전한 필 모양
+    font-size: $font-xs;
+    font-weight: $font-weight-medium;
+    font-family: var(--font-family-greeting);
+    line-height: 1.2;
+    height: 20px; // 고정 높이로 일관성 유지
+  }
+
+  // 화살표 아이콘
+  &__card-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    color: $brand-brown-dark;
+    transition: transform 0.3s ease;
+
+    &-icon {
+      width: 20px;
+      height: 20px;
+      color: $brand-brown-dark;
+      transition: transform 0.3s ease;
+
+      &.expanded {
+        transform: rotate(180deg);
+      }
+
+      &.collapsed {
+        transform: rotate(0deg);
+      }
+    }
+  }
+
+  // 카드 내용 (펼쳐짐)
+  &__card-content {
+    padding: 0 $spacing-md $spacing-md $spacing-md;
+    animation: fadeInUp 0.3s ease-out;
+  }
+
+  // 검진 항목
+  &__checkup-item {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+    padding: $spacing-sm 0;
+    border-bottom: 1px solid $gray-200;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  // 체크박스 래퍼
+  &__checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+
+  // 체크박스 스타일
+  &__checkbox {
+    width: 20px;
+    height: 20px;
+    border-radius: $border-radius-sm;
+    border: 2px solid $brand-brown-dark;
+    background: $white;
+    cursor: pointer;
+    appearance: none;
+    position: relative;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+
+    &:checked {
+      background: $brand-brown-dark;
+      border-color: $brand-brown-dark;
+
+      &::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: $white;
+        font-size: 14px;
+        font-weight: $font-weight-bold;
+      }
+    }
+
+    &:hover {
+      border-color: $brand-brown-darker;
+    }
+  }
+
+  &__checkbox-label {
+    font-size: $font-sm;
+    color: $black;
+    font-weight: $font-weight-normal;
+    cursor: pointer;
+    font-family: var(--font-family-greeting);
+    user-select: none;
+  }
+
+  // 항목 설명
+  &__item-description {
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-xs;
+    margin-left: 28px; // 체크박스 너비 + gap
+    padding-top: $spacing-xs;
+    font-size: $font-xs;
+    color: $gray-450;
+    line-height: 1.4;
+  }
+
+  &__item-info-icon {
+    font-size: 12px;
+    color: $gray-450;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  &__item-description-text {
+    color: $gray-450;
+    font-weight: $font-weight-normal;
+    font-family: var(--font-family-greeting);
+  }
+
+  // 의사 추천 박스
+  &__doctor-box {
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-md;
+    margin-top: $spacing-md;
+    padding: $spacing-md;
+    background: $background-cream;
+    border: 2px solid $brand-brown-dark;
+    border-radius: $border-radius-lg;
+    position: relative;
+
+    &-image {
+      flex-shrink: 0;
+      width: 80px;
+      height: 80px;
+    }
+
+    &-text {
+      flex: 1;
+      font-size: $font-sm;
+      color: $black;
+      line-height: 1.5;
+      font-weight: $font-weight-normal;
+      font-family: var(--font-family-greeting);
+    }
+
+    &-highlight {
+      color: $error;
+      font-weight: $font-weight-bold;
+    }
+  }
+
+  &__doctor-illustration {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+}
+
+// 펼치기 애니메이션
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 로딩 오버레이 애니메이션
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+// 진행률 바 글로우 효과
+@keyframes progressGlow {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(161, 106, 81, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(161, 106, 81, 0.6);
+  }
+}
+
+// 반응형 디자인
+@include respond-to(md) {
+  .checkup-recommendations {
+    &__header-greeting-section {
+      padding: 0 $spacing-lg $spacing-xl;
+      padding-top: 0;
+    }
+
+    &__greeting {
+      &-title {
+        font-size: 24px;
+      }
+    }
+
+    &__content {
+      max-width: 768px;
+      margin: 0 auto;
+      padding: $spacing-xl $spacing-lg;
+    }
+  }
+}
+

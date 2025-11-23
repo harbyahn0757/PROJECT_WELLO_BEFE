@@ -1,0 +1,245 @@
+/**
+ * DateSelector 스타일
+ * 예약 날짜 선택 캘린더
+ */
+@use '../../../styles/variables' as *;
+
+.date-selector {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden; // 날짜가 밖으로 나가지 않도록
+  
+  // 캘린더 카드
+  &__card {
+    background: $white;
+    border: 1px solid $border-beige;
+    border-radius: $border-radius-lg;
+    padding: $spacing-sm $spacing-xs; // 간격 최소화 (스크롤 없이 보이도록)
+    box-shadow: $shadow-sm;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  // 월 네비게이션 헤더
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: $spacing-sm; // 간격 최소화
+  }
+  
+  // 월 네비게이션 버튼
+  &__nav-button {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: $brand-brown-light-bg;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: $black;
+    
+    &:hover {
+      background: $brand-brown-light-bg-hover;
+      transform: scale(1.05);
+    }
+    
+    &:active {
+      transform: scale(0.95);
+    }
+    
+    svg {
+      width: 20px;
+      height: 20px;
+    }
+  }
+  
+  // 월 표시 텍스트
+  &__month {
+    font-size: $font-lg; // 폰트 크기 확대 (랜딩페이지 참고: 18px)
+    font-weight: $font-weight-bold;
+    color: $black;
+    font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+    line-height: 1.2;
+  }
+  
+  // 요일 헤더
+  &__weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px; // 최소 간격
+    margin-bottom: $spacing-xs; // 간격 최소화
+    width: 100%;
+  }
+  
+  &__weekday {
+    text-align: center;
+    font-size: $font-base; // 폰트 크기 확대 (랜딩페이지 참고: 16px)
+    font-weight: $font-weight-medium;
+    color: $black;
+    padding: 4px 0; // 간격 최소화
+    font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+  }
+  
+  // 날짜 그리드
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px; // 최소 간격 (날짜가 밖으로 나가지 않도록)
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  // 날짜 셀
+  &__day {
+    aspect-ratio: 1;
+    // 화면 크기에 맞게 동적 크기 조정 (스크롤 없이 보이도록 높이 제한)
+    width: 100%;
+    max-width: 100%;
+    max-height: 40px; // 최대 높이 제한 (스크롤 없이 보이도록)
+    min-height: 0; // aspect-ratio가 높이를 결정하도록
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: $border-radius-md;
+    transition: all 0.2s ease;
+    position: relative;
+    padding: 2px 1px; // 최소 패딩 (간격 최소화)
+    box-sizing: border-box;
+    
+    // 기본 날짜 (선택 가능)
+    &-number {
+      font-size: $font-base; // 폰트 크기 확대 (랜딩페이지 참고: 16px)
+      font-weight: $font-weight-normal;
+      color: $black;
+      font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+      line-height: 1.1; // 간격 최소화
+      white-space: nowrap; // 텍스트 줄바꿈 방지
+    }
+    
+    // 지망 표시
+    &-preference {
+      font-size: 10px; // 폰트 크기 확대
+      font-weight: $font-weight-normal;
+      color: $black;
+      margin-top: 0; // 간격 최소화
+      line-height: 1;
+      font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+      white-space: nowrap; // 텍스트 줄바꿈 방지
+    }
+    
+    // 오늘 날짜 (선택 전)
+    &--today {
+      background: $brand-brown-light-bg;
+      
+      .date-selector__day-number {
+        color: $black;
+      }
+    }
+    
+    // 선택된 날짜 (예약 희망일)
+    &--selected {
+      background: $brand-brown-dark;
+      
+      .date-selector__day-number {
+        color: $white;
+        font-weight: $font-weight-semibold;
+      }
+      
+      .date-selector__preference {
+        color: $white;
+      }
+    }
+    
+    // 다른 달 날짜 (이전/다음 달)
+    &--other-month {
+      .date-selector__day-number {
+        color: $gray-666;
+      }
+    }
+    
+    // 선택 불가 날짜 (과거/휴무일)
+    &--disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+      
+      .date-selector__day-number {
+        color: $gray-666;
+      }
+    }
+    
+    // 빈 셀
+    &--empty {
+      cursor: default;
+      pointer-events: none;
+    }
+    
+    // 호버 효과 (선택 가능한 날짜만)
+    &:not(&--disabled):not(&--empty):not(&--selected):hover {
+      background: rgba($brand-brown-light-bg, 0.5);
+    }
+  }
+  
+  // 모바일 반응형
+  @media (max-width: 767px) {
+    &__card {
+      padding: $spacing-xs; // 간격 최소화
+    }
+    
+    &__header {
+      margin-bottom: $spacing-xs; // 간격 최소화
+    }
+    
+    &__nav-button {
+      width: 36px;
+      height: 36px;
+      flex-shrink: 0; // 버튼 크기 고정
+      
+      svg {
+        width: 18px;
+        height: 18px;
+      }
+    }
+    
+    &__month {
+      font-size: $font-base; // 폰트 크기 확대 (랜딩페이지 참고)
+      flex: 1;
+      text-align: center;
+    }
+    
+    &__weekdays {
+      gap: 2px;
+      margin-bottom: $spacing-xs; // 간격 최소화
+    }
+    
+    &__weekday {
+      font-size: $font-sm; // 폰트 크기 확대
+      padding: 2px 0; // 간격 최소화
+    }
+    
+    &__grid {
+      gap: 2px;
+    }
+    
+    &__day {
+      max-height: 38px; // 최대 높이 제한 (스크롤 없이 보이도록)
+      padding: 1px; // 최소 패딩
+      
+      &-number {
+        font-size: $font-sm; // 폰트 크기 확대 (랜딩페이지 참고: 14px)
+      }
+      
+      &-preference {
+        font-size: 9px; // 폰트 크기 확대
+        margin-top: 0;
+      }
+    }
+  }
+}
+

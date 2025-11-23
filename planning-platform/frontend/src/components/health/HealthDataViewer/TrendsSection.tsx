@@ -1154,7 +1154,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                                 data: validData
                               }]}
                               width={260}
-                              height={180}
+                              height={220}
                               responsive={false}
                               healthRanges={healthRanges || undefined}
                               allYears={allYears.map(y => parseInt(y.toString(), 10))}
@@ -1182,7 +1182,22 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                       }
                       
                       return (
-                        <div className="measurement-date">
+                        <div 
+                          className="measurement-date"
+                          style={{
+                            position: 'absolute',
+                            bottom: '8px',
+                            right: '24px',
+                            fontSize: '0.75rem', // 12px (6px의 두 배)
+                            color: '#718096',
+                            textAlign: 'right',
+                            whiteSpace: 'nowrap',
+                            zIndex: 100,
+                            display: 'flex',
+                            justifyContent: 'flex-end',
+                            alignItems: 'center'
+                          }}
+                        >
                           <span className="date-label">측정일:</span>
                           <span className="date-value">{formattedDate}</span>
                         </div>

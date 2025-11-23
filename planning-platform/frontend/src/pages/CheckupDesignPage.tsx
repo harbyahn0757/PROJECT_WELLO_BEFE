@@ -54,8 +54,8 @@ const CheckupDesignPage: React.FC = () => {
       
       await surveyService.submitSurvey(request);
       
-      // 완료 후 결과 페이지로 이동
-      navigate('/checkup-results', { state: { surveyResponse: response } });
+      // 완료 후 검진 항목 추천 페이지로 이동
+      navigate('/checkup-recommendations', { state: { surveyResponse: response } });
     } catch (error) {
       console.error('설문조사 제출 실패:', error);
     }
