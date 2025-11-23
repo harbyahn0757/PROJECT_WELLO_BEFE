@@ -1360,7 +1360,7 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
       }
       
       .metric-chart {
-        height: 150px; // 모바일에서도 그래프 높이 증가 (140px → 150px, 헤더 간격 줄인만큼 보상)
+        height: 160px; // 모바일에서도 그래프 높이 증가 (150px → 160px)
       }
     }
   }
