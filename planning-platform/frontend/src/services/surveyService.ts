@@ -15,7 +15,15 @@ class SurveyService {
       const response = await fetch(`${API_BASE_URL}/api/v1/surveys/${surveyId}`);
       
       if (!response.ok) {
+        // 403, 404, 501 등의 에러는 목업 데이터 반환
         throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      // Content-Type 확인
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        // JSON이 아닌 응답 (HTML 등)은 목업 데이터 반환
+        throw new Error('Invalid response type');
       }
       
       const data: SurveyApiResponse = await response.json();
@@ -26,9 +34,8 @@ class SurveyService {
       
       return data.data;
     } catch (error) {
-      console.error('설문조사 불러오기 오류:', error);
-      
-      // 백엔드가 없을 때 목업 데이터 반환
+      // 백엔드가 없을 때 목업 데이터 반환 (에러 로그는 조용히 처리)
+      // console.warn('설문조사 API 미구현 - 목업 데이터 사용');
       return this.getMockSurvey(surveyId);
     }
   }
@@ -45,7 +52,31 @@ class SurveyService {
       });
       
       if (!response.ok) {
+        // 403, 404 등의 에러는 목업 응답 반환 (에러를 throw하지 않음)
+        if (response.status === 403 || response.status === 404 || response.status === 501) {
+          console.warn('설문조사 저장 API 미구현 - 목업 응답 반환');
+          return {
+            success: true,
+            data: {
+              sessionId: request.sessionId,
+              isCompleted: false
+            }
+          };
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        // JSON이 아닌 응답은 목업 응답 반환
+        console.warn('설문조사 저장 API 응답 형식 오류 - 목업 응답 반환');
+        return {
+          success: true,
+          data: {
+            sessionId: request.sessionId,
+            isCompleted: false
+          }
+        };
       }
       
       const data: SurveySubmitResponse = await response.json();
@@ -81,7 +112,17 @@ class SurveyService {
       });
       
       if (!response.ok) {
+        // 403, 404, 501 등의 에러는 미개발 상태로 간주하여 에러 throw
+        if (response.status === 403 || response.status === 404 || response.status === 501) {
+          throw new Error('API_NOT_IMPLEMENTED');
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        // JSON이 아닌 응답은 미개발 상태로 간주
+        throw new Error('API_NOT_IMPLEMENTED');
       }
       
       const data: SurveySubmitResponse = await response.json();
@@ -92,16 +133,8 @@ class SurveyService {
       
       return data;
     } catch (error) {
-      console.error('설문조사 제출 오류:', error);
-      
-      // 백엔드가 없을 때 목업 응답 반환
-      return {
-        success: true,
-        data: {
-          sessionId: request.sessionId,
-          isCompleted: true
-        }
-      };
+      // 에러를 다시 throw하여 상위에서 처리하도록 함 (로그는 조용히)
+      throw error;
     }
   }
 
@@ -267,18 +300,6 @@ class SurveyService {
                       ]
                     }
                   ]
-                }
-              ]
-            },
-            {
-              id: 'recommendations',
-              title: '맞춤 검진 추천',
-              subtitle: '입력해주신 정보를 바탕으로 추천 검진 항목을 안내해드립니다',
-              sections: [
-                {
-                  id: 'recommendation-result',
-                  title: '추천 결과',
-                  questions: []
                 }
               ]
             }

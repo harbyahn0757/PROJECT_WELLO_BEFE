@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import DynamicSurvey from '../components/DynamicSurvey';
+import WelloModal from '../components/common/WelloModal';
 import { Survey, SurveyResponse, SurveySubmitRequest } from '../types/survey';
 import surveyService from '../services/surveyService';
+import './CheckupDesignPage.scss';
 
 const CheckupDesignPage: React.FC = () => {
   const navigate = useNavigate();
@@ -10,6 +12,12 @@ const CheckupDesignPage: React.FC = () => {
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showUnderDevelopmentModal, setShowUnderDevelopmentModal] = useState(false);
+
+  // 모달 상태 디버깅
+  useEffect(() => {
+    console.log('🔍 [검진설계] 모달 상태 변경:', showUnderDevelopmentModal);
+  }, [showUnderDevelopmentModal]);
 
   useEffect(() => {
     const loadSurvey = async () => {
@@ -44,6 +52,13 @@ const CheckupDesignPage: React.FC = () => {
   };
 
   const handleComplete = async (response: SurveyResponse) => {
+    console.log('✅ [검진설계] handleComplete 호출됨');
+    // API가 미구현 상태이므로 바로 모달 표시
+    console.log('✅ [검진설계] 모달 표시:', showUnderDevelopmentModal);
+    setShowUnderDevelopmentModal(true);
+    console.log('✅ [검진설계] 모달 상태 업데이트 완료');
+    
+    // 백그라운드에서 API 호출 시도 (실패해도 무시)
     try {
       const request: SurveySubmitRequest = {
         surveyId: response.surveyId,
@@ -55,12 +70,25 @@ const CheckupDesignPage: React.FC = () => {
       
       await surveyService.submitSurvey(request);
       
-      // 완료 후 검진 항목 추천 페이지로 이동 (URL 파라미터 유지)
+      // 성공 시 모달 닫고 페이지 이동
+      setShowUnderDevelopmentModal(false);
       const queryString = location.search;
       navigate(`/checkup-recommendations${queryString}`, { state: { surveyResponse: response } });
     } catch (error) {
-      console.error('설문조사 제출 실패:', error);
+      // 실패해도 이미 모달이 표시되어 있으므로 무시
+      console.log('✅ [검진설계] API 실패 - 모달 유지');
     }
+  };
+
+  const handleModalConfirm = () => {
+    setShowUnderDevelopmentModal(false);
+    // 목업 검진 추천 페이지로 이동 (URL 파라미터 유지)
+    const queryString = location.search;
+    navigate(`/checkup-recommendations${queryString}`);
+  };
+
+  const handleModalCancel = () => {
+    setShowUnderDevelopmentModal(false);
   };
 
   const handleBack = () => {
@@ -101,13 +129,51 @@ const CheckupDesignPage: React.FC = () => {
   }
 
   return (
-    <DynamicSurvey
-      survey={survey}
-      onSave={handleSave}
-      onComplete={handleComplete}
-      onBack={handleBack}
-      hideNavigation={true}
-    />
+    <>
+      <DynamicSurvey
+        survey={survey}
+        onSave={handleSave}
+        onComplete={handleComplete}
+        onBack={handleBack}
+        hideNavigation={true}
+      />
+      
+      {/* 미개발 안내 모달 */}
+      <WelloModal
+        isOpen={showUnderDevelopmentModal}
+        onClose={handleModalCancel}
+        showCloseButton={true}
+        showWelloIcon={true}
+        size="medium"
+      >
+        <div className="checkup-design-modal">
+          <h2 className="checkup-design-modal__title">
+            아직 미개발
+          </h2>
+          <p className="checkup-design-modal__description">
+            검진 항목 설계 기능은<br />
+            현재 개발 중입니다.<br />
+            <br />
+            목업 검진 추천 페이지로<br />
+            이동하시겠습니까?
+          </p>
+          <div className="checkup-design-modal__actions">
+            <button
+              className="checkup-design-modal__btn checkup-design-modal__btn--cancel"
+              onClick={handleModalCancel}
+            >
+              취소
+            </button>
+            <button
+              className="checkup-design-modal__btn checkup-design-modal__btn--confirm"
+              onClick={handleModalConfirm}
+            >
+              이동하기
+            </button>
+          </div>
+        </div>
+      </WelloModal>
+    </>
   );
 };
 

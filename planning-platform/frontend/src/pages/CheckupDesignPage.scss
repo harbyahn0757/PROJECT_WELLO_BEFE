@@ -1,0 +1,54 @@
+.checkup-design-modal {
+  padding: 2rem;
+  text-align: center;
+
+  &__title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-primary, #4b5563);
+    margin-bottom: 1.5rem;
+  }
+
+  &__description {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--color-text, #6b7280);
+    margin-bottom: 2rem;
+    white-space: pre-line;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+  }
+
+  &__btn {
+    padding: 0.75rem 2rem;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &--cancel {
+      background-color: var(--color-gray-200, #e5e7eb);
+      color: var(--color-text, #6b7280);
+
+      &:hover {
+        background-color: var(--color-gray-300, #d1d5db);
+      }
+    }
+
+    &--confirm {
+      background-color: var(--color-warning, #ed8936);
+      color: white;
+
+      &:hover {
+        background-color: var(--color-warning-dark, #dd6b20);
+      }
+    }
+  }
+}
+

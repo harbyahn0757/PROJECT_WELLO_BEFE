@@ -161,16 +161,21 @@ const DynamicSurvey: React.FC<DynamicSurveyProps> = ({
   // 다음 페이지
   const handleNext = async () => {
     const response = createResponse();
+    console.log('🔍 [DynamicSurvey] handleNext 호출:', { isLastPage, currentPageIndex, totalPages: survey.pages.length });
 
     if (survey.settings.autoSave && onSave) {
       await onSave(response);
     }
 
     if (isLastPage) {
+      console.log('✅ [DynamicSurvey] 마지막 페이지 - onComplete 호출');
       if (onComplete) {
         await onComplete(response);
+      } else {
+        console.warn('⚠️ [DynamicSurvey] onComplete가 없습니다!');
       }
     } else {
+      console.log('➡️ [DynamicSurvey] 다음 페이지로 이동');
       setCurrentPageIndex(prev => prev + 1);
     }
   };
@@ -374,7 +379,7 @@ const DynamicSurvey: React.FC<DynamicSurveyProps> = ({
               cursor: hasAnswerForCurrentPage() ? 'pointer' : 'not-allowed'
             }}
           >
-            {isLastPage ? '완료' : '다음'}
+            {isLastPage ? '결과 보기' : '다음'}
           </button>
         </div>
       ) : (
@@ -403,7 +408,7 @@ const DynamicSurvey: React.FC<DynamicSurveyProps> = ({
             onClick={handleNext}
             style={{ flex: '1' }}
           >
-            {isLastPage ? '완료' : '다음'}
+            {isLastPage ? '결과 보기' : '다음'}
           </button>
           
           {/* 앞으로가기 버튼 (이미 진행했던 페이지가 있는 경우) */}
