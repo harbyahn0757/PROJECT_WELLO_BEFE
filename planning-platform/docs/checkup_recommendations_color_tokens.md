@@ -148,3 +148,4 @@ $checkup-recommendation-accent: #새로운색상; // 검진 추천 전용 액센
 - CSS 변수: `/frontend/src/styles/design-tokens.css`
 - 색상 시스템 명세: `/docs/09_color_system_specification.md`
 
+

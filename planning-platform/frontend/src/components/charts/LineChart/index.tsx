@@ -123,16 +123,16 @@ const LineChart: React.FC<LineChartProps> = ({
       maxValue = dataMax;
     } else {
       // healthRanges가 있을 때는 기존 로직 사용
-      const referenceValues = allPoints.flatMap(p => 
-        p.reference ? [p.reference.min, p.reference.max, p.reference.optimal].filter(v => 
-          typeof v === 'number' && !isNaN(v) && isFinite(v)
-        ) : []
-      ) as number[];
-      
-      const allValues = [...values, ...referenceValues];
-      
-      // healthRanges에서 범위 값 추출 (Y축 동적 설정을 위해)
-      const healthRangeValues: number[] = [];
+    const referenceValues = allPoints.flatMap(p => 
+      p.reference ? [p.reference.min, p.reference.max, p.reference.optimal].filter(v => 
+        typeof v === 'number' && !isNaN(v) && isFinite(v)
+      ) : []
+    ) as number[];
+    
+    const allValues = [...values, ...referenceValues];
+    
+    // healthRanges에서 범위 값 추출 (Y축 동적 설정을 위해)
+    const healthRangeValues: number[] = [];
       if (healthRanges.normal && healthRanges.normal.min !== null && healthRanges.normal.max !== null) {
         healthRangeValues.push(healthRanges.normal.min, healthRanges.normal.max);
       }
@@ -141,42 +141,42 @@ const LineChart: React.FC<LineChartProps> = ({
       }
       if (healthRanges.abnormal && healthRanges.abnormal.min !== null && healthRanges.abnormal.max !== null) {
         healthRangeValues.push(healthRanges.abnormal.min, healthRanges.abnormal.max);
-      }
-      
-      // 모든 값 통합 (데이터 값 + 참조선 값 + healthRanges 값)
-      const allRangeValues = [...allValues, ...healthRangeValues];
-      
-      if (allRangeValues.length === 0) {
+    }
+    
+    // 모든 값 통합 (데이터 값 + 참조선 값 + healthRanges 값)
+    const allRangeValues = [...allValues, ...healthRangeValues];
+    
+    if (allRangeValues.length === 0) {
         minValue = dataMin;
         maxValue = dataMax;
       } else {
-        // healthRanges가 있으면 범위를 더 넓게 설정하여 모든 영역이 보이도록
-        const rangeMinValues: number[] = [];
-        const rangeMaxValues: number[] = [];
-        
-        if (healthRanges.normal && healthRanges.normal.min !== null && healthRanges.normal.max !== null) {
-          rangeMinValues.push(healthRanges.normal.min);
-          rangeMaxValues.push(healthRanges.normal.max);
-        }
-        if (healthRanges.borderline && healthRanges.borderline.min !== null && healthRanges.borderline.max !== null) {
-          rangeMinValues.push(healthRanges.borderline.min);
-          rangeMaxValues.push(healthRanges.borderline.max);
-        }
-        if (healthRanges.abnormal && healthRanges.abnormal.min !== null && healthRanges.abnormal.max !== null) {
-          rangeMinValues.push(healthRanges.abnormal.min);
-          rangeMaxValues.push(healthRanges.abnormal.max);
-        }
-        
-        // healthRanges의 최소값과 최대값을 고려
-        if (rangeMinValues.length > 0) {
-          const rangeMin = Math.min(...rangeMinValues);
+      // healthRanges가 있으면 범위를 더 넓게 설정하여 모든 영역이 보이도록
+      const rangeMinValues: number[] = [];
+      const rangeMaxValues: number[] = [];
+      
+      if (healthRanges.normal && healthRanges.normal.min !== null && healthRanges.normal.max !== null) {
+        rangeMinValues.push(healthRanges.normal.min);
+        rangeMaxValues.push(healthRanges.normal.max);
+      }
+      if (healthRanges.borderline && healthRanges.borderline.min !== null && healthRanges.borderline.max !== null) {
+        rangeMinValues.push(healthRanges.borderline.min);
+        rangeMaxValues.push(healthRanges.borderline.max);
+      }
+      if (healthRanges.abnormal && healthRanges.abnormal.min !== null && healthRanges.abnormal.max !== null) {
+        rangeMinValues.push(healthRanges.abnormal.min);
+        rangeMaxValues.push(healthRanges.abnormal.max);
+      }
+      
+      // healthRanges의 최소값과 최대값을 고려
+      if (rangeMinValues.length > 0) {
+        const rangeMin = Math.min(...rangeMinValues);
           minValue = Math.min(dataMin, rangeMin);
         } else {
           minValue = dataMin;
-        }
-        
-        if (rangeMaxValues.length > 0) {
-          const rangeMax = Math.max(...rangeMaxValues);
+      }
+      
+      if (rangeMaxValues.length > 0) {
+        const rangeMax = Math.max(...rangeMaxValues);
           // healthRanges.max가 실제 데이터보다 훨씬 크면 실제 데이터 범위 + 여백 사용
           if (rangeMax > dataMax * 3) {
             const normalMin = healthRanges.normal?.min;
@@ -189,13 +189,13 @@ const LineChart: React.FC<LineChartProps> = ({
             maxValue = Math.max(dataMax, rangeMax);
           }
         } else {
-          const normalMin = healthRanges.normal?.min;
-          if (normalMin && normalMin > dataMax) {
-            maxValue = Math.max(dataMax * 1.2, normalMin * 1.1);
-          } else {
-            maxValue = dataMax;
-          }
+        const normalMin = healthRanges.normal?.min;
+        if (normalMin && normalMin > dataMax) {
+          maxValue = Math.max(dataMax * 1.2, normalMin * 1.1);
+        } else {
+          maxValue = dataMax;
         }
+      }
       }
     }
     
@@ -215,9 +215,9 @@ const LineChart: React.FC<LineChartProps> = ({
       finalMaxValue = dataMax + 10;
     } else {
       // 기타 지표: 기존 로직 유지 (상단 5%, 하단 5% 여백)
-      const valueRange = maxValue - minValue || 1; // 0으로 나누기 방지
-      const topPadding = valueRange * 0.05;
-      const bottomPadding = valueRange * 0.05;
+    const valueRange = maxValue - minValue || 1; // 0으로 나누기 방지
+    const topPadding = valueRange * 0.05;
+    const bottomPadding = valueRange * 0.05;
       finalMinValue = Math.max(0, minValue - bottomPadding); // 음수 방지
       finalMaxValue = maxValue + topPadding;
     }

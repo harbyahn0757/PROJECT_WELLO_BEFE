@@ -162,16 +162,21 @@
   &__description {
     font-size: 12px !important; // 폰트 크기 더 작게
     color: #8B6F5E !important; // 브라운톤 색상
-    line-height: 1.2 !important; // 줄바꿈 간격 최소화
+    line-height: 1.4 !important; // 줄바꿈 간격 조정
     margin: 0 !important; // 모든 마진 제거
-    white-space: pre-line; // 줄바꿈 유지
+    white-space: normal !important; // 줄바꿈은 br 태그로 처리
     font-family: var(--font-family-item-description) !important; // 소라임
     
-    // br 태그 간격 제거
+    // br 태그 확실히 표시되도록 설정
     br {
-      line-height: 1.2 !important;
+      display: block !important;
+      content: "" !important;
+      line-height: 1.4 !important;
       margin: 0 !important;
       padding: 0 !important;
+      margin-top: 2px !important; // 줄 간격 추가
+      height: 0 !important;
+      width: 100% !important;
     }
     
     strong {

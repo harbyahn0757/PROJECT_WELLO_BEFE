@@ -31,9 +31,7 @@ const AppointmentPage: React.FC = () => {
   return (
     <AppointmentLayout
       onBack={handleBack}
-      buttonText="예약 신청 완료"
-      onButtonClick={handleButtonClick}
-      buttonDisabled={selectedDates.length === 0}
+      // 하단 버튼 제거 (onButtonClick 제거)
     >
       {/* 안내 텍스트 */}
       <div className="appointment-page__instruction">

@@ -2,12 +2,25 @@
  * WELLO API 설정 - 완전 단순화
  */
 
-// 환경 감지
-const IS_PRODUCTION = window.location.hostname === 'xogxog.com';
-const IS_DEVELOPMENT = !IS_PRODUCTION;
+// 환경 감지 (localhost에서 시작할 때 = 개발 모드)
+const IS_DEVELOPMENT = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const IS_PRODUCTION = !IS_DEVELOPMENT;
 
 // API 베이스 URL
 const API_BASE_URL = IS_PRODUCTION ? 'https://xogxog.com' : '';
+
+// 파트너 마케팅 API 설정
+const PARTNER_MARKETING_API_BASE = IS_DEVELOPMENT 
+  ? 'http://localhost:8000' 
+  : 'https://xogxog.com';
+
+// 캠페인 리다이렉트 URL 설정
+const CAMPAIGN_REDIRECT_URL = IS_DEVELOPMENT
+  ? 'http://localhost:3012'
+  : 'https://xogxog.com/campaigns/bnr_planning_XogXAims';
+
+// 웰노 파트너 API 키
+const WELNO_PARTNER_API_KEY = 'welno_5a9bb40b5108ecd8ef864658d5a2d5ab';
 
 // API URL 생성
 const createApiUrl = (path: string): string => {
@@ -45,6 +58,15 @@ export const API_ENDPOINTS = {
   
   // 약품 상세정보 관련
   DRUG_DETAIL: (drugCode: string) => createApiUrl(`/wello-api/v1/wello/drug-detail/${drugCode}`),
+  
+  // MDX 동기화 관련
+  MDX_SYNC: {
+    GET_MDX_PATIENTS: (phoneno: string, birthday: string, name: string) =>
+      createApiUrl(`/wello-api/v1/sync/mdx-patients?phoneno=${phoneno}&birthday=${birthday}&name=${encodeURIComponent(name)}`),
+  },
+  
+  // 파트너 마케팅 인증 관련
+  PARTNER_AUTH: `${PARTNER_MARKETING_API_BASE}/api/partner-marketing/partner-auth`,
   
   // 비밀번호 관련
   PASSWORD: {
@@ -91,4 +113,8 @@ export default {
   IS_DEVELOPMENT,
   createApiUrl,
   API_ENDPOINTS,
+  // 파트너 마케팅 관련 상수
+  PARTNER_MARKETING_API_BASE,
+  CAMPAIGN_REDIRECT_URL,
+  WELNO_PARTNER_API_KEY,
 };

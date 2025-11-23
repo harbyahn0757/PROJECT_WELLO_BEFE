@@ -22,3 +22,4 @@ const Legend: React.FC = () => {
 
 export default Legend;
 
+

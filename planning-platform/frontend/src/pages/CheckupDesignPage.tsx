@@ -106,6 +106,7 @@ const CheckupDesignPage: React.FC = () => {
       onSave={handleSave}
       onComplete={handleComplete}
       onBack={handleBack}
+      hideNavigation={true}
     />
   );
 };

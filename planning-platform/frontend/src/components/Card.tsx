@@ -58,7 +58,18 @@ const Card: React.FC<CardProps> = ({ type, icon, title, description, shortcutTex
         {/* 아이콘 제거 - 이미지만 표시 */}
         <div className="card__content">
           <h3 className="card__title">{title}</h3>
-          <p className="card__description">{description}</p>
+          <p className="card__description">
+            {description.includes('\n') ? (
+              description.split(/\n/).map((line, index, array) => (
+                <React.Fragment key={index}>
+                  {line}
+                  {index < array.length - 1 && <br />}
+                </React.Fragment>
+              ))
+            ) : (
+              description
+            )}
+          </p>
         </div>
         {/* 오른쪽 이미지 영역 (배경색 없음) */}
         <div className="card__image-area">

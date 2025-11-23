@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.openapi.utils import get_openapi
 import os
 
-from .api.v1.endpoints import patients, hospitals, health, checkup_design, auth, tilko_auth, websocket_auth, wello_data, file_management, health_analysis, password
+from .api.v1.endpoints import patients, hospitals, health, checkup_design, auth, tilko_auth, websocket_auth, wello_data, file_management, health_analysis, password, sync
 from .core.config import settings
 from .data.redis_session_manager import redis_session_manager as session_manager
 
@@ -49,6 +49,7 @@ app.include_router(wello_data.router, prefix="/api/v1/wello", tags=["wello"])
 app.include_router(file_management.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(password.router, prefix="/api/v1", tags=["password"])
 app.include_router(health_analysis.router, prefix="/api/v1/health-analysis", tags=["health-analysis"])
+app.include_router(sync.router, prefix="/api/v1", tags=["sync"])
 
 # 배포환경을 위한 wello-api 경로 추가 (프록시 없이 직접 접근)
 app.include_router(health.router, prefix="/wello-api/v1/health", tags=["health-wello"])
@@ -62,6 +63,7 @@ app.include_router(wello_data.router, prefix="/wello-api/v1/wello", tags=["wello
 app.include_router(file_management.router, prefix="/wello-api/v1/admin", tags=["admin-wello"])
 app.include_router(password.router, prefix="/wello-api/v1", tags=["password-wello"])
 app.include_router(health_analysis.router, prefix="/wello-api/v1/health-analysis", tags=["health-analysis-wello"])
+app.include_router(sync.router, prefix="/wello-api/v1", tags=["sync-wello"])
 
 # React Router를 위한 catch-all 라우트 (모든 API 라우터 등록 후에 추가)
 @app.get("/wello/{full_path:path}")

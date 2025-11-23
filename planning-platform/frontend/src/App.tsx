@@ -207,8 +207,16 @@ const FloatingButton: React.FC = () => {
     
     // comprehensive-analysis 페이지 제거됨
     
-    // 예약 페이지에서는 플로팅 버튼 숨김 (하단 버튼 사용)
+    // 예약 페이지에서는 플로팅 버튼 숨김
     if (path === '/appointment' || path.includes('/appointment')) {
+      return null;
+    }
+    
+    // 설문 페이지에서는 플로팅 버튼 숨김 (문진 페이지)
+    if (path === '/survey/checkup-design' || 
+        path === '/survey/health-habits' || 
+        path === '/survey/disease-prediction' ||
+        path.includes('/survey/')) {
       return null;
     }
     
@@ -218,7 +226,8 @@ const FloatingButton: React.FC = () => {
         text: '검진 예약 하기',
         onClick: () => {
           console.log('🎯 [플로팅버튼] 검진 예약 페이지로 이동');
-          navigate('/appointment');
+          const queryString = location.search;
+          navigate(`/appointment${queryString}`);
         }
       };
     }

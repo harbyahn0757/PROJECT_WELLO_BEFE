@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useCampaignSkin } from './hooks/useCampaignSkin';
+import CAMPAIGN_CONFIG from './config/env';
 import './styles/campaign.scss';
 import './styles/campaign-fixed.scss';
 import eventImage1 from './assets/images/event_page_01.5b52f2b4.jpg';
@@ -37,13 +38,34 @@ export const EventPageFixed: React.FC<EventPageFixedProps> = ({
     console.error('이벤트 이미지 로드 실패:', e.currentTarget.src);
   };
 
-  // 화면 회전 대응
+  // 화면 회전 대응 및 초기 스크롤 위치 설정
   useEffect(() => {
     const handleOrientationChange = () => {
       setTimeout(() => {
-        window.scrollTo(0, 0);
+        // 환경에 따라 스크롤 위치 설정
+        if (CAMPAIGN_CONFIG.IMAGE_LOAD_SCROLL_POSITION === 'top') {
+          window.scrollTo(0, 0);
+        } else {
+          // 배포 환경: 아래로 스크롤
+          window.scrollTo(0, document.documentElement.scrollHeight);
+        }
       }, 100);
     };
+
+    // 초기 스크롤 위치 설정
+    const setInitialScrollPosition = () => {
+      if (CAMPAIGN_CONFIG.IMAGE_LOAD_SCROLL_POSITION === 'top') {
+        window.scrollTo(0, 0);
+      } else {
+        // 배포 환경: 이미지가 아래에서 시작하도록 스크롤
+        setTimeout(() => {
+          window.scrollTo(0, document.documentElement.scrollHeight);
+        }, 100);
+      }
+    };
+
+    // 초기 스크롤 위치 설정
+    setInitialScrollPosition();
 
     window.addEventListener('orientationchange', handleOrientationChange);
     return () => {
@@ -54,7 +76,12 @@ export const EventPageFixed: React.FC<EventPageFixedProps> = ({
   return (
     <div className={`event-page-fixed campaign-container ${className}`}>
       <div className="container">
-        <div className="images-container">
+        <div 
+          className="images-container"
+          style={{
+            justifyContent: CAMPAIGN_CONFIG.IMAGE_CONTAINER_INITIAL_POSITION,
+          }}
+        >
           <div className="event-image">
             <img 
               src={eventImage1}
@@ -93,4 +120,5 @@ export const EventPageFixed: React.FC<EventPageFixedProps> = ({
       </div>
     </div>
   );
+};
 };

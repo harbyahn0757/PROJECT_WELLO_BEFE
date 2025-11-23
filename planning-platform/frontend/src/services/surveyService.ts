@@ -271,40 +271,6 @@ class SurveyService {
               ]
             },
             {
-              id: 'personal-info',
-              title: '개인 정보',
-              subtitle: '더 정확한 검진 항목 추천을 위해 기본 정보를 입력해주세요',
-              sections: [
-                {
-                  id: 'basic-info',
-                  title: '',
-                  questions: [
-                    {
-                      id: 'age-group',
-                      title: '연령대',
-                      type: 'select',
-                      options: [
-                        { id: '20s', label: '20대', value: '20s' },
-                        { id: '30s', label: '30대', value: '30s' },
-                        { id: '40s', label: '40대', value: '40s' },
-                        { id: '50s', label: '50대', value: '50s' },
-                        { id: '60s', label: '60대 이상', value: '60s' }
-                      ]
-                    },
-                    {
-                      id: 'gender',
-                      title: '성별',
-                      type: 'radio',
-                      options: [
-                        { id: 'male', label: '남성', value: 'male' },
-                        { id: 'female', label: '여성', value: 'female' }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            },
-            {
               id: 'recommendations',
               title: '맞춤 검진 추천',
               subtitle: '입력해주신 정보를 바탕으로 추천 검진 항목을 안내해드립니다',

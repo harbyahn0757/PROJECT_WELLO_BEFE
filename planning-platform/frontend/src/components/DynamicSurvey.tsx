@@ -15,6 +15,7 @@ interface DynamicSurveyProps {
   onSave?: (response: SurveyResponse) => Promise<void>;
   onComplete?: (response: SurveyResponse) => Promise<void>;
   onBack?: () => void;
+  hideNavigation?: boolean; // 다음/이전 버튼 영역 숨김 옵션
 }
 
 const DynamicSurvey: React.FC<DynamicSurveyProps> = ({
@@ -22,7 +23,8 @@ const DynamicSurvey: React.FC<DynamicSurveyProps> = ({
   initialResponse,
   onSave,
   onComplete,
-  onBack
+  onBack,
+  hideNavigation = false
 }) => {
   const navigate = useNavigate();
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -43,6 +45,27 @@ const DynamicSurvey: React.FC<DynamicSurveyProps> = ({
       section.questions.some(question => 
         answers.some(answer => answer.questionId === question.id)
       )
+    );
+  };
+
+  // 현재 페이지에 답변이 있는지 확인
+  const hasAnswerForCurrentPage = (): boolean => {
+    if (!currentPage) return false;
+    
+    return currentPage.sections.some(section => 
+      section.questions
+        .filter(shouldShowQuestion) // 조건부 질문은 제외
+        .some(question => {
+          const answer = getAnswer(question.id);
+          // 답변이 있고, 빈 배열이나 빈 문자열이 아닌 경우
+          if (Array.isArray(answer)) {
+            return answer.length > 0;
+          }
+          if (typeof answer === 'string') {
+            return answer.trim().length > 0;
+          }
+          return answer !== null && answer !== undefined;
+        })
     );
   };
 
@@ -337,50 +360,70 @@ const DynamicSurvey: React.FC<DynamicSurveyProps> = ({
       </div>
       
       {/* 하단 고정 플로팅 버튼 */}
-      <div className="survey-floating-button">
-        {/* 뒤로/앞으로 네비게이션 버튼들 */}
-        {currentPageIndex > 0 && (
+      {hideNavigation ? (
+        // hideNavigation이 true일 때: 다음 버튼만 표시 (답변이 있을 때만 활성화)
+        <div className="survey-floating-button">
           <button 
             type="button" 
-            className="survey-floating-button__btn survey-floating-button__btn--secondary" 
-            onClick={() => setCurrentPageIndex(prev => Math.max(0, prev - 1))}
+            className="survey-floating-button__btn" 
+            onClick={handleNext}
+            disabled={!hasAnswerForCurrentPage()}
             style={{ 
-              marginRight: '12px',
-              backgroundColor: '#6b7280',
-              flex: '0 0 auto',
-              minWidth: '80px'
+              flex: '1',
+              opacity: hasAnswerForCurrentPage() ? 1 : 0.5,
+              cursor: hasAnswerForCurrentPage() ? 'pointer' : 'not-allowed'
             }}
           >
-            이전
+            {isLastPage ? '완료' : '다음'}
           </button>
-        )}
-        
-        <button 
-          type="button" 
-          className="survey-floating-button__btn" 
-          onClick={handleNext}
-          style={{ flex: '1' }}
-        >
-          {isLastPage ? '완료' : '다음'}
-        </button>
-        
-        {/* 앞으로가기 버튼 (이미 진행했던 페이지가 있는 경우) */}
-        {currentPageIndex < survey.pages.length - 1 && hasAnswerForPage(survey.pages[currentPageIndex + 1]?.id) && (
+        </div>
+      ) : (
+        // hideNavigation이 false일 때: 기존 네비게이션 버튼들 표시
+        <div className="survey-floating-button">
+          {/* 뒤로/앞으로 네비게이션 버튼들 */}
+          {currentPageIndex > 0 && (
+            <button 
+              type="button" 
+              className="survey-floating-button__btn survey-floating-button__btn--secondary" 
+              onClick={() => setCurrentPageIndex(prev => Math.max(0, prev - 1))}
+              style={{ 
+                marginRight: '12px',
+                backgroundColor: '#6b7280',
+                flex: '0 0 auto',
+                minWidth: '80px'
+              }}
+            >
+              이전
+            </button>
+          )}
+          
           <button 
             type="button" 
-            className="survey-floating-button__btn survey-floating-button__btn--tertiary" 
-            onClick={() => setCurrentPageIndex(prev => Math.min(survey.pages.length - 1, prev + 1))}
-            style={{ 
-              marginLeft: '12px',
-              backgroundColor: '#9ca3af',
-              flex: '0 0 auto',
-              minWidth: '80px'
-            }}
+            className="survey-floating-button__btn" 
+            onClick={handleNext}
+            style={{ flex: '1' }}
           >
-            건너뛰기
+            {isLastPage ? '완료' : '다음'}
           </button>
-        )}
-      </div>
+          
+          {/* 앞으로가기 버튼 (이미 진행했던 페이지가 있는 경우) */}
+          {currentPageIndex < survey.pages.length - 1 && hasAnswerForPage(survey.pages[currentPageIndex + 1]?.id) && (
+            <button 
+              type="button" 
+              className="survey-floating-button__btn survey-floating-button__btn--tertiary" 
+              onClick={() => setCurrentPageIndex(prev => Math.min(survey.pages.length - 1, prev + 1))}
+              style={{ 
+                marginLeft: '12px',
+                backgroundColor: '#9ca3af',
+                flex: '0 0 auto',
+                minWidth: '80px'
+              }}
+            >
+              건너뛰기
+            </button>
+          )}
+        </div>
+      )}
     </>
   );
 };

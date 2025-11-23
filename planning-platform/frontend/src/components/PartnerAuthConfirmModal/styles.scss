@@ -1,0 +1,123 @@
+@use '../../styles/variables' as *;
+@use '../../styles/mixins' as *;
+
+.partner-auth-confirm-modal {
+  text-align: left;
+  
+  &__title {
+    font-size: $font-2xl;
+    font-weight: $font-weight-bold;
+    color: $white;
+    margin-bottom: $spacing-md;
+    text-align: center;
+  }
+  
+  &__description {
+    font-size: $font-base;
+    color: rgba($white, 0.8);
+    margin-bottom: $spacing-lg;
+    text-align: center;
+  }
+  
+  &__info {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: $border-radius-lg;
+    padding: $spacing-md;
+    margin-bottom: $spacing-xl;
+  }
+  
+  &__endpoint {
+    margin-bottom: $spacing-md;
+    
+    strong {
+      display: block;
+      font-size: $font-sm;
+      color: rgba($white, 0.9);
+      margin-bottom: $spacing-xs;
+    }
+    
+    code {
+      display: block;
+      font-size: $font-sm;
+      color: $warning; // 주황색 (ed8936)
+      background: rgba(0, 0, 0, 0.3);
+      padding: $spacing-xs $spacing-sm;
+      border-radius: $border-radius-sm;
+      word-break: break-all;
+      font-family: 'Courier New', monospace;
+    }
+  }
+  
+  &__payload {
+    strong {
+      display: block;
+      font-size: $font-sm;
+      color: rgba($white, 0.9);
+      margin-bottom: $spacing-xs;
+    }
+  }
+  
+  &__json {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba($white, 0.1);
+    border-radius: $border-radius-sm;
+    padding: $spacing-md;
+    font-size: $font-xs;
+    color: $white;
+    font-family: 'Courier New', monospace;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 300px;
+    overflow-y: auto;
+    margin: 0;
+    line-height: 1.6;
+    
+    // JSON 키 하이라이트
+    &::before {
+      content: '';
+    }
+  }
+  
+  &__actions {
+    display: flex;
+    gap: $spacing-md;
+    margin-top: $spacing-xl;
+  }
+  
+  &__btn {
+    flex: 1;
+    @include button-base;
+    font-size: $font-lg;
+    padding: $spacing-md $spacing-lg;
+    border-radius: $border-radius-xl;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: $font-weight-semibold;
+    
+    &--cancel {
+      background-color: rgba($white, 0.2);
+      color: $white;
+      border: 1px solid rgba($white, 0.3);
+      
+      &:hover {
+        background-color: rgba($white, 0.3);
+      }
+    }
+    
+    &--confirm {
+      background-color: $warning; // 주황색 (ed8936)
+      color: $white;
+      border: 1px solid $warning;
+      
+      &:hover:not(:disabled) {
+        background-color: darken($warning, 5%);
+      }
+      
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+    }
+  }
+}
+
