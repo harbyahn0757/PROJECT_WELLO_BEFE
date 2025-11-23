@@ -568,7 +568,6 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
               });
               
               if (item) {
-                foundItem = true;
                 // 매칭된 항목 발견 (로그 제거)
                 
                 // ItemReferences가 빈 배열이거나 없으면 neutral (측정) 반환
