@@ -134,3 +134,4 @@ class MdxWelloSyncService:
             print(f"❌ [WELLO 검진데이터 조회] 오류: {e}")
             return []
 
+

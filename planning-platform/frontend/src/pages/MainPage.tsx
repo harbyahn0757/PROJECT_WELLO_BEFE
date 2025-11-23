@@ -114,25 +114,24 @@ const MainPage: React.FC = () => {
   };
   
   // 파트너 인증 확인 모달 핸들러
-  const handlePartnerAuthConfirm = async () => {
-    if (!pendingPartnerAuthPayload) {
-      console.warn('⚠️ [파트너인증] 페이로드 없음');
-      setShowPartnerAuthModal(false);
-      return;
-    }
-    
-    setShowPartnerAuthModal(false);
-    
+  // 파트너 인증 API 호출 함수 (공통 로직)
+  const callPartnerAuthAPI = async (payload: {
+    api_key: string;
+    mkt_uuid?: string;
+    name?: string;
+    birthday?: string;
+    redirect_url: string;
+  }, endpoint: string) => {
     try {
       // 파트너 인증 API 호출
-      console.log('🔐 [질병예측리포트] 파트너 인증 API 호출:', pendingPartnerAuthPayload);
+      console.log('🔐 [질병예측리포트] 파트너 인증 API 호출:', payload);
       
-      const response = await fetch(pendingPartnerAuthEndpoint, {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(pendingPartnerAuthPayload),
+        body: JSON.stringify(payload),
         redirect: 'follow' // 리다이렉트 자동 따라가기
       });
       
@@ -172,11 +171,26 @@ const MainPage: React.FC = () => {
     } catch (error) {
       console.error('❌ [질병예측리포트] 파트너 인증 오류:', error);
       alert('질병예측 리포트 접속 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
-    } finally {
-      // 페이로드 정리
-      setPendingPartnerAuthPayload(null);
-      setPendingPartnerAuthEndpoint('');
     }
+  };
+
+  const handlePartnerAuthConfirm = async () => {
+    if (!pendingPartnerAuthPayload || !pendingPartnerAuthEndpoint) {
+      console.warn('⚠️ [파트너인증] 페이로드 또는 엔드포인트 없음');
+      setShowPartnerAuthModal(false);
+      return;
+    }
+    
+    const payload = pendingPartnerAuthPayload;
+    const endpoint = pendingPartnerAuthEndpoint;
+    
+    setShowPartnerAuthModal(false);
+    
+    await callPartnerAuthAPI(payload, endpoint);
+    
+    // 페이로드 정리
+    setPendingPartnerAuthPayload(null);
+    setPendingPartnerAuthEndpoint('');
   };
   
   const handlePartnerAuthCancel = () => {
@@ -498,51 +512,64 @@ const MainPage: React.FC = () => {
       case 'prediction':
         // 질병예측 리포트 보기는 파트너 인증 API를 거쳐 캠페인 페이지로 이동
         // mkt_uuid는 선택사항 (없으면 새 사용자로 등록)
-        // 환경 설정 가져오기
-        const CAMPAIGN_REDIRECT_URL = apiConfig.CAMPAIGN_REDIRECT_URL;
-        const WELNO_PARTNER_API_KEY = apiConfig.WELNO_PARTNER_API_KEY;
-        
-        // 환자 정보 가져오기
-        const patientName = patient?.name || urlParams.get('name') || '';
-        const patientBirthdayRaw = patient?.birthday || urlParams.get('birthday') || '';
-        
-        // 생년월일을 YYYYMMDD 형식으로 변환 (YYYY-MM-DD -> YYYYMMDD)
-        let patientBirthday = '';
-        if (patientBirthdayRaw) {
-          patientBirthday = patientBirthdayRaw.replace(/-/g, '');
+        try {
+          // 환경 설정 가져오기
+          const CAMPAIGN_REDIRECT_URL = apiConfig.CAMPAIGN_REDIRECT_URL;
+          const WELNO_PARTNER_API_KEY = apiConfig.WELNO_PARTNER_API_KEY;
+          const IS_DEVELOPMENT = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          
+          // 환자 정보 가져오기
+          const patientName = patient?.name || urlParams.get('name') || '';
+          const patientBirthdayRaw = patient?.birthday || urlParams.get('birthday') || '';
+          
+          // 생년월일을 YYYYMMDD 형식으로 변환 (YYYY-MM-DD -> YYYYMMDD)
+          let patientBirthday = '';
+          if (patientBirthdayRaw) {
+            patientBirthday = patientBirthdayRaw.replace(/-/g, '');
+          }
+          
+          // API 요청 페이로드 구성 (mkt_uuid는 선택사항)
+          const requestPayload: {
+            api_key: string;
+            mkt_uuid?: string;
+            name?: string;
+            birthday?: string;
+            redirect_url: string;
+          } = {
+            api_key: WELNO_PARTNER_API_KEY,
+            redirect_url: CAMPAIGN_REDIRECT_URL
+          };
+          
+          // mkt_uuid가 있으면 추가 (없으면 새 사용자로 처리)
+          if (uuid) {
+            requestPayload.mkt_uuid = uuid;
+          }
+          
+          // name이 있으면 추가 (새 사용자 등록 시 필수)
+          if (patientName) {
+            requestPayload.name = patientName;
+          }
+          
+          // birthday가 있으면 추가 (새 사용자 등록 시 권장)
+          if (patientBirthday) {
+            requestPayload.birthday = patientBirthday;
+          }
+          
+          // 개발 환경: 모달 띄우고 확인 후 호출
+          // 프로덕션 환경: 모달 없이 바로 호출
+          if (IS_DEVELOPMENT) {
+            console.log('🔧 [질병예측리포트] 개발 모드 - 모달 표시');
+            setPendingPartnerAuthPayload(requestPayload);
+            setPendingPartnerAuthEndpoint(API_ENDPOINTS.PARTNER_AUTH);
+            setShowPartnerAuthModal(true);
+          } else {
+            console.log('🚀 [질병예측리포트] 프로덕션 모드 - 바로 호출');
+            await callPartnerAuthAPI(requestPayload, API_ENDPOINTS.PARTNER_AUTH);
+          }
+        } catch (error) {
+          console.error('❌ [질병예측리포트] 파트너 인증 오류:', error);
+          alert('질병예측 리포트 접속 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
         }
-        
-        // API 요청 페이로드 구성 (mkt_uuid는 선택사항)
-        const requestPayload: {
-          api_key: string;
-          mkt_uuid?: string;
-          name?: string;
-          birthday?: string;
-          redirect_url: string;
-        } = {
-          api_key: WELNO_PARTNER_API_KEY,
-          redirect_url: CAMPAIGN_REDIRECT_URL
-        };
-        
-        // mkt_uuid가 있으면 추가 (없으면 새 사용자로 처리)
-        if (uuid) {
-          requestPayload.mkt_uuid = uuid;
-        }
-        
-        // name이 있으면 추가 (새 사용자 등록 시 필수)
-        if (patientName) {
-          requestPayload.name = patientName;
-        }
-        
-        // birthday가 있으면 추가 (새 사용자 등록 시 권장)
-        if (patientBirthday) {
-          requestPayload.birthday = patientBirthday;
-        }
-        
-        // 모달에 표시할 데이터 저장 후 모달 열기
-        setPendingPartnerAuthPayload(requestPayload);
-        setPendingPartnerAuthEndpoint(API_ENDPOINTS.PARTNER_AUTH);
-        setShowPartnerAuthModal(true);
         break;
         
       case 'habit':

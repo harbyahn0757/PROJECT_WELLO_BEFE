@@ -149,3 +149,4 @@ $checkup-recommendation-accent: #새로운색상; // 검진 추천 전용 액센
 - 색상 시스템 명세: `/docs/09_color_system_specification.md`
 
 
+

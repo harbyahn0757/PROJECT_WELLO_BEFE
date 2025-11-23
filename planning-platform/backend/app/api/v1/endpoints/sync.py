@@ -59,3 +59,4 @@ async def get_mdx_patients(
             detail=f"MDX 환자 조회 중 오류가 발생했습니다: {str(e)}"
         )
 
+
