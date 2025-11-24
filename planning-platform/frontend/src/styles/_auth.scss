@@ -63,8 +63,10 @@ html body .auth__content ~ .floating-button.button {
   width: 100vw !important;
   margin: 0 !important; // 마진 제거
   margin-bottom: 0 !important; // 하단 마진 완전 제거
-  padding: 0.75rem 1rem 0 !important; // 하단 패딩 완전 제거
+  min-height: $floating-button-height !important; // 버튼 높이 (상수 사용)
+  padding: $floating-button-padding-vertical $floating-button-padding-horizontal 0 !important; // 상수 사용
   padding-bottom: 0 !important; // 하단 패딩 명시적 제거
+  font-size: $floating-button-font-size !important; // 폰트 크기 (상수 사용)
   border-radius: 0 !important; // 기본 border-radius 제거
   border-top-left-radius: 12px !important; // 상단 왼쪽 모서리 라운드
   border-top-right-radius: 12px !important; // 상단 오른쪽 모서리 라운드

@@ -5,17 +5,36 @@ import {
   SurveySubmitResponse,
   SurveyResponse 
 } from '../types/survey';
+import apiConfig from '../config/api';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// API 베이스 URL 설정 (api.ts의 설정 사용)
+const getApiBaseUrl = (): string => {
+  if (apiConfig.IS_DEVELOPMENT) {
+    // 개발 환경: 프록시 사용 (상대 경로)
+    return '';
+  } else {
+    // 프로덕션: 절대 경로
+    return apiConfig.API_BASE_URL;
+  }
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 class SurveyService {
   // 설문조사 구조 가져오기
   async getSurvey(surveyId: string): Promise<Survey> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/surveys/${surveyId}`);
+      const url = API_BASE_URL 
+        ? `${API_BASE_URL}/wello-api/v1/surveys/${surveyId}`
+        : `/wello-api/v1/surveys/${surveyId}`;
+      const response = await fetch(url);
       
       if (!response.ok) {
         // 403, 404, 501 등의 에러는 목업 데이터 반환
+        if (response.status === 403 || response.status === 404 || response.status === 501) {
+          console.log('📋 [설문조사] API 미구현 - 목업 데이터 사용');
+          return this.getMockSurvey(surveyId);
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
@@ -43,7 +62,10 @@ class SurveyService {
   // 설문조사 답변 저장 (중간저장)
   async saveSurveyResponse(request: SurveySubmitRequest): Promise<SurveySubmitResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/surveys/save`, {
+      const url = API_BASE_URL 
+        ? `${API_BASE_URL}/wello-api/v1/surveys/save`
+        : `/wello-api/v1/surveys/save`;
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -103,7 +125,10 @@ class SurveyService {
   // 설문조사 완료 제출
   async submitSurvey(request: SurveySubmitRequest): Promise<SurveySubmitResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/surveys/submit`, {
+      const url = API_BASE_URL 
+        ? `${API_BASE_URL}/wello-api/v1/surveys/submit`
+        : `/wello-api/v1/surveys/submit`;
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -141,7 +166,10 @@ class SurveyService {
   // 저장된 설문조사 응답 불러오기
   async getSurveyResponse(surveyId: string, sessionId: string): Promise<SurveyResponse | null> {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/surveys/${surveyId}/responses/${sessionId}`);
+      const url = API_BASE_URL 
+        ? `${API_BASE_URL}/wello-api/v1/surveys/${surveyId}/responses/${sessionId}`
+        : `/wello-api/v1/surveys/${surveyId}/responses/${sessionId}`;
+      const response = await fetch(url);
       
       if (!response.ok) {
         if (response.status === 404) {

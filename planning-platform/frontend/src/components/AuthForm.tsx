@@ -1594,7 +1594,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     console.log('🎯 [인증페이지] 모든 정보 확인 완료, 인증 시작:', {
       name: editableName,
       phone: editablePhone,
-      birthday: editableBirthday
+      birthday: editableBirthday,
+      selectedAuthType: selectedAuthType,
+      authTypeName: AUTH_TYPES.find(t => t.value === selectedAuthType)?.label || '알 수 없음'
     });
 
     // 기존 데이터 확인
@@ -1630,19 +1632,34 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         console.warn('⚠️ [세션정리] 실패 (계속 진행):', cleanupError);
       }
       
+      // 인증 타입 확인 및 로그
+      const authTypeName = AUTH_TYPES.find(t => t.value === selectedAuthType)?.label || '알 수 없음';
+      console.log('🔐 [인증타입] 선택된 인증 방법:', {
+        value: selectedAuthType,
+        name: authTypeName,
+        allTypes: AUTH_TYPES.map(t => ({ value: t.value, label: t.label }))
+      });
+      
       // 1단계: 세션 시작
+      const sessionStartPayload = {
+        private_auth_type: selectedAuthType,
+        user_name: editableName, // 수정된 이름 사용
+        birthdate: editableBirthday, // 수정된 생년월일 사용
+        phone_no: editablePhone.replace(/-/g, ''), // 수정된 전화번호 사용
+        gender: updatedAuthInput.gender,
+        patient_uuid: patient?.uuid, // 환자 UUID 추가
+        hospital_id: patient?.hospital_id // 병원 ID 추가
+      };
+      
+      console.log('📤 [세션시작] 요청 데이터:', {
+        ...sessionStartPayload,
+        phone_no: '***' // 개인정보 마스킹
+      });
+      
       const sessionResponse = await fetch(TILKO_API.SESSION_START(), {
         method: HTTP_METHODS.POST,
         headers: API_HEADERS.JSON,
-        body: JSON.stringify({
-          private_auth_type: selectedAuthType,
-          user_name: editableName, // 수정된 이름 사용
-          birthdate: editableBirthday, // 수정된 생년월일 사용
-          phone_no: editablePhone.replace(/-/g, ''), // 수정된 전화번호 사용
-          gender: updatedAuthInput.gender,
-          patient_uuid: patient?.uuid, // 환자 UUID 추가
-          hospital_id: patient?.hospital_id // 병원 ID 추가
-        })
+        body: JSON.stringify(sessionStartPayload)
       });
 
       if (!sessionResponse.ok) {
@@ -2614,7 +2631,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                     {AUTH_TYPES.map((authType) => (
                       <div
                         key={authType.value}
-                        onClick={() => setSelectedAuthType(authType.value)}
+                        onClick={() => {
+                          console.log('🔘 [인증방법선택] 사용자가 선택:', {
+                            value: authType.value,
+                            label: authType.label,
+                            previousValue: selectedAuthType
+                          });
+                          setSelectedAuthType(authType.value);
+                        }}
                         style={{
                           display: 'flex',
                           alignItems: 'center',

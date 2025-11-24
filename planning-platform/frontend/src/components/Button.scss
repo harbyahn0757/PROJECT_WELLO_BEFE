@@ -13,8 +13,10 @@
     border-top-right-radius: 12px !important;
     border-bottom-left-radius: 0 !important;
     border-bottom-right-radius: 0 !important;
-    padding: 0.75rem 1rem !important;
-    padding-bottom: 0.75rem !important;
+    min-height: $floating-button-height !important; // 버튼 높이 (상수 사용)
+    padding: $floating-button-padding-vertical $floating-button-padding-horizontal !important; // 상수 사용
+    padding-bottom: $floating-button-padding-vertical !important; // 하단 패딩도 상수 사용
+    font-size: $floating-button-font-size !important; // 폰트 크기 (상수 사용)
     margin: 0 !important;
     margin-bottom: 0 !important;
     border-bottom: none !important;

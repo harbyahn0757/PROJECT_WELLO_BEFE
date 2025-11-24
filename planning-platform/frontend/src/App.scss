@@ -426,16 +426,16 @@ button.floating-button,
   width: 100vw !important; // 뷰포트 전체 너비 (스크롤바 포함)
   max-width: 100vw !important; // 최대 너비 제한 제거
   min-width: 100vw !important; // 최소 너비도 100vw
-  min-height: 56px !important; // 버튼 높이 증가 (48px -> 56px)
+  min-height: $floating-button-height !important; // 버튼 높이 (상수 사용)
   background-color: #55433B !important; // 버튼 색상 (#55433B)
   color: #FFFFFF !important; // 흰색 폰트
   border: none !important; // 테두리 제거
   border-bottom: none !important; // 하단 테두리 완전 제거
   outline: none !important; // 아웃라인 제거
   box-shadow: 0 -4px 12px rgba(124, 116, 106, 0.3) !important; // 상단에만 그림자 (하단 그림자 제거)
-  padding: 0.75rem 1rem 0 !important; // 하단 패딩 완전 제거
+  padding: $floating-button-padding-vertical $floating-button-padding-horizontal 0 !important; // 상수 사용
   padding-bottom: 0 !important; // 하단 패딩 명시적 제거
-  font-size: 17px !important; // 폰트 크기 조금 크게 (16px -> 17px)
+  font-size: $floating-button-font-size !important; // 폰트 크기 (상수 사용)
   font-weight: var(--font-weight-semibold) !important;
   font-family: var(--font-family-greeting) !important; // 인사말과 같은 폰트 (Noto Sans KR)
   border-radius: 0 !important; // 기본 border-radius 제거

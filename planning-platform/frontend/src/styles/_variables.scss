@@ -247,6 +247,10 @@ $card-icon-size-horizontal: 36px;               // 가로형 카드 아이콘 �
 
 // 플로팅 버튼용
 $floating-button-spacing: 80px;                 // 플로팅 버튼 여백 높이
+$floating-button-height: 72px;                  // 버튼 높이 (랜딩/인증 화면 공통)
+$floating-button-font-size: 20px;                // 폰트 크기 (랜딩/인증 화면 공통)
+$floating-button-padding-vertical: 1rem;         // 상하 패딩
+$floating-button-padding-horizontal: 1rem;        // 좌우 패딩
 
 // 경계선 색상
 $border-beige: #EAE4D7;                         // 베이지 경계선 (탭, 헤더 구분선, 캘린더 테두리)

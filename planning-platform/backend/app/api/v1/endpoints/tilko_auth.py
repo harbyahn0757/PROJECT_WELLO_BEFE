@@ -225,16 +225,33 @@ async def session_simple_auth(
         
         user_info = session_data["user_info"]
         
+        # 선택된 인증 방법 확인
+        private_auth_type = user_info.get("private_auth_type", "0")
+        auth_type_names = {
+            "0": "카카오톡",
+            "4": "통신사Pass",
+            "6": "네이버"
+        }
+        auth_type_name = auth_type_names.get(private_auth_type, f"알 수 없음({private_auth_type})")
+        
+        print(f"🔍 [틸코API] simple_auth 호출 - 사용자: {user_info['name']}, 인증방법: {auth_type_name} (타입: {private_auth_type})")
+        
         # 간편인증 요청
+        auth_messages = {
+            "0": "카카오 간편인증을 요청하고 있습니다...",
+            "4": "통신사Pass 인증을 요청하고 있습니다...",
+            "6": "네이버 인증을 요청하고 있습니다..."
+        }
+        auth_message = auth_messages.get(private_auth_type, "간편인증을 요청하고 있습니다...")
+        
         session_manager.update_session_status(
             session_id, 
             "auth_requesting", 
-            "카카오 간편인증을 요청하고 있습니다..."
+            auth_message
         )
         
-        print(f"🔍 [틸코API] simple_auth 호출 - 사용자: {user_info['name']}")
         result = await simple_auth(
-            user_info["private_auth_type"],
+            private_auth_type,
             user_info["name"],
             user_info["birthdate"],
             user_info["phone_no"]
