@@ -316,11 +316,29 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
 
       setState(prev => ({ ...prev, isLoading: true, error: null }));
 
+      // API 엔드포인트 로그 출력
+      const patientUrl = API_ENDPOINTS.PATIENT(uuid);
+      const hospitalUrl = API_ENDPOINTS.HOSPITAL(hospital);
+      console.log('🌐 [API 호출] 시작:', {
+        patientUrl,
+        hospitalUrl,
+        uuid,
+        hospital,
+        timestamp: new Date().toISOString()
+      });
+
       // API 호출 (환경변수 기반 URL 사용)
       const [patientResponse, hospitalResponse] = await Promise.all([
-        fetch(API_ENDPOINTS.PATIENT(uuid)),
-        fetch(API_ENDPOINTS.HOSPITAL(hospital)),
+        fetch(patientUrl),
+        fetch(hospitalUrl),
       ]);
+      
+      console.log('📥 [API 응답] 받음:', {
+        patientStatus: patientResponse.status,
+        hospitalStatus: hospitalResponse.status,
+        patientOk: patientResponse.ok,
+        hospitalOk: hospitalResponse.ok
+      });
 
       // 응답 상태 및 Content-Type 검증
       if (!patientResponse.ok) {
@@ -376,8 +394,33 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
       let hospitalData: HospitalData;
 
       try {
-        patientData = await patientResponse.json();
-        console.log('✅ [환자 API] JSON 파싱 성공:', { uuid, name: patientData.name });
+        const patientResponseData = await patientResponse.json();
+        console.log('✅ [환자 API] JSON 파싱 성공:', { uuid, name: patientResponseData.name });
+        
+        // 환자 API 응답에 hospital 객체가 포함되어 있으면 우선 사용
+        if (patientResponseData.hospital && typeof patientResponseData.hospital === 'object') {
+          console.log('📦 [환자 API] 응답에 병원 정보 포함됨, 별도 API 호출 생략');
+          hospitalData = patientResponseData.hospital as HospitalData;
+          // hospital 객체 제거하고 patientData만 추출
+          const { hospital: _, ...patientDataWithoutHospital } = patientResponseData;
+          patientData = patientDataWithoutHospital as PatientData;
+        } else {
+          // 환자 API 응답에 hospital이 없으면 별도 API 호출
+          patientData = patientResponseData as PatientData;
+          
+          try {
+            hospitalData = await hospitalResponse.json();
+            console.log('✅ [병원 API] JSON 파싱 성공:', { hospitalId: hospital, name: hospitalData.name });
+          } catch (error) {
+            const responseText = await hospitalResponse.text();
+            console.error('🚨 [병원 API] JSON 파싱 실패:', {
+              error: error instanceof Error ? error.message : error,
+              url: API_ENDPOINTS.HOSPITAL(hospital),
+              responsePreview: responseText.substring(0, 200)
+            });
+            throw new Error(`병원 정보 JSON 파싱 실패: ${error instanceof Error ? error.message : error}`);
+          }
+        }
       } catch (error) {
         const responseText = await patientResponse.text();
         console.error('🚨 [환자 API] JSON 파싱 실패:', {
@@ -386,19 +429,6 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
           responsePreview: responseText.substring(0, 200)
         });
         throw new Error(`환자 정보 JSON 파싱 실패: ${error instanceof Error ? error.message : error}`);
-      }
-
-      try {
-        hospitalData = await hospitalResponse.json();
-        console.log('✅ [병원 API] JSON 파싱 성공:', { hospitalId: hospital, name: hospitalData.name });
-      } catch (error) {
-        const responseText = await hospitalResponse.text();
-        console.error('🚨 [병원 API] JSON 파싱 실패:', {
-          error: error instanceof Error ? error.message : error,
-          url: API_ENDPOINTS.HOSPITAL(hospital),
-          responsePreview: responseText.substring(0, 200)
-        });
-        throw new Error(`병원 정보 JSON 파싱 실패: ${error instanceof Error ? error.message : error}`);
       }
 
       // patient 데이터에 hospital_id 추가

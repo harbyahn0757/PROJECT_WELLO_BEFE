@@ -409,6 +409,48 @@ const MainPage: React.FC = () => {
 
   // 데이터가 없는 경우 로딩 표시
   if (!layoutConfig || !patient || !hospital) {
+    // 디버깅 정보 출력
+    console.log('🔍 [메인페이지] 로딩 상태:', {
+      hasLayoutConfig: !!layoutConfig,
+      hasPatient: !!patient,
+      hasHospital: !!hospital,
+      isLoading: state.isLoading,
+      error: state.error,
+      urlParams: {
+        uuid: new URLSearchParams(location.search).get('uuid'),
+        hospital: new URLSearchParams(location.search).get('hospital')
+      }
+    });
+    
+    // 에러가 있고 환자 데이터가 없으면 에러 표시
+    if (state.error && !patient) {
+      return (
+        <div className="main-page-loading">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+            <p>데이터를 불러오는 중 오류가 발생했습니다.</p>
+            <p style={{ fontSize: '12px', color: '#999', marginTop: '10px' }}>
+              {state.error}
+            </p>
+            <button 
+              onClick={() => window.location.reload()} 
+              style={{ 
+                marginTop: '20px', 
+                padding: '10px 20px', 
+                backgroundColor: '#A16A51', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              새로고침
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
     return (
       <div className="main-page-loading">
         <div className="loading-spinner">
