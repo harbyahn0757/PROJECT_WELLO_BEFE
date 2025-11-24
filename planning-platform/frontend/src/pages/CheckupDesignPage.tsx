@@ -1,179 +1,165 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import DynamicSurvey from '../components/DynamicSurvey';
-import WelloModal from '../components/common/WelloModal';
-import { Survey, SurveyResponse, SurveySubmitRequest } from '../types/survey';
-import surveyService from '../services/surveyService';
+import { useWelloData } from '../contexts/WelloDataContext';
+import ConcernSelection from '../components/checkup-design/ConcernSelection';
+import checkupDesignService from '../services/checkupDesignService';
+import { loadHealthData } from '../utils/healthDataLoader';
 import './CheckupDesignPage.scss';
 
 const CheckupDesignPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [survey, setSurvey] = useState<Survey | null>(null);
+  const { state } = useWelloData();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showUnderDevelopmentModal, setShowUnderDevelopmentModal] = useState(false);
+  // HealthDataViewer 형식: { ResultList: any[] }
+  const [healthData, setHealthData] = useState<{ ResultList: any[] }>({ ResultList: [] });
+  const [prescriptionData, setPrescriptionData] = useState<{ ResultList: any[] }>({ ResultList: [] });
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
 
-  // 모달 상태 디버깅
+  // 건강 데이터 로드 (HealthDataViewer 패턴 재사용 - 공용 로더 사용)
   useEffect(() => {
-    console.log('🔍 [검진설계] 모달 상태 변경:', showUnderDevelopmentModal);
-  }, [showUnderDevelopmentModal]);
-
-  useEffect(() => {
-    const loadSurvey = async () => {
+    const loadData = async () => {
       try {
         setLoading(true);
-        const surveyData = await surveyService.getSurvey('checkup-design');
-        setSurvey(surveyData);
+        const urlParams = new URLSearchParams(window.location.search);
+        const uuid = urlParams.get('uuid');
+        const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
+
+        if (!uuid || !hospital) {
+          setError('환자 정보가 없습니다.');
+          setLoading(false);
+          return;
+        }
+
+        // 공용 데이터 로더 사용 (API 우선, IndexedDB 폴백)
+        const result = await loadHealthData(uuid, hospital, state.patient?.name);
+        
+        console.log('📊 [검진설계] 데이터 로드 완료:', {
+          healthDataCount: result.healthData.ResultList.length,
+          prescriptionDataCount: result.prescriptionData.ResultList.length,
+          lastUpdate: result.lastUpdate
+        });
+        
+        setHealthData(result.healthData);
+        setPrescriptionData(result.prescriptionData);
+        setLoading(false);
       } catch (err) {
-        setError('설문조사를 불러오는데 실패했습니다.');
-        console.error(err);
-      } finally {
+        console.error('❌ [검진설계] 데이터 로드 실패:', err);
+        setError('건강 데이터를 불러오는데 실패했습니다.');
         setLoading(false);
       }
     };
 
-    loadSurvey();
-  }, []);
+    loadData();
+  }, [state.patient?.name]);
 
-  const handleSave = async (response: SurveyResponse) => {
-    try {
-      const request: SurveySubmitRequest = {
-        surveyId: response.surveyId,
-        sessionId: response.sessionId,
-        answers: response.answers,
-        pageId: response.currentPageId
-      };
-      
-      await surveyService.saveSurveyResponse(request);
-    } catch (error) {
-      console.error('설문조사 저장 실패:', error);
-    }
+  // 선택 항목 변경 핸들러
+  const handleSelectionChange = (items: Set<string>) => {
+    setSelectedItems(items);
   };
 
-  const handleComplete = async (response: SurveyResponse) => {
-    console.log('✅ [검진설계] handleComplete 호출됨');
-    // API가 미구현 상태이므로 바로 모달 표시
-    console.log('✅ [검진설계] 모달 표시:', showUnderDevelopmentModal);
-    setShowUnderDevelopmentModal(true);
-    console.log('✅ [검진설계] 모달 상태 업데이트 완료');
-    
-    // 백그라운드에서 API 호출 시도 (실패해도 무시)
+  // 다음 단계 핸들러
+  const handleNext = async (items: Set<string>, selectedConcerns: any[]) => {
     try {
-      const request: SurveySubmitRequest = {
-        surveyId: response.surveyId,
-        sessionId: response.sessionId,
-        answers: response.answers,
-        pageId: response.currentPageId,
-        isComplete: true
-      };
+      console.log('✅ [검진설계] 선택된 항목:', Array.from(items));
+      console.log('✅ [검진설계] 선택된 염려 항목:', selectedConcerns);
       
-      await surveyService.submitSurvey(request);
+      const urlParams = new URLSearchParams(window.location.search);
+      const uuid = urlParams.get('uuid');
+      const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
       
-      // 성공 시 모달 닫고 페이지 이동
-      setShowUnderDevelopmentModal(false);
+      if (!uuid || !hospital) {
+        setError('환자 정보가 없습니다.');
+        return;
+      }
+      
+      // GPT API 호출하여 검진 설계 생성
+      setLoading(true);
+      const response = await checkupDesignService.createCheckupDesign({
+        uuid,
+        hospital_id: hospital,
+        selected_concerns: selectedConcerns
+      });
+      
+      console.log('✅ [검진설계] GPT 응답 수신:', response);
+      
+      // 결과 페이지로 이동
       const queryString = location.search;
-      navigate(`/checkup-recommendations${queryString}`, { state: { surveyResponse: response } });
+      navigate(`/checkup-recommendations${queryString}`, { 
+        state: { 
+          checkupDesign: response.data,
+          selectedConcerns: selectedConcerns
+        }
+      });
     } catch (error) {
-      // 실패해도 이미 모달이 표시되어 있으므로 무시
-      console.log('✅ [검진설계] API 실패 - 모달 유지');
+      console.error('❌ [검진설계] API 호출 실패:', error);
+      setError('검진 설계 생성에 실패했습니다. 다시 시도해주세요.');
+      setLoading(false);
     }
-  };
-
-  const handleModalConfirm = () => {
-    setShowUnderDevelopmentModal(false);
-    // 목업 검진 추천 페이지로 이동 (URL 파라미터 유지)
-    const queryString = location.search;
-    navigate(`/checkup-recommendations${queryString}`);
-  };
-
-  const handleModalCancel = () => {
-    setShowUnderDevelopmentModal(false);
-  };
-
-  const handleBack = () => {
-    // URL 파라미터 유지하여 메인 페이지로 이동
-    const queryString = location.search;
-    navigate(`/${queryString}`);
   };
 
   if (loading) {
     return (
-      <div className="questionnaire-container">
-        <div className="container bg_xog_yellow">
-          <div className="wrapper login">
-            <div style={{ textAlign: 'center', padding: '50px' }}>
-              로딩 중...
-            </div>
+      <div className="checkup-design-page">
+        <div className="checkup-design-page__loading">
+          <div className="loading-spinner">
+            <p>건강 데이터를 불러오는 중...</p>
           </div>
         </div>
       </div>
     );
   }
 
-  if (error || !survey) {
+  if (error) {
     return (
-      <div className="questionnaire-container">
-        <div className="container bg_xog_yellow">
-          <div className="wrapper login">
-            <div style={{ textAlign: 'center', padding: '50px' }}>
-              <p>{error || '설문조사를 불러올 수 없습니다.'}</p>
-              <button onClick={handleBack} className="question__footer-button">
-                돌아가기
-              </button>
-            </div>
-          </div>
+      <div className="checkup-design-page">
+        <div className="checkup-design-page__error">
+          <p>{error}</p>
+          <button 
+            onClick={() => {
+              const queryString = location.search;
+              navigate(`/${queryString}`);
+            }}
+            className="checkup-design-page__back-button"
+          >
+            돌아가기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // HealthDataViewer 형식: { ResultList: [...] }
+  const healthDataList = Array.isArray(healthData) ? healthData : healthData.ResultList || [];
+  const prescriptionDataList = Array.isArray(prescriptionData) ? prescriptionData : prescriptionData.ResultList || [];
+  
+  if (healthDataList.length === 0 && prescriptionDataList.length === 0) {
+    return (
+      <div className="checkup-design-page">
+        <div className="checkup-design-page__error">
+          <p>건강 데이터가 없습니다.</p>
+          <button 
+            onClick={() => {
+              const queryString = location.search;
+              navigate(`/${queryString}`);
+            }}
+            className="checkup-design-page__back-button"
+          >
+            돌아가기
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <>
-      <DynamicSurvey
-        survey={survey}
-        onSave={handleSave}
-        onComplete={handleComplete}
-        onBack={handleBack}
-        hideNavigation={true}
-      />
-      
-      {/* 미개발 안내 모달 */}
-      <WelloModal
-        isOpen={showUnderDevelopmentModal}
-        onClose={handleModalCancel}
-        showCloseButton={true}
-        showWelloIcon={true}
-        size="medium"
-      >
-        <div className="checkup-design-modal">
-          <h2 className="checkup-design-modal__title">
-            아직 미개발
-          </h2>
-          <p className="checkup-design-modal__description">
-            검진 항목 설계 기능은<br />
-            현재 개발 중입니다.<br />
-            <br />
-            목업 검진 추천 페이지로<br />
-            이동하시겠습니까?
-          </p>
-          <div className="checkup-design-modal__actions">
-            <button
-              className="checkup-design-modal__btn checkup-design-modal__btn--cancel"
-              onClick={handleModalCancel}
-            >
-              취소
-            </button>
-            <button
-              className="checkup-design-modal__btn checkup-design-modal__btn--confirm"
-              onClick={handleModalConfirm}
-            >
-              이동하기
-            </button>
-          </div>
-        </div>
-      </WelloModal>
-    </>
+    <ConcernSelection
+      healthData={healthData}
+      prescriptionData={prescriptionData}
+      onSelectionChange={handleSelectionChange}
+      onNext={handleNext}
+    />
   );
 };
 

@@ -1,23 +1,22 @@
 {
   "files": {
-    "main.css": "/wello/static/css/main.4a07448b.css",
-    "main.js": "/wello/static/js/main.59057c16.js",
+    "main.css": "/wello/static/css/main.e215344a.css",
+    "main.js": "/wello/static/js/main.35ed6c67.js",
     "static/media/doc_nobg.png": "/wello/static/media/doc_nobg.777d6a56e64ed09e0ed9.png",
     "static/media/healthy_potato_nobg.png": "/wello/static/media/healthy_potato_nobg.6382d3f877e453c1c65a.png",
     "static/media/tired_potato_nobg.png": "/wello/static/media/tired_potato_nobg.d192812b130c8e6c1370.png",
     "static/media/rpt.png": "/wello/static/media/rpt.caf32a6b62b92baa50d4.png",
     "static/media/check_2 1.png": "/wello/static/media/check_2 1.f75418dbb00e3fe650d6.png",
     "static/media/hwkim_logo.png": "/wello/static/media/hwkim_logo.9758cdd8540fac9d9b9c.png",
-    "static/media/splash.png": "/wello/static/media/splash.1f680ea4aaba8a82038a.png",
     "static/media/chart.png": "/wello/static/media/chart.cee666cd2eea33c3fb5f.png",
     "static/media/welno_logo 2.png": "/wello/static/media/welno_logo 2.d5d3162e5efabf82cc24.png",
     "static/media/pass.png": "/wello/static/media/pass.203049a9f19b1e505577.png",
     "index.html": "/wello/index.html",
-    "main.4a07448b.css.map": "/wello/static/css/main.4a07448b.css.map",
-    "main.59057c16.js.map": "/wello/static/js/main.59057c16.js.map"
+    "main.e215344a.css.map": "/wello/static/css/main.e215344a.css.map",
+    "main.35ed6c67.js.map": "/wello/static/js/main.35ed6c67.js.map"
   },
   "entrypoints": [
-    "static/css/main.4a07448b.css",
-    "static/js/main.59057c16.js"
+    "static/css/main.e215344a.css",
+    "static/js/main.35ed6c67.js"
   ]
 }

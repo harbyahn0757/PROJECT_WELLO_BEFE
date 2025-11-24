@@ -1,0 +1,1089 @@
+/**
+ * ConcernSelection 컴포넌트 스타일
+ * UnifiedHealthTimeline 구조를 그대로 사용하여 진료/약국/검진으로 구분하여 항목 선택
+ */
+@use '../../../styles/variables' as *;
+@use '../../../styles/mixins' as *;
+
+  .concern-selection {
+  width: 100%;
+  min-height: 100vh;
+  background: $background-cream; // #FEF9EE
+  padding-bottom: 180px; // 하단 버튼 + 장바구니 영역 확보
+  box-sizing: border-box;
+  
+  // ConcernSelection 내부의 모든 checkup-item-card에만 적용 (UnifiedHealthTimeline 오버라이드)
+  
+  // 헤더 영역 (모드 표시만)
+  .concern-selection-header {
+    background: $background-cream;
+    padding: $spacing-sm $spacing-md; // 12px 16px
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+  }
+  
+  // 모드 인디케이터
+  .concern-mode-indicator {
+    font-size: $font-base;
+    font-weight: $font-weight-semibold;
+    color: $brand-brown-dark;
+    font-family: $font-family-base;
+  }
+
+  // 조회 기간 슬라이더 (오른쪽 끝 정렬, 탭과 같은 높이)
+  .concern-date-range-selector {
+    display: flex;
+    align-items: center; // 탭과 같은 높이로 정렬
+    justify-content: flex-end;
+    flex: 1;
+    min-width: 200px;
+  }
+  
+  // 드래그 슬라이더 (고정된 줄, 탭과 같은 높이)
+  .concern-date-range-slider {
+    width: 100%;
+    max-width: 300px;
+  }
+  
+  .concern-date-range-slider__track {
+    position: relative;
+    height: 4px;
+    background: $border-beige; // #EAE4D7
+    border-radius: $border-radius-sm; // 4px
+    margin: $spacing-xs 0; // 8px
+  }
+  
+  .concern-date-range-slider__range {
+    position: absolute;
+    height: 100%;
+    background: $brand-brown-dark; // #A16A51
+    border-radius: $border-radius-sm; // 4px
+    pointer-events: none;
+  }
+  
+  .concern-date-range-slider__handle {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: $brand-brown-dark; // #A16A51
+    border: 2px solid $white;
+    border-radius: 50%;
+    cursor: grab;
+    transform: translateX(-50%);
+    top: 50%;
+    margin-top: -10px;
+    box-shadow: $shadow-md;
+    transition: transform 0.1s ease;
+    user-select: none;
+    touch-action: none;
+    
+    &:hover {
+      transform: translateX(-50%) scale(1.2);
+    }
+    
+    &:active {
+      cursor: grabbing;
+      transform: translateX(-50%) scale(1.1);
+    }
+    
+    &--start {
+      z-index: 2;
+    }
+    
+    &--end {
+      z-index: 2;
+    }
+  }
+  
+  .concern-date-range-slider__year-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-bottom: 8px;
+    padding: 4px 8px;
+    background: $brand-brown-darker; // #55433B
+    color: $white;
+    font-size: $font-xs; // 12px
+    font-weight: $font-weight-semibold; // 600
+    font-family: $font-family-base;
+    border-radius: $border-radius-sm; // 4px
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 10;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 4px solid transparent;
+      border-top-color: $brand-brown-darker; // #55433B
+    }
+  }
+  
+  .concern-date-range-slider__labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: $font-xs; // 12px
+    color: $gray-600; // #718096
+    font-family: $font-family-base;
+    margin-top: 6px;
+  }
+
+  .concern-date-range-button {
+    flex-shrink: 0;
+    padding: 4px 8px; // 패딩 줄임
+    border: none;
+    background: transparent;
+    border-radius: $border-radius-md; // 6px
+    font-size: 11px; // 폰트 크기 줄임
+    font-weight: $font-weight-medium; // 500
+    color: $gray-600; // #718096
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-family: $font-family-base;
+    position: relative;
+    
+    &:hover {
+      color: $gray-800; // #2d3748
+    }
+    
+    &--active {
+      background: transparent;
+      color: $brand-brown-dark; // #A16A51
+      font-weight: $font-weight-semibold; // 600
+      
+      // 하단에 줄 그리기
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: $brand-brown-dark; // #A16A51
+        border-radius: 2px 2px 0 0;
+      }
+    }
+  }
+
+  // 탭 슬라이더 (UnifiedHealthTimeline group-slider 스타일 재사용)
+  .concern-tab-slider {
+    display: flex;
+    gap: 2px; // 간격 줄임
+    background: transparent;
+    border-radius: $border-radius-lg; // 8px
+    padding: 3px; // 패딩 줄임
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; // Firefox
+    -ms-overflow-style: none; // IE
+    flex: 1;
+    
+    &::-webkit-scrollbar {
+      display: none; // Chrome
+    }
+  }
+
+  .concern-tab {
+    flex-shrink: 0;
+    padding: 4px 8px; // 패딩 줄임
+    border: none;
+    background: transparent;
+    border-radius: $border-radius-md; // 6px
+    font-size: 11px; // 폰트 크기 줄임
+    font-weight: $font-weight-medium; // 500
+    color: $gray-600; // #718096
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-family: $font-family-base;
+    position: relative;
+    
+    &:hover {
+      background: transparent;
+      color: $gray-800; // #2d3748
+    }
+    
+    &--active {
+      background: transparent;
+      color: $brand-brown-dark; // #A16A51
+      font-weight: $font-weight-semibold; // 600
+      
+      // 하단에 줄 그리기
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: $brand-brown-dark; // #A16A51
+        border-radius: 2px 2px 0 0;
+      }
+    }
+  }
+
+  // 항목 리스트 컨테이너
+  .concern-items-container {
+    padding: 0 $spacing-md $spacing-lg; // 0 16px 24px
+    animation: fadeInUp 0.4s ease-out;
+  }
+
+  .concern-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm; // 12px
+  }
+
+  // 빈 상태
+  .concern-items-empty {
+    text-align: center;
+    padding: $spacing-2xl; // 48px
+    color: $gray-600; // #718096
+    font-size: $font-sm; // 14px (16px → 14px)
+    font-family: $font-family-base;
+  }
+
+  // UnifiedHealthTimeline 구조 사용
+  .concern-items-container {
+    &.unified-timeline {
+      width: 100%;
+      margin: 0;
+      padding: $spacing-sm $spacing-md 150px $spacing-md;
+      font-family: $font-family-base;
+      box-sizing: border-box;
+    }
+  }
+  
+  // 우상단 액션 영역 (접기/펼치기 버튼과 체크박스)
+  .record-header-actions {
+    position: absolute;
+    right: $spacing-sm; // 12px
+    top: $spacing-sm; // 12px
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs; // 8px
+    z-index: 100;
+    pointer-events: auto;
+  }
+  
+  // 접기/펼치기 버튼
+  .record-toggle {
+    display: flex;
+    align-items: center;
+  }
+  
+  // 체크박스
+  .record-checkbox-wrapper {
+    position: relative;
+    z-index: 100;
+    pointer-events: auto;
+  }
+  
+  .record-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    appearance: none;
+    border: 2px solid $gray-300;
+    background: $gray-100; // 옅은 회색 기본색
+    border-radius: $border-radius-sm;
+    position: relative;
+    transition: all 0.2s ease;
+    
+    &:checked {
+      background: $brand-brown-light-bg; // #F8EDDA 베이지색 배경
+      border-color: $brand-brown-dark; // #A16A51
+      
+      &::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: $brand-brown-dark; // #A16A51 갈색 체크
+        font-size: 14px;
+        font-weight: $font-weight-bold;
+      }
+    }
+    
+    &:hover {
+      border-color: $brand-brown-dark;
+      background: $gray-200;
+    }
+  }
+  
+  // 검진 카드 내부 뱃지와 체크박스 - 우상단 오른쪽에 나란히 배치
+  .checkup-item-badge-checkbox-wrapper {
+    position: absolute;
+    right: -15px; // 더 오른쪽으로 이동
+    top: 8px;
+    display: flex;
+    flex-direction: row;
+    align-items: center; // 같은 높이로 정렬
+    gap: 8px;
+    z-index: 1000;
+    min-width: 80px;
+    flex-shrink: 0;
+    pointer-events: auto;
+  }
+  
+  // 검진 카드 내부 뱃지 (왼쪽) - 높이를 체크박스와 같게
+  .checkup-item-badge-checkbox-wrapper .status-badge {
+    width: 32px;
+    height: 20px; // 체크박스와 같은 높이
+    border-radius: $border-radius-sm; // 선언된 둥근 모서리 사용
+    font-size: 9px;
+    font-weight: $font-weight-semibold;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    flex-shrink: 0;
+    position: relative !important; // UnifiedHealthTimeline의 absolute 오버라이드
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+    bottom: auto !important;
+    z-index: 1;
+    margin: 0;
+    
+    &.status-normal {
+      background: #61A82C;
+    }
+    
+    &.status-warning {
+      background: #EE6A31;
+    }
+    
+    &.status-abnormal {
+      background: #D73F3F;
+    }
+  }
+  
+  .checkup-item-checkbox-wrapper {
+    position: relative;
+    z-index: 2; // 뱃지보다 위에
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    pointer-events: auto;
+  }
+  
+  .checkup-item-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    border: 2px solid $gray-300;
+    background-color: $gray-100;
+    background-image: none;
+    border-radius: $border-radius-sm;
+    position: relative;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    display: block;
+    
+    &:checked {
+      background-color: $brand-brown-light-bg;
+      background-image: none;
+      border-color: $brand-brown-dark;
+      
+      &::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: $brand-brown-dark;
+        font-size: 14px;
+        font-weight: $font-weight-bold;
+      }
+    }
+    
+    &:hover {
+      border-color: $brand-brown-dark;
+      background-color: $gray-200;
+      background-image: none;
+    }
+  }
+  
+  // checkup-item-card가 position: relative인지 확인 및 UnifiedHealthTimeline 스타일 오버라이드
+  .checkup-item-card {
+    position: relative !important;
+    
+    // UnifiedHealthTimeline의 직접 배치된 .status-badge 완전 제거
+    > .status-badge {
+      display: none !important;
+      position: static !important;
+      top: auto !important;
+      right: auto !important;
+    }
+  }
+  
+  // 검진 카드 스타일 (UnifiedHealthTimeline 오버라이드)
+  .concern-selection .concern-items-container.unified-timeline .record-content .group-items-slider .checkup-item-card {
+    position: relative !important;
+    padding-top: $spacing-md !important; // 우상단 뱃지/체크박스 공간 확보
+    padding-right: 70px !important; // 우상단 체크박스(20px)+뱃지(24px)+간격(8px)+right(8px)+여유(10px) = 70px
+    padding-bottom: $spacing-md !important;
+    margin-bottom: $spacing-sm !important;
+    min-width: 240px !important;
+    box-sizing: border-box !important;
+    
+    // 체크박스가 내용을 가리지 않도록
+    .item-name-only,
+    .body-measurements,
+    .item-value-large,
+    .item-references-compact {
+      padding-right: 0 !important;
+    }
+    
+    &.selected {
+      background: $brand-brown-light-bg !important;
+      border: 1px solid $brand-brown-dark !important;
+    }
+  }
+  
+  // 약품 항목 - 뱃지와 체크박스 래퍼 (우상단, 겹치지 않게)
+  .medication-badge-checkbox-wrapper {
+    position: absolute;
+    right: $spacing-xs; // 8px로 줄여서 공간 확보
+    top: $spacing-xs; // 8px
+    display: flex;
+    align-items: center;
+    gap: 6px; // 뱃지와 체크박스 사이 간격 (6px로 줄임) - 겹치지 않게
+    z-index: 100;
+    pointer-events: auto;
+    // 겹침 방지: 최소 너비 보장
+    min-width: 50px; // 뱃지(약 20px) + 체크박스(20px) + 간격(6px) + 여유(4px)
+  }
+  
+  // 약품 항목 체크박스
+  .medication-item-checkbox-wrapper {
+    position: relative;
+    z-index: 100;
+    pointer-events: auto;
+  }
+  
+  // 약품 뱃지 스타일
+  .medication-duration {
+    font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-size: 10px;
+    color: $brand-brown-dark; // #A16A51
+    background: $brand-brown-light-bg; // #F8EDDA
+    padding: 1px 4px;
+    border-radius: $border-radius-sm;
+    flex-shrink: 0;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  
+  .medication-item-checkbox {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    appearance: none;
+    border: 2px solid $gray-300;
+    background: $gray-100; // 옅은 회색 기본색
+    border-radius: $border-radius-sm;
+    position: relative;
+    transition: all 0.2s ease;
+    
+    &:checked {
+      background: $brand-brown-light-bg; // #F8EDDA 베이지색 배경
+      border-color: $brand-brown-dark; // #A16A51
+      
+      &::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: $brand-brown-dark; // #A16A51 갈색 체크
+        font-size: 14px;
+        font-weight: $font-weight-bold;
+      }
+    }
+    
+    &:hover {
+      border-color: $brand-brown-dark;
+      background: $gray-200;
+    }
+  }
+  
+  .medication-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding-top: $spacing-md; // 우상단 뱃지/체크박스 공간 확보
+    padding-bottom: $spacing-md;
+    padding-right: 60px; // 우상단 뱃지+체크박스+간격+right+여유 공간 확보
+    margin-bottom: $spacing-sm;
+    // 최소 너비 보장으로 겹침 방지
+    min-width: 200px; // 약 아이템 최소 너비 보장
+    
+    &.selected {
+      background: $brand-brown-light-bg; // #F8EDDA
+      border: 1px solid $brand-brown-dark; // #A16A51
+    }
+    
+    // 효능 - 위에 표시 (두꺼운 글씨)
+    .medication-effect-top {
+      margin-bottom: $spacing-xs;
+      
+      .medication-effect {
+        font-size: $font-base; // 기본 크기 (두껍게)
+        font-weight: $font-weight-semibold; // 세미볼드
+        color: $gray-900;
+        line-height: 1.4;
+      }
+    }
+    
+    // 약이름 - 아래에 표시
+    .medication-header {
+      display: flex;
+      align-items: flex-start;
+      width: 100%;
+      
+      .medication-name {
+        flex: 1;
+        font-size: $font-sm; // 작은 글씨
+        font-weight: $font-weight-medium;
+        color: $gray-700;
+        word-break: break-word;
+      }
+    }
+  }
+  
+  // record-item 하단 여백 확보 (체크박스와 무관)
+  .record-item {
+    position: relative;
+    padding-right: 40px; // 체크박스 공간 확보
+    padding-bottom: $spacing-md; // 하단 여백 확보
+    margin-bottom: $spacing-xs; // 항목 간 여백
+    width: 100%; // 가로 영역을 꽉 채우도록
+    
+    .record-header {
+      padding-left: 0;
+      padding-right: 0;
+      padding-bottom: $spacing-sm; // 헤더 하단 여백
+    }
+    
+    .record-content {
+      width: 100%; // 가로 영역을 꽉 채우도록
+      padding-bottom: $spacing-lg; // 콘텐츠 하단 여백
+      padding-right: 0; // 오른쪽 패딩 제거 (빈 공간 제거)
+      margin-left: 0; // 왼쪽 마진 제거
+      margin-right: 0; // 오른쪽 마진 제거
+      box-sizing: border-box; // 패딩 포함 너비 계산
+      
+      // 내부 요소들의 오른쪽 여백 제거
+      .record-details {
+        width: 100%;
+        padding-right: 0;
+        margin-right: 0;
+        box-sizing: border-box;
+      }
+      
+      .medication-list {
+        width: 100%;
+        padding-right: 0;
+        margin-right: 0;
+        box-sizing: border-box;
+        
+        .medications {
+          width: 100%;
+          padding-right: 0;
+          margin-right: 0;
+          box-sizing: border-box;
+        }
+      }
+      
+      .advanced-checkup-details {
+        width: 100%;
+        padding-right: 0;
+        margin-right: 0;
+        box-sizing: border-box;
+        
+        .slider-container {
+          width: 100%;
+          padding-right: 0;
+          margin-right: 0;
+          box-sizing: border-box;
+          
+          .group-items-slider {
+            padding-right: 0;
+            margin-right: 0;
+            
+            // 검진 카드 최소 너비 보장 (겹침 방지)
+            .checkup-item-card {
+              min-width: 220px !important; // 겹침 방지를 위한 최소 너비 강제
+              flex-shrink: 0; // 카드가 줄어들지 않도록
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  .record-item-wrapper {
+    position: relative;
+    padding-left: $spacing-xs; // 왼쪽 패딩 줄임 (8px)
+    padding-right: $spacing-md; // 오른쪽 패딩 추가 (화면 끝과 간격)
+    width: 100%; // 가로 영역을 꽉 채우도록
+    max-width: 100%; // 최대 너비 제한
+    box-sizing: border-box; // 패딩 포함 너비 계산
+    
+    // 내부 record-item의 오른쪽 여백 제거
+    .record-item {
+      padding-right: 0;
+      margin-right: 0;
+    }
+    
+    &.selected {
+      .record-item {
+        background: $brand-brown-light-bg; // #F8EDDA
+        border: 1px solid $brand-brown-dark; // #A16A51
+      }
+    }
+  }
+  
+  // records-list 컨테이너도 가로 영역을 꽉 채우도록
+  .records-list {
+    width: 100%;
+    padding-right: 0; // 오른쪽 패딩 제거
+    margin-right: 0; // 오른쪽 마진 제거
+    box-sizing: border-box;
+  }
+  
+  // dates-list 컨테이너도 가로 영역을 꽉 채우도록
+  .dates-list {
+    width: 100%;
+    padding-right: 0; // 오른쪽 패딩 제거
+    margin-right: 0; // 오른쪽 마진 제거
+    box-sizing: border-box;
+  }
+  
+  // UnifiedHealthTimeline의 record-item 스타일 재사용
+  .record-item {
+    position: relative;
+    padding-right: 0; // 오른쪽 패딩 제거
+    padding-bottom: 0; // 하단 패딩 제거
+    margin-right: 0; // 오른쪽 마진 제거
+    margin-bottom: 0; // 하단 마진 제거
+    
+    .record-header {
+      padding-left: 0;
+      padding-right: 0;
+      padding-bottom: 0; // 하단 패딩 제거
+      margin-right: 0;
+      margin-bottom: 0; // 하단 마진 제거
+    }
+  }
+  
+  // 년.월.일 뱃지 (이 화면에서만)
+  .record-date-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: $gray-100;
+    color: $gray-700;
+    border-radius: $border-radius-sm;
+    font-size: $font-xs;
+    font-weight: $font-weight-medium;
+    margin-left: $spacing-xs;
+  }
+  
+  // date-header 숨기기 (이 화면에서만)
+  .concern-items-container {
+    .date-header {
+      display: none;
+    }
+    
+    // records-list
+    .records-list {
+      margin-left: 0;
+      margin-right: 0;
+      padding-right: 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    // 모든 섹션
+    .timeline-content,
+    .year-section,
+    .month-section,
+    .date-section {
+      width: 100%;
+      margin-right: 0;
+      padding-right: 0;
+      box-sizing: border-box;
+    }
+    
+    // record-item-wrapper
+    .record-item-wrapper {
+      width: 100%;
+      box-sizing: border-box;
+    }
+    
+    // record-item
+    .record-item {
+      width: 100%;
+      box-sizing: border-box;
+    }
+  }
+  
+  // 펼치기 토글 아이콘 회전
+  .toggle-icon {
+    transition: transform 0.3s ease;
+    
+    &.expanded {
+      transform: rotate(180deg);
+    }
+  }
+  
+  // 펼쳐진 상태 기본 스타일
+  .record-item.expanded {
+    .record-content {
+      max-height: none;
+      opacity: 1;
+      padding: $spacing-lg;
+    }
+  }
+
+  // 체크박스 래퍼 (CheckupRecommendationsPage 체크박스 스타일 재사용)
+  .concern-item-checkbox-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: $spacing-sm; // 12px
+  }
+
+  .concern-item-checkbox {
+    // CheckupRecommendationsPage 체크박스 스타일 재사용
+    width: 20px;
+    height: 20px;
+    border-radius: $border-radius-sm; // 4px
+    border: 2px solid $brand-brown-dark; // #A16A51
+    background: $white;
+    cursor: pointer;
+    appearance: none;
+    position: relative;
+    flex-shrink: 0;
+    margin-top: 2px; // 텍스트와 정렬
+    transition: all 0.2s ease;
+    
+    &:checked {
+      background: $brand-brown-dark; // #A16A51
+      border-color: $brand-brown-dark;
+      
+      &::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: $white;
+        font-size: 14px;
+        font-weight: $font-weight-bold;
+      }
+    }
+    
+    &:hover {
+      border-color: $brand-brown-darker; // #55433B
+    }
+  }
+
+  .concern-item-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs; // 8px
+  }
+
+  .concern-item-name {
+    font-size: $font-sm; // 14px (16px → 14px)
+    font-weight: $font-weight-semibold; // 600
+    color: $black;
+    font-family: $font-family-base;
+  }
+
+  .concern-item-meta {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs; // 8px
+    font-size: $font-xs; // 12px (14px → 12px)
+    color: $gray-600; // #718096
+    font-family: $font-family-base;
+  }
+
+  .concern-item-footer {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm; // 12px
+    flex-wrap: wrap;
+  }
+
+  // 상태 뱃지 (TrendsSection status-badge 스타일 재사용)
+  .concern-item-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    border-radius: $border-radius-sm; // 4px
+    font-size: $font-xs; // 12px
+    font-weight: $font-weight-medium; // 500
+    font-family: $font-family-base;
+    
+    &--warning {
+      background: $badge-warning-bg; // #ed8936
+      color: $badge-warning-text; // #ffffff
+    }
+    
+    &--abnormal {
+      background: $badge-abnormal-bg; // #f56565
+      color: $badge-abnormal-text; // #ffffff
+    }
+  }
+
+  .concern-item-location {
+    font-size: $font-xs; // 12px
+    color: $gray-600; // #718096
+    font-family: $font-family-base;
+  }
+
+  // 선택된 항목 썸네일 장바구니 (하단 고정)
+  .concern-selection-cart {
+    position: fixed;
+    bottom: 56px; // 버튼 위
+    left: 0;
+    right: 0;
+    background: $white;
+    border-top: 1px solid $border-beige; // #EAE4D7
+    box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+    z-index: 99;
+    max-height: 120px;
+    overflow-y: auto;
+    padding: $spacing-sm $spacing-md; // 12px 16px
+    animation: slideUp 0.3s ease-out;
+  }
+  
+  .concern-selection-cart__header {
+    margin-bottom: $spacing-xs; // 8px
+  }
+  
+  .concern-selection-cart__title {
+    font-size: $font-sm; // 14px
+    font-weight: $font-weight-semibold; // 600
+    color: $brand-brown-darker; // #55433B
+    font-family: $font-family-base;
+  }
+  
+  .concern-selection-cart__items {
+    display: flex;
+    gap: $spacing-xs; // 8px
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    
+    &::-webkit-scrollbar {
+      height: 4px;
+    }
+  }
+  
+  .concern-selection-cart__item {
+    position: relative;
+    flex-shrink: 0;
+    width: 80px;
+    height: 60px;
+    background: $brand-brown-light-bg; // #F8EDDA
+    border: 1px solid $brand-brown-dark; // #A16A51
+    border-radius: $border-radius-md; // 6px
+    padding: $spacing-xs; // 8px
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    animation: fadeInUp 0.3s ease-out;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      background: darken($brand-brown-light-bg, 5%);
+      transform: translateY(-2px);
+      box-shadow: $shadow-md;
+    }
+  }
+  
+  .concern-selection-cart__item-thumbnail {
+    width: 100%;
+    text-align: center;
+  }
+  
+  .concern-selection-cart__item-name {
+    font-size: 10px; // 작은 폰트
+    font-weight: $font-weight-medium; // 500
+    color: $brand-brown-darker; // #55433B
+    font-family: $font-family-base;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+  }
+  
+  .concern-selection-cart__item-meta {
+    font-size: 9px; // 더 작은 폰트
+    color: $gray-600; // #718096
+    font-family: $font-family-base;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .concern-selection-cart__item-remove {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 20px;
+    height: 20px;
+    background: $brand-brown-dark; // #A16A51
+    color: $white;
+    border: 2px solid $white;
+    border-radius: 50%;
+    font-size: 14px;
+    font-weight: $font-weight-bold; // 700
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    z-index: 1;
+    
+    &:hover {
+      background: $brand-brown-darker; // #55433B
+      transform: scale(1.1);
+    }
+    
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+
+  // 하단 버튼 (AppointmentLayout 하단 버튼 스타일 재사용)
+  .concern-selection-next-button {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    min-height: 56px; // 모바일: 52px
+    background-color: $brand-brown-darker; // #55433B
+    color: $white;
+    border: none;
+    border-radius: 0; // 하단 고정이므로
+    font-size: 17px; // 모바일: 16px
+    font-weight: $font-weight-semibold; // 600
+    font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+    padding: 0.75rem 1rem; // 12px 16px
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 -4px 12px rgba($brand-brown-darker, 0.3);
+    z-index: 100;
+    
+    &:hover:not(:disabled) {
+      background-color: darken($brand-brown-darker, 5%);
+      transform: translateY(-1px);
+      box-shadow: 0 -6px 16px rgba($brand-brown-darker, 0.4);
+    }
+    
+    &:active:not(:disabled) {
+      transform: translateY(0);
+    }
+    
+    &:disabled {
+      background-color: $gray-400; // #cbd5e0
+      color: $gray-600; // #718096
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+  }
+}
+
+// 페이드 인 애니메이션 (CheckupRecommendationsPage fadeInUp 재사용)
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 슬라이드 업 애니메이션 (장바구니용)
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 선택 펄스 애니메이션
+@keyframes selectPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+// 반응형 디자인
+@include respond-to(md) {
+  .concern-selection {
+    .concern-tab-slider {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .concern-items-container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .concern-selection-next-button {
+      min-height: 56px;
+      font-size: 17px;
+    }
+  }
+}
+
+// 모바일 반응형
+@media (max-width: 767px) {
+  .concern-selection {
+    .concern-selection-next-button {
+      min-height: 52px;
+      font-size: 16px;
+    }
+  }
+}
+

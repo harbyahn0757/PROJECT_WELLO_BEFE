@@ -14,6 +14,7 @@ interface CheckupItem {
   name: string;
   nameEn?: string;
   description?: string;
+  reason?: string; // GPT 응답의 추천 이유
   recommended: boolean;
 }
 
@@ -118,8 +119,12 @@ const CheckupRecommendationsPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 로딩 상태 관리
-  const [isLoading, setIsLoading] = useState(true);
+  // GPT 응답 데이터 (location.state에서 받음)
+  const gptResponse = location.state?.checkupDesign;
+  const selectedConcerns = location.state?.selectedConcerns;
+
+  // 로딩 상태 관리 (GPT 응답이 없을 때만 로딩 표시)
+  const [isLoading, setIsLoading] = useState(!gptResponse);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState('');
@@ -150,8 +155,14 @@ const CheckupRecommendationsPage: React.FC = () => {
     return () => window.removeEventListener('resize', updateHeaderHeight);
   }, []);
 
-  // 로딩 시뮬레이션
+  // 로딩 시뮬레이션 (GPT 응답이 없을 때만)
   useEffect(() => {
+    if (gptResponse) {
+      // GPT 응답이 있으면 로딩 표시하지 않음
+      setIsLoading(false);
+      return;
+    }
+
     let progress = 0;
     let messageIndex = 0;
     
@@ -187,22 +198,60 @@ const CheckupRecommendationsPage: React.FC = () => {
     setLoadingMessage(loadingMessages[0]);
 
     return () => clearInterval(loadingInterval);
-  }, []);
+  }, [gptResponse]);
 
-  // 아코디언 상태 관리
+  // GPT 응답 데이터를 RecommendationData 형식으로 변환
+  const convertGPTResponseToRecommendationData = (gptData: any): RecommendationData => {
+    if (!gptData || !gptData.recommended_items) {
+      // GPT 응답이 없으면 목업 데이터 사용
+      return {
+        ...mockRecommendationData,
+        patientName: patient?.name || mockRecommendationData.patientName,
+      };
+    }
+
+    const categories: RecommendationCategory[] = gptData.recommended_items.map((cat: any) => ({
+      categoryName: cat.category || '기타',
+      categoryNameEn: cat.category_en,
+      itemCount: cat.itemCount || cat.items?.length || 0,
+      items: (cat.items || []).map((item: any, index: number) => ({
+        id: `item-${cat.category}-${index}`,
+        name: item.name || '',
+        nameEn: item.nameEn || item.name_en,
+        description: item.description,
+        recommended: item.recommended !== false, // 기본값 true
+      })),
+      doctorRecommendation: cat.doctor_recommendation ? {
+        hasRecommendation: cat.doctor_recommendation.has_recommendation !== false,
+        message: cat.doctor_recommendation.message || '',
+        highlightedText: cat.doctor_recommendation.highlighted_text || cat.doctor_recommendation.highlightedText,
+      } : undefined,
+      defaultExpanded: cat.defaultExpanded !== false, // 기본값 true
+    }));
+
+    return {
+      patientName: patient?.name || '환자',
+      totalCount: gptData.total_count || categories.reduce((sum, cat) => sum + cat.itemCount, 0),
+      categories,
+    };
+  };
+
+  // 추천 데이터 (GPT 응답 또는 목업 데이터)
+  const recommendationData: RecommendationData = gptResponse
+    ? convertGPTResponseToRecommendationData(gptResponse)
+    : {
+        ...mockRecommendationData,
+        patientName: patient?.name || mockRecommendationData.patientName,
+      };
+
+  // 아코디언 상태 관리 (기본적으로 첫 번째 카테고리 펼침)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(
-      mockRecommendationData.categories
+      recommendationData.categories
         .filter((cat) => cat.defaultExpanded)
         .map((cat) => cat.categoryName)
     )
   );
-
-  // 목업 데이터 사용 (환자 이름은 실제 데이터에서 가져오기)
-  const recommendationData: RecommendationData = {
-    ...mockRecommendationData,
-    patientName: patient?.name || mockRecommendationData.patientName,
-  };
 
   // 카테고리 토글
   const toggleCategory = (categoryName: string) => {
@@ -324,6 +373,16 @@ const CheckupRecommendationsPage: React.FC = () => {
 
       {/* 추천 검진 항목 섹션 (스크롤 가능 영역) */}
       <div className="checkup-recommendations__content checkup-recommendations__scrollable-content">
+        {/* 종합 분석 섹션 (GPT 응답에 analysis가 있는 경우) */}
+        {gptResponse?.analysis && (
+          <div className="checkup-recommendations__analysis-section">
+            <h3 className="checkup-recommendations__analysis-title">종합 분석</h3>
+            <p className="checkup-recommendations__analysis-text">
+              {gptResponse.analysis}
+            </p>
+          </div>
+        )}
+
         {/* 섹션 제목 */}
         <div className="checkup-recommendations__section-header">
           <h2 className="checkup-recommendations__section-title">
@@ -403,6 +462,15 @@ const CheckupRecommendationsPage: React.FC = () => {
                             </span>
                             <span className="checkup-recommendations__item-description-text">
                               {item.description}
+                            </span>
+                          </div>
+                        )}
+                        {/* 추천 이유 표시 (GPT 응답에 reason이 있는 경우) */}
+                        {(item as any).reason && (
+                          <div className="checkup-recommendations__item-reason">
+                            <span className="checkup-recommendations__item-reason-label">추천 이유:</span>
+                            <span className="checkup-recommendations__item-reason-text">
+                              {(item as any).reason}
                             </span>
                           </div>
                         )}

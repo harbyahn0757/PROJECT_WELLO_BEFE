@@ -171,6 +171,31 @@
     padding-bottom: $spacing-lg; // 하단 여백만 유지
   }
 
+  // 종합 분석 섹션
+  &__analysis-section {
+    background: $white;
+    border-radius: $border-radius-xl;
+    padding: $spacing-md;
+    margin-bottom: $spacing-lg;
+    box-shadow: $shadow-sm;
+  }
+
+  &__analysis-title {
+    font-size: $font-lg;
+    font-weight: $font-weight-bold;
+    color: $black;
+    margin-bottom: $spacing-sm;
+    font-family: var(--font-family-greeting);
+  }
+
+  &__analysis-text {
+    font-size: $font-base;
+    color: $gray-700;
+    line-height: 1.6;
+    font-family: var(--font-family-greeting);
+    white-space: pre-line;
+  }
+
   // 섹션 헤더 (제목 + 뱃지)
   &__section-header {
     display: flex;
@@ -384,6 +409,31 @@
     color: $gray-450;
     font-weight: $font-weight-normal;
     font-family: var(--font-family-greeting);
+  }
+
+  // 추천 이유
+  &__item-reason {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+    margin-left: 28px; // 체크박스 너비 + gap
+    padding-top: $spacing-xs;
+    font-size: $font-xs;
+    color: $gray-600;
+    line-height: 1.4;
+  }
+
+  &__item-reason-label {
+    font-weight: $font-weight-semibold;
+    color: $brand-brown-dark;
+    font-size: $font-xs;
+  }
+
+  &__item-reason-text {
+    color: $gray-600;
+    font-weight: $font-weight-normal;
+    font-family: var(--font-family-greeting);
+    line-height: 1.5;
   }
 
   // 의사 추천 박스
