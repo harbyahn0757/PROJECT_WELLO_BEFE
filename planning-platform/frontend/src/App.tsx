@@ -304,6 +304,8 @@ const AppContent: React.FC = () => {
   const [isReturningToMain, setIsReturningToMain] = useState(false);
   const [prevPathname, setPrevPathname] = useState<string>('');
   const loadedUuidRef = useRef<string | null>(null); // 이미 로드한 UUID 추적
+  const loadingUuidRef = useRef<string | null>(null); // 현재 로딩 중인 UUID 추적
+  const lastSearchRef = useRef<string>(''); // 마지막 처리한 location.search 추적
 
   // 초기 로드 시 쿼리 파라미터 보존 (프로덕션 환경에서 쿼리 파라미터가 사라지는 문제 해결)
   useEffect(() => {
@@ -349,30 +351,58 @@ const AppContent: React.FC = () => {
 
   // URL 파라미터 감지하여 자동 데이터 로딩 (한 번만 실행)
   useEffect(() => {
+    // location.search가 변경되지 않았으면 무시 (중복 실행 방지)
+    if (lastSearchRef.current === location.search) {
+      console.log(`⏸️ [App] location.search 변경 없음 - 중복 실행 방지: ${location.search}`);
+      return;
+    }
+
     const urlParams = new URLSearchParams(location.search);
     const uuid = urlParams.get('uuid');
     const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
 
+    // location.search 기록 (처리 전에 기록하여 중복 방지)
+    lastSearchRef.current = location.search;
+
     if (uuid && hospital) {
-      // 이미 같은 UUID를 로드했으면 무시 (중복 호출 방지)
-      if (loadedUuidRef.current === uuid) {
-        console.log(`⏸️ [App] 이미 로드한 환자 데이터: ${uuid} - 중복 호출 방지`);
+      // 이미 같은 UUID를 로드했거나 로딩 중이면 무시 (중복 호출 방지)
+      if (loadedUuidRef.current === uuid || loadingUuidRef.current === uuid) {
+        console.log(`⏸️ [App] 이미 로드/로딩 중인 환자 데이터: ${uuid} - 중복 호출 방지`, {
+          loaded: loadedUuidRef.current,
+          loading: loadingUuidRef.current
+        });
         return;
       }
 
       // 현재 환자 데이터가 없거나 다른 환자인 경우에만 로딩
       if (!state.patient || state.patient.uuid !== uuid) {
-        console.log(`🔄 [App] 환자 데이터 로딩: ${uuid} @ ${hospital}`);
-        loadedUuidRef.current = uuid; // 로드 시작 전에 UUID 기록
-        actions.loadPatientData(uuid, hospital); // 처음 로딩 시에는 토스트 없이
+        console.log(`🔄 [App] 환자 데이터 로딩: ${uuid} @ ${hospital}`, {
+          currentPatient: state.patient?.uuid,
+          targetUuid: uuid,
+          loadedRef: loadedUuidRef.current,
+          loadingRef: loadingUuidRef.current
+        });
+        loadingUuidRef.current = uuid; // 로딩 시작 전에 UUID 기록
+        loadedUuidRef.current = null; // 로딩 시작 시 loaded 리셋
+        
+        actions.loadPatientData(uuid, hospital).then(() => {
+          // 로딩 완료 후 ref 업데이트
+          loadingUuidRef.current = null;
+          loadedUuidRef.current = uuid;
+        }).catch(() => {
+          // 에러 발생 시에도 리셋
+          loadingUuidRef.current = null;
+        });
       } else {
         console.log(`✅ [App] 환자 데이터 이미 로드됨: ${state.patient.name} (${uuid})`);
         loadedUuidRef.current = uuid; // 이미 로드된 경우에도 기록
+        loadingUuidRef.current = null; // 로딩 중이 아님
         // 기존 데이터가 있는 경우 레이아웃만 확인하고 토스트 표시하지 않음
       }
     } else {
       // UUID가 없으면 리셋
       loadedUuidRef.current = null;
+      loadingUuidRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search]); // state.patient?.uuid 제거 - 무한 루프 방지

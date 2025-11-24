@@ -276,6 +276,12 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
     options: { force?: boolean } = {}
   ) => {
     const { force = false } = options;
+    const callStack = new Error().stack;
+    console.log(`🔍 [loadPatientData] 호출 시작: ${uuid} @ ${hospital}`, {
+      force,
+      loadingRef: loadingRef.current,
+      callStack: callStack?.split('\n').slice(1, 4).join('\n')
+    });
 
     // 중복 호출 방지: 같은 UUID로 이미 로딩 중이면 무시
     if (!force && loadingRef.current === uuid) {
@@ -285,6 +291,7 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
 
     // 로딩 시작
     loadingRef.current = uuid;
+    console.log(`✅ [loadPatientData] 로딩 시작: ${uuid}`);
 
     try {
       // 캐시 확인 (force 옵션이 없는 경우)
@@ -329,10 +336,12 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
       setState(prev => ({ ...prev, isLoading: true, error: null }));
 
       // API 호출 (환경변수 기반 URL 사용)
+      console.log(`📡 [API호출] 시작: ${uuid} @ ${hospital}`);
       const [patientResponse, hospitalResponse] = await Promise.all([
         fetch(API_ENDPOINTS.PATIENT(uuid)),
         fetch(API_ENDPOINTS.HOSPITAL(hospital)),
       ]);
+      console.log(`✅ [API호출] 완료: ${uuid} @ ${hospital}`);
 
       // 응답 상태 및 Content-Type 검증
       if (!patientResponse.ok) {
