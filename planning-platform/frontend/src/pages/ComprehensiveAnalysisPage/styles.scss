@@ -1605,3 +1605,140 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
     }
   }
 }
+
+// 캐릭터 이미지 강조 애니메이션 옵션들
+@keyframes characterHighlight {
+  // 옵션 1: 스케일 + 페이드 (현재 적용 중)
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes characterBounce {
+  // 옵션 2: 바운스 효과
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  25% {
+    transform: translateY(-10px) scale(1.1);
+  }
+  50% {
+    transform: translateY(0) scale(1.15);
+  }
+  75% {
+    transform: translateY(-5px) scale(1.05);
+  }
+}
+
+@keyframes characterPulse {
+  // 옵션 3: 펄스 효과 (부드러운 깜박임)
+  0%, 100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% {
+    transform: scale(1.1);
+    filter: brightness(1.2);
+  }
+}
+
+@keyframes characterGlow {
+  // 옵션 4: 글로우 효과
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0px rgba(139, 69, 19, 0));
+  }
+  50% {
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 20px rgba(139, 69, 19, 0.6));
+  }
+}
+
+@keyframes characterSlide {
+  // 옵션 5: 슬라이드 + 스케일
+  0% {
+    transform: translateX(20px) scale(0.9);
+    opacity: 0.7;
+  }
+  50% {
+    transform: translateX(0) scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes characterRotate {
+  // 옵션 6: 살짝 회전 효과
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(-5deg) scale(1.1);
+  }
+  50% {
+    transform: rotate(0deg) scale(1.15);
+  }
+  75% {
+    transform: rotate(5deg) scale(1.1);
+  }
+}
+
+@keyframes healthyPotatoRise {
+  // 건강감자 전용: 밑에서 위로 부드럽게 올라오는 효과
+  0% {
+    transform: translate3d(0, 100px, 0);
+    opacity: 0;
+  }
+  10% {
+    transform: translate3d(0, 85px, 0);
+    opacity: 0.15;
+  }
+  20% {
+    transform: translate3d(0, 70px, 0);
+    opacity: 0.3;
+  }
+  30% {
+    transform: translate3d(0, 55px, 0);
+    opacity: 0.45;
+  }
+  40% {
+    transform: translate3d(0, 42px, 0);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate3d(0, 30px, 0);
+    opacity: 0.7;
+  }
+  60% {
+    transform: translate3d(0, 20px, 0);
+    opacity: 0.8;
+  }
+  70% {
+    transform: translate3d(0, 12px, 0);
+    opacity: 0.85;
+  }
+  80% {
+    transform: translate3d(0, 6px, 0);
+    opacity: 0.9;
+  }
+  90% {
+    transform: translate3d(0, 2px, 0);
+    opacity: 0.95;
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}

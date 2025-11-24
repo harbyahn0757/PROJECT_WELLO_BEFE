@@ -154,3 +154,4 @@ const response = await fetch(API_ENDPOINTS.PARTNER_AUTH, {
 **확인 필요**: 백엔드 API가 실제로 `mkt_uuid`를 `uid`로 변환하여 리다이렉트하는지 확인 필요
 
 
+

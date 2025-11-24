@@ -8,6 +8,10 @@ import BarChart from '../../charts/BarChart';
 import { TilkoHealthCheckupRaw, TilkoPrescriptionRaw } from '../../../types/health';
 import { WELLO_LOGO_IMAGE } from '../../../constants/images';
 import '../../../pages/ComprehensiveAnalysisPage/styles.scss';
+// 이미지 import
+import healthyPotatoImage from '../../../assets/images/gamgam/healthy_potato_nobg.png';
+import tiredPotatoImage from '../../../assets/images/gamgam/tired_potato_nobg.png';
+import docImage from '../../../assets/images/gamgam/doc_nobg.png';
 
 interface TrendsSectionProps {
   healthData: TilkoHealthCheckupRaw[];
@@ -24,6 +28,8 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
 }) => {
   // 건강 지표 슬라이더 상태
   const [activeDotIndex, setActiveDotIndex] = useState(0);
+  // 이미지 강조 애니메이션 상태
+  const [imageKey, setImageKey] = useState(0);
   // 의료기관 방문 추이 관련 상태 제거됨 (의료 기록 타임라인 토글에 포함)
   
   // 건강 지표 목록
@@ -637,12 +643,16 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
         }
       });
 
-      setActiveDotIndex(closestIndex);
+      if (closestIndex !== activeDotIndex) {
+        setActiveDotIndex(closestIndex);
+        // 카드 변경 시 이미지 강조 애니메이션 트리거
+        setImageKey(prev => prev + 1);
+      }
     };
 
     slider.addEventListener('scroll', handleScroll);
     return () => slider.removeEventListener('scroll', handleScroll);
-  }, [healthData]);
+  }, [healthData, activeDotIndex]);
 
   // 방문 추이 닷 슬라이더 스크롤 동기화 제거됨 (의료기관 방문 추이 섹션이 제거되어 불필요)
 
@@ -1242,6 +1252,166 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
       </section>
 
       {/* 의료기관 방문 추이 섹션 제거됨 - 의료 기록 타임라인 토글에 포함 */}
+      
+      {/* 오른쪽 하단 캐릭터 이미지 - 활성화된 카드의 뱃지 상태에 따라 표시 */}
+      {(() => {
+        // 현재 활성화된 카드의 상태 계산
+        const activeMetric = healthMetrics[activeDotIndex];
+        if (!activeMetric) return null;
+        
+        const getLatestHealthDataForMetric = (targetMetric: string) => {
+          if (!healthData) return null;
+          let dataArray: any[] = [];
+          if (Array.isArray(healthData)) {
+            dataArray = healthData;
+          } else if (healthData && typeof healthData === 'object' && (healthData as any).ResultList) {
+            dataArray = (healthData as any).ResultList;
+          } else {
+            return null;
+          }
+          if (!dataArray || dataArray.length === 0) return null;
+          
+          const dataWithMetric = dataArray.filter(item => {
+            const fieldName = getFieldNameForMetric(targetMetric);
+            const hasDirectValue = item[fieldName] && parseFloat(item[fieldName]) > 0;
+            let hasRawValue = false;
+            if (item.raw_data?.Inspections) {
+              for (const inspection of item.raw_data.Inspections) {
+                if (inspection.Illnesses) {
+                  for (const illness of inspection.Illnesses) {
+                    if (illness.Items) {
+                      const foundItem = illness.Items.find((rawItem: any) => {
+                        if (!rawItem.Name) return false;
+                        const itemName = rawItem.Name.toLowerCase();
+                        const metricName = targetMetric.toLowerCase().replace(' (수축기)', '').replace(' (이완기)', '');
+                        if (targetMetric === 'HDL 콜레스테롤') {
+                          return itemName.includes('hdl') || itemName.includes('고밀도');
+                        }
+                        if (targetMetric === 'LDL 콜레스테롤') {
+                          return itemName.includes('ldl') || itemName.includes('저밀도');
+                        }
+                        if (targetMetric === '총 콜레스테롤') {
+                          return itemName.includes('총콜레스테롤') || (itemName.includes('콜레스테롤') && !itemName.includes('hdl') && !itemName.includes('ldl') && !itemName.includes('고밀도') && !itemName.includes('저밀도'));
+                        }
+                        return itemName.includes(metricName) ||
+                               (targetMetric === '허리둘레' && (itemName.includes('허리') || itemName.includes('waist'))) ||
+                               (targetMetric.includes('혈압') && itemName.includes('혈압')) ||
+                               (targetMetric.includes('콜레스테롤') && itemName.includes('콜레스테롤')) ||
+                               (targetMetric === '중성지방' && itemName.includes('중성지방')) ||
+                               (targetMetric === '헤모글로빈' && (itemName.includes('혈색소') || itemName.includes('헤모글로빈')));
+                      });
+                      if (foundItem && foundItem.Value && 
+                          foundItem.Value.trim() !== "" && 
+                          parseFloat(foundItem.Value) > 0) {
+                        hasRawValue = true;
+                        break;
+                      }
+                    }
+                  }
+                  if (hasRawValue) break;
+                }
+              }
+            }
+            return hasDirectValue || hasRawValue;
+          });
+          if (dataWithMetric.length === 0) return null;
+          const sortedData = [...dataWithMetric].sort((a, b) => {
+            const yearA = parseInt((a.Year || '1900').replace('년', ''));
+            const yearB = parseInt((b.Year || '1900').replace('년', ''));
+            return yearB - yearA;
+          });
+          return sortedData[0];
+        };
+        
+        const getValueFromHealthData = (healthDataItem: any, metric: string): number => {
+          if (!healthDataItem) return 0;
+          if (healthDataItem.raw_data?.Inspections) {
+            for (const inspection of healthDataItem.raw_data.Inspections) {
+              if (inspection.Illnesses) {
+                for (const illness of inspection.Illnesses) {
+                  if (illness.Items) {
+                    const item = illness.Items.find((item: any) => {
+                      if (!item.Name) return false;
+                      const itemName = item.Name.toLowerCase();
+                      const metricName = metric.toLowerCase().replace(' (수축기)', '').replace(' (이완기)', '');
+                      if (metric === 'HDL 콜레스테롤') {
+                        return itemName.includes('hdl') || itemName.includes('고밀도');
+                      }
+                      if (metric === 'LDL 콜레스테롤') {
+                        return itemName.includes('ldl') || itemName.includes('저밀도');
+                      }
+                      if (metric === '총 콜레스테롤') {
+                        return itemName.includes('총콜레스테롤') || (itemName.includes('콜레스테롤') && !itemName.includes('hdl') && !itemName.includes('ldl') && !itemName.includes('고밀도') && !itemName.includes('저밀도'));
+                      }
+                      return itemName.includes(metricName) ||
+                             (metric === '허리둘레' && (itemName.includes('허리') || itemName.includes('waist'))) ||
+                             (metric.includes('혈압') && itemName.includes('혈압')) ||
+                             (metric.includes('콜레스테롤') && itemName.includes('콜레스테롤')) ||
+                             (metric === '중성지방' && itemName.includes('중성지방')) ||
+                             (metric === '헤모글로빈' && (itemName.includes('혈색소') || itemName.includes('헤모글로빈')));
+                    });
+                    if (item && item.Value && item.Value.trim() !== "") {
+                      const value = parseFloat(item.Value);
+                      return isNaN(value) ? 0 : value;
+                    }
+                  }
+                }
+              }
+            }
+          }
+          const fieldName = getFieldNameForMetric(metric);
+          const value = parseFloat(healthDataItem[fieldName]) || 0;
+          return value;
+        };
+        
+        const latestHealthData = getLatestHealthDataForMetric(activeMetric);
+        const latestValue = latestHealthData ? 
+          getValueFromHealthData(latestHealthData, activeMetric) : 0;
+        const healthStatus = latestHealthData ? 
+          getHealthStatus(activeMetric, latestValue, latestHealthData) : 
+          { status: 'normal' as const, text: '정상', date: '' };
+        
+        // 상태에 따라 이미지 선택: 정상 → 건강감자, 측정 → 의사, 그 외 → 피곤한감자
+        let characterImage: string;
+        let altText: string;
+        if (healthStatus.status === 'normal') {
+          characterImage = healthyPotatoImage;
+          altText = '건강감자';
+        } else if (healthStatus.status === 'neutral') {
+          characterImage = docImage;
+          altText = '의사';
+        } else {
+          characterImage = tiredPotatoImage;
+          altText = '피곤한감자';
+        }
+        
+        return (
+          <div 
+            className="trends-character-image"
+            key={imageKey}
+            style={{
+              position: 'fixed',
+              bottom: '20px',
+              right: '0px',
+              width: '160px',
+              height: 'auto',
+              zIndex: 9999,
+              pointerEvents: 'none',
+              animation: 'characterHighlight 0.6s ease-out'
+            }}
+          >
+            <img 
+              src={characterImage} 
+              alt={altText}
+              style={{
+                width: '100%',
+                height: 'auto',
+                display: 'block'
+              }}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 };

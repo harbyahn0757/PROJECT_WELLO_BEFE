@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import Button from './components/Button';
 import MainPage from './pages/MainPage';
@@ -21,6 +21,7 @@ import { LayoutType } from './constants/layoutTypes';
 import { WelloDataProvider, useWelloData } from './contexts/WelloDataContext';
 import { STORAGE_KEYS, StorageManager } from './constants/storage';
 import NotificationContainer from './components/common/NotificationContainer';
+import PageTransitionLoader from './components/PageTransitionLoader';
 import './App.scss';
 
 // 전역 함수 타입 선언
@@ -299,6 +300,30 @@ const ResultsTrendButton: React.FC = () => {
 const AppContent: React.FC = () => {
   const { state, actions } = useWelloData();
   const location = useLocation();
+  const [isReturningToMain, setIsReturningToMain] = useState(false);
+  const [prevPathname, setPrevPathname] = useState<string>('');
+
+  // 메인페이지로 돌아올 때 로딩 표시
+  useEffect(() => {
+    const currentPath = location.pathname;
+    const isMainPage = currentPath === '/' || currentPath === '/results';
+    
+    // 다른 페이지에서 메인페이지로 돌아올 때
+    if (isMainPage && prevPathname && prevPathname !== '/' && prevPathname !== '/results') {
+      console.log('🔄 [App] 메인페이지로 복귀 - 로딩 표시');
+      setIsReturningToMain(true);
+      
+      // 더 긴 시간 후 로딩 숨김 (페이지 로드 완료 시뮬레이션)
+      const timer = setTimeout(() => {
+        setIsReturningToMain(false);
+      }, 1200);
+      
+      return () => clearTimeout(timer);
+    }
+    
+    // 이전 경로 업데이트
+    setPrevPathname(currentPath);
+  }, [location.pathname, prevPathname]);
 
   // URL 파라미터 감지하여 자동 데이터 로딩 (한 번만 실행)
   useEffect(() => {
@@ -388,7 +413,7 @@ const AppContent: React.FC = () => {
   // 통합 레이아웃 사용 (세로형/가로형/인트로 제거)
   return (
     <div className="app">
-      <div className="main-container">
+      <div className="main-container" key={location.pathname}>
         <Routes>
           <Route 
             path="/" 
@@ -426,6 +451,9 @@ const AppContent: React.FC = () => {
       
       {/* 알림 컨테이너 */}
       <NotificationContainer />
+      
+      {/* 페이지 전환 로딩 스피너 (메인페이지로 복귀 시) */}
+      <PageTransitionLoader isVisible={isReturningToMain} />
     </div>
   );
 };

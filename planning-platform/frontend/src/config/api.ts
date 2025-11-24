@@ -10,6 +10,8 @@ const IS_PRODUCTION = !IS_DEVELOPMENT;
 const API_BASE_URL = IS_PRODUCTION ? 'https://xogxog.com' : '';
 
 // 파트너 마케팅 API 설정
+// 개발 환경: 절대 경로 사용 (서버에서 CORS 허용되어 있음)
+// 프로덕션: 절대 경로 사용
 const PARTNER_MARKETING_API_BASE = IS_DEVELOPMENT 
   ? 'http://localhost:8000' 
   : 'https://xogxog.com';
@@ -66,6 +68,8 @@ export const API_ENDPOINTS = {
   },
   
   // 파트너 마케팅 인증 관련
+  // 개발 환경: 절대 경로 사용 (CORS 허용되어 있음)
+  // 프로덕션: 절대 경로 사용
   PARTNER_AUTH: `${PARTNER_MARKETING_API_BASE}/api/partner-marketing/partner-auth`,
   
   // 비밀번호 관련

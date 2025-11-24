@@ -90,6 +90,24 @@ module.exports = {
       
       console.log('✅ WELLO 프록시 직접 설정 완료: /wello-api → http://localhost:8082/api');
       
+      // 파트너 마케팅 API 프록시 (localhost:8000)
+      devServer.app.use('/api/partner-marketing', createProxyMiddleware({
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        logLevel: 'info',
+        onProxyReq: (proxyReq, req, res) => {
+          console.log(`🚀 [CRACO PARTNER PROXY] ${req.method} ${req.url} → ${proxyReq.path}`);
+        },
+        onProxyRes: (proxyRes, req, res) => {
+          console.log(`📥 [CRACO PARTNER PROXY] ${proxyRes.statusCode} ${req.url}`);
+        },
+        onError: (err, req, res) => {
+          console.error(`❌ [CRACO PARTNER PROXY ERROR] ${req.url}:`, err.message);
+        }
+      }));
+      
+      console.log('✅ 파트너 마케팅 프록시 직접 설정 완료: /api/partner-marketing → http://localhost:8000/api/partner-marketing');
+      
       // WebSocket 관련 모든 경로 차단
       devServer.app.use('/ws', (req, res) => {
         res.status(404).end();

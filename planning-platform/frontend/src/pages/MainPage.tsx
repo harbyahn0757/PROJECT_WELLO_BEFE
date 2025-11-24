@@ -8,6 +8,7 @@ import PasswordModal from '../components/PasswordModal';
 import SessionStatusModal from '../components/SessionStatusModal';
 import MdxDataSearchModal from '../components/MdxDataSearchModal';
 import PartnerAuthConfirmModal from '../components/PartnerAuthConfirmModal';
+import PageTransitionLoader from '../components/PageTransitionLoader';
 import { PasswordModalType } from '../components/PasswordModal/types';
 import { PASSWORD_POLICY } from '../constants/passwordMessages';
 import { PasswordService } from '../components/PasswordModal/PasswordService';
@@ -18,6 +19,7 @@ import { getHospitalLogoUrl } from '../utils/hospitalLogoUtils';
 import trendsChartImage from '../assets/images/main/chart.png';
 import healthHabitImage from '../assets/images/main/check_1 1.png';
 import checkupDesignImage from '../assets/images/main/check_2 1.png';
+import reportImage from '../assets/images/main/rpt.png';
 import './MainPage.scss';
 
 const MainPage: React.FC = () => {
@@ -48,6 +50,9 @@ const MainPage: React.FC = () => {
     redirect_url: string;
   } | null>(null);
   const [pendingPartnerAuthEndpoint, setPendingPartnerAuthEndpoint] = useState<string>('');
+  
+  // 페이지 전환 로딩 state
+  const [isPageTransitioning, setIsPageTransitioning] = useState(false);
   
   // MDX 데이터 검색 핸들러
   const handleMdxSearchConfirm = async () => {
@@ -121,6 +126,7 @@ const MainPage: React.FC = () => {
     name?: string;
     birthday?: string;
     redirect_url: string;
+    return_url?: string;
   }, endpoint: string) => {
     try {
       // 파트너 인증 API 호출
@@ -135,18 +141,18 @@ const MainPage: React.FC = () => {
         redirect: 'follow' // 리다이렉트 자동 따라가기
       });
       
-      if (response.redirected) {
-        // 리다이렉트된 경우 자동으로 이동
-        console.log('✅ [질병예측리포트] 파트너 인증 성공 - 리다이렉트:', response.url);
-        window.location.href = response.url;
-      } else if (response.ok) {
-        // 응답이 성공이지만 리다이렉트가 아닌 경우
+      // JSON 응답 처리 (서버가 JSON으로 변경됨)
+      if (response.ok) {
         const result = await response.json();
+        console.log('📥 [질병예측리포트] 서버 응답:', result);
+        
         if (result.redirect_url) {
-          console.log('✅ [질병예측리포트] 파트너 인증 성공 - 응답에서 리다이렉트:', result.redirect_url);
+          console.log('✅ [질병예측리포트] 파트너 인증 성공');
+          console.log('🔗 [질병예측리포트] 리다이렉트 URL:', result.redirect_url);
+          console.log('🚀 [질병예측리포트] 리다이렉트 실행 중...');
           window.location.href = result.redirect_url;
         } else {
-          console.warn('⚠️ [질병예측리포트] 리다이렉트 URL 없음');
+          console.warn('⚠️ [질병예측리포트] 리다이렉트 URL 없음, 전체 응답:', result);
           alert('질병예측 리포트 접속에 실패했습니다. 리다이렉트 URL을 받지 못했습니다.');
         }
       } else {
@@ -154,7 +160,7 @@ const MainPage: React.FC = () => {
         let errorMessage = '질병예측 리포트 접속에 실패했습니다.';
         try {
           const errorData = await response.json();
-          errorMessage = errorData.detail || errorData.message || errorMessage;
+          errorMessage = errorData.detail || errorData.message || errorData.error || errorMessage;
         } catch (e) {
           // JSON 파싱 실패 시 상태 코드에 따른 메시지
           if (response.status === 400) {
@@ -420,7 +426,15 @@ const MainPage: React.FC = () => {
     const hospitalId = urlParams.get('hospital');
     const queryString = location.search; // 함수 전체에서 사용할 queryString
 
-    switch (cardType) {
+    // 페이지 전환 로딩 시작
+    setIsPageTransitioning(true);
+    console.log('🔄 [페이지전환] 로딩 시작');
+    
+    // 로딩이 화면에 확실히 표시되도록 충분한 시간 대기 (더 길게)
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    try {
+      switch (cardType) {
       case 'chart':
         if (uuid && hospitalId) {
           try {
@@ -444,6 +458,7 @@ const MainPage: React.FC = () => {
                   if (promptResponse.should_prompt) {
                     // 권유해야 하는 경우 - 바로 설정 모드로 진입
                     console.log('💡 [비밀번호] 설정 권유 필요 - 바로 설정 모드');
+                    setIsPageTransitioning(false); // 로딩 스피너 숨김
                     setPendingNavigation(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
                     setPasswordModalType('setup');
                     setShowPasswordModal(true);
@@ -451,7 +466,10 @@ const MainPage: React.FC = () => {
                   } else {
                     // 권유하지 않는 경우 (이미 거부했거나 최근에 물어봄)
                     console.log('⏭️ [비밀번호] 권유 생략 - 바로 이동');
-                    navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                    // 로딩이 보이도록 충분한 시간 후 navigate (더 길게)
+                    setTimeout(() => {
+                      navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                    }, 300);
                     return;
                   }
                 }
@@ -460,12 +478,16 @@ const MainPage: React.FC = () => {
                 const isValid = await isPasswordAuthValid(uuid, hospitalId);
                 if (isValid) {
                   console.log('✅ [비밀번호] 인증 유효 - 바로 이동');
-                  navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                  // 로딩이 보이도록 충분한 시간 후 navigate (더 길게)
+                  setTimeout(() => {
+                    navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                  }, 300);
                   return;
                 }
                 
-                // 비밀번호 확인 필요
+                // 비밀번호 확인 필요 - 모달 표시하므로 로딩 숨김
                 console.log('🔐 [비밀번호] 인증 필요');
+                setIsPageTransitioning(false);
                 setPendingNavigation(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
                 setPasswordModalType('confirm');
                 setShowPasswordModal(true);
@@ -481,32 +503,46 @@ const MainPage: React.FC = () => {
                 return;
               }
             } else {
-              // 웰로 데이터 없음 → MDX 데이터 검색 (개발 모드에서만)
-              console.log('📊 [메인페이지] 웰로 데이터 없음');
+              // 웰로 데이터 없음 → Tilko 인증으로 이동
+              console.log('📊 [메인페이지] 웰로 데이터 없음 - Tilko 인증으로 이동');
               
-              const IS_DEVELOPMENT = window.location.hostname !== 'xogxog.com';
+              // MDX 데이터 검색 모달은 나중에 사용할 예정이므로 주석처리
+              // const IS_DEVELOPMENT = window.location.hostname !== 'xogxog.com';
+              // 
+              // if (IS_DEVELOPMENT && patient) {
+              //   // 개발 모드에서만 MDX 검색 다이얼로그 표시
+              //   console.log('🔍 [메인페이지] 개발 모드 - MDX 검색 다이얼로그 표시');
+              //   setIsPageTransitioning(false);
+              //   setShowMdxSearchModal(true);
+              //   return;
+              // }
               
-              if (IS_DEVELOPMENT && patient) {
-                // 개발 모드에서만 MDX 검색 다이얼로그 표시
-                console.log('🔍 [메인페이지] 개발 모드 - MDX 검색 다이얼로그 표시');
-                setShowMdxSearchModal(true);
-                return;
-              }
+              // 데이터 없을 때 바로 Tilko 인증으로 이동 (/login 경로 사용)
+              const authPath = `/login${queryString}`;
+              console.log('📋 [메인페이지] 데이터 없음 - Tilko 인증으로 이동:', authPath);
+              setTimeout(() => {
+                navigate(authPath);
+              }, 300);
+              return;
             }
           } catch (error) {
             console.warn('⚠️ [메인페이지] 기존 데이터 확인 실패:', error);
           }
         }
         
-        // 웰로 데이터 없고, MDX도 없거나 프로덕션 모드 → Tilko 인증으로 이동
-        const questionnairePath = `/health-questionnaire${queryString}`;
-        console.log('📋 [메인페이지] 데이터 없음 - Tilko 인증으로 이동:', questionnairePath);
-        navigate(questionnairePath);
+        // 웰로 데이터 없을 때 Tilko 인증으로 이동 (fallback - 위에서 이미 처리되지만 안전장치)
+        const authPath = `/login${queryString}`;
+        console.log('📋 [메인페이지] 데이터 없음 - Tilko 인증으로 이동 (fallback):', authPath);
+        setTimeout(() => {
+          navigate(authPath);
+        }, 300);
         break;
         
       case 'design':
         // 검진항목 설계하기는 비밀번호 확인 없이 바로 이동
-        navigate(`/survey/checkup-design${queryString}`);
+        setTimeout(() => {
+          navigate(`/survey/checkup-design${queryString}`);
+        }, 300);
         break;
         
       case 'prediction':
@@ -535,6 +571,7 @@ const MainPage: React.FC = () => {
             name?: string;
             birthday?: string;
             redirect_url: string;
+            return_url?: string;
           } = {
             api_key: WELNO_PARTNER_API_KEY,
             redirect_url: CAMPAIGN_REDIRECT_URL
@@ -555,10 +592,15 @@ const MainPage: React.FC = () => {
             requestPayload.birthday = patientBirthday;
           }
           
+          // return_url 추가: 리포트에서 뒤로가기 시 현재 페이지로 복귀
+          const currentUrl = window.location.href;
+          requestPayload.return_url = currentUrl;
+          
           // 개발 환경: 모달 띄우고 확인 후 호출
           // 프로덕션 환경: 모달 없이 바로 호출
           if (IS_DEVELOPMENT) {
             console.log('🔧 [질병예측리포트] 개발 모드 - 모달 표시');
+            setIsPageTransitioning(false);
             setPendingPartnerAuthPayload(requestPayload);
             setPendingPartnerAuthEndpoint(API_ENDPOINTS.PARTNER_AUTH);
             setShowPartnerAuthModal(true);
@@ -568,6 +610,7 @@ const MainPage: React.FC = () => {
           }
         } catch (error) {
           console.error('❌ [질병예측리포트] 파트너 인증 오류:', error);
+          setIsPageTransitioning(false);
           alert('질병예측 리포트 접속 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
         }
         break;
@@ -586,6 +629,7 @@ const MainPage: React.FC = () => {
                 if (!passwordStatus.has_password) {
                   // 비밀번호가 없으면 설정 권유
                   console.log('❓ [비밀번호] 설정되지 않음 - 설정 권유');
+                  setIsPageTransitioning(false);
                   setPendingNavigation(`/survey/health-habits${queryString}`);
                   setPasswordModalType('prompt');
                   setShowPasswordModal(true);
@@ -596,12 +640,15 @@ const MainPage: React.FC = () => {
                 const isValid = await isPasswordAuthValid(uuid, hospitalId);
                 if (isValid) {
                   console.log('✅ [비밀번호] 인증 유효 - 바로 이동');
-                  navigate(`/survey/health-habits${queryString}`);
+                  setTimeout(() => {
+                    navigate(`/survey/health-habits${queryString}`);
+                  }, 300);
                   return;
                 }
                 
                 // 비밀번호 확인 필요
                 console.log('🔐 [비밀번호] 인증 필요');
+                setIsPageTransitioning(false);
                 setPendingNavigation(`/survey/health-habits${queryString}`);
                 setPasswordModalType('confirm');
                 setShowPasswordModal(true);
@@ -610,6 +657,7 @@ const MainPage: React.FC = () => {
               } catch (error) {
                 console.warn('⚠️ [비밀번호확인] 실패:', error);
                 // 에러 시에는 기존 로직대로 진행
+                setIsPageTransitioning(false);
                 setPendingNavigation(`/survey/health-habits${queryString}`);
                 setPasswordModalType('confirm');
                 setShowPasswordModal(true);
@@ -622,11 +670,17 @@ const MainPage: React.FC = () => {
         }
         
         // 데이터가 없으면 바로 이동 (URL 파라미터 유지)
-        navigate(`/survey/health-habits${queryString}`);
+        setTimeout(() => {
+          navigate(`/survey/health-habits${queryString}`);
+        }, 300);
         break;
         
       default:
         break;
+      }
+    } catch (error) {
+      console.error('❌ [카드클릭] 오류:', error);
+      setIsPageTransitioning(false);
     }
   };
 
@@ -765,7 +819,7 @@ const MainPage: React.FC = () => {
             description="AI 기반 건강 데이터 분석으로
 질병 예측 리포트를 확인하세요"
             onClick={() => handleCardClick('prediction')}
-            imageUrl={trendsChartImage}
+            imageUrl={reportImage}
             imageAlt="질병예측 리포트"
           />
         </div>
@@ -819,6 +873,9 @@ const MainPage: React.FC = () => {
           apiEndpoint={pendingPartnerAuthEndpoint}
         />
       )}
+      
+      {/* 페이지 전환 로딩 스피너 */}
+      <PageTransitionLoader isVisible={isPageTransitioning} />
     </div>
   );
 };
