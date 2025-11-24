@@ -184,7 +184,10 @@ const DateSelector: React.FC<DateSelectorProps> = ({
         {/* 요일 헤더 */}
         <div className="date-selector__weekdays">
           {weekDays.map((day, index) => (
-            <div key={index} className="date-selector__weekday">
+            <div 
+              key={index} 
+              className={`date-selector__weekday ${index === 6 ? 'date-selector__weekday--sunday' : ''}`}
+            >
               {day}
             </div>
           ))}
@@ -202,6 +205,7 @@ const DateSelector: React.FC<DateSelectorProps> = ({
             const dateIsSelected = isSelected(date);
             const dateIsSelectable = isSelectable(date);
             const preferenceOrder = getPreferenceOrder(date);
+            const isSunday = date.getDay() === 0; // 일요일 확인
 
             return (
               <div
@@ -211,6 +215,7 @@ const DateSelector: React.FC<DateSelectorProps> = ({
                   ${dateIsToday && !dateIsSelected ? 'date-selector__day--today' : ''}
                   ${dateIsSelected ? 'date-selector__day--selected' : ''}
                   ${!dateIsSelectable ? 'date-selector__day--disabled' : ''}
+                  ${isSunday && !dateIsSelected ? 'date-selector__day--sunday' : ''}
                 `}
                 onClick={() => dateIsSelectable && handleDateClick(date)}
               >
@@ -232,6 +237,7 @@ const DateSelector: React.FC<DateSelectorProps> = ({
 };
 
 export default DateSelector;
+
 
 
 

@@ -240,33 +240,38 @@ $success-color: #51cf66;
 .keypad-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  max-width: 264px; // 버튼 크기 증가에 맞춰 조정 (240px → 264px)
+  gap: 10px; // 간격 축소 (12px → 10px)
+  max-width: 208px; // 버튼 크기 축소에 맞춰 조정 (264px → 208px)
   margin: 0 auto 12px auto;
 }
 
-// 하단 행 (취소, 0, 삭제 버튼)
+// 하단 행 (0, 삭제 버튼 - 취소 버튼 제거)
 .keypad-bottom-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  max-width: 264px; // 버튼 크기 증가에 맞춰 조정 (240px → 264px)
+  gap: 10px; // 간격 축소 (12px → 10px)
+  max-width: 208px; // 버튼 크기 축소에 맞춰 조정 (264px → 208px)
   margin: 0 auto;
+  align-items: center; // 수직 정렬
 }
 
 .keypad-empty {
-  width: 64px;
-  height: 64px;
+  // 빈 공간도 버튼과 동일한 크기로 맞춤
+  width: 56px; // 버튼 크기와 동일 (56px)
+  height: 56px; // 버튼 크기와 동일 (56px)
+  margin: 0; // 마진 제거
+  padding: 0; // 패딩 제거
 }
 
 .keypad-button {
-  width: 72px;  // 버튼 크기 증가 (64px → 72px)
-  height: 72px; // 버튼 크기 증가 (64px → 72px)
+  width: 56px;  // 버튼 크기 축소 (72px → 56px)
+  height: 56px; // 버튼 크기 축소 (72px → 56px)
   border: 2px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.1);
   border-radius: 12px;
-  font-size: 22px; // 폰트 크기도 증가 (20px → 22px)
-  font-weight: 600;
+  font-size: 16px; // 폰트 크기 축소 (22px → 16px)
+  font-weight: 500; // 폰트 두께 축소 (600 → 500)
+  font-family: $font-family-base; // 메인에서 쓰는 폰트 적용
   color: white;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -295,26 +300,13 @@ $success-color: #51cf66;
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.2);
     color: rgba(255, 255, 255, 0.8);
-    font-size: 20px; // 삭제 버튼 폰트 크기 증가 (18px → 20px)
+    font-size: 16px; // 삭제 버튼 폰트 크기 축소 (20px → 16px)
+    font-family: $font-family-base; // 메인에서 쓰는 폰트 적용
 
     &:hover:not(:disabled) {
       background: rgba(255, 255, 255, 0.1);
       border-color: rgba(255, 255, 255, 0.4);
       color: white;
-    }
-  }
-
-  &.cancel-key {
-    background: rgba(255, 107, 107, 0.1); // 취소 버튼은 빨간색 계열
-    border-color: rgba(255, 107, 107, 0.3);
-    color: rgba(255, 107, 107, 0.9);
-    font-size: 14px; // 취소 버튼은 텍스트이므로 작은 폰트
-    font-weight: 500;
-
-    &:hover:not(:disabled) {
-      background: rgba(255, 107, 107, 0.2);
-      border-color: rgba(255, 107, 107, 0.5);
-      color: #ff6b6b;
     }
   }
 
@@ -348,18 +340,19 @@ $success-color: #51cf66;
 }
 
 .password-button {
-  padding: 12px 24px;
+  padding: 10px 20px; // 패딩 축소 (12px 24px → 10px 20px)
   border-radius: 8px;
-  font-size: 16px;
+  font-size: 14px; // 폰트 크기 축소 (16px → 14px)
   font-weight: 500;
+  font-family: $font-family-base; // 메인에서 쓰는 폰트 적용
   cursor: pointer;
   transition: all 0.2s ease;
   border: none;
-  min-width: 100px;
+  min-width: 80px; // 최소 너비 축소 (100px → 80px)
 
   &.primary {
-    background: white;
-    color: $brand-brown;
+    background: $white; // 선언된 색 사용
+    color: $brand-brown; // 선언된 색 사용
 
     &:hover:not(:disabled) {
       background: rgba(255, 255, 255, 0.9);
@@ -375,7 +368,7 @@ $success-color: #51cf66;
     &:hover:not(:disabled) {
       background: rgba(255, 255, 255, 0.1);
       border-color: rgba(255, 255, 255, 0.5);
-      color: white;
+      color: $white; // 선언된 색 사용
     }
   }
 
@@ -428,18 +421,20 @@ $success-color: #51cf66;
   }
 
   .keypad-button {
-    width: 64px;  // 모바일에서도 크기 증가 (56px → 64px)
-    height: 64px; // 모바일에서도 크기 증가 (56px → 64px)
-    font-size: 20px; // 모바일 폰트 크기 증가 (18px → 20px)
-    
-    &.cancel-key {
-      font-size: 12px; // 모바일에서 취소 버튼 폰트 크기
-    }
+    width: 52px;  // 모바일에서 버튼 크기 축소 (64px → 52px)
+    height: 52px; // 모바일에서 버튼 크기 축소 (64px → 52px)
+    font-size: 15px; // 모바일 폰트 크기 축소 (20px → 15px)
+    font-family: $font-family-base; // 메인에서 쓰는 폰트 적용
   }
 
   .keypad-grid, .keypad-bottom-row {
-    gap: 10px;
-    max-width: 224px; // 모바일 그리드 크기 조정 (200px → 224px)
+    gap: 8px; // 모바일 간격 축소 (10px → 8px)
+    max-width: 180px; // 모바일 그리드 크기 조정 (224px → 180px)
+  }
+  
+  .keypad-empty {
+    width: 52px; // 모바일 버튼 크기와 동일 (52px)
+    height: 52px; // 모바일 버튼 크기와 동일 (52px)
   }
 
   .password-modal-title {

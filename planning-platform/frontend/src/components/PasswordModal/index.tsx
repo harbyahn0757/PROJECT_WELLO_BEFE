@@ -32,6 +32,13 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      // 모달이 열릴 때 기존 포커스 제거
+      if (document.activeElement && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      // body에 클래스 추가하여 포커스 상태 초기화
+      document.body.classList.add('password-modal-open');
+      
       resetState();
       const headerInfo = getHeaderInfo();
       setMessage(headerInfo.subtitle);
@@ -39,6 +46,9 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
       localStorage.setItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN, 'true');
       window.dispatchEvent(new CustomEvent('password-modal-change'));
     } else {
+      // 모달이 닫힐 때 body 클래스 제거
+      document.body.classList.remove('password-modal-open');
+      
       // 모달이 닫힐 때 localStorage에서 상태 제거
       localStorage.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
       window.dispatchEvent(new CustomEvent('password-modal-change'));

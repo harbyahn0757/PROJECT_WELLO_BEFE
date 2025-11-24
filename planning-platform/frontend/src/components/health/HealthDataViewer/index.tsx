@@ -848,7 +848,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
                 </div>
               </div>
               <p className="refresh-description">
-                새로운 건강정보를 수집하시겠습니까?<br/>
+                새로운 건강정보를 수집하시겠어요?<br/>
                 다시 인증 과정을 거쳐 최신 데이터를 가져옵니다.
               </p>
             </div>

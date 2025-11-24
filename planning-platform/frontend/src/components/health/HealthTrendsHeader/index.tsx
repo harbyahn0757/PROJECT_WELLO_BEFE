@@ -2,9 +2,11 @@
  * HealthTrendsHeader - 건강 추이 페이지 헤더 컴포넌트
  * 메인 페이지의 인사말 섹션이 위로 올라가면서 헤더 역할을 함
  */
-import React from 'react';
+import React, { useState } from 'react';
 import BackButton from '../../shared/BackButton';
+import WelloModal from '../../common/WelloModal';
 import './styles.scss';
+import './refresh-modal.scss';
 
 interface HealthTrendsHeaderProps {
   onBack: () => void;
@@ -21,13 +23,24 @@ const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
   patientName,
   onRefresh
 }) => {
+  const [showRefreshModal, setShowRefreshModal] = useState(false);
+
   // 새로고침 확인 핸들러
   const handleRefreshClick = () => {
     if (onRefresh) {
-      if (window.confirm('데이터를 새로고침하시겠습니까?')) {
-        onRefresh();
-      }
+      setShowRefreshModal(true);
     }
+  };
+
+  const handleRefreshConfirm = () => {
+    setShowRefreshModal(false);
+    if (onRefresh) {
+      onRefresh();
+    }
+  };
+
+  const handleRefreshCancel = () => {
+    setShowRefreshModal(false);
   };
   // 마지막 업데이트 시간 포맷팅
   const formatLastUpdateTime = (time: string | null | undefined): string => {
@@ -58,37 +71,81 @@ const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
   };
 
   return (
-    <div className="health-trends-header">
-      {/* 랜딩페이지 헤더 구조 (높이만 작게) */}
-      <div className="health-trends-header__header-greeting-section">
-        {/* 뒤로가기 버튼 (좌측) - 공용 컴포넌트 사용 */}
-        <BackButton onClick={onBack} />
+    <>
+      <div className="health-trends-header">
+        {/* 랜딩페이지 헤더 구조 (높이만 작게) */}
+        <div className="health-trends-header__header-greeting-section">
+          {/* 뒤로가기 버튼 (좌측) - 공용 컴포넌트 사용 */}
+          <BackButton onClick={onBack} />
 
-        {/* 제목 및 업데이트 정보 (중앙) */}
-        <div className="health-trends-header__center">
-          <div className="health-trends-header__title">
-            {title}
-          </div>
-          {lastUpdateTime && (
-            <div className="health-trends-header__update">
-              {onRefresh && (
-                <button 
-                  className="health-trends-header__refresh-icon"
-                  onClick={handleRefreshClick}
-                  aria-label="데이터 새로고침"
-                  type="button"
-                >
-                  <span className="health-trends-header__refresh-icon-inner"></span>
-                </button>
-              )}
-              <span className="health-trends-header__update-text">
-                마지막 업데이트 : {formatLastUpdateTime(lastUpdateTime)}
-              </span>
+          {/* 제목 및 업데이트 정보 (중앙) */}
+          <div className="health-trends-header__center">
+            <div className="health-trends-header__title">
+              {title}
             </div>
-          )}
+            {lastUpdateTime && (
+              <div className="health-trends-header__update">
+                {onRefresh && (
+                  <button 
+                    className="health-trends-header__refresh-icon"
+                    onClick={handleRefreshClick}
+                    aria-label="데이터 새로고침"
+                    type="button"
+                  >
+                    <svg 
+                      className="health-trends-header__refresh-icon-svg"
+                      width="14" 
+                      height="14" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path 
+                        d="M4 4V9H4.58152M19.9381 11C19.446 7.05369 16.0796 4 12 4C8.64262 4 5.76829 6.06817 4.58152 9M4.58152 9H9M20 20V15H19.4185M19.4185 15C18.2317 17.9318 15.3574 20 12 20C7.92038 20 4.55399 16.9463 4.06189 13M19.4185 15H15" 
+                        stroke="#7c746a" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                )}
+                <span className="health-trends-header__update-text">
+                  마지막 업데이트 : {formatLastUpdateTime(lastUpdateTime)}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* 새로고침 확인 다이얼로그 */}
+      <WelloModal
+        isOpen={showRefreshModal}
+        onClose={handleRefreshCancel}
+        showCloseButton={true}
+        showWelloIcon={false}
+        size="medium"
+        className="wello-modal--white"
+      >
+        <div className="health-trends-refresh-modal">
+          <h2 className="health-trends-refresh-modal__title">
+            데이터를 새로고침하시겠어요?
+          </h2>
+          <p className="health-trends-refresh-modal__description">
+            최신 건강정보로 업데이트해요.
+          </p>
+          <div className="health-trends-refresh-modal__actions">
+            <button
+              className="health-trends-refresh-modal__btn health-trends-refresh-modal__btn--confirm"
+              onClick={handleRefreshConfirm}
+            >
+              새로고침
+            </button>
+          </div>
+        </div>
+      </WelloModal>
+    </>
   );
 };
 

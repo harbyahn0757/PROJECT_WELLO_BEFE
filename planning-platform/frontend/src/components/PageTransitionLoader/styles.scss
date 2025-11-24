@@ -27,12 +27,31 @@
   justify-content: center;
 }
 
+.page-transition-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+}
+
 .page-transition-spinner {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 80px;
   height: 80px;
+}
+
+.page-transition-message {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+  text-align: center;
+  line-height: 1.5;
+  max-width: 300px;
+  padding: 0 20px;
+  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
 }
 
 .page-transition-spinner .wello-icon-blink {

@@ -65,7 +65,7 @@ const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   // 모든 알림 삭제
   const handleClearAll = () => {
-    if (window.confirm('모든 알림을 삭제하시겠습니까?')) {
+    if (window.confirm('모든 알림을 삭제하시겠어요?')) {
       notificationService.clearAllNotifications();
     }
   };

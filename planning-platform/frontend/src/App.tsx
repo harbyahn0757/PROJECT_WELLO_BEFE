@@ -17,6 +17,7 @@ import PrescriptionHistory from './pages/PrescriptionHistory';
 import HealthComparison from './pages/HealthComparison';
 // import ComprehensiveAnalysisPage from './pages/ComprehensiveAnalysisPage'; // 제거됨
 import AppointmentPage from './pages/AppointmentPage';
+import AppointmentModal from './components/appointment/AppointmentModal';
 import { LayoutType } from './constants/layoutTypes';
 import { WelloDataProvider, useWelloData } from './contexts/WelloDataContext';
 import { STORAGE_KEYS, StorageManager } from './constants/storage';
@@ -33,7 +34,7 @@ declare global {
 }
 
 // FloatingButton 컴포넌트 (페이지별 다른 텍스트와 기능)
-const FloatingButton: React.FC = () => {
+const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onOpenAppointmentModal }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { state } = useWelloData();
@@ -49,6 +50,7 @@ const FloatingButton: React.FC = () => {
   const [hideFloatingButton, setHideFloatingButton] = React.useState(false);
   const [isAuthWaiting, setIsAuthWaiting] = React.useState(false);
   const [isAuthMethodSelection, setIsAuthMethodSelection] = React.useState(false);
+  const [isInfoConfirming, setIsInfoConfirming] = React.useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
   const [buttonUpdateTrigger, setButtonUpdateTrigger] = React.useState(0);
   
@@ -59,15 +61,17 @@ const FloatingButton: React.FC = () => {
       const passwordModalOpen = localStorage.getItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN) === 'true';
       const authWaiting = localStorage.getItem('tilko_auth_waiting') === 'true';
       const authMethodSelection = localStorage.getItem('tilko_auth_method_selection') === 'true';
+      const infoConfirming = localStorage.getItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING) === 'true';
       
       // 데이터 수집 중이거나 비밀번호 모달이 열려있으면 숨김
       const shouldHide = isDataCollecting || passwordModalOpen;
       setHideFloatingButton(shouldHide);
       setIsAuthWaiting(authWaiting);
       setIsAuthMethodSelection(authMethodSelection);
+      setIsInfoConfirming(infoConfirming);
       setIsPasswordModalOpen(passwordModalOpen);
       
-      console.log('🔄 [플로팅버튼] 상태 확인:', { isDataCollecting, passwordModalOpen, shouldHide });
+      console.log('🔄 [플로팅버튼] 상태 확인:', { isDataCollecting, passwordModalOpen, infoConfirming, shouldHide });
     };
     
     // 초기 상태 확인
@@ -76,7 +80,8 @@ const FloatingButton: React.FC = () => {
     // storage 이벤트 리스너 (다른 탭에서의 변경사항 감지)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'tilko_manual_collect' || e.key === STORAGE_KEYS.PASSWORD_MODAL_OPEN ||
-          e.key === 'tilko_auth_waiting' || e.key === 'tilko_auth_method_selection') {
+          e.key === 'tilko_auth_waiting' || e.key === 'tilko_auth_method_selection' ||
+          e.key === STORAGE_KEYS.TILKO_INFO_CONFIRMING) {
         checkHideStatus();
       }
     };
@@ -119,34 +124,51 @@ const FloatingButton: React.FC = () => {
       return;
     }
     
-    // AuthForm에게 정보 확인 시작 신호 전송
-    StorageManager.setItem(STORAGE_KEYS.START_INFO_CONFIRMATION, 'true');
-    console.log('📡 [플로팅버튼] 정보 확인 시작 신호 전송');
-    
-    // 같은 페이지 내에서 localStorage 변경을 감지할 수 있도록 커스텀 이벤트 발생
-    window.dispatchEvent(new Event('localStorageChange'));
+    // AuthForm 함수 직접 호출 (localStorage + 이벤트 방식 제거)
+    if ((window as any).welloAuthForm?.startInfoConfirmation) {
+      (window as any).welloAuthForm.startInfoConfirmation();
+    } else {
+      console.warn('⚠️ [플로팅버튼] AuthForm 함수를 찾을 수 없음 - localStorage 방식으로 폴백');
+      StorageManager.setItem(STORAGE_KEYS.START_INFO_CONFIRMATION, 'true');
+      window.dispatchEvent(new Event('localStorageChange'));
+    }
   };
 
   const handleAuthCompleteClick = async () => {
     console.log('✅ [인증완료] 사용자가 인증 완료 버튼 클릭');
     
-    // AuthForm에게 수동 데이터 수집 신호 전송
-    StorageManager.setItem('tilko_manual_collect', 'true');
-    console.log('📡 [플로팅버튼] 수동 데이터 수집 신호 전송');
-    
-    // 같은 페이지 내에서 localStorage 변경을 감지할 수 있도록 커스텀 이벤트 발생
-    window.dispatchEvent(new Event('localStorageChange'));
+    // AuthForm 함수 직접 호출 (localStorage + 이벤트 방식 제거)
+    if ((window as any).welloAuthForm?.startManualDataCollection) {
+      (window as any).welloAuthForm.startManualDataCollection();
+    } else {
+      console.warn('⚠️ [플로팅버튼] AuthForm 함수를 찾을 수 없음 - localStorage 방식으로 폴백');
+      StorageManager.setItem('tilko_manual_collect', 'true');
+      window.dispatchEvent(new Event('localStorageChange'));
+    }
   };
 
   const handleAuthMethodSelectionClick = async () => {
     console.log('🔘 [인증방식] 사용자가 인증 시작 버튼 클릭');
     
-    // AuthForm에게 인증 방식 선택 완료 신호 전송
-    StorageManager.setItem('tilko_auth_method_complete', 'true');
-    console.log('📡 [플로팅버튼] 인증 방식 선택 완료 신호 전송');
+    // AuthForm 함수 직접 호출 (localStorage + 이벤트 방식 제거)
+    if ((window as any).welloAuthForm?.completeAuthMethodSelection) {
+      (window as any).welloAuthForm.completeAuthMethodSelection();
+    } else {
+      console.warn('⚠️ [플로팅버튼] AuthForm 함수를 찾을 수 없음 - localStorage 방식으로 폴백');
+      StorageManager.setItem('tilko_auth_method_complete', 'true');
+      window.dispatchEvent(new Event('localStorageChange'));
+    }
+  };
+
+  const handleInfoConfirmationNext = async () => {
+    console.log('➡️ [플로팅버튼] 정보 확인 다음 단계 진행');
     
-    // 같은 페이지 내에서 localStorage 변경을 감지할 수 있도록 커스텀 이벤트 발생
-    window.dispatchEvent(new Event('localStorageChange'));
+    // AuthForm 함수 직접 호출
+    if ((window as any).welloAuthForm?.handleNextStep) {
+      (window as any).welloAuthForm.handleNextStep();
+    } else {
+      console.warn('⚠️ [플로팅버튼] AuthForm 함수를 찾을 수 없음');
+    }
   };
   
   const getButtonConfig = () => {
@@ -154,9 +176,18 @@ const FloatingButton: React.FC = () => {
     
     if (path === '/login') {
       // 틸코 인증 대기 상태 확인 (React state 사용)
-      // console.log('🔍 [플로팅버튼] 상태:', { isAuthWaiting, isAuthMethodSelection });
+      // console.log('🔍 [플로팅버튼] 상태:', { isAuthWaiting, isAuthMethodSelection, isInfoConfirming });
       
-      if (isAuthWaiting) {
+      if (isInfoConfirming) {
+        // 현재 단계 확인
+        const currentStep = (window as any).welloAuthForm?.getCurrentConfirmationStep?.() || 'name';
+        const buttonText = currentStep === 'name' ? '네, 맞습니다' : '다음';
+        
+        return {
+          text: buttonText,
+          onClick: handleInfoConfirmationNext
+        };
+      } else if (isAuthWaiting) {
         return {
           text: '데이터 수집하기',
           onClick: handleAuthCompleteClick
@@ -226,9 +257,8 @@ const FloatingButton: React.FC = () => {
       return {
         text: '검진 예약 하기',
         onClick: () => {
-          console.log('🎯 [플로팅버튼] 검진 예약 페이지로 이동');
-          const queryString = location.search;
-          navigate(`/appointment${queryString}`);
+          console.log('🎯 [플로팅버튼] 검진 예약 모달 열기');
+          onOpenAppointmentModal?.();
         }
       };
     }
@@ -248,22 +278,27 @@ const FloatingButton: React.FC = () => {
     return {
       text: '검진 예약 하기',
       onClick: () => {
-        console.log('🎯 [플로팅버튼] 검진 예약 페이지로 이동');
-        navigate('/appointment');
+        console.log('🎯 [플로팅버튼] 검진 예약 모달 열기');
+        onOpenAppointmentModal?.();
       }
     };
   };
 
-  const buttonConfig = React.useMemo(() => getButtonConfig(), [location.pathname, isAuthWaiting, isAuthMethodSelection, buttonUpdateTrigger]);
+  const buttonConfig = React.useMemo(() => getButtonConfig(), [location.pathname, isAuthWaiting, isAuthMethodSelection, isInfoConfirming, buttonUpdateTrigger, onOpenAppointmentModal]);
 
   // buttonConfig가 null이거나 비밀번호 모달이 열려있으면 플로팅 버튼 숨기기
   if (!buttonConfig || isPasswordModalOpen) {
     return null;
   }
 
+  // 인증 대기 상태일 때 깜빡임 효과 추가
+  const buttonClassName = isAuthWaiting 
+    ? "floating-button auth-waiting-button" 
+    : "floating-button";
+
   return (
     <Button
-      className="floating-button"
+      className={buttonClassName}
       onClick={buttonConfig.onClick}
       disabled={false}
     >
@@ -303,27 +338,77 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const [isReturningToMain, setIsReturningToMain] = useState(false);
   const [prevPathname, setPrevPathname] = useState<string>('');
+  const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
   const loadedUuidRef = useRef<string | null>(null); // 이미 로드한 UUID 추적
   const loadingUuidRef = useRef<string | null>(null); // 현재 로딩 중인 UUID 추적
   const lastSearchRef = useRef<string>(''); // 마지막 처리한 location.search 추적
 
   // 초기 로드 시 쿼리 파라미터 보존 (프로덕션 환경에서 쿼리 파라미터가 사라지는 문제 해결)
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const uuid = urlParams.get('uuid');
-    const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
-    
-    // 쿼리 파라미터가 있지만 location.search에 없는 경우 (프로덕션 환경에서 발생 가능)
-    if ((uuid || hospital) && !location.search) {
-      const currentSearch = location.search;
-      const windowSearch = window.location.search;
+    // 즉시 실행 (동기적으로) - React Router가 렌더링되기 전에 처리
+    const restoreQueryParams = () => {
+      // 1. sessionStorage에서 저장된 쿼리 파라미터 확인 (index.html의 인라인 스크립트에서 저장됨)
+      const savedSearch = sessionStorage.getItem('wello_query_params');
       
-      // window.location.search에는 있지만 location.search에는 없는 경우
-      if (windowSearch && !currentSearch) {
-        console.log('🔧 [App] 쿼리 파라미터 복원:', windowSearch);
-        // 현재 경로에 쿼리 파라미터 추가 (replace로 히스토리 교체)
-        navigate(`${location.pathname}${windowSearch}`, { replace: true });
+      // 2. window.location.href에서 직접 쿼리 파라미터 추출
+      const currentUrl = window.location.href;
+      const urlObj = new URL(currentUrl);
+      const windowSearch = urlObj.search;
+      const locationSearch = location.search;
+      
+      // 3. 쿼리 파라미터 우선순위: windowSearch > savedSearch
+      const queryParams = windowSearch || savedSearch || '';
+      
+      console.log('🔍 [App] 쿼리 파라미터 체크:', {
+        windowHref: currentUrl,
+        windowSearch,
+        savedSearch,
+        locationSearch,
+        queryParams,
+        pathname: location.pathname
+      });
+      
+      // 4. 쿼리 파라미터가 있지만 location.search에는 없는 경우 복원
+      if (queryParams && !locationSearch) {
+        console.log('🔧 [App] 쿼리 파라미터 복원 시작:', queryParams);
+        
+        // sessionStorage에서 제거 (한 번만 사용)
+        if (savedSearch) {
+          sessionStorage.removeItem('wello_query_params');
+        }
+        
+        // window.history.replaceState로 먼저 복원 (동기적으로)
+        if (window.history && window.history.replaceState) {
+          const newUrl = `${window.location.pathname}${queryParams}${window.location.hash}`;
+          window.history.replaceState({ ...window.history.state }, '', newUrl);
+          console.log('✅ [App] history.replaceState 완료:', newUrl);
+        }
+        
+        // React Router의 navigate를 사용하여 쿼리 파라미터 복원
+        const currentPath = location.pathname;
+        const newPath = `${currentPath}${queryParams}`;
+        
+        // 즉시 navigate (setTimeout 없이)
+        navigate(newPath, { replace: true });
+        console.log('✅ [App] navigate 완료:', newPath);
+        
+        return true; // 복원 성공
       }
+      
+      return false; // 복원 불필요
+    };
+    
+    // 즉시 실행
+    const restored = restoreQueryParams();
+    
+    // 복원이 성공했으면 추가 확인 불필요
+    if (!restored) {
+      // 추가 보험: 약간의 지연 후 다시 확인 (리다이렉트 후일 수 있음)
+      const timeoutId = setTimeout(() => {
+        restoreQueryParams();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, []); // 초기 마운트 시 한 번만 실행
 
@@ -351,6 +436,16 @@ const AppContent: React.FC = () => {
 
   // URL 파라미터 감지하여 자동 데이터 로딩 (한 번만 실행)
   useEffect(() => {
+    // window.location.search 확인 (실제 URL의 쿼리 파라미터)
+    const windowSearch = window.location.search;
+    
+    // location.search가 비어있지만 window.location.search에는 있는 경우 복원
+    if (!location.search && windowSearch) {
+      console.log('🔧 [App] 쿼리 파라미터 복원 (데이터 로딩 전):', windowSearch);
+      navigate(`${location.pathname}${windowSearch}`, { replace: true });
+      return; // 복원 후 다음 렌더링에서 처리
+    }
+    
     // location.search가 변경되지 않았으면 무시 (중복 실행 방지)
     if (lastSearchRef.current === location.search) {
       console.log(`⏸️ [App] location.search 변경 없음 - 중복 실행 방지: ${location.search}`);
@@ -503,7 +598,9 @@ const AppContent: React.FC = () => {
         </Routes>
         
         {/* 플로팅 버튼 조건부 렌더링 */}
-        {shouldShowFloatingButton && <FloatingButton />}
+        {shouldShowFloatingButton && (
+          <FloatingButton onOpenAppointmentModal={() => setIsAppointmentModalOpen(true)} />
+        )}
         
         {/* AI 버튼 조건부 렌더링 */}
         {layoutConfig.showAIButton && <ResultsTrendButton />}
@@ -516,6 +613,16 @@ const AppContent: React.FC = () => {
       
       {/* 페이지 전환 로딩 스피너 (메인페이지로 복귀 시) */}
       <PageTransitionLoader isVisible={isReturningToMain} />
+      
+      {/* 예약 모달 */}
+      <AppointmentModal
+        isOpen={isAppointmentModalOpen}
+        onClose={() => setIsAppointmentModalOpen(false)}
+        onConfirm={(selectedDates) => {
+          console.log('예약 신청 완료', selectedDates);
+          // TODO: 예약 신청 API 호출
+        }}
+      />
     </div>
   );
 };

@@ -11,27 +11,138 @@
   }
 }
 
-// 인증 페이지 전용 배경색
+// 인증 페이지 전용 배경색 - 랜딩 페이지와 동일하게
 .bg_auth_yellow {
-  background: $background-yellow;
+  background: $background-cream !important; // 랜딩 페이지와 동일한 배경색
+  font-family: $font-family-base !important; // 랜딩 페이지와 동일한 폰트
 }
 
-// 인증 페이지에서 플로팅 버튼 배경을 노란색 계열로 (최고 우선순위)
+// 인증 페이지에서 플로팅 버튼 배경을 베이지색으로 (데이터 수집 중일 때는 숨김)
 html body .questionnaire-container.tilko-login .floating-button-container,
 .questionnaire-container.tilko-login .floating-button-container {
-  background: $background-yellow !important; // 상단 페이지와 정확히 동일한 변수 사용
-  background-color: $background-yellow !important; // 추가 보험
-  backdrop-filter: blur(20px) !important; // 블러 효과 줄임
-  -webkit-backdrop-filter: blur(20px) !important;
+  background: transparent !important; // 배경 투명하게 (플로팅 버튼 자체 배경 사용)
+  background-color: transparent !important; // 추가 보험
+  backdrop-filter: none !important; // 블러 효과 제거
+  -webkit-backdrop-filter: none !important;
+  position: fixed !important;
+  bottom: 0 !important; // 하단에 완전히 붙이기
+  left: 0 !important;
+  right: 0 !important;
+  width: 100vw !important;
+  padding: 0 !important; // 패딩 제거
+  margin: 0 !important; // 마진 제거
 }
 
-html body .questionnaire-container.tilko-login .floating-button,
-.questionnaire-container.tilko-login .floating-button {
+// 인증 페이지 플로팅 버튼 - 모든 인증 단계(name, phone, birthday, auth_method)에 적용
+// Button 컴포넌트와 함께 사용되므로 더 구체적인 선택자 사용
+html body .questionnaire-container.tilko-login button.floating-button,
+html body .questionnaire-container.tilko-login .button.floating-button,
+html body .questionnaire-container.tilko-login .floating-button.button,
+.questionnaire-container.tilko-login button.floating-button,
+.questionnaire-container.tilko-login .button.floating-button,
+.questionnaire-container.tilko-login .floating-button.button,
+// /login 경로의 모든 플로팅 버튼 (모든 인증 단계에 적용)
+html body[data-path*="login"] button.floating-button,
+html body[data-path*="login"] .button.floating-button,
+html body[data-path*="login"] .floating-button.button,
+// 인증 컨텐츠 영역의 플로팅 버튼
+html body .auth__content ~ button.floating-button,
+html body .auth__content ~ .button.floating-button,
+html body .auth__content ~ .floating-button.button {
   background: $background-yellow !important; // 상단 페이지와 동일한 노란색 변수
   background-color: $background-yellow !important; // 추가 보험
   color: $background-beige !important; // 베이지색 텍스트 (변수 사용)
-  box-shadow: 0 4px 12px rgba(247, 232, 211, 0.3) !important; // 베이지색 그림자
+  box-shadow: 0 -4px 12px rgba(247, 232, 211, 0.3) !important; // 상단에만 그림자 (하단 그림자 제거)
   border: none !important; // 테두리 제거
+  border-bottom: none !important; // 하단 테두리 완전 제거
+  outline: none !important; // 아웃라인 제거
+  position: fixed !important;
+  bottom: 0 !important; // 하단에 완전히 붙이기
+  left: 0 !important;
+  right: 0 !important;
+  width: 100vw !important;
+  margin: 0 !important; // 마진 제거
+  margin-bottom: 0 !important; // 하단 마진 완전 제거
+  padding: 0.75rem 1rem 0 !important; // 하단 패딩 완전 제거
+  padding-bottom: 0 !important; // 하단 패딩 명시적 제거
+  border-radius: 0 !important; // 기본 border-radius 제거
+  border-top-left-radius: 12px !important; // 상단 왼쪽 모서리 라운드
+  border-top-right-radius: 12px !important; // 상단 오른쪽 모서리 라운드
+  border-bottom-left-radius: 0 !important; // 하단 왼쪽 모서리는 직각 유지
+  border-bottom-right-radius: 0 !important; // 하단 오른쪽 모서리는 직각 유지
+  box-sizing: border-box !important; // 패딩 포함 전체 너비 계산
+  
+  // 하단 하얀 줄 완전 제거
+  &::after,
+  &::before {
+    display: none !important;
+    content: none !important;
+    background: none !important;
+    border: none !important;
+  }
+  
+  // Button 컴포넌트의 기본 스타일 오버라이드
+  &.button--primary,
+  &.button--medium {
+    border-radius: 0 !important;
+    border-top-left-radius: 12px !important;
+    border-top-right-radius: 12px !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    padding: 0.75rem 1rem 0 !important; // 하단 패딩 제거
+    padding-bottom: 0 !important; // 하단 패딩 명시적 제거
+  }
+  
+  // button__content span 스타일
+  .button__content {
+    margin: 0 !important;
+    padding: 0 !important;
+    padding-bottom: 0 !important;
+    border: none !important;
+    border-bottom: none !important;
+    background: transparent !important;
+    display: block !important;
+    line-height: 1 !important;
+    height: auto !important;
+    
+    &::after,
+    &::before {
+      display: none !important;
+      content: none !important;
+      background: none !important;
+      border: none !important;
+      height: 0 !important;
+      width: 0 !important;
+    }
+  }
+  
+  // 버튼 하단 완전 제거
+  &::after {
+    display: none !important;
+    content: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+  }
+  
+  // 인증 대기 상태에서 깜빡임 효과
+  &.auth-waiting-button {
+    animation: buttonBlink 1.5s ease-in-out infinite;
+  }
+}
+
+// 버튼 깜빡임 애니메이션
+@keyframes buttonBlink {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(0.98);
+  }
 }
 
 html body .questionnaire-container.tilko-login .floating-button:hover,
@@ -117,6 +228,8 @@ html body .questionnaire-container.tilko-login .floating-button:active,
   &__content {
     border: $spacing-sm solid transparent;
     box-sizing: border-box;
+    transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
+    animation: fadeIn 0.4s ease-in-out;
     
     &-input {
       background: $white;
@@ -141,6 +254,8 @@ html body .questionnaire-container.tilko-login .floating-button:active,
     
     &-input-area {
       min-height: 85px;
+      transition: opacity 0.4s ease-in-out, transform 0.4s ease-in-out;
+      animation: slideInUp 0.4s ease-out;
     }
     
     &-input-label {
@@ -180,6 +295,38 @@ html body .questionnaire-container.tilko-login .floating-button:active,
         transform: none;
       }
     }
+  }
+}
+
+// 화면 전환 애니메이션
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideOutDown {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
   }
 }
 

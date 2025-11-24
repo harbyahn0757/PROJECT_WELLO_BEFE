@@ -35,7 +35,7 @@ const AuthPage: React.FC = () => {
 
   return (
     <div className="questionnaire-container tilko-login">
-      <div className="container bg_xog_yellow">
+      <div className="container bg_auth_yellow">
         <div className="wrapper login">
           <AuthForm onBack={handleBack} />
         </div>

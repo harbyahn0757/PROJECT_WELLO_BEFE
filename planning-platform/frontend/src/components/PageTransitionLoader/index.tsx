@@ -8,9 +8,10 @@ import './styles.scss';
 
 interface PageTransitionLoaderProps {
   isVisible: boolean;
+  message?: string; // 표시할 메시지 (선택사항)
 }
 
-const PageTransitionLoader: React.FC<PageTransitionLoaderProps> = ({ isVisible }) => {
+const PageTransitionLoader: React.FC<PageTransitionLoaderProps> = ({ isVisible, message }) => {
   const [shouldRender, setShouldRender] = React.useState(false);
   const [isAnimating, setIsAnimating] = React.useState(false);
 
@@ -42,12 +43,19 @@ const PageTransitionLoader: React.FC<PageTransitionLoaderProps> = ({ isVisible }
   return (
     <div className={`page-transition-loader ${isAnimating ? 'fade-in' : 'fade-out'}`}>
       <div className="page-transition-overlay">
-        <div className="page-transition-spinner">
-          <img 
-            src={WELLO_LOGO_IMAGE}
-            alt="로딩 중" 
-            className="wello-icon-blink"
-          />
+        <div className="page-transition-content">
+          <div className="page-transition-spinner">
+            <img 
+              src={WELLO_LOGO_IMAGE}
+              alt="로딩 중" 
+              className="wello-icon-blink"
+            />
+          </div>
+          {message && (
+            <div className="page-transition-message">
+              {message}
+            </div>
+          )}
         </div>
       </div>
     </div>

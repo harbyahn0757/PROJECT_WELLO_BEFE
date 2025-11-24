@@ -83,6 +83,11 @@
     color: $black;
     padding: 4px 0; // 간격 최소화
     font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+    
+    // 일요일 색상
+    &--sunday {
+      color: #ef4444; // 빨간색
+    }
   }
   
   // 날짜 그리드
@@ -125,7 +130,7 @@
     
     // 지망 표시
     &-preference {
-      font-size: 10px; // 폰트 크기 확대
+      font-size: 8px !important; // 폰트 크기 +2
       font-weight: $font-weight-normal;
       color: $black;
       margin-top: 0; // 간격 최소화
@@ -153,7 +158,8 @@
       }
       
       .date-selector__preference {
-        color: $white;
+        color: $white !important;
+        font-size: 8px !important; // 선택된 날짜에서도 +2
       }
     }
     
@@ -178,6 +184,13 @@
     &--empty {
       cursor: default;
       pointer-events: none;
+    }
+    
+    // 일요일 색상 (선택되지 않은 경우만)
+    &--sunday {
+      .date-selector__day-number {
+        color: #ef4444; // 빨간색
+      }
     }
     
     // 호버 효과 (선택 가능한 날짜만)
@@ -236,7 +249,7 @@
       }
       
       &-preference {
-        font-size: 9px; // 폰트 크기 확대
+        font-size: 7px !important; // 모바일에서 +2
         margin-top: 0;
       }
     }

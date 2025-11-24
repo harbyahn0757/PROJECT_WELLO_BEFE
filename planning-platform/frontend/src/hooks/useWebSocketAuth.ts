@@ -30,7 +30,7 @@ interface WebSocketMessage {
 interface UseWebSocketAuthProps {
   sessionId: string | null;
   onAuthCompleted?: (data: any) => void;
-  onDataCollectionProgress?: (progressType: string, message: string) => void;
+  onDataCollectionProgress?: (progressType: string, message: string, data?: any) => void;
   onError?: (error: string) => void;
   onStatusUpdate?: (status: string, authCompleted: boolean) => void;
   onAuthTimeout?: (message: string) => void;
@@ -172,6 +172,27 @@ export const useWebSocketAuth = ({
               
               console.log('🎬 [WebSocket] 스트리밍 상태:', streamingStatus, streamingMessage);
               
+              // 완료 상태 처리
+              if (streamingStatus === 'completed') {
+                console.log('🎉 [WebSocket] 데이터 수집 완료 (streaming_status)!', streamingData);
+                setIsDataCollectionCompleted(true);
+                
+                // 완료 데이터를 onDataCollectionProgress로 전달
+                if (onDataCollectionProgress) {
+                  onDataCollectionProgress('completed', streamingMessage || '모든 데이터 수집이 완료되었습니다!');
+                }
+                
+                // 완료 데이터를 onAuthCompleted로도 전달 (기존 로직 호환)
+                if (onAuthCompleted && streamingData) {
+                  onAuthCompleted(streamingData);
+                }
+              } else if (streamingStatus === 'fetching_health_data' || streamingStatus === 'fetching_prescription_data') {
+                // 데이터 수집 진행 중
+                if (onDataCollectionProgress) {
+                  onDataCollectionProgress(streamingStatus, streamingMessage || '데이터를 수집하고 있습니다...');
+                }
+              }
+              
               if (streamingStatus === 'auth_key_received') {
                 console.log('🔑 [WebSocket] 틸코 키값 수신됨 - onTilkoKeyReceived 호출');
                 if (onTilkoKeyReceived && streamingData?.cx_id) {
@@ -194,6 +215,19 @@ export const useWebSocketAuth = ({
                 console.log('🏥 [WebSocket] 건강검진 데이터 수집 중');
                 if (onDataCollectionProgress) {
                   onDataCollectionProgress('fetching_health_data', streamingMessage || '');
+                }
+              } else if (streamingStatus === 'completed') {
+                console.log('🎉 [WebSocket] 데이터 수집 완료 (streaming_status)!', streamingData);
+                setIsDataCollectionCompleted(true);
+                
+                // 완료 데이터를 onDataCollectionProgress로 전달
+                if (onDataCollectionProgress) {
+                  onDataCollectionProgress('completed', streamingMessage || '모든 데이터 수집이 완료되었습니다!', streamingData);
+                }
+                
+                // 완료 데이터를 onAuthCompleted로도 전달 (기존 로직 호환)
+                if (onAuthCompleted && streamingData) {
+                  onAuthCompleted(streamingData);
                 }
               } else if (streamingStatus === 'fetching_prescription_data') {
                 console.log('💊 [WebSocket] 처방전 데이터 수집 중');

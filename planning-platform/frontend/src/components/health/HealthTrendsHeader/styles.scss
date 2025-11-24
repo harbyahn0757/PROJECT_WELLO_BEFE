@@ -100,13 +100,12 @@
     
   }
   
-  // 새로고침 아이콘 (갈색 동그라미)
+  // 새로고침 아이콘 (새비지 로고 외곽선만 갈색)
   &__refresh-icon {
     width: 18px;
     height: 18px;
-    border-radius: 50%;
-    background: #A16A51;
     border: none;
+    background: transparent;
     cursor: pointer;
     padding: 0;
     display: flex;
@@ -117,21 +116,22 @@
     transition: all 0.2s ease;
     
     &:hover {
-      background: #8B5A3C;
-      transform: scale(1.1);
+      transform: scale(1.1) rotate(90deg);
     }
     
     &:active {
-      transform: scale(0.95);
+      transform: scale(0.95) rotate(90deg);
     }
     
-    // 중앙에 작은 흰색 원 (i 아이콘 대신)
-    &-inner {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: white;
-      display: block;
+    // SVG 아이콘 스타일
+    &-svg {
+      width: 14px;
+      height: 14px;
+      transition: transform 0.3s ease;
+    }
+    
+    &:hover &-svg {
+      transform: rotate(180deg);
     }
   }
 

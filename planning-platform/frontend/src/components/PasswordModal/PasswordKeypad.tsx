@@ -65,15 +65,9 @@ const PasswordKeypad: React.FC<PasswordKeypadProps> = ({
         ))}
       </div>
       
-      {/* 하단 버튼들 - 취소, 0, 삭제 */}
+      {/* 하단 버튼들 - 0, 삭제 (취소 버튼 제거) */}
       <div className="keypad-bottom-row">
-        <button
-          className="keypad-button cancel-key"
-          onClick={handleCancel}
-          disabled={disabled}
-        >
-          취소
-        </button>
+        <div className="keypad-empty"></div>
         <button
           className="keypad-button number-key"
           onClick={() => handleKeyPress('0')}

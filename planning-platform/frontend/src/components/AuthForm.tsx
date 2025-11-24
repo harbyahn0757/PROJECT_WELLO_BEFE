@@ -5,6 +5,7 @@ import { PatientDataConverter, PatientDataValidator, GenderConverter } from '../
 import { TILKO_API, HTTP_METHODS, API_HEADERS } from '../constants/api';
 import PasswordModal from './PasswordModal';
 import { PasswordModalType } from './PasswordModal/types';
+import WelloModal from './common/WelloModal';
 import { NavigationHelper, STANDARD_NAVIGATION } from '../constants/navigation';
 import { STORAGE_KEYS, StorageManager, TilkoSessionStorage } from '../constants/storage';
 import { useWebSocketAuth } from '../hooks/useWebSocketAuth';
@@ -109,15 +110,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     StorageManager.removeItemWithEvent(key, 'tilko-status-change');
   };
   
-  // 로딩 중 순환 메시지 - 더 구체적이고 단계별로 개선
+  // 로딩 중 순환 메시지 - 더 구체적이고 단계별로 개선 (이모티콘 제거)
   const loadingMessages = [
-    '🏥 국민건강보험공단에서 건강검진 데이터를 가져오고 있어요...',
-    '💊 병원 및 약국 처방전 정보를 수집하고 있어요...',
-    '📊 수집된 건강정보를 안전하게 분석하고 있어요...',
-    '🛡️ 개인정보를 암호화하여 안전하게 저장하고 있어요...',
-    '✨ 맞춤형 건강 트렌드 분석을 준비하고 있어요...',
-    '⏰ 잠시만 기다려주세요. 곧 완료됩니다...',
-    '🎯 최종 검토 중입니다. 거의 다 끝났어요!'
+    '국민건강보험공단에서 건강검진 데이터를 가져오고 있어요...',
+    '병원 및 약국 처방전 정보를 수집하고 있어요...',
+    '수집된 건강정보를 안전하게 분석하고 있어요...',
+    '개인정보를 암호화하여 안전하게 저장하고 있어요...',
+    '맞춤형 건강 트렌드 분석을 준비하고 있어요...',
+    '잠시만 기다려주세요. 곧 완료됩니다...',
+    '최종 검토 중입니다. 거의 다 끝났어요!'
   ];
   
   // 상태 폴링 관련
@@ -237,21 +238,49 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       setCurrentStatus('auth_completed');
       setTypingText('인증이 완료되었습니다!\n건강검진 데이터를 수집하겠습니다.');
       
+      // 세션 ID가 없으면 localStorage에서 복구 시도
+      if (!sessionId) {
+        const savedSessionId = localStorage.getItem('tilko_session_id') || StorageManager.getItem(STORAGE_KEYS.TILKO_SESSION_ID);
+        if (savedSessionId) {
+          console.log('🔄 [인증완료] 세션 ID 복구:', savedSessionId);
+          setSessionId(savedSessionId);
+        }
+      }
+      
       // 기존 폴링 정리
       if (tokenTimeout) {
         clearTimeout(tokenTimeout);
         setTokenTimeout(null);
       }
     },
-    onDataCollectionProgress: (progressType, message) => {
-      console.log('📈 [WebSocket] 데이터 수집 진행:', progressType, message);
+    onDataCollectionProgress: (progressType, message, data?: any) => {
+      console.log('📈 [WebSocket] 데이터 수집 진행:', progressType, message, data);
+      
+      // 완료 상태 확인
+      if (progressType === 'completed' || message?.includes('모든 데이터 수집이 완료')) {
+        console.log('🎉 [WebSocket] 데이터 수집 완료 알림 수신!', data);
+        wsCompletionRef.current = { completed: true, data: data };
+        setCurrentStatus('data_completed');
+        setLoading(false);
+        
+        // 데이터 수집 완료 - 플로팅 버튼 플래그 제거
+        StorageManager.removeItem('tilko_manual_collect');
+        window.dispatchEvent(new Event('localStorageChange'));
+        
+        // 수집 완료 모달 표시
+        setShowCollectionCompleteModal(true);
+        
+        // 폴링이 완료를 감지하도록 함 (폴링이 실행 중이면)
+        return;
+      }
+      
       setCurrentStatus('data_collecting');
       setLoading(true); // 로딩 스피너 표시
       setTypingText(message);
       
-      // 플로팅 버튼 숨기기 위한 플래그 설정
+      // 플로팅 버튼 숨기기 위한 플래그 설정 (이벤트 발생하지 않음 - 무한 루프 방지)
       StorageManager.setItem('tilko_manual_collect', 'true');
-      window.dispatchEvent(new Event('localStorageChange'));
+      // window.dispatchEvent(new Event('localStorageChange')); // 제거 - 무한 루프 방지
     },
     onError: (error) => {
       console.error('❌ [WebSocket] 에러:', error);
@@ -301,6 +330,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   // 세션 복구 모달 상태
   const [showSessionModal, setShowSessionModal] = useState<boolean>(false);
   const [savedSessionInfo, setSavedSessionInfo] = useState<any>(null);
+  
+  // 수집 완료 모달 상태
+  const [showCollectionCompleteModal, setShowCollectionCompleteModal] = useState<boolean>(false);
   
   // 설명 텍스트 타이핑 효과
   const [descTypingText, setDescTypingText] = useState<string>('');
@@ -408,11 +440,18 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           return safeName;
         };
     
-        // localStorage 이벤트 리스너를 사용한 신호 감지
+        // localStorage 이벤트 리스너를 사용한 신호 감지 (폴백용 - 직접 호출 실패 시에만 사용)
         const handleStartSignal = () => {
           const startSignal = StorageManager.getItem(STORAGE_KEYS.START_INFO_CONFIRMATION);
           const manualCollectSignal = StorageManager.getItem('tilko_manual_collect');
           const authMethodCompleteSignal = StorageManager.getItem('tilko_auth_method_complete');
+          
+          // 신호가 없으면 로그 찍지 않고 리턴 (불필요한 로그 방지)
+          const hasAnySignal = startSignal || manualCollectSignal || authMethodCompleteSignal;
+          if (!hasAnySignal) {
+            return; // 신호가 없으면 아무것도 하지 않음
+          }
+          
           console.log(`🔍 [신호감지-${componentId}] 신호 감지됨. startSignal:`, startSignal, 'manualCollectSignal:', manualCollectSignal, 'authMethodCompleteSignal:', authMethodCompleteSignal);
           
           // 인증 방식 선택 완료 신호 처리
@@ -438,10 +477,17 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           // 수동 데이터 수집 신호 처리 (문자열 'true' 또는 boolean true 처리)
           const isManualCollectSignal = manualCollectSignal === 'true' || (typeof manualCollectSignal === 'boolean' && manualCollectSignal === true);
           if (isManualCollectSignal) {
+            // 이미 실행 중이면 무시
+            if (isManualCollectingRef.current) {
+              console.log(`⏸️ [신호감지-${componentId}] 이미 수집 중 - 신호 무시`);
+              StorageManager.removeItem('tilko_manual_collect'); // 신호만 제거
+              return;
+            }
+            
             console.log(`✅ [신호감지-${componentId}] 수동 데이터 수집 시작`);
             StorageManager.removeItem('tilko_manual_collect'); // 신호 제거
             StorageManager.removeItem('tilko_auth_waiting'); // 인증 대기 상태 제거
-            window.dispatchEvent(new Event('localStorageChange')); // 플로팅 버튼 업데이트
+            // localStorageChange 이벤트 발생하지 않음 (무한 루프 방지)
             
             // 수동 데이터 수집 실행
             handleManualDataCollection();
@@ -481,8 +527,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               }
               
               console.log('🎯 [정보확인] 신호 감지, 확인 단계 시작');
-              console.log('📝 [타이틀타이핑] 시작:', `${safeName}님 존함이 맞나요?`);
-              typeTitleMessage(`${safeName}님\n존함이 맞나요?`, 120, true);
+              console.log('📝 [타이틀타이핑] 시작: 존함이 맞나요?');
+              typeTitleMessage('존함이 맞나요?', 120, true);
             };
             
             setTimeout(() => startTypingWithDelay(), 500);
@@ -566,11 +612,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       
       if (name && name !== '사용자') {
         console.log('📝 [이름업데이트] 새로운 이름 감지:', name);
-        console.log('📝 [타이틀타이핑] 업데이트된 이름으로 재시작:', `${name}님 존함이 맞나요?`);
+        console.log('📝 [타이틀타이핑] 업데이트된 이름으로 재시작: 존함이 맞나요?');
         // 기존 타이핑 중지하고 새로운 이름으로 시작
         setIsTitleTyping(false);
         setTimeout(() => {
-          typeTitleMessage(`${name}님\n존함이 맞나요?`, 120, true);
+          typeTitleMessage('존함이 맞나요?', 120, true);
         }, 100);
         
         // 즉시 이름 추출에서도 이 이름을 사용하도록 강제 설정
@@ -631,7 +677,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     
     // 빈 문자열이거나 비정상적인 경우 기본값 사용
     if (!cleanMessage || cleanMessage.length < 3) {
-      cleanMessage = '사용자님\n존함이 맞나요?';
+      cleanMessage = '존함이 맞나요?';
     }
     
     const startTitleTyping = () => {
@@ -753,15 +799,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           if (step === 'name') {
             const name = (editableName && PatientDataConverter.cleanUndefined(editableName).trim()) || 
                         PatientDataConverter.getSafeName(patient) || '사용자';
-            typeTitleMessage(`${name}님\n존함이 맞나요?`, 120, true);
+            typeTitleMessage('존함이 맞나요?', 120, true);
           } else if (step === 'phone') {
             const phone = (editablePhone && PatientDataConverter.cleanUndefined(editablePhone).trim()) || 
                          PatientDataConverter.getSafePhone(patient);
-            typeTitleMessage(`전화번호가\n${phone} 맞나요?`, 120, true);
+            typeTitleMessage('아래 전화번호가 맞나요?', 120, true);
           } else if (step === 'birthday') {
             const birthday = (editableBirthday && PatientDataConverter.cleanUndefined(editableBirthday).trim()) || 
                             PatientDataConverter.getSafeBirthday(patient);
-            typeTitleMessage(`주민번호가\n${birthday}** 맞나요?`, 120, true);
+            typeTitleMessage('아래 생년월일이 맞나요?', 120, true);
           }
         }, 100);
       }
@@ -837,25 +883,109 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     }
   }, []);
 
+  // WebSocket 완료 알림을 받았는지 추적하는 ref
+  const wsCompletionRef = useRef<{ completed: boolean; data?: any }>({ completed: false });
+  // 수동 데이터 수집 실행 중 플래그 (중복 호출 방지)
+  const isManualCollectingRef = useRef<boolean>(false);
+
   const handleManualDataCollection = useCallback(async () => {
+      // 중복 호출 방지
+      if (isManualCollectingRef.current) {
+        console.log('⏸️ [수동수집] 이미 실행 중 - 중복 호출 방지');
+        return;
+      }
+      
       console.log('🔘 [수동수집] 사용자가 인증 완료 버튼 클릭');
       
+      // 실행 중 플래그 설정
+      isManualCollectingRef.current = true;
+      
+      // WebSocket 완료 알림 리셋
+      wsCompletionRef.current = { completed: false };
+      
       // sessionId 유효성 검사 (localStorage에서 직접 가져오기)
-      const currentSessionId = sessionId || StorageManager.getItem(STORAGE_KEYS.TILKO_SESSION_ID);
+      // state, localStorage, 그리고 직접 localStorage.getItem 모두 확인
+      let currentSessionId = sessionId || StorageManager.getItem(STORAGE_KEYS.TILKO_SESSION_ID) || localStorage.getItem('tilko_session_id');
+      
       if (!currentSessionId) {
-        console.error('❌ [수동수집] sessionId가 없습니다. state:', sessionId, 'localStorage:', StorageManager.getItem(STORAGE_KEYS.TILKO_SESSION_ID));
-        setCurrentStatus('error');
-        setTypingText('세션 정보가 없습니다.\n다시 시도해주세요.');
-        return;
+        console.error('❌ [수동수집] sessionId가 없습니다. state:', sessionId, 'localStorage:', StorageManager.getItem(STORAGE_KEYS.TILKO_SESSION_ID), 'direct:', localStorage.getItem('tilko_session_id'));
+        
+        // 세션 복구 시도
+        const savedSessionId = localStorage.getItem('tilko_session_id');
+        if (savedSessionId) {
+          console.log('🔄 [수동수집] localStorage에서 세션 복구:', savedSessionId);
+          setSessionId(savedSessionId);
+          currentSessionId = savedSessionId;
+        } else {
+          setCurrentStatus('error');
+          setTypingText('세션 정보가 없습니다.\n다시 인증을 시작해주세요.');
+          return;
+        }
+      }
+      
+      // 🛡️ 중복 호출 방지: 이미 수집 중이거나 완료된 경우 체크
+      try {
+        const statusCheck = await fetch(TILKO_API.SESSION_STATUS(currentSessionId));
+        if (statusCheck.ok) {
+          const statusData = await statusCheck.json();
+          console.log('🔍 [수동수집] 현재 세션 상태 확인:', statusData.status);
+          
+          // 이미 완료된 경우 바로 완료 처리
+          if (statusData.status === 'completed' || statusData.progress?.completed === true ||
+              (statusData.health_data && statusData.prescription_data)) {
+            console.log('✅ [수동수집] 이미 데이터 수집 완료됨 - 바로 완료 처리');
+            
+            // 수집된 데이터를 localStorage에 저장
+            if (statusData.health_data || statusData.prescription_data) {
+              const collectedData = {
+                health_data: statusData.health_data,
+                prescription_data: statusData.prescription_data,
+                collected_at: new Date().toISOString()
+              };
+              StorageManager.setItem('tilko_collected_data', collectedData);
+            }
+            
+            // 세션 정리 및 완료 처리
+            StorageManager.removeItem(STORAGE_KEYS.TILKO_SESSION_ID);
+            StorageManager.removeItem(STORAGE_KEYS.TILKO_SESSION_DATA);
+            StorageManager.removeItem('tilko_auth_waiting');
+            StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
+            
+            setCurrentStatus('data_completed');
+            
+            // 데이터 수집 완료 - 플로팅 버튼 플래그 제거
+            StorageManager.removeItem('tilko_manual_collect');
+            window.dispatchEvent(new Event('localStorageChange'));
+            
+            // 수집 완료 모달 표시 (비밀번호 설정 건너뛰기)
+            console.log('🎉 [수집완료] 수집 완료 모달 표시');
+            setShowCollectionCompleteModal(true);
+            
+            return; // 이미 완료되었으므로 collect-data 호출하지 않음
+          }
+          
+          // 이미 수집 중인 경우
+          if (statusData.status === 'fetching_health_data' || statusData.status === 'fetching_prescription_data') {
+            console.log('⏳ [수동수집] 이미 데이터 수집 중 - 폴링만 시작');
+            setCurrentStatus('collecting');
+            setTypingText('데이터 수집이 이미 진행 중입니다.\n완료까지 잠시만 기다려주세요.');
+            
+            // 폴링만 시작 (collect-data 호출하지 않음)
+            // ... (폴링 로직은 아래와 동일)
+            // collect-data 호출 부분을 건너뛰고 폴링만 시작하도록 수정 필요
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ [수동수집] 상태 확인 실패, 계속 진행:', error);
       }
       
       console.log('🔍 [수동수집] sessionId 확인 - state:', sessionId, 'localStorage:', StorageManager.getItem(STORAGE_KEYS.TILKO_SESSION_ID), 'using:', currentSessionId);
       setCurrentStatus('manual_collecting');
       setTypingText('데이터를 수집하고 있습니다...\n잠시만 기다려주세요.');
       
-      // 플로팅 버튼 숨기기 위한 플래그 설정
+      // 플로팅 버튼 숨기기 위한 플래그 설정 (이벤트 발생하지 않음 - 무한 루프 방지)
       StorageManager.setItem('tilko_manual_collect', 'true');
-      window.dispatchEvent(new Event('localStorageChange'));
+      // window.dispatchEvent(new Event('localStorageChange')); // 제거 - 무한 루프 방지
       
       try {
         const response = await fetch(TILKO_API.COLLECT_DATA(currentSessionId), {
@@ -869,28 +999,80 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           
           // 인증 대기 상태 제거 (데이터 수집 시작됨)
           StorageManager.removeItem('tilko_auth_waiting');
-          window.dispatchEvent(new Event('localStorageChange'));
+          // window.dispatchEvent(new Event('localStorageChange')); // 제거 - 무한 루프 방지
           
           setCurrentStatus('collecting');
           setTypingText('데이터 수집이 시작되었습니다.\n완료까지 잠시만 기다려주세요.');
           
-          // 플로팅 버튼 숨기기 위한 플래그 설정
+          // 플로팅 버튼 숨기기 위한 플래그 설정 (이벤트 발생하지 않음)
           StorageManager.setItem('tilko_manual_collect', 'true');
-          window.dispatchEvent(new Event('localStorageChange'));
+          // window.dispatchEvent(new Event('localStorageChange')); // 제거 - 무한 루프 방지
           
           // 수집 완료 확인을 위한 폴링 시작 (WebSocket 대체)
           let pollCount = 0;
           const maxPolls = 30; // 최대 30회 (약 30초)
           
+          // 폴링 중단 플래그 (완료 감지 시 즉시 중단)
+          let isPollingStopped = false;
+          
           const pollCollectionStatus = async () => {
+            // 이미 중단된 경우 즉시 리턴
+            if (isPollingStopped) {
+              console.log('⏹️ [수집상태확인] 폴링 이미 중단됨');
+              return;
+            }
+            
+            // WebSocket 완료 알림을 받았는지 확인
+            if (wsCompletionRef.current.completed) {
+              console.log('✅ [수집상태확인] WebSocket 완료 알림 수신 - 폴링 중단');
+              isPollingStopped = true;
+              
+              // WebSocket에서 받은 데이터로 완료 처리
+              const collectedData = wsCompletionRef.current.data;
+              if (collectedData) {
+                StorageManager.setItem('tilko_collected_data', {
+                  health_data: collectedData.health_data,
+                  prescription_data: collectedData.prescription_data,
+                  collected_at: new Date().toISOString()
+                });
+              }
+              
+              // 세션 정리 및 완료 처리
+              StorageManager.removeItem(STORAGE_KEYS.TILKO_SESSION_ID);
+              StorageManager.removeItem(STORAGE_KEYS.TILKO_SESSION_DATA);
+              StorageManager.removeItem('tilko_auth_waiting');
+              StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
+              
+              setCurrentStatus('data_completed');
+              
+              // 데이터 수집 완료 - 플로팅 버튼 플래그 제거
+              StorageManager.removeItem('tilko_manual_collect');
+              window.dispatchEvent(new Event('localStorageChange'));
+              
+              // 수집 완료 모달 표시 (비밀번호 설정 건너뛰기)
+              console.log('🎉 [수집완료] 수집 완료 모달 표시');
+              setShowCollectionCompleteModal(true);
+              
+              return;
+            }
+            
             try {
               pollCount++;
               console.log(`🔄 [수집상태확인] 폴링 ${pollCount}/${maxPolls}`);
               
+              if (!currentSessionId) {
+                console.error('❌ [수집상태확인] sessionId가 없습니다.');
+                return;
+              }
               const statusResponse = await fetch(TILKO_API.SESSION_STATUS(currentSessionId));
               if (statusResponse.ok) {
                 const statusResult = await statusResponse.json();
-                console.log('📊 [수집상태확인] 상태:', statusResult);
+                console.log('📊 [수집상태확인] 상태:', {
+                  status: statusResult.status,
+                  progress: statusResult.progress,
+                  hasHealthData: !!statusResult.health_data,
+                  hasPrescriptionData: !!statusResult.prescription_data
+                });
                 
                 // 에러 메시지 확인 및 모달 표시
                 if (statusResult.messages && Array.isArray(statusResult.messages)) {
@@ -901,6 +1083,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                   if (errorMessages.length > 0) {
                     const latestError = errorMessages[errorMessages.length - 1];
                     console.log('🚨 [에러감지] 구조화된 에러 메시지:', latestError);
+                    
+                    isPollingStopped = true; // 폴링 중단
                     
                     displayErrorModal({
                       title: latestError.title || '데이터 수집 오류',
@@ -914,10 +1098,20 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                   }
                 }
                 
-                // 수집 완료 확인
-                if (statusResult.progress?.completed || statusResult.status === 'completed' || 
-                    statusResult.health_data || statusResult.prescription_data) {
-                  console.log('🎉 [수집완료] 데이터 수집 완료! 결과 페이지로 이동');
+                // 수집 완료 확인 (명확한 조건 체크)
+                const isCompleted = statusResult.status === 'completed' || 
+                                    statusResult.progress?.completed === true ||
+                                    (statusResult.health_data && statusResult.prescription_data);
+                
+                if (isCompleted) {
+                  console.log('🎉 [수집완료] 데이터 수집 완료 감지!', {
+                    status: statusResult.status,
+                    progressCompleted: statusResult.progress?.completed,
+                    hasHealthData: !!statusResult.health_data,
+                    hasPrescriptionData: !!statusResult.prescription_data
+                  });
+                  
+                  isPollingStopped = true; // 폴링 즉시 중단
                   
                   // 수집된 데이터를 localStorage에 저장
                   if (statusResult.health_data || statusResult.prescription_data) {
@@ -936,50 +1130,37 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                   StorageManager.removeItem('tilko_auth_waiting');
                   StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
                   
-                  setCurrentStatus('completed');
-                  setTypingText('✅ 건강정보 수집이 완료되었습니다!\n🔐 안전한 이용을 위해 비밀번호를 설정해주세요...');
+                  setCurrentStatus('data_completed');
                   
-                  // 사용자에게 완료 메시지를 보여준 후 비밀번호 설정 모달 표시 (2초 지연)
-                  console.log('🔐 [수집완료] 비밀번호 설정 모달 표시 준비');
+                  // 데이터 수집 완료 - 플로팅 버튼 플래그 제거
+                  StorageManager.removeItem('tilko_manual_collect');
+                  window.dispatchEvent(new Event('localStorageChange'));
                   
-                  setTimeout(() => {
-                    // URL 파라미터 추출
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const uuid = urlParams.get('uuid');
-                    const hospital = urlParams.get('hospital');
-                    
-                    if (uuid && hospital) {
-                      console.log('🔐 [수집완료] 비밀번호 설정 모달 표시:', { uuid, hospital });
-                      
-                      // 비밀번호 설정 모달 표시
-                      setShowPasswordSetupModal(true);
-                      setPasswordSetupData({ uuid, hospital });
-                    } else {
-                      console.warn('⚠️ [수집완료] UUID/병원ID 없음 - 결과 페이지로 바로 이동');
-                      navigate('/results-trend');
-                    }
-                  }, 2000);
+                  // 수집 완료 모달 표시 (비밀번호 설정 건너뛰기)
+                  console.log('🎉 [수집완료] 수집 완료 모달 표시');
+                  setShowCollectionCompleteModal(true);
                   
                   return; // 폴링 종료
                 }
                 
-                // 아직 진행 중인 경우 계속 폴링
-                if (pollCount < maxPolls) {
+                // 아직 진행 중인 경우 계속 폴링 (중단 플래그 확인)
+                if (!isPollingStopped && pollCount < maxPolls) {
                   setTimeout(pollCollectionStatus, 1000); // 1초 후 재시도
-                } else {
+                } else if (pollCount >= maxPolls) {
                   console.warn('⚠️ [수집상태확인] 최대 폴링 횟수 초과');
+                  isPollingStopped = true; // 폴링 중단
                   setCurrentStatus('error');
                   setTypingText('데이터 수집 확인 시간이 초과되었습니다.\n다시 시도해주세요.');
                 }
               } else {
                 console.error('❌ [수집상태확인] 상태 확인 실패:', statusResponse.status);
-                if (pollCount < maxPolls) {
+                if (!isPollingStopped && pollCount < maxPolls) {
                   setTimeout(pollCollectionStatus, 1000); // 1초 후 재시도
                 }
               }
             } catch (error) {
               console.error('❌ [수집상태확인] 오류:', error);
-              if (pollCount < maxPolls) {
+              if (!isPollingStopped && pollCount < maxPolls) {
                 setTimeout(pollCollectionStatus, 1000); // 1초 후 재시도
               }
             }
@@ -1057,27 +1238,30 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           if (result.status === 'fetching_health_data') {
             console.log('🏥 [데이터수집] 건강검진 데이터 수집 중...');
             setCurrentStatus('data_collecting');
-            setTypingText('건강검진 데이터를 수집하고 있습니다...\n잠시만 기다려주세요.');
+            setTypingText('건강검진 데이터를 수집하고 있습니다.\n잠시만 기다려주세요.');
             
-            // 플로팅 버튼 숨기기 위한 플래그 설정
+            // 플로팅 버튼 숨기기 위한 플래그 설정 (이벤트 발생하지 않음 - 무한 루프 방지)
             StorageManager.setItem('tilko_manual_collect', 'true');
-            window.dispatchEvent(new Event('localStorageChange'));
+            // window.dispatchEvent(new Event('localStorageChange')); // 제거 - 무한 루프 방지
           } else if (result.status === 'fetching_prescription_data') {
             console.log('💊 [데이터수집] 처방전 데이터 수집 중...');
             setCurrentStatus('data_collecting');
-            setTypingText('처방전 데이터를 수집하고 있습니다...\n잠시만 기다려주세요.');
+            setTypingText('처방전 데이터를 수집하고 있습니다.\n잠시만 기다려주세요.');
             
-            // 플로팅 버튼 숨기기 위한 플래그 설정
+            // 플로팅 버튼 숨기기 위한 플래그 설정 (이벤트 발생하지 않음 - 무한 루프 방지)
             StorageManager.setItem('tilko_manual_collect', 'true');
-            window.dispatchEvent(new Event('localStorageChange'));
+            // window.dispatchEvent(new Event('localStorageChange')); // 제거 - 무한 루프 방지
           } else if (result.status === 'completed') {
             console.log('✅ [데이터수집] 모든 데이터 수집 완료!');
             setCurrentStatus('data_completed');
-            setTypingText('건강검진 및 처방전 데이터 수집이\n완료되었습니다!');
+            setTypingText('건강검진 및 처방전 데이터 수집이\n완료되었습니다.');
             
             // 데이터 수집 완료 - 플로팅 버튼 플래그 제거
             StorageManager.removeItem('tilko_manual_collect');
             window.dispatchEvent(new Event('localStorageChange'));
+            
+            // 수집 완료 모달 표시
+            setShowCollectionCompleteModal(true);
             
             // 수집 완료 시 모니터링 중단
             if (tokenTimeout) {
@@ -1541,14 +1725,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       setTimeout(() => {
         const phone = (editablePhone && PatientDataConverter.cleanUndefined(editablePhone).trim()) || 
                      PatientDataConverter.getSafePhone(patient);
-        typeTitleMessage(`전화번호가\n${phone} 맞나요?`, 120, true);
+        typeTitleMessage('아래 전화번호가 맞나요?', 120, true);
       }, 100);
     } else if (currentConfirmationStep === 'auth_method') {
       setCurrentConfirmationStep('birthday');
       setTimeout(() => {
         const birthday = (editableBirthday && PatientDataConverter.cleanUndefined(editableBirthday).trim()) || 
                         PatientDataConverter.getSafeBirthday(patient);
-        typeTitleMessage(`주민번호가\n${birthday}** 맞나요?`, 120, true);
+        typeTitleMessage('아래 생년월일이 맞나요?', 120, true);
       }, 100);
     } else {
       // 첫 번째 단계에서는 정보 확인을 종료하고 원래 페이지로
@@ -1563,50 +1747,64 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     console.log('🔄 [handleNextStep] 현재 단계:', currentConfirmationStep);
     
     if (currentConfirmationStep === 'name') {
-      setCurrentConfirmationStep('phone');
-      // 히스토리에 새 상태 추가
-      NavigationHelper.pushState(
-        { step: 'phone', confirmationData: { name: editableName } }
-      );
+      // 부드러운 전환을 위한 약간의 딜레이
       setTimeout(() => {
-        const phone = (editablePhone && PatientDataConverter.cleanUndefined(editablePhone).trim()) || 
-                     PatientDataConverter.getSafePhone(patient);
-        typeTitleMessage(`전화번호가\n${phone} 맞나요?`, 120, true);
-      }, 300);
+        setCurrentConfirmationStep('phone');
+        // 히스토리에 새 상태 추가
+        NavigationHelper.pushState(
+          { step: 'phone', confirmationData: { name: editableName } }
+        );
+        setTimeout(() => {
+          const phone = (editablePhone && PatientDataConverter.cleanUndefined(editablePhone).trim()) || 
+                       PatientDataConverter.getSafePhone(patient);
+          typeTitleMessage('아래 전화번호가 맞나요?', 120, true);
+        }, 100);
+      }, 200);
     } else if (currentConfirmationStep === 'phone') {
-      setCurrentConfirmationStep('birthday');
-      // 히스토리에 새 상태 추가
-      NavigationHelper.pushState(
-        { step: 'birthday', confirmationData: { name: editableName, phone: editablePhone } }
-      );
       setTimeout(() => {
-        const birthday = (editableBirthday && PatientDataConverter.cleanUndefined(editableBirthday).trim()) || 
-                        PatientDataConverter.getSafeBirthday(patient);
-        typeTitleMessage(`주민번호가\n${birthday}** 맞나요?`, 120, true);
-      }, 300);
+        setCurrentConfirmationStep('birthday');
+        // 히스토리에 새 상태 추가
+        NavigationHelper.pushState(
+          { step: 'birthday', confirmationData: { name: editableName, phone: editablePhone } }
+        );
+        setTimeout(() => {
+          const birthday = (editableBirthday && PatientDataConverter.cleanUndefined(editableBirthday).trim()) || 
+                          PatientDataConverter.getSafeBirthday(patient);
+          typeTitleMessage('아래 생년월일이 맞나요?', 120, true);
+        }, 100);
+      }, 200);
     } else if (currentConfirmationStep === 'birthday') {
-      setCurrentConfirmationStep('auth_method');
-      // 히스토리에 새 상태 추가
-      NavigationHelper.pushState(
-        { step: 'auth_method', confirmationData: { name: editableName, phone: editablePhone, birthday: editableBirthday } }
-      );
-      
-      // 플로팅 버튼을 위한 상태 설정 (인증 방식 선택)
-      StorageManager.setItem('tilko_auth_method_selection', 'true');
-      StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
-      window.dispatchEvent(new Event('localStorageChange'));
-      
       setTimeout(() => {
-        typeTitleMessage(`인증 방식을\n선택해주세요`, 120, true);
-      }, 300);
+        // showConfirmation이 true인지 확인하고 유지
+        if (!showConfirmation) {
+          console.log('⚠️ [인증방법선택] showConfirmation이 false입니다. true로 설정합니다.');
+          setShowConfirmation(true);
+        }
+        setCurrentConfirmationStep('auth_method');
+        // 히스토리에 새 상태 추가
+        NavigationHelper.pushState(
+          { step: 'auth_method', confirmationData: { name: editableName, phone: editablePhone, birthday: editableBirthday } }
+        );
+        
+        // 플로팅 버튼을 위한 상태 설정 (인증 방식 선택)
+        StorageManager.setItem('tilko_auth_method_selection', 'true');
+        StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
+        window.dispatchEvent(new Event('localStorageChange'));
+        
+        setTimeout(() => {
+          typeTitleMessage(`인증 방식을\n선택해주세요`, 120, true);
+        }, 100);
+      }, 200);
     } else if (currentConfirmationStep === 'auth_method') {
-      setCurrentConfirmationStep('completed');
-      
-      // 인증 방식 선택 완료 - 플로팅 버튼 상태 제거
-      StorageManager.removeItem('tilko_auth_method_selection');
-      window.dispatchEvent(new Event('localStorageChange'));
-      
-      handleAllConfirmed();
+      setTimeout(() => {
+        setCurrentConfirmationStep('completed');
+        
+        // 인증 방식 선택 완료 - 플로팅 버튼 상태 제거
+        StorageManager.removeItem('tilko_auth_method_selection');
+        window.dispatchEvent(new Event('localStorageChange'));
+        
+        handleAllConfirmed();
+      }, 200);
     }
   }, [currentConfirmationStep, handleAllConfirmed, typeTitleMessage, editableName, editablePhone]);
 
@@ -1812,6 +2010,44 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     }
   }, [sessionId, tokenReceived, isTyping]);
 
+  // 플로팅 버튼에서 직접 호출할 수 있도록 window에 함수 등록
+  useEffect(() => {
+    (window as any).welloAuthForm = {
+      startInfoConfirmation: () => {
+        console.log('🔐 [AuthForm] 정보 확인 시작 (직접 호출)');
+        setShowConfirmation(true);
+        setCurrentConfirmationStep('name');
+        // 플로팅 버튼 숨기기
+        StorageManager.setItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING, 'true');
+        window.dispatchEvent(new CustomEvent('tilko-status-change'));
+      },
+      startManualDataCollection: () => {
+        console.log('✅ [AuthForm] 수동 데이터 수집 시작 (직접 호출)');
+        handleManualDataCollection();
+      },
+      completeAuthMethodSelection: () => {
+        console.log('🔘 [AuthForm] 인증 방식 선택 완료 (직접 호출)');
+        // auth_method 단계에서 handleNextStep을 호출하면 handleAllConfirmed가 실행됨
+        setCurrentConfirmationStep('auth_method');
+        // 다음 이벤트 루프에서 handleNextStep 호출
+        setTimeout(() => {
+          handleNextStep();
+        }, 0);
+      },
+      handleNextStep: () => {
+        console.log('➡️ [AuthForm] 다음 단계 진행 (직접 호출)');
+        handleNextStep();
+      },
+      getCurrentConfirmationStep: () => {
+        return currentConfirmationStep;
+      }
+    };
+    
+    return () => {
+      delete (window as any).welloAuthForm;
+    };
+  }, [handleManualDataCollection, handleNextStep]);
+
   // 세션 복구 선택
   const handleResumeSession = useCallback(async () => {
     if (!savedSessionInfo) return;
@@ -1969,7 +2205,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       case 'completed':
         return '🎉 모든 건강정보 수집이 완료되었습니다!\n결과 페이지로 이동합니다...';
       case 'existing_data_found':
-        return '📋 이미 연동된 건강정보가 있습니다.\n\n기존 데이터를 사용하시겠습니까?\n아니면 새로 인증하시겠습니까?';
+        return '📋 이미 연동된 건강정보가 있습니다.\n\n기존 데이터를 사용하시겠어요?\n아니면 새로 인증하시겠어요?';
       case 'timeout':
         return '⏰ 인증 시간이 초과되었습니다 (10초).\n다시 시도해주세요.\n\n3초 후 처음 페이지로 돌아갑니다.';
       default:
@@ -2122,8 +2358,16 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
 
   if (isRecovering) {
     return (
-      <div className="auth__content">
-        <div className="auth__content-input-area" style={{ padding: '40px 20px', textAlign: 'center' }}>
+      <div className="auth__content" style={{ 
+        transition: 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out',
+        animation: 'fadeIn 0.4s ease-in-out'
+      }}>
+        <div className="auth__content-input-area" style={{ 
+          padding: '40px 20px', 
+          textAlign: 'center',
+          transition: 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out',
+          animation: 'slideInUp 0.4s ease-out'
+        }}>
           <p>{isRecovering ? '이전 인증 진행 상황을 확인하고 있습니다...' : '로딩 중...'}</p>
           <div style={{ marginTop: '20px' }}>
             <div className="loading-spinner"></div>
@@ -2149,13 +2393,20 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           </button>
         </div>
         
-        <div className="auth__content" style={{ position: 'relative', minHeight: '100vh' }}>
+        <div className="auth__content" style={{ 
+          position: 'relative', 
+          minHeight: '100vh',
+          transition: 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out',
+          animation: 'fadeIn 0.4s ease-in-out'
+        }}>
           {/* 메인 타이틀 영역 */}
           <div className="auth__main-title" style={{ 
             marginTop: '80px', 
             marginBottom: '16px',
             paddingLeft: '24px',
-            minHeight: '320px'
+            minHeight: '320px',
+            transition: 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out',
+            animation: 'slideInUp 0.4s ease-out'
           }}>
             {/* 아이콘 */}
             <div style={{ 
@@ -2163,11 +2414,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               marginLeft: '-16px'
             }}>
               <img 
-                src={splashIcon} 
-                alt="아이콘" 
+                src={WELLO_LOGO_IMAGE} 
+                alt="윌노 아이콘" 
                 style={{ 
-                  width: '32px', 
-                  height: '32px', 
+                  width: '64px', 
+                  height: '64px', 
                   objectFit: 'contain' 
                 }} 
               />
@@ -2192,7 +2443,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                 height: '80px',
                 minHeight: '80px',
                 maxHeight: '80px',
-                fontFamily: 'Pretendard, sans-serif',
+                fontFamily: "'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-ui, sans-serif",
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'center',
@@ -2212,7 +2463,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                 marginBottom: '20px',
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'flex-start'
+                justifyContent: 'flex-start',
+                transition: 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out',
+                animation: 'slideInUp 0.4s ease-out'
               }}>
                 {/* 이름 확인 단계 */}
                 {currentConfirmationStep === 'name' && (
@@ -2244,28 +2497,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                       }}
                       placeholder="이름을 입력하세요"
                     />
-                    <button
-                      onClick={handleNextStep}
-                      disabled={!editableName.trim()}
-                      style={{
-                        backgroundColor: editableName.trim() ? '#7c746a' : '#ccc', // 브랜드 브라운
-                        color: editableName.trim() ? '#fff' : '#999',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '12px 20px',
-                        fontSize: '16px',
-                        fontWeight: 'bold',
-                        cursor: editableName.trim() ? 'pointer' : 'not-allowed',
-                        transition: 'all 0.3s ease',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      다음
-                    </button>
                   </div>
                   
-                    <div style={{ fontSize: '16px', color: '#666', marginLeft: '-16px', marginBottom: '20px' }}>
-                      이름이 정확하신가요? 틀린 경우 위에서 수정해주세요
+                    <div style={{ fontSize: '16px', color: '#666', marginLeft: '-16px', marginBottom: '20px', whiteSpace: 'pre-line' }}>
+                      이름이 정확하신가요?{'\n'}틀린 경우 위에서 수정해주세요
                     </div>
                   </>
                 )}
@@ -2304,28 +2539,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                       }}
                       placeholder="010-0000-0000"
                     />
-                    <button
-                      onClick={handleNextStep}
-                      disabled={editablePhone.replace(/-/g, '').length !== 11}
-                      style={{
-                        backgroundColor: editablePhone.replace(/-/g, '').length === 11 ? '#7c746a' : '#ccc',
-                        color: editablePhone.replace(/-/g, '').length === 11 ? '#fff' : '#999',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '12px 20px',
-                        fontSize: '16px',
-                        fontWeight: 'bold',
-                        cursor: editablePhone.replace(/-/g, '').length === 11 ? 'pointer' : 'not-allowed',
-                        transition: 'all 0.3s ease',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      다음
-                    </button>
                   </div>
                   
-                  <div style={{ fontSize: '16px', color: '#666', marginLeft: '-16px', marginBottom: '20px' }}>
-                    전화번호가 정확하신가요? 틀린 경우 위에서 수정해주세요
+                  <div style={{ fontSize: '16px', color: '#666', marginLeft: '-16px', marginBottom: '20px', whiteSpace: 'pre-line' }}>
+                    전화번호가 정확하신가요?{'\n'}틀린 경우 위에서 수정해주세요
                   </div>
                 </>
                 )}
@@ -2376,29 +2593,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                         생년월일 8자리 (YYYYMMDD)
                       </div>
                     </div>
-                    <button
-                      onClick={handleNextStep}
-                      disabled={editableBirthday.length !== 8}
-                      style={{
-                        backgroundColor: editableBirthday.length === 8 ? '#7c746a' : '#ccc',
-                        color: editableBirthday.length === 8 ? '#fff' : '#999',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '12px 16px',
-                        fontSize: '16px',
-                        fontWeight: 'bold',
-                        cursor: editableBirthday.length === 8 ? 'pointer' : 'not-allowed',
-                        transition: 'all 0.3s ease',
-                        whiteSpace: 'nowrap',
-                        marginBottom: '26px' // 입력 필드 하단 텍스트와 맞추기 위해
-                      }}
-                    >
-                      인증 시작
-                    </button>
                   </div>
                   
-                  <div style={{ fontSize: '16px', color: '#666', marginLeft: '-16px', marginBottom: '20px' }}>
-                    생년월일이 정확하신가요? 틀린 경우 위에서 수정해주세요
+                  <div style={{ fontSize: '16px', color: '#666', marginLeft: '-16px', marginBottom: '20px', whiteSpace: 'pre-line' }}>
+                    생년월일이 정확하신가요?{'\n'}틀린 경우 위에서 수정해주세요
                   </div>
                 </>
                 )}
@@ -2500,7 +2698,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   if (currentStatus === 'auth_pending' && authRequested) {
     return (
       <>
-        <div className="auth__content" style={{ position: 'relative', minHeight: '100vh' }}>
+        <div className="auth__content" style={{ 
+          position: 'relative', 
+          minHeight: '100vh',
+          transition: 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out',
+          animation: 'fadeIn 0.4s ease-in-out'
+        }}>
           {/* 메인 타이틀 영역 */}
           <div className="auth__main-title" style={{ 
             marginTop: '80px', 
@@ -2511,7 +2714,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             maxHeight: '400px',
             display: 'flex',
             flexDirection: 'column',
-            justifyContent: 'flex-start'
+            justifyContent: 'flex-start',
+            transition: 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out',
+            animation: 'slideInUp 0.4s ease-out'
           }}>
             {/* 아이콘 */}
             <div style={{ 
@@ -2519,11 +2724,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               marginLeft: '-16px'
             }}>
               <img 
-                src={splashIcon} 
-                alt="아이콘" 
+                src={WELLO_LOGO_IMAGE} 
+                alt="윌노 아이콘" 
                 style={{ 
-                  width: '32px', 
-                  height: '32px', 
+                  width: '64px', 
+                  height: '64px', 
                   objectFit: 'contain' 
                 }} 
               />
@@ -2615,7 +2820,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               margin: 0
             }}>
               이미 연동된 건강정보가 있습니다.<br/>
-              기존 데이터를 사용하시겠습니까?
+              기존 데이터를 사용하시겠어요?
             </p>
           </div>
           
@@ -2671,8 +2876,20 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
 
   if (currentStatus === 'manual_collecting' || currentStatus === 'data_collecting' || currentStatus === 'collecting') {
     return (
-      <div className="auth__content">
-        <div className="auth__content-input-area" style={{ padding: '40px 20px', textAlign: 'center' }}>
+      <div className="auth__content" style={{ 
+        position: 'relative', 
+        minHeight: '100vh',
+        backgroundColor: '#FEF9EE', // 베이지색 배경 (상단과 동일)
+        transition: 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out',
+        animation: 'fadeIn 0.4s ease-in-out'
+      }}>
+        <div className="auth__content-input-area" style={{ 
+          padding: '40px 20px', 
+          textAlign: 'center',
+          backgroundColor: '#FEF9EE', // 베이지색 배경 (상단과 동일)
+          transition: 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out',
+          animation: 'slideInUp 0.4s ease-out'
+        }}>
           {/* 주요 상태 메시지 */}
           <h3 style={{ marginBottom: '20px', color: '#333' }}>
             건강정보를 연동하고 있습니다
@@ -2715,12 +2932,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           {/* 진행률 표시 - 더 구체적인 단계별 안내 */}
           <div style={{ textAlign: 'center', marginBottom: '20px' }}>
             <p style={{ fontSize: '14px', color: '#666', marginBottom: '8px' }}>
-              {currentStatus === 'manual_collecting' ? '🚀 데이터 수집을 시작합니다...' :
-               currentStatus === 'collecting' ? '📡 국민건강보험공단과 연결 중...' :
-               currentStatus === 'data_collecting' ? '🔄 건강정보를 수집하고 있습니다...' :
-               currentStatus === 'fetching_health_data' ? '🏥 건강검진 데이터 수집 중...' :
-               currentStatus === 'fetching_prescription_data' ? '💊 처방전 데이터 수집 중...' :
-               '📊 데이터를 분석하고 있습니다...'}
+              {currentStatus === 'manual_collecting' ? '데이터 수집을 시작합니다...' :
+               currentStatus === 'collecting' ? '국민건강보험공단과 연결 중...' :
+               currentStatus === 'data_collecting' ? '건강정보를 수집하고 있습니다...' :
+               currentStatus === 'fetching_health_data' ? '건강검진 데이터 수집 중...' :
+               currentStatus === 'fetching_prescription_data' ? '처방전 데이터 수집 중...' :
+               '데이터를 분석하고 있습니다...'}
             </p>
             
             {/* 예상 소요 시간 안내 */}
@@ -2736,9 +2953,21 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   // 완료 화면
   if (currentStatus === 'completed') {
     return (
-      <div className="auth__content">
-        <div className="auth__content-input-area" style={{ padding: '40px 20px', textAlign: 'center' }}>
-          <p>✅ 건강정보 동기화가 완료되었습니다!</p>
+      <div className="auth__content" style={{ 
+        position: 'relative',
+        minHeight: '100vh',
+        backgroundColor: '#FEF9EE', // 베이지색 배경 (상단과 동일)
+        transition: 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out',
+        animation: 'fadeIn 0.4s ease-in-out'
+      }}>
+        <div className="auth__content-input-area" style={{ 
+          padding: '40px 20px', 
+          textAlign: 'center',
+          backgroundColor: '#FEF9EE', // 베이지색 배경 (상단과 동일)
+          transition: 'opacity 0.4s ease-in-out, transform 0.4s ease-in-out',
+          animation: 'slideInUp 0.4s ease-out'
+        }}>
+          <p>건강정보 동기화가 완료되었습니다!</p>
           <p>결과 페이지로 이동합니다...</p>
         </div>
       </div>
@@ -2800,8 +3029,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               color: '#666',
               lineHeight: '1.5'
             }}>
-              이전 단계에서 계속 진행하시겠습니까?<br/>
-              아니면 처음부터 새로 시작하시겠습니까?
+              이전 단계에서 계속 진행하시겠어요?<br/>
+              아니면 처음부터 새로 시작하시겠어요?
             </p>
             
             <div style={{
@@ -3259,6 +3488,76 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           initialMessage="안전한 이용을 위해 비밀번호를 설정해주세요"
         />
       )}
+
+      {/* 수집 완료 모달 */}
+      <WelloModal
+        isOpen={showCollectionCompleteModal}
+        onClose={() => {
+          setShowCollectionCompleteModal(false);
+          // 결과 페이지로 이동
+          const urlParams = new URLSearchParams(window.location.search);
+          const uuid = urlParams.get('uuid');
+          const hospital = urlParams.get('hospital');
+          if (uuid && hospital) {
+            navigate(`/results-trend?uuid=${uuid}&hospital=${hospital}`);
+          } else {
+            navigate('/results-trend');
+          }
+        }}
+        showCloseButton={false}
+        showWelloIcon={false}
+        size="medium"
+        className="wello-modal--white"
+      >
+        <div style={{ padding: '24px', textAlign: 'center' }}>
+          <h2 style={{ 
+            fontSize: '18px', 
+            fontWeight: 600, 
+            color: '#2d3748', 
+            margin: '0 0 12px 0',
+            fontFamily: 'inherit'
+          }}>
+            수집이 완료되었습니다
+          </h2>
+          <p style={{ 
+            fontSize: '14px', 
+            color: '#718096', 
+            margin: '0 0 24px 0',
+            lineHeight: '1.5',
+            fontFamily: 'inherit'
+          }}>
+            추이보기로 이동합니다
+          </p>
+          <button
+            onClick={() => {
+              setShowCollectionCompleteModal(false);
+              const urlParams = new URLSearchParams(window.location.search);
+              const uuid = urlParams.get('uuid');
+              const hospital = urlParams.get('hospital');
+              if (uuid && hospital) {
+                navigate(`/results-trend?uuid=${uuid}&hospital=${hospital}`);
+              } else {
+                navigate('/results-trend');
+              }
+            }}
+            style={{
+              width: '100%',
+              padding: '12px 24px',
+              backgroundColor: '#7c746a',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '12px',
+              fontSize: '16px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              transition: 'all 0.3s ease'
+            }}
+          >
+            확인
+          </button>
+        </div>
+      </WelloModal>
     </>
   );
 };

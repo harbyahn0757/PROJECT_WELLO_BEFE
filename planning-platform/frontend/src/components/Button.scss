@@ -6,6 +6,28 @@
   position: relative;
   font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
   
+  // 플로팅 버튼인 경우 기본 스타일 오버라이드
+  &.floating-button {
+    border-radius: 0 !important;
+    border-top-left-radius: 12px !important;
+    border-top-right-radius: 12px !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    padding: 0.75rem 1rem !important;
+    padding-bottom: 0.75rem !important;
+    margin: 0 !important;
+    margin-bottom: 0 !important;
+    border-bottom: none !important;
+    
+    &::after,
+    &::before {
+      display: none !important;
+      content: none !important;
+      background: none !important;
+      border: none !important;
+    }
+  }
+  
   // 기본 스타일
   &--primary {
     @include button-brand;

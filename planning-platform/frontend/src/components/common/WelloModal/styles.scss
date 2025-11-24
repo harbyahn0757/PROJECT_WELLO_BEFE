@@ -73,6 +73,28 @@
     width: 400px;
     padding: 40px 32px;
   }
+
+  // 흰색 배경 모달 (기존 흰색 모달 스타일)
+  &--white {
+    background: $white !important;
+    color: $gray-800 !important;
+    box-shadow: 
+      0 20px 25px -5px rgba(0, 0, 0, 0.1),
+      0 10px 10px -5px rgba(0, 0, 0, 0.04);
+
+    &::before {
+      display: none; // 그라데이션 효과 제거
+    }
+
+    .wello-modal-close {
+      color: $gray-500 !important;
+
+      &:hover {
+        color: $gray-800 !important;
+        background: $gray-100;
+      }
+    }
+  }
 }
 
 // 웰로 아이콘 (공통)

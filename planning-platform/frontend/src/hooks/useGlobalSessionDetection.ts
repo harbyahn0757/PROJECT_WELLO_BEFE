@@ -93,6 +93,18 @@ export const useGlobalSessionDetection = (options: SessionDetectionOptions = {})
       let shouldRedirect = false;
       let redirectPath = null;
 
+      // 메인 페이지(`/`)에서는 리다이렉트하지 않음 (사용자가 명시적으로 다른 페이지로 이동할 때까지 대기)
+      if (location.pathname === '/' || location.pathname === '') {
+        console.log('🏠 [전역세션] 메인 페이지에서는 리다이렉트하지 않음');
+        return {
+          ...defaultStatus,
+          sessionId: savedSessionId,
+          status: status,
+          isActive: isActive,
+          isCollecting: isCollecting
+        };
+      }
+
       // 현재 URL 파라미터 확인
       const urlParams = new URLSearchParams(location.search);
       const uuid = urlParams.get('uuid');

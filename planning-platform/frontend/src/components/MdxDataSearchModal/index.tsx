@@ -27,7 +27,7 @@ const MdxDataSearchModal: React.FC<MdxDataSearchModalProps> = ({
     >
       <div className="mdx-data-search-modal">
         <h2 className="mdx-data-search-modal__title">
-          MDX 데이터에서 검색하시겠습니까?
+          MDX 데이터에서 검색하시겠어요?
         </h2>
         <p className="mdx-data-search-modal__description">
           웰로 데이터가 없어서<br />
@@ -54,6 +54,7 @@ const MdxDataSearchModal: React.FC<MdxDataSearchModalProps> = ({
 };
 
 export default MdxDataSearchModal;
+
 
 
 

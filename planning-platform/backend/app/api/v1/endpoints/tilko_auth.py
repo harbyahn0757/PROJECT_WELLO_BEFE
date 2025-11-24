@@ -891,7 +891,7 @@ async def get_session_status_for_polling(session_id: str):
     if not session_data:
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
     
-    return {
+    response_data = {
         "success": True,
         "session_id": session_id,
         "status": session_data.get("status", "unknown"),
@@ -902,6 +902,18 @@ async def get_session_status_for_polling(session_id: str):
         "patient_uuid": session_data.get("patient_uuid"),
         "hospital_id": session_data.get("hospital_id")
     }
+    
+    # 데이터 수집이 완료된 경우 실제 데이터 포함 (프론트엔드 완료 감지용)
+    if session_data.get("status") == "completed":
+        health_data = session_data.get("health_data")
+        prescription_data = session_data.get("prescription_data")
+        
+        if health_data:
+            response_data["health_data"] = health_data
+        if prescription_data:
+            response_data["prescription_data"] = prescription_data
+    
+    return response_data
 
 
 @router.post("/session/{session_id}/collect-data")

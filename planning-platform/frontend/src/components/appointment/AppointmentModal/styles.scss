@@ -1,0 +1,305 @@
+/**
+ * AppointmentModal 스타일
+ * 아래에서 올라오는 모달 애니메이션과 웰로 효과
+ */
+@use '../../../styles/variables' as *;
+
+// 웰로 아이콘 깜박이는 애니메이션
+@keyframes faviconBlink {
+  0%, 100% { 
+    opacity: 1; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.3; 
+    transform: scale(0.95);
+  }
+}
+
+// 모달이 올라오는 애니메이션 (부드럽게)
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+// 모달이 내려가는 애니메이션
+@keyframes slideDown {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+// 오버레이 페이드 인 애니메이션
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+// 오버레이 페이드 아웃 애니메이션
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+// 모달 오버레이
+.appointment-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end; // 모바일에서 아래쪽 배치
+  justify-content: center;
+  z-index: 9999;
+  padding: 0;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+
+  &--open {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+
+  &--close {
+    animation: fadeOut 0.3s ease-out forwards;
+  }
+
+  // 데스크톱에서는 중앙 배치
+  @media (min-width: 768px) {
+    align-items: center;
+    padding: 20px;
+  }
+}
+
+// 메인 모달
+.appointment-modal {
+  background: $background-appointment; // #FEF9EE (크림색)
+  border-radius: 16px 16px 0 0; // 모바일에서 상단만 둥글게
+  box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 448px;
+  max-height: 90vh;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  
+  // 모바일에서 안전 영역 고려
+  padding-bottom: env(safe-area-inset-bottom, 0);
+
+  &--open {
+    animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  &--close {
+    animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  // 데스크톱에서는 전체 둥글게
+  @media (min-width: 768px) {
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    margin-bottom: 0;
+    max-height: 85vh;
+  }
+}
+
+// 헤더
+.appointment-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-md $spacing-md $spacing-sm;
+  border-bottom: 1px solid $border-beige;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.appointment-modal__title {
+  font-size: $font-xl;
+  font-weight: $font-weight-bold;
+  color: $brand-brown-darker;
+  margin: 0;
+  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+}
+
+.appointment-modal__close {
+  position: absolute;
+  top: $spacing-md;
+  right: $spacing-md;
+  background: none;
+  border: none;
+  color: $gray-500;
+  cursor: pointer;
+  padding: $spacing-xs;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+
+  &:hover {
+    background: $gray-100;
+    color: $gray-800;
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+// 컨텐츠 영역 (스크롤 가능)
+.appointment-modal__content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: $spacing-sm $spacing-md;
+  -webkit-overflow-scrolling: touch;
+}
+
+.appointment-modal__instruction {
+  font-size: $font-base;
+  color: $brand-brown-darker;
+  font-weight: $font-weight-normal;
+  line-height: 1.4;
+  margin-bottom: $spacing-sm;
+  text-align: center;
+  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+}
+
+.appointment-modal__calendar {
+  margin-bottom: $spacing-sm;
+}
+
+.appointment-modal__legend {
+  margin-bottom: $spacing-xs;
+}
+
+.appointment-modal__notice {
+  font-size: $font-xs;
+  color: $black;
+  line-height: 1.4;
+  text-align: center;
+  margin-bottom: $spacing-xs;
+  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+}
+
+// 하단 버튼 영역
+.appointment-modal__footer {
+  padding: $spacing-md;
+  border-top: 1px solid $border-beige;
+  flex-shrink: 0;
+  background: $background-appointment;
+}
+
+.appointment-modal__button {
+  width: 100%;
+  min-height: 56px;
+  background-color: $brand-brown-darker;
+  color: $white;
+  border: none;
+  border-radius: $border-radius-lg;
+  font-size: 17px;
+  font-weight: $font-weight-semibold;
+  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba($brand-brown-darker, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-xs;
+
+  &:hover:not(:disabled) {
+    background-color: darken($brand-brown-darker, 5%);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba($brand-brown-darker, 0.4);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    background-color: $gray-400;
+    color: $gray-600;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+.appointment-modal__button-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-xs;
+
+  .wello-icon-blink {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    animation: faviconBlink 1.5s ease-in-out infinite;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  }
+
+  span {
+    font-size: 17px;
+    font-weight: $font-weight-semibold;
+  }
+}
+
+// 모바일 반응형
+@media (max-width: 767px) {
+  .appointment-modal {
+    max-height: 95vh;
+  }
+
+  .appointment-modal__header {
+    padding: $spacing-sm $spacing-md;
+  }
+
+  .appointment-modal__title {
+    font-size: $font-lg;
+  }
+
+  .appointment-modal__content {
+    padding: $spacing-xs $spacing-md;
+  }
+
+  .appointment-modal__button {
+    min-height: 52px;
+    font-size: 16px;
+  }
+}
+

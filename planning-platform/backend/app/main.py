@@ -2,7 +2,7 @@
 FastAPI 애플리케이션 메인
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -32,10 +32,9 @@ app.add_middleware(
 
 # 정적 파일 서빙 (React 빌드 파일)
 static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
-if os.path.exists(static_dir):
-    # 정적 파일을 /wello 경로에 마운트 (우선순위 높음)
-    app.mount("/wello", StaticFiles(directory=static_dir, html=True), name="wello_static")
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+# StaticFiles 마운트 제거 - catch-all 라우트에서 처리하도록 변경
+# app.mount("/wello", StaticFiles(directory=static_dir, html=True), name="wello_static")
+app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # API 라우터 등록 (기본 경로)
 app.include_router(health.router, prefix="/api/v1/health", tags=["health"])
@@ -68,9 +67,26 @@ app.include_router(sync.router, prefix="/wello-api/v1", tags=["sync-wello"])
 app.include_router(surveys.router, prefix="/wello-api/v1", tags=["surveys-wello"])
 
 # React Router를 위한 catch-all 라우트 (모든 API 라우터 등록 후에 추가)
-@app.get("/wello/{full_path:path}")
-async def serve_react_app(full_path: str):
-    """React Router의 클라이언트 사이드 라우팅을 위한 catch-all 라우트"""
+# GET과 HEAD 메서드 모두 지원
+@app.api_route("/wello", methods=["GET", "HEAD"])
+@app.api_route("/wello/", methods=["GET", "HEAD"])
+@app.api_route("/wello/{full_path:path}", methods=["GET", "HEAD"])
+async def serve_react_app(request: Request, full_path: str = ""):
+    """React Router의 클라이언트 사이드 라우팅을 위한 catch-all 라우트 (쿼리 파라미터는 자동 보존됨)"""
+    # 쿼리 파라미터 확인 (디버깅용)
+    if request.query_params:
+        print(f"🔍 [FastAPI] 쿼리 파라미터 수신: {dict(request.query_params)}")
+    
+    # /wello (슬래시 없음)로 접속한 경우 쿼리 파라미터를 보존하여 /wello/로 리다이렉트
+    # React Router의 basename="/wello"와 일치하도록 슬래시 추가
+    if not full_path and request.url.path == "/wello":
+        from fastapi.responses import RedirectResponse
+        query_string = str(request.url.query)
+        # 쿼리 파라미터를 포함하여 /wello/로 리다이렉트
+        redirect_url = f"/wello/?{query_string}" if query_string else "/wello/"
+        print(f"🔄 [FastAPI] /wello → /wello/ 리다이렉트 (쿼리 보존): {redirect_url}")
+        # 307 Temporary Redirect 사용 (브라우저가 쿼리 파라미터를 보존함)
+        return RedirectResponse(url=redirect_url, status_code=307)
     static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
     index_file = os.path.join(static_dir, "index.html")
     
@@ -79,13 +95,15 @@ async def serve_react_app(full_path: str):
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="API endpoint not found")
     
-    # 정적 파일이 실제로 존재하는지 확인
-    file_path = os.path.join(static_dir, full_path)
-    if os.path.isfile(file_path):
-        # 실제 파일이 존재하면 해당 파일 반환
-        return FileResponse(file_path)
+    # 정적 파일이 실제로 존재하는지 확인 (CSS, JS, 이미지 등)
+    if full_path:
+        file_path = os.path.join(static_dir, full_path)
+        if os.path.isfile(file_path):
+            # 실제 파일이 존재하면 해당 파일 반환
+            return FileResponse(file_path)
     
     # 그 외의 모든 경우에는 React 앱의 index.html 반환
+    # 쿼리 파라미터는 FastAPI가 자동으로 보존하므로 React Router에서 처리 가능
     if os.path.exists(index_file):
         return FileResponse(index_file)
     else:

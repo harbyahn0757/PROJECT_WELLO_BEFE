@@ -53,6 +53,7 @@ const MainPage: React.FC = () => {
   
   // 페이지 전환 로딩 state
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
+  const [transitionMessage, setTransitionMessage] = useState<string | undefined>(undefined);
   
   // MDX 데이터 검색 핸들러
   const handleMdxSearchConfirm = async () => {
@@ -344,13 +345,14 @@ const MainPage: React.FC = () => {
     }
   };
 
-  // 데이터 존재 여부 확인
+  // 데이터 존재 여부 확인 (건강검진 데이터만 체크 - 검진결과추이용)
   const checkHasData = async (uuid: string, hospitalId: string): Promise<boolean> => {
     try {
       const response = await fetch(API_ENDPOINTS.CHECK_EXISTING_DATA(uuid, hospitalId));
       if (response.ok) {
         const result = await response.json();
-        return result.data && result.data.exists && (result.data.health_data_count > 0 || result.data.prescription_data_count > 0);
+        // 검진결과추이는 건강검진 데이터만 체크 (처방전 데이터는 제외)
+        return result.data && result.data.exists && result.data.health_data_count > 0;
       }
     } catch (error) {
       console.warn('⚠️ [데이터확인] 실패:', error);
@@ -409,48 +411,6 @@ const MainPage: React.FC = () => {
 
   // 데이터가 없는 경우 로딩 표시
   if (!layoutConfig || !patient || !hospital) {
-    // 디버깅 정보 출력
-    console.log('🔍 [메인페이지] 로딩 상태:', {
-      hasLayoutConfig: !!layoutConfig,
-      hasPatient: !!patient,
-      hasHospital: !!hospital,
-      isLoading: state.isLoading,
-      error: state.error,
-      urlParams: {
-        uuid: new URLSearchParams(location.search).get('uuid'),
-        hospital: new URLSearchParams(location.search).get('hospital')
-      }
-    });
-    
-    // 에러가 있고 환자 데이터가 없으면 에러 표시
-    if (state.error && !patient) {
-      return (
-        <div className="main-page-loading">
-          <div className="loading-spinner">
-            <div className="spinner"></div>
-            <p>데이터를 불러오는 중 오류가 발생했습니다.</p>
-            <p style={{ fontSize: '12px', color: '#999', marginTop: '10px' }}>
-              {state.error}
-            </p>
-            <button 
-              onClick={() => window.location.reload()} 
-              style={{ 
-                marginTop: '20px', 
-                padding: '10px 20px', 
-                backgroundColor: '#A16A51', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              새로고침
-            </button>
-          </div>
-        </div>
-      );
-    }
-    
     return (
       <div className="main-page-loading">
         <div className="loading-spinner">
@@ -562,6 +522,7 @@ const MainPage: React.FC = () => {
               // 데이터 없을 때 바로 Tilko 인증으로 이동 (/login 경로 사용)
               const authPath = `/login${queryString}`;
               console.log('📋 [메인페이지] 데이터 없음 - Tilko 인증으로 이동:', authPath);
+              setIsPageTransitioning(false); // 로딩 스피너 숨김
               setTimeout(() => {
                 navigate(authPath);
               }, 300);
@@ -569,19 +530,72 @@ const MainPage: React.FC = () => {
             }
           } catch (error) {
             console.warn('⚠️ [메인페이지] 기존 데이터 확인 실패:', error);
+            // 에러 발생 시에도 리다이렉트하지 않고 현재 페이지에 유지
+            setIsPageTransitioning(false); // 로딩 스피너만 숨김
+            // 사용자에게 에러 메시지 표시하지 않고 조용히 실패 처리
+            return; // 에러 발생 시 더 이상 진행하지 않음
           }
         }
         
         // 웰로 데이터 없을 때 Tilko 인증으로 이동 (fallback - 위에서 이미 처리되지만 안전장치)
+        // 하지만 에러가 발생한 경우에는 여기까지 오지 않음
         const authPath = `/login${queryString}`;
         console.log('📋 [메인페이지] 데이터 없음 - Tilko 인증으로 이동 (fallback):', authPath);
+        setIsPageTransitioning(false); // 로딩 스피너 숨김
         setTimeout(() => {
           navigate(authPath);
         }, 300);
         break;
         
       case 'design':
-        // 검진항목 설계하기는 비밀번호 확인 없이 바로 이동
+        // 검진항목 설계하기는 건강 데이터 확인 후 처리
+        if (uuid && hospitalId) {
+          try {
+            console.log('🔍 [검진설계] 기존 데이터 확인 중...', { uuid, hospitalId });
+            
+            // 기존 데이터 확인
+            const hasData = await checkHasData(uuid, hospitalId);
+            
+            if (hasData) {
+              console.log('📊 [검진설계] 웰로 데이터 발견! - 바로 이동');
+              // 데이터가 있으면 바로 설계 페이지로 이동
+              setTimeout(() => {
+                navigate(`/survey/checkup-design${queryString}`);
+              }, 300);
+              return;
+            } else {
+              // 웰로 데이터 없음 → 메시지 표시 후 Tilko 인증으로 이동
+              console.log('📊 [검진설계] 웰로 데이터 없음 - 메시지 표시 후 Tilko 인증으로 이동');
+              
+              // 메시지와 함께 스피너 표시 (3초간)
+              const message = '건강검진 데이터 기반의 검진설계를 위하여\n공단에서 데이터를 수집하는 화면으로 이동합니다';
+              setTransitionMessage(message);
+              
+              // 3초 후 틸코로 이동
+              setTimeout(() => {
+                setIsPageTransitioning(false); // 로딩 스피너 숨김
+                setTransitionMessage(undefined); // 메시지 제거
+                const authPath = `/login${queryString}`;
+                console.log('📋 [검진설계] 데이터 없음 - Tilko 인증으로 이동:', authPath);
+                setTimeout(() => {
+                  navigate(authPath);
+                }, 300);
+              }, 3000); // 3초 대기
+              
+              return; // 여기서 종료 (메시지 표시 중)
+            }
+          } catch (error) {
+            console.warn('⚠️ [검진설계] 기존 데이터 확인 실패:', error);
+            // 에러 발생 시에도 Tilko 인증으로 이동
+            setIsPageTransitioning(false);
+            setTimeout(() => {
+              navigate(`/login${queryString}`);
+            }, 300);
+            return;
+          }
+        }
+        
+        // UUID나 hospitalId가 없으면 바로 설계 페이지로 이동 (fallback)
         setTimeout(() => {
           navigate(`/survey/checkup-design${queryString}`);
         }, 300);
@@ -917,7 +931,7 @@ const MainPage: React.FC = () => {
       )}
       
       {/* 페이지 전환 로딩 스피너 */}
-      <PageTransitionLoader isVisible={isPageTransitioning} />
+      <PageTransitionLoader isVisible={isPageTransitioning} message={transitionMessage} />
     </div>
   );
 };
