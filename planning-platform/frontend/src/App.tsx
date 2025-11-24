@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import Button from './components/Button';
 import MainPage from './pages/MainPage';
@@ -300,8 +300,30 @@ const ResultsTrendButton: React.FC = () => {
 const AppContent: React.FC = () => {
   const { state, actions } = useWelloData();
   const location = useLocation();
+  const navigate = useNavigate();
   const [isReturningToMain, setIsReturningToMain] = useState(false);
   const [prevPathname, setPrevPathname] = useState<string>('');
+  const loadedUuidRef = useRef<string | null>(null); // 이미 로드한 UUID 추적
+
+  // 초기 로드 시 쿼리 파라미터 보존 (프로덕션 환경에서 쿼리 파라미터가 사라지는 문제 해결)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const uuid = urlParams.get('uuid');
+    const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
+    
+    // 쿼리 파라미터가 있지만 location.search에 없는 경우 (프로덕션 환경에서 발생 가능)
+    if ((uuid || hospital) && !location.search) {
+      const currentSearch = location.search;
+      const windowSearch = window.location.search;
+      
+      // window.location.search에는 있지만 location.search에는 없는 경우
+      if (windowSearch && !currentSearch) {
+        console.log('🔧 [App] 쿼리 파라미터 복원:', windowSearch);
+        // 현재 경로에 쿼리 파라미터 추가 (replace로 히스토리 교체)
+        navigate(`${location.pathname}${windowSearch}`, { replace: true });
+      }
+    }
+  }, []); // 초기 마운트 시 한 번만 실행
 
   // 메인페이지로 돌아올 때 로딩 표시
   useEffect(() => {
@@ -332,18 +354,28 @@ const AppContent: React.FC = () => {
     const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
 
     if (uuid && hospital) {
+      // 이미 같은 UUID를 로드했으면 무시 (중복 호출 방지)
+      if (loadedUuidRef.current === uuid) {
+        console.log(`⏸️ [App] 이미 로드한 환자 데이터: ${uuid} - 중복 호출 방지`);
+        return;
+      }
+
       // 현재 환자 데이터가 없거나 다른 환자인 경우에만 로딩
       if (!state.patient || state.patient.uuid !== uuid) {
-        // console.log(`🔄 [App] 환자 데이터 로딩: ${uuid} @ ${hospital}`);
+        console.log(`🔄 [App] 환자 데이터 로딩: ${uuid} @ ${hospital}`);
+        loadedUuidRef.current = uuid; // 로드 시작 전에 UUID 기록
         actions.loadPatientData(uuid, hospital); // 처음 로딩 시에는 토스트 없이
       } else {
-        // console.log(`✅ [App] 환자 데이터 이미 로드됨: ${state.patient.name} (${uuid})`);
+        console.log(`✅ [App] 환자 데이터 이미 로드됨: ${state.patient.name} (${uuid})`);
+        loadedUuidRef.current = uuid; // 이미 로드된 경우에도 기록
         // 기존 데이터가 있는 경우 레이아웃만 확인하고 토스트 표시하지 않음
-        // actions.loadPatientData(uuid, hospital, { force: true }); // 제거
       }
+    } else {
+      // UUID가 없으면 리셋
+      loadedUuidRef.current = null;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.search, state.patient?.uuid]); // actions는 의도적으로 제외 (무한 루프 방지)
+  }, [location.search]); // state.patient?.uuid 제거 - 무한 루프 방지
 
   // 개발 환경에서 디버그 정보 출력 (필요시에만 활성화)
   // useEffect(() => {
