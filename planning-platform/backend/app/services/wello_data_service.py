@@ -127,7 +127,7 @@ class WelloDataService:
                 SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
                        has_health_data, has_prescription_data, last_data_update, last_auth_at,
                        created_at, updated_at
-                FROM wello_patients 
+                FROM wello.wello_patients 
                 WHERE uuid = $1
             """
             patient_row = await conn.fetchrow(patient_query, uuid)
@@ -168,7 +168,7 @@ class WelloDataService:
             hospital_query = """
                 SELECT hospital_id, hospital_name, layout_type, brand_color, logo_position, 
                        is_active, created_at
-                FROM wello_hospitals 
+                FROM wello.wello_hospitals 
                 WHERE hospital_id = $1 AND is_active = true
             """
             hospital_row = await conn.fetchrow(hospital_query, hospital_id)

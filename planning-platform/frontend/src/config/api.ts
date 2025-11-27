@@ -39,11 +39,11 @@ const createApiUrl = (path: string): string => {
 
 // WELLO API 엔드포인트
 export const API_ENDPOINTS = {
-  // 환자 관련
-  PATIENT: (uuid: string) => createApiUrl(`/wello-api/v1/patients/${uuid}`),
+  // 환자 관련 (wello.wello_patients 테이블 조회)
+  PATIENT: (uuid: string) => createApiUrl(`/wello-api/v1/wello/patients/${uuid}`),
   
   // 병원 관련
-  HOSPITAL: (hospitalId: string) => createApiUrl(`/wello-api/v1/hospitals/${hospitalId}`),
+  HOSPITAL: (hospitalId: string) => createApiUrl(`/wello-api/v1/wello/hospitals/${hospitalId}`),
   
   // 건강 데이터 관련
   HEALTH_DATA: (uuid: string, hospitalId: string) => 

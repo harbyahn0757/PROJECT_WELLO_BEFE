@@ -6,6 +6,7 @@ from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
 import json
+import asyncpg
 
 from ..models.entities import (
     Hospital, HospitalInfo, ContactInfo, Address,
@@ -122,7 +123,67 @@ class PatientRepository:
     """환자 레포지토리"""
     
     async def get_by_uuid(self, uuid: UUID) -> Optional[Patient]:
-        """UUID로 환자 조회 (DB 기반)"""
+        """UUID로 환자 조회 (웰로 테이블 우선, 없으면 mdx_agr_list 조회)"""
+        # 1순위: wello.wello_patients 테이블 조회
+        try:
+            db_config = {
+                "host": "10.0.1.10",
+                "port": "5432",
+                "database": "p9_mkt_biz",
+                "user": "peernine",
+                "password": "autumn3334!"
+            }
+            conn = await asyncpg.connect(**db_config)
+            
+            wello_query = """
+                SELECT uuid, hospital_id, name, phone_number, birth_date, gender, created_at
+                FROM wello.wello_patients 
+                WHERE uuid = $1
+                LIMIT 1
+            """
+            
+            wello_row = await conn.fetchrow(wello_query, str(uuid))
+            await conn.close()
+            
+            if wello_row:
+                print(f"🔍 [DEBUG] 웰로 테이블 조회 성공: {uuid}")
+                wello_dict = dict(wello_row)
+                
+                # 나이 계산
+                age = 0
+                birth_date = wello_dict.get('birth_date')
+                if birth_date:
+                    age = datetime.now().year - birth_date.year
+                    if datetime.now().date() < birth_date.replace(year=datetime.now().year):
+                        age -= 1
+                
+                # 성별 변환
+                gender = Gender.MALE
+                if wello_dict.get('gender') == 'F':
+                    gender = Gender.FEMALE
+                elif wello_dict.get('gender') == 'M':
+                    gender = Gender.MALE
+                
+                hospital_id = wello_dict.get('hospital_id', '')
+                print(f"🔍 [DEBUG] 웰로 테이블 hospital_id: '{hospital_id}'")
+                
+                return Patient(
+                    uuid=UUID(wello_dict['uuid']),
+                    info=PatientInfo(
+                        name=wello_dict.get('name', ''),
+                        age=age,
+                        gender=gender,
+                        birth_date=birth_date
+                    ),
+                    phone=wello_dict.get('phone_number', ''),
+                    hospital_id=hospital_id,
+                    last_checkup_count=1,
+                    created_at=wello_dict.get('created_at', datetime.now())
+                )
+        except Exception as e:
+            print(f"⚠️ [DEBUG] 웰로 테이블 조회 실패: {e}, mdx_agr_list로 폴백")
+        
+        # 2순위: p9_mkt_biz.mdx_agr_list 테이블 조회 (기존 로직)
         query = """
             SELECT uuid, name, birthday, gender, phoneno, hosnm, visitdate, regdate
             FROM p9_mkt_biz.mdx_agr_list 
@@ -131,7 +192,7 @@ class PatientRepository:
         
         result = await db_manager.execute_one(query, (str(uuid),))
         if result:
-            print(f"🔍 [DEBUG] DB 조회 결과: {result}")
+            print(f"🔍 [DEBUG] mdx_agr_list 조회 결과: {result}")
             print(f"🔍 [DEBUG] hosnm 값: '{result['hosnm']}'")
             
             # 나이 계산
