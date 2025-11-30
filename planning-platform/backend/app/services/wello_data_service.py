@@ -166,7 +166,8 @@ class WelloDataService:
             
             # 병원 정보 조회
             hospital_query = """
-                SELECT hospital_id, hospital_name, layout_type, brand_color, logo_position, 
+                SELECT hospital_id, hospital_name, phone, address, 
+                       supported_checkup_types, layout_type, brand_color, logo_position, 
                        is_active, created_at
                 FROM wello.wello_hospitals 
                 WHERE hospital_id = $1 AND is_active = true
@@ -179,6 +180,18 @@ class WelloDataService:
             
             # 병원 정보를 딕셔너리로 변환
             hospital_dict = dict(hospital_row)
+            
+            # 프론트엔드 호환성을 위해 name 필드 추가 (hospital_name의 별칭)
+            if 'hospital_name' in hospital_dict:
+                hospital_dict['name'] = hospital_dict['hospital_name']
+            
+            # phone과 address가 없으면 기본값 설정
+            if not hospital_dict.get('phone'):
+                hospital_dict['phone'] = '02-1234-5678'
+            if not hospital_dict.get('address'):
+                hospital_dict['address'] = '서울특별시 강남구 테헤란로 123'
+            if not hospital_dict.get('supported_checkup_types'):
+                hospital_dict['supported_checkup_types'] = ['basic', 'comprehensive', 'premium']
             
             # 날짜 객체를 문자열로 변환
             if hospital_dict.get('created_at'):
