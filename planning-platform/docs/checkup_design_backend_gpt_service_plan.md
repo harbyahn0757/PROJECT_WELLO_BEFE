@@ -350,3 +350,4 @@ def format_prescription_data_for_gpt(prescription_data: List[Dict]) -> str:
 - `backend/app/services/checkup_design_service.py` - 기존 검진 설계 서비스
 - `backend/app/core/config.py` - 설정 관리
 
+

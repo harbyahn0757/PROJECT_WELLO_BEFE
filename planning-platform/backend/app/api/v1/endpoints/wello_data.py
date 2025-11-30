@@ -2,7 +2,7 @@
 WELLO 건강정보 데이터 관리 API
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request, Body
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 from ....services.wello_data_service import wello_data_service
@@ -382,3 +382,48 @@ async def refresh_patient_data(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"데이터 새로고침 실패: {str(e)}")
+
+@router.delete("/patient-health-data")
+async def delete_patient_health_data(
+    uuid: str = Query(..., description="환자 UUID"),
+    hospital_id: str = Query(..., description="병원 ID")
+) -> Dict[str, Any]:
+    """환자의 건강검진 및 처방전 데이터 삭제"""
+    try:
+        result = await wello_data_service.delete_patient_health_data(uuid, hospital_id)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "데이터 삭제 실패"))
+        
+        return {
+            "success": True,
+            "message": "건강데이터가 삭제되었습니다.",
+            "data": result
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"데이터 삭제 실패: {str(e)}")
+
+@router.post("/terms-agreement")
+async def save_terms_agreement(
+    uuid: str = Query(..., description="환자 UUID"),
+    hospital_id: str = Query(..., description="병원 ID"),
+    terms_agreement: Dict[str, Any] = Body(..., description="약관 동의 정보")
+) -> Dict[str, Any]:
+    """약관 동의 저장"""
+    try:
+        result = await wello_data_service.save_terms_agreement(uuid, hospital_id, terms_agreement)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "약관 동의 저장 실패"))
+        
+        return {
+            "success": True,
+            "message": "약관 동의가 저장되었습니다.",
+            "data": result
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"약관 동의 저장 실패: {str(e)}")

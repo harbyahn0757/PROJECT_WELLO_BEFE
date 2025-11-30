@@ -53,6 +53,14 @@ export const API_ENDPOINTS = {
   CHECK_EXISTING_DATA: (uuid: string, hospitalId: string) => 
     createApiUrl(`/wello-api/v1/wello/check-existing-data?uuid=${uuid}&hospital_id=${hospitalId}`),
   
+  // 건강데이터 삭제
+  DELETE_HEALTH_DATA: (uuid: string, hospitalId: string) => 
+    createApiUrl(`/wello-api/v1/wello/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`),
+  
+  // 약관 동의 저장
+  SAVE_TERMS_AGREEMENT: (uuid: string, hospitalId: string) => 
+    createApiUrl(`/wello-api/v1/wello/terms-agreement?uuid=${uuid}&hospital_id=${hospitalId}`),
+  
   // Tilko 인증 관련
   TILKO_SESSION_START: createApiUrl('/wello-api/v1/tilko/session/start'),
   TILKO_SESSION_STATUS: (sessionId: string) => createApiUrl(`/wello-api/v1/tilko/session/${sessionId}/status`),

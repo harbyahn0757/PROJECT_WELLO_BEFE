@@ -11,10 +11,98 @@
   // 레거시 지원용으로 유지하되 기본 스타일만
   min-height: 100vh;
   background: $background-beige;
+  border: none !important;
+  border-bottom: none !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  outline: none !important;
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
   
   // 틸코 로그인 페이지에서는 노랑색 배경 사용
   &.tilko-login {
     background: $background-yellow;
+    border: none !important;
+    border-bottom: none !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    outline: none !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    
+    // 하단 하얀 줄 완전 제거
+    &::after,
+    &::before {
+      display: none !important;
+      content: none !important;
+      background: none !important;
+      background-color: transparent !important;
+      border: none !important;
+      border-bottom: none !important;
+      border-top: none !important;
+      border-left: none !important;
+      border-right: none !important;
+      height: 0 !important;
+      width: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      box-shadow: none !important;
+      outline: none !important;
+    }
+  }
+  
+  // 하단 하얀 줄 완전 제거
+  &::after,
+  &::before {
+    display: none !important;
+    content: none !important;
+    background: none !important;
+    background-color: transparent !important;
+    border: none !important;
+    border-bottom: none !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+  
+  // 자식 요소들도 border 제거
+  .container,
+  .wrapper {
+    border: none !important;
+    border-bottom: none !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    outline: none !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    
+    &::after,
+    &::before {
+      display: none !important;
+      content: none !important;
+      background: none !important;
+      background-color: transparent !important;
+      border: none !important;
+      border-bottom: none !important;
+      border-top: none !important;
+      border-left: none !important;
+      border-right: none !important;
+      height: 0 !important;
+      width: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      box-shadow: none !important;
+      outline: none !important;
+    }
   }
 }
 

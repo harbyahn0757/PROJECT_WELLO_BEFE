@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "session_id": "bca185fc-9dc8-4fda-951b-516049341209",
+    "data_type": "patient_data",
+    "patient_uuid": "624b5ded-40a0-4764-96a0-32b9ce32bbb1",
+    "hospital_id": "KIM_HW_CLINIC",
+    "created_at": "2025-11-29T21:24:31.642152",
+    "file_version": "1.0",
+    "status": "completed",
+    "completed_at": "2025-11-29T21:24:31.897018"
+  },
+  "raw_data": {
+    "name": "정일우",
+    "birthdate": "19880915",
+    "phone_no": "01056605106",
+    "gender": "M",
+    "private_auth_type": "0"
+  },
+  "checksum": "804744d9d74c159d417418b1d88332b09abeb3ba3c168d24f47d493dc7600b82"
+}

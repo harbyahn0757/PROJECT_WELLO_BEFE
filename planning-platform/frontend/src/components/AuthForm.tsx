@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useWelloData } from '../contexts/WelloDataContext';
 import { PatientDataConverter, PatientDataValidator, GenderConverter } from '../types/patient';
 import { TILKO_API, HTTP_METHODS, API_HEADERS } from '../constants/api';
+import { API_ENDPOINTS } from '../config/api';
 import PasswordModal from './PasswordModal';
 import { PasswordModalType } from './PasswordModal/types';
 import WelloModal from './common/WelloModal';
@@ -12,6 +13,7 @@ import { useWebSocketAuth } from '../hooks/useWebSocketAuth';
 import useApiCallPrevention from '../hooks/useApiCallPrevention';
 import { WELLO_LOGO_IMAGE } from '../constants/images';
 import splashIcon from '../assets/splash.png';
+import TermsAgreementModal from './terms/TermsAgreementModal';
 
 // 인증 아이콘 이미지 import
 import kakaoIcon from '../assets/images/kakao.png';
@@ -44,8 +46,8 @@ interface ReqParams {
 
 const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const navigate = useNavigate();
-  const { state } = useWelloData();
-  const { patient, layoutConfig } = state;
+  const { state, actions } = useWelloData();
+  const { patient, hospital, layoutConfig } = state;
 
   // API 호출 중복 방지
   const apiCallPrevention = useApiCallPrevention({
@@ -168,6 +170,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       document.head.removeChild(style);
     };
   }, []);
+  // 약관동의 모달 상태
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsAgreed, setTermsAgreed] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorType, setErrorType] = useState<'validation' | 'network' | 'server' | 'auth' | null>(null);
@@ -381,19 +387,48 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const descTypingTimerRef = useRef<NodeJS.Timeout | null>(null);
   const messageTypingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 컴포넌트 마운트 시 플로팅 버튼 관련 플래그 초기화
+  // 컴포넌트 마운트 시 환자 데이터 로드 및 플로팅 버튼 관련 플래그 초기화
   useEffect(() => {
     const componentId = Math.random().toString(36).substr(2, 9);
     console.log(`🔄 [인증페이지-${componentId}] AuthForm 마운트 - 플로팅 버튼 플래그 초기화`);
     console.log(`🔄 [인증페이지-${componentId}] AuthForm 완전 마운트됨 - 모든 useEffect 활성화`);
+    console.log(`🔍 [인증페이지-${componentId}] 현재 patient 상태:`, patient ? { name: patient.name, uuid: patient.uuid } : 'null');
+    
+    // URL 파라미터에서 환자 정보 가져오기
+    const urlParams = new URLSearchParams(window.location.search);
+    const uuid = urlParams.get('uuid');
+    const hospitalId = urlParams.get('hospital');
+    
+    // 랜딩 페이지에서 로드한 환자 데이터가 있으면 즉시 이름 설정
+    if (patient && patient.name) {
+      const patientName = PatientDataConverter.getSafeName(patient);
+      if (!editableName || editableName === '사용자') {
+        setEditableName(patientName);
+        console.log(`📝 [인증페이지-${componentId}] 랜딩 페이지에서 로드한 환자 이름 설정:`, patientName);
+      }
+    } else if (uuid && hospitalId) {
+      // 환자 데이터가 없고 URL 파라미터가 있으면 데이터 로드
+      console.log(`📋 [인증페이지-${componentId}] 환자 데이터 없음 - 로드 시작: ${uuid} @ ${hospitalId}`);
+      actions.loadPatientData(uuid, hospitalId, { force: false });
+    }
     
     // 이전 세션의 신호들 정리 (세션 복구 후에 실행)
     // 세션 복구가 필요할 수 있으므로 즉시 정리하지 않음
     console.log(`🔄 [인증페이지-${componentId}] 세션 복구 체크 후 신호 정리 예정`);
     // tilko_auth_completed와 tilko_session_id는 유지 (세션 복구용)
+  }, [patient, editableName, actions]);
+
+  // 함수 참조를 위한 ref
+  const handleManualDataCollectionRef = useRef<(() => Promise<void>) | null>(null);
+  const handleNextStepRef = useRef<(() => void) | null>(null);
+  const typeTitleMessageRef = useRef<((message: string, speed?: number, repeat?: boolean) => void) | null>(null);
+
+  // 신호 감지 useEffect (별도로 분리)
+  useEffect(() => {
+    const componentId = Math.random().toString(36).substr(2, 9);
     
-        // 이름 추출 함수 (데이터 로드 상태에 관계없이 최신 데이터 사용)
-        const extractName = (forceName?: string) => {
+    // 이름 추출 함수 (데이터 로드 상태에 관계없이 최신 데이터 사용)
+    const extractName = (forceName?: string) => {
           let name = '';
           
           // 0) 강제로 전달된 이름이 있으면 우선 사용
@@ -442,114 +477,118 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     
         // localStorage 이벤트 리스너를 사용한 신호 감지 (폴백용 - 직접 호출 실패 시에만 사용)
         const handleStartSignal = () => {
-          const startSignal = StorageManager.getItem(STORAGE_KEYS.START_INFO_CONFIRMATION);
-          const manualCollectSignal = StorageManager.getItem('tilko_manual_collect');
-          const authMethodCompleteSignal = StorageManager.getItem('tilko_auth_method_complete');
+      const startSignal = StorageManager.getItem(STORAGE_KEYS.START_INFO_CONFIRMATION);
+      const manualCollectSignal = StorageManager.getItem('tilko_manual_collect');
+      const authMethodCompleteSignal = StorageManager.getItem('tilko_auth_method_complete');
+      
+      // 신호가 없으면 로그 찍지 않고 리턴 (불필요한 로그 방지)
+      const hasAnySignal = startSignal || manualCollectSignal || authMethodCompleteSignal;
+      if (!hasAnySignal) {
+        return; // 신호가 없으면 아무것도 하지 않음
+      }
+      
+      console.log(`🔍 [신호감지-${componentId}] 신호 감지됨. startSignal:`, startSignal, 'manualCollectSignal:', manualCollectSignal, 'authMethodCompleteSignal:', authMethodCompleteSignal);
+      
+      // 인증 방식 선택 완료 신호 처리
+      const isAuthMethodCompleteSignal = authMethodCompleteSignal === 'true' || (typeof authMethodCompleteSignal === 'boolean' && authMethodCompleteSignal === true);
+      if (isAuthMethodCompleteSignal) {
+        console.log(`✅ [신호감지-${componentId}] 인증 방식 선택 완료 - 바로 인증 시작`);
+        console.log(`🔍 [신호감지-${componentId}] 현재 상태: currentConfirmationStep=${currentConfirmationStep}, showConfirmation=${showConfirmation}`);
+        StorageManager.removeItem('tilko_auth_method_complete'); // 신호 제거
+        
+        // 인증 방식 선택이 완료되었으므로 기존 handleNextStep 방식 사용
+        console.log(`✅ [신호감지-${componentId}] 인증 방식 선택 완료 - handleNextStep 호출`);
+        
+        // currentConfirmationStep을 'auth_method'로 설정하고 handleNextStep 호출
+        setCurrentConfirmationStep('auth_method');
+        
+        // 다음 이벤트 루프에서 handleNextStep 호출 (기존 방식 복구)
+        setTimeout(() => {
+          handleNextStep();
+        }, 0);
+        return;
+      }
+      
+      // 수동 데이터 수집 신호 처리 (문자열 'true' 또는 boolean true 처리)
+      const isManualCollectSignal = manualCollectSignal === 'true' || (typeof manualCollectSignal === 'boolean' && manualCollectSignal === true);
+      if (isManualCollectSignal) {
+        // 이미 실행 중이면 무시
+        if (isManualCollectingRef.current) {
+          console.log(`⏸️ [신호감지-${componentId}] 이미 수집 중 - 신호 무시`);
+          StorageManager.removeItem('tilko_manual_collect'); // 신호만 제거
+          return;
+        }
+        
+        console.log(`✅ [신호감지-${componentId}] 수동 데이터 수집 시작`);
+        StorageManager.removeItem('tilko_manual_collect'); // 신호 제거
+        StorageManager.removeItem('tilko_auth_waiting'); // 인증 대기 상태 제거
+        // localStorageChange 이벤트 발생하지 않음 (무한 루프 방지)
+        
+        // 수동 데이터 수집 실행
+        if (handleManualDataCollectionRef.current) {
+          handleManualDataCollectionRef.current();
+        }
+        return;
+      }
+      
+      // 문자열 'true' 또는 boolean true 또는 truthy 값 체크
+      const isSignalActive = startSignal === 'true' || (startSignal as any) === true || !!startSignal;
+      
+      if (isSignalActive) {
+        console.log(`✅ [신호감지-${componentId}] 정보 확인 시작`);
+        
+        StorageManager.removeItem(STORAGE_KEYS.START_INFO_CONFIRMATION); // 신호 제거
+        console.log('🗑️ [신호감지] 신호 제거 완료');
+        
+        // 정보 확인 단계 시작
+        setShowConfirmation(true);
+        setCurrentConfirmationStep('name');
+        
+        // 플로팅 버튼 숨기기 위한 플래그 설정
+        setLocalStorageWithEvent(STORAGE_KEYS.TILKO_INFO_CONFIRMING, 'true');
+        
+        // 히스토리에 첫 번째 단계 상태 추가
+        NavigationHelper.pushState(
+          { step: 'name', confirmationStarted: true }
+        );
+        
+        // 첫 번째 타이틀 타이핑 효과 시작 (데이터 로드 대기)
+        const startTypingWithDelay = (attempt = 0) => {
+          const safeName = extractName();
           
-          // 신호가 없으면 로그 찍지 않고 리턴 (불필요한 로그 방지)
-          const hasAnySignal = startSignal || manualCollectSignal || authMethodCompleteSignal;
-          if (!hasAnySignal) {
-            return; // 신호가 없으면 아무것도 하지 않음
-          }
-          
-          console.log(`🔍 [신호감지-${componentId}] 신호 감지됨. startSignal:`, startSignal, 'manualCollectSignal:', manualCollectSignal, 'authMethodCompleteSignal:', authMethodCompleteSignal);
-          
-          // 인증 방식 선택 완료 신호 처리
-          const isAuthMethodCompleteSignal = authMethodCompleteSignal === 'true' || (typeof authMethodCompleteSignal === 'boolean' && authMethodCompleteSignal === true);
-          if (isAuthMethodCompleteSignal) {
-            console.log(`✅ [신호감지-${componentId}] 인증 방식 선택 완료 - 바로 인증 시작`);
-            console.log(`🔍 [신호감지-${componentId}] 현재 상태: currentConfirmationStep=${currentConfirmationStep}, showConfirmation=${showConfirmation}`);
-            StorageManager.removeItem('tilko_auth_method_complete'); // 신호 제거
-            
-            // 인증 방식 선택이 완료되었으므로 기존 handleNextStep 방식 사용
-            console.log(`✅ [신호감지-${componentId}] 인증 방식 선택 완료 - handleNextStep 호출`);
-            
-            // currentConfirmationStep을 'auth_method'로 설정하고 handleNextStep 호출
-            setCurrentConfirmationStep('auth_method');
-            
-            // 다음 이벤트 루프에서 handleNextStep 호출 (기존 방식 복구)
-            setTimeout(() => {
-              handleNextStep();
-            }, 0);
+          // 데이터가 아직 로드되지 않았고 재시도 가능한 경우
+          if (safeName === '사용자' && attempt < 3) {
+            console.log(`📝 [타이틀타이핑] 데이터 로드 대기 중... (시도 ${attempt + 1}/3)`);
+            setTimeout(() => startTypingWithDelay(attempt + 1), 300);
             return;
           }
           
-          // 수동 데이터 수집 신호 처리 (문자열 'true' 또는 boolean true 처리)
-          const isManualCollectSignal = manualCollectSignal === 'true' || (typeof manualCollectSignal === 'boolean' && manualCollectSignal === true);
-          if (isManualCollectSignal) {
-            // 이미 실행 중이면 무시
-            if (isManualCollectingRef.current) {
-              console.log(`⏸️ [신호감지-${componentId}] 이미 수집 중 - 신호 무시`);
-              StorageManager.removeItem('tilko_manual_collect'); // 신호만 제거
-              return;
-            }
-            
-            console.log(`✅ [신호감지-${componentId}] 수동 데이터 수집 시작`);
-            StorageManager.removeItem('tilko_manual_collect'); // 신호 제거
-            StorageManager.removeItem('tilko_auth_waiting'); // 인증 대기 상태 제거
-            // localStorageChange 이벤트 발생하지 않음 (무한 루프 방지)
-            
-            // 수동 데이터 수집 실행
-            handleManualDataCollection();
-            return;
-          }
-          
-          // 문자열 'true' 또는 boolean true 또는 truthy 값 체크
-          const isSignalActive = startSignal === 'true' || (startSignal as any) === true || !!startSignal;
-          
-          if (isSignalActive) {
-            console.log(`✅ [신호감지-${componentId}] 정보 확인 시작`);
-            
-            StorageManager.removeItem(STORAGE_KEYS.START_INFO_CONFIRMATION); // 신호 제거
-            console.log('🗑️ [신호감지] 신호 제거 완료');
-            
-            // 정보 확인 단계 시작
-            setShowConfirmation(true);
-            setCurrentConfirmationStep('name');
-            
-            // 플로팅 버튼 숨기기 위한 플래그 설정
-            setLocalStorageWithEvent(STORAGE_KEYS.TILKO_INFO_CONFIRMING, 'true');
-            
-            // 히스토리에 첫 번째 단계 상태 추가
-            NavigationHelper.pushState(
-              { step: 'name', confirmationStarted: true }
-            );
-            
-            // 첫 번째 타이틀 타이핑 효과 시작 (데이터 로드 대기)
-            const startTypingWithDelay = (attempt = 0) => {
-              const safeName = extractName();
-              
-              // 데이터가 아직 로드되지 않았고 재시도 가능한 경우
-              if (safeName === '사용자' && attempt < 3) {
-                console.log(`📝 [타이틀타이핑] 데이터 로드 대기 중... (시도 ${attempt + 1}/3)`);
-                setTimeout(() => startTypingWithDelay(attempt + 1), 300);
-                return;
-              }
-              
-              console.log('🎯 [정보확인] 신호 감지, 확인 단계 시작');
-              console.log('📝 [타이틀타이핑] 시작: 존함이 맞나요?');
-              typeTitleMessage('존함이 맞나요?', 120, true);
-            };
-            
-            setTimeout(() => startTypingWithDelay(), 500);
+          console.log('🎯 [정보확인] 신호 감지, 확인 단계 시작');
+          console.log('📝 [타이틀타이핑] 시작: 존함이 맞나요?');
+          if (typeTitleMessageRef.current) {
+            typeTitleMessageRef.current('존함이 맞나요?', 120, true);
           }
         };
         
-        // 즉시 한번 확인
-        handleStartSignal();
+        setTimeout(() => startTypingWithDelay(), 500);
+      }
+    };
         
-        // storage 이벤트 리스너 등록
-        window.addEventListener('storage', handleStartSignal);
-        
-        // 커스텀 이벤트 리스너 등록 (같은 페이지 내 변경사항 감지)
-        window.addEventListener('localStorageChange', handleStartSignal);
+    // 즉시 한번 확인
+    handleStartSignal();
     
+    // storage 이벤트 리스너 등록
+    window.addEventListener('storage', handleStartSignal);
+    
+    // 커스텀 이벤트 리스너 등록 (같은 페이지 내 변경사항 감지)
+    window.addEventListener('localStorageChange', handleStartSignal);
+
     return () => {
       console.log(`🛑 [신호감지-${componentId}] AuthForm unmount - 이벤트 리스너 해제`);
       window.removeEventListener('storage', handleStartSignal);
       window.removeEventListener('localStorageChange', handleStartSignal);
     };
-  }, [currentConfirmationStep, showConfirmation]);
+  }, [currentConfirmationStep, showConfirmation, editableName, layoutConfig, patient]);
 
   // 컴포넌트 언마운트 시 모든 타이머 정리
   useEffect(() => {
@@ -637,20 +676,31 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
 
   // Context에서 환자 데이터가 변경되면 authInput 업데이트 (통합 유틸리티 사용)
   useEffect(() => {
-    // 유효성 검사
-    if (!PatientDataValidator.isValidPatient(patient) || !PatientDataValidator.hasRequiredFields(patient)) {
-      return;
+    // patient가 있으면 항상 이름 설정 (랜딩 페이지에서 로드한 데이터 활용)
+    if (patient && patient.name) {
+      const patientName = PatientDataConverter.getSafeName(patient);
+      // editableName이 없거나 기본값이면 patient.name으로 설정
+      if (!editableName || editableName === '사용자') {
+        setEditableName(patientName);
+        console.log('📝 [AuthForm] 랜딩 페이지에서 로드한 환자 이름 설정:', patientName);
+      }
+      
+      // 유효성 검사 통과 시에만 authInput 업데이트
+      if (PatientDataValidator.isValidPatient(patient) && PatientDataValidator.hasRequiredFields(patient)) {
+        // 안전한 데이터 변환
+        const authData = PatientDataConverter.toAuthData(patient);
+        setAuthInput(authData);
+        
+        // 편집 가능한 필드들 설정 (값이 없을 때만)
+        if (!editablePhone) {
+          setEditablePhone(patient.phone); // 포맷 유지
+        }
+        if (!editableBirthday) {
+          setEditableBirthday(PatientDataConverter.getSafeBirthday(patient));
+        }
+      }
     }
-    
-    // 안전한 데이터 변환
-    const authData = PatientDataConverter.toAuthData(patient);
-    setAuthInput(authData);
-    
-    // 편집 가능한 필드들 설정
-    setEditableName(PatientDataConverter.getSafeName(patient));
-    setEditablePhone(patient.phone); // 포맷 유지
-    setEditableBirthday(PatientDataConverter.getSafeBirthday(patient));
-  }, [patient]);
+  }, [patient, editableName, editablePhone, editableBirthday]);
 
   useEffect(() => {
     checkExistingSession();
@@ -718,6 +768,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
 
     startTitleTyping();
   }, [showConfirmation, currentConfirmationStep]);
+
+  // typeTitleMessage ref 업데이트
+  useEffect(() => {
+    typeTitleMessageRef.current = typeTitleMessage;
+  }, [typeTitleMessage]);
 
   // 설명 텍스트 타이핑 효과 함수 (완전한 타이머 관리 포함)
   const typeDescriptionMessage = useCallback((message: string, speed: number = 100) => {
@@ -1180,6 +1235,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       }
   }, [sessionId]);
 
+  // handleManualDataCollection ref 업데이트
+  useEffect(() => {
+    handleManualDataCollectionRef.current = handleManualDataCollection;
+  }, [handleManualDataCollection]);
+
   // WebSocket 전용 모니터링 (폴링 제거)
   const startTokenMonitoring = useCallback((sessionId: string) => {
     console.log('📡 [WebSocket전용] 폴링 제거됨, WebSocket으로만 상태 수신:', sessionId);
@@ -1566,8 +1626,75 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   // 세션 상태 폴링
   // 폴링 로직 제거됨 - 동기적 처리로 변경
 
+  // 약관동의 완료 핸들러
+  const handleTermsAgreed = useCallback(async (agreedTerms: string[], termsAgreement?: any) => {
+    console.log('✅ [약관동의] 약관 동의 완료:', agreedTerms, termsAgreement);
+    
+    // 서버에 약관 동의 저장
+    if (patient?.uuid && hospital?.hospital_id && termsAgreement) {
+      try {
+        const response = await fetch(
+          API_ENDPOINTS.SAVE_TERMS_AGREEMENT(patient.uuid, hospital.hospital_id),
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(termsAgreement)
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('약관 동의 저장 실패');
+        }
+
+        const result = await response.json();
+        console.log('✅ [약관동의] 서버 저장 완료:', result);
+      } catch (error) {
+        console.error('❌ [약관동의] 서버 저장 실패:', error);
+        // 저장 실패해도 진행 (로컬에는 저장됨)
+      }
+    }
+
+    // 로컬 스토리지에도 저장
+    localStorage.setItem('wello_terms_agreed', 'true');
+    localStorage.setItem('wello_terms_agreed_at', new Date().toISOString());
+    localStorage.setItem('wello_terms_agreed_list', JSON.stringify(agreedTerms));
+    if (termsAgreement) {
+      localStorage.setItem('wello_terms_agreement', JSON.stringify(termsAgreement));
+    }
+
+    setTermsAgreed(true);
+    setShowTermsModal(false);
+    
+    // 약관동의 완료 후 정보 확인 시작
+    if (typeof (window as any).welloAuthForm?.startInfoConfirmation === 'function') {
+      (window as any).welloAuthForm.startInfoConfirmation();
+    }
+  }, [patient, hospital]);
+
+  // 약관동의 모달 표시 (컴포넌트 마운트 시)
+  useEffect(() => {
+    // 약관동의가 아직 완료되지 않았으면 모달 표시
+    if (!termsAgreed && !showTermsModal) {
+      const hasAgreedBefore = localStorage.getItem('wello_terms_agreed');
+      if (!hasAgreedBefore) {
+        setShowTermsModal(true);
+      } else {
+        setTermsAgreed(true);
+      }
+    }
+  }, [termsAgreed, showTermsModal]);
+
   // 모든 정보 확인 완료 후 인증 시작 (중복 방지)
   const handleAllConfirmed = useCallback(async () => {
+    // 약관동의 확인
+    if (!termsAgreed) {
+      console.log('⚠️ [약관동의] 약관동의가 필요합니다.');
+      setShowTermsModal(true);
+      return;
+    }
+
     // 🚨 중복 방지: 이미 인증이 진행 중인지 확인
     if (currentStatus === 'auth_requesting' || currentStatus === 'auth_pending' || authRequested) {
       console.log('⚠️ [중복방지] 이미 인증이 진행 중입니다. 상태:', currentStatus);
@@ -1598,6 +1725,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       selectedAuthType: selectedAuthType,
       authTypeName: AUTH_TYPES.find(t => t.value === selectedAuthType)?.label || '알 수 없음'
     });
+    
+    // 인증 방식별 안내 메시지 표시
+    setTimeout(() => {
+      const authMethodMessage = getCurrentStatusMessage();
+      if (authMethodMessage) {
+        typeMessage(authMethodMessage, TYPING_SPEED, false, false);
+      }
+    }, 100);
 
     // 기존 데이터 확인
     if (patient) {
@@ -1761,6 +1896,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
 
   // 단계별 확인 진행
   const handleNextStep = useCallback(() => {
+    // ref에 함수 할당
+    handleNextStepRef.current = handleNextStep;
+    
     console.log('🔄 [handleNextStep] 현재 단계:', currentConfirmationStep);
     
     if (currentConfirmationStep === 'name') {
@@ -1824,6 +1962,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       }, 200);
     }
   }, [currentConfirmationStep, handleAllConfirmed, typeTitleMessage, editableName, editablePhone]);
+
+  // handleNextStep ref 업데이트
+  useEffect(() => {
+    handleNextStepRef.current = handleNextStep;
+  }, [handleNextStep]);
 
   // 새로운 카카오 간편인증 (세션 기반)
   const handleKakaoAuth = useCallback(async () => {
@@ -2032,6 +2175,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     (window as any).welloAuthForm = {
       startInfoConfirmation: () => {
         console.log('🔐 [AuthForm] 정보 확인 시작 (직접 호출)');
+        // 약관동의 확인
+        if (!termsAgreed) {
+          console.log('⚠️ [약관동의] 약관동의가 필요합니다. 모달 표시');
+          setShowTermsModal(true);
+          return;
+        }
         setShowConfirmation(true);
         setCurrentConfirmationStep('name');
         // 플로팅 버튼 숨기기
@@ -2063,7 +2212,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     return () => {
       delete (window as any).welloAuthForm;
     };
-  }, [handleManualDataCollection, handleNextStep]);
+  }, [termsAgreed, currentConfirmationStep]);
 
   // 세션 복구 선택
   const handleResumeSession = useCallback(async () => {
@@ -2189,8 +2338,27 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     switch (currentStatus) {
       case 'start':
         return authRequested ? '인증을 시작합니다...' : '';
-      case 'auth_requesting':
-        return '카카오 간편인증을 요청하고 있습니다...';
+      case 'auth_requesting': {
+        const getAuthMethodName = (authType: string) => {
+          switch (authType) {
+            case '0': return '카카오톡';
+            case '4': return '통신사Pass';
+            case '6': return '네이버';
+            default: return '카카오톡';
+          }
+        };
+        const getAuthMethodDescription = (authType: string) => {
+          switch (authType) {
+            case '0': return '카카오톡 앱에서 인증을 완료해주세요.';
+            case '4': return 'SKT/KT/LG U+ 앱에서 인증을 완료해주세요.';
+            case '6': return '네이버 앱에서 인증을 완료해주세요.';
+            default: return '카카오톡 앱에서 인증을 완료해주세요.';
+          }
+        };
+        const authMethodName = getAuthMethodName(selectedAuthType);
+        const authMethodDescription = getAuthMethodDescription(selectedAuthType);
+        return `**${authMethodName}** 인증을 시작합니다.\n${authMethodDescription}`;
+      }
       case 'auth_pending':
         return '이제 카카오 인증을 확인해주세요.\n카카오톡에 인증 메시지를 확인하세요.';
       case 'auth_key_received':
@@ -2762,7 +2930,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             <div style={{
               marginBottom: '50px'
             }}>
-              <span style={{ fontSize: '36px', fontWeight: 'bold', color: '#1d1e1f', marginLeft: '-16px' }}>{editableName || '사용자'}</span>
+              <span style={{ fontSize: '36px', fontWeight: 'bold', color: '#1d1e1f', marginLeft: '-16px' }}>
+                {editableName || PatientDataConverter.getSafeName(patient) || '사용자'}
+              </span>
               <span style={{ fontSize: '18px', color: '#535353', marginLeft: '4px' }}>님!</span>
             </div>
             
@@ -3145,11 +3315,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             transition: 'transform 0.3s ease'
           }}>
             <img 
-              src={splashIcon} 
-              alt="아이콘" 
+              src={WELLO_LOGO_IMAGE} 
+              alt="웰로 아이콘" 
               style={{ 
-                width: '32px', 
-                height: '32px', 
+                width: '64px', 
+                height: '64px', 
                 objectFit: 'contain' 
               }} 
             />
@@ -3165,7 +3335,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             animation: (authRequested && currentStatus !== 'auth_completed') ? 'authPulse 2s ease-in-out infinite' : 'none'
           }}>
             <div style={{ marginBottom: '50px' }}>
-              <span style={{ fontSize: '36px', fontWeight: 'bold', color: '#1d1e1f', marginLeft: '-16px' }}>{editableName || authInput.name}</span>
+              <span style={{ fontSize: '36px', fontWeight: 'bold', color: '#1d1e1f', marginLeft: '-16px' }}>
+                {editableName || PatientDataConverter.getSafeName(patient) || authInput.name || '사용자'}
+              </span>
               <span style={{ fontSize: '18px', color: '#535353', marginLeft: '4px' }}>{authRequested ? '님!' : '님'}</span>
             </div>
             {!authRequested && (
@@ -3512,6 +3684,23 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           initialMessage="안전한 이용을 위해 비밀번호를 설정해주세요"
         />
       )}
+
+      {/* 약관동의 모달 */}
+      <TermsAgreementModal
+        isOpen={showTermsModal}
+        onClose={() => {
+          // 약관동의 모달을 닫을 수 없도록 함 (필수 동의)
+          if (!termsAgreed) {
+            alert('서비스 이용을 위해 필수 약관에 동의해주세요.');
+            return;
+          }
+          setShowTermsModal(false);
+        }}
+        onConfirm={(agreedTerms, termsAgreement) => {
+          // 약관동의 완료 처리 (서버 저장은 handleTermsAgreed에서 처리)
+          handleTermsAgreed(agreedTerms, termsAgreement);
+        }}
+      />
 
       {/* 수집 완료 모달 */}
       <WelloModal

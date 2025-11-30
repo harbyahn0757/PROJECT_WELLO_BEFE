@@ -1,0 +1,382 @@
+/**
+ * TermsAgreementModal 스타일
+ * AppointmentModal과 동일한 패널 형태 스타일
+ */
+@use '../../../styles/variables' as *;
+
+// 웰로 아이콘 깜박이는 애니메이션
+@keyframes faviconBlink {
+  0%, 100% { 
+    opacity: 1; 
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.3; 
+    transform: scale(0.95);
+  }
+}
+
+// 모달이 올라오는 애니메이션
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+// 모달이 내려가는 애니메이션
+@keyframes slideDown {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+// 오버레이 페이드 인 애니메이션
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+// 오버레이 페이드 아웃 애니메이션
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+// 모달 오버레이
+.terms-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 9999;
+  padding: 0;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+
+  &--open {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+
+  &--close {
+    animation: fadeOut 0.3s ease-out forwards;
+  }
+
+  @media (min-width: 768px) {
+    align-items: center;
+    padding: 20px;
+  }
+}
+
+// 메인 모달
+.terms-modal {
+  background: $background-appointment; // #FEF9EE (크림색)
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.15);
+  width: 100%;
+  max-width: 448px;
+  max-height: 90vh;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+
+  &--open {
+    animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  &--close {
+    animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @media (min-width: 768px) {
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    margin-bottom: 0;
+    max-height: 85vh;
+  }
+}
+
+// 헤더
+.terms-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-md $spacing-md $spacing-sm;
+  border-bottom: 1px solid $border-beige;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.terms-modal__title {
+  font-size: $font-xl;
+  font-weight: $font-weight-bold;
+  color: $brand-brown-darker;
+  margin: 0;
+  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+}
+
+.terms-modal__close {
+  position: absolute;
+  top: $spacing-md;
+  right: $spacing-md;
+  background: none;
+  border: none;
+  color: $gray-500;
+  cursor: pointer;
+  padding: $spacing-xs;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+
+  &:hover {
+    background: $gray-100;
+    color: $gray-800;
+    transform: scale(1.1);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+// 컨텐츠 영역 (스크롤 가능)
+.terms-modal__content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: $spacing-sm $spacing-md;
+  -webkit-overflow-scrolling: touch;
+}
+
+// 전체 동의 (오른쪽 정렬)
+.terms-modal__select-all {
+  padding: $spacing-md 0;
+  border-bottom: 1px solid $border-beige;
+  margin-bottom: $spacing-md;
+  display: flex;
+  justify-content: flex-end;
+  
+  .terms-modal__checkbox-label {
+    justify-content: flex-end;
+  }
+}
+
+// 약관 목록
+.terms-modal__terms-list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.terms-modal__term-item {
+  border: 1px solid $border-beige;
+  border-radius: $border-radius-md;
+  background: $white;
+}
+
+.terms-modal__term-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-md;
+  gap: $spacing-sm;
+}
+
+.terms-modal__term-content {
+  padding: 0 $spacing-md $spacing-md;
+  max-height: 300px;
+  overflow-y: auto;
+  border-top: 1px solid $border-beige;
+  margin-top: $spacing-xs;
+  padding-top: $spacing-md;
+}
+
+.terms-modal__term-html {
+  font-size: $font-sm;
+  line-height: 1.6;
+  color: $gray-700;
+  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+
+  // Word에서 생성된 HTML 스타일 정리
+  p {
+    margin: $spacing-xs 0;
+  }
+
+  b {
+    font-weight: $font-weight-bold;
+  }
+}
+
+.terms-modal__expand-button {
+  background: none;
+  border: none;
+  color: $brand-brown-darker;
+  cursor: pointer;
+  font-size: $font-lg;
+  font-weight: $font-weight-bold;
+  padding: $spacing-xs $spacing-sm;
+  border-radius: $border-radius-sm;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  min-width: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background: $gray-100;
+  }
+}
+
+// 체크박스
+.terms-modal__checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  cursor: pointer;
+  flex: 1;
+}
+
+.terms-modal__checkbox {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  min-height: 24px;
+  cursor: pointer;
+  accent-color: $brand-brown-darker;
+  flex-shrink: 0;
+}
+
+.terms-modal__checkbox-text {
+  font-size: $font-base;
+  color: $brand-brown-darker;
+  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+  user-select: none;
+}
+
+// .terms-modal__required 제거됨 - 중복 표시 제거
+
+// 하단 버튼 영역
+.terms-modal__footer {
+  padding: $spacing-md;
+  border-top: 1px solid $border-beige;
+  flex-shrink: 0;
+  background: $background-appointment;
+}
+
+.terms-modal__button {
+  width: 100%;
+  min-height: 56px;
+  background-color: $brand-brown-darker;
+  color: $white;
+  border: none;
+  border-radius: $border-radius-lg;
+  font-size: 17px;
+  font-weight: $font-weight-semibold;
+  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba($brand-brown-darker, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-xs;
+
+  &:hover:not(:disabled) {
+    background-color: darken($brand-brown-darker, 5%);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba($brand-brown-darker, 0.4);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    background-color: $gray-400;
+    color: $gray-600;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+.terms-modal__button-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-xs;
+
+  .wello-icon-blink {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    animation: faviconBlink 1.5s ease-in-out infinite;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  }
+
+  span {
+    font-size: 17px;
+    font-weight: $font-weight-semibold;
+  }
+}
+
+// 모바일 반응형
+@media (max-width: 767px) {
+  .terms-modal {
+    max-height: 95vh;
+  }
+
+  .terms-modal__header {
+    padding: $spacing-sm $spacing-md;
+  }
+
+  .terms-modal__title {
+    font-size: $font-lg;
+  }
+
+  .terms-modal__content {
+    padding: $spacing-xs $spacing-md;
+  }
+
+  .terms-modal__button {
+    min-height: 52px;
+    font-size: 16px;
+  }
+}
+

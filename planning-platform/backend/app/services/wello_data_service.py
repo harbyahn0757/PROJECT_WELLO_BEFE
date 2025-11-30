@@ -919,5 +919,159 @@ class WelloDataService:
             print(f"❌ [약품정보조회] 오류: {e}")
             return None
 
+    async def delete_patient_health_data(self, uuid: str, hospital_id: str) -> Dict[str, Any]:
+        """환자의 건강검진 및 처방전 데이터 삭제"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            # 삭제 전 데이터 확인
+            health_count_before = await conn.fetchval(
+                "SELECT COUNT(*) FROM wello.wello_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                uuid, hospital_id
+            )
+            prescription_count_before = await conn.fetchval(
+                "SELECT COUNT(*) FROM wello.wello_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                uuid, hospital_id
+            )
+            
+            # 트랜잭션 시작
+            async with conn.transaction():
+                # 건강검진 데이터 삭제
+                if health_count_before > 0:
+                    await conn.execute(
+                        "DELETE FROM wello.wello_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                        uuid, hospital_id
+                    )
+                    print(f"✅ [데이터삭제] 건강검진 데이터 삭제: {health_count_before}건")
+                
+                # 처방전 데이터 삭제
+                if prescription_count_before > 0:
+                    await conn.execute(
+                        "DELETE FROM wello.wello_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                        uuid, hospital_id
+                    )
+                    print(f"✅ [데이터삭제] 처방전 데이터 삭제: {prescription_count_before}건")
+                
+                # 환자 정보 플래그 업데이트
+                await conn.execute(
+                    """UPDATE wello.wello_patients 
+                       SET has_health_data = FALSE,
+                           has_prescription_data = FALSE,
+                           last_data_update = NULL 
+                       WHERE uuid = $1 AND hospital_id = $2""",
+                    uuid, hospital_id
+                )
+                print(f"✅ [데이터삭제] 환자 정보 플래그 업데이트 완료")
+            
+            # 삭제 후 확인
+            health_count_after = await conn.fetchval(
+                "SELECT COUNT(*) FROM wello.wello_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                uuid, hospital_id
+            )
+            prescription_count_after = await conn.fetchval(
+                "SELECT COUNT(*) FROM wello.wello_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                uuid, hospital_id
+            )
+            
+            await conn.close()
+            
+            return {
+                "success": True,
+                "deleted": {
+                    "health_data": health_count_before,
+                    "prescription_data": prescription_count_before
+                },
+                "remaining": {
+                    "health_data": health_count_after,
+                    "prescription_data": prescription_count_after
+                }
+            }
+            
+        except Exception as e:
+            print(f"❌ [데이터삭제] 오류: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
+    async def save_terms_agreement(self, uuid: str, hospital_id: str, terms_agreement: Dict[str, Any]) -> Dict[str, Any]:
+        """약관 동의 저장"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            # 약관 동의 정보를 JSONB로 저장
+            # wello_patients 테이블에 terms_agreement 필드가 있는지 확인하고 업데이트
+            # 없으면 ALTER TABLE로 추가 필요 (스키마 마이그레이션)
+            
+            # 먼저 환자 존재 확인
+            patient_check = await conn.fetchrow(
+                "SELECT id FROM wello.wello_patients WHERE uuid = $1 AND hospital_id = $2",
+                uuid, hospital_id
+            )
+            
+            if not patient_check:
+                await conn.close()
+                return {
+                    "success": False,
+                    "error": "환자 정보를 찾을 수 없습니다."
+                }
+            
+            # 약관 동의 정보 저장 (JSONB 필드)
+            # terms_agreement 필드가 없으면 추가해야 함
+            try:
+                update_query = """
+                    UPDATE wello.wello_patients 
+                    SET terms_agreement = $1,
+                        terms_agreed_at = NOW(),
+                        updated_at = NOW()
+                    WHERE uuid = $2 AND hospital_id = $3
+                """
+                await conn.execute(
+                    update_query,
+                    json.dumps(terms_agreement),
+                    uuid, hospital_id
+                )
+            except asyncpg.exceptions.UndefinedColumnError:
+                # terms_agreement 컬럼이 없으면 추가
+                await conn.execute(
+                    "ALTER TABLE wello.wello_patients ADD COLUMN IF NOT EXISTS terms_agreement JSONB"
+                )
+                await conn.execute(
+                    "ALTER TABLE wello.wello_patients ADD COLUMN IF NOT EXISTS terms_agreed_at TIMESTAMPTZ"
+                )
+                # 다시 업데이트
+                update_query = """
+                    UPDATE wello.wello_patients 
+                    SET terms_agreement = $1,
+                        terms_agreed_at = NOW(),
+                        updated_at = NOW()
+                    WHERE uuid = $2 AND hospital_id = $3
+                """
+                await conn.execute(
+                    update_query,
+                    json.dumps(terms_agreement),
+                    uuid, hospital_id
+                )
+            
+            await conn.close()
+            
+            print(f"✅ [약관동의] 약관 동의 저장 완료: {uuid} @ {hospital_id}")
+            print(f"   - 서비스 이용약관: {terms_agreement.get('terms_service', False)}")
+            print(f"   - 개인정보 수집/이용: {terms_agreement.get('terms_privacy', False)}")
+            print(f"   - 민감정보 수집/이용: {terms_agreement.get('terms_sensitive', False)}")
+            print(f"   - 마케팅 활용: {terms_agreement.get('terms_marketing', False)}")
+            
+            return {
+                "success": True,
+                "terms_agreement": terms_agreement
+            }
+            
+        except Exception as e:
+            print(f"❌ [약관동의] 저장 오류: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
 # 싱글톤 인스턴스
 wello_data_service = WelloDataService()

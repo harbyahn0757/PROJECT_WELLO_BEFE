@@ -6,8 +6,12 @@
   position: relative;
   font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
   
-  // 플로팅 버튼인 경우 기본 스타일 오버라이드
+  // 플로팅 버튼인 경우 기본 스타일 오버라이드 (button-base보다 우선순위 높게)
   &.floating-button {
+    // button-base의 border: none을 완전히 오버라이드
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
     border-radius: 0 !important;
     border-top-left-radius: 12px !important;
     border-top-right-radius: 12px !important;
@@ -19,14 +23,78 @@
     font-size: $floating-button-font-size !important; // 폰트 크기 (상수 사용)
     margin: 0 !important;
     margin-bottom: 0 !important;
+    border: none !important;
+    border-top: none !important;
     border-bottom: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-top-color: transparent !important;
+    border-bottom-color: transparent !important;
+    border-left-color: transparent !important;
+    border-right-color: transparent !important;
+    outline: none !important;
+    box-shadow: none !important;
     
     &::after,
     &::before {
       display: none !important;
       content: none !important;
       background: none !important;
+      background-color: transparent !important;
       border: none !important;
+      border-top: none !important;
+      border-bottom: none !important;
+      border-left: none !important;
+      border-right: none !important;
+      border-top-color: transparent !important;
+      border-bottom-color: transparent !important;
+      border-left-color: transparent !important;
+      border-right-color: transparent !important;
+      height: 0 !important;
+      width: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      box-shadow: none !important;
+      outline: none !important;
+    }
+    
+    // button__content 하단 흰줄 완전 제거
+    .button__content {
+      border: none !important;
+      border-top: none !important;
+      border-bottom: none !important;
+      border-left: none !important;
+      border-right: none !important;
+      border-top-color: transparent !important;
+      border-bottom-color: transparent !important;
+      border-left-color: transparent !important;
+      border-right-color: transparent !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      padding-bottom: 0 !important;
+      background: transparent !important;
+      background-color: transparent !important;
+      outline: none !important;
+      box-shadow: none !important;
+      
+      &::after,
+      &::before {
+        display: none !important;
+        content: none !important;
+        background: none !important;
+        background-color: transparent !important;
+        border: none !important;
+        border-top: none !important;
+        border-bottom: none !important;
+        border-left: none !important;
+        border-right: none !important;
+        height: 0 !important;
+        width: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        outline: none !important;
+      }
     }
   }
   

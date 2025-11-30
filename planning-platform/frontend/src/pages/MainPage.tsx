@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/Card';
 import { useWelloData } from '../contexts/WelloDataContext';
@@ -15,6 +15,7 @@ import { PasswordService } from '../components/PasswordModal/PasswordService';
 import { PasswordSessionService } from '../services/PasswordSessionService';
 import useGlobalSessionDetection from '../hooks/useGlobalSessionDetection';
 import { getHospitalLogoUrl } from '../utils/hospitalLogoUtils';
+import { WelloIndexedDB } from '../services/WelloIndexedDB';
 // 카드 이미지 import
 import trendsChartImage from '../assets/images/main/chart.png';
 import healthHabitImage from '../assets/images/main/check_1 1.png';
@@ -54,6 +55,10 @@ const MainPage: React.FC = () => {
   // 페이지 전환 로딩 state
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState<string | undefined>(undefined);
+  
+  // 오른쪽 상단 3번 클릭 기능
+  const topRightClickCount = useRef(0);
+  const topRightClickTimer = useRef<NodeJS.Timeout | null>(null);
   
   // MDX 데이터 검색 핸들러
   const handleMdxSearchConfirm = async () => {
@@ -766,11 +771,99 @@ const MainPage: React.FC = () => {
 
   const latestCheckupDate = getLatestCheckupDate();
 
+  // 오른쪽 상단 클릭 핸들러 (3번 클릭 시 건강데이터 삭제)
+  const handleTopRightClick = async (e: React.MouseEvent<HTMLDivElement>) => {
+    // 클릭 위치가 오른쪽 상단 영역인지 확인 (화면 너비의 상단 20%, 오른쪽 20%)
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    const isTopRight = clickX > rect.width * 0.8 && clickY < rect.height * 0.2;
+
+    if (!isTopRight) {
+      return;
+    }
+
+    // 기존 타이머 초기화
+    if (topRightClickTimer.current) {
+      clearTimeout(topRightClickTimer.current);
+    }
+
+    topRightClickCount.current += 1;
+
+    // 2초 내에 3번 클릭했는지 확인
+    if (topRightClickCount.current >= 3) {
+      topRightClickCount.current = 0;
+      
+      // 건강데이터 삭제 확인
+      if (window.confirm('모든 건강데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) {
+        try {
+          // 백엔드 데이터베이스 삭제
+          if (patient?.uuid && hospital?.hospital_id) {
+            const deleteResponse = await fetch(
+              API_ENDPOINTS.DELETE_HEALTH_DATA(patient.uuid, hospital.hospital_id),
+              {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              }
+            );
+
+            if (!deleteResponse.ok) {
+              throw new Error('백엔드 데이터 삭제 실패');
+            }
+
+            const deleteResult = await deleteResponse.json();
+            console.log('✅ [데이터삭제] 백엔드 삭제 완료:', deleteResult);
+          }
+
+          // IndexedDB 데이터 삭제
+          await WelloIndexedDB.clearAllData();
+          
+          // localStorage의 건강데이터 관련 항목 삭제
+          const keysToRemove = [
+            'wello_health_data',
+            'wello_view_mode',
+            'tilko_session_id',
+            'tilko_session_data'
+          ];
+          keysToRemove.forEach(key => {
+            localStorage.removeItem(key);
+          });
+
+          // 세션 데이터 삭제
+          if (patient?.uuid && hospital?.hospital_id) {
+            PasswordSessionService.clearSession(patient.uuid, hospital.hospital_id);
+          }
+
+          alert('건강데이터가 삭제되었습니다.');
+          
+          // 페이지 새로고침
+          window.location.reload();
+        } catch (error) {
+          console.error('건강데이터 삭제 실패:', error);
+          alert('건강데이터 삭제 중 오류가 발생했습니다.');
+        }
+      } else {
+        topRightClickCount.current = 0;
+      }
+    } else {
+      // 2초 후 카운터 리셋
+      topRightClickTimer.current = setTimeout(() => {
+        topRightClickCount.current = 0;
+      }, 2000);
+    }
+  };
+
   // 통합 레이아웃 컨텐츠 (이미지 디자인 반영)
   const renderUnifiedContent = () => (
     <>
       {/* 헤더 + 인사말 섹션 (하나의 영역) */}
-      <div className="main-page__header-greeting-section">
+      <div 
+        className="main-page__header-greeting-section"
+        onClick={handleTopRightClick}
+        style={{ cursor: 'default' }}
+      >
         {/* 헤더 (로고만 표시) */}
         <div className="main-page__header">
           <div className="main-page__header-logo">

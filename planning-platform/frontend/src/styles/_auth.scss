@@ -11,6 +11,48 @@
   }
 }
 
+// 전역 플로팅 버튼 하단 흰줄 완전 제거 (모든 인증 단계에 적용)
+// 최우선 적용을 위한 강력한 선택자
+html body button.floating-button,
+html body .button.floating-button,
+html body .floating-button.button,
+button.floating-button,
+.button.floating-button,
+.floating-button.button {
+  border-bottom: none !important;
+  border: none !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  outline: none !important;
+  
+  &::after,
+  &::before {
+    border-bottom: none !important;
+    border: none !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+  }
+  
+  .button__content {
+    border-bottom: none !important;
+    border: none !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    
+    &::after,
+    &::before {
+      border-bottom: none !important;
+      border: none !important;
+      border-top: none !important;
+      border-left: none !important;
+      border-right: none !important;
+    }
+  }
+}
+
 // 인증 페이지 전용 배경색 - 랜딩 페이지와 동일하게
 .bg_auth_yellow {
   background: $background-cream !important; // 랜딩 페이지와 동일한 배경색
@@ -31,31 +73,81 @@ html body .questionnaire-container.tilko-login .floating-button-container,
   width: 100vw !important;
   padding: 0 !important; // 패딩 제거
   margin: 0 !important; // 마진 제거
+  border: none !important; // 테두리 완전 제거
+  border-top: none !important; // 상단 테두리 제거
+  border-bottom: none !important; // 하단 테두리 완전 제거
+  border-left: none !important; // 좌측 테두리 제거
+  border-right: none !important; // 우측 테두리 제거
+  outline: none !important; // 아웃라인 제거
+  box-shadow: none !important; // 하단 그림자 제거
+  
+  // 하단 하얀 줄 완전 제거
+  &::after,
+  &::before {
+    display: none !important;
+    content: none !important;
+    background: none !important;
+    border: none !important;
+    height: 0 !important;
+    width: 0 !important;
+  }
 }
 
 // 인증 페이지 플로팅 버튼 - 모든 인증 단계(name, phone, birthday, auth_method)에 적용
 // Button 컴포넌트와 함께 사용되므로 더 구체적인 선택자 사용
+// 최우선 적용을 위한 강력한 선택자 (모든 가능한 조합)
 html body .questionnaire-container.tilko-login button.floating-button,
 html body .questionnaire-container.tilko-login .button.floating-button,
 html body .questionnaire-container.tilko-login .floating-button.button,
+html body .questionnaire-container.tilko-login button.button.floating-button,
 .questionnaire-container.tilko-login button.floating-button,
 .questionnaire-container.tilko-login .button.floating-button,
 .questionnaire-container.tilko-login .floating-button.button,
+.questionnaire-container.tilko-login button.button.floating-button,
 // /login 경로의 모든 플로팅 버튼 (모든 인증 단계에 적용)
 html body[data-path*="login"] button.floating-button,
 html body[data-path*="login"] .button.floating-button,
 html body[data-path*="login"] .floating-button.button,
-// 인증 컨텐츠 영역의 플로팅 버튼
+html body[data-path*="login"] button.button.floating-button,
+// 인증 컨텐츠 영역의 플로팅 버튼 (인증 페이지 내에서만)
 html body .auth__content ~ button.floating-button,
 html body .auth__content ~ .button.floating-button,
-html body .auth__content ~ .floating-button.button {
+html body .auth__content ~ .floating-button.button,
+html body .auth__content ~ button.button.floating-button {
   background: $background-yellow !important; // 상단 페이지와 동일한 노란색 변수
   background-color: $background-yellow !important; // 추가 보험
   color: $background-beige !important; // 베이지색 텍스트 (변수 사용)
   box-shadow: 0 -4px 12px rgba(247, 232, 211, 0.3) !important; // 상단에만 그림자 (하단 그림자 제거)
-  border: none !important; // 테두리 제거
-  border-bottom: none !important; // 하단 테두리 완전 제거
-  outline: none !important; // 아웃라인 제거
+  // 모든 border 완전 제거 (0과 none 모두 사용)
+  border: 0 !important;
+  border: none !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  border-top: 0 !important;
+  border-top: none !important;
+  border-bottom: 0 !important;
+  border-bottom: none !important;
+  border-left: 0 !important;
+  border-left: none !important;
+  border-right: 0 !important;
+  border-right: none !important;
+  border-top-width: 0 !important;
+  border-bottom-width: 0 !important;
+  border-left-width: 0 !important;
+  border-right-width: 0 !important;
+  // border-bottom-color 명시적으로 transparent 설정 (rgb(45, 55, 72) 제거)
+  border-top-color: transparent !important;
+  border-bottom-color: transparent !important;
+  border-left-color: transparent !important;
+  border-right-color: transparent !important;
+  // outline 완전 제거
+  outline: 0 !important;
+  outline: none !important;
+  outline-width: 0 !important;
+  outline-style: none !important;
+  outline-color: transparent !important;
+  outline-offset: 0 !important;
   position: fixed !important;
   bottom: 0 !important; // 하단에 완전히 붙이기
   left: 0 !important;
@@ -66,6 +158,10 @@ html body .auth__content ~ .floating-button.button {
   min-height: $floating-button-height !important; // 버튼 높이 (상수 사용)
   padding: $floating-button-padding-vertical $floating-button-padding-horizontal 0 !important; // 상수 사용
   padding-bottom: 0 !important; // 하단 패딩 명시적 제거
+  height: auto !important; // 높이 자동 조정
+  max-height: none !important; // 최대 높이 제한 제거
+  overflow: hidden !important; // 오버플로우 숨김
+  clip-path: inset(0 0 0 0) !important; // 클리핑 경로로 하단 완전 제거
   font-size: $floating-button-font-size !important; // 폰트 크기 (상수 사용)
   border-radius: 0 !important; // 기본 border-radius 제거
   border-top-left-radius: 12px !important; // 상단 왼쪽 모서리 라운드
@@ -73,14 +169,28 @@ html body .auth__content ~ .floating-button.button {
   border-bottom-left-radius: 0 !important; // 하단 왼쪽 모서리는 직각 유지
   border-bottom-right-radius: 0 !important; // 하단 오른쪽 모서리는 직각 유지
   box-sizing: border-box !important; // 패딩 포함 전체 너비 계산
+  // transition을 필요한 속성에만 제한 (bottom, position 제외하여 레이아웃 시프트 방지)
+  transition: background-color 0.3s ease, box-shadow 0.3s ease !important;
+  will-change: auto !important; // 레이아웃 시프트 최소화
   
-  // 하단 하얀 줄 완전 제거
+  // 하단 하얀 줄 완전 제거 - 모든 의사 요소
   &::after,
   &::before {
     display: none !important;
     content: none !important;
     background: none !important;
+    background-color: transparent !important;
     border: none !important;
+    border-top: none !important;
+    border-bottom: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
   }
   
   // Button 컴포넌트의 기본 스타일 오버라이드
@@ -93,28 +203,45 @@ html body .auth__content ~ .floating-button.button {
     border-bottom-right-radius: 0 !important;
     padding: 0.75rem 1rem 0 !important; // 하단 패딩 제거
     padding-bottom: 0 !important; // 하단 패딩 명시적 제거
+    border: none !important;
+    border-bottom: none !important;
   }
   
-  // button__content span 스타일
+  // button__content span 스타일 - 하단 흰줄 완전 제거
   .button__content {
     margin: 0 !important;
     padding: 0 !important;
     padding-bottom: 0 !important;
     border: none !important;
+    border-top: none !important;
     border-bottom: none !important;
+    border-left: none !important;
+    border-right: none !important;
     background: transparent !important;
+    background-color: transparent !important;
     display: block !important;
     line-height: 1 !important;
     height: auto !important;
+    outline: none !important;
+    box-shadow: none !important;
     
     &::after,
     &::before {
       display: none !important;
       content: none !important;
       background: none !important;
+      background-color: transparent !important;
       border: none !important;
+      border-top: none !important;
+      border-bottom: none !important;
+      border-left: none !important;
+      border-right: none !important;
       height: 0 !important;
       width: 0 !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      box-shadow: none !important;
+      outline: none !important;
     }
   }
   
@@ -126,13 +253,49 @@ html body .auth__content ~ .floating-button.button {
     width: 0 !important;
     border: none !important;
     background: none !important;
+    background-color: transparent !important;
     box-shadow: none !important;
+    outline: none !important;
+  }
+  
+  // 버튼 하단 완전 제거
+  &::before {
+    display: none !important;
+    content: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    border: none !important;
+    background: none !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
   }
   
   // 인증 대기 상태에서 깜빡임 효과
   &.auth-waiting-button {
     animation: buttonBlink 1.5s ease-in-out infinite;
   }
+  
+  // 모든 상태에서 border/outline 완전 제거
+  &:focus,
+  &:focus-visible,
+  &:active,
+  &:hover,
+  &:visited {
+    border: none !important;
+    border-bottom: none !important;
+    border-top: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    outline: none !important;
+    outline-offset: 0 !important;
+    box-shadow: 0 -4px 12px rgba(247, 232, 211, 0.3) !important; // 상단에만 그림자 유지
+  }
+  
+  // 브라우저 기본 스타일 완전 제거
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
 }
 
 // 버튼 깜빡임 애니메이션
@@ -152,7 +315,7 @@ html body .questionnaire-container.tilko-login .floating-button:hover,
   background: $background-beige !important; // 호버시 베이지색
   background-color: $background-beige !important; // 추가 보험
   color: $background-yellow !important; // 노란색 텍스트
-  transform: translateY(-1px) !important;
+  transform: none !important; // transform 완전 제거 (레이아웃 시프트 방지)
   box-shadow: 0 6px 16px rgba(247, 232, 211, 0.4) !important;
 }
 
@@ -161,7 +324,7 @@ html body .questionnaire-container.tilko-login .floating-button:active,
   background: $background-beige !important; // 클릭시 베이지색
   background-color: $background-beige !important; // 추가 보험
   color: $background-yellow !important; // 노란색 텍스트
-  transform: translateY(0) !important;
+  transform: none !important; // transform 완전 제거
 }
 
 // 뒤로가기 버튼 (인증 페이지용)

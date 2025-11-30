@@ -337,3 +337,4 @@ Content-Type: application/json
 - 검진 추천 페이지: `CheckupRecommendationsPage.tsx`
 - 건강 데이터 파싱: `TrendsSection.tsx`, `UnifiedHealthTimeline/index.tsx`
 
+
