@@ -830,6 +830,27 @@ const MainPage: React.FC = () => {
           keysToRemove.forEach(key => {
             localStorage.removeItem(key);
           });
+          
+          // UUID별로 구분된 약관 동의 키 삭제
+          if (patient?.uuid) {
+            const termsKey = `wello_terms_agreed_${patient.uuid}`;
+            const termsAtKey = `wello_terms_agreed_at_${patient.uuid}`;
+            const termsListKey = `wello_terms_agreed_list_${patient.uuid}`;
+            const termsAgreementKey = `wello_terms_agreement_${patient.uuid}`;
+            
+            localStorage.removeItem(termsKey);
+            localStorage.removeItem(termsAtKey);
+            localStorage.removeItem(termsListKey);
+            localStorage.removeItem(termsAgreementKey);
+            
+            console.log('✅ [데이터삭제] UUID별 약관 동의 키 삭제 완료:', patient.uuid);
+          }
+          
+          // 기존 전역 약관 동의 키도 삭제 (하위 호환성)
+          localStorage.removeItem('wello_terms_agreed');
+          localStorage.removeItem('wello_terms_agreed_at');
+          localStorage.removeItem('wello_terms_agreed_list');
+          localStorage.removeItem('wello_terms_agreement');
 
           // 세션 데이터 삭제
           if (patient?.uuid && hospital?.hospital_id) {

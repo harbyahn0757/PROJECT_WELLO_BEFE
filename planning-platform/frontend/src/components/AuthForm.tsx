@@ -692,11 +692,34 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         setAuthInput(authData);
         
         // 편집 가능한 필드들 설정 (값이 없을 때만)
-        if (!editablePhone) {
-          setEditablePhone(patient.phone); // 포맷 유지
+        // 전화번호 설정
+        if (patient && patient.phone) {
+          const phoneValue = patient.phone.trim();
+          if (phoneValue && (!editablePhone || editablePhone === '전화번호' || editablePhone === '')) {
+            console.log('📞 [전화번호설정] patient.phone에서 설정:', phoneValue);
+            setEditablePhone(phoneValue); // 포맷 유지
+          }
+        } else if (!editablePhone || editablePhone === '전화번호') {
+          const phoneValue = PatientDataConverter.getSafePhone(patient);
+          if (phoneValue && phoneValue !== '전화번호') {
+            console.log('📞 [전화번호설정] getSafePhone에서 설정:', phoneValue);
+            setEditablePhone(phoneValue);
+          }
         }
-        if (!editableBirthday) {
-          setEditableBirthday(PatientDataConverter.getSafeBirthday(patient));
+        
+        // 생년월일 설정
+        if (patient && patient.birthday) {
+          const birthdayValue = patient.birthday.trim();
+          if (birthdayValue && (!editableBirthday || editableBirthday === '생년월일' || editableBirthday === '')) {
+            console.log('📅 [생년월일설정] patient.birthday에서 설정:', birthdayValue);
+            setEditableBirthday(birthdayValue);
+          }
+        } else if (!editableBirthday || editableBirthday === '생년월일') {
+          const birthdayValue = PatientDataConverter.getSafeBirthday(patient);
+          if (birthdayValue && birthdayValue !== '생년월일') {
+            console.log('📅 [생년월일설정] getSafeBirthday에서 설정:', birthdayValue);
+            setEditableBirthday(birthdayValue);
+          }
         }
       }
     }
@@ -1012,6 +1035,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             StorageManager.removeItem('tilko_manual_collect');
             window.dispatchEvent(new Event('localStorageChange'));
             
+            // 로딩 스피너 종료
+            setLoading(false);
+            
             // 수집 완료 모달 표시 (비밀번호 설정 건너뛰기)
             console.log('🎉 [수집완료] 수집 완료 모달 표시');
             setShowCollectionCompleteModal(true);
@@ -1035,6 +1061,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       }
       
       console.log('🔍 [수동수집] sessionId 확인 - state:', sessionId, 'localStorage:', StorageManager.getItem(STORAGE_KEYS.TILKO_SESSION_ID), 'using:', currentSessionId);
+      
+      // 로딩 스피너 시작
+      setLoading(true);
       setCurrentStatus('manual_collecting');
       setTypingText('데이터를 수집하고 있습니다...\n잠시만 기다려주세요.');
       
@@ -1056,6 +1085,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           StorageManager.removeItem('tilko_auth_waiting');
           // window.dispatchEvent(new Event('localStorageChange')); // 제거 - 무한 루프 방지
           
+          // 로딩 상태 유지 (데이터 수집 진행 중)
           setCurrentStatus('collecting');
           setTypingText('데이터 수집이 시작되었습니다.\n완료까지 잠시만 기다려주세요.');
           
@@ -1098,6 +1128,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               StorageManager.removeItem('tilko_auth_waiting');
               StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
               
+              // 로딩 스피너 종료
+              setLoading(false);
               setCurrentStatus('data_completed');
               
               // 데이터 수집 완료 - 플로팅 버튼 플래그 제거
@@ -1191,6 +1223,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                   StorageManager.removeItem('tilko_manual_collect');
                   window.dispatchEvent(new Event('localStorageChange'));
                   
+                  // 로딩 스피너 종료
+                  setLoading(false);
+                  
                   // 수집 완료 모달 표시 (비밀번호 설정 건너뛰기)
                   console.log('🎉 [수집완료] 수집 완료 모달 표시');
                   setShowCollectionCompleteModal(true);
@@ -1204,6 +1239,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                 } else if (pollCount >= maxPolls) {
                   console.warn('⚠️ [수집상태확인] 최대 폴링 횟수 초과');
                   isPollingStopped = true; // 폴링 중단
+                  setLoading(false); // 로딩 스피너 종료
                   setCurrentStatus('error');
                   setTypingText('데이터 수집 확인 시간이 초과되었습니다.\n다시 시도해주세요.');
                 }
@@ -1225,11 +1261,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           setTimeout(pollCollectionStatus, 2000);
         } else {
           console.error('❌ [수동수집] 데이터 수집 실패:', response.status);
+          setLoading(false); // 로딩 스피너 종료
           setCurrentStatus('error');
           setTypingText('데이터 수집에 실패했습니다.\n다시 시도해주세요.');
         }
       } catch (error) {
         console.error('❌ [수동수집] 오류:', error);
+        setLoading(false); // 로딩 스피너 종료
         setCurrentStatus('error');
         setTypingText('오류가 발생했습니다.\n다시 시도해주세요.');
       }
@@ -1656,12 +1694,19 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       }
     }
 
-    // 로컬 스토리지에도 저장
-    localStorage.setItem('wello_terms_agreed', 'true');
-    localStorage.setItem('wello_terms_agreed_at', new Date().toISOString());
-    localStorage.setItem('wello_terms_agreed_list', JSON.stringify(agreedTerms));
-    if (termsAgreement) {
-      localStorage.setItem('wello_terms_agreement', JSON.stringify(termsAgreement));
+    // 로컬 스토리지에도 저장 (UUID별로 구분)
+    if (patient?.uuid) {
+      const termsKey = `wello_terms_agreed_${patient.uuid}`;
+      const termsAtKey = `wello_terms_agreed_at_${patient.uuid}`;
+      const termsListKey = `wello_terms_agreed_list_${patient.uuid}`;
+      const termsAgreementKey = `wello_terms_agreement_${patient.uuid}`;
+      
+      localStorage.setItem(termsKey, 'true');
+      localStorage.setItem(termsAtKey, new Date().toISOString());
+      localStorage.setItem(termsListKey, JSON.stringify(agreedTerms));
+      if (termsAgreement) {
+        localStorage.setItem(termsAgreementKey, JSON.stringify(termsAgreement));
+      }
     }
 
     setTermsAgreed(true);
@@ -1676,15 +1721,20 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   // 약관동의 모달 표시 (컴포넌트 마운트 시)
   useEffect(() => {
     // 약관동의가 아직 완료되지 않았으면 모달 표시
-    if (!termsAgreed && !showTermsModal) {
-      const hasAgreedBefore = localStorage.getItem('wello_terms_agreed');
+    if (!termsAgreed && !showTermsModal && patient?.uuid) {
+      // UUID별로 약관 동의 여부 확인
+      const termsKey = `wello_terms_agreed_${patient.uuid}`;
+      const hasAgreedBefore = localStorage.getItem(termsKey);
+      
       if (!hasAgreedBefore) {
+        console.log('📋 [약관동의] 약관 동의 필요 - 모달 표시');
         setShowTermsModal(true);
       } else {
+        console.log('✅ [약관동의] 이미 동의함 - 모달 표시 안 함');
         setTermsAgreed(true);
       }
     }
-  }, [termsAgreed, showTermsModal]);
+  }, [termsAgreed, showTermsModal, patient?.uuid]);
 
   // 모든 정보 확인 완료 후 인증 시작 (중복 방지)
   const handleAllConfirmed = useCallback(async () => {
@@ -1840,7 +1890,20 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         if (authResult.success) {
           setCurrentStatus('auth_pending');
           setTokenReceived(false); // 토큰 상태 초기화
-          console.log('🔄 [인증요청] 카카오톡 인증 대기 중');
+          
+          // 인증 요청 성공 확인 로그
+          console.log('✅ [인증요청] 인증 요청 전송 성공!', {
+            session_id: newSessionId,
+            auth_type: authTypeName,
+            status: authResult.status,
+            message: authResult.message,
+            next_step: authResult.next_step
+          });
+          
+          // localStorage에 인증 요청 성공 플래그 설정 (타이핑 효과용)
+          localStorage.setItem('tilko_auth_requested', 'true');
+          
+          console.log('🔄 [인증요청] 인증 대기 중 - 사용자가 앱에서 인증 완료 대기');
           
           // WebSocket 연결 실패 대비 폴링 시작 (3초 후)
           console.log('📡 [WebSocket전용] 백엔드 스트리밍 시작, WebSocket 실패 시 폴링으로 대체');
@@ -1849,6 +1912,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             startTokenMonitoring(newSessionId);
           }, 3000);
         } else {
+          console.error('❌ [인증요청] 인증 요청 실패:', {
+            success: authResult.success,
+            message: authResult.message,
+            detail: authResult.detail
+          });
           handleError(authResult.message || '인증 요청 실패', 'auth');
         }
       } else {
@@ -3689,11 +3757,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       <TermsAgreementModal
         isOpen={showTermsModal}
         onClose={() => {
-          // 약관동의 모달을 닫을 수 없도록 함 (필수 동의)
-          if (!termsAgreed) {
-            alert('서비스 이용을 위해 필수 약관에 동의해주세요.');
-            return;
-          }
+          // 약관 동의 여부와 관계없이 모달 닫기 (배경 화면으로 돌아감)
           setShowTermsModal(false);
         }}
         onConfirm={(agreedTerms, termsAgreement) => {

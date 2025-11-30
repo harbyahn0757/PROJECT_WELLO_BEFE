@@ -4,6 +4,7 @@ import { useWelloData } from '../contexts/WelloDataContext';
 import ConcernSelection from '../components/checkup-design/ConcernSelection';
 import checkupDesignService from '../services/checkupDesignService';
 import { loadHealthData } from '../utils/healthDataLoader';
+import ProcessingModal, { ProcessingStage } from '../components/checkup-design/ProcessingModal';
 import './CheckupDesignPage.scss';
 
 const CheckupDesignPage: React.FC = () => {
@@ -12,6 +13,13 @@ const CheckupDesignPage: React.FC = () => {
   const { state } = useWelloData();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadingMessage, setLoadingMessage] = useState('건강 데이터를 불러오는 중...');
+  const [loadingStage, setLoadingStage] = useState<'loading_data' | 'sending' | 'processing' | 'complete'>('loading_data');
+  
+  // 처리 모달 상태
+  const [showProcessingModal, setShowProcessingModal] = useState(false);
+  const [processingStage, setProcessingStage] = useState<ProcessingStage>('preparing');
+  const [processingProgress, setProcessingProgress] = useState(0);
   // HealthDataViewer 형식: { ResultList: any[] }
   const [healthData, setHealthData] = useState<{ ResultList: any[] }>({ ResultList: [] });
   const [prescriptionData, setPrescriptionData] = useState<{ ResultList: any[] }>({ ResultList: [] });
@@ -59,11 +67,12 @@ const CheckupDesignPage: React.FC = () => {
     setSelectedItems(items);
   };
 
-  // 다음 단계 핸들러
-  const handleNext = async (items: Set<string>, selectedConcerns: any[]) => {
+  // 다음 단계 핸들러 (설문 응답 포함)
+  const handleNext = async (items: Set<string>, selectedConcerns: any[], surveyResponses?: any) => {
     try {
       console.log('✅ [검진설계] 선택된 항목:', Array.from(items));
       console.log('✅ [검진설계] 선택된 염려 항목:', selectedConcerns);
+      console.log('✅ [검진설계] 설문 응답:', surveyResponses);
       
       const urlParams = new URLSearchParams(window.location.search);
       const uuid = urlParams.get('uuid');
@@ -74,28 +83,74 @@ const CheckupDesignPage: React.FC = () => {
         return;
       }
       
-      // GPT API 호출하여 검진 설계 생성
-      setLoading(true);
+      // 처리 모달 표시 시작
+      setShowProcessingModal(true);
+      setProcessingStage('preparing');
+      setProcessingProgress(0);
+      
+      // 1단계: 데이터 준비 (0-20%)
+      await new Promise(resolve => setTimeout(resolve, 800));
+      setProcessingProgress(20);
+      
+      // 2단계: 서버 전송 (20-40%)
+      setProcessingStage('sending');
+      await new Promise(resolve => setTimeout(resolve, 600));
+      setProcessingProgress(40);
+      
+      // GPT API 호출하여 검진 설계 생성 (설문 응답 포함)
+      // 주의: setLoading(true)를 호출하지 않음 - 모달이 가려지지 않도록
+      setLoadingStage('sending');
+      setLoadingMessage('데이터를 보내는 중...');
+      
+      // 3단계: AI 분석 (40-70%)
+      setProcessingStage('analyzing');
+      setProcessingProgress(50);
+      
       const response = await checkupDesignService.createCheckupDesign({
         uuid,
         hospital_id: hospital,
-        selected_concerns: selectedConcerns
+        selected_concerns: selectedConcerns,
+        survey_responses: surveyResponses
       });
       
+      setProcessingProgress(70);
+      
+      // 4단계: 검진 설계 생성 (70-90%)
+      setProcessingStage('designing');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setProcessingProgress(90);
+      
+      setLoadingStage('processing');
+      setLoadingMessage('AI가 검진 설계를 생성하는 중...');
+      
       console.log('✅ [검진설계] GPT 응답 수신:', response);
+      
+      // 5단계: 결과 저장 (90-100%)
+      setProcessingStage('saving');
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setProcessingProgress(100);
+      
+      setLoadingStage('complete');
+      setLoadingMessage('검진 설계가 완료되었습니다.');
+      
+      // 모달 닫기 전 짧은 딜레이
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setShowProcessingModal(false);
       
       // 결과 페이지로 이동
       const queryString = location.search;
       navigate(`/checkup-recommendations${queryString}`, { 
         state: { 
           checkupDesign: response.data,
-          selectedConcerns: selectedConcerns
+          selectedConcerns: selectedConcerns,
+          surveyResponses: surveyResponses
         }
       });
     } catch (error) {
       console.error('❌ [검진설계] API 호출 실패:', error);
       setError('검진 설계 생성에 실패했습니다. 다시 시도해주세요.');
       setLoading(false);
+      setShowProcessingModal(false);
     }
   };
 
@@ -104,7 +159,16 @@ const CheckupDesignPage: React.FC = () => {
       <div className="checkup-design-page">
         <div className="checkup-design-page__loading">
           <div className="loading-spinner">
-            <p>건강 데이터를 불러오는 중...</p>
+            <div className="loading-spinner__icon">
+              <div className="spinner"></div>
+            </div>
+            <p className="loading-spinner__message">{loadingMessage}</p>
+            {loadingStage === 'sending' && (
+              <p className="loading-spinner__sub-message">서버로 전송 중입니다...</p>
+            )}
+            {loadingStage === 'processing' && (
+              <p className="loading-spinner__sub-message">AI가 분석하고 있습니다...</p>
+            )}
           </div>
         </div>
       </div>
@@ -154,12 +218,19 @@ const CheckupDesignPage: React.FC = () => {
   }
 
   return (
-    <ConcernSelection
-      healthData={healthData}
-      prescriptionData={prescriptionData}
-      onSelectionChange={handleSelectionChange}
-      onNext={handleNext}
-    />
+    <>
+      <ProcessingModal
+        isOpen={showProcessingModal}
+        stage={processingStage}
+        progress={processingProgress}
+      />
+      <ConcernSelection
+        healthData={healthData}
+        prescriptionData={prescriptionData}
+        onSelectionChange={handleSelectionChange}
+        onNext={handleNext}
+      />
+    </>
   );
 };
 

@@ -1,0 +1,239 @@
+@use '../../../styles/variables' as *;
+
+.processing-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.3s ease-in;
+
+  &__overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+  }
+
+  &__content {
+    position: relative;
+    background: $white;
+    border-radius: $border-radius-xl;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: $spacing-xl;
+    animation: slideUp 0.3s ease-out;
+  }
+
+  &__header {
+    margin-bottom: $spacing-lg;
+    text-align: center;
+  }
+
+  &__title {
+    font-size: $font-2xl;
+    font-weight: $font-weight-bold;
+    color: $brand-brown-darker;
+    margin: 0;
+    font-family: var(--font-family-greeting);
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-lg;
+  }
+
+  &__spinner-container {
+    width: 80px;
+    height: 80px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__spinner {
+    position: relative;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  &__wello-icon {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+  }
+
+  &__description {
+    font-size: $font-base;
+    color: $gray-700;
+    text-align: center;
+    line-height: 1.6;
+    margin: 0;
+    font-family: var(--font-family-greeting);
+  }
+
+  &__progress {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+
+  &__progress-bar {
+    flex: 1;
+    height: 8px;
+    background: $gray-200;
+    border-radius: $border-radius-full;
+    overflow: hidden;
+    position: relative;
+  }
+
+  &__progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, $brand-brown-dark, $brand-brown);
+    border-radius: $border-radius-full;
+    transition: width 0.3s ease;
+    position: relative;
+    overflow: hidden;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+      );
+      animation: shimmer 2s infinite;
+    }
+  }
+
+  &__progress-text {
+    font-size: $font-sm;
+    font-weight: $font-weight-semibold;
+    color: $brand-brown-dark;
+    min-width: 45px;
+    text-align: right;
+    font-family: var(--font-family-greeting);
+  }
+
+  &__details {
+    width: 100%;
+    margin-top: $spacing-md;
+  }
+
+  &__details-title {
+    font-size: $font-sm;
+    font-weight: $font-weight-semibold;
+    color: $gray-700;
+    margin-bottom: $spacing-sm;
+    font-family: var(--font-family-greeting);
+  }
+
+  &__details-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+  }
+
+  &__details-item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-xs;
+    border-radius: $border-radius-md;
+    transition: all 0.2s ease;
+    font-size: $font-sm;
+    font-family: var(--font-family-greeting);
+
+    &.pending {
+      color: $gray-500;
+    }
+
+    &.current {
+      color: $brand-brown-dark;
+      background: rgba($brand-brown-dark, 0.1);
+      font-weight: $font-weight-medium;
+    }
+
+    &.completed {
+      color: $success;
+      font-weight: $font-weight-medium;
+    }
+  }
+
+  &__details-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    font-size: $font-xs;
+    flex-shrink: 0;
+  }
+
+  &__details-text {
+    flex: 1;
+    line-height: 1.4;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+

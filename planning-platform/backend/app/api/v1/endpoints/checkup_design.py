@@ -13,7 +13,9 @@ from datetime import datetime
 from ....services.exceptions import PatientNotFoundError, CheckupDesignError
 from ....repositories.implementations import PatientRepository, CheckupDesignRepository
 from ....core.security import get_current_user
+from ....core.config import settings
 from ....services.gpt_service import GPTService, GPTRequest
+from ....services.perplexity_service import PerplexityService, PerplexityRequest
 from ....services.checkup_design_prompt import create_checkup_design_prompt, CHECKUP_DESIGN_SYSTEM_MESSAGE
 from ....services.wello_data_service import WelloDataService
 
@@ -22,6 +24,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 wello_data_service = WelloDataService()
 gpt_service = GPTService()
+perplexity_service = PerplexityService()
 
 # 의존성 주입 (추후 DI 컨테이너로 대체)
 def get_repositories():
@@ -50,6 +53,7 @@ class CheckupDesignRequest(BaseModel):
     uuid: str = Field(..., description="환자 UUID")
     hospital_id: str = Field(..., description="병원 ID")
     selected_concerns: List[ConcernItem] = Field(..., description="선택한 염려 항목 리스트")
+    survey_responses: Optional[Dict[str, Any]] = Field(None, description="설문 응답 (체중 변화, 운동, 가족력 등)")
     additional_info: Optional[Dict[str, Any]] = Field(None, description="추가 정보")
 
 
@@ -92,6 +96,13 @@ async def create_checkup_design(
             birth_date = datetime.fromisoformat(patient_info["birth_date"].replace("Z", "+00:00"))
             patient_age = datetime.now().year - birth_date.year
         patient_gender = patient_info.get("gender", "M")
+        
+        # 1-1. 병원 정보 조회 (검진 항목 포함)
+        hospital_info = await wello_data_service.get_hospital_by_id(request.hospital_id)
+        hospital_checkup_items = hospital_info.get("checkup_items")
+        hospital_national_checkup = hospital_info.get("national_checkup_items")
+        hospital_recommended = hospital_info.get("recommended_items")
+        hospital_external_checkup = hospital_info.get("external_checkup_items", [])  # 외부 검사 항목 (매핑 테이블에서 조회)
         
         # 2. 건강 데이터 조회
         health_data_result = await wello_data_service.get_patient_health_data(request.uuid, request.hospital_id)
@@ -140,50 +151,139 @@ async def create_checkup_design(
                 })
             selected_concerns.append(concern_dict)
         
-        # 5. GPT 프롬프트 생성 (프롬프트가 생명!)
-        logger.info(f"📝 [검진설계] GPT 프롬프트 생성 중...")
+        # 병원 정보는 이미 101번 라인에서 조회했으므로 중복 조회 제거
+        # hospital_national_checkup, hospital_recommended는 위에서 이미 조회됨
+        
+        # 5. 프롬프트 생성 (프롬프트가 생명!)
+        logger.info(f"📝 [검진설계] 프롬프트 생성 중...")
         user_message = create_checkup_design_prompt(
             patient_name=patient_name,
             patient_age=patient_age,
             patient_gender=patient_gender,
             health_data=health_data,
             prescription_data=prescription_data,
-            selected_concerns=selected_concerns
+            selected_concerns=selected_concerns,
+            survey_responses=request.survey_responses or {},
+            hospital_national_checkup=hospital_national_checkup,
+            hospital_recommended=hospital_recommended,
+            hospital_external_checkup=hospital_external_checkup
         )
         
-        # 6. GPT API 호출
-        logger.info(f"🤖 [검진설계] GPT API 호출 시작...")
-        gpt_request = GPTRequest(
+        # 6. Perplexity API 호출 (처음부터 최대값으로)
+        ai_response = None
+        max_tokens = 20000  # 처음부터 최대값으로 설정
+        
+        logger.info(f"🤖 [검진설계] Perplexity API 호출 시작... (max_tokens: {max_tokens})")
+        logger.info(f"📊 [검진설계] 프롬프트 길이: {len(user_message)} 문자")
+        logger.info(f"📊 [검진설계] 시스템 메시지 길이: {len(CHECKUP_DESIGN_SYSTEM_MESSAGE)} 문자")
+        
+        perplexity_request = PerplexityRequest(
             system_message=CHECKUP_DESIGN_SYSTEM_MESSAGE,
             user_message=user_message,
-            model="gpt-4o-mini",
+            model=settings.perplexity_model,
             temperature=0.3,
-            max_tokens=3000,  # 검진 설계는 더 긴 응답 필요
+            max_tokens=max_tokens,
             response_format={"type": "json_object"}  # JSON 형식 강제
         )
         
-        # GPT 서비스 초기화
-        await gpt_service.initialize()
+        # Perplexity 서비스 초기화
+        logger.info(f"🔧 [검진설계] Perplexity 서비스 초기화 중...")
+        await perplexity_service.initialize()
+        logger.info(f"✅ [검진설계] Perplexity 서비스 초기화 완료")
         
-        # JSON 응답 호출
-        gpt_response = await gpt_service.call_with_json_response(
-            gpt_request,
+        # Perplexity API 호출 (citations 포함)
+        logger.info(f"📡 [검진설계] Perplexity API 호출 중...")
+        perplexity_api_response = await perplexity_service.call_api(
+            perplexity_request,
             save_log=True
         )
+        logger.info(f"📥 [검진설계] Perplexity API 응답 수신 완료")
         
-        if not gpt_response or not gpt_response.get("recommended_items"):
-            logger.error("❌ [검진설계] GPT 응답이 올바르지 않음")
-            raise HTTPException(
-                status_code=500,
-                detail="검진 설계 생성에 실패했습니다. 다시 시도해주세요."
+        # 응답 상태 확인
+        logger.info(f"📊 [검진설계] 응답 상태: success={perplexity_api_response.success}")
+        logger.info(f"📊 [검진설계] 응답 길이: {len(perplexity_api_response.content) if perplexity_api_response.content else 0} 문자")
+        logger.info(f"📊 [검진설계] finish_reason: {perplexity_api_response.finish_reason}")
+        logger.info(f"📊 [검진설계] 토큰 사용량: {perplexity_api_response.usage}")
+        
+        if not perplexity_api_response.success:
+            logger.error(f"❌ [검진설계] Perplexity API 호출 실패: {perplexity_api_response.error}")
+            raise ValueError(f"Perplexity API 호출 실패: {perplexity_api_response.error}")
+        
+        if not perplexity_api_response.content:
+            logger.error(f"❌ [검진설계] Perplexity 응답 내용이 비어있음")
+            raise ValueError("Perplexity 응답 내용이 비어있습니다.")
+        
+        # finish_reason 확인 (로그만 남기고 계속 진행)
+        finish_reason = perplexity_api_response.finish_reason or ""
+        if finish_reason == "length":
+            logger.warning(f"⚠️ [검진설계] finish_reason이 'length'입니다 - 응답이 잘렸을 수 있음")
+            logger.warning(f"⚠️ [검진설계] max_tokens: {max_tokens}, 응답 길이: {len(perplexity_api_response.content)} 문자")
+            logger.warning(f"⚠️ [검진설계] 토큰 사용량: {perplexity_api_response.usage}")
+            # finish_reason이 "length"여도 JSON 파싱 시도 (복구 로직이 처리)
+        
+        # Citations 추출
+        citations = perplexity_api_response.citations if perplexity_api_response.citations else []
+        logger.info(f"📚 [검진설계] Perplexity Citations 발견: {len(citations)}개")
+        if citations:
+            logger.info(f"📚 [검진설계] Citations 목록: {citations[:3]}...")  # 처음 3개만 로그
+        
+        # JSON 파싱
+        logger.info(f"🔍 [검진설계] JSON 파싱 시작...")
+        logger.info(f"📊 [검진설계] 응답 내용 처음 200자: {perplexity_api_response.content[:200]}")
+        logger.info(f"📊 [검진설계] 응답 내용 마지막 200자: {perplexity_api_response.content[-200:]}")
+        
+        try:
+            ai_response = perplexity_service.parse_json_response(
+                perplexity_api_response.content,
+                raise_on_incomplete=False
             )
+            logger.info(f"✅ [검진설계] JSON 파싱 성공")
+            logger.info(f"📊 [검진설계] 파싱된 응답 키: {list(ai_response.keys()) if ai_response else 'None'}")
+        except Exception as parse_error:
+            logger.error(f"❌ [검진설계] JSON 파싱 실패: {str(parse_error)}")
+            logger.error(f"❌ [검진설계] 응답 내용 전체 길이: {len(perplexity_api_response.content)}")
+            logger.error(f"❌ [검진설계] 응답 내용 처음 1000자:\n{perplexity_api_response.content[:1000]}")
+            logger.error(f"❌ [검진설계] 응답 내용 마지막 1000자:\n{perplexity_api_response.content[-1000:]}")
+            raise ValueError(f"JSON 파싱 실패: {str(parse_error)}")
         
-        logger.info(f"✅ [검진설계] GPT 응답 수신 완료 - 카테고리: {len(gpt_response.get('recommended_items', []))}개")
+        # Citations를 응답에 추가
+        if citations:
+            ai_response["_citations"] = citations
+            logger.info(f"📚 [검진설계] Citations를 응답에 추가: {len(citations)}개")
         
-        # 7. 응답 반환
+        # 응답 검증
+        logger.info(f"🔍 [검진설계] 응답 검증 중...")
+        if not ai_response:
+            logger.error(f"❌ [검진설계] ai_response가 None")
+            raise ValueError("ai_response가 None입니다.")
+        
+        if not ai_response.get("recommended_items"):
+            logger.error(f"❌ [검진설계] recommended_items가 없음")
+            logger.error(f"❌ [검진설계] 응답 키: {list(ai_response.keys())}")
+            raise ValueError("Perplexity 응답에 recommended_items가 없습니다.")
+        
+        logger.info(f"✅ [검진설계] Perplexity 응답 수신 완료 - 카테고리: {len(ai_response.get('recommended_items', []))}개")
+        
+        # 7. 검진 설계 요청 저장 (업셀링용)
+        try:
+            save_result = await wello_data_service.save_checkup_design_request(
+                uuid=request.uuid,
+                hospital_id=request.hospital_id,
+                selected_concerns=selected_concerns,
+                survey_responses=request.survey_responses,
+                design_result=ai_response
+            )
+            if save_result.get("success"):
+                logger.info(f"✅ [검진설계] 요청 저장 완료 - ID: {save_result.get('request_id')}")
+            else:
+                logger.warning(f"⚠️ [검진설계] 요청 저장 실패: {save_result.get('error')}")
+        except Exception as e:
+            logger.warning(f"⚠️ [검진설계] 요청 저장 중 오류 (무시): {str(e)}")
+        
+        # 8. 응답 반환
         return CheckupDesignResponse(
             success=True,
-            data=gpt_response,
+            data=ai_response,
             message="검진 설계가 완료되었습니다."
         )
         

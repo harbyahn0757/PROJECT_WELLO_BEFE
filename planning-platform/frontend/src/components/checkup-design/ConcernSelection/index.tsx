@@ -6,6 +6,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import HealthTrendsHeader from '../../health/HealthTrendsHeader';
 import WelloModal from '../../common/WelloModal';
+import CheckupDesignSurveyPanel, { SurveyResponses } from '../CheckupDesignSurveyPanel';
 import {
   ConcernSelectionProps,
   ConcernItemForAPI
@@ -785,7 +786,11 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
     );
   };
 
-  // 다음 단계
+  // 설문 패널 상태
+  const [showSurveyPanel, setShowSurveyPanel] = useState(false);
+  const [pendingConcerns, setPendingConcerns] = useState<ConcernItemForAPI[]>([]);
+
+  // 다음 단계 (설문 패널 표시)
   const handleNext = () => {
     if (selectedItems.size === 0) return;
     
@@ -845,7 +850,16 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
       });
     });
     
-    onNext(selectedItems, selectedConcerns);
+    // 설문 패널 표시
+    setPendingConcerns(selectedConcerns);
+    setShowSurveyPanel(true);
+  };
+
+  // 설문 제출 후 실제 API 호출
+  const handleSurveySubmit = (surveyResponses: any) => {
+    setShowSurveyPanel(false);
+    // 설문 응답을 포함하여 onNext 호출
+    onNext(selectedItems, pendingConcerns, surveyResponses);
   };
 
   // UnifiedHealthTimeline 구조로 렌더링 (체크박스 추가)
@@ -1326,6 +1340,14 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
       >
         다음 단계로 진행하기
       </button>
+
+      {/* 설문 패널 */}
+      <CheckupDesignSurveyPanel
+        isOpen={showSurveyPanel}
+        onClose={() => setShowSurveyPanel(false)}
+        onSubmit={handleSurveySubmit}
+        selectedCount={selectedItems.size}
+      />
     </div>
   );
 };

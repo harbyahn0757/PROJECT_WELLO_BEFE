@@ -20,6 +20,16 @@ export interface CheckupDesignRequest {
   uuid: string;
   hospital_id: string;
   selected_concerns: ConcernItem[];
+  survey_responses?: {
+    weight_change?: string;
+    exercise_frequency?: string;
+    family_history?: string[];
+    smoking?: string;
+    drinking?: string;
+    sleep_hours?: string;
+    stress_level?: string;
+    additional_concerns?: string;
+  };
   additional_info?: Record<string, any>;
 }
 

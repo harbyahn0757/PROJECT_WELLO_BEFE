@@ -123,8 +123,7 @@ class PatientRepository:
     """환자 레포지토리"""
     
     async def get_by_uuid(self, uuid: UUID) -> Optional[Patient]:
-        """UUID로 환자 조회 (웰로 테이블 우선, 없으면 mdx_agr_list 조회)"""
-        # 1순위: wello.wello_patients 테이블 조회
+        """UUID로 환자 조회 (wello.wello_patients 테이블만 조회)"""
         try:
             db_config = {
                 "host": "10.0.1.10",
@@ -181,52 +180,8 @@ class PatientRepository:
                     created_at=wello_dict.get('created_at', datetime.now())
                 )
         except Exception as e:
-            print(f"⚠️ [DEBUG] 웰로 테이블 조회 실패: {e}, mdx_agr_list로 폴백")
+            print(f"⚠️ [DEBUG] 웰로 테이블 조회 실패: {e}")
         
-        # 2순위: p9_mkt_biz.mdx_agr_list 테이블 조회 (기존 로직)
-        query = """
-            SELECT uuid, name, birthday, gender, phoneno, hosnm, visitdate, regdate
-            FROM p9_mkt_biz.mdx_agr_list 
-            WHERE uuid = %s
-        """
-        
-        result = await db_manager.execute_one(query, (str(uuid),))
-        if result:
-            print(f"🔍 [DEBUG] mdx_agr_list 조회 결과: {result}")
-            print(f"🔍 [DEBUG] hosnm 값: '{result['hosnm']}'")
-            
-            # 나이 계산
-            age = 0
-            birth_date = None
-            if result['birthday']:
-                birth_date = result['birthday']
-                age = datetime.now().year - birth_date.year
-                if datetime.now().date() < birth_date.replace(year=datetime.now().year):
-                    age -= 1
-            
-            # 성별 변환
-            gender_mapping = {'M': Gender.MALE, 'F': Gender.FEMALE}
-            gender = gender_mapping.get(result['gender'], Gender.MALE)
-            
-            # hosnm이 이미 hospital_id이므로 직접 사용
-            hospital_id = result['hosnm']
-            
-            print(f"🔍 [DEBUG] 병원 쿼리 입력: '{result['hosnm']}'")
-            print(f"🔍 [DEBUG] 최종 hospital_id: '{hospital_id}'")
-            
-            return Patient(
-                uuid=UUID(result['uuid']),
-                info=PatientInfo(
-                    name=result['name'],
-                    age=age,
-                    gender=gender,
-                    birth_date=birth_date
-                ),
-                phone=result['phoneno'],
-                hospital_id=hospital_id,
-                last_checkup_count=1,
-                created_at=result['regdate'] if result['regdate'] else datetime.now()
-            )
         return None
     
     async def get_by_phone(self, phone: str) -> Optional[Patient]:

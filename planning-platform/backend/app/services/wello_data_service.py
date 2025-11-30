@@ -118,7 +118,7 @@ class WelloDataService:
             return {"error": f"로그인 처리 중 오류가 발생했습니다: {str(e)}"}
 
     async def get_patient_by_uuid(self, uuid: str) -> Dict[str, Any]:
-        """UUID로 환자 정보 조회"""
+        """UUID로 환자 정보 조회 (wello.wello_patients 테이블만 조회)"""
         try:
             conn = await asyncpg.connect(**self.db_config)
             
@@ -131,9 +131,9 @@ class WelloDataService:
                 WHERE uuid = $1
             """
             patient_row = await conn.fetchrow(patient_query, uuid)
+            await conn.close()
             
             if not patient_row:
-                await conn.close()
                 return {"error": "환자 정보를 찾을 수 없습니다"}
             
             # 환자 정보를 딕셔너리로 변환
@@ -141,7 +141,8 @@ class WelloDataService:
             
             # 날짜 객체를 문자열로 변환
             if patient_dict.get('birth_date'):
-                patient_dict['birth_date'] = patient_dict['birth_date'].isoformat()
+                if isinstance(patient_dict['birth_date'], date):
+                    patient_dict['birth_date'] = patient_dict['birth_date'].isoformat()
             if patient_dict.get('last_data_update'):
                 patient_dict['last_data_update'] = patient_dict['last_data_update'].isoformat()
             if patient_dict.get('last_auth_at'):
@@ -164,10 +165,11 @@ class WelloDataService:
         try:
             conn = await asyncpg.connect(**self.db_config)
             
-            # 병원 정보 조회
+            # 병원 정보 조회 (검진 항목 포함)
             hospital_query = """
                 SELECT hospital_id, hospital_name, phone, address, 
                        supported_checkup_types, layout_type, brand_color, logo_position, 
+                       checkup_items, national_checkup_items, recommended_items,
                        is_active, created_at
                 FROM wello.wello_hospitals 
                 WHERE hospital_id = $1 AND is_active = true
@@ -196,6 +198,56 @@ class WelloDataService:
             # 날짜 객체를 문자열로 변환
             if hospital_dict.get('created_at'):
                 hospital_dict['created_at'] = hospital_dict['created_at'].isoformat()
+            
+            # 외부 검사 항목 매핑 조회 (테이블이 존재하는 경우에만)
+            try:
+                external_checkup_items = await conn.fetch("""
+                    SELECT 
+                        e.id,
+                        e.category,
+                        e.sub_category,
+                        e.item_name,
+                        e.item_name_en,
+                        e.difficulty_level,
+                        e.target_trigger,
+                        e.gap_description,
+                        e.solution_narrative,
+                        e.description,
+                        m.display_order
+                    FROM wello.wello_hospital_external_checkup_mapping m
+                    JOIN wello.wello_external_checkup_items e ON m.external_checkup_item_id = e.id
+                    WHERE m.hospital_id = $1 AND m.is_active = true AND e.is_active = true
+                    ORDER BY m.display_order
+                """, hospital_id)
+                
+                if external_checkup_items:
+                    hospital_dict['external_checkup_items'] = [
+                        {
+                            'id': item['id'],
+                            'category': item['category'],
+                            'sub_category': item['sub_category'],
+                            'item_name': item['item_name'],
+                            'item_name_en': item['item_name_en'],
+                            'difficulty_level': item['difficulty_level'],
+                            'difficulty_badge': {
+                                'Low': '부담없는',
+                                'Mid': '추천',
+                                'High': '프리미엄'
+                            }.get(item['difficulty_level'], item['difficulty_level']),
+                            'target_trigger': item['target_trigger'],
+                            'gap_description': item['gap_description'],
+                            'solution_narrative': item['solution_narrative'],
+                            'description': item['description'],
+                            'display_order': item['display_order']
+                        }
+                        for item in external_checkup_items
+                    ]
+                else:
+                    hospital_dict['external_checkup_items'] = []
+            except Exception as e:
+                # 테이블이 없거나 조회 실패 시 빈 배열 반환
+                print(f"⚠️ 외부 검사 항목 조회 실패 (무시): {e}")
+                hospital_dict['external_checkup_items'] = []
             
             await conn.close()
             
@@ -953,15 +1005,55 @@ class WelloDataService:
                     print(f"✅ [데이터삭제] 처방전 데이터 삭제: {prescription_count_before}건")
                 
                 # 환자 정보 플래그 업데이트
-                await conn.execute(
-                    """UPDATE wello.wello_patients 
-                       SET has_health_data = FALSE,
-                           has_prescription_data = FALSE,
-                           last_data_update = NULL 
-                       WHERE uuid = $1 AND hospital_id = $2""",
-                    uuid, hospital_id
-                )
-                print(f"✅ [데이터삭제] 환자 정보 플래그 업데이트 완료")
+                # 약관 동의 컬럼이 존재하는지 확인
+                try:
+                    # terms_agreement 컬럼 존재 여부 확인
+                    column_exists = await conn.fetchval("""
+                        SELECT EXISTS (
+                            SELECT 1 
+                            FROM information_schema.columns 
+                            WHERE table_schema = 'wello' 
+                            AND table_name = 'wello_patients' 
+                            AND column_name = 'terms_agreement'
+                        )
+                    """)
+                    
+                    if column_exists:
+                        # 약관 동의 컬럼이 있으면 함께 삭제
+                        await conn.execute(
+                            """UPDATE wello.wello_patients 
+                               SET has_health_data = FALSE,
+                                   has_prescription_data = FALSE,
+                                   last_data_update = NULL,
+                                   terms_agreement = NULL,
+                                   terms_agreed_at = NULL
+                               WHERE uuid = $1 AND hospital_id = $2""",
+                            uuid, hospital_id
+                        )
+                        print(f"✅ [데이터삭제] 환자 정보 플래그 및 약관 동의 데이터 삭제 완료")
+                    else:
+                        # 약관 동의 컬럼이 없으면 플래그만 업데이트
+                        await conn.execute(
+                            """UPDATE wello.wello_patients 
+                               SET has_health_data = FALSE,
+                                   has_prescription_data = FALSE,
+                                   last_data_update = NULL
+                               WHERE uuid = $1 AND hospital_id = $2""",
+                            uuid, hospital_id
+                        )
+                        print(f"✅ [데이터삭제] 환자 정보 플래그 업데이트 완료 (약관 동의 컬럼 없음)")
+                except Exception as e:
+                    # 컬럼 확인 실패 시 기본 업데이트만 수행
+                    print(f"⚠️ [데이터삭제] 약관 동의 컬럼 확인 실패, 기본 업데이트만 수행: {e}")
+                    await conn.execute(
+                        """UPDATE wello.wello_patients 
+                           SET has_health_data = FALSE,
+                               has_prescription_data = FALSE,
+                               last_data_update = NULL
+                           WHERE uuid = $1 AND hospital_id = $2""",
+                        uuid, hospital_id
+                    )
+                    print(f"✅ [데이터삭제] 환자 정보 플래그 업데이트 완료")
             
             # 삭제 후 확인
             health_count_after = await conn.fetchval(
@@ -1068,6 +1160,74 @@ class WelloDataService:
             
         except Exception as e:
             print(f"❌ [약관동의] 저장 오류: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def save_checkup_design_request(
+        self,
+        uuid: str,
+        hospital_id: str,
+        selected_concerns: List[Dict[str, Any]],
+        survey_responses: Optional[Dict[str, Any]] = None,
+        design_result: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """검진 설계 요청 저장 (업셀링용)"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            # 환자 ID 조회
+            patient_query = """
+                SELECT id FROM wello.wello_patients 
+                WHERE uuid = $1 AND hospital_id = $2
+            """
+            patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
+            
+            if not patient_row:
+                await conn.close()
+                return {
+                    "success": False,
+                    "error": "환자 정보를 찾을 수 없습니다."
+                }
+            
+            patient_id = patient_row['id']
+            
+            # 설문 응답에서 추가 고민사항 추출
+            additional_concerns = None
+            if survey_responses and survey_responses.get("additional_concerns"):
+                additional_concerns = survey_responses.get("additional_concerns")
+            
+            # 검진 설계 요청 저장
+            insert_query = """
+                INSERT INTO wello.wello_checkup_design_requests 
+                (patient_id, selected_concerns, survey_responses, additional_concerns, design_result, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+                RETURNING id
+            """
+            
+            request_id = await conn.fetchval(
+                insert_query,
+                patient_id,
+                json.dumps(selected_concerns, ensure_ascii=False),
+                json.dumps(survey_responses, ensure_ascii=False) if survey_responses else None,
+                additional_concerns,
+                json.dumps(design_result, ensure_ascii=False) if design_result else None
+            )
+            
+            await conn.close()
+            
+            print(f"✅ [검진설계요청] 저장 완료 - ID: {request_id}, 환자: {uuid} @ {hospital_id}")
+            print(f"   - 선택 항목: {len(selected_concerns)}개")
+            print(f"   - 설문 응답: {'있음' if survey_responses else '없음'}")
+            
+            return {
+                "success": True,
+                "request_id": request_id
+            }
+            
+        except Exception as e:
+            print(f"❌ [검진설계요청] 저장 오류: {e}")
             return {
                 "success": False,
                 "error": str(e)

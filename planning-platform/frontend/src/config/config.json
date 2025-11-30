@@ -5,6 +5,10 @@
     "maxTokens": 2000,
     "temperature": 0.7
   },
+  "perplexity": {
+    "apiKey": "your_perplexity_api_key_here",
+    "model": "pplx-70b-online"
+  },
   "api": {
     "baseUrl": "https://xogxog.com",
     "endpoints": {

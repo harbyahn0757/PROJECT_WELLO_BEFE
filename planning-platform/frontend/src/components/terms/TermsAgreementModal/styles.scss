@@ -97,7 +97,7 @@
   box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.15);
   width: 100%;
   max-width: 448px;
-  max-height: 90vh;
+  max-height: 75vh;
   position: relative;
   overflow: hidden;
   margin-bottom: 0;
@@ -117,7 +117,7 @@
     border-radius: 16px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     margin-bottom: 0;
-    max-height: 85vh;
+    max-height: 70vh;
   }
 }
 
@@ -126,24 +126,27 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: $spacing-md $spacing-md $spacing-sm;
-  border-bottom: 1px solid $border-beige;
+  padding: $spacing-sm $spacing-sm $spacing-xs;
+  border-bottom: none; // 하단 줄 제거
   position: relative;
   flex-shrink: 0;
 }
 
 .terms-modal__title {
-  font-size: $font-xl;
-  font-weight: $font-weight-bold;
+  font-size: 18px; // 랜딩화면 22px보다 작지만 모달 특성상 적절
+  font-weight: $font-weight-bold; // 더 두껍게
   color: $brand-brown-darker;
   margin: 0;
-  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+  margin-top: 12px; // 조금 더 아래로
+  margin-left: 8px; // 조금 오른쪽으로
+  line-height: 1.2; // 랜딩화면과 동일
+  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif); // 랜딩화면과 동일
 }
 
 .terms-modal__close {
   position: absolute;
-  top: $spacing-md;
-  right: $spacing-md;
+  top: 8px; // 제목과 같은 높이로 맞춤
+  right: $spacing-sm;
   background: none;
   border: none;
   color: $gray-500;
@@ -151,8 +154,8 @@
   padding: $spacing-xs;
   border-radius: 50%;
   transition: all 0.2s ease;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -169,8 +172,8 @@
   }
 
   svg {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
   }
 }
 
@@ -179,15 +182,15 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: $spacing-sm $spacing-md;
+  padding: $spacing-xs $spacing-sm;
   -webkit-overflow-scrolling: touch;
 }
 
 // 전체 동의 (오른쪽 정렬)
 .terms-modal__select-all {
-  padding: $spacing-md 0;
-  border-bottom: 1px solid $border-beige;
-  margin-bottom: $spacing-md;
+  padding: $spacing-xs 0;
+  border-bottom: 1px solid rgba(234, 228, 215, 0.5); // 더 밝은 색상 (투명도 적용)
+  margin-bottom: $spacing-sm;
   display: flex;
   justify-content: flex-end;
   
@@ -200,41 +203,42 @@
 .terms-modal__terms-list {
   display: flex;
   flex-direction: column;
-  gap: $spacing-sm;
+  gap: $spacing-xs;
 }
 
 .terms-modal__term-item {
-  border: 1px solid $border-beige;
+  border: 1px solid rgba(234, 228, 215, 0.5); // 더 옅은 색상 (투명도 적용)
   border-radius: $border-radius-md;
-  background: $white;
+  background: rgba(255, 255, 255, 0.8); // 흰색에 약간의 투명도 적용
 }
 
 .terms-modal__term-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: $spacing-md;
-  gap: $spacing-sm;
+  padding: calc($spacing-xs * 0.75) $spacing-sm; // 높이 줄임 (상하 패딩 감소)
+  gap: $spacing-xs;
 }
 
 .terms-modal__term-content {
-  padding: 0 $spacing-md $spacing-md;
-  max-height: 300px;
+  padding: 0 $spacing-sm $spacing-sm;
+  max-height: 250px;
   overflow-y: auto;
   border-top: 1px solid $border-beige;
   margin-top: $spacing-xs;
-  padding-top: $spacing-md;
+  padding-top: $spacing-md; // 아래로 더 내림
 }
 
 .terms-modal__term-html {
-  font-size: $font-sm;
-  line-height: 1.6;
+  font-size: 13px; // 12px에서 13px로 조금 더 크게
+  line-height: 1.4;
   color: $gray-700;
-  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif); // 랜딩화면과 동일
 
   // Word에서 생성된 HTML 스타일 정리
   p {
-    margin: $spacing-xs 0;
+    margin: calc($spacing-xs / 2) 0;
+    line-height: 1.4;
   }
 
   b {
@@ -245,21 +249,24 @@
 .terms-modal__expand-button {
   background: none;
   border: none;
-  color: $brand-brown-darker;
+  color: rgba(85, 67, 59, 0.5); // 더 옅은 색상 (brand-brown-darker의 50% 투명도)
   cursor: pointer;
-  font-size: $font-lg;
-  font-weight: $font-weight-bold;
-  padding: $spacing-xs $spacing-sm;
+  font-size: $font-base;
+  font-weight: $font-weight-normal;
+  line-height: 1.2;
+  padding: calc($spacing-xs / 2) $spacing-xs;
   border-radius: $border-radius-sm;
   transition: all 0.2s ease;
   white-space: nowrap;
-  min-width: 32px;
+  min-width: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
 
   &:hover {
     background: $gray-100;
+    color: rgba(85, 67, 59, 0.7); // 호버 시 약간 진하게
   }
 }
 
@@ -267,25 +274,27 @@
 .terms-modal__checkbox-label {
   display: flex;
   align-items: center;
-  gap: $spacing-sm;
+  gap: $spacing-xs;
   cursor: pointer;
   flex: 1;
 }
 
 .terms-modal__checkbox {
-  width: 24px;
-  height: 24px;
-  min-width: 24px;
-  min-height: 24px;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
   cursor: pointer;
   accent-color: $brand-brown-darker;
   flex-shrink: 0;
 }
 
 .terms-modal__checkbox-text {
-  font-size: $font-base;
+  font-size: 14px; // 랜딩화면 메시지와 동일
   color: $brand-brown-darker;
-  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+  font-weight: $font-weight-normal; // 랜딩화면과 동일
+  line-height: 1.2; // 랜딩화면과 동일
+  font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif); // 랜딩화면과 동일
   user-select: none;
 }
 
@@ -293,23 +302,24 @@
 
 // 하단 버튼 영역
 .terms-modal__footer {
-  padding: $spacing-md;
-  border-top: 1px solid $border-beige;
+  padding: $spacing-sm;
+  border-top: 1px solid rgba(234, 228, 215, 0.5); // 더 옅은 색상 (투명도 적용)
   flex-shrink: 0;
   background: $background-appointment;
 }
 
 .terms-modal__button {
   width: 100%;
-  min-height: 56px;
+  min-height: 48px;
   background-color: $brand-brown-darker;
   color: $white;
   border: none;
   border-radius: $border-radius-lg;
-  font-size: 17px;
-  font-weight: $font-weight-semibold;
+  font-size: 16px;
+  font-weight: $font-weight-medium;
+  line-height: 1.2;
   font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
-  padding: 0.75rem 1rem;
+  padding: 0.625rem 0.875rem;
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba($brand-brown-darker, 0.3);
@@ -343,40 +353,40 @@
   gap: $spacing-xs;
 
   .wello-icon-blink {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     object-fit: contain;
     animation: faviconBlink 1.5s ease-in-out infinite;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
   }
 
   span {
-    font-size: 17px;
-    font-weight: $font-weight-semibold;
+    font-size: 16px;
+    font-weight: $font-weight-medium;
   }
 }
 
 // 모바일 반응형
 @media (max-width: 767px) {
   .terms-modal {
-    max-height: 95vh;
+    max-height: 80vh;
   }
 
   .terms-modal__header {
-    padding: $spacing-sm $spacing-md;
+    padding: $spacing-xs $spacing-sm;
   }
 
   .terms-modal__title {
-    font-size: $font-lg;
+    font-size: $font-base;
   }
 
   .terms-modal__content {
-    padding: $spacing-xs $spacing-md;
+    padding: calc($spacing-xs / 2) $spacing-sm;
   }
 
   .terms-modal__button {
-    min-height: 52px;
-    font-size: 16px;
+    min-height: 44px;
+    font-size: 15px;
   }
 }
 

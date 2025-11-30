@@ -397,8 +397,42 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
       let hospitalData: HospitalData;
 
       try {
-        patientData = await patientResponse.json();
-        console.log('✅ [환자 API] JSON 파싱 성공:', { uuid, name: patientData.name });
+        const rawPatientData = await patientResponse.json();
+        console.log('✅ [환자 API] JSON 파싱 성공:', { 
+          uuid, 
+          name: rawPatientData.name,
+          phone_number: rawPatientData.phone_number,
+          phone: rawPatientData.phone,
+          birth_date: rawPatientData.birth_date,
+          birthday: rawPatientData.birthday
+        });
+        
+        // API 응답을 프론트엔드 형식으로 변환
+        // phone_number -> phone, birth_date -> birthday 변환 및 null 처리
+        const convertedPhone = rawPatientData.phone_number || rawPatientData.phone || '';
+        const convertedBirthday = rawPatientData.birth_date || rawPatientData.birthday || '';
+        
+        patientData = {
+          uuid: rawPatientData.uuid || uuid,
+          name: rawPatientData.name || '',
+          age: rawPatientData.age || 0,
+          phone: convertedPhone,
+          birthday: convertedBirthday,
+          gender: rawPatientData.gender === 'M' ? 'male' : rawPatientData.gender === 'F' ? 'female' : 'male',
+          hospital_id: rawPatientData.hospital_id || hospital,
+          last_checkup_count: rawPatientData.last_checkup_count || 0,
+          created_at: rawPatientData.created_at || new Date().toISOString()
+        };
+        
+        console.log('✅ [환자 API] 데이터 변환 완료:', {
+          uuid: patientData.uuid,
+          name: patientData.name,
+          phone: patientData.phone || '(없음)',
+          birthday: patientData.birthday || '(없음)',
+          gender: patientData.gender,
+          '원본 phone_number': rawPatientData.phone_number,
+          '변환된 phone': patientData.phone
+        });
       } catch (error) {
         const responseText = await patientResponse.text();
         console.error('🚨 [환자 API] JSON 파싱 실패:', {

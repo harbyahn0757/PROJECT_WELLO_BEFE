@@ -131,6 +131,8 @@ const TermsAgreementModal: React.FC<TermsAgreementModalProps> = ({
   // 모달 열기/닫기 애니메이션 처리
   useEffect(() => {
     if (isOpen) {
+      // 패널이 열릴 때 배경 스크롤 방지
+      document.body.style.overflow = 'hidden';
       setShouldRender(true);
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -141,8 +143,14 @@ const TermsAgreementModal: React.FC<TermsAgreementModalProps> = ({
       setIsAnimating(false);
       const timer = setTimeout(() => {
         setShouldRender(false);
+        // 패널이 닫힐 때 배경 스크롤 복원
+        document.body.style.overflow = '';
       }, 400);
-      return () => clearTimeout(timer);
+      return () => {
+        clearTimeout(timer);
+        // 컴포넌트 언마운트 시에도 스크롤 복원
+        document.body.style.overflow = '';
+      };
     }
   }, [isOpen]);
 
@@ -151,6 +159,17 @@ const TermsAgreementModal: React.FC<TermsAgreementModalProps> = ({
     if (e.target === e.currentTarget) {
       onClose();
     }
+  };
+
+  // 패널 내부 클릭 시 이벤트 전파 방지
+  const handleModalClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+  };
+
+  // 닫기 버튼 클릭 핸들러
+  const handleCloseClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    onClose();
   };
 
   // 약관 동의 체크박스 토글
@@ -238,13 +257,16 @@ const TermsAgreementModal: React.FC<TermsAgreementModalProps> = ({
       className={`terms-modal-overlay ${isAnimating ? 'terms-modal-overlay--open' : 'terms-modal-overlay--close'}`}
       onClick={handleOverlayClick}
     >
-      <div className={`terms-modal ${isAnimating ? 'terms-modal--open' : 'terms-modal--close'}`}>
+      <div 
+        className={`terms-modal ${isAnimating ? 'terms-modal--open' : 'terms-modal--close'}`}
+        onClick={handleModalClick}
+      >
         {/* 헤더 */}
         <div className="terms-modal__header">
           <h2 className="terms-modal__title">약관 동의</h2>
           <button 
             className="terms-modal__close"
-            onClick={onClose}
+            onClick={handleCloseClick}
             aria-label="닫기"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

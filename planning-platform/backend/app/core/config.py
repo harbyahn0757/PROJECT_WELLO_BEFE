@@ -50,6 +50,11 @@ class OpenAISettings(BaseModel):
     model: str = Field(default="gpt-4", env="GPT_MODEL")
     max_tokens: int = Field(default=2000, env="MAX_TOKENS")
 
+class PerplexitySettings(BaseModel):
+    """Perplexity AI 설정"""
+    api_key: str = Field(default="dev-perplexity-key", env="PERPLEXITY_API_KEY")
+    model: str = Field(default="sonar", env="PERPLEXITY_MODEL")
+
 class GoogleAnalyticsSettings(BaseModel):
     """Google Analytics 설정"""
     tracking_id: str = Field(default="dev-ga-tracking-id", env="GA_TRACKING_ID")
@@ -106,6 +111,10 @@ class Settings(BaseSettings):
     
     # OpenAI 설정
     openai_api_key: str = Field(default="dev-openai-key", env="OPENAI_API_KEY")
+    
+    # Perplexity 설정
+    perplexity_api_key: str = Field(default="dev-perplexity-key", env="PERPLEXITY_API_KEY")
+    perplexity_model: str = Field(default="sonar", env="PERPLEXITY_MODEL")
     
     model_config = {
         "env_file": [".env.local", "config.env", ".env"],
