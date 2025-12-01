@@ -107,6 +107,11 @@ const CheckupDesignPage: React.FC = () => {
       setProcessingStage('analyzing');
       setProcessingProgress(50);
       
+      // 디버깅: 전송 전 데이터 확인
+      console.log('🔍 [CheckupDesignPage] API 전송 전 selectedConcerns:', JSON.stringify(selectedConcerns, null, 2));
+      console.log('🔍 [CheckupDesignPage] selectedConcerns[0]:', selectedConcerns[0]);
+      console.log('🔍 [CheckupDesignPage] selectedConcerns[0].id:', selectedConcerns[0]?.id);
+      
       const response = await checkupDesignService.createCheckupDesign({
         uuid,
         hospital_id: hospital,

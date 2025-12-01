@@ -12,6 +12,7 @@ import ChatOptionButton from './ChatOptionButton';
 import MedicationCard from './MedicationCard';
 import CheckupCard from './CheckupCard';
 import HealthTrendsHeader from '../../health/HealthTrendsHeader';
+import CheckupDesignSurveyPanel, { SurveyResponses } from '../CheckupDesignSurveyPanel';
 import { WELLO_LOGO_IMAGE } from '../../../constants/images';
 import './styles.scss';
 
@@ -22,8 +23,9 @@ const THINKING_DELAY = 1200; // 고민하는 시간 (ms)
 const SPINNER_DURATION = 2000; // 스피너가 돌아가는 시간 (ms) - THINKING_DELAY보다 길게
 const OPTIONS_SHOW_DELAY = 2500; // 옵션 카드 표시 딜레이 (ms) - 더 길게 설정
 const USER_RESPONSE_DELAY = 300; // 사용자 응답 후 딜레이 (ms)
+const USER_CARD_DISPLAY_DELAY = 2000; // 사용자 선택 후 카드 표시 딜레이 (ms) - 2초
 const CONFIRMATION_DELAY = 500; // 확인 메시지 딜레이 (ms)
-const THINKING_TEXT_DELAY = 600; // 중얼중얼 텍스트 변경 딜레이 (ms) - 더 천천히
+const THINKING_TEXT_DELAY = 1000; // 중얼중얼 텍스트 변경 딜레이 (ms) - 더 천천히, 부드럽게
 
 interface ChatInterfaceProps {
   healthData: any;
@@ -50,6 +52,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const optionsContainerRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const [prescriptionAnalysis, setPrescriptionAnalysis] = useState<any>(null);
   // 초기화 플래그 (컴포넌트 마운트 시에만 체크)
   const [hasInitialized, setHasInitialized] = useState(false);
@@ -60,6 +63,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [isThinkingForOptions, setIsThinkingForOptions] = useState(false); // 카드 표시 전 스피너 (오른쪽 정렬)
   const [isSpinnerFadingOut, setIsSpinnerFadingOut] = useState(false); // 스피너 페이드아웃 상태
   const [thinkingText, setThinkingText] = useState<string>(''); // 띵킹 모드 중얼중얼 텍스트
+  const [showSurveyPanel, setShowSurveyPanel] = useState(false); // 문진 패널 표시 여부
+  const [showActionButtons, setShowActionButtons] = useState(false); // 다음/건너뛰기 버튼 표시 여부
   const messageIndexRef = useRef(0); // 메시지 순서 추적
   const pendingMessageRef = useRef<{ type: ChatMessage['type'], content: string, data?: any, options?: ChatOption[] } | null>(null); // 대기 중인 메시지
 
@@ -73,6 +78,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   useEffect(() => {
     if (prescriptionData && state.currentStep === 'prescription_analysis' && !hasInitialized) {
       setShowOptions(false); // 옵션 초기화
+      setShowActionButtons(false); // 버튼 초기화
       const prescriptionList = Array.isArray(prescriptionData) 
         ? prescriptionData 
         : prescriptionData.ResultList || [];
@@ -151,6 +157,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   useEffect(() => {
     if (state.currentStep === 'checkup_selection' && healthData && !hasInitialized) {
       setShowOptions(false); // 옵션 초기화
+      setShowActionButtons(false); // 버튼 초기화
       const healthList = Array.isArray(healthData) 
         ? healthData 
         : healthData.ResultList || [];
@@ -179,7 +186,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               } else {
                 clearInterval(thinkingInterval);
               }
-            }, 400);
+            }, THINKING_TEXT_DELAY); // 통일된 딜레이 사용
             
             setTimeout(() => {
               clearInterval(thinkingInterval);
@@ -345,6 +352,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             // 부드러운 애니메이션을 위한 약간의 딜레이
             setTimeout(() => {
               setIsOptionsVisible(true);
+              
+              // 모든 카드가 나타난 후 버튼 표시
+              // 카드 애니메이션: 각 카드당 200ms 딜레이 + 500ms 애니메이션 시간
+              const cardCount = pendingMessageRef.current?.options?.length || 0;
+              const lastCardDelay = cardCount > 0 ? (cardCount - 1) * 200 : 0;
+              const animationDuration = 500; // slideInFromRight 애니메이션 시간
+              const buttonShowDelay = lastCardDelay + animationDuration + 200; // 여유 시간 추가
+              
+              setTimeout(() => {
+                setShowActionButtons(true);
+              }, buttonShowDelay);
             }, 50);
           }, OPTIONS_SHOW_DELAY);
         }, MESSAGE_DELAY);
@@ -365,6 +383,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           // 부드러운 애니메이션을 위한 약간의 딜레이
           setTimeout(() => {
             setIsOptionsVisible(true);
+            
+            // 모든 카드가 나타난 후 버튼 표시
+            const cardCount = options.length;
+            const lastCardDelay = cardCount > 0 ? (cardCount - 1) * 200 : 0;
+            const animationDuration = 500; // slideInFromRight 애니메이션 시간
+            const buttonShowDelay = lastCardDelay + animationDuration + 200; // 여유 시간 추가
+            
+            setTimeout(() => {
+              setShowActionButtons(true);
+            }, buttonShowDelay);
           }, 50);
         }, OPTIONS_SHOW_DELAY);
       }, MESSAGE_DELAY);
@@ -380,40 +408,103 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       data: { type: 'prescription', pattern }
     }));
 
-    // 추가 옵션
-    options.push({
-      id: 'prescription-all',
-      label: '모두 선택',
-      description: '모든 처방 이력 선택',
-      data: { type: 'prescription', all: true }
-    });
-
-    options.push({
-      id: 'prescription-skip',
-      label: '건너뛰기',
-      description: '처방 이력 선택 건너뛰기',
-      data: { type: 'prescription', skip: true }
-    });
-
+    // "모두 선택"과 "건너뛰기"는 슬라이더 하단 버튼으로 이동했으므로 옵션에서 제거
     return options;
+  };
+
+  // 검진 상태 분석 함수
+  const analyzeCheckupStatus = (checkup: any) => {
+    const statusCounts = { normal: 0, warning: 0, abnormal: 0 };
+    
+    if (!checkup?.Inspections) return statusCounts;
+    
+    const determineItemStatus = (item: any): 'normal' | 'warning' | 'abnormal' => {
+      if (!item.Value || !item.ItemReferences || item.ItemReferences.length === 0) {
+        return 'normal';
+      }
+      
+      const value = item.Value.toString().toLowerCase();
+      if (value.includes('정상') || value.includes('음성')) return 'normal';
+      if (value.includes('의심') || value.includes('양성')) return 'abnormal';
+      
+      const numValue = parseFloat(item.Value.toString().replace(/[^0-9.-]/g, ''));
+      if (isNaN(numValue)) return 'normal';
+      
+      const isInRange = (val: number, rangeStr: string): boolean => {
+        if (rangeStr.includes('이상')) {
+          const threshold = parseFloat(rangeStr.replace(/[^0-9.-]/g, ''));
+          return !isNaN(threshold) && val >= threshold;
+        }
+        if (rangeStr.includes('미만')) {
+          const threshold = parseFloat(rangeStr.replace(/[^0-9.-]/g, ''));
+          return !isNaN(threshold) && val < threshold;
+        }
+        if (rangeStr.includes('이하')) {
+          const threshold = parseFloat(rangeStr.replace(/[^0-9.-]/g, ''));
+          return !isNaN(threshold) && val <= threshold;
+        }
+        if (rangeStr.includes('-')) {
+          const [min, max] = rangeStr.split('-').map(s => parseFloat(s.replace(/[^0-9.-]/g, '')));
+          return !isNaN(min) && !isNaN(max) && val >= min && val <= max;
+        }
+        return false;
+      };
+      
+      const abnormal = item.ItemReferences.find((ref: any) => ref.Name === '질환의심');
+      if (abnormal && isInRange(numValue, abnormal.Value)) return 'abnormal';
+      
+      const normalB = item.ItemReferences.find((ref: any) => ref.Name === '정상(B)' || ref.Name === '정상(경계)');
+      if (normalB && isInRange(numValue, normalB.Value)) return 'warning';
+      
+      return 'normal';
+    };
+    
+    checkup.Inspections.forEach((inspection: any) => {
+      if (inspection.Illnesses) {
+        inspection.Illnesses.forEach((illness: any) => {
+          if (illness.Items) {
+            illness.Items.forEach((item: any) => {
+              const itemName = item.Name;
+              // 신체계측 항목은 허리둘레 기준으로만 카운트
+              if (itemName === '신장' || itemName === '체중') {
+                return; // 개별 카운트하지 않음
+              }
+              if (itemName === '허리둘레') {
+                const status = determineItemStatus(item);
+                statusCounts[status]++;
+                return;
+              }
+              
+              const status = determineItemStatus(item);
+              statusCounts[status]++;
+            });
+          }
+        });
+      }
+    });
+    
+    return statusCounts;
   };
 
   // 검진 옵션 생성
   const generateCheckupOptions = (healthList: any[]): ChatOption[] => {
     return healthList.map((checkup, index) => {
-      const year = checkup.year || checkup.Year || '2023';
-      const date = checkup.CheckUpDate || checkup.checkup_date || '';
-      const location = checkup.Location || checkup.location || '국민건강보험공단';
+      // checkup 구조: raw_data가 있으면 raw_data 사용, 없으면 checkup 자체 사용
+      const checkupData = checkup.raw_data || checkup;
+      const year = checkup.year || checkup.Year || checkupData.Year || '2023';
+      const date = checkup.CheckUpDate || checkup.checkup_date || checkupData.CheckUpDate || '';
+      const location = checkup.Location || checkup.location || checkupData.Location || '국민건강보험공단';
       
-      // 이상/경계 건수 계산 (간단한 예시)
-      const abnormalCount = 0; // TODO: 실제 계산 로직 필요
-      const warningCount = 0; // TODO: 실제 계산 로직 필요
+      // 실제 이상/경계 건수 계산
+      const statusCounts = analyzeCheckupStatus(checkupData);
+      const abnormalCount = statusCounts.abnormal;
+      const warningCount = statusCounts.warning;
 
       return {
         id: `checkup-${index}`,
         label: `${year}년 건강검진`,
         description: `${location} - ${date}`,
-        data: { type: 'checkup', checkup, index }
+        data: { type: 'checkup', checkup: checkupData, index, abnormalCount, warningCount }
       };
     });
   };
@@ -438,46 +529,110 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           ...prev,
           selectedPrescriptionEffects: allEffects
         }));
+        // 사용자 선택 후 카드 표시 딜레이 (2초)
         setTimeout(() => {
           addUserMessage('모두 선택');
           setTimeout(() => {
             addBotMessage('bot_confirmation', `모든 처방 이력(${allEffects.length}개)을 선택하셨습니다.`);
             setTimeout(() => moveToNextStep(), MESSAGE_DELAY + THINKING_DELAY);
           }, CONFIRMATION_DELAY);
-        }, USER_RESPONSE_DELAY);
+        }, USER_CARD_DISPLAY_DELAY);
       } else {
+        // 카드 선택/취소 토글 (메시지 추가 없음)
         const effect = data.pattern.effect;
-        setState(prev => ({
-          ...prev,
-          selectedPrescriptionEffects: [...prev.selectedPrescriptionEffects, effect]
-        }));
-        setTimeout(() => {
-          addUserMessage(effect);
-          setTimeout(() => {
-            addBotMessage('bot_confirmation', `${effect}를 선택하셨네요. 추가로 선택하시겠어요?`);
-          }, CONFIRMATION_DELAY);
-        }, USER_RESPONSE_DELAY);
+        setState(prev => {
+          const isSelected = prev.selectedPrescriptionEffects.includes(effect);
+          return {
+            ...prev,
+            selectedPrescriptionEffects: isSelected
+              ? prev.selectedPrescriptionEffects.filter(e => e !== effect)
+              : [...prev.selectedPrescriptionEffects, effect]
+          };
+        });
       }
     } else if (type === 'checkup') {
+      // 카드 선택/취소 토글 (메시지 추가 없음)
       const checkupId = `checkup-${data.index}`;
-      setState(prev => ({
-        ...prev,
-        selectedCheckupRecords: [...prev.selectedCheckupRecords, checkupId]
-      }));
-      setTimeout(() => {
-        addUserMessage(`${data.checkup.year || data.checkup.Year}년 건강검진`);
-        setTimeout(() => {
-          addBotMessage('bot_confirmation', '검진 기록을 선택하셨습니다. 추가로 선택하시겠어요?');
-        }, CONFIRMATION_DELAY);
-      }, USER_RESPONSE_DELAY);
+      setState(prev => {
+        const isSelected = prev.selectedCheckupRecords.includes(checkupId);
+        return {
+          ...prev,
+          selectedCheckupRecords: isSelected
+            ? prev.selectedCheckupRecords.filter(id => id !== checkupId)
+            : [...prev.selectedCheckupRecords, checkupId]
+        };
+      });
     }
+  };
+
+  // 선택된 항목들을 합쳐서 사용자 메시지로 표시
+  const addSelectedItemsAsUserMessage = (step: 'prescription_analysis' | 'checkup_selection') => {
+    if (step === 'prescription_analysis') {
+      const selectedEffects = state.selectedPrescriptionEffects;
+      if (selectedEffects.length > 0) {
+        const messageText = selectedEffects.length === 1 
+          ? selectedEffects[0]
+          : `${selectedEffects.slice(0, -1).join(', ')}${selectedEffects.length > 1 ? ', ' : ''}${selectedEffects[selectedEffects.length - 1]}`;
+        setTimeout(() => {
+          addUserMessage(messageText);
+        }, USER_RESPONSE_DELAY);
+      }
+    } else if (step === 'checkup_selection') {
+      const selectedRecords = state.selectedCheckupRecords;
+      if (selectedRecords.length > 0) {
+        // 검진 기록의 연도 추출
+        const healthList = Array.isArray(healthData) ? healthData : healthData.ResultList || [];
+        const selectedYears = selectedRecords.map(recordId => {
+          const index = parseInt(recordId.replace('checkup-', ''), 10);
+          const checkup = healthList[index];
+          return checkup?.year || checkup?.Year || '2023';
+        });
+        const uniqueYears = Array.from(new Set(selectedYears));
+        const messageText = uniqueYears.length === 1
+          ? `${uniqueYears[0]}년 건강검진`
+          : `${uniqueYears.slice(0, -1).join('년, ')}년, ${uniqueYears[uniqueYears.length - 1]}년 건강검진`;
+        setTimeout(() => {
+          addUserMessage(messageText);
+        }, USER_RESPONSE_DELAY);
+      }
+    }
+  };
+
+  // 건너뛰기 핸들러
+  const handleSkip = () => {
+    setShowOptions(false);
+    setShowActionButtons(false);
+    setTimeout(() => {
+      addUserMessage('건너뛰기');
+      setTimeout(() => {
+        addBotMessage('bot_confirmation', '알겠습니다. 다음 단계로 넘어가겠습니다.');
+        setTimeout(() => moveToNextStep(), MESSAGE_DELAY + THINKING_DELAY);
+      }, CONFIRMATION_DELAY);
+    }, USER_RESPONSE_DELAY);
   };
 
   // 다음 단계로 이동
   const moveToNextStep = () => {
     setShowOptions(false); // 옵션 숨김
+    setShowActionButtons(false); // 버튼 숨김
+    
     if (state.currentStep === 'prescription_analysis') {
-      setState(prev => ({ ...prev, currentStep: 'checkup_selection' }));
+      // 선택된 항목들을 사용자 메시지로 표시
+      addSelectedItemsAsUserMessage('prescription_analysis');
+      
+      // 확인 메시지 추가 후 다음 단계로
+      setTimeout(() => {
+        const count = state.selectedPrescriptionEffects.length;
+        addBotMessage('bot_confirmation', count > 0 
+          ? `처방 이력 ${count}개를 선택하셨습니다. 다음 단계로 넘어가겠습니다.`
+          : '다음 단계로 넘어가겠습니다.'
+        );
+        setTimeout(() => {
+          setState(prev => ({ ...prev, currentStep: 'checkup_selection' }));
+          setHasInitialized(false); // 다음 단계 초기화 플래그 리셋
+          setShowActionButtons(false); // 버튼 초기화
+        }, MESSAGE_DELAY + THINKING_DELAY);
+      }, USER_CARD_DISPLAY_DELAY);
     } else if (state.currentStep === 'checkup_selection') {
       // 완료 처리
       handleComplete();
@@ -486,52 +641,135 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // 완료 처리
   const handleComplete = () => {
-    addBotMessage('bot_confirmation', '선택하신 정보를 바탕으로 검진 설계를 진행하겠습니다.');
+    setShowOptions(false);
     
-    // 기존 ConcernSelection 형식으로 변환
+    // 선택된 항목들을 사용자 메시지로 표시
+    addSelectedItemsAsUserMessage('checkup_selection');
+    
+    // 확인 메시지 추가
     setTimeout(() => {
-      const selectedItems = new Set<string>([
-        ...state.selectedPrescriptionEffects.map(e => `prescription-${e}`),
-        ...state.selectedCheckupRecords
-      ]);
-
-      const selectedConcerns: any[] = [];
+      const count = state.selectedCheckupRecords.length;
+      addBotMessage('bot_confirmation', count > 0
+        ? `검진 기록 ${count}개를 선택하셨습니다.`
+        : '검진 기록을 건너뛰셨습니다.'
+      );
       
-      // 처방 데이터 변환
-      state.selectedPrescriptionEffects.forEach(effect => {
-        const pattern = prescriptionAnalysis?.topEffects.find((p: MedicationEffectPattern) => p.effect === effect);
-        if (pattern) {
-          selectedConcerns.push({
-            type: 'medication',
-            effect: pattern.effect,
-            data: pattern
-          });
-        }
-      });
-
-      // 검진 데이터 변환
-      const healthList = Array.isArray(healthData) 
-        ? healthData 
-        : healthData.ResultList || [];
-      
-      state.selectedCheckupRecords.forEach(recordId => {
-        const index = parseInt(recordId.replace('checkup-', ''), 10);
-        if (healthList[index]) {
-          selectedConcerns.push({
-            type: 'checkup',
-            data: healthList[index]
-          });
-        }
-      });
-
-      onNext(selectedItems, selectedConcerns);
-    }, MESSAGE_DELAY + THINKING_DELAY);
+      // 문진으로 넘어간다는 메시지 추가
+      setTimeout(() => {
+        addBotMessage('bot_intro', '이제 문진으로 넘어가겠습니다.');
+        
+        // 문진 패널 표시
+        setTimeout(() => {
+          setShowSurveyPanel(true);
+        }, MESSAGE_DELAY + THINKING_DELAY);
+      }, MESSAGE_DELAY + THINKING_DELAY);
+    }, USER_CARD_DISPLAY_DELAY);
   };
 
-  // 스크롤 자동 이동
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [state.messages]);
+  // 문진 패널 제출 핸들러
+  const handleSurveySubmit = (surveyResponses: SurveyResponses) => {
+    setShowSurveyPanel(false);
+    
+    // 선택된 항목들 수집
+    const selectedItems = new Set<string>([
+      ...state.selectedPrescriptionEffects.map(e => `prescription-${e}`),
+      ...state.selectedCheckupRecords
+    ]);
+    
+    const selectedConcerns: any[] = [];
+    
+    // 처방 데이터 변환 (기존 ConcernSelection 구조와 동일)
+    const prescriptionList = Array.isArray(prescriptionData) 
+      ? prescriptionData 
+      : prescriptionData.ResultList || [];
+    
+    state.selectedPrescriptionEffects.forEach(effect => {
+      const pattern = prescriptionAnalysis?.topEffects.find((p: MedicationEffectPattern) => p.effect === effect);
+      if (pattern) {
+        // 기존 ConcernSelection 구조: { type: 'medication', id, medicationName, period, hospitalName }
+        // medicationName: 첫 번째 약물명 또는 효능명
+        const medicationName = pattern.medications && pattern.medications.length > 0
+          ? pattern.medications[0].name
+          : pattern.effect;
+        
+        // 기간: firstPrescriptionDate ~ lastPrescriptionEndDate (기존 ConcernSelection은 date만 사용)
+        const period = pattern.firstPrescriptionDate && pattern.lastPrescriptionEndDate
+          ? `${pattern.firstPrescriptionDate} ~ ${pattern.lastPrescriptionEndDate}`
+          : pattern.firstPrescriptionDate || pattern.lastPrescriptionDate || '';
+        
+        // 병원명: 처방 데이터에서 해당 효능의 첫 번째 처방의 병원명 추출
+        let hospitalName = '약국'; // 기본값
+        if (prescriptionList.length > 0) {
+          // 해당 효능의 약물이 포함된 첫 번째 처방 찾기
+          for (const prescription of prescriptionList) {
+            const medicationList = prescription.RetrieveTreatmentInjectionInformationPersonDetailList || [];
+            const hasEffect = medicationList.some((med: any) => {
+              const medEffect = med.ChoBangYakPumHyoneung || med.ChoBangYakPumMyung || '';
+              return medEffect === effect || med.ChoBangYakPumMyung === medicationName;
+            });
+            
+            if (hasEffect) {
+              hospitalName = prescription.hospital_name || prescription.ByungEuiwonYakGukMyung || '약국';
+              break;
+            }
+          }
+        }
+        
+        const medicationConcern = {
+          type: 'medication',
+          id: `prescription-${pattern.effect}`, // option.id와 동일
+          medicationName: medicationName,
+          period: period,
+          hospitalName: hospitalName
+        };
+        console.log('🔍 [ChatInterface] 처방 데이터 변환:', medicationConcern);
+        selectedConcerns.push(medicationConcern);
+      }
+    });
+    
+    // 검진 데이터 변환 (기존 ConcernSelection 구조와 동일)
+    const healthList = Array.isArray(healthData) 
+      ? healthData 
+      : healthData.ResultList || [];
+    
+    state.selectedCheckupRecords.forEach(recordId => {
+      const index = parseInt(recordId.replace('checkup-', ''), 10);
+      if (healthList[index]) {
+        const checkup = healthList[index];
+        const checkupData = checkup.raw_data || checkup;
+        
+        // 기존 ConcernSelection 구조: { type: 'checkup', id, name, date, location, status, abnormalCount, warningCount }
+        const statusCounts = analyzeCheckupStatus(checkupData);
+        const date = checkup.CheckUpDate || checkup.checkup_date || checkupData.CheckUpDate || '';
+        const location = checkup.Location || checkup.location || checkupData.Location || '국민건강보험공단';
+        
+        // status 계산 (기존 ConcernSelection 로직과 동일)
+        let status: 'warning' | 'abnormal' | undefined = undefined;
+        if (statusCounts.abnormal > 0) {
+          status = 'abnormal';
+        } else if (statusCounts.warning > 0) {
+          status = 'warning';
+        }
+        
+        const checkupConcern = {
+          type: 'checkup',
+          id: recordId, // option.id와 동일 (예: "checkup-0")
+          name: '건강검진',
+          date: date,
+          location: location,
+          status: status,
+          abnormalCount: statusCounts.abnormal,
+          warningCount: statusCounts.warning
+        };
+        console.log('🔍 [ChatInterface] 검진 데이터 변환:', checkupConcern);
+        selectedConcerns.push(checkupConcern);
+      }
+    });
+    
+    // 모델 호출 (onNext에 surveyResponses 전달)
+    console.log('🔍 [ChatInterface] 최종 selectedConcerns:', JSON.stringify(selectedConcerns, null, 2));
+    onNext(selectedItems, selectedConcerns, surveyResponses);
+  };
 
   // 현재 메시지의 옵션 가져오기 (showOptions가 true일 때만)
   const currentOptions = useMemo(() => {
@@ -539,6 +777,42 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     const lastMessage = state.messages[state.messages.length - 1];
     return lastMessage?.options || [];
   }, [state.messages, showOptions]);
+
+  // 스크롤 자동 이동 (메시지, 옵션, 카드, 스피너 변경 시) - 버튼 영역까지 포함
+  useEffect(() => {
+    const scrollToBottom = () => {
+      // DOM 업데이트 후 스크롤 (더 긴 딜레이로 부드럽게)
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (bodyRef.current) {
+            // 스크롤 컨테이너를 직접 스크롤 (버튼 영역까지 포함)
+            bodyRef.current.scrollTo({
+              top: bodyRef.current.scrollHeight,
+              behavior: 'smooth'
+            });
+          } else if (messagesEndRef.current) {
+            // 폴백: messagesEndRef 사용
+            messagesEndRef.current.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'end',
+              inline: 'nearest'
+            });
+          }
+        }, 200); // 딜레이 증가로 더 부드럽게
+      });
+    };
+    
+    scrollToBottom();
+  }, [
+    state.messages, 
+    showOptions, 
+    isOptionsVisible, 
+    isThinking, 
+    isThinkingForOptions, 
+    thinkingText,
+    currentOptions.length, // 카드 개수 변경 시
+    showActionButtons // 버튼 표시 시
+  ]);
 
   return (
     <div className="chat-interface">
@@ -549,7 +823,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         headerType="large"
       />
       
-      <div className="chat-interface__body">
+      <div className="chat-interface__body" ref={bodyRef}>
         <div className="chat-interface__messages">
           {state.messages.map((message, index) => (
             <ChatMessageComponent 
@@ -595,57 +869,102 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           {currentOptions.length > 0 && (
             <div 
               className={`chat-interface__options ${isOptionsVisible ? 'is-visible' : ''}`}
-              ref={optionsContainerRef}
-              onScroll={(e) => {
-                // 스크롤 위치에 따라 활성 닷 인덱스 계산
-                const container = e.currentTarget;
-                const scrollLeft = container.scrollLeft;
-                const cardWidth = 180 + 16; // 카드 너비 (180px) + gap (16px)
-                const newIndex = Math.round(scrollLeft / cardWidth);
-                setActiveDotIndex(Math.min(newIndex, currentOptions.length - 1));
-              }}
             >
-              {currentOptions.map((option, index) => {
-                if (option.data?.type === 'prescription' && option.data?.pattern) {
-                  return (
-                    <MedicationCard
-                      key={option.id}
-                      pattern={option.data.pattern}
-                      onClick={() => handleOptionClick(option)}
-                      selected={state.selectedPrescriptionEffects.includes(option.data.pattern.effect)}
-                      animationDelay={index * 200} // 카드 하나씩 순차적으로 나타나게 (200ms 간격)
-                    />
-                  );
-                } else if (option.data?.type === 'checkup') {
-                  const checkup = option.data.checkup;
-                  return (
-                    <CheckupCard
-                      key={option.id}
-                      id={option.id}
-                      year={checkup.year || checkup.Year || '2023'}
-                      date={checkup.CheckUpDate || checkup.checkup_date || ''}
-                      location={checkup.Location || checkup.location || '국민건강보험공단'}
-                      abnormalCount={0}
-                      warningCount={0}
-                      onClick={() => handleOptionClick(option)}
-                      selected={state.selectedCheckupRecords.includes(option.id)}
-                      animationDelay={index * 200} // 카드 하나씩 순차적으로 나타나게 (200ms 간격)
-                    />
-                  );
-                } else {
-                  return (
-                    <ChatOptionButton
-                      key={option.id}
-                      option={option}
-                      onClick={handleOptionClick}
-                      animationDelay={index * 200} // 카드 하나씩 순차적으로 나타나게 (200ms 간격)
-                    />
-                  );
-                }
-              })}
+              {/* 카드 슬라이더 */}
+              <div
+                className={`chat-interface__options-slider ${
+                  currentOptions.length === 0 
+                    ? 'chat-interface__options-slider--empty'
+                    : currentOptions.length === 1
+                    ? 'chat-interface__options-slider--single'
+                    : 'chat-interface__options-slider--multiple'
+                }`}
+                ref={optionsContainerRef}
+                onScroll={(e) => {
+                  // 스크롤 위치에 따라 활성 닷 인덱스 계산
+                  const container = e.currentTarget;
+                  const scrollLeft = container.scrollLeft;
+                  const cardWidth = 180 + 16; // 카드 너비 (180px) + gap (16px)
+                  const newIndex = Math.round(scrollLeft / cardWidth);
+                  setActiveDotIndex(Math.min(newIndex, currentOptions.length - 1));
+                }}
+              >
+                {currentOptions.map((option, index) => {
+                  if (option.data?.type === 'prescription' && option.data?.pattern) {
+                    return (
+                      <MedicationCard
+                        key={option.id}
+                        pattern={option.data.pattern}
+                        onClick={() => handleOptionClick(option)}
+                        selected={state.selectedPrescriptionEffects.includes(option.data.pattern.effect)}
+                        animationDelay={index * 200} // 카드 하나씩 순차적으로 나타나게 (200ms 간격)
+                      />
+                    );
+                  } else if (option.data?.type === 'checkup') {
+                    const checkup = option.data.checkup;
+                    const abnormalCount = option.data.abnormalCount || 0;
+                    const warningCount = option.data.warningCount || 0;
+                    return (
+                      <CheckupCard
+                        key={option.id}
+                        id={option.id}
+                        year={checkup.year || checkup.Year || '2023'}
+                        date={checkup.CheckUpDate || checkup.checkup_date || ''}
+                        location={checkup.Location || checkup.location || '국민건강보험공단'}
+                        abnormalCount={abnormalCount}
+                        warningCount={warningCount}
+                        onClick={() => handleOptionClick(option)}
+                        selected={state.selectedCheckupRecords.includes(option.id)}
+                        animationDelay={index * 200} // 카드 하나씩 순차적으로 나타나게 (200ms 간격)
+                        checkup={checkup}
+                      />
+                    );
+                  } else {
+                    return (
+                      <ChatOptionButton
+                        key={option.id}
+                        option={option}
+                        onClick={handleOptionClick}
+                        animationDelay={index * 200} // 카드 하나씩 순차적으로 나타나게 (200ms 간격)
+                      />
+                    );
+                  }
+                })}
+              </div>
               
-              {/* 닷 네비게이터 */}
-              {currentOptions.length > 1 && (
+              {/* 버튼 영역 - 슬라이더 섹션 내부 하단에 배치 */}
+              {showOptions && currentOptions.length > 0 && showActionButtons && (
+                <div className="chat-interface__progress-actions chat-interface__progress-actions--visible">
+                  <div className="chat-interface__progress-actions-right">
+                    <button
+                      className="chat-interface__button chat-interface__button--primary chat-interface__button--small"
+                      onClick={() => {
+                        // 다음 버튼 클릭 처리
+                        if (state.currentStep === 'prescription_analysis') {
+                          moveToNextStep();
+                        } else if (state.currentStep === 'checkup_selection') {
+                          // 완료 처리
+                          handleComplete();
+                        }
+                      }}
+                    >
+                      다음
+                    </button>
+                    <button
+                      className="chat-interface__button chat-interface__button--secondary chat-interface__button--small"
+                      onClick={() => {
+                        // 건너뛰기 버튼 클릭 처리 (기존 handleSkip 기능)
+                        handleSkip();
+                      }}
+                    >
+                      건너뛰기
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* 닷 네비게이터 - 숨김 처리 (슬라이딩 기능은 유지) */}
+              {/* {currentOptions.length > 1 && (
                 <div className="chat-interface__dots">
                   {currentOptions.map((_, index) => (
                     <button
@@ -665,20 +984,31 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     />
                   ))}
                 </div>
-              )}
+              )} */}
             </div>
           )}
           
           <div ref={messagesEndRef} />
         </div>
+      </div>
 
-        {state.currentStep !== 'complete' && (
-          <div className="chat-interface__progress">
+      {/* 진행 상태 표시 - body 밖으로 이동하여 플로팅 버튼과 분리 */}
+      {state.currentStep !== 'complete' && (
+        <div className="chat-interface__progress">
+          <div className="chat-interface__progress-info">
             {state.currentStep === 'prescription_analysis' && '1/2 단계: 처방 이력 선택'}
             {state.currentStep === 'checkup_selection' && '2/2 단계: 검진 기록 선택'}
           </div>
-        )}
-      </div>
+        </div>
+      )}
+      
+      {/* 문진 패널 */}
+      <CheckupDesignSurveyPanel
+        isOpen={showSurveyPanel}
+        onClose={() => setShowSurveyPanel(false)}
+        onSubmit={handleSurveySubmit}
+        selectedCount={state.selectedPrescriptionEffects.length + state.selectedCheckupRecords.length}
+      />
     </div>
   );
 };

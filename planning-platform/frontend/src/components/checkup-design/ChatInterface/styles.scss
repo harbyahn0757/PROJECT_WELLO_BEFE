@@ -13,12 +13,11 @@
     top: var(--header-height, 90px); // 헤더 높이 (large 타입일 경우 자동 조정)
     left: 0;
     right: 0;
-    bottom: 0; // 진행 표시 영역이 sticky이므로 bottom: 0
-    overflow-y: auto; // 전체 영역 스크롤 (메시지 + 옵션 + 진행 상태)
+    bottom: 60px; // 진행 상태 영역 높이만큼 여유 공간 (progress가 body 밖에 있음)
+    overflow-y: auto; // 전체 영역 스크롤 (메시지 + 옵션)
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     background: $background-cream;
-    // 진행 표시 영역이 sticky이므로 padding-bottom 불필요 (간격 제거)
     padding-bottom: 0;
     will-change: scroll-position;
     overscroll-behavior-y: contain;
@@ -38,29 +37,15 @@
 
   &__options {
     display: flex;
-    flex-direction: row; // 가로 스크롤로 변경
-    gap: $spacing-md;
+    flex-direction: column; // 세로 방향으로 변경 (카드 슬라이더 + 버튼)
+    gap: $spacing-xs; // 카드와 버튼 간 간격 (조금 더 여유 있게)
     padding: $spacing-md $spacing-md $spacing-md 0; // 배경 제거를 위해 패딩 조정
     margin-left: $spacing-xl; // 왼쪽 마진 증가 (시스템 메시지와 구분, 첫 카드와의 간격)
     // margin-top 제거: __messages의 gap 정책을 따름 (버블과 동일한 간격)
     background: transparent; // 배경 제거
     border-top: none; // 테두리 제거
     flex-shrink: 0; // 옵션 영역이 축소되지 않도록
-    overflow-x: auto; // 가로 스크롤 (스와이프/드래그로 슬라이드 가능)
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory; // 슬라이드 효과
-    margin-bottom: 0; // 하단 마진 제거
-    padding-bottom: $spacing-md; // 하단 패딩 명시적 설정
     position: relative; // 닷 네비게이터 위치 기준
-    
-    // 스크롤바 숨김 (슬라이더 기능은 유지)
-    scrollbar-width: none; // Firefox
-    -ms-overflow-style: none; // IE, Edge
-    
-    &::-webkit-scrollbar {
-      display: none; // Chrome, Safari, Opera
-    }
     
     // 부드러운 페이드인 애니메이션 (오른쪽에서 왼쪽으로)
     opacity: 0;
@@ -70,6 +55,42 @@
     &.is-visible {
       opacity: 1;
       transform: translateX(0);
+    }
+  }
+
+  // 카드 슬라이더 컨테이너 (가로 스크롤)
+  &__options-slider {
+    display: flex;
+    flex-direction: row; // 가로 스크롤
+    gap: $spacing-md;
+    overflow-x: auto; // 가로 스크롤 (스와이프/드래그로 슬라이드 가능)
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory; // 슬라이드 효과
+    margin-bottom: 0; // 하단 마진 제거
+    padding-bottom: 0; // 하단 패딩 제거
+    
+    // 스크롤바 숨김 (슬라이더 기능은 유지)
+    scrollbar-width: none; // Firefox
+    -ms-overflow-style: none; // IE, Edge
+    
+    &::-webkit-scrollbar {
+      display: none; // Chrome, Safari, Opera
+    }
+    
+    // 카드가 0개일 때
+    &--empty {
+      display: none;
+    }
+    
+    // 카드가 1개일 때: 오른쪽 정렬
+    &--single {
+      justify-content: flex-end;
+    }
+    
+    // 카드가 여러 개일 때: 왼쪽 정렬 (기본)
+    &--multiple {
+      justify-content: flex-start;
     }
   }
 
@@ -105,16 +126,128 @@
   }
 
   &__progress {
+    position: fixed; // body 밖에 있으므로 fixed로 변경
+    bottom: 0;
+    left: 0;
+    right: 0;
     padding: $spacing-sm $spacing-md;
     background: $gray-100;
     border-top: 1px solid $gray-300;
+    flex-shrink: 0; // 진행 상태 영역이 축소되지 않도록
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+    height: 60px; // 고정 높이
+  }
+
+  &__progress-info {
     text-align: center;
     font-size: $font-sm;
     color: $gray-600;
-    flex-shrink: 0; // 진행 상태 영역이 축소되지 않도록
-    position: sticky; // 하단에 고정
-    bottom: 0;
-    z-index: 10;
+  }
+
+  &__progress-actions {
+    display: flex;
+    justify-content: flex-end; // 우측 정렬
+    align-items: center;
+    gap: $spacing-xs;
+    padding: 0; // 패딩 제거
+    margin-left: 0; // 슬라이더와 동일한 왼쪽 마진 (슬라이더 내부이므로)
+    margin-right: 0; // 오른쪽 끝에 붙이기
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+    
+    &--visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  &__progress-actions-right {
+    display: flex;
+    gap: $spacing-xs;
+    margin-left: auto; // 우측 정렬
+  }
+
+  &__button {
+    padding: $spacing-sm $spacing-md;
+    border-radius: $border-radius-md;
+    font-size: $font-base;
+    font-weight: $font-weight-semibold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    font-family: $font-family-base;
+
+    &--small {
+      padding: $spacing-xs $spacing-sm;
+      font-size: $font-sm;
+      flex: 0 0 auto; // 크기 고정
+    }
+
+    &--primary {
+      background: $brand-brown-dark;
+      color: white;
+
+      &:hover {
+        background: $brand-brown-hover-dark;
+        transform: translateY(-1px);
+        box-shadow: $shadow-md;
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+    }
+
+    &--secondary {
+      background: $gray-200;
+      color: $gray-700;
+
+      &:hover {
+        background: $gray-300;
+        transform: translateY(-1px);
+        box-shadow: $shadow-sm;
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+    }
+
+    &--select-all {
+      background: $brand-brown-light-bg;
+      color: $brand-brown-dark;
+      border: 1px solid $brand-brown-dark;
+
+      &:hover {
+        background: $brand-brown-light;
+        transform: translateY(-1px);
+        box-shadow: $shadow-sm;
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+    }
+
+    &--select-all {
+      background: $brand-brown-light-bg;
+      color: $brand-brown-dark;
+      border: 1px solid $brand-brown-dark;
+
+      &:hover {
+        background: $brand-brown-light;
+        transform: translateY(-1px);
+        box-shadow: $shadow-sm;
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+    }
   }
 
   // 고민 중 스피너 (웰로 이미지)
@@ -147,8 +280,14 @@
     font-size: $font-xs; // 폰트 크기 줄임
     color: $brand-brown-darker; // 갈색으로 변경
     font-style: normal; // 기울이기 제거
-    animation: fadeInOut 0.8s ease-in-out; // 더 천천히 나타나게
     white-space: nowrap;
+    transition: opacity 0.8s ease-in-out, transform 0.8s ease-in-out; // 부드러운 전환 효과
+    opacity: 1;
+    transform: translateY(0);
+    display: inline-block;
+    
+    // 텍스트 변경 시 부드러운 페이드 효과
+    animation: fadeInOut 1.5s ease-in-out infinite;
   }
 
   &__thinking-spinner {
@@ -377,8 +516,49 @@
     gap: $spacing-xs; // 효과와 배지 간 간격
   }
 
+  &__checkbox-wrapper {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    margin-top: 2px; // 텍스트와 정렬 맞추기
+  }
+
+  &__checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    appearance: none;
+    border: 2px solid $brand-brown-dark;
+    background: $white;
+    border-radius: $border-radius-sm;
+    position: relative;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    
+    &:checked {
+      background: $brand-brown-dark;
+      border-color: $brand-brown-dark;
+      
+      &::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: $white;
+        font-size: 12px;
+        font-weight: $font-weight-bold;
+      }
+    }
+    
+    &:hover {
+      border-color: $brand-brown-darker;
+      transform: scale(1.05);
+    }
+  }
+
   &__effect {
-    font-size: 1rem; // $font-lg (18px)에서 16px로 -2px
+    font-size: 0.875rem; // 14px (16px에서 -2px)
     font-weight: $font-weight-semibold;
     color: $gray-800;
     margin: 0;
@@ -462,20 +642,19 @@
 .checkup-card {
   display: flex;
   flex-direction: column;
-  min-width: 180px; // 220px에서 180px로 더 축소
-  max-width: 220px; // 260px에서 220px로 더 축소
-  width: 180px; // 220px에서 180px로 더 축소
-  min-height: 120px; // 높이 축소
-  padding: $spacing-xs $spacing-sm; // 패딩 더 축소
+  min-width: 180px;
+  max-width: 220px;
+  width: 180px;
+  min-height: 120px;
+  padding: $spacing-xs $spacing-sm;
   background: $white;
   border: 1px solid $gray-300;
   border-radius: $border-radius-lg;
   text-align: left;
-  cursor: pointer;
   transition: all 0.2s ease;
   font-family: $font-family-base;
-  flex-shrink: 0; // 축소 방지
-  scroll-snap-align: start; // 슬라이드 정렬
+  flex-shrink: 0;
+  scroll-snap-align: start;
   
   // 카드 하나씩 순차적으로 나타나는 애니메이션 (오른쪽에서 왼쪽으로)
   opacity: 0;
@@ -484,7 +663,6 @@
 
   &:hover {
     border-color: $brand-brown;
-    transform: translateY(-2px);
     box-shadow: $shadow-lg;
   }
 
@@ -494,23 +672,105 @@
     box-shadow: $shadow-md;
   }
 
+  &--expanded {
+    min-width: 100%;
+    max-width: 100%;
+    width: 100%;
+    position: relative;
+    z-index: 10;
+  }
+
+  &__main {
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    padding: 0;
+    text-align: left;
+    width: 100%;
+    outline: none;
+    
+    &:focus {
+      outline: 2px solid $brand-brown;
+      outline-offset: 2px;
+      border-radius: $border-radius-md;
+    }
+  }
+
   &__header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     margin-bottom: $spacing-sm;
+    gap: $spacing-xs;
+  }
+
+  &__checkbox-wrapper {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    margin-top: 2px;
+  }
+
+  &__checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    appearance: none;
+    border: 2px solid $brand-brown-dark;
+    background: $white;
+    border-radius: $border-radius-sm;
+    position: relative;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    
+    &:checked {
+      background: $brand-brown-dark;
+      border-color: $brand-brown-dark;
+      
+      &::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: $white;
+        font-size: 12px;
+        font-weight: $font-weight-bold;
+      }
+    }
+    
+    &:hover {
+      border-color: $brand-brown-darker;
+      transform: scale(1.05);
+    }
   }
 
   &__title {
-    font-size: $font-lg;
+    font-size: 0.875rem;
     font-weight: $font-weight-semibold;
     color: $gray-800;
     margin: 0;
+    flex: 1;
   }
 
   &__date {
     font-size: $font-sm;
     color: $gray-600;
+  }
+
+  &__expand-button {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: $font-sm;
+    color: $gray-600;
+    padding: 0;
+    flex-shrink: 0;
+    transition: color 0.2s ease;
+    
+    &:hover {
+      color: $brand-brown;
+    }
   }
 
   &__body {
@@ -552,6 +812,305 @@
       color: $badge-abnormal-text;
     }
   }
+
+  // 확장된 상세 정보
+  &__details {
+    margin-top: $spacing-sm;
+    padding-top: $spacing-sm;
+    border-top: 1px solid $gray-200;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm;
+    width: 100%;
+    overflow: visible;
+    position: relative;
+    z-index: 1;
+  }
+
+  &__group-slider {
+    display: flex;
+    gap: $spacing-xs;
+    overflow-x: auto;
+    padding-bottom: $spacing-xs;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  &__group-tab {
+    padding: $spacing-xs $spacing-sm;
+    border: 1px solid $gray-300;
+    border-radius: $border-radius-sm;
+    background: $white;
+    color: $gray-700;
+    font-size: $font-xs;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      border-color: $brand-brown;
+      color: $brand-brown;
+    }
+    
+    &.active {
+      background: $brand-brown;
+      border-color: $brand-brown;
+      color: $white;
+    }
+  }
+
+  &__status-badges {
+    display: flex;
+    gap: $spacing-xs;
+    flex-wrap: wrap;
+  }
+
+  &__status-badge {
+    padding: 2px $spacing-xs;
+    border-radius: $border-radius-sm;
+    font-size: $font-xs;
+    font-weight: $font-weight-medium;
+    
+    &.status-normal {
+      background: $badge-normal-bg;
+      color: $badge-normal-text;
+    }
+    
+    &.status-warning {
+      background: $badge-warning-bg;
+      color: $badge-warning-text;
+    }
+    
+    &.status-abnormal {
+      background: $badge-abnormal-bg;
+      color: $badge-abnormal-text;
+    }
+  }
+
+  &__items-slider {
+    display: flex;
+    flex-direction: row;
+    gap: $spacing-sm;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: $spacing-sm $spacing-xs;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    width: 100%;
+    max-width: 100%;
+    
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    
+    // 항목이 0개일 때
+    &--empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 60px;
+    }
+    
+    // 항목이 1개일 때: 오른쪽 정렬
+    &--single {
+      justify-content: flex-end;
+    }
+    
+    // 항목이 여러 개일 때: 왼쪽 정렬 (기본)
+    &--multiple {
+      justify-content: flex-start;
+    }
+  }
+  
+  &__items-empty {
+    font-size: $font-sm;
+    color: $gray-500;
+    text-align: center;
+    padding: $spacing-md;
+  }
+
+  &__item {
+    position: relative;
+    min-width: 200px;
+    max-width: 200px;
+    width: 200px;
+    padding: $spacing-sm;
+    background: $gray-50;
+    border-radius: $border-radius-md;
+    border: 1px solid $gray-200;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    flex-grow: 0;
+    scroll-snap-align: start;
+    user-select: none;
+    
+    &:hover {
+      border-color: $brand-brown;
+      box-shadow: $shadow-sm;
+    }
+    
+    &--selected {
+      background: $brand-brown-light;
+      border-color: $brand-brown;
+      box-shadow: $shadow-md;
+    }
+  }
+
+  &__item-checkbox-wrapper {
+    position: absolute;
+    top: $spacing-xs;
+    left: $spacing-xs;
+    z-index: 10;
+  }
+
+  &__item-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    appearance: none;
+    border: 2px solid $brand-brown-dark;
+    background: $white;
+    border-radius: $border-radius-sm;
+    position: relative;
+    transition: all 0.2s ease;
+    
+    &:checked {
+      background: $brand-brown-dark;
+      border-color: $brand-brown-dark;
+      
+      &::after {
+        content: '✓';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: $white;
+        font-size: 12px;
+        font-weight: $font-weight-bold;
+      }
+    }
+    
+    &:hover {
+      border-color: $brand-brown-darker;
+      transform: scale(1.05);
+    }
+  }
+
+  &__item-badge {
+    position: absolute;
+    top: $spacing-xs;
+    right: $spacing-xs;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: $font-xs;
+    font-weight: $font-weight-bold;
+    color: $white;
+    z-index: 5;
+    
+    &.status-normal {
+      background: $badge-normal-bg;
+    }
+    
+    &.status-warning {
+      background: $badge-warning-bg;
+    }
+    
+    &.status-abnormal {
+      background: $badge-abnormal-bg;
+    }
+  }
+
+  &__item-name {
+    font-size: $font-sm;
+    font-weight: $font-weight-semibold;
+    color: $gray-800;
+    margin-bottom: $spacing-xs;
+    padding-left: 28px; // 체크박스 공간 확보
+    padding-right: 30px; // 뱃지 공간 확보
+  }
+
+  &__item-value {
+    font-size: $font-lg;
+    font-weight: $font-weight-bold;
+    color: $gray-900;
+    margin-bottom: $spacing-xs;
+  }
+
+  &__item-unit {
+    font-size: $font-sm;
+    font-weight: $font-weight-normal;
+    color: $gray-600;
+    margin-left: 2px;
+  }
+
+  &__body-measurements {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-xs;
+  }
+
+  &__measurement {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: $spacing-xs 0;
+    border-bottom: 1px solid $gray-200;
+    
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__measurement-label {
+    font-size: $font-sm;
+    color: $gray-600;
+  }
+
+  &__measurement-value {
+    font-size: $font-base;
+    font-weight: $font-weight-semibold;
+    color: $gray-800;
+  }
+
+  &__measurement-unit {
+    font-size: $font-xs;
+    color: $gray-600;
+    margin-left: 2px;
+  }
+
+  &__item-references {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: $spacing-xs;
+    padding-top: $spacing-xs;
+    border-top: 1px solid $gray-200;
+  }
+
+  &__reference {
+    display: flex;
+    justify-content: space-between;
+    font-size: $font-xs;
+    color: $gray-600;
+  }
+
+  &__reference-label {
+    font-weight: $font-weight-medium;
+  }
+
+  &__reference-range {
+    color: $gray-500;
+  }
 }
 
 // 애니메이션
@@ -585,11 +1144,17 @@
 }
 
 @keyframes fadeInOut {
-  0%, 100% {
-    opacity: 0;
+  0% {
+    opacity: 0.3;
+    transform: translateY(3px);
   }
   50% {
     opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0.3;
+    transform: translateY(-3px);
   }
 }
 

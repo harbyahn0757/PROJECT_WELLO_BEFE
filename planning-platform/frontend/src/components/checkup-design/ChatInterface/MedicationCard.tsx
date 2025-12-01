@@ -52,13 +52,36 @@ const MedicationCard: React.FC<MedicationCardProps> = ({
   const isLongTerm = pattern.totalDays >= 180;
   const isRecent = new Date(pattern.lastPrescriptionEndDate) >= new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // 체크박스 클릭 시에는 카드 클릭 이벤트 전파 방지
+    if ((e.target as HTMLElement).closest('.medication-card__checkbox')) {
+      return;
+    }
+    onClick(pattern);
+  };
+
+  const handleCheckboxClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // 카드 클릭 이벤트 전파 방지
+    onClick(pattern);
+  };
+
   return (
     <button
       className={`medication-card ${selected ? 'medication-card--selected' : ''}`}
-      onClick={() => onClick(pattern)}
+      onClick={handleCardClick}
       style={{ animationDelay: `${animationDelay}ms` }}
     >
       <div className="medication-card__header">
+        <div className="medication-card__checkbox-wrapper">
+          <input
+            type="checkbox"
+            className="medication-card__checkbox"
+            checked={selected}
+            onChange={() => {}} // controlled by parent
+            onClick={handleCheckboxClick}
+            aria-label={`${pattern.effect} 선택`}
+          />
+        </div>
         <h3 className="medication-card__effect">{pattern.effect}</h3>
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <span className="medication-card__prescription-count-badge">
