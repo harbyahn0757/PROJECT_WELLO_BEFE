@@ -188,3 +188,4 @@ CREATE TABLE IF NOT EXISTS wello.wello_checkup_design_requests (
 - 추가 검진 항목 업셀링
 - 건강 관리 프로그램 추천
 
+

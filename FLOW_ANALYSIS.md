@@ -77,3 +77,4 @@ useEffect(() => {
 - **현재:** `wello_patients`의 `name`이 "안광수"인데 `mdx_agr_list`에는 "안광수-김현우"도 있음
 - **해결:** 이름 매칭을 더 유연하게 처리 (부분 매칭 또는 LIKE 사용)
 
+

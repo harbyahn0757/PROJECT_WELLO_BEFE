@@ -192,3 +192,4 @@ AI 모델(Perplexity/OpenAI)이 다음을 포함하여 응답:
 - References는 링크 또는 텍스트 형태로 제공 가능
 - Evidence는 의학적 근거를 텍스트로 설명
 
+

@@ -12,3 +12,4 @@ ORDER BY ordinal_position;
 -- KIM_HW_CLINIC 데이터 확인
 SELECT * FROM wello.wello_hospitals WHERE hospital_id = 'KIM_HW_CLINIC';
 
+

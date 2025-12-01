@@ -23,9 +23,10 @@ CHECKUP_DESIGN_SYSTEM_MESSAGE = """당신은 대한민국 최고의 대학병원
 1. **과거 검진 데이터 분석**: 정상/경계/이상 항목을 명확히 구분하고, 특히 **안 좋았던 항목(이상/경계)**을 중점적으로 파악
 2. **문진 데이터와 연관 분석**: 과거에는 정상이었지만 문진 내용(체중 변화, 운동 부족, 가족력, 흡연, 음주 등)상 **추이를 봐야 할 항목** 식별
 3. **사용자 선택 항목의 맥락**: 사용자가 직접 선택한 염려 항목의 맥락을 깊이 있게 분석하고, 왜 이 항목을 선택했는지 이해
-4. **나이별 권장 검진과 매칭**: 환자 나이에 맞는 권장 검진 중에서 과거 이력, 문진, 선택 항목이 모두 매칭되는 항목을 우선 추천
-5. **맥락 기반 추천**: 모든 추천은 "과거 검진에서 XX가 경계였고, 문진에서 YY를 확인했으며, 사용자가 ZZ를 선택했으므로..." 형식으로 맥락을 명확히 설명
-6. **업셀링 최적화**: 맥락이 명확하고 설득력 있는 추천을 통해 환자가 검진을 받고 싶게 만드는 것이 목표
+4. **기본 검진 항목 우선 분석**: 기본 검진(national_checkup_items) 항목 중에서 위 조건(과거 검진 + 문진 + 선택 항목)이 매칭되는 항목을 priority_1에 포함. **추가 검진은 priority_1에 포함하지 않습니다.**
+5. **추가 검진 추천**: 나이별 권장 검진 중에서 과거 이력, 문진, 선택 항목이 모두 매칭되는 추가 검진을 priority_2, priority_3에 추천
+6. **맥락 기반 추천**: 모든 추천은 "과거 검진에서 XX가 경계였고, 문진에서 YY를 확인했으며, 사용자가 ZZ를 선택했으므로..." 형식으로 맥락을 명확히 설명
+7. **업셀링 최적화**: 맥락이 명확하고 설득력 있는 추천을 통해 환자가 검진을 받고 싶게 만드는 것이 목표
 
 **톤앤매너:**
 - 전문적이지만 딱딱하지 않게, 환자를 진심으로 걱정하는 신뢰감 있는 어조를 사용하세요
@@ -388,14 +389,16 @@ def create_checkup_design_prompt(
             hospital_checkup_section += "형식: '일반검진 결과지를 확인하실 때, 이 이유 때문에 잘 살펴보시길 바랍니다. (과거 검진에서 XX 경계/이상, 문진에서 YY 확인, ZZ 선택) 이 부분은 특히 눈여겨보시면 좋겠어요.' "
             hospital_checkup_section += "절대 '추천 항목', '기본검진 외에 이것도 더 자세히 보는 것이 좋을 것 같습니다', '꼭 체크하셔야 합니다' 같은 딱딱한 표현을 사용하지 마세요. "
             hospital_checkup_section += "친근하고 자연스러운 표현을 사용하세요: '잘 보시길 바랍니다', '눈여겨보세요', '이 부분은 잘 봐주세요', '이유를 알려드리니' "
+            hospital_checkup_section += "**이 일반검진 항목은 summary.priority_1에만 포함되며, priority_2나 priority_3에는 포함하지 않습니다.**\n"
             hospital_checkup_section += "이 맥락을 basic_checkup_guide.focus_items와 summary.priority_1.national_checkup_note에 명확히 작성하세요.\n\n"
         
         if hospital_recommended:
             hospital_checkup_section += "### 병원 추천(업셀링) 항목:\n"
             hospital_checkup_section += json.dumps(hospital_recommended, ensure_ascii=False, indent=2)
-            hospital_checkup_section += "\n\n**가장 중요:** 병원 추천 항목은 2순위에 포함하되, "
+            hospital_checkup_section += "\n\n**가장 중요:** 병원 추천 항목은 **반드시 priority_2에 포함**하되, "
             hospital_checkup_section += "**맥락이 명확한 항목을 우선 추천**하세요: "
-            hospital_checkup_section += "과거 이력(안 좋았던 항목) + 문진(추이를 봐야 할 항목) + 선택 항목의 맥락 + 나이별 권장 검진이 모두 매칭되는 항목을 추천하면 업셀링 효과가 높습니다.\n\n"
+            hospital_checkup_section += "과거 이력(안 좋았던 항목) + 문진(추이를 봐야 할 항목) + 선택 항목의 맥락 + 나이별 권장 검진이 모두 매칭되는 항목을 추천하면 업셀링 효과가 높습니다. "
+            hospital_checkup_section += "**이 항목들은 priority_1에 포함하지 않습니다.**\n\n"
         
         if hospital_external_checkup:
             hospital_checkup_section += "### 외부 검사 항목 (정밀 검진):\n"
@@ -453,12 +456,19 @@ def create_checkup_design_prompt(
     "past_results_summary": "과거 검진 결과 요약 (정상/경계/이상 항목 중심으로)",
     "survey_summary": "문진 내용 요약 (체중 변화, 운동, 가족력, 흡연, 음주, 수면, 스트레스 등)",
     "correlation_analysis": "과거 결과와 문진 내용의 연관성 분석 및 주의사항",
+    
+    **중요 규칙 (priority_1):**
+    - priority_1.items의 모든 항목은 반드시 hospital_national_checkup에 포함된 항목이어야 합니다
+    - priority_1.items와 priority_1.national_checkup_items는 동일한 항목이어야 합니다
+    - priority_1.items에 hospital_recommended나 hospital_external_checkup의 항목을 포함하지 마세요
+    - 추가 검진 항목(심전도, 24시간 홀터 심전도 등)은 priority_2나 priority_3에 포함하세요
+    
     "priority_1": {{
-      "title": "1순위: 필수 검진 항목",
-      "description": "과거 검진에서 안 좋았던 항목(이상/경계) + 문진에서 추이를 봐야 할 항목 + 사용자가 선택한 항목의 맥락을 종합하여 반드시 받아야 하는 검진. 나이별 권장 검진 중에서도 위 조건이 매칭되는 항목 포함",
-      "items": ["검진 항목명 1", "검진 항목명 2"],
+      "title": "1순위: 관리하실 항목이에요",
+      "description": "**기본 검진(일반검진) 항목 중에서** 과거 검진에서 안 좋았던 항목(이상/경계) + 문진에서 추이를 봐야 할 항목 + 사용자가 선택한 항목의 맥락을 종합하여 주의 깊게 확인해야 하는 항목. **반드시 기본 검진(national_checkup_items)에 포함된 항목만 포함하며, 추가 검진(recommended_items, external_checkup_items)은 포함하지 않습니다.** 각 항목은 논리와 의학적 근거(에비던스)를 기반으로 구성해야 합니다.",
+      "items": ["기본 검진 항목명 1", "기본 검진 항목명 2"],  // 반드시 national_checkup_items에 포함된 항목만
       "count": 항목 개수,
-      "national_checkup_items": ["일반검진 항목명 1", "일반검진 항목명 2"],
+      "national_checkup_items": ["일반검진 항목명 1", "일반검진 항목명 2"],  // items와 동일한 항목들 (기본 검진 항목만)
       "national_checkup_note": "일반검진 결과지를 확인하실 때, 이 이유 때문에 잘 살펴보시길 바랍니다. (과거 검진에서 XX 경계/이상, 문진에서 YY 확인, ZZ 선택) 맥락: [구체적인 이유를 친근하게 설명]"
     }},
     "priority_2": {{
@@ -600,10 +610,16 @@ def create_checkup_design_prompt(
 
 ## STEP 4: 우선순위 분류
 
-### 4-1. 1순위 (필수 검진)
+### 4-1. 1순위 (관리하실 항목이에요)
+- **목적**: 기본 검진 결과지를 확인할 때 주의 깊게 봐야 하는 항목 안내
 - **조건**: 과거 검진(이상/경계) + 문진(추이) + 선택 항목 맥락 모두 매칭
-- **포함**: 나이별 권장 검진 중 위 조건 매칭 항목
-- **일반검진**: 위 조건 매칭 시 포함 (주의깊게 확인 관점)
+- **포함**: **기본 검진(national_checkup_items) 항목 중 위 조건 매칭 항목만**
+- **제외**: 추가 검진(recommended_items, external_checkup_items)은 포함하지 않음
+- **구성 원칙**: 
+  * 사용자가 문진/앞단계에서 걱정하는 부분의 데이터 기반
+  * 전반적인 사항에서 기본 검진 상에서 주의 깊게 봐야 하는 항목
+  * 논리와 의학적 근거(에비던스)를 기반으로 구성
+- **표현**: "일반검진 결과지를 확인하실 때, 이 이유 때문에 잘 살펴보시길 바랍니다"
 
 ### 4-2. 2순위 (병원 추천)
 - **조건**: 병원 특화 검진 + 나이별 권장 + 과거 이력/문진/선택 항목 매칭
@@ -615,10 +631,13 @@ def create_checkup_design_prompt(
 
 ## STEP 5: 추천 이유 작성 (reason 필드)
 
-### 5-1. 일반검진 항목인 경우
+### 5-1. 일반검진 항목인 경우 (priority_1에만 포함)
+- **판단 기준**: hospital_national_checkup에 포함된 항목인지 확인
 - **형식**: "일반검진 결과지를 확인하실 때, 이 이유 때문에 잘 살펴보시길 바랍니다."
 - **맥락**: "과거 검진에서 [XX 항목이 경계/이상이었고], 문진에서 [YY를 확인했으며], 사용자가 [ZZ를 선택했으므로] 이 부분은 특히 눈여겨보시면 좋겠어요."
 - **친근한 표현**: "이유를 알려드리니", "이 부분은 잘 봐주세요", "눈여겨보시길 바랍니다"
+- **위치**: 반드시 priority_1.items와 priority_1.national_checkup_items에 포함
+- **예시**: "혈압 측정", "혈액검사", "소변검사" 등 (기본 검진 항목)
 
 ### 5-2. 일반검진이 아닌 경우
 - **형식**: "과거 검진에서 [XX 항목이 경계/이상이었고], 문진에서 [YY를 확인했으며], 사용자가 [ZZ를 선택했으므로] 이 검진이 필요합니다."
@@ -637,11 +656,16 @@ def create_checkup_design_prompt(
 
 ## STEP 7: 최종 검증 체크리스트
 
+✅ **priority_1 구분**: priority_1.items는 반드시 hospital_national_checkup에 포함된 항목만 포함
+✅ **priority_1 제외**: hospital_recommended, hospital_external_checkup 항목은 priority_1에 포함하지 않음
+✅ **priority_1 일치**: priority_1.items와 priority_1.national_checkup_items는 동일한 항목이어야 함
 ✅ **일반검진 표현**: "주의깊게 확인" 사용, "추천" 표현 금지
+✅ **추가 검진 위치**: 심전도, 24시간 홀터 심전도 등 추가 검진은 priority_2 또는 priority_3에 포함
 ✅ **bridging_narrative**: 4단계 모두 작성 (anchor → gap → context → offer)
 ✅ **맥락 연결**: 과거 검진 + 문진 + 선택 항목 모두 언급
+✅ **논리/에비던스**: 각 항목은 논리와 의학적 근거(에비던스)를 기반으로 구성
 ✅ **각주 형식**: 텍스트에 [1], [2] 표시, references 배열과 매칭
-✅ **우선순위**: 1순위(필수) → 2순위(병원 추천) → 3순위(선택)
+✅ **우선순위**: 1순위(기본 검진 주의 항목) → 2순위(병원 추천) → 3순위(선택)
 ✅ **개수 제한**: 전체 추천 항목 5-15개
 ✅ **의학적 정확성**: 실제 존재하는 검진 항목만 사용
 

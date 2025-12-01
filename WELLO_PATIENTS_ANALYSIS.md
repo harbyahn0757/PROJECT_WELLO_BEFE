@@ -80,3 +80,4 @@ birthday: rawPatientData.birth_date || rawPatientData.birthday || ''
 2. **장기 해결**: Tilko 인증 시 전화번호/생년월일이 확실히 저장되도록 보장
 3. **데이터 보완**: 기존 레코드의 전화번호/생년월일을 mdx_agr_list에서 가져와서 보완
 
+

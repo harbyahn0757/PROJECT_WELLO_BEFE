@@ -30,6 +30,18 @@ class FileToDbProcessor:
     async def process_pending_files(self) -> Dict[str, Any]:
         """pending 파일들을 DB에 처리"""
         try:
+            # 먼저 상태 확인 - 처리할 파일이 없으면 조용히 리턴
+            status = await self.file_service.get_status_summary()
+            if status.get("pending_files", 0) == 0 and status.get("failed_files", 0) == 0:
+                # 처리할 파일이 없으면 로그 없이 리턴
+                return {
+                    "success": True,
+                    "results": {"success": 0, "failed": 0, "skipped": 0},
+                    "retry_results": {"retry_success": 0, "retry_failed": 0, "max_retries_exceeded": 0},
+                    "status": status,
+                    "stats": self.stats
+                }
+            
             print(f"🔄 [배치처리] 파일 → DB 처리 시작: {datetime.now()}")
             
             # 1. pending 파일들 처리
@@ -49,13 +61,16 @@ class FileToDbProcessor:
                 "timestamp": datetime.now().isoformat()
             }
             
-            # 4. 상태 요약
+            # 4. 상태 요약 (업데이트)
             status = await self.file_service.get_status_summary()
             
-            print(f"✅ [배치처리] 완료 - 성공: {results['success'] + retry_results['retry_success']}건, "
-                  f"실패: {results['failed'] + retry_results['retry_failed']}건")
-            print(f"📊 [배치처리] 현재 상태 - pending: {status['pending_files']}개, "
-                  f"completed: {status['completed_files']}개, failed: {status['failed_files']}개")
+            # 실제로 처리한 파일이 있을 때만 완료 로그 출력
+            total_processed = results["success"] + results["failed"] + retry_results["retry_success"] + retry_results["retry_failed"]
+            if total_processed > 0:
+                print(f"✅ [배치처리] 완료 - 성공: {results['success'] + retry_results['retry_success']}건, "
+                      f"실패: {results['failed'] + retry_results['retry_failed']}건")
+                print(f"📊 [배치처리] 현재 상태 - pending: {status['pending_files']}개, "
+                      f"completed: {status['completed_files']}개, failed: {status['failed_files']}개")
             
             return {
                 "success": True,

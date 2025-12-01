@@ -147,3 +147,4 @@ python3 scripts/check_test_patient_data.py
 3. DB 저장 데이터 확인
 4. 업셀링용 데이터 활용 방안 검토
 
+

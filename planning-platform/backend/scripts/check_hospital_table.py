@@ -69,3 +69,4 @@ async def check_hospital_table():
 if __name__ == "__main__":
     asyncio.run(check_hospital_table())
 
+

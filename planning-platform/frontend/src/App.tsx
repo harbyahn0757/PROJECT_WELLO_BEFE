@@ -343,13 +343,12 @@ const AppContent: React.FC = () => {
   const loadingUuidRef = useRef<string | null>(null); // 현재 로딩 중인 UUID 추적
   const lastSearchRef = useRef<string>(''); // 마지막 처리한 location.search 추적
 
-  // sockjs-node 경로는 개발 서버의 HMR WebSocket이므로 무시
-  if (location.pathname.startsWith('/sockjs-node')) {
-    return null;
-  }
-
   // 초기 로드 시 쿼리 파라미터 보존 (프로덕션 환경에서 쿼리 파라미터가 사라지는 문제 해결)
   useEffect(() => {
+    // sockjs-node 경로는 개발 서버의 HMR WebSocket이므로 무시
+    if (location.pathname.startsWith('/sockjs-node')) {
+      return;
+    }
     // 즉시 실행 (동기적으로) - React Router가 렌더링되기 전에 처리
     const restoreQueryParams = () => {
       // 1. sessionStorage에서 저장된 쿼리 파라미터 확인 (index.html의 인라인 스크립트에서 저장됨)
@@ -420,7 +419,7 @@ const AppContent: React.FC = () => {
       
       return () => clearTimeout(timeoutId);
     }
-  }, []); // 초기 마운트 시 한 번만 실행
+  }, [location.pathname, location.search, navigate]); // 의존성 추가
 
   // 메인페이지로 돌아올 때 로딩 표시
   useEffect(() => {
@@ -583,6 +582,11 @@ const AppContent: React.FC = () => {
   }
 
   // 통합 레이아웃 사용 (세로형/가로형/인트로 제거)
+  // sockjs-node 경로는 개발 서버의 HMR WebSocket이므로 무시
+  if (location.pathname.startsWith('/sockjs-node')) {
+    return null;
+  }
+
   return (
     <div className="app">
       <div className="main-container" key={location.pathname}>

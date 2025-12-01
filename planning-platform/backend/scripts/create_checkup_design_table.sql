@@ -31,3 +31,4 @@ CREATE TRIGGER update_wello_checkup_design_requests_updated_at
     BEFORE UPDATE ON wello.wello_checkup_design_requests 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+

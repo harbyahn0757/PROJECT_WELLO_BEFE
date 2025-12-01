@@ -103,6 +103,10 @@ class FileFirstDataService:
                 key=lambda x: x.stat().st_mtime
             )[:max_files]
             
+            # 처리할 파일이 없으면 조용히 리턴
+            if len(pending_files) == 0:
+                return results
+            
             print(f"🔄 [DB저장] pending 파일 {len(pending_files)}개 처리 시작")
             
             for file_path in pending_files:
@@ -131,7 +135,10 @@ class FileFirstDataService:
                     print(f"❌ [DB저장] 파일 처리 중 오류 ({file_path.name}): {e}")
                     results["failed"] += 1
             
-            print(f"🏁 [DB저장] 처리 완료 - 성공: {results['success']}, 실패: {results['failed']}, 건너뜀: {results['skipped']}")
+            # 실제로 처리한 파일이 있을 때만 완료 로그 출력
+            total_processed = results['success'] + results['failed'] + results['skipped']
+            if total_processed > 0:
+                print(f"🏁 [DB저장] 처리 완료 - 성공: {results['success']}, 실패: {results['failed']}, 건너뜀: {results['skipped']}")
             
         except Exception as e:
             print(f"❌ [DB저장] pending 파일 처리 중 전체 오류: {e}")
@@ -255,6 +262,11 @@ class FileFirstDataService:
         
         try:
             failed_files = list(self.failed_dir.glob("*.json"))
+            
+            # 재시도할 파일이 없으면 조용히 리턴
+            if len(failed_files) == 0:
+                return results
+            
             print(f"🔄 [재시도] 실패 파일 {len(failed_files)}개 재시도 시작")
             
             for file_path in failed_files:
@@ -289,7 +301,10 @@ class FileFirstDataService:
                     print(f"❌ [재시도] 파일 처리 오류 ({file_path.name}): {e}")
                     results["retry_failed"] += 1
             
-            print(f"🏁 [재시도] 완료 - 성공: {results['retry_success']}, 실패: {results['retry_failed']}, 최대재시도초과: {results['max_retries_exceeded']}")
+            # 실제로 처리한 파일이 있을 때만 완료 로그 출력
+            total_retried = results['retry_success'] + results['retry_failed'] + results['max_retries_exceeded']
+            if total_retried > 0:
+                print(f"🏁 [재시도] 완료 - 성공: {results['retry_success']}, 실패: {results['retry_failed']}, 최대재시도초과: {results['max_retries_exceeded']}")
             
         except Exception as e:
             print(f"❌ [재시도] 전체 처리 오류: {e}")

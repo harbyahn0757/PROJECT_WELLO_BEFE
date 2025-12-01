@@ -72,3 +72,4 @@ CREATE INDEX IF NOT EXISTS idx_hospitals_checkup_items ON wello.wello_hospitals 
 CREATE INDEX IF NOT EXISTS idx_hospitals_national_checkup ON wello.wello_hospitals USING GIN (national_checkup_items);
 CREATE INDEX IF NOT EXISTS idx_hospitals_recommended_items ON wello.wello_hospitals USING GIN (recommended_items);
 
+
