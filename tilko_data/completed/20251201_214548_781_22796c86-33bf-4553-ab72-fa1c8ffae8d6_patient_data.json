@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "session_id": "22796c86-33bf-4553-ab72-fa1c8ffae8d6",
+    "data_type": "patient_data",
+    "patient_uuid": "b4f7d7f7-701d-4602-93b7-e69f009bab13",
+    "hospital_id": "KIM_HW_CLINIC",
+    "created_at": "2025-12-01T21:45:48.781651",
+    "file_version": "1.0",
+    "status": "completed",
+    "completed_at": "2025-12-01T21:45:48.967459"
+  },
+  "raw_data": {
+    "name": "김영상",
+    "birthdate": "19790618",
+    "phone_no": "01090736617",
+    "gender": "M",
+    "private_auth_type": "0"
+  },
+  "checksum": "491cbf0d2712e920fb9f6d348f81f83c573df6a8850fc30274082b717939928a"
+}

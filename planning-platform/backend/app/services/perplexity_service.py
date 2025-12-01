@@ -52,7 +52,7 @@ class PerplexityService:
         if self._api_key and not self._api_key.startswith("dev-perplexity-key") and self._api_key != "pplx-":
             self._client = httpx.AsyncClient(
                 base_url=self.API_BASE_URL,
-                timeout=120.0,  # 60초 -> 120초로 증가 (긴 응답 처리)
+                timeout=300.0,  # 120초 -> 300초(5분)로 증가 (긴 프롬프트 및 응답 처리)
                 headers={
                     "Authorization": f"Bearer {self._api_key}",
                     "Content-Type": "application/json"

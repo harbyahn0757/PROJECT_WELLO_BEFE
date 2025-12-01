@@ -387,7 +387,7 @@ const CheckupCard: React.FC<CheckupCardProps> = ({
               aria-label={`${year}년 건강검진 선택`}
             />
           </div>
-          <h3 className="checkup-card__title">{year}년 건강검진</h3>
+          <h3 className="checkup-card__title">{year}년</h3>
           <span className="checkup-card__date">{date}</span>
           {checkup && (
             <button

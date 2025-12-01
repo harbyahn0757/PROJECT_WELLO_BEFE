@@ -114,7 +114,8 @@
 
   &__content {
     flex: 1;
-    overflow: hidden; // 스크롤 숨김
+    overflow-y: auto; // 내용이 많을 경우 스크롤 가능
+    overflow-x: hidden; // 가로 스크롤 숨김
     position: relative;
   }
 
@@ -132,7 +133,8 @@
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: flex-start; // 상단부터 배치
+    overflow-y: auto; // 내용이 많을 경우 스크롤 가능
   }
 
   &__footer {

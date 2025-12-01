@@ -524,8 +524,8 @@
   }
 
   &__checkbox {
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     cursor: pointer;
     appearance: none;
     border: 2px solid $brand-brown-dark;
@@ -546,7 +546,7 @@
         left: 50%;
         transform: translate(-50%, -50%);
         color: $white;
-        font-size: 12px;
+        font-size: 10px;
         font-weight: $font-weight-bold;
       }
     }
@@ -558,7 +558,7 @@
   }
 
   &__effect {
-    font-size: 0.875rem; // 14px (16px에서 -2px)
+    font-size: 0.75rem; // 14px -> 12px로 축소
     font-weight: $font-weight-semibold;
     color: $gray-800;
     margin: 0;
@@ -612,12 +612,12 @@
   }
 
   &__period {
-    font-size: 0.75rem; // $font-sm (14px)에서 12px로 -2px
+    font-size: 0.625rem; // 12px -> 10px로 축소
     color: $gray-600;
   }
 
   &__duration {
-    font-size: 0.75rem; // $font-sm (14px)에서 12px로 -2px
+    font-size: 0.625rem; // 12px -> 10px로 축소
     color: $gray-700;
     font-weight: $font-weight-medium;
   }
@@ -712,8 +712,8 @@
   }
 
   &__checkbox {
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     cursor: pointer;
     appearance: none;
     border: 2px solid $brand-brown-dark;
@@ -734,7 +734,7 @@
         left: 50%;
         transform: translate(-50%, -50%);
         color: $white;
-        font-size: 12px;
+        font-size: 10px;
         font-weight: $font-weight-bold;
       }
     }
@@ -746,7 +746,7 @@
   }
 
   &__title {
-    font-size: 0.875rem;
+    font-size: 0.75rem; // 14px -> 12px로 축소
     font-weight: $font-weight-semibold;
     color: $gray-800;
     margin: 0;
@@ -754,7 +754,7 @@
   }
 
   &__date {
-    font-size: $font-sm;
+    font-size: 0.625rem; // 14px -> 10px로 축소
     color: $gray-600;
   }
 
@@ -780,7 +780,7 @@
   }
 
   &__location {
-    font-size: $font-sm;
+    font-size: 0.625rem; // 14px -> 10px로 축소
     color: $gray-600;
   }
 
@@ -970,8 +970,8 @@
   }
 
   &__item-checkbox {
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     cursor: pointer;
     appearance: none;
     border: 2px solid $brand-brown-dark;
@@ -991,7 +991,7 @@
         left: 50%;
         transform: translate(-50%, -50%);
         color: $white;
-        font-size: 12px;
+        font-size: 10px;
         font-weight: $font-weight-bold;
       }
     }
@@ -1031,23 +1031,23 @@
   }
 
   &__item-name {
-    font-size: $font-sm;
+    font-size: 0.625rem; // 14px -> 10px로 축소
     font-weight: $font-weight-semibold;
     color: $gray-800;
     margin-bottom: $spacing-xs;
-    padding-left: 28px; // 체크박스 공간 확보
+    padding-left: 24px; // 체크박스 공간 확보 (14px + 10px)
     padding-right: 30px; // 뱃지 공간 확보
   }
 
   &__item-value {
-    font-size: $font-lg;
+    font-size: $font-base; // $font-lg -> $font-base로 축소
     font-weight: $font-weight-bold;
     color: $gray-900;
     margin-bottom: $spacing-xs;
   }
 
   &__item-unit {
-    font-size: $font-sm;
+    font-size: 0.625rem; // 14px -> 10px로 축소
     font-weight: $font-weight-normal;
     color: $gray-600;
     margin-left: 2px;
