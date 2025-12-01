@@ -175,13 +175,13 @@
     background: transparent;
   }
   
-  // 나머지 카드 섹션 (흰색 배경으로 구분)
+  // 나머지 카드 섹션 (연한 크림 배경으로 구분)
   &__secondary-cards-section {
     padding-top: 12px !important; // 상단 패딩 12px
     padding-left: 1rem !important; // 좌측 패딩 1rem (16px)
     padding-right: 1rem !important; // 우측 패딩 1rem (16px)
     padding-bottom: 5.5rem !important; // 하단 패딩 증가 (플로팅 버튼과 겹침 방지: 64px -> 5.5rem = 88px)
-    background: #FEF9EE !important; // 하단 카드 섹션 배경색 (상단과 동일하게 통일)
+    background: $background-appointment !important; // 하단 카드 섹션 배경색 (#FFFCF6 - 연한 크림)
     margin-top: 0 !important; // 구분선으로 구분되므로 마진 제거
     margin-bottom: 0 !important; // 하단 마진 제거
     border-radius: $border-radius-xl $border-radius-xl 0 0; // 상단만 둥글게

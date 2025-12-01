@@ -99,15 +99,21 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
   } | null => {
     // 🔍 디버깅: 입력 데이터 확인
     if (!healthDataItem) {
-      console.warn(`⚠️ [getHealthRanges] ${metric} - healthDataItem이 null/undefined입니다`);
+      // 개발 모드에서만 경고 출력
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`⚠️ [getHealthRanges] ${metric} - healthDataItem이 null/undefined입니다`);
+      }
       return null;
     }
     
     if (!healthDataItem?.raw_data) {
-      console.warn(`⚠️ [getHealthRanges] ${metric} - raw_data가 없습니다:`, {
-        healthDataItem: healthDataItem,
-        hasRawData: !!healthDataItem?.raw_data
-      });
+      // 개발 모드에서만 경고 출력
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`⚠️ [getHealthRanges] ${metric} - raw_data가 없습니다:`, {
+          healthDataItem: healthDataItem,
+          hasRawData: !!healthDataItem?.raw_data
+        });
+      }
       return null;
     }
     
@@ -115,11 +121,14 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     
     // 🔍 디버깅: rawData 구조 확인
     if (!rawData.Inspections || !Array.isArray(rawData.Inspections)) {
-      console.warn(`⚠️ [getHealthRanges] ${metric} - Inspections가 없거나 배열이 아닙니다:`, {
-        hasInspections: !!rawData.Inspections,
-        isArray: Array.isArray(rawData.Inspections),
-        rawData: rawData
-      });
+      // 개발 모드에서만 경고 출력
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`⚠️ [getHealthRanges] ${metric} - Inspections가 없거나 배열이 아닙니다:`, {
+          hasInspections: !!rawData.Inspections,
+          isArray: Array.isArray(rawData.Inspections),
+          rawData: rawData
+        });
+      }
       return null;
     }
     
@@ -172,15 +181,18 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     
     // 🔍 디버깅: item을 찾지 못한 경우
     if (!foundItem) {
-      console.warn(`⚠️ [getHealthRanges] ${metric} - 해당 지표를 찾을 수 없습니다.`, {
-        metric,
-        검색한이름: metric.replace(' (수축기)', '').replace(' (이완기)', ''),
-        사용가능한Item이름들: allItemNames,
-        rawData구조: {
-          hasInspections: !!rawData.Inspections,
-          inspectionsCount: rawData.Inspections?.length || 0
-        }
-      });
+      // 개발 모드에서만 경고 출력
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`⚠️ [getHealthRanges] ${metric} - 해당 지표를 찾을 수 없습니다.`, {
+          metric,
+          검색한이름: metric.replace(' (수축기)', '').replace(' (이완기)', ''),
+          사용가능한Item이름들: allItemNames,
+          rawData구조: {
+            hasInspections: !!rawData.Inspections,
+            inspectionsCount: rawData.Inspections?.length || 0
+          }
+        });
+      }
       return null;
     }
     
@@ -251,12 +263,15 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
       
       return ranges;
     } else {
-      console.warn(`⚠️ [getHealthRanges] ${metric} - ItemReferences 없음 또는 배열 아님:`, {
-        item: item,
-        hasItemReferences: !!item?.ItemReferences,
-        isArray: Array.isArray(item?.ItemReferences),
-        itemReferences: item?.ItemReferences
-      });
+      // 개발 모드에서만 경고 출력
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`⚠️ [getHealthRanges] ${metric} - ItemReferences 없음 또는 배열 아님:`, {
+          item: item,
+          hasItemReferences: !!item?.ItemReferences,
+          isArray: Array.isArray(item?.ItemReferences),
+          itemReferences: item?.ItemReferences
+        });
+      }
       return null;
     }
   };
@@ -334,7 +349,10 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
       return parseSimpleRange(rangeStr);
       
     } catch (error) {
-      console.warn('정상 범위 파싱 실패:', rangeStr, error);
+      // 개발 모드에서만 경고 출력
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('정상 범위 파싱 실패:', rangeStr, error);
+      }
       return null;
     }
   };
@@ -382,6 +400,19 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     if (!rangeStr) return false;
     
     try {
+      // 복합 범위 처리 (예: "18.5미만/25~29.9", "18.5미만/25-29.9")
+      // "/"로 구분된 여러 범위 중 하나라도 매칭되면 true 반환
+      if (rangeStr.includes('/') && !rangeStr.includes('남') && !rangeStr.includes('여')) {
+        const parts = rangeStr.split('/');
+        for (const part of parts) {
+          const trimmedPart = part.trim();
+          if (trimmedPart && isInRange(value, trimmedPart, gender)) {
+            return true; // 하나라도 매칭되면 true
+          }
+        }
+        return false; // 모든 부분이 매칭되지 않으면 false
+      }
+      
       // 성별 구분 처리 (예: "남 90이상 / 여 85이상", "남: 13-16.5 / 여: 12-15.5", "남:12.0미만 / 여:10.0미만")
       if (rangeStr.includes('남') && (rangeStr.includes('여') || rangeStr.includes('/'))) {
         const parts = rangeStr.split('/');
@@ -421,17 +452,18 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
         return !isNaN(min) && value >= min;
       }
       
-      // "40-59" 또는 "13-16.5" 형태 처리 (이상/미만이 없는 경우만)
-      if (rangeStr.includes('-') && !rangeStr.includes('이상') && !rangeStr.includes('미만')) {
-        // "13-16.5" 형태에서 숫자 추출
-        const rangeMatch = rangeStr.match(/(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)/);
+      // "25~29.9" 또는 "25-29.9" 형태 처리 (물결표 또는 하이픈)
+      if ((rangeStr.includes('~') || rangeStr.includes('-')) && !rangeStr.includes('이상') && !rangeStr.includes('미만')) {
+        const separator = rangeStr.includes('~') ? '~' : '-';
+        // "25~29.9" 또는 "25-29.9" 형태에서 숫자 추출
+        const rangeMatch = rangeStr.match(/(\d+(?:\.\d+)?)\s*[~-]\s*(\d+(?:\.\d+)?)/);
         if (rangeMatch) {
           const min = parseFloat(rangeMatch[1]);
           const max = parseFloat(rangeMatch[2]);
           return !isNaN(min) && !isNaN(max) && value >= min && value <= max;
         }
         // 정규식 매칭 실패 시 기존 방식 사용
-        const parts = rangeStr.split('-');
+        const parts = rangeStr.split(separator);
         if (parts.length === 2) {
           const min = parseFloat(parts[0].replace(/[^0-9.-]/g, ''));
           const max = parseFloat(parts[1].replace(/[^0-9.-]/g, ''));
@@ -465,7 +497,10 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
       
       return false;
     } catch (error) {
-      console.warn('범위 체크 실패:', rangeStr, error);
+      // 개발 모드에서만 경고 출력
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('범위 체크 실패:', rangeStr, error);
+      }
       return false;
     }
   };
@@ -753,7 +788,6 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
         });
         
         if (dataWithMetric.length === 0) {
-          console.log(`⚠️ [${targetMetric}] 해당 지표의 데이터가 없음`);
           return null;
         }
         
@@ -959,8 +993,8 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                                         
                                         // 🔧 데이터 기준으로만 판단 - ItemReferences에 명시된 범위만 체크
                                         // 범위를 벗어난 경우는 데이터에 명시된 기준이 없으므로 판정하지 않음
-                                        // 문제 발생 시에만 로그 출력
-                                        if (itemValue && !isNaN(itemValue)) {
+                                        // 문제 발생 시에만 로그 출력 (개발 모드에서만)
+                                        if (itemValue && !isNaN(itemValue) && process.env.NODE_ENV === 'development') {
                                           console.warn(`⚠️ [${metric}] 범위 체크 실패 - ItemReferences에 매칭되는 범위 없음:`, {
                                             itemValue,
                                             itemName: item.Name,
@@ -998,8 +1032,10 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                               return 'normal' as const;
                             }
                             // 🔧 데이터에 명시된 범위에 해당하지 않는 경우 - 임의 판정하지 않음
-                            // 문제 발생 시에만 로그 출력
-                            console.warn(`⚠️ [${metric}] healthRanges 범위 체크 실패 - 값: ${pointValue}, normal: ${healthRanges.normal ? `${healthRanges.normal.min}-${healthRanges.normal.max}` : '없음'}, borderline: ${healthRanges.borderline ? `${healthRanges.borderline.min}-${healthRanges.borderline.max}` : '없음'}, abnormal: ${healthRanges.abnormal ? `${healthRanges.abnormal.min}-${healthRanges.abnormal.max}` : '없음'}`);
+                            // 문제 발생 시에만 로그 출력 (개발 모드에서만)
+                            if (process.env.NODE_ENV === 'development') {
+                              console.warn(`⚠️ [${metric}] healthRanges 범위 체크 실패 - 값: ${pointValue}, normal: ${healthRanges.normal ? `${healthRanges.normal.min}-${healthRanges.normal.max}` : '없음'}, borderline: ${healthRanges.borderline ? `${healthRanges.borderline.min}-${healthRanges.borderline.max}` : '없음'}, abnormal: ${healthRanges.abnormal ? `${healthRanges.abnormal.min}-${healthRanges.abnormal.max}` : '없음'}`);
+                            }
                           }
                         }
                         
@@ -1011,7 +1047,10 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                         // 🔧 데이터에 명시된 범위에 해당하지 않는 경우 - 임의 판정하지 않음
                         // 범위를 벗어난 경우는 데이터에 명시된 기준이 없으므로 'neutral' 반환
                         // 문제 발생 시에만 로그 출력
-                        console.warn(`⚠️ [${metric}] 포인트 상태 계산 실패 - 데이터에 명시된 범위에 해당하지 않음, 값: ${pointValue}`);
+                        // 개발 모드에서만 경고 출력
+                        if (process.env.NODE_ENV === 'development') {
+                          console.warn(`⚠️ [${metric}] 포인트 상태 계산 실패 - 데이터에 명시된 범위에 해당하지 않음, 값: ${pointValue}`);
+                        }
                         return 'neutral' as const;
                       })();
 
@@ -1065,14 +1104,12 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                         // 차트 렌더링 결정 (로그 제거)
 
                         if (dataCount === 0) {
-                          console.log(`📊 [${metric}] 데이터 없음으로 렌더링`);
                           return (
                             <div className="no-data">
                               <p>데이터 없음</p>
                             </div>
                           );
                         } else if (dataCount === 1) {
-                          console.log(`📊 [${metric}] 단일 데이터로 렌더링`);
                           const singlePoint = metricChartData[0]?.data[0];
                           
                           return (

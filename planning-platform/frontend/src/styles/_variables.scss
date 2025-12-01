@@ -152,6 +152,10 @@ $font-family-toggle: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-u
 $font-family-value: 'Sora', 'Noto Sans KR', sans-serif; // 수치 표시용 폰트
 $font-family-chart-axis: 'Poppins', 'Noto Sans KR', sans-serif; // 차트 X/Y축 레이블 폰트
 
+// 헤더 제목/설명 폰트 (랜딩 페이지 헤더 영역)
+$font-family-header-title: 'Noto Sans KR', sans-serif; // 헤더 제목 폰트
+$font-family-header-description: 'Noto Sans KR', sans-serif; // 헤더 설명 폰트
+
 // ============================================================================
 // 📏 간격 시스템 (8px 기준)
 // ============================================================================
@@ -259,3 +263,21 @@ $border-beige: #EAE4D7;                         // 베이지 경계선 (탭, 헤
 $bg-decoration-size: 256px;                     // 배경 장식 블롭 크기
 $bg-decoration-blur: 48px;                      // 배경 장식 블러 정도
 $bg-decoration-opacity: 0.1;                    // 배경 장식 투명도
+
+// ============================================================================
+// 📋 헤더 제목/설명 스타일 토큰 (랜딩 페이지 헤더 영역)
+// ============================================================================
+
+// 헤더 제목 스타일
+$header-title-font-family: 'Noto Sans KR', sans-serif;
+$header-title-font-weight: 500;                // font-weight: 500
+$header-title-font-size: 18px;                 // font-size: 18px
+$header-title-line-height: 26px;               // line-height: 26px (상자 높이와 동일 또는 144%)
+$header-title-color: #000000;                  // color: #000000
+
+// 헤더 설명 스타일
+$header-description-font-family: 'Noto Sans KR', sans-serif;
+$header-description-font-weight: 400;           // font-weight: 400 (Regular)
+$header-description-font-size: 12px;           // font-size: 12px
+$header-description-line-height: 16px;         // line-height: 16px
+$header-description-letter-spacing: 0%;        // letter-spacing: 0%

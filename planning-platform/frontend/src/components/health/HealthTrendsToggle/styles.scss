@@ -18,7 +18,8 @@
   padding: 0 !important;
   border-bottom: none !important; // 하단 선 제거
   position: fixed !important; // 헤더와 동일하게 fixed
-  top: 100px !important; // 헤더 높이(90px) + 간격(10px) 아래 (간격 줄임)
+  // 헤더 높이에 따라 동적으로 위치 조정 (헤더 CSS 변수 사용)
+  top: calc(var(--header-height, 90px) + 20px) !important; // 헤더 높이 + 간격(20px) 아래
   left: 0 !important; // 왼쪽부터 시작 (헤더와 동일)
   right: 0 !important; // 오른쪽까지 (헤더와 동일)
   z-index: 99 !important; // 헤더보다 낮지만 다른 요소보다 높음
@@ -78,6 +79,8 @@
   
   // 모바일 반응형
   @media (max-width: 767px) {
+    top: calc(var(--header-height, 52px) + 20px) !important; // 모바일 헤더 높이 + 간격(20px) 아래
+    
     &__container {
       width: calc(100% - 32px); // 모바일에서는 좌우 여백 고려
       max-width: 319px;

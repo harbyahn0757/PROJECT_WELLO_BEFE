@@ -256,8 +256,10 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
 
     setGroupedRecords(grouped);
     
-    // 기본적으로 모든 항목을 펼쳐진 상태로 설정
-    const allRecordIds = records.map(r => r.id);
+    // 기본적으로 모든 항목을 펼쳐진 상태로 설정 (약국 제외)
+    const allRecordIds = records
+      .filter(r => !(r.type === 'prescription' && r.isPharmacy)) // 약국 제외
+      .map(r => r.id);
     setExpandedItems(new Set(allRecordIds));
   }, [healthData, prescriptionData, rangeStartYear, rangeEndYear]);
 
@@ -871,17 +873,12 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
       <HealthTrendsHeader
         onBack={handleBack}
         title="검진 항목 설계"
+        description="기존 검진/처방 이력중 설계에서
+유의 하게 보실게 있으면 선택해주세요"
+        headerType="large"
         lastUpdateTime={null}
       />
 
-      {/* 모드 표시 */}
-      <div className="concern-selection-header">
-        <div className="concern-mode-indicator">
-          {filterMode === 'checkup' && '검진'}
-          {filterMode === 'pharmacy' && '약국'}
-          {filterMode === 'treatment' && '진료'}
-        </div>
-      </div>
 
       {/* UnifiedHealthTimeline 구조로 렌더링 (체크박스 추가) */}
       <div className="concern-items-container unified-timeline">
@@ -1035,8 +1032,8 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
                                               >
                                                 {/* 접기/펼치기 버튼과 체크박스 - 겹치지 않게 배치 */}
                                                 <div className="record-header-actions">
-                                                  {/* 접기/펼치기 버튼 */}
-                                                  {(record.type === 'checkup' || (record.type === 'prescription' && record.hasMedications)) && (
+                                                  {/* 접기/펼치기 버튼 - 약국은 제외 */}
+                                                  {(record.type === 'checkup' || (record.type === 'prescription' && record.hasMedications && !record.isPharmacy)) && (
                                                     <div className="record-toggle">
                                                       <div 
                                                         className="toggle-button"
@@ -1112,17 +1109,40 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
                                                     </div>
                                                     
                                                     {record.type === 'prescription' && (
-                                                      <div className="record-summary">
-                                                        {record.visitCount !== null && record.visitCount !== undefined && record.visitCount > 0 && (
-                                                          <span className="visit-count">방문 {record.visitCount}회</span>
+                                                      <>
+                                                        {record.isPharmacy ? (
+                                                          // 약국: 약품 효능(설명) 뱃지 목록 표시
+                                                          (() => {
+                                                            const medicationList = record.details?.RetrieveTreatmentInjectionInformationPersonDetailList || [];
+                                                            return medicationList.length > 0 ? (
+                                                              <div className="record-summary">
+                                                                {medicationList.map((med: any, idx: number) => {
+                                                                  // 효능이 있으면 효능을, 없으면 약품명을 표시
+                                                                  const displayText = med.ChoBangYakPumHyoneung || med.ChoBangYakPumMyung || '약품 정보 없음';
+                                                                  return (
+                                                                    <span key={idx} className="medication-effect-badge">
+                                                                      {displayText}
+                                                                    </span>
+                                                                  );
+                                                                })}
+                                                              </div>
+                                                            ) : null;
+                                                          })()
+                                                        ) : (
+                                                          // 진료: 기존 뱃지 유지
+                                                          <div className="record-summary">
+                                                            {record.visitCount !== null && record.visitCount !== undefined && record.visitCount > 0 && (
+                                                              <span className="visit-count">방문 {record.visitCount}회</span>
+                                                            )}
+                                                            {record.medicationCount !== null && record.medicationCount !== undefined && record.medicationCount > 0 && (
+                                                              <span className="medication-count">투약 {record.medicationCount}회</span>
+                                                            )}
+                                                            {record.prescriptionCount !== null && record.prescriptionCount !== undefined && record.prescriptionCount > 0 && (
+                                                              <span className="prescription-count">처방 {record.prescriptionCount}회</span>
+                                                            )}
+                                                          </div>
                                                         )}
-                                                        {record.medicationCount !== null && record.medicationCount !== undefined && record.medicationCount > 0 && (
-                                                          <span className="medication-count">투약 {record.medicationCount}회</span>
-                                                        )}
-                                                        {record.prescriptionCount !== null && record.prescriptionCount !== undefined && record.prescriptionCount > 0 && (
-                                                          <span className="prescription-count">처방 {record.prescriptionCount}회</span>
-                                                        )}
-                                                      </div>
+                                                      </>
                                                     )}
                                                     
                                                     {record.type === 'checkup' && (() => {
@@ -1144,9 +1164,9 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
                                                   </div>
                                                 </div>
                                                 
-                                                {/* 펼쳐진 상세 정보 */}
+                                                {/* 펼쳐진 상세 정보 - 약국은 제외 */}
                                                 {isExpanded && (
-                                                  (record.type === 'checkup' || (record.type === 'prescription' && record.hasMedications))
+                                                  (record.type === 'checkup' || (record.type === 'prescription' && record.hasMedications && !record.isPharmacy))
                                                 ) && (
                                                   <div className="record-content">
                                                     {record.type === 'checkup' 

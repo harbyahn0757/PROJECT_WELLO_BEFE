@@ -343,6 +343,11 @@ const AppContent: React.FC = () => {
   const loadingUuidRef = useRef<string | null>(null); // 현재 로딩 중인 UUID 추적
   const lastSearchRef = useRef<string>(''); // 마지막 처리한 location.search 추적
 
+  // sockjs-node 경로는 개발 서버의 HMR WebSocket이므로 무시
+  if (location.pathname.startsWith('/sockjs-node')) {
+    return null;
+  }
+
   // 초기 로드 시 쿼리 파라미터 보존 (프로덕션 환경에서 쿼리 파라미터가 사라지는 문제 해결)
   useEffect(() => {
     // 즉시 실행 (동기적으로) - React Router가 렌더링되기 전에 처리
@@ -350,13 +355,18 @@ const AppContent: React.FC = () => {
       // 1. sessionStorage에서 저장된 쿼리 파라미터 확인 (index.html의 인라인 스크립트에서 저장됨)
       const savedSearch = sessionStorage.getItem('wello_query_params');
       
-      // 2. window.location.href에서 직접 쿼리 파라미터 추출
+      // 2. sockjs-node 경로는 무시
+      if (location.pathname.startsWith('/sockjs-node')) {
+        return false;
+      }
+      
+      // 3. window.location.href에서 직접 쿼리 파라미터 추출
       const currentUrl = window.location.href;
       const urlObj = new URL(currentUrl);
       const windowSearch = urlObj.search;
       const locationSearch = location.search;
       
-      // 3. 쿼리 파라미터 우선순위: windowSearch > savedSearch
+      // 4. 쿼리 파라미터 우선순위: windowSearch > savedSearch
       const queryParams = windowSearch || savedSearch || '';
       
       console.log('🔍 [App] 쿼리 파라미터 체크:', {
@@ -368,7 +378,7 @@ const AppContent: React.FC = () => {
         pathname: location.pathname
       });
       
-      // 4. 쿼리 파라미터가 있지만 location.search에는 없는 경우 복원
+      // 5. 쿼리 파라미터가 있지만 location.search에는 없는 경우 복원
       if (queryParams && !locationSearch) {
         console.log('🔧 [App] 쿼리 파라미터 복원 시작:', queryParams);
         
@@ -436,6 +446,11 @@ const AppContent: React.FC = () => {
 
   // URL 파라미터 감지하여 자동 데이터 로딩 (한 번만 실행)
   useEffect(() => {
+    // sockjs-node 경로는 무시
+    if (location.pathname.startsWith('/sockjs-node')) {
+      return;
+    }
+    
     // window.location.search 확인 (실제 URL의 쿼리 파라미터)
     const windowSearch = window.location.search;
     

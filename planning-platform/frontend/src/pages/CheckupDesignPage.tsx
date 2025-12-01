@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useWelloData } from '../contexts/WelloDataContext';
 import ConcernSelection from '../components/checkup-design/ConcernSelection';
+import ChatInterface from '../components/checkup-design/ChatInterface';
 import checkupDesignService from '../services/checkupDesignService';
 import { loadHealthData } from '../utils/healthDataLoader';
 import ProcessingModal, { ProcessingStage } from '../components/checkup-design/ProcessingModal';
@@ -224,10 +225,9 @@ const CheckupDesignPage: React.FC = () => {
         stage={processingStage}
         progress={processingProgress}
       />
-      <ConcernSelection
+      <ChatInterface
         healthData={healthData}
         prescriptionData={prescriptionData}
-        onSelectionChange={handleSelectionChange}
         onNext={handleNext}
       />
     </>

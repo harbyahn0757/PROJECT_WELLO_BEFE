@@ -26,20 +26,40 @@
   background: #FEF9EE !important; // 헤더 배경색
   border-radius: 0 0 24px 24px !important; // 하단만 둥글게 (더 넓은 둥근 처리, 12px -> 24px)
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important; // 바깥쪽 얇은 그림자 추가
-  height: 90px !important; // 현재 높이(60px)의 150% = 90px
+  min-height: 90px !important; // 기본 최소 높이 (default 타입)
+  height: auto !important; // 자동 높이 (내용에 맞게 가변 처리 - 그림자 상단부터 하단까지)
   display: flex !important;
+  
+  // large 타입일 때 최소 높이 증가 (description 포함 시 충분한 공간, 내용에 따라 더 늘어남)
+  &--large {
+    min-height: 120px !important; // 데스크톱: 큰 최소 높이
+    // 내용(제목 + 설명)에 따라 높이가 자동으로 늘어남
+  }
+  
+  // 헤더 높이를 CSS 변수로 설정 (토글 위치 계산용)
+  --header-height: 90px; // 기본값 (default 타입)
+  
+  &--large {
+    --header-height: 120px; // large 타입
+  }
   align-items: center !important; // 세로 중앙 정렬
   padding-left: $spacing-md !important; // 내부 요소를 위한 좌측 패딩
   padding-right: $spacing-md !important; // 내부 요소를 위한 우측 패딩
+  padding-top: $spacing-md !important; // 상단 패딩 (내용에 맞게 높이 자동 조정)
+  padding-bottom: $spacing-md !important; // 하단 패딩 (내용에 맞게 높이 자동 조정)
   position: relative !important; // 절대 위치 기준
+  box-sizing: border-box !important; // 패딩 포함 높이 계산
 
   // 안쪽 부분 (내부 구조 유지)
   &__header-greeting-section {
     width: 100% !important; // 부모 너비 전체 사용
-    height: 100% !important; // 부모 높이 전체 사용
+    min-height: 100% !important; // 부모 높이 최소값
+    height: auto !important; // 내용에 맞게 높이 자동 조정
     margin: 0 !important;
     padding: 0 !important; // 패딩 제거 (부모에서 처리)
     position: relative !important;
+    display: flex !important;
+    align-items: center !important; // 세로 중앙 정렬
 
     // 뒤로가기 버튼 (좌측) - 절대 위치로 배치
     .back-button {
@@ -58,24 +78,41 @@
     flex-direction: column;
     align-items: center; // X축 중앙 정렬 (헤더 영역 전체 기준)
     justify-content: center; // Y축 중앙 정렬
-    gap: $spacing-xs; // 제목과 업데이트 정보 간격
-    position: absolute !important; // 절대 위치로 헤더 전체 기준 중앙 정렬
-    left: 0 !important;
-    right: 0 !important;
-    top: 50% !important;
-    transform: translateY(-50%) !important; // 세로 중앙 정렬
+    gap: $spacing-xs; // 제목과 설명/업데이트 정보 간격
+    position: relative !important; // relative로 변경하여 부모 높이에 영향
     z-index: 0 !important; // 버튼보다 뒤에
+    padding: $spacing-md $spacing-md !important; // 상하좌우 패딩 (내용에 맞게 높이 자동 조정)
+    box-sizing: border-box !important;
+    flex: 1 !important; // 남은 공간 차지
+    min-height: fit-content !important; // 내용에 맞게 최소 높이
   }
 
-  // 타이틀 - 폰트 사이즈 더 작게, 굵게 하지 않음, 중앙 정렬
+  // 타이틀 - 통합 변수 파일에서 관리
   &__title {
     text-align: center; // 중앙 정렬
-    font-size: 18px !important; // 더 작게 (20px -> 18px)
-    font-weight: $font-weight-normal !important; // 굵게 하지 않음
-    color: $black !important;
-    font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif) !important; // 랜딩페이지와 동일
+    font-family: $header-title-font-family !important;
+    font-weight: $header-title-font-weight !important; // 500
+    font-size: $header-title-font-size !important; // 18px
+    line-height: $header-title-line-height !important; // 26px (상자 높이와 동일 또는 144%)
+    color: $header-title-color !important; // #000000
     margin: 0 !important;
-    line-height: 1.2 !important;
+  }
+
+  // 설명 텍스트 (제목 아래, 뒤로가기 버튼과 겹치지 않도록 아래로 배치) - 통합 변수 파일에서 관리
+  &__description {
+    text-align: center; // 중앙 정렬
+    font-family: $header-description-font-family !important;
+    font-weight: $header-description-font-weight !important; // 400 (Regular)
+    font-size: $header-description-font-size !important; // 12px
+    line-height: $header-description-line-height !important; // 16px
+    letter-spacing: $header-description-letter-spacing !important; // 0%
+    color: $gray-700 !important; // #4a5568
+    margin: 8px 0 0 0 !important; // 위쪽 마진 증가 (제목과 간격)
+    margin-top: 12px !important; // 더 아래로 배치
+    padding: 0 $spacing-lg !important; // 좌우 패딩 증가 (뒤로가기 버튼과 겹치지 않도록)
+    padding-left: 60px !important; // 좌측 패딩 증가 (뒤로가기 버튼 공간 확보)
+    padding-right: 60px !important; // 우측 패딩 증가 (대칭)
+    white-space: pre-line !important; // 줄바꿈 지원
   }
 
   // 마지막 업데이트 정보 (제목 아래, 중앙 정렬)
@@ -138,8 +175,15 @@
   // 모바일 반응형
   @media (max-width: 767px) {
     padding: $spacing-sm $spacing-sm !important;
-    min-height: 52px;
+    min-height: 52px; // 기본 높이 (default 타입)
+    --header-height: 52px; // 모바일 기본값
     gap: $spacing-sm;
+    
+    // large 타입일 때 모바일에서도 높이 증가
+    &.health-trends-header--large {
+      min-height: 80px !important; // 모바일: 큰 높이
+      --header-height: 80px; // 모바일 large 타입
+    }
     
     &__back-button {
       width: 36px;
@@ -153,6 +197,11 @@
     
     &__title {
       font-size: $font-base; // 16px
+    }
+
+    &__description {
+      font-size: 13px !important; // 모바일에서 조금 작게
+      padding: 0 $spacing-sm !important; // 좌우 패딩 줄임
     }
     
     &__update {

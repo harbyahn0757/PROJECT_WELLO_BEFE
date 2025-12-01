@@ -2,7 +2,7 @@
  * HealthTrendsHeader - 건강 추이 페이지 헤더 컴포넌트
  * 메인 페이지의 인사말 섹션이 위로 올라가면서 헤더 역할을 함
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import BackButton from '../../shared/BackButton';
 import WelloModal from '../../common/WelloModal';
 import './styles.scss';
@@ -11,6 +11,8 @@ import './refresh-modal.scss';
 interface HealthTrendsHeaderProps {
   onBack: () => void;
   title?: string; // 제목 (기본값: "건강 추이")
+  description?: string; // 설명 텍스트 (제목 아래 표시)
+  headerType?: 'default' | 'large'; // 헤더 높이 타입 (기본값: 'default')
   lastUpdateTime?: string | null;
   patientName?: string;
   onRefresh?: () => void;
@@ -19,11 +21,50 @@ interface HealthTrendsHeaderProps {
 const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
   onBack,
   title = '건강 추이', // 기본값
+  description,
+  headerType = 'default', // 기본값: 'default'
   lastUpdateTime,
   patientName,
   onRefresh
 }) => {
   const [showRefreshModal, setShowRefreshModal] = useState(false);
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  // 헤더 높이 계산 및 CSS 변수 설정 (리사이즈 시 재계산)
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      if (headerRef.current) {
+        const height = headerRef.current.getBoundingClientRect().height;
+        // CSS 변수를 :root에 설정하여 모든 자식 요소에서 사용 가능하도록
+        document.documentElement.style.setProperty('--header-height', `${height}px`);
+      }
+    };
+
+    // 초기 계산
+    updateHeaderHeight();
+
+    // 리사이즈 및 내용 변경 시 재계산
+    window.addEventListener('resize', updateHeaderHeight);
+    
+    // MutationObserver로 헤더 내용 변경 감지
+    const observer = new MutationObserver(updateHeaderHeight);
+    if (headerRef.current) {
+      observer.observe(headerRef.current, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['style', 'class']
+      });
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateHeaderHeight);
+      observer.disconnect();
+      // 헤더가 언마운트될 때 CSS 변수 제거 (다른 페이지에 영향 방지)
+      document.documentElement.style.removeProperty('--header-height');
+    };
+  }, [title, description, lastUpdateTime, headerType]);
 
   // 새로고침 확인 핸들러
   const handleRefreshClick = () => {
@@ -72,7 +113,10 @@ const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
 
   return (
     <>
-      <div className="health-trends-header">
+      <div 
+        ref={headerRef}
+        className={`health-trends-header ${headerType === 'large' ? 'health-trends-header--large' : ''}`}
+      >
         {/* 랜딩페이지 헤더 구조 (높이만 작게) */}
         <div className="health-trends-header__header-greeting-section">
           {/* 뒤로가기 버튼 (좌측) - 공용 컴포넌트 사용 */}
@@ -83,6 +127,11 @@ const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
             <div className="health-trends-header__title">
               {title}
             </div>
+            {description && (
+              <div className="health-trends-header__description">
+                {description}
+              </div>
+            )}
             {lastUpdateTime && (
               <div className="health-trends-header__update">
                 {onRefresh && (

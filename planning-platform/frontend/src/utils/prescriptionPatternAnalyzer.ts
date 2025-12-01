@@ -550,10 +550,19 @@ export function formatEffectPatternMessage(pattern: MedicationEffectPattern): st
     totalPeriodText = `${totalPeriodDays}일`;
   }
   
-  // 복용 밀도에 따른 설명
+  // 복용 밀도에 따른 설명 (처방 횟수도 고려)
   const density = pattern.patternAnalysis.consumptionDensity;
+  const prescriptionCount = pattern.prescriptionCount;
   let densityText = '';
-  if (density >= 0.8) {
+  
+  // 처방 횟수가 3회 미만이면 "지속적으로" 사용하지 않음
+  if (prescriptionCount < 3) {
+    if (prescriptionCount === 1) {
+      densityText = '한 번';
+    } else {
+      densityText = '몇 번';
+    }
+  } else if (density >= 0.8) {
     densityText = '지속적으로';
   } else if (density >= 0.5) {
     densityText = '주기적으로';
@@ -568,7 +577,8 @@ export function formatEffectPatternMessage(pattern: MedicationEffectPattern): st
     ? ` (중단 후 ${pattern.patternAnalysis.restartCount}회 재시작)`
     : '';
   
+  // 기간 텍스트를 강조하기 위해 HTML 태그로 감싸기
   return `${pattern.effect} 관련 약품을 ${years} 동안 ${densityText} 복용하셨어요. ` +
-         `전체 기간 ${totalPeriodText} 중 ${durationText}간 복용 (${pattern.prescriptionCount}회 처방)${restartInfo}`;
+         `전체 기간 <span class="highlight-period">${totalPeriodText}</span> 중 <span class="highlight-period">${durationText}</span>간 복용 (${pattern.prescriptionCount}회 처방)${restartInfo}`;
 }
 

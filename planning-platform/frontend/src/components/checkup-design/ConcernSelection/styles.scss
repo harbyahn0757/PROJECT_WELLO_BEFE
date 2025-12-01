@@ -861,6 +861,18 @@
     color: $gray-600; // #718096
     font-family: $font-family-base;
   }
+  
+  // 약국 카드 헤더 하단 약품 효능 뱃지 (기존 뱃지 스타일 재사용)
+  .medication-effect-badge {
+    background: #F2F2F2;
+    color: #626262;
+    padding: 2px 6px;
+    border-radius: $border-radius-sm;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-size: 10px;
+    font-weight: $font-weight-medium;
+    white-space: nowrap;
+  }
 
   // 선택된 항목 썸네일 장바구니 (하단 고정)
   .concern-selection-cart {
