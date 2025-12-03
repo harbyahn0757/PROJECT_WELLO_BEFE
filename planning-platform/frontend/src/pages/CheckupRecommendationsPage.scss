@@ -50,6 +50,9 @@ $section-spacing: $spacing-md; // 섹션 간 일정한 간격 (문진 반영 내
   // 뒤로가기 버튼 (좌측, 다른 페이지와 동일한 위치)
   &__header-with-back {
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     
     .back-button-container {
       position: absolute;
@@ -57,6 +60,38 @@ $section-spacing: $spacing-md; // 섹션 간 일정한 간격 (문진 반영 내
       top: 50%;
       transform: translateY(-50%);
       z-index: 1;
+    }
+  }
+
+  // 새로고침 버튼 (우측)
+  &__refresh-button-container {
+    position: absolute;
+    right: $spacing-md;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1;
+  }
+
+  &__refresh-button {
+    background: $white;
+    border: 1px solid $gray-300;
+    border-radius: $border-radius-md;
+    padding: $spacing-xs $spacing-sm;
+    font-size: $font-sm;
+    font-weight: $font-weight-medium;
+    color: $brand-brown-dark;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: var(--font-family-greeting);
+    
+    &:hover {
+      background: $brand-brown-light;
+      border-color: $brand-brown;
+      color: $brand-brown-darker;
+    }
+    
+    &:active {
+      transform: translateY(-50%) scale(0.95);
     }
   }
 
@@ -129,10 +164,29 @@ $section-spacing: $spacing-md; // 섹션 간 일정한 간격 (문진 반영 내
   }
 
   // MainPage 스타일 재사용 (헤더는 MainPage.scss에서 관리)
-  // 정보 아이콘 + 텍스트 (greeting-message 내부)
-  // MainPage의 greeting-message 내부에 배치되므로 별도 스타일 필요
+  // 제목 스타일
+  &__title {
+    .checkup-recommendations__patient-name {
+      font-size: $font-3xl; // 환자 이름 크게
+      font-weight: $font-weight-bold;
+      color: $brand-brown-darker;
+      display: block;
+      margin-bottom: $spacing-xs;
+      font-family: var(--font-family-greeting);
+    }
+
+    .greeting-text {
+      font-size: $font-lg;
+      font-weight: $font-weight-medium;
+      color: $gray-800;
+      display: block;
+      font-family: var(--font-family-greeting);
+    }
+  }
+
+  // 정보 아이콘 + 텍스트 (greeting-message 내부) - 제거됨
   .main-page__greeting-message {
-    margin-top: $spacing-xs !important; // 상단 마진 줄이기
+    display: none; // 작은 텍스트 제거
     
     .checkup-recommendations__info {
       display: inline-flex;

@@ -193,7 +193,7 @@ class WelloDataService:
             if not hospital_dict.get('address'):
                 hospital_dict['address'] = '서울특별시 강남구 테헤란로 123'
             if not hospital_dict.get('supported_checkup_types'):
-                hospital_dict['supported_checkup_types'] = ['basic', 'comprehensive', 'premium']
+                hospital_dict['supported_checkup_types'] = ['basic', 'comprehensive', 'optional']
             
             # 날짜 객체를 문자열로 변환
             if hospital_dict.get('created_at'):
@@ -201,6 +201,7 @@ class WelloDataService:
             
             # 외부 검사 항목 매핑 조회 (테이블이 존재하는 경우에만)
             try:
+                print(f"🔍 [병원별 프리미엄 항목] 조회 시작 - hospital_id: {hospital_id}")
                 external_checkup_items = await conn.fetch("""
                     SELECT 
                         e.id,
@@ -213,6 +214,10 @@ class WelloDataService:
                         e.gap_description,
                         e.solution_narrative,
                         e.description,
+                        e.manufacturer,
+                        e.target,
+                        e.input_sample,
+                        e.algorithm_class,
                         m.display_order
                     FROM wello.wello_hospital_external_checkup_mapping m
                     JOIN wello.wello_external_checkup_items e ON m.external_checkup_item_id = e.id
@@ -221,6 +226,14 @@ class WelloDataService:
                 """, hospital_id)
                 
                 if external_checkup_items:
+                    print(f"✅ [병원별 프리미엄 항목] 조회 성공 - {len(external_checkup_items)}개 항목 발견")
+                    # 난이도별 통계
+                    difficulty_stats = {}
+                    for item in external_checkup_items:
+                        level = item['difficulty_level']
+                        difficulty_stats[level] = difficulty_stats.get(level, 0) + 1
+                    print(f"📊 [병원별 프리미엄 항목] 난이도별 통계: {difficulty_stats}")
+                    
                     hospital_dict['external_checkup_items'] = [
                         {
                             'id': item['id'],
@@ -238,15 +251,27 @@ class WelloDataService:
                             'gap_description': item['gap_description'],
                             'solution_narrative': item['solution_narrative'],
                             'description': item['description'],
+                            'manufacturer': item['manufacturer'],
+                            'target': item['target'],
+                            'input_sample': item['input_sample'],
+                            'algorithm_class': item['algorithm_class'],
                             'display_order': item['display_order']
                         }
                         for item in external_checkup_items
                     ]
+                    # 처음 3개 항목만 로그 출력 (너무 길어지지 않도록)
+                    for idx, item in enumerate(external_checkup_items[:3]):
+                        algorithm_info = f" [{item.get('algorithm_class', 'N/A')}]" if item.get('algorithm_class') else ""
+                        target_info = f" - {item.get('target', 'N/A')}" if item.get('target') else ""
+                        print(f"  [{idx+1}] {item['item_name']} ({item['difficulty_level']}){algorithm_info}{target_info} - {item['category']}")
+                    if len(external_checkup_items) > 3:
+                        print(f"  ... 외 {len(external_checkup_items) - 3}개 항목")
                 else:
+                    print(f"⚠️ [병원별 프리미엄 항목] 매핑된 항목 없음 - hospital_id: {hospital_id}")
                     hospital_dict['external_checkup_items'] = []
             except Exception as e:
                 # 테이블이 없거나 조회 실패 시 빈 배열 반환
-                print(f"⚠️ 외부 검사 항목 조회 실패 (무시): {e}")
+                print(f"❌ [병원별 프리미엄 항목] 조회 실패 (무시): {e}")
                 hospital_dict['external_checkup_items'] = []
             
             await conn.close()
@@ -1232,6 +1257,117 @@ class WelloDataService:
                 "success": False,
                 "error": str(e)
             }
+    
+    async def delete_checkup_design_requests(
+        self,
+        uuid: str,
+        hospital_id: str
+    ) -> Dict[str, Any]:
+        """검진 설계 요청 삭제 (새로고침 시 기존 데이터 삭제)"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            # 환자 ID 조회
+            patient_query = """
+                SELECT id FROM wello.wello_patients 
+                WHERE uuid = $1 AND hospital_id = $2
+            """
+            patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
+            
+            if not patient_row:
+                await conn.close()
+                return {
+                    "success": False,
+                    "error": "환자 정보를 찾을 수 없습니다."
+                }
+            
+            patient_id = patient_row['id']
+            
+            # 해당 환자의 모든 검진 설계 요청 삭제
+            delete_query = """
+                DELETE FROM wello.wello_checkup_design_requests 
+                WHERE patient_id = $1
+                RETURNING id
+            """
+            
+            deleted_ids = await conn.fetch(delete_query, patient_id)
+            deleted_count = len(deleted_ids)
+            
+            await conn.close()
+            
+            print(f"✅ [검진설계요청] 삭제 완료 - 환자: {uuid} @ {hospital_id}, 삭제된 건수: {deleted_count}")
+            
+            return {
+                "success": True,
+                "deleted_count": deleted_count
+            }
+            
+        except Exception as e:
+            print(f"❌ [검진설계요청] 삭제 오류: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def get_latest_checkup_design(
+        self,
+        uuid: str,
+        hospital_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """최신 검진 설계 결과 조회"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            # 환자 ID 조회
+            patient_query = """
+                SELECT id FROM wello.wello_patients 
+                WHERE uuid = $1 AND hospital_id = $2
+            """
+            patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
+            
+            if not patient_row:
+                await conn.close()
+                return None
+            
+            patient_id = patient_row['id']
+            
+            # 최신 설계 결과 조회 (design_result가 있는 것만)
+            design_query = """
+                SELECT 
+                    id,
+                    selected_concerns,
+                    survey_responses,
+                    additional_concerns,
+                    design_result,
+                    created_at,
+                    updated_at
+                FROM wello.wello_checkup_design_requests
+                WHERE patient_id = $1 
+                  AND design_result IS NOT NULL
+                  AND design_result != 'null'::jsonb
+                ORDER BY created_at DESC
+                LIMIT 1
+            """
+            
+            design_row = await conn.fetchrow(design_query, patient_id)
+            await conn.close()
+            
+            if not design_row:
+                return None
+            
+            return {
+                "id": design_row['id'],
+                "selected_concerns": json.loads(design_row['selected_concerns']) if design_row['selected_concerns'] else [],
+                "survey_responses": json.loads(design_row['survey_responses']) if design_row['survey_responses'] else {},
+                "additional_concerns": design_row['additional_concerns'],
+                "design_result": json.loads(design_row['design_result']) if design_row['design_result'] else {},
+                "created_at": design_row['created_at'].isoformat() if design_row['created_at'] else None,
+                "updated_at": design_row['updated_at'].isoformat() if design_row['updated_at'] else None
+            }
+            
+        except Exception as e:
+            print(f"❌ [검진설계조회] 조회 오류: {e}")
+            return None
 
 # 싱글톤 인스턴스
 wello_data_service = WelloDataService()

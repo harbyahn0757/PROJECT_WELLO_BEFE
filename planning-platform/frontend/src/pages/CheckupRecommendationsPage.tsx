@@ -5,6 +5,7 @@ import { getHospitalLogoUrl } from '../utils/hospitalLogoUtils';
 import { WELLO_LOGO_IMAGE } from '../constants/images';
 import checkPlannerImage from '../assets/images/check_planner.png';
 import { renderTextWithFootnotes } from '../utils/footnoteParser';
+import checkupDesignService from '../services/checkupDesignService';
 import './MainPage.scss'; // MainPage 헤더 스타일 재사용
 import './CheckupRecommendationsPage.scss';
 import '../components/shared/BackButton/styles.scss'; // BackButton 스타일 재사용
@@ -328,11 +329,11 @@ const CheckupRecommendationsPage: React.FC = () => {
   // 추천 데이터 (GPT 응답 또는 목업 데이터) - useMemo로 메모이제이션
   const recommendationData: RecommendationData = useMemo(() => {
     return gptResponse
-      ? convertGPTResponseToRecommendationData(gptResponse)
-      : {
-          ...mockRecommendationData,
-          patientName: patient?.name || mockRecommendationData.patientName,
-        };
+    ? convertGPTResponseToRecommendationData(gptResponse)
+    : {
+        ...mockRecommendationData,
+        patientName: patient?.name || mockRecommendationData.patientName,
+      };
   }, [gptResponse, patient?.name]);
 
   // 최종 설계 응답값 콘솔 로그 출력 (점검용)
@@ -437,8 +438,19 @@ const CheckupRecommendationsPage: React.FC = () => {
 
       {/* 헤더 + 인사말 섹션 (MainPage 구조 재사용) */}
       <div className="main-page__header-greeting-section">
-        {/* 헤더 (로고 + 뒤로가기 버튼) */}
+        {/* 헤더 (로고 + 뒤로가기 버튼 + 새로고침 버튼) */}
         <div className="main-page__header checkup-recommendations__header-with-back">
+          {/* 뒤로가기 버튼 (좌측) */}
+          <div className="back-button-container">
+            <button
+              className="back-button"
+              onClick={handleCloseClick}
+              aria-label="뒤로가기"
+            >
+              ←
+            </button>
+          </div>
+          
           <div className="main-page__header-logo">
             <img
               src={getHospitalLogoUrl(hospital)}
@@ -457,32 +469,49 @@ const CheckupRecommendationsPage: React.FC = () => {
               W
             </div>
           </div>
-          {/* 뒤로가기 버튼 (좌측, 다른 페이지와 동일한 위치) */}
-          <div className="back-button-container">
+          
+          {/* 새로고침 버튼 (우측) */}
+          <div className="checkup-recommendations__refresh-button-container">
             <button
-              className="back-button"
-              onClick={handleCloseClick}
-              aria-label="뒤로가기"
+              className="checkup-recommendations__refresh-button"
+              onClick={async () => {
+                try {
+                  const urlParams = new URLSearchParams(window.location.search);
+                  const uuid = urlParams.get('uuid');
+                  const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
+                  
+                  if (uuid && hospital) {
+                    // 기존 설계 요청 삭제
+                    console.log('🗑️ [검진설계] 새로고침 - 기존 설계 요청 삭제 시작');
+                    await checkupDesignService.deleteCheckupDesign(uuid, hospital);
+                    console.log('✅ [검진설계] 새로고침 - 기존 설계 요청 삭제 완료');
+                  }
+                  
+                  // 채팅 화면으로 이동 (refresh=true 파라미터 포함)
+                  urlParams.set('refresh', 'true');
+                  navigate(`/survey/checkup-design?${urlParams.toString()}`);
+                } catch (error) {
+                  console.error('❌ [검진설계] 새로고침 중 오류:', error);
+                  // 오류가 발생해도 채팅 화면으로 이동
+                  const urlParams = new URLSearchParams(window.location.search);
+                  urlParams.set('refresh', 'true');
+                  navigate(`/checkup-design?${urlParams.toString()}`);
+                }
+              }}
+              aria-label="새로 설계하기"
+              title="처음부터 다시 설계하기"
             >
-              ←
+              새로고침
             </button>
           </div>
         </div>
 
-        {/* 환자 인사말 + 추천 설명 (MainPage 구조 재사용) */}
+        {/* 환자 인사말 + 추천 설명 */}
         <div className="main-page__greeting">
-          <h1 className="main-page__greeting-title">
-            <span className="patient-name">{recommendationData.patientName}</span>
+          <h1 className="main-page__greeting-title checkup-recommendations__title">
+            <span className="patient-name checkup-recommendations__patient-name">{recommendationData.patientName}</span>
             <span className="greeting-text">님 건강 상태에 꼭 필요한 검진 항목을 추천드려요!</span>
           </h1>
-          <p className="main-page__greeting-message">
-            <span className="checkup-recommendations__info">
-              <span className="checkup-recommendations__info-icon">ⓘ</span>
-              <span className="checkup-recommendations__info-text">
-                건강검진 결과 기준 발병확률이 있는 항목을 추천
-              </span>
-            </span>
-          </p>
         </div>
       </div>
 
@@ -577,32 +606,32 @@ const CheckupRecommendationsPage: React.FC = () => {
                     const endMatch = highlightEndRegex.exec(cleanedText);
                     
                     if (endMatch) {
-                      // 강조 텍스트
+                    // 강조 텍스트
                       const highlightText = cleanedText.substring(startMatch.index + '__HIGHLIGHT_START__'.length, endMatch.index);
                       if (highlightText.trim()) {
-                        parts.push(
-                          <span key={`highlight-${key++}`} className="checkup-recommendations__analysis-highlight">
+                    parts.push(
+                      <span key={`highlight-${key++}`} className="checkup-recommendations__analysis-highlight">
                             {highlightText}
-                          </span>
-                        );
+                      </span>
+                    );
                       }
                       lastIndex = endMatch.index + '__HIGHLIGHT_END__'.length;
                     } else {
                       // 닫는 태그가 없으면 일반 텍스트로 처리
                       lastIndex = startMatch.index;
-                    }
+                  }
                   }
                   
                   // 마지막 텍스트
                   if (lastIndex < cleanedText.length) {
                     const remainingText = cleanedText.substring(lastIndex);
                     if (remainingText) {
-                      parts.push(
-                        <span key={`text-${key++}`}>
+                    parts.push(
+                      <span key={`text-${key++}`}>
                           {remainingText}
-                        </span>
-                      );
-                    }
+                      </span>
+                    );
+                  }
                   }
                   
                   return (
@@ -622,9 +651,9 @@ const CheckupRecommendationsPage: React.FC = () => {
                   return (
                     <>
                       {displayLines.map((line: string, idx: number) => (
-                        <p key={idx} className="checkup-recommendations__analysis-paragraph">
-                          {line}
-                        </p>
+                    <p key={idx} className="checkup-recommendations__analysis-paragraph">
+                      {line}
+                    </p>
                       ))}
                       {shouldShowPreview && (
                         <div className="checkup-recommendations__analysis-gradient-overlay" />
@@ -633,7 +662,7 @@ const CheckupRecommendationsPage: React.FC = () => {
                   );
                 }
               })()}
-              </div>
+            </div>
               {!isAnalysisExpanded && (
                 <div 
                   className="checkup-recommendations__analysis-toggle"
@@ -668,7 +697,7 @@ const CheckupRecommendationsPage: React.FC = () => {
                   <div className="checkup-recommendations__card-header-left">
                   </div>
                   <div className="checkup-recommendations__card-header-right">
-                    <span className="checkup-recommendations__citations-label">참고 자료:</span>
+                <span className="checkup-recommendations__citations-label">참고 자료:</span>
                     <span className="checkup-recommendations__citations-count">
                       {(gptResponse.citations || gptResponse._citations || []).length}개
                     </span>
@@ -689,30 +718,30 @@ const CheckupRecommendationsPage: React.FC = () => {
                 </div>
                 {expandedCategories.has('citations') && (
                   <div className="checkup-recommendations__card-content">
-                    <div className="checkup-recommendations__citations-list">
+                <div className="checkup-recommendations__citations-list">
                       {(gptResponse.citations || gptResponse._citations || []).map((citation: string, index: number) => {
-                        const isUrl = citation.startsWith('http://') || citation.startsWith('https://');
-                        return (
-                          <div key={index} className="checkup-recommendations__citation">
-                            {isUrl ? (
-                              <a 
-                                href={citation} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="checkup-recommendations__citation-link"
-                              >
-                                {citation}
-                              </a>
-                            ) : (
-                              <span className="checkup-recommendations__citation-text">{citation}</span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                    const isUrl = citation.startsWith('http://') || citation.startsWith('https://');
+                    return (
+                      <div key={index} className="checkup-recommendations__citation">
+                        {isUrl ? (
+                          <a 
+                            href={citation} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="checkup-recommendations__citation-link"
+                          >
+                            {citation}
+                          </a>
+                        ) : (
+                          <span className="checkup-recommendations__citation-text">{citation}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
+            )}
+            </div>
             )}
 
             {/* 주요 사항 요약 섹션 (priority_1, priority_2, priority_3 표시) */}
@@ -1053,7 +1082,7 @@ const CheckupRecommendationsPage: React.FC = () => {
                         {recommendationData.summary.priority_1.focus_items.map((item: any, idx: number) => (
                           <span key={idx} className="checkup-recommendations__card-header-badge">
                             {item.item_name}
-                          </span>
+                    </span>
                         ))}
                       </div>
                     )}
@@ -1087,15 +1116,15 @@ const CheckupRecommendationsPage: React.FC = () => {
                       const cleanedNote = cleanNationalCheckupNote(recommendationData.summary.priority_1.national_checkup_note);
                       
                       return (
-                        <div className="checkup-recommendations__doctor-box">
-                          <div className="checkup-recommendations__doctor-box-image">
-                            <img
-                              src={checkPlannerImage}
-                              alt="간호사 일러스트"
-                              className="checkup-recommendations__doctor-illustration"
-                            />
-                          </div>
-                          <div className="checkup-recommendations__doctor-box-text">
+                      <div className="checkup-recommendations__doctor-box">
+                        <div className="checkup-recommendations__doctor-box-image">
+                          <img
+                            src={checkPlannerImage}
+                            alt="간호사 일러스트"
+                            className="checkup-recommendations__doctor-illustration"
+                          />
+                        </div>
+                        <div className="checkup-recommendations__doctor-box-text">
                             {renderTextWithFootnotes(cleanedNote, priority1References)}
                             {/* 각주 리스트 표시 */}
                             {priority1References && priority1References.length > 0 && (
@@ -1117,12 +1146,12 @@ const CheckupRecommendationsPage: React.FC = () => {
                                       ) : (
                                         <span className="checkup-recommendations__footnote-text">{ref}</span>
                                       )}
-                                    </div>
+                        </div>
                                   );
                                 })}
-                              </div>
-                            )}
-                          </div>
+                      </div>
+                    )}
+                  </div>
                         </div>
                       );
                     })()}

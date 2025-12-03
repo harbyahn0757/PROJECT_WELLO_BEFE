@@ -29,10 +29,13 @@
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     width: 90%;
     max-width: 500px;
-    max-height: 90vh;
-    overflow-y: auto;
+    height: 85vh; // 고정 높이
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
     padding: $spacing-xl;
     animation: slideUp 0.3s ease-out;
+    overflow: hidden; // 스크롤 방지
   }
 
   &__header {
@@ -52,31 +55,47 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: $spacing-lg;
+    gap: $spacing-sm; // 간격 줄임
+    flex: 1;
+    overflow: hidden;
   }
 
   &__spinner-container {
-    width: 80px;
-    height: 80px;
-    position: relative;
+    width: 100%;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: $spacing-xs; // 간격 줄임
+    flex-shrink: 0;
+    min-height: 100px; // 최소 높이
   }
 
   &__spinner {
     position: relative;
-    width: 80px;
-    height: 80px;
+    width: 60px; // 크기 축소
+    height: 60px; // 크기 축소
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
   &__wello-icon {
-    width: 64px;
-    height: 64px;
+    width: 48px; // 크기 축소
+    height: 48px; // 크기 축소
     object-fit: contain;
+    animation: pulseSpin 2s ease-in-out infinite;
+  }
+
+  &__thinking-text {
+    font-size: $font-xs;
+    color: $brand-brown-darker;
+    font-style: normal;
+    text-align: center;
+    margin: 0;
+    min-height: 16px;
+    transition: opacity 0.6s ease-in-out;
+    animation: fadeInOut 1.5s ease-in-out;
   }
 
   &__description {
@@ -93,6 +112,14 @@
     display: flex;
     align-items: center;
     gap: $spacing-sm;
+    flex-shrink: 0;
+    
+    // 카드 내부 프로그레스 바
+    &--in-card {
+      margin-top: $spacing-md;
+      padding-top: $spacing-sm;
+      border-top: 1px solid $gray-200;
+    }
   }
 
   &__progress-bar {
@@ -143,11 +170,25 @@
     margin-top: $spacing-md;
   }
 
+  &__details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: $spacing-sm;
+  }
+
   &__details-title {
     font-size: $font-sm;
     font-weight: $font-weight-semibold;
     color: $gray-700;
-    margin-bottom: $spacing-sm;
+    margin: 0;
+    font-family: var(--font-family-greeting);
+  }
+
+  &__details-time {
+    font-size: $font-xs;
+    color: $brand-brown-dark;
+    font-weight: $font-weight-medium;
     font-family: var(--font-family-greeting);
   }
 
@@ -200,6 +241,233 @@
     flex: 1;
     line-height: 1.4;
   }
+
+  &__typing-container {
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    background: $gray-50;
+    border-radius: $border-radius-md;
+    padding: $spacing-md;
+    margin-top: $spacing-md;
+    border: 1px solid $gray-200;
+  }
+
+  &__typing-text {
+    font-size: $font-sm;
+    color: $gray-800;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: var(--font-family-greeting);
+    min-height: 60px;
+  }
+
+  &__highlight {
+    background: $brand-brown-light;
+    color: $brand-brown-dark;
+    padding: 2px 4px;
+    border-radius: $border-radius-sm;
+    font-weight: $font-weight-semibold;
+    display: inline;
+  }
+
+  // 카드 컨테이너
+  &__cards-container {
+    width: 100%;
+    flex: 1; // 남은 공간 모두 사용
+    display: flex;
+    flex-direction: column;
+    min-height: 0; // flexbox 오버플로우 방지
+  }
+
+  &__cards-wrapper {
+    position: relative;
+    width: 100%;
+    flex: 1; // 남은 공간 모두 사용
+    overflow: hidden;
+    min-height: 0; // flexbox 오버플로우 방지
+  }
+
+  &__step1-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%; // 부모 높이에 맞춤
+    background: $gray-50;
+    border: 1px solid $gray-200;
+    border-radius: $border-radius-lg;
+    padding: $spacing-md;
+    opacity: 0;
+    transform: translateX(100%); // 오른쪽에서 시작
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    overflow-y: auto;
+    box-shadow: $shadow-sm;
+    display: flex;
+    flex-direction: column;
+
+    &.active {
+      opacity: 1;
+      transform: translateX(0); // 중앙으로 이동
+      z-index: 1;
+    }
+
+    &.slide-out {
+      opacity: 0;
+      transform: translateX(-100%); // 왼쪽으로 밀려남
+      z-index: 0;
+    }
+  }
+  
+  &__empty-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: $gray-500;
+    font-size: $font-sm;
+    font-family: var(--font-family-greeting);
+  }
+  
+  &__step1-summary {
+    font-size: $font-xs;
+    color: $gray-600;
+    margin-bottom: $spacing-sm;
+    padding-bottom: $spacing-sm;
+    border-bottom: 1px solid $gray-200;
+    font-family: var(--font-family-greeting);
+    
+    strong {
+      color: $gray-700;
+      font-weight: $font-weight-medium;
+    }
+  }
+
+  &__step1-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: $spacing-md;
+    padding-bottom: $spacing-sm;
+    border-bottom: 1px solid $gray-200;
+    flex-shrink: 0;
+  }
+
+  &__step1-card-title {
+    font-size: $font-base;
+    font-weight: $font-weight-semibold;
+    color: $brand-brown-darker;
+    margin: 0;
+    font-family: var(--font-family-greeting);
+  }
+
+  &__step1-card-content {
+    font-size: $font-sm;
+    color: $gray-800;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: var(--font-family-greeting);
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  &__step1-concern-item {
+    margin-bottom: $spacing-md;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__step1-concern-name {
+    font-weight: $font-weight-semibold;
+    color: $brand-brown-darker;
+    margin-bottom: $spacing-xs;
+    font-size: $font-sm;
+  }
+
+  &__step1-concern-detail {
+    font-size: $font-xs;
+    color: $gray-700;
+    line-height: 1.5;
+    margin-top: $spacing-xs;
+    padding-left: $spacing-sm;
+    
+    strong {
+      color: $gray-800;
+      font-weight: $font-weight-medium;
+    }
+  }
+
+  &__step1-navigation {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: $spacing-md;
+    margin-top: $spacing-sm;
+    padding-top: $spacing-sm;
+  }
+
+  &__step1-nav-button {
+    background: $white;
+    border: 1px solid $gray-300;
+    border-radius: $border-radius-md;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: $brand-brown-dark;
+    font-size: $font-sm;
+    
+    &:hover:not(:disabled) {
+      background: $brand-brown-light;
+      border-color: $brand-brown;
+    }
+    
+    &:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+  }
+
+  &__step1-dots {
+    display: flex;
+    gap: $spacing-xs;
+    align-items: center;
+  }
+
+  &__step1-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: $gray-300;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &.active {
+      background: $brand-brown;
+      transform: scale(1.2);
+    }
+    
+    &:hover {
+      background: $brand-brown-hover;
+    }
+  }
+
+  &__typing-cursor {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: $brand-brown-dark;
+    margin-left: 2px;
+    animation: blink 1s infinite;
+    vertical-align: baseline;
+  }
 }
 
 @keyframes fadeIn {
@@ -234,6 +502,49 @@
   }
   100% {
     transform: translateX(100%);
+  }
+}
+
+@keyframes pulseSpin {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  25% {
+    opacity: 0.8;
+    transform: scale(0.95) rotate(90deg);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05) rotate(180deg);
+  }
+  75% {
+    opacity: 0.8;
+    transform: scale(0.95) rotate(270deg);
+  }
+}
+
+@keyframes fadeInOut {
+  0% {
+    opacity: 0.3;
+    transform: translateY(3px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0.3;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
   }
 }
 

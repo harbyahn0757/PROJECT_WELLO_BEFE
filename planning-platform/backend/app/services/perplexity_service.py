@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import json
 import logging
 import os
+import re
 import httpx
 from datetime import datetime
 from ..core.config import settings
@@ -245,20 +246,33 @@ class PerplexityService:
         if not response:
             return {}
         
-        # JSON 코드블록 제거 (```json ... ```)
+        # JSON 코드블록 제거 (```json ... ``` 또는 ``` ... ```)
         cleaned = response.strip()
-        if cleaned.startswith("```json"):
-            cleaned = cleaned[7:]  # ```json 제거
-        elif cleaned.startswith("```"):
-            cleaned = cleaned[3:]  # ``` 제거
         
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]  # ``` 제거
+        # 정규표현식으로 코드블록 제거 (더 정확하게)
+        # ```json ... ``` 패턴 제거 (시작 부분)
+        cleaned = re.sub(r'^```json\s*\n?', '', cleaned, flags=re.MULTILINE)
+        # ``` ... ``` 패턴 제거 (시작 부분)
+        cleaned = re.sub(r'^```\s*\n?', '', cleaned, flags=re.MULTILINE)
+        # 끝 부분 ``` 제거 (여러 줄에 걸쳐 있을 수 있음)
+        cleaned = re.sub(r'\n?```\s*$', '', cleaned, flags=re.MULTILINE | re.DOTALL)
         
+        # 앞뒤 공백 및 줄바꿈 제거
         cleaned = cleaned.strip()
         
+        # 디버깅: 파싱 전 내용 확인 (처음 200자만)
+        if len(cleaned) > 0:
+            logger.debug(f"🔍 [Perplexity Service] 파싱 전 내용 (처음 200자): {cleaned[:200]}")
+            logger.debug(f"🔍 [Perplexity Service] 파싱 전 내용 (마지막 200자): {cleaned[-200:] if len(cleaned) > 200 else cleaned}")
+        
         try:
-            return json.loads(cleaned)
+            parsed = json.loads(cleaned)
+            # 파싱 결과가 딕셔너리인지 확인
+            if not isinstance(parsed, dict):
+                logger.error(f"❌ [Perplexity Service] 파싱된 결과가 딕셔너리가 아님: {type(parsed)}")
+                logger.error(f"❌ [Perplexity Service] 파싱된 결과: {parsed}")
+                raise ValueError(f"JSON 파싱 결과가 딕셔너리가 아닙니다: {type(parsed)}. 응답은 반드시 JSON 객체 형태여야 합니다.")
+            return parsed
         except json.JSONDecodeError as e:
             # 불완전한 JSON 처리 시도
             logger.warning(f"⚠️ [Perplexity Service] JSON 파싱 오류: {str(e)}, 복구 시도 중...")
@@ -302,7 +316,12 @@ class PerplexityService:
                         fixed += ']' * open_brackets
                     
                     logger.info(f"🔧 [Perplexity Service] JSON 복구 시도: {len(fixed)} 문자 (원본: {len(cleaned)} 문자)")
-                    return json.loads(fixed)
+                    parsed = json.loads(fixed)
+                    # 파싱 결과가 딕셔너리인지 확인
+                    if not isinstance(parsed, dict):
+                        logger.error(f"❌ [Perplexity Service] 복구 후 파싱 결과가 딕셔너리가 아님: {type(parsed)}")
+                        raise ValueError(f"JSON 파싱 결과가 딕셔너리가 아닙니다: {type(parsed)}. 응답은 반드시 JSON 객체 형태여야 합니다.")
+                    return parsed
                     
                 except json.JSONDecodeError as fix_error:
                     logger.error(f"❌ [Perplexity Service] JSON 복구 실패: {str(fix_error)}")

@@ -2,7 +2,7 @@
  * 검진 설계 추가 설문 패널 컴포넌트
  * 슬라이드 형태로 하나씩 질문을 표시
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import checkPlannerImage from '../../../assets/images/check_planner.png';
 import './styles.scss';
 
@@ -15,6 +15,15 @@ export interface SurveyResponses {
   sleep_hours: string;
   stress_level: string;
   additional_concerns: string;
+  // 선택적 추가 질문
+  optional_questions_enabled?: string; // 'yes' | 'no'
+  cancer_history?: string;
+  hepatitis_carrier?: string;
+  colonoscopy_experience?: string;
+  lung_nodule?: string;
+  gastritis?: string;
+  imaging_aversion?: string[]; // 체크박스 필드는 배열
+  genetic_test?: string;
 }
 
 interface CheckupDesignSurveyPanelProps {
@@ -31,6 +40,8 @@ interface Question {
   options?: { value: string; label: string }[];
   placeholder?: string;
   maxLength?: number;
+  isOptional?: boolean; // 선택적 질문 여부
+  showIf?: { key: keyof SurveyResponses; value: string }; // 조건부 표시
 }
 
 const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
@@ -47,7 +58,9 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
     drinking: '',
     sleep_hours: '',
     stress_level: '',
-    additional_concerns: ''
+    additional_concerns: '',
+    optional_questions_enabled: undefined,
+    imaging_aversion: [] // 체크박스 필드는 배열로 초기화
   });
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -65,14 +78,16 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
         drinking: '',
         sleep_hours: '',
         stress_level: '',
-        additional_concerns: ''
+        additional_concerns: '',
+        optional_questions_enabled: undefined,
+        imaging_aversion: [] // 체크박스 필드는 배열로 초기화
       });
       setErrors({});
     }
   }, [isOpen]);
 
-  // 질문 정의
-  const questions: Question[] = [
+  // 기본 질문 정의 (필수)
+  const basicQuestions: Question[] = [
     {
       key: 'weight_change',
       label: '최근 3개월간 체중 변화가 있으신가요?',
@@ -161,8 +176,121 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
       type: 'textarea',
       placeholder: '예: 최근 두통이 자주 발생합니다, 가족 중 암 환자가 있어서 걱정됩니다 등',
       maxLength: 500
+    },
+    // 선택적 질문 활성화 여부 질문
+    {
+      key: 'optional_questions_enabled',
+      label: '더 정확한 검진 설계를 위해 추가 질문에 답하시겠어요?',
+      type: 'radio',
+      options: [
+        { value: 'yes', label: '예, 답하겠습니다' },
+        { value: 'no', label: '아니오, 이대로 진행하겠습니다' }
+      ]
     }
   ];
+
+  // 선택적 추가 질문 정의 (optional_questions_enabled가 'yes'일 때만 표시)
+  const optionalQuestions: Question[] = [
+    {
+      key: 'cancer_history',
+      label: '과거 암 진단을 받으신 적이 있으신가요?',
+      type: 'radio',
+      options: [
+        { value: 'yes_current', label: '예, 현재 치료 중입니다' },
+        { value: 'yes_past', label: '예, 과거에 치료를 받았습니다' },
+        { value: 'no', label: '아니오' }
+      ],
+      isOptional: true,
+      showIf: { key: 'optional_questions_enabled', value: 'yes' }
+    },
+    {
+      key: 'hepatitis_carrier',
+      label: 'B형 또는 C형 간염 보균자이신가요?',
+      type: 'radio',
+      options: [
+        { value: 'hepatitis_b', label: 'B형 간염 보균자' },
+        { value: 'hepatitis_c', label: 'C형 간염 보균자' },
+        { value: 'both', label: '둘 다' },
+        { value: 'no', label: '아니오' }
+      ],
+      isOptional: true,
+      showIf: { key: 'optional_questions_enabled', value: 'yes' }
+    },
+    {
+      key: 'colonoscopy_experience',
+      label: '대장내시경 검사를 받으신 적이 있으신가요?',
+      type: 'radio',
+      options: [
+        { value: 'yes_comfortable', label: '예, 불편함 없이 받았습니다' },
+        { value: 'yes_uncomfortable', label: '예, 불편했습니다' },
+        { value: 'no_afraid', label: '아니오, 두려워서 받지 않았습니다' },
+        { value: 'no_never', label: '아니오, 받아본 적이 없습니다' }
+      ],
+      isOptional: true,
+      showIf: { key: 'optional_questions_enabled', value: 'yes' }
+    },
+    {
+      key: 'lung_nodule',
+      label: '흉부 CT나 X-ray에서 폐 결절이 발견된 적이 있으신가요?',
+      type: 'radio',
+      options: [
+        { value: 'yes', label: '예' },
+        { value: 'no', label: '아니오' },
+        { value: 'unknown', label: '모르겠습니다' }
+      ],
+      isOptional: true,
+      showIf: { key: 'optional_questions_enabled', value: 'yes' }
+    },
+    {
+      key: 'gastritis',
+      label: '현재 또는 과거에 위염이나 소화불량 증상이 있으신가요?',
+      type: 'radio',
+      options: [
+        { value: 'yes_current', label: '예, 현재 있습니다' },
+        { value: 'yes_past', label: '예, 과거에 있었습니다' },
+        { value: 'no', label: '아니오' }
+      ],
+      isOptional: true,
+      showIf: { key: 'optional_questions_enabled', value: 'yes' }
+    },
+    {
+      key: 'imaging_aversion',
+      label: '다음 검사 중 기피하거나 불편함을 느끼는 검사가 있으신가요?',
+      type: 'checkbox',
+      options: [
+        { value: 'ct', label: 'CT (컴퓨터 단층촬영)' },
+        { value: 'xray', label: 'X-ray (엑스레이)' },
+        { value: 'mri', label: 'MRI (자기공명영상)' },
+        { value: 'none', label: '없음' }
+      ],
+      isOptional: true,
+      showIf: { key: 'optional_questions_enabled', value: 'yes' }
+    },
+    {
+      key: 'genetic_test',
+      label: '가족 중 유전성 암(브라카 변이 등)이 의심되는 경우가 있으신가요?',
+      type: 'radio',
+      options: [
+        { value: 'yes', label: '예' },
+        { value: 'no', label: '아니오' },
+        { value: 'unknown', label: '모르겠습니다' }
+      ],
+      isOptional: true,
+      showIf: { key: 'optional_questions_enabled', value: 'yes' }
+    }
+  ];
+
+  // 표시할 질문 목록 계산 (조건부 필터링)
+  const questions = useMemo(() => {
+    const allQuestions = [...basicQuestions];
+    
+    // optional_questions_enabled가 'yes'인 경우에만 선택적 질문 추가
+    if (responses.optional_questions_enabled === 'yes') {
+      allQuestions.push(...optionalQuestions);
+    }
+    
+    return allQuestions;
+  }, [responses.optional_questions_enabled]);
 
   const currentQuestion = questions[currentQuestionIndex];
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
@@ -190,6 +318,15 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
     setResponses(prev => ({ ...prev, [currentQuestion.key]: value }));
     setErrors(prev => ({ ...prev, [currentQuestion.key]: '' }));
     
+    // optional_questions_enabled가 'no'로 선택되면 바로 제출 가능
+    if (currentQuestion.key === 'optional_questions_enabled' && value === 'no') {
+      // 기본 질문만으로 제출 가능 (선택적 질문은 빈 값으로)
+      setTimeout(() => {
+        handleSubmit();
+      }, 300);
+      return;
+    }
+    
     // 다음 질문으로 자동 이동 (마지막 질문이 아니면)
     if (!isLastQuestion) {
       setTimeout(() => {
@@ -198,10 +335,30 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
     }
   };
 
-  // 체크박스 변경 핸들러
+  // 체크박스 변경 핸들러 (범용)
   const handleCheckboxChange = (value: string) => {
-    handleFamilyHistoryChange(value);
-    setErrors(prev => ({ ...prev, [currentQuestion.key]: '' }));
+    const questionKey = currentQuestion.key;
+    
+    // 가족력은 특별 처리
+    if (questionKey === 'family_history') {
+      handleFamilyHistoryChange(value);
+    } else {
+      // 다른 체크박스 필드 (imaging_aversion 등)
+      setResponses(prev => {
+        const current = (prev[questionKey] as string[]) || [];
+        if (value === 'none') {
+          return { ...prev, [questionKey]: ['none'] };
+        } else {
+          const filtered = current.filter(v => v !== 'none');
+          if (filtered.includes(value)) {
+            return { ...prev, [questionKey]: filtered.filter(v => v !== value) };
+          } else {
+            return { ...prev, [questionKey]: [...filtered, value] };
+          }
+        }
+      });
+    }
+    setErrors(prev => ({ ...prev, [questionKey]: '' }));
   };
 
   // 텍스트 영역 변경 핸들러
@@ -238,7 +395,23 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
   const validate = (): boolean => {
     const newErrors: { [key: string]: string } = {};
 
-    questions.forEach(question => {
+    // "아니오"를 선택한 경우, optional_questions_enabled 질문까지의 기본 질문만 검증
+    // (optional_questions_enabled 질문 자체는 이미 선택되었으므로 검증 제외)
+    const questionsToValidate = responses.optional_questions_enabled === 'yes' 
+      ? questions 
+      : basicQuestions.filter(q => q.key !== 'optional_questions_enabled' || responses.optional_questions_enabled === 'no');
+
+    questionsToValidate.forEach(question => {
+      // optional_questions_enabled 질문은 이미 선택되었으므로 검증 제외
+      if (question.key === 'optional_questions_enabled') {
+        return;
+      }
+      
+      // 선택적 질문은 optional_questions_enabled가 'yes'일 때만 검증
+      if (question.isOptional && responses.optional_questions_enabled !== 'yes') {
+        return;
+      }
+      
       if (question.type === 'radio' && !responses[question.key]) {
         newErrors[question.key] = '항목을 선택해주세요.';
       } else if (question.type === 'checkbox' && (responses[question.key] as string[]).length === 0) {
@@ -348,17 +521,21 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
 
                   {question.type === 'checkbox' && question.options && (
                     <div className="survey-question__options">
-                      {question.options.map(option => (
-                        <label key={option.value} className="survey-option">
-                          <input
-                            type="checkbox"
-                            value={option.value}
-                            checked={(responses[question.key] as string[]).includes(option.value)}
-                            onChange={() => handleCheckboxChange(option.value)}
-                          />
-                          <span>{option.label}</span>
-                        </label>
-                      ))}
+                      {question.options.map(option => {
+                        const currentValue = responses[question.key];
+                        const valueArray = Array.isArray(currentValue) ? currentValue : [];
+                        return (
+                          <label key={option.value} className="survey-option">
+                            <input
+                              type="checkbox"
+                              value={option.value}
+                              checked={valueArray.includes(option.value)}
+                              onChange={() => handleCheckboxChange(option.value)}
+                            />
+                            <span>{option.label}</span>
+                          </label>
+                        );
+                      })}
                     </div>
                   )}
 

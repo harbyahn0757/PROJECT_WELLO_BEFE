@@ -114,7 +114,7 @@ class Settings(BaseSettings):
     
     # Perplexity 설정
     perplexity_api_key: str = Field(default="dev-perplexity-key", env="PERPLEXITY_API_KEY")
-    perplexity_model: str = Field(default="sonar", env="PERPLEXITY_MODEL")
+    perplexity_model: str = Field(default="sonar-pro", env="PERPLEXITY_MODEL")  # STEP 2용 강력한 모델
     
     model_config = {
         "env_file": [".env.local", "config.env", ".env"],

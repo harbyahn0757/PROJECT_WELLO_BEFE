@@ -16,7 +16,14 @@ from ....core.security import get_current_user
 from ....core.config import settings
 from ....services.gpt_service import GPTService, GPTRequest
 from ....services.perplexity_service import PerplexityService, PerplexityRequest
-from ....services.checkup_design_prompt import create_checkup_design_prompt, CHECKUP_DESIGN_SYSTEM_MESSAGE
+from ....services.checkup_design_prompt import (
+    create_checkup_design_prompt, 
+    CHECKUP_DESIGN_SYSTEM_MESSAGE,
+    create_checkup_design_prompt_step1,
+    CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1,
+    create_checkup_design_prompt_step2,
+    CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2
+)
 from ....services.wello_data_service import WelloDataService
 
 logger = logging.getLogger(__name__)
@@ -47,6 +54,7 @@ class ConcernItem(BaseModel):
     warningCount: Optional[int] = Field(None, description="경계 항목 수 (병원 항목용)")
     medicationName: Optional[str] = Field(None, description="약물명 (약물 항목용)")
     period: Optional[str] = Field(None, description="복용 기간 (약물 항목용)")
+    medicationText: Optional[str] = Field(None, description="약물 복용 패턴 설명 (사용자 친화적 텍스트, 프롬프트용)")
 
 class CheckupDesignRequest(BaseModel):
     """검진 설계 요청 모델 (GPT 기반)"""
@@ -55,6 +63,9 @@ class CheckupDesignRequest(BaseModel):
     selected_concerns: List[ConcernItem] = Field(..., description="선택한 염려 항목 리스트")
     survey_responses: Optional[Dict[str, Any]] = Field(None, description="설문 응답 (체중 변화, 운동, 가족력 등)")
     additional_info: Optional[Dict[str, Any]] = Field(None, description="추가 정보")
+    # 약품 분석 결과 텍스트 (전체 처방 데이터 대신 사용)
+    prescription_analysis_text: Optional[str] = Field(None, description="약품 분석 결과 텍스트 (프롬프트용)")
+    selected_medication_texts: Optional[List[str]] = Field(None, description="선택된 약품의 사용자 친화적 텍스트 (프롬프트용)")
 
 
 class CheckupDesignResponse(BaseModel):
@@ -62,6 +73,27 @@ class CheckupDesignResponse(BaseModel):
     success: bool
     data: Dict[str, Any]  # GPT 응답 JSON 구조
     message: Optional[str] = None
+
+
+class Step1Result(BaseModel):
+    """STEP 1 분석 결과 모델"""
+    patient_summary: str = Field(..., description="환자 상태 3줄 요약")
+    analysis: str = Field(..., description="종합 분석")
+    survey_reflection: str = Field(..., description="문진 내용 반영 예고")
+    selected_concerns_analysis: List[Dict[str, Any]] = Field(..., description="선택한 염려 항목별 분석")
+    basic_checkup_guide: Dict[str, Any] = Field(..., description="기본 검진 가이드")
+
+
+class CheckupDesignStep2Request(BaseModel):
+    """STEP 2 검진 설계 요청 모델"""
+    uuid: str = Field(..., description="환자 UUID")
+    hospital_id: str = Field(..., description="병원 ID")
+    step1_result: Step1Result = Field(..., description="STEP 1 분석 결과")
+    selected_concerns: List[ConcernItem] = Field(..., description="선택한 염려 항목 리스트")
+    survey_responses: Optional[Dict[str, Any]] = Field(None, description="설문 응답")
+    additional_info: Optional[Dict[str, Any]] = Field(None, description="추가 정보")
+    prescription_analysis_text: Optional[str] = Field(None, description="약품 분석 결과 텍스트")
+    selected_medication_texts: Optional[List[str]] = Field(None, description="선택된 약품의 사용자 친화적 텍스트")
 
 
 class TrendAnalysisResponse(BaseModel):
@@ -83,9 +115,20 @@ async def create_checkup_design(
     """
     try:
         logger.info(f"🔍 [검진설계] 요청 시작 - UUID: {request.uuid}, 선택 항목: {len(request.selected_concerns)}개")
+        logger.info(f"🔍 [검진설계] request 타입: {type(request)}")
+        logger.info(f"🔍 [검진설계] request.uuid 타입: {type(request.uuid)}")
+        logger.info(f"🔍 [검진설계] request.hospital_id 타입: {type(request.hospital_id)}")
         
         # 1. 환자 정보 조회
+        logger.info(f"🔍 [검진설계] 환자 정보 조회 시작...")
         patient_info = await wello_data_service.get_patient_by_uuid(request.uuid)
+        logger.info(f"🔍 [검진설계] patient_info 타입: {type(patient_info)}")
+        
+        if not isinstance(patient_info, dict):
+            logger.error(f"❌ [검진설계] patient_info가 딕셔너리가 아님: {type(patient_info)}")
+            logger.error(f"❌ [검진설계] patient_info 내용: {patient_info}")
+            raise ValueError(f"환자 정보 조회 결과가 딕셔너리가 아닙니다: {type(patient_info)}")
+        
         if "error" in patient_info:
             raise HTTPException(status_code=404, detail=patient_info["error"])
         
@@ -98,30 +141,87 @@ async def create_checkup_design(
         patient_gender = patient_info.get("gender", "M")
         
         # 1-1. 병원 정보 조회 (검진 항목 포함)
+        logger.info(f"🏥 [검진설계] 병원 정보 조회 시작 - hospital_id: {request.hospital_id}")
         hospital_info = await wello_data_service.get_hospital_by_id(request.hospital_id)
+        logger.info(f"🔍 [검진설계] hospital_info 타입: {type(hospital_info)}")
+        
+        if not isinstance(hospital_info, dict):
+            logger.error(f"❌ [검진설계] hospital_info가 딕셔너리가 아님: {type(hospital_info)}")
+            logger.error(f"❌ [검진설계] hospital_info 내용: {hospital_info}")
+            raise ValueError(f"병원 정보 조회 결과가 딕셔너리가 아닙니다: {type(hospital_info)}")
+        
+        if "error" in hospital_info:
+            logger.error(f"❌ [검진설계] 병원 정보 조회 실패: {hospital_info['error']}")
+            raise HTTPException(status_code=404, detail=hospital_info["error"])
+        
         hospital_checkup_items = hospital_info.get("checkup_items")
         hospital_national_checkup = hospital_info.get("national_checkup_items")
         hospital_recommended = hospital_info.get("recommended_items")
         hospital_external_checkup = hospital_info.get("external_checkup_items", [])  # 외부 검사 항목 (매핑 테이블에서 조회)
         
+        logger.info(f"✅ [검진설계] 병원 정보 조회 완료 - {hospital_info.get('hospital_name', 'N/A')}")
+        logger.info(f"📊 [검진설계] 검진 항목 통계:")
+        logger.info(f"  - 기본 검진 항목: {len(hospital_national_checkup) if hospital_national_checkup else 0}개")
+        logger.info(f"  - 병원 추천 항목: {len(hospital_recommended) if hospital_recommended else 0}개")
+        logger.info(f"  - 프리미엄 항목 (외부 검사): {len(hospital_external_checkup)}개")
+        
+        if hospital_external_checkup:
+            # 난이도별 통계
+            difficulty_stats = {}
+            for item in hospital_external_checkup:
+                level = item.get('difficulty_level', 'Unknown')
+                difficulty_stats[level] = difficulty_stats.get(level, 0) + 1
+            logger.info(f"📊 [검진설계] 프리미엄 항목 난이도별 통계: {difficulty_stats}")
+            # 처음 3개 항목만 로그 출력
+            for idx, item in enumerate(hospital_external_checkup[:3]):
+                algorithm_info = f" [{item.get('algorithm_class', 'N/A')}]" if item.get('algorithm_class') else ""
+                target_info = f" - {item.get('target', 'N/A')}" if item.get('target') else ""
+                logger.info(f"  [{idx+1}] {item.get('item_name', 'N/A')} ({item.get('difficulty_level', 'N/A')}){algorithm_info}{target_info} - {item.get('category', 'N/A')}")
+            if len(hospital_external_checkup) > 3:
+                logger.info(f"  ... 외 {len(hospital_external_checkup) - 3}개 항목")
+        
         # 2. 건강 데이터 조회
+        logger.info(f"🔍 [검진설계] 건강 데이터 조회 시작...")
         health_data_result = await wello_data_service.get_patient_health_data(request.uuid, request.hospital_id)
-        if "error" in health_data_result:
+        logger.info(f"🔍 [검진설계] health_data_result 타입: {type(health_data_result)}")
+        
+        if not isinstance(health_data_result, dict):
+            logger.error(f"❌ [검진설계] health_data_result가 딕셔너리가 아님: {type(health_data_result)}")
+            logger.error(f"❌ [검진설계] health_data_result 내용: {health_data_result}")
+            logger.warning(f"⚠️ [검진설계] 건강 데이터 조회 실패 - 딕셔너리가 아님, 빈 리스트 사용")
+            health_data = []
+        elif "error" in health_data_result:
             logger.warning(f"⚠️ [검진설계] 건강 데이터 조회 실패: {health_data_result['error']}")
             health_data = []
         else:
             health_data = health_data_result.get("health_data", [])
         
-        # 3. 처방전 데이터 조회
-        prescription_data_result = await wello_data_service.get_patient_prescription_data(request.uuid, request.hospital_id)
-        if "error" in prescription_data_result:
-            logger.warning(f"⚠️ [검진설계] 처방전 데이터 조회 실패: {prescription_data_result['error']}")
-            prescription_data = []
+        # 3. 처방전 데이터 조회 (분석 결과 텍스트가 있으면 스킵)
+        prescription_data = []
+        if not request.prescription_analysis_text:
+            # 분석 결과 텍스트가 없을 때만 원본 데이터 조회 (하위 호환성)
+            logger.info(f"🔍 [검진설계] 처방전 데이터 조회 시작...")
+            prescription_data_result = await wello_data_service.get_patient_prescription_data(request.uuid, request.hospital_id)
+            logger.info(f"🔍 [검진설계] prescription_data_result 타입: {type(prescription_data_result)}")
+            
+            if not isinstance(prescription_data_result, dict):
+                logger.error(f"❌ [검진설계] prescription_data_result가 딕셔너리가 아님: {type(prescription_data_result)}")
+                logger.error(f"❌ [검진설계] prescription_data_result 내용: {prescription_data_result}")
+                logger.warning(f"⚠️ [검진설계] 처방전 데이터 조회 실패 - 딕셔너리가 아님, 빈 리스트 사용")
+                prescription_data = []
+            elif "error" in prescription_data_result:
+                logger.warning(f"⚠️ [검진설계] 처방전 데이터 조회 실패: {prescription_data_result['error']}")
+                prescription_data = []
+            else:
+                prescription_data = prescription_data_result.get("prescription_data", [])
         else:
-            prescription_data = prescription_data_result.get("prescription_data", [])
+            logger.info(f"📝 [검진설계] 약품 분석 결과 텍스트 사용 (원본 데이터 스킵)")
         
         # 4. 선택한 염려 항목 변환
         selected_concerns = []
+        # 선택된 약품 텍스트 추출 (survey_responses에서)
+        selected_medication_texts = request.survey_responses.get("selected_medication_texts") if request.survey_responses else None
+        
         for concern in request.selected_concerns:
             concern_dict = {
                 "type": concern.type,
@@ -147,109 +247,102 @@ async def create_checkup_design(
                 concern_dict.update({
                     "medication_name": concern.medicationName or concern.name,
                     "period": concern.period,
-                    "hospital_name": concern.hospitalName or concern.location
+                    "hospital_name": concern.hospitalName or concern.location,
+                    "medication_text": getattr(concern, "medicationText", None)  # 사용자 친화적 텍스트 (Pydantic 모델에 없을 수 있음)
                 })
             selected_concerns.append(concern_dict)
         
         # 병원 정보는 이미 101번 라인에서 조회했으므로 중복 조회 제거
         # hospital_national_checkup, hospital_recommended는 위에서 이미 조회됨
         
-        # 5. 프롬프트 생성 (프롬프트가 생명!)
-        logger.info(f"📝 [검진설계] 프롬프트 생성 중...")
-        user_message = create_checkup_design_prompt(
-            patient_name=patient_name,
-            patient_age=patient_age,
-            patient_gender=patient_gender,
-            health_data=health_data,
-            prescription_data=prescription_data,
-            selected_concerns=selected_concerns,
-            survey_responses=request.survey_responses or {},
-            hospital_national_checkup=hospital_national_checkup,
-            hospital_recommended=hospital_recommended,
-            hospital_external_checkup=hospital_external_checkup
-        )
+        # 5. 2단계 파이프라인 실행: STEP 1 → STEP 2 순차 호출
+        logger.info(f"🔄 [검진설계] 2단계 파이프라인 시작...")
         
-        # 6. Perplexity API 호출 (처음부터 최대값으로)
-        ai_response = None
-        max_tokens = 20000  # 처음부터 최대값으로 설정
+        # survey_responses에서 약품 분석 텍스트 추출
+        survey_responses_clean = request.survey_responses or {}
+        prescription_analysis_text = survey_responses_clean.pop("prescription_analysis_text", None) or request.prescription_analysis_text
+        selected_medication_texts = survey_responses_clean.pop("selected_medication_texts", None) or request.selected_medication_texts
         
-        logger.info(f"🤖 [검진설계] Perplexity API 호출 시작... (max_tokens: {max_tokens})")
-        logger.info(f"📊 [검진설계] 프롬프트 길이: {len(user_message)} 문자")
-        logger.info(f"📊 [검진설계] 시스템 메시지 길이: {len(CHECKUP_DESIGN_SYSTEM_MESSAGE)} 문자")
+        # STEP 1: 빠른 분석 수행
+        logger.info(f"📊 [검진설계] STEP 1: 빠른 분석 시작...")
+        step1_response = await create_checkup_design_step1(request)
+        if not step1_response.success:
+            logger.error(f"❌ [검진설계] STEP 1 실패")
+            raise ValueError("STEP 1 분석 실패")
         
-        perplexity_request = PerplexityRequest(
-            system_message=CHECKUP_DESIGN_SYSTEM_MESSAGE,
-            user_message=user_message,
-            model=settings.perplexity_model,
-            temperature=0.3,
-            max_tokens=max_tokens,
-            response_format={"type": "json_object"}  # JSON 형식 강제
-        )
+        step1_result = step1_response.data
+        logger.info(f"✅ [검진설계] STEP 1 완료 - 분석 결과 수신")
+        logger.info(f"🔍 [검진설계] STEP 1 결과 타입: {type(step1_result)}")
+        logger.info(f"🔍 [검진설계] step1_response 타입: {type(step1_response)}")
+        logger.info(f"🔍 [검진설계] step1_response.data 타입: {type(step1_response.data)}")
         
-        # Perplexity 서비스 초기화
-        logger.info(f"🔧 [검진설계] Perplexity 서비스 초기화 중...")
-        await perplexity_service.initialize()
-        logger.info(f"✅ [검진설계] Perplexity 서비스 초기화 완료")
+        # step1_result가 딕셔너리인지 확인
+        if not isinstance(step1_result, dict):
+            logger.error(f"❌ [검진설계] STEP 1 결과가 딕셔너리가 아님: {type(step1_result)}")
+            logger.error(f"❌ [검진설계] STEP 1 결과 내용 (처음 500자): {str(step1_result)[:500]}")
+            raise ValueError(f"STEP 1 결과 형식 오류: 딕셔너리가 아닌 {type(step1_result)}")
         
-        # Perplexity API 호출 (citations 포함)
-        logger.info(f"📡 [검진설계] Perplexity API 호출 중...")
-        perplexity_api_response = await perplexity_service.call_api(
-            perplexity_request,
-            save_log=True
-        )
-        logger.info(f"📥 [검진설계] Perplexity API 응답 수신 완료")
+        logger.info(f"📊 [검진설계] STEP 1 결과 키: {list(step1_result.keys())}")
         
-        # 응답 상태 확인
-        logger.info(f"📊 [검진설계] 응답 상태: success={perplexity_api_response.success}")
-        logger.info(f"📊 [검진설계] 응답 길이: {len(perplexity_api_response.content) if perplexity_api_response.content else 0} 문자")
-        logger.info(f"📊 [검진설계] finish_reason: {perplexity_api_response.finish_reason}")
-        logger.info(f"📊 [검진설계] 토큰 사용량: {perplexity_api_response.usage}")
-        
-        if not perplexity_api_response.success:
-            logger.error(f"❌ [검진설계] Perplexity API 호출 실패: {perplexity_api_response.error}")
-            raise ValueError(f"Perplexity API 호출 실패: {perplexity_api_response.error}")
-        
-        if not perplexity_api_response.content:
-            logger.error(f"❌ [검진설계] Perplexity 응답 내용이 비어있음")
-            raise ValueError("Perplexity 응답 내용이 비어있습니다.")
-        
-        # finish_reason 확인 (로그만 남기고 계속 진행)
-        finish_reason = perplexity_api_response.finish_reason or ""
-        if finish_reason == "length":
-            logger.warning(f"⚠️ [검진설계] finish_reason이 'length'입니다 - 응답이 잘렸을 수 있음")
-            logger.warning(f"⚠️ [검진설계] max_tokens: {max_tokens}, 응답 길이: {len(perplexity_api_response.content)} 문자")
-            logger.warning(f"⚠️ [검진설계] 토큰 사용량: {perplexity_api_response.usage}")
-            # finish_reason이 "length"여도 JSON 파싱 시도 (복구 로직이 처리)
-        
-        # Citations 추출
-        citations = perplexity_api_response.citations if perplexity_api_response.citations else []
-        logger.info(f"📚 [검진설계] Perplexity Citations 발견: {len(citations)}개")
-        if citations:
-            logger.info(f"📚 [검진설계] Citations 목록: {citations[:3]}...")  # 처음 3개만 로그
-        
-        # JSON 파싱
-        logger.info(f"🔍 [검진설계] JSON 파싱 시작...")
-        logger.info(f"📊 [검진설계] 응답 내용 처음 200자: {perplexity_api_response.content[:200]}")
-        logger.info(f"📊 [검진설계] 응답 내용 마지막 200자: {perplexity_api_response.content[-200:]}")
-        
+        # STEP 2: 설계 및 근거 확보 (STEP 1 결과를 구조체로 전달)
+        logger.info(f"🔧 [검진설계] STEP 2: 설계 및 근거 확보 시작...")
         try:
-            ai_response = perplexity_service.parse_json_response(
-                perplexity_api_response.content,
-                raise_on_incomplete=False
+            # STEP 1 결과를 Step1Result 구조체로 변환
+            step1_result_model = Step1Result(**step1_result)
+            
+            # STEP 2 요청 생성
+            step2_request = CheckupDesignStep2Request(
+                uuid=request.uuid,
+                hospital_id=request.hospital_id,
+                step1_result=step1_result_model,
+                selected_concerns=request.selected_concerns,
+                survey_responses=request.survey_responses,
+                additional_info=request.additional_info,
+                prescription_analysis_text=prescription_analysis_text,
+                selected_medication_texts=selected_medication_texts
             )
-            logger.info(f"✅ [검진설계] JSON 파싱 성공")
-            logger.info(f"📊 [검진설계] 파싱된 응답 키: {list(ai_response.keys()) if ai_response else 'None'}")
-        except Exception as parse_error:
-            logger.error(f"❌ [검진설계] JSON 파싱 실패: {str(parse_error)}")
-            logger.error(f"❌ [검진설계] 응답 내용 전체 길이: {len(perplexity_api_response.content)}")
-            logger.error(f"❌ [검진설계] 응답 내용 처음 1000자:\n{perplexity_api_response.content[:1000]}")
-            logger.error(f"❌ [검진설계] 응답 내용 마지막 1000자:\n{perplexity_api_response.content[-1000:]}")
-            raise ValueError(f"JSON 파싱 실패: {str(parse_error)}")
-        
-        # Citations를 응답에 추가
-        if citations:
-            ai_response["_citations"] = citations
-            logger.info(f"📚 [검진설계] Citations를 응답에 추가: {len(citations)}개")
+            
+            # STEP 2 호출
+            step2_response = await create_checkup_design_step2(step2_request)
+            step2_result = None
+            if not step2_response.success:
+                logger.error(f"❌ [검진설계] STEP 2 실패")
+                # STEP 2 실패 시 STEP 1 결과라도 반환 (부분 성공)
+                logger.warning(f"⚠️ [검진설계] STEP 2 실패 - STEP 1 결과만 반환")
+                ai_response = step1_result
+            else:
+                step2_result = step2_response.data
+                logger.info(f"✅ [검진설계] STEP 2 완료 - 설계 및 근거 결과 수신")
+                
+                # step2_result 타입 검증
+                logger.info(f"🔍 [검진설계] STEP 2 결과 타입: {type(step2_result)}")
+                if not isinstance(step2_result, dict):
+                    logger.error(f"❌ [검진설계] STEP 2 결과가 딕셔너리가 아님: {type(step2_result)}")
+                    logger.error(f"❌ [검진설계] STEP 2 결과 내용 (처음 500자): {str(step2_result)[:500]}")
+                    raise ValueError(f"STEP 2 결과 형식 오류: 딕셔너리가 아닌 {type(step2_result)}")
+                
+                logger.info(f"📊 [검진설계] STEP 2 결과 키: {list(step2_result.keys())}")
+                
+                # STEP 1과 STEP 2 결과 병합
+                logger.info(f"🔗 [검진설계] STEP 1과 STEP 2 결과 병합 중...")
+                ai_response = merge_checkup_design_responses(step1_result, step2_result)
+                logger.info(f"✅ [검진설계] 병합 완료 - 최종 결과 키: {list(ai_response.keys())}")
+                
+                # Citations 추출 (STEP 2에서 온 citations 사용)
+                citations = []
+                if "_citations" in step2_result:
+                    citations = step2_result.get("_citations", [])
+                logger.info(f"📚 [검진설계] Citations: {len(citations)}개")
+                
+                # Citations를 응답에 추가
+                if citations:
+                    ai_response["_citations"] = citations
+                    logger.info(f"📚 [검진설계] Citations를 응답에 추가: {len(citations)}개")
+        except Exception as step2_error:
+            logger.error(f"❌ [검진설계] STEP 2 실행 중 오류: {str(step2_error)}", exc_info=True)
+            # STEP 2 실패 시 STEP 1 결과라도 반환 (부분 성공)
+            logger.warning(f"⚠️ [검진설계] STEP 2 실패 - STEP 1 결과만 반환")
+            ai_response = step1_result
         
         # 응답 검증
         logger.info(f"🔍 [검진설계] 응답 검증 중...")
@@ -257,12 +350,13 @@ async def create_checkup_design(
             logger.error(f"❌ [검진설계] ai_response가 None")
             raise ValueError("ai_response가 None입니다.")
         
+        # recommended_items는 STEP 2에서 생성되므로, STEP 2가 실패한 경우 없을 수 있음
         if not ai_response.get("recommended_items"):
-            logger.error(f"❌ [검진설계] recommended_items가 없음")
-            logger.error(f"❌ [검진설계] 응답 키: {list(ai_response.keys())}")
-            raise ValueError("Perplexity 응답에 recommended_items가 없습니다.")
+            logger.warning(f"⚠️ [검진설계] recommended_items가 없음 (STEP 2 실패 가능성)")
+            logger.warning(f"⚠️ [검진설계] 응답 키: {list(ai_response.keys())}")
+            # STEP 2 실패 시에는 에러를 발생시키지 않고 계속 진행 (부분 성공)
         
-        logger.info(f"✅ [검진설계] Perplexity 응답 수신 완료 - 카테고리: {len(ai_response.get('recommended_items', []))}개")
+        logger.info(f"✅ [검진설계] 2단계 파이프라인 완료")
         
         # 7. 검진 설계 요청 저장 (업셀링용)
         try:
@@ -289,11 +383,19 @@ async def create_checkup_design(
         
     except HTTPException:
         raise
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"❌ [검진설계] 오류 발생: {str(e)}", exc_info=True)
+        error_type = type(e).__name__
+        error_message = str(e)
+        logger.error(f"❌ [검진설계] 오류 발생: {error_type}: {error_message}", exc_info=True)
+        logger.error(f"❌ [검진설계] 에러 타입: {error_type}")
+        logger.error(f"❌ [검진설계] 에러 메시지: {error_message}")
+        import traceback
+        logger.error(f"❌ [검진설계] 트레이스백:\n{traceback.format_exc()}")
         raise HTTPException(
             status_code=500,
-            detail=f"검진 설계 중 오류가 발생했습니다: {str(e)}"
+            detail=f"검진 설계 생성 중 오류: {error_message}"
         )
 
 
@@ -419,3 +521,523 @@ async def get_recommendations(
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"추천 정보 조회 중 오류: {str(e)}")
+
+
+@router.post("/create-step1", response_model=CheckupDesignResponse)
+async def create_checkup_design_step1(
+    request: CheckupDesignRequest
+):
+    """
+    STEP 1: 빠른 분석 전용 검진 설계 생성
+    검진 항목 추천 없이 분석만 수행합니다 (patient_summary, analysis, survey_reflection, selected_concerns_analysis, basic_checkup_guide)
+    빠른 응답을 위해 빠른 모델 사용 (sonar-small 또는 GPT-4o-mini)
+    """
+    try:
+        logger.info(f"🔍 [STEP1-분석] 요청 시작 - UUID: {request.uuid}, 선택 항목: {len(request.selected_concerns)}개")
+        
+        # 1. 환자 정보 조회
+        patient_info = await wello_data_service.get_patient_by_uuid(request.uuid)
+        if "error" in patient_info:
+            raise HTTPException(status_code=404, detail=patient_info["error"])
+        
+        patient_name = patient_info.get("name", "환자")
+        patient_age = None
+        if patient_info.get("birth_date"):
+            from datetime import datetime
+            birth_date = datetime.fromisoformat(patient_info["birth_date"].replace("Z", "+00:00"))
+            today = datetime.now()
+            patient_age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+        
+        patient_gender = patient_info.get("gender")
+        
+        # 2. 병원 정보 조회 (검진 항목 포함)
+        logger.info(f"🏥 [STEP1-분석] 병원 정보 조회 시작 - hospital_id: {request.hospital_id}")
+        hospital_info = await wello_data_service.get_hospital_by_id(request.hospital_id)
+        if "error" in hospital_info:
+            logger.error(f"❌ [STEP1-분석] 병원 정보 조회 실패: {hospital_info['error']}")
+            raise HTTPException(status_code=404, detail=hospital_info["error"])
+        
+        hospital_national_checkup = hospital_info.get("national_checkup_items")
+        logger.info(f"✅ [STEP1-분석] 병원 정보 조회 완료 - {hospital_info.get('hospital_name', 'N/A')}")
+        logger.info(f"📊 [STEP1-분석] 기본 검진 항목: {len(hospital_national_checkup) if hospital_national_checkup else 0}개")
+        
+        # 3. 건강 데이터 조회 (기존 방식과 동일)
+        health_data_result = await wello_data_service.get_patient_health_data(request.uuid, request.hospital_id)
+        if "error" in health_data_result:
+            logger.warning(f"⚠️ [STEP1-분석] 건강 데이터 조회 실패: {health_data_result['error']}")
+            health_data = []
+        else:
+            health_data = health_data_result.get("health_data", [])
+        logger.info(f"📊 [STEP1-분석] 건강 데이터: {len(health_data)}건")
+        
+        # 4. 처방전 데이터 조회 (기존 방식과 동일)
+        prescription_data = []
+        if not request.prescription_analysis_text:
+            prescription_data_result = await wello_data_service.get_patient_prescription_data(request.uuid, request.hospital_id)
+            if "error" in prescription_data_result:
+                logger.warning(f"⚠️ [STEP1-분석] 처방전 데이터 조회 실패: {prescription_data_result['error']}")
+                prescription_data = []
+            else:
+                prescription_data = prescription_data_result.get("prescription_data", [])
+        logger.info(f"💊 [STEP1-분석] 처방전 데이터: {len(prescription_data)}건")
+        
+        # 5. 선택한 염려 항목 변환
+        selected_concerns = []
+        for concern in request.selected_concerns:
+            concern_dict = {
+                "type": concern.type,
+                "id": concern.id,
+                "name": concern.name,
+                "date": concern.date or concern.checkupDate,
+                "value": concern.value,
+                "unit": concern.unit,
+                "status": concern.status,
+                "location": concern.location or concern.hospitalName,
+                "medication_name": concern.medicationName,
+                "period": concern.period,
+                "medication_text": concern.medicationText
+            }
+            selected_concerns.append(concern_dict)
+        
+        # 6. 설문 응답 정리
+        survey_responses_clean = request.survey_responses or {}
+        prescription_analysis_text = survey_responses_clean.pop("prescription_analysis_text", None) or request.prescription_analysis_text
+        selected_medication_texts = survey_responses_clean.pop("selected_medication_texts", None) or request.selected_medication_texts
+        
+        # 7. STEP 1 프롬프트 생성
+        user_message = create_checkup_design_prompt_step1(
+            patient_name=patient_name,
+            patient_age=patient_age,
+            patient_gender=patient_gender,
+            health_data=health_data,
+            prescription_data=prescription_data,
+            selected_concerns=selected_concerns,
+            survey_responses=survey_responses_clean,
+            hospital_national_checkup=hospital_national_checkup,
+            prescription_analysis_text=prescription_analysis_text,
+            selected_medication_texts=selected_medication_texts
+        )
+        
+        # 8. 빠른 모델 선택 (STEP 1은 빠른 응답이 목표)
+        # sonar 사용 (기존 기본값, 빠른 응답)
+        fast_model = getattr(settings, 'perplexity_fast_model', 'sonar')
+        max_tokens = 4096  # STEP 1은 분석만 하므로 토큰 수 제한
+        
+        logger.info(f"🤖 [STEP1-분석] Perplexity API 호출 시작... (모델: {fast_model}, max_tokens: {max_tokens})")
+        logger.info(f"📊 [STEP1-분석] 프롬프트 길이: {len(user_message)} 문자")
+        logger.info(f"📊 [STEP1-분석] 시스템 메시지 길이: {len(CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1)} 문자")
+        
+        perplexity_request = PerplexityRequest(
+            system_message=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1,
+            user_message=user_message,
+            model=fast_model,
+            temperature=0.3,
+            max_tokens=max_tokens,
+            response_format={"type": "json_object"}
+        )
+        
+        # Perplexity 서비스 초기화
+        logger.info(f"🔧 [STEP1-분석] Perplexity 서비스 초기화 중...")
+        await perplexity_service.initialize()
+        logger.info(f"✅ [STEP1-분석] Perplexity 서비스 초기화 완료")
+        
+        # Perplexity API 호출
+        logger.info(f"📡 [STEP1-분석] Perplexity API 호출 중...")
+        perplexity_api_response = await perplexity_service.call_api(
+            perplexity_request,
+            save_log=True
+        )
+        logger.info(f"📥 [STEP1-분석] Perplexity API 응답 수신 완료")
+        
+        # 응답 상태 확인
+        if not perplexity_api_response.success:
+            logger.error(f"❌ [STEP1-분석] Perplexity API 호출 실패: {perplexity_api_response.error}")
+            raise ValueError(f"Perplexity API 호출 실패: {perplexity_api_response.error}")
+        
+        if not perplexity_api_response.content:
+            logger.error(f"❌ [STEP1-분석] Perplexity 응답 내용이 비어있음")
+            raise ValueError("Perplexity 응답 내용이 비어있습니다.")
+        
+        # JSON 파싱
+        logger.info(f"🔍 [STEP1-분석] JSON 파싱 시작...")
+        try:
+            ai_response = perplexity_service.parse_json_response(
+                perplexity_api_response.content,
+                raise_on_incomplete=False
+            )
+            
+            # ai_response가 딕셔너리인지 확인
+            if not isinstance(ai_response, dict):
+                logger.error(f"❌ [STEP1-분석] 파싱된 응답이 딕셔너리가 아님: {type(ai_response)}")
+                logger.error(f"❌ [STEP1-분석] 파싱된 응답 내용: {ai_response}")
+                raise ValueError(f"JSON 파싱 결과가 딕셔너리가 아닙니다: {type(ai_response)}")
+            
+            logger.info(f"✅ [STEP1-분석] JSON 파싱 성공")
+            logger.info(f"📊 [STEP1-분석] 파싱된 응답 키: {list(ai_response.keys())}")
+        except Exception as parse_error:
+            logger.error(f"❌ [STEP1-분석] JSON 파싱 실패: {str(parse_error)}")
+            raise ValueError(f"JSON 파싱 실패: {str(parse_error)}")
+        
+        # STEP 1 응답 반환 (분석 결과만)
+        logger.info(f"✅ [STEP1-분석] STEP 1 완료 - 분석 결과 반환")
+        
+        return CheckupDesignResponse(
+            success=True,
+            data=ai_response,
+            message="STEP 1 분석 완료"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [STEP1-분석] 오류 발생: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"검진 설계 생성 중 오류: {str(e)}")
+
+
+@router.get("/latest/{patient_uuid}")
+async def get_latest_checkup_design(
+    patient_uuid: str = Path(..., description="환자 UUID"),
+    hospital_id: str = Query(..., description="병원 ID")
+):
+    """
+    최신 검진 설계 결과 조회
+    설계가 완료된 경우 결과를 반환하고, 없으면 null 반환
+    """
+    try:
+        logger.info(f"🔍 [검진설계조회] 최신 설계 조회 - UUID: {patient_uuid}, hospital_id: {hospital_id}")
+        
+        design_result = await wello_data_service.get_latest_checkup_design(
+            uuid=patient_uuid,
+            hospital_id=hospital_id
+        )
+        
+        if not design_result:
+            logger.info(f"📭 [검진설계조회] 설계 결과 없음 - UUID: {patient_uuid}")
+            return {
+                "success": False,
+                "data": None,
+                "message": "설계 결과가 없습니다."
+            }
+        
+        logger.info(f"✅ [검진설계조회] 설계 결과 조회 완료 - ID: {design_result.get('id')}")
+        
+        return {
+            "success": True,
+            "data": design_result.get("design_result", {}),
+            "message": "최신 설계 결과를 조회했습니다."
+        }
+        
+    except Exception as e:
+        logger.error(f"❌ [검진설계조회] 오류 발생: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"검진 설계 조회 중 오류: {str(e)}")
+
+
+@router.delete("/delete/{patient_uuid}")
+async def delete_checkup_design(
+    patient_uuid: str = Path(..., description="환자 UUID"),
+    hospital_id: str = Query(..., description="병원 ID")
+):
+    """
+    환자의 모든 검진 설계 요청을 삭제합니다 (새로고침 시 사용).
+    """
+    try:
+        logger.info(f"🗑️ [검진설계] 삭제 요청 - UUID: {patient_uuid}, Hospital: {hospital_id}")
+        delete_result = await wello_data_service.delete_checkup_design_requests(patient_uuid, hospital_id)
+        
+        if delete_result.get("success"):
+            deleted_count = delete_result.get("deleted_count", 0)
+            logger.info(f"✅ [검진설계] 삭제 완료 - 삭제된 건수: {deleted_count}")
+            return {
+                "success": True,
+                "deleted_count": deleted_count,
+                "message": f"{deleted_count}개의 검진 설계 요청이 삭제되었습니다."
+            }
+        else:
+            error_msg = delete_result.get("error", "알 수 없는 오류")
+            logger.warning(f"⚠️ [검진설계] 삭제 실패: {error_msg}")
+            raise HTTPException(status_code=500, detail=f"검진 설계 삭제 중 오류: {error_msg}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [검진설계] 삭제 중 오류: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"검진 설계 삭제 중 오류: {str(e)}")
+
+
+@router.post("/create-step2", response_model=CheckupDesignResponse)
+async def create_checkup_design_step2(
+    request: CheckupDesignStep2Request
+):
+    """
+    STEP 2: 설계 및 근거 전용 검진 설계 생성
+    STEP 1의 분석 결과를 받아 검진 항목을 설계하고 의학적 근거를 확보합니다.
+    강력한 모델 사용 (llama-3.1-sonar-huge-128k-online 또는 GPT-4o)
+    """
+    try:
+        logger.info(f"🔍 [STEP2-설계] 요청 시작 - UUID: {request.uuid}, STEP 1 결과 수신 완료")
+        
+        # STEP 1 결과를 Dict로 변환
+        step1_result_dict = request.step1_result.dict()
+        logger.info(f"📊 [STEP2-설계] STEP 1 결과 키: {list(step1_result_dict.keys())}")
+        
+        # 1. 환자 정보 조회
+        patient_info = await wello_data_service.get_patient_by_uuid(request.uuid)
+        if "error" in patient_info:
+            raise HTTPException(status_code=404, detail=patient_info["error"])
+        
+        patient_name = patient_info.get("name", "환자")
+        patient_age = None
+        if patient_info.get("birth_date"):
+            from datetime import datetime
+            birth_date = datetime.fromisoformat(patient_info["birth_date"].replace("Z", "+00:00"))
+            today = datetime.now()
+            patient_age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+        
+        patient_gender = patient_info.get("gender")
+        
+        # 2. 병원 정보 조회 (검진 항목 포함) - 기존 방식과 동일
+        logger.info(f"🏥 [STEP2-설계] 병원 정보 조회 시작 - hospital_id: {request.hospital_id}")
+        hospital_info = await wello_data_service.get_hospital_by_id(request.hospital_id)
+        if "error" in hospital_info:
+            logger.error(f"❌ [STEP2-설계] 병원 정보 조회 실패: {hospital_info['error']}")
+            raise HTTPException(status_code=404, detail=hospital_info["error"])
+        
+        hospital_national_checkup = hospital_info.get("national_checkup_items")
+        hospital_recommended = hospital_info.get("recommended_items")
+        hospital_external_checkup = hospital_info.get("external_checkup_items", [])
+        logger.info(f"✅ [STEP2-설계] 병원 정보 조회 완료 - {hospital_info.get('hospital_name', 'N/A')}")
+        logger.info(f"📊 [STEP2-설계] 검진 항목 통계:")
+        logger.info(f"  - 기본 검진 항목: {len(hospital_national_checkup) if hospital_national_checkup else 0}개")
+        logger.info(f"  - 병원 추천 항목: {len(hospital_recommended) if hospital_recommended else 0}개")
+        logger.info(f"  - 외부 검사 항목: {len(hospital_external_checkup)}개")
+        
+        # 3. 건강 데이터 조회 (기존 방식과 동일)
+        health_data_result = await wello_data_service.get_patient_health_data(request.uuid, request.hospital_id)
+        if "error" in health_data_result:
+            logger.warning(f"⚠️ [STEP2-설계] 건강 데이터 조회 실패: {health_data_result['error']}")
+            health_data = []
+        else:
+            health_data = health_data_result.get("health_data", [])
+        logger.info(f"📊 [STEP2-설계] 건강 데이터: {len(health_data)}건")
+        
+        # 4. 처방전 데이터 조회 (기존 방식과 동일)
+        prescription_data = []
+        if not request.prescription_analysis_text:
+            prescription_data_result = await wello_data_service.get_patient_prescription_data(request.uuid, request.hospital_id)
+            if "error" in prescription_data_result:
+                logger.warning(f"⚠️ [STEP2-설계] 처방전 데이터 조회 실패: {prescription_data_result['error']}")
+                prescription_data = []
+            else:
+                prescription_data = prescription_data_result.get("prescription_data", [])
+        logger.info(f"💊 [STEP2-설계] 처방전 데이터: {len(prescription_data)}건")
+        
+        # 5. 선택한 염려 항목 변환
+        selected_concerns = []
+        for concern in request.selected_concerns:
+            concern_dict = {
+                "type": concern.type,
+                "id": concern.id,
+                "name": concern.name,
+                "date": concern.date or concern.checkupDate,
+                "value": concern.value,
+                "unit": concern.unit,
+                "status": concern.status,
+                "location": concern.location or concern.hospitalName,
+                "medication_name": concern.medicationName,
+                "period": concern.period,
+                "medication_text": concern.medicationText
+            }
+            selected_concerns.append(concern_dict)
+        
+        # 6. 설문 응답 정리
+        survey_responses_clean = request.survey_responses or {}
+        prescription_analysis_text = survey_responses_clean.pop("prescription_analysis_text", None) or request.prescription_analysis_text
+        selected_medication_texts = survey_responses_clean.pop("selected_medication_texts", None) or request.selected_medication_texts
+        
+        # 7. STEP 2 프롬프트 생성
+        user_message = create_checkup_design_prompt_step2(
+            step1_result=step1_result_dict,
+            patient_name=patient_name,
+            patient_age=patient_age,
+            patient_gender=patient_gender,
+            health_data=health_data,
+            prescription_data=prescription_data,
+            selected_concerns=selected_concerns,
+            survey_responses=survey_responses_clean,
+            hospital_national_checkup=hospital_national_checkup,
+            hospital_recommended=hospital_recommended,
+            hospital_external_checkup=hospital_external_checkup,
+            prescription_analysis_text=prescription_analysis_text,
+            selected_medication_texts=selected_medication_texts
+        )
+        
+        # 8. 강력한 모델 선택 (STEP 2는 근거 확보가 목표)
+        # sonar-pro 사용 (강력한 추론, 환경변수 PERPLEXITY_MODEL로 설정 가능)
+        powerful_model = getattr(settings, 'perplexity_model', 'sonar-pro')
+        max_tokens = 16384  # STEP 2는 근거 확보를 위해 충분한 토큰 필요
+        
+        logger.info(f"🤖 [STEP2-설계] Perplexity API 호출 시작... (모델: {powerful_model}, max_tokens: {max_tokens})")
+        logger.info(f"📊 [STEP2-설계] 프롬프트 길이: {len(user_message)} 문자")
+        logger.info(f"📊 [STEP2-설계] 시스템 메시지 길이: {len(CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2)} 문자")
+        
+        perplexity_request = PerplexityRequest(
+            system_message=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2,
+            user_message=user_message,
+            model=powerful_model,
+            temperature=0.3,
+            max_tokens=max_tokens,
+            response_format={"type": "json_object"}
+        )
+        
+        # Perplexity 서비스 초기화
+        logger.info(f"🔧 [STEP2-설계] Perplexity 서비스 초기화 중...")
+        await perplexity_service.initialize()
+        logger.info(f"✅ [STEP2-설계] Perplexity 서비스 초기화 완료")
+        
+        # Perplexity API 호출
+        logger.info(f"📡 [STEP2-설계] Perplexity API 호출 중...")
+        perplexity_api_response = await perplexity_service.call_api(
+            perplexity_request,
+            save_log=True
+        )
+        logger.info(f"📥 [STEP2-설계] Perplexity API 응답 수신 완료")
+        
+        # 응답 상태 확인
+        if not perplexity_api_response.success:
+            logger.error(f"❌ [STEP2-설계] Perplexity API 호출 실패: {perplexity_api_response.error}")
+            raise ValueError(f"Perplexity API 호출 실패: {perplexity_api_response.error}")
+        
+        if not perplexity_api_response.content:
+            logger.error(f"❌ [STEP2-설계] Perplexity 응답 내용이 비어있음")
+            raise ValueError("Perplexity 응답 내용이 비어있습니다.")
+        
+        # finish_reason 확인
+        finish_reason = perplexity_api_response.finish_reason or ""
+        if finish_reason == "length":
+            logger.warning(f"⚠️ [STEP2-설계] finish_reason이 'length'입니다 - 응답이 잘렸을 수 있음")
+            logger.warning(f"⚠️ [STEP2-설계] max_tokens: {max_tokens}, 응답 길이: {len(perplexity_api_response.content)} 문자")
+        
+        # Citations 추출
+        citations = perplexity_api_response.citations if perplexity_api_response.citations else []
+        logger.info(f"📚 [STEP2-설계] Perplexity Citations 발견: {len(citations)}개")
+        
+        # JSON 파싱
+        logger.info(f"🔍 [STEP2-설계] JSON 파싱 시작...")
+        try:
+            ai_response = perplexity_service.parse_json_response(
+                perplexity_api_response.content,
+                raise_on_incomplete=False
+            )
+            logger.info(f"✅ [STEP2-설계] JSON 파싱 성공")
+            logger.info(f"📊 [STEP2-설계] 파싱된 응답 키: {list(ai_response.keys()) if ai_response else 'None'}")
+        except Exception as parse_error:
+            logger.error(f"❌ [STEP2-설계] JSON 파싱 실패: {str(parse_error)}")
+            raise ValueError(f"JSON 파싱 실패: {str(parse_error)}")
+        
+        # Citations를 응답에 추가
+        if citations:
+            ai_response["_citations"] = citations
+            logger.info(f"📚 [STEP2-설계] Citations를 응답에 추가: {len(citations)}개")
+        
+        # STEP 2 응답 반환 (설계 및 근거 결과)
+        logger.info(f"✅ [STEP2-설계] STEP 2 완료 - 설계 및 근거 결과 반환")
+        
+        return CheckupDesignResponse(
+            success=True,
+            data=ai_response,
+            message="STEP 2 설계 및 근거 확보 완료"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [STEP2-설계] 오류 발생: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"검진 설계 생성 중 오류: {str(e)}")
+
+
+def merge_checkup_design_responses(step1_result: Dict[str, Any], step2_result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    STEP 1 결과와 STEP 2 결과를 병합하여 기존 형식과 동일한 최종 JSON 생성
+    
+    Args:
+        step1_result: STEP 1 분석 결과 (patient_summary, analysis, survey_reflection, selected_concerns_analysis, basic_checkup_guide)
+        step2_result: STEP 2 설계 결과 (summary, strategies, recommended_items, doctor_comment, total_count)
+    
+    Returns:
+        병합된 최종 결과 (기존 /create 엔드포인트와 동일한 형식)
+    """
+    logger.info(f"🔗 [병합] STEP 1과 STEP 2 결과 병합 시작...")
+    
+    # step1_result와 step2_result가 딕셔너리인지 확인
+    if not isinstance(step1_result, dict):
+        logger.error(f"❌ [병합] STEP 1 결과가 딕셔너리가 아님: {type(step1_result)}")
+        logger.error(f"❌ [병합] STEP 1 결과 내용: {step1_result}")
+        raise ValueError(f"STEP 1 결과 형식 오류: 딕셔너리가 아닌 {type(step1_result)}")
+    
+    if not isinstance(step2_result, dict):
+        logger.error(f"❌ [병합] STEP 2 결과가 딕셔너리가 아님: {type(step2_result)}")
+        logger.error(f"❌ [병합] STEP 2 결과 내용: {step2_result}")
+        raise ValueError(f"STEP 2 결과 형식 오류: 딕셔너리가 아닌 {type(step2_result)}")
+    
+    logger.info(f"📊 [병합] STEP 1 키: {list(step1_result.keys())}")
+    logger.info(f"📊 [병합] STEP 2 키: {list(step2_result.keys())}")
+    
+    # 안전한 딕셔너리 접근 헬퍼 함수
+    def safe_get(data: dict, key: str, default):
+        """안전하게 딕셔너리에서 값을 가져옵니다."""
+        if not isinstance(data, dict):
+            logger.error(f"❌ [병합] safe_get: data가 딕셔너리가 아님: {type(data)}")
+            return default
+        value = data.get(key, default)
+        # 값이 딕셔너리여야 하는 경우 검증
+        if key in ["basic_checkup_guide", "summary"] and value and not isinstance(value, dict):
+            logger.warning(f"⚠️ [병합] {key}가 딕셔너리가 아님: {type(value)}, 기본값 사용")
+            return default if isinstance(default, dict) else {}
+        if key in ["selected_concerns_analysis", "strategies", "recommended_items"] and value and not isinstance(value, list):
+            logger.warning(f"⚠️ [병합] {key}가 리스트가 아님: {type(value)}, 기본값 사용")
+            return default if isinstance(default, list) else []
+        return value
+    
+    # 최종 결과 구성 (기존 형식과 동일)
+    try:
+        merged_result = {
+            # STEP 1에서 온 필드들
+            "patient_summary": safe_get(step1_result, "patient_summary", ""),
+            "analysis": safe_get(step1_result, "analysis", ""),
+            "survey_reflection": safe_get(step1_result, "survey_reflection", ""),
+            "selected_concerns_analysis": safe_get(step1_result, "selected_concerns_analysis", []),
+            "basic_checkup_guide": safe_get(step1_result, "basic_checkup_guide", {}),
+            
+            # STEP 2에서 온 필드들
+            "summary": safe_get(step2_result, "summary", {}),
+            "strategies": safe_get(step2_result, "strategies", []),
+            "recommended_items": safe_get(step2_result, "recommended_items", []),
+            "doctor_comment": safe_get(step2_result, "doctor_comment", ""),
+            "total_count": safe_get(step2_result, "total_count", 0)
+        }
+    except Exception as e:
+        logger.error(f"❌ [병합] merged_result 생성 중 오류: {str(e)}")
+        logger.error(f"❌ [병합] step1_result 타입: {type(step1_result)}")
+        logger.error(f"❌ [병합] step2_result 타입: {type(step2_result)}")
+        raise
+    
+    # priority_1.focus_items가 없으면 basic_checkup_guide.focus_items를 사용
+    try:
+        summary = merged_result.get("summary", {})
+        if isinstance(summary, dict):
+            priority_1 = summary.get("priority_1", {})
+            if isinstance(priority_1, dict):
+                if priority_1.get("focus_items") is None:
+                    basic_checkup_guide = merged_result.get("basic_checkup_guide", {})
+                    if isinstance(basic_checkup_guide, dict):
+                        basic_focus_items = basic_checkup_guide.get("focus_items", [])
+                        if basic_focus_items:
+                            if "priority_1" not in summary:
+                                summary["priority_1"] = {}
+                            summary["priority_1"]["focus_items"] = basic_focus_items
+                            logger.info(f"📝 [병합] basic_checkup_guide.focus_items를 priority_1.focus_items로 복사: {len(basic_focus_items)}개")
+    except Exception as e:
+        logger.warning(f"⚠️ [병합] priority_1.focus_items 복사 중 오류 (무시): {str(e)}")
+    
+    logger.info(f"✅ [병합] 병합 완료 - 최종 결과 키: {list(merged_result.keys())}")
+    
+    return merged_result

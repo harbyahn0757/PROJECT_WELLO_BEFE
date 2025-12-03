@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useWelloData } from '../contexts/WelloDataContext';
 import ConcernSelection from '../components/checkup-design/ConcernSelection';
 import ChatInterface from '../components/checkup-design/ChatInterface';
-import checkupDesignService from '../services/checkupDesignService';
+import checkupDesignService, { Step1Result, CheckupDesignStep2Request } from '../services/checkupDesignService';
 import { loadHealthData } from '../utils/healthDataLoader';
 import ProcessingModal, { ProcessingStage } from '../components/checkup-design/ProcessingModal';
 import './CheckupDesignPage.scss';
@@ -21,12 +21,15 @@ const CheckupDesignPage: React.FC = () => {
   const [showProcessingModal, setShowProcessingModal] = useState(false);
   const [processingStage, setProcessingStage] = useState<ProcessingStage>('preparing');
   const [processingProgress, setProcessingProgress] = useState(0);
+  // STEP 1 결과 상태 (타이핑 효과용)
+  const [step1Result, setStep1Result] = useState<any>(null);
   // HealthDataViewer 형식: { ResultList: any[] }
   const [healthData, setHealthData] = useState<{ ResultList: any[] }>({ ResultList: [] });
   const [prescriptionData, setPrescriptionData] = useState<{ ResultList: any[] }>({ ResultList: [] });
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [currentSelectedConcerns, setCurrentSelectedConcerns] = useState<any[]>([]);
 
-  // 건강 데이터 로드 (HealthDataViewer 패턴 재사용 - 공용 로더 사용)
+  // 건강 데이터 로드 및 설계 완료 여부 확인
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -39,6 +42,29 @@ const CheckupDesignPage: React.FC = () => {
           setError('환자 정보가 없습니다.');
           setLoading(false);
           return;
+        }
+
+        // 설계 완료 여부 확인 (새로고침 플래그가 없을 때만)
+        const shouldRefresh = urlParams.get('refresh') === 'true';
+        if (!shouldRefresh) {
+          try {
+            const designResult = await checkupDesignService.getLatestCheckupDesign(uuid, hospital);
+            if (designResult.success && designResult.data) {
+              console.log('✅ [검진설계] 기존 설계 결과 발견 - 결과 페이지로 이동');
+              // 기존 설계 결과가 있으면 결과 페이지로 바로 이동
+              const queryString = location.search.replace(/[?&]refresh=true/, ''); // refresh 파라미터 제거
+              navigate(`/checkup-recommendations${queryString}`, {
+                state: {
+                  checkupDesign: designResult.data,
+                  fromExisting: true // 기존 설계 결과임을 표시
+                }
+              });
+              return;
+            }
+          } catch (err) {
+            console.warn('⚠️ [검진설계] 설계 결과 조회 실패 (계속 진행):', err);
+            // 조회 실패해도 계속 진행 (처음 설계하는 경우)
+          }
         }
 
         // 공용 데이터 로더 사용 (API 우선, IndexedDB 폴백)
@@ -61,7 +87,7 @@ const CheckupDesignPage: React.FC = () => {
     };
 
     loadData();
-  }, [state.patient?.name]);
+  }, [state.patient?.name, location.search, navigate]);
 
   // 선택 항목 변경 핸들러
   const handleSelectionChange = (items: Set<string>) => {
@@ -74,6 +100,9 @@ const CheckupDesignPage: React.FC = () => {
       console.log('✅ [검진설계] 선택된 항목:', Array.from(items));
       console.log('✅ [검진설계] 선택된 염려 항목:', selectedConcerns);
       console.log('✅ [검진설계] 설문 응답:', surveyResponses);
+      
+      // 선택된 염려 항목 저장 (ProcessingModal에 전달용)
+      setCurrentSelectedConcerns(selectedConcerns);
       
       const urlParams = new URLSearchParams(window.location.search);
       const uuid = urlParams.get('uuid');
@@ -88,6 +117,7 @@ const CheckupDesignPage: React.FC = () => {
       setShowProcessingModal(true);
       setProcessingStage('preparing');
       setProcessingProgress(0);
+      setStep1Result(null); // STEP 1 결과 초기화
       
       // 1단계: 데이터 준비 (0-20%)
       await new Promise(resolve => setTimeout(resolve, 800));
@@ -98,38 +128,75 @@ const CheckupDesignPage: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 600));
       setProcessingProgress(40);
       
-      // GPT API 호출하여 검진 설계 생성 (설문 응답 포함)
-      // 주의: setLoading(true)를 호출하지 않음 - 모달이 가려지지 않도록
+      // STEP 1: 빠른 분석 수행
+      setProcessingStage('analyzing');
       setLoadingStage('sending');
       setLoadingMessage('데이터를 보내는 중...');
       
-      // 3단계: AI 분석 (40-70%)
-      setProcessingStage('analyzing');
-      setProcessingProgress(50);
-      
-      // 디버깅: 전송 전 데이터 확인
-      console.log('🔍 [CheckupDesignPage] API 전송 전 selectedConcerns:', JSON.stringify(selectedConcerns, null, 2));
-      console.log('🔍 [CheckupDesignPage] selectedConcerns[0]:', selectedConcerns[0]);
-      console.log('🔍 [CheckupDesignPage] selectedConcerns[0].id:', selectedConcerns[0]?.id);
-      
-      const response = await checkupDesignService.createCheckupDesign({
+      console.log('🔍 [CheckupDesignPage] STEP 1 API 호출 시작');
+      const step1Response = await checkupDesignService.createCheckupDesignStep1({
         uuid,
         hospital_id: hospital,
         selected_concerns: selectedConcerns,
         survey_responses: surveyResponses
       });
       
-      setProcessingProgress(70);
+      console.log('✅ [CheckupDesignPage] STEP 1 응답 수신:', step1Response);
       
-      // 4단계: 검진 설계 생성 (70-90%)
+      // STEP 1 결과 저장 (타이핑 효과용) - analyzing 단계에서 타이핑 시작
+      if (step1Response.success && step1Response.data) {
+        setStep1Result(step1Response.data);
+        setProcessingProgress(50);
+        // analyzing 단계 유지 (타이핑 효과가 시작되도록)
+        // 약간의 딜레이 후 designing 단계로 전환
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
+      // STEP 2: 설계 및 근거 확보 (스피너는 계속 돌면서 타이핑 텍스트 유지)
       setProcessingStage('designing');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setProcessingProgress(90);
-      
       setLoadingStage('processing');
-      setLoadingMessage('AI가 검진 설계를 생성하는 중...');
+      setLoadingMessage('검진 항목 설계 중...');
       
-      console.log('✅ [검진설계] GPT 응답 수신:', response);
+      // STEP 1 결과를 STEP 2 요청에 포함 (타입 안전성 보장)
+      if (!step1Response.success || !step1Response.data) {
+        throw new Error('STEP 1 결과가 없습니다.');
+      }
+      
+      const step1Data = step1Response.data;
+      const step1Result: Step1Result = {
+        patient_summary: step1Data.patient_summary || '',
+        analysis: step1Data.analysis || '',
+        survey_reflection: step1Data.survey_reflection || '',
+        selected_concerns_analysis: step1Data.selected_concerns_analysis || [],
+        basic_checkup_guide: step1Data.basic_checkup_guide || {
+          title: '',
+          description: '',
+          focus_items: []
+        }
+      };
+      
+      const step2Request: CheckupDesignStep2Request = {
+        uuid,
+        hospital_id: hospital,
+        step1_result: step1Result,
+        selected_concerns: selectedConcerns,
+        survey_responses: surveyResponses
+      };
+      
+      console.log('🔍 [CheckupDesignPage] STEP 2 API 호출 시작');
+      const step2Response = await checkupDesignService.createCheckupDesignStep2(step2Request);
+      
+      console.log('✅ [CheckupDesignPage] STEP 2 응답 수신:', step2Response);
+      
+      setProcessingProgress(80);
+      
+      // STEP 1과 STEP 2 결과 병합 (백엔드에서 이미 병합되어 있지만, 프론트엔드에서도 확인)
+      const mergedData = {
+        ...step1Response.data,
+        ...step2Response.data
+      };
+      
+      setProcessingProgress(90);
       
       // 5단계: 결과 저장 (90-100%)
       setProcessingStage('saving');
@@ -143,11 +210,11 @@ const CheckupDesignPage: React.FC = () => {
       await new Promise(resolve => setTimeout(resolve, 500));
       setShowProcessingModal(false);
       
-      // 결과 페이지로 이동
+      // 결과 페이지로 이동 (병합된 데이터 사용)
       const queryString = location.search;
       navigate(`/checkup-recommendations${queryString}`, { 
         state: { 
-          checkupDesign: response.data,
+          checkupDesign: mergedData,
           selectedConcerns: selectedConcerns,
           surveyResponses: surveyResponses
         }
@@ -229,6 +296,11 @@ const CheckupDesignPage: React.FC = () => {
         isOpen={showProcessingModal}
         stage={processingStage}
         progress={processingProgress}
+        patientName={state.patient?.name}
+        selectedConcernsCount={currentSelectedConcerns.length}
+        healthDataCount={healthDataList.length}
+        prescriptionDataCount={prescriptionDataList.length}
+        step1Result={step1Result}
       />
       <ChatInterface
         healthData={healthData}
