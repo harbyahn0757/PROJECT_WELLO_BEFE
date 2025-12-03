@@ -2,6 +2,9 @@
 @use '../styles/mixins' as *;
 
 // 검진 항목 추천 페이지 스타일
+// 섹션 간격 상수 정의 (아코디언 접힌 상태 기준)
+$section-spacing: $spacing-md; // 섹션 간 일정한 간격 (문진 반영 내용, 선택하신 항목 분석 아코디언 접힌 상태 기준)
+
 .checkup-recommendations {
   width: 100%;
   height: 100vh; // 전체 화면 높이
@@ -168,7 +171,8 @@
     -webkit-overflow-scrolling: touch;
     // 헤더 높이만큼 상단 여백 추가 (동적 계산)
     padding-top: calc(var(--header-height, 180px) + $spacing-xs);
-    padding-bottom: $spacing-lg; // 하단 여백만 유지
+    padding-bottom: calc($spacing-xl * 2); // 하단 여백 증가 (스크롤 문제 해결 - 예약 버튼과의 간격 확보)
+    min-height: 0; // flexbox 스크롤 문제 해결
   }
 
   // 종합 분석 섹션
@@ -176,8 +180,10 @@
     background: $white;
     border-radius: $border-radius-xl;
     padding: $spacing-md;
-    margin-bottom: $spacing-lg;
+    margin-bottom: 0; // summary-section과의 여백 제거
     box-shadow: $shadow-sm;
+    position: relative;
+    overflow: hidden; // 그라데이션 오버레이를 위해 필요
   }
 
   &__analysis-title {
@@ -193,6 +199,36 @@
     color: $gray-700;
     line-height: 1.6;
     font-family: var(--font-family-greeting);
+    position: relative;
+    transition: all 0.3s ease;
+    
+    &.collapsed {
+      max-height: calc(1.6em * 6); // 6줄 높이
+      overflow: hidden;
+      padding-bottom: 40px; // 화살표 공간 확보
+    }
+    
+    &.expanded {
+      max-height: none;
+    }
+  }
+  
+  &__analysis-gradient-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 120px; // 그라데이션 높이 증가
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 1) 0%,
+      rgba(255, 255, 255, 0.9) 20%,
+      rgba(255, 255, 255, 0.6) 50%,
+      rgba(255, 255, 255, 0.3) 80%,
+      rgba(255, 255, 255, 0) 100%
+    );
+    pointer-events: none;
+    z-index: 5; // 텍스트 위에 표시하되 화살표보다는 아래
   }
 
   &__analysis-paragraph {
@@ -212,20 +248,34 @@
   }
 
   // Citations (종합 분석 섹션)
+  &__citations-card {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+
   &__citations {
     display: flex;
     flex-direction: column;
     gap: $spacing-xs;
     margin-top: $spacing-md;
+    margin-bottom: 0; // summary-section과의 여백 제거
     padding-top: $spacing-md;
-    border-top: 1px solid $gray-300;
   }
 
   &__citations-label {
     font-weight: $font-weight-semibold;
     color: $brand-brown-dark;
     font-size: $font-sm;
-    margin-bottom: $spacing-xs;
+    line-height: 1.5;
+    margin-right: $spacing-xs;
+  }
+  
+  &__citations-count {
+    font-size: $font-sm;
+    font-weight: $font-weight-normal;
+    color: $gray-600;
+    line-height: 1.5;
   }
 
   &__citations-list {
@@ -256,8 +306,56 @@
     font-family: var(--font-family-greeting);
   }
 
-  // 우선순위 서머리 섹션
+  // 종합 분석 하단 요약 섹션
   &__summary-section {
+    background: $background-beige; // 베이지 배경색
+    border-radius: $border-radius-lg;
+    padding: $spacing-sm; // 내부 여백 줄임
+    margin-top: $spacing-md; // 위 텍스트와 간격 추가
+    margin-bottom: 0; // 아래 여백 제거
+    border: 1px solid $gray-300;
+
+    // 종합 분석 내부의 요약 섹션 제목
+    .checkup-recommendations__summary-title {
+      font-size: $font-base;
+      font-weight: $font-weight-bold;
+      color: $brand-brown-darker;
+      margin-bottom: $spacing-sm; // 제목 아래 여백 줄임
+      font-family: var(--font-family-greeting);
+    }
+  }
+
+  &__summary-content {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-sm; // 여백 줄임
+  }
+
+  &__summary-text {
+    font-size: $font-sm;
+    color: $gray-700;
+    line-height: 1.8;
+    margin: 0 0 $spacing-xs 0; // 여백 더 줄임
+    font-family: var(--font-family-greeting);
+  }
+
+  &__summary-item-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    background: $background-yellow; // 형광색(노란색) 배경
+    border: 1px solid rgba($warning, 0.3);
+    border-radius: $border-radius-full;
+    font-size: 11px;
+    color: $brand-brown-darker; // 텍스트 색상 진하게
+    font-family: var(--font-family-greeting);
+    margin: 0 4px 4px 0;
+    vertical-align: middle;
+    white-space: nowrap;
+    font-weight: $font-weight-medium; // 약간 굵게
+  }
+
+  // 우선순위 서머리 섹션 (기존)
+  &__summary-section-old {
     background: $white;
     border-radius: $border-radius-xl;
     padding: $spacing-lg;
@@ -427,13 +525,16 @@
 
   &__summary-item-tag {
     display: inline-block;
-    padding: 4px 10px;
-    background: $white;
-    border: 1px solid $gray-300;
-    border-radius: $border-radius-md;
-    font-size: $font-xs;
-    color: $gray-700;
+    padding: 2px 8px;
+    background: $background-yellow; // 형광색(노란색) 배경
+    border: 1px solid rgba($warning, 0.3);
+    border-radius: $border-radius-full;
+    font-size: 11px;
+    color: $brand-brown-darker; // 텍스트 색상 진하게
     font-family: var(--font-family-greeting);
+    margin: 0 4px 4px 0;
+    white-space: nowrap;
+    font-weight: $font-weight-medium; // 약간 굵게
   }
 
   &__summary-count {
@@ -520,20 +621,6 @@
   }
 
   // 우선순위 카드 스타일 (추천 검진 항목 레이아웃)
-  &__card {
-    &--priority-1 {
-      // 왼쪽 테두리 제거
-    }
-
-    &--priority-2 {
-      // 왼쪽 테두리 제거
-    }
-
-    &--priority-3 {
-      // 왼쪽 테두리 제거
-    }
-  }
-
   &__card-subtitle {
     display: inline-block;
     padding: 2px 8px;
@@ -744,9 +831,14 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: $spacing-md;
-    margin-top: 0; // 헤더와의 간격 제거
+    margin-bottom: $section-spacing; // 섹션 헤더와 카드들 사이 간격 통일
+    margin-top: $section-spacing; // 섹션 간 일정한 간격 (상수 사용)
     padding-top: $spacing-xs; // 최소 간격만 유지
+    
+    // 첫 번째 섹션 헤더는 상단 간격 없음
+    &:first-of-type {
+      margin-top: 0;
+    }
   }
 
   &__section-title {
@@ -755,6 +847,97 @@
     color: $brand-brown-darker;
     margin: 0;
     font-family: var(--font-family-greeting);
+  }
+
+  &__analysis-header-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: $spacing-xs;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      opacity: 0.7;
+    }
+  }
+
+  &__analysis-header-arrow {
+    width: 20px;
+    height: 20px;
+    color: $gray-600;
+    transition: transform 0.3s ease;
+    
+    &.collapsed {
+      transform: rotate(0deg);
+    }
+    
+    &.expanded {
+      transform: rotate(180deg);
+    }
+  }
+
+  &__analysis-toggle {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 20; // 그라데이션 위에 표시
+    padding: $spacing-md 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0.7) 30%,
+      rgba(255, 255, 255, 0.95) 100%
+    );
+    transition: all 0.2s ease;
+    
+    &:hover {
+      background: linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0) 0%,
+        rgba(255, 255, 255, 0.8) 30%,
+        rgba(255, 255, 255, 1) 100%
+      );
+    }
+  }
+
+  &__analysis-toggle-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: $spacing-xs;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 1);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+    }
+  }
+
+  &__analysis-arrow {
+    width: 20px;
+    height: 20px;
+    color: $gray-600;
+    transition: transform 0.3s ease;
+    
+    &.collapsed {
+      transform: rotate(0deg);
+    }
+    
+    &.expanded {
+      transform: rotate(180deg);
+    }
   }
 
   &__total-badge {
@@ -775,7 +958,8 @@
   &__cards {
     display: flex;
     flex-direction: column;
-    gap: $spacing-sm;
+    gap: $section-spacing; // 섹션 간 일정한 간격 (상수 사용)
+    margin-top: 0; // 섹션 헤더의 margin-bottom이 간격을 제공하므로 0
   }
 
   // 검진 카드
@@ -785,10 +969,32 @@
     box-shadow: $shadow-sm;
     overflow: hidden;
     transition: all 0.3s ease;
+    margin-bottom: 0; // __cards의 gap이 간격을 제공하므로 0
+
+    &:last-child {
+      margin-bottom: 0; // 마지막 카드는 하단 마진 제거
+    }
 
     &--expanded {
       box-shadow: $shadow-md;
     }
+  }
+
+  // 문진 반영 내용 카드 위 여백 추가
+  &__survey-reflection-card {
+    margin-top: $section-spacing; // 섹션 간 일정한 간격 (상수 사용)
+    margin-bottom: $section-spacing; // 하단 간격도 통일
+  }
+
+  // 선택하신 항목 분석 카드 간격 통일
+  &__selected-concerns-card {
+    margin-top: 0; // 문진 반영 내용의 margin-bottom이 간격을 제공하므로 0
+    margin-bottom: 0; // 다음 섹션 헤더의 margin-top이 간격을 제공하므로 0
+  }
+
+  // 일반검진 가이드 카드 위 여백 추가 (종합 분석과의 간격)
+  &__basic-checkup-guide-card {
+    margin-top: $spacing-md;
   }
 
   // 카드 헤더
@@ -812,6 +1018,13 @@
       flex: 1;
       min-width: 0; // 텍스트 ellipsis를 위해 필요
     }
+    
+    &-right {
+      display: flex;
+      align-items: center;
+      gap: $spacing-xs;
+      margin-left: auto; // 오른쪽 정렬
+    }
   }
 
   &__card-title {
@@ -826,6 +1039,31 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  &__card-header-badges {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    margin-left: $spacing-sm;
+    flex-wrap: wrap;
+  }
+
+  &__card-header-badge {
+    display: inline-block;
+    padding: 2px 7px; // 패딩 약간 증가
+    background: $background-yellow;
+    color: $brand-brown-darker;
+    border: 1px solid rgba($warning, 0.3);
+    border-radius: $border-radius-full;
+    font-size: 11px; // 약간 증가
+    font-weight: $font-weight-medium;
+    font-family: var(--font-family-greeting);
+    white-space: nowrap;
+    max-width: 70px; // 너비 약간 증가
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
   }
 
   &__card-badge {
@@ -1106,14 +1344,22 @@
     font-size: 0.85em; // 상대 크기 유지 (각주 표시용)
     vertical-align: super;
     margin-left: 2px;
-    padding: 2px 4px;
+    padding: 2px 6px; // 클릭 영역 확대
     border-radius: 3px;
     transition: background-color 0.2s ease;
     font-family: var(--font-family-greeting);
+    display: inline-block; // 클릭 영역 확보
+    line-height: 1.2;
+    min-width: 20px; // 최소 클릭 영역 확보
+    text-align: center;
     
     &:hover {
-      background-color: rgba($brand-brown-dark, 0.1);
+      background-color: rgba($brand-brown-dark, 0.15);
       text-decoration: underline;
+    }
+    
+    &:active {
+      background-color: rgba($brand-brown-dark, 0.25);
     }
   }
 
@@ -1195,6 +1441,156 @@
       color: $error;
       font-weight: $font-weight-bold;
     }
+  }
+
+  // 의사 코멘트 섹션 (하단)
+  &__doctor-comment-section {
+    margin-top: $section-spacing; // 섹션 간 일정한 간격 (상수 사용)
+    margin-bottom: $spacing-xl; // 하단 여백 추가 (예약 버튼과의 간격)
+    padding-top: $spacing-lg;
+    border-top: 2px solid $gray-200;
+  }
+
+  // 일반검진 가이드 - focus_items 스타일
+  &__focus-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: $spacing-xs;
+    gap: $spacing-sm;
+  }
+
+  &__focus-items {
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+    margin-top: $spacing-md;
+  }
+
+  &__focus-item {
+    padding: $spacing-md;
+    background: $background-cream;
+    border-radius: $border-radius-md;
+    border: 1px solid $gray-200;
+  }
+
+  &__focus-item-badge {
+    display: inline-block;
+    padding: 2px 8px; // 작은 패딩
+    background: $background-yellow;
+    color: $brand-brown-darker;
+    border: 1px solid rgba($warning, 0.3);
+    border-radius: $border-radius-full;
+    font-size: $font-xs; // 작게 만들기
+    font-weight: $font-weight-medium;
+    font-family: var(--font-family-greeting);
+    white-space: nowrap; // 줄바꿈 방지
+  }
+
+  &__focus-item {
+    padding: $spacing-md;
+    background: $background-cream;
+    border: 1px solid $gray-200;
+    border-radius: $border-radius-md;
+    
+    &-name {
+      font-size: $font-base;
+      font-weight: $font-weight-semibold;
+      color: $brand-brown-darker;
+      margin-bottom: $spacing-sm;
+      font-family: var(--font-family-greeting);
+    }
+
+    &-section {
+      margin-top: $spacing-sm;
+      
+      &:first-of-type {
+        margin-top: 0;
+      }
+    }
+
+    &-label {
+      font-size: $font-sm;
+      font-weight: $font-weight-semibold;
+      color: $brand-brown-dark;
+      display: block;
+      margin-bottom: 0; // header 내부에서는 margin 제거
+      font-family: var(--font-family-greeting);
+    }
+
+    &-text {
+      font-size: $font-sm;
+      color: $black;
+      line-height: 1.8; // 가독성 향상을 위해 줄간격 증가
+      margin: 0;
+      font-family: var(--font-family-greeting);
+      word-break: keep-all; // 단어 단위 줄바꿈
+      white-space: pre-wrap; // 줄바꿈 유지
+    }
+  }
+
+  // 선택 항목 분석 스타일
+  &__concern-analysis {
+    padding: $spacing-md;
+    background: $background-cream;
+    border: 1px solid $gray-200;
+    border-radius: $border-radius-md;
+    margin-bottom: $spacing-md;
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__concern-name {
+    font-size: $font-base;
+    font-weight: $font-weight-semibold;
+    color: $brand-brown-darker;
+    margin-bottom: $spacing-sm;
+    font-family: var(--font-family-greeting);
+  }
+
+  &__concern-section {
+    margin-top: $spacing-sm;
+    
+    &:first-of-type {
+      margin-top: 0;
+    }
+  }
+
+  &__concern-label {
+    font-size: $font-sm;
+    font-weight: $font-weight-semibold;
+    color: $brand-brown-dark;
+    display: block;
+    margin-bottom: $spacing-xs;
+    font-family: var(--font-family-greeting);
+  }
+
+  &__concern-text {
+    font-size: $font-sm;
+    color: $black;
+    line-height: 1.6;
+    margin: 0;
+    font-family: var(--font-family-greeting);
+  }
+
+  &__concern-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+    margin-top: $spacing-xs;
+  }
+
+  &__concern-item-badge {
+    display: inline-block;
+    padding: $spacing-xs $spacing-sm;
+    background: $brand-brown-light;
+    color: $brand-brown-darker;
+    border-radius: $border-radius-sm;
+    font-size: $font-xs;
+    font-weight: $font-weight-medium;
+    font-family: var(--font-family-greeting);
   }
 
   &__doctor-illustration {
