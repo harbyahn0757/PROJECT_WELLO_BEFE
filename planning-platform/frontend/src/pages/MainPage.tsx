@@ -16,6 +16,8 @@ import { PasswordSessionService } from '../services/PasswordSessionService';
 import useGlobalSessionDetection from '../hooks/useGlobalSessionDetection';
 import { getHospitalLogoUrl } from '../utils/hospitalLogoUtils';
 import { WelloIndexedDB } from '../services/WelloIndexedDB';
+import IntroTeaser from '../components/intro/IntroTeaser';
+import { STORAGE_KEYS, StorageManager } from '../constants/storage';
 // 카드 이미지 import
 import trendsChartImage from '../assets/images/main/chart.png';
 import healthHabitImage from '../assets/images/main/check_1 1.png';
@@ -55,6 +57,9 @@ const MainPage: React.FC = () => {
   // 페이지 전환 로딩 state
   const [isPageTransitioning, setIsPageTransitioning] = useState(false);
   const [transitionMessage, setTransitionMessage] = useState<string | undefined>(undefined);
+  
+  // 인트로 티저 state
+  const [showIntroTeaser, setShowIntroTeaser] = useState(false);
   
   // 오른쪽 상단 3번 클릭 기능
   const topRightClickCount = useRef(0);
@@ -229,6 +234,38 @@ const MainPage: React.FC = () => {
     
     console.log('🧹 [메인페이지] 비밀번호 세션 및 모달 상태 정리 완료');
   }, []); // 빈 배열로 한 번만 실행
+
+  // 인트로 티저 표시 여부 확인 (처음 접근 유저만)
+  useEffect(() => {
+    // 로컬스토리지에 인트로 티저 표시 여부 확인
+    const introTeaserShown = StorageManager.getItem<string>(STORAGE_KEYS.INTRO_TEASER_SHOWN);
+    
+    // 로컬스토리지가 전혀 없는 유저인지 확인
+    // (tilko_session_id, wello_terms_agreed 등 핵심 키가 모두 없는 경우)
+    const hasAnyStorage = 
+      localStorage.getItem(STORAGE_KEYS.TILKO_SESSION_ID) ||
+      localStorage.getItem('wello_terms_agreed') ||
+      localStorage.getItem('wello_health_data');
+    
+    // 인트로 티저를 본 적이 없고, 로컬스토리지도 없는 경우에만 표시
+    if (!introTeaserShown && !hasAnyStorage) {
+      console.log('👋 [인트로티저] 처음 접근 유저 - 티저 표시');
+      setShowIntroTeaser(true);
+    } else {
+      console.log('✅ [인트로티저] 이미 본 유저 또는 기존 유저 - 티저 표시 안 함');
+    }
+  }, []); // 컴포넌트 마운트 시 한 번만 실행
+
+  // 인트로 티저 닫기 핸들러
+  const handleIntroTeaserClose = () => {
+    setShowIntroTeaser(false);
+  };
+
+  // 인트로 티저 다시보지 않기 핸들러
+  const handleIntroTeaserDontShowAgain = () => {
+    StorageManager.setItem(STORAGE_KEYS.INTRO_TEASER_SHOWN, 'true');
+    console.log('✅ [인트로티저] 다시보지 않기 설정 완료');
+  };
 
   // 페이지 처음 로드 시 상단으로 스크롤
   useEffect(() => {
@@ -1046,6 +1083,14 @@ const MainPage: React.FC = () => {
       
       {/* 페이지 전환 로딩 스피너 */}
       <PageTransitionLoader isVisible={isPageTransitioning} message={transitionMessage} />
+      
+      {/* 인트로 티저 (처음 접근 유저만) */}
+      {showIntroTeaser && (
+        <IntroTeaser
+          onClose={handleIntroTeaserClose}
+          onDontShowAgain={handleIntroTeaserDontShowAgain}
+        />
+      )}
     </div>
   );
 };

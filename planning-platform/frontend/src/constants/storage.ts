@@ -27,7 +27,10 @@ export const STORAGE_KEYS = {
   // 비밀번호 시스템
   PASSWORD_MODAL_OPEN: 'password_modal_open',
   PASSWORD_SESSION_PREFIX: 'wello_password_session_',
-  PASSWORD_AUTH_TIME_LEGACY: 'password_auth_time' // 제거 예정
+  PASSWORD_AUTH_TIME_LEGACY: 'password_auth_time', // 제거 예정
+  
+  // 인트로 티저
+  INTRO_TEASER_SHOWN: 'wello_intro_teaser_shown' // 인트로 티저 표시 여부
 } as const;
 
 // 스토리지 데이터 타입 정의

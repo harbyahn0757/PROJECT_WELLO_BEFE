@@ -287,6 +287,7 @@
     flex: 1; // 남은 공간 모두 사용
     overflow: hidden;
     min-height: 0; // flexbox 오버플로우 방지
+    pointer-events: none; // 터치 비활성화
   }
 
   &__step1-card {
@@ -306,6 +307,7 @@
     box-shadow: $shadow-sm;
     display: flex;
     flex-direction: column;
+    pointer-events: none; // 터치 비활성화
 
     &.active {
       opacity: 1;

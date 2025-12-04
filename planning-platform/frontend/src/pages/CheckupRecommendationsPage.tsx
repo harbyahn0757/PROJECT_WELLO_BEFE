@@ -182,9 +182,9 @@ const CheckupRecommendationsPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // GPT 응답 데이터 (location.state에서 받음)
-  const gptResponse = location.state?.checkupDesign;
-  const selectedConcerns = location.state?.selectedConcerns;
+  // GPT 응답 데이터 (location.state에서 받음 또는 DB에서 불러옴)
+  const [gptResponse, setGptResponse] = useState<any>(location.state?.checkupDesign);
+  const [selectedConcerns, setSelectedConcerns] = useState<any[]>(location.state?.selectedConcerns || []);
   const citations = gptResponse?._citations || []; // Perplexity citations
   const basicCheckupGuide = gptResponse?.basic_checkup_guide; // 기본 검진 가이드
 
@@ -201,6 +201,49 @@ const CheckupRecommendationsPage: React.FC = () => {
     '의사 추천 검진 계획을 수립하고 있습니다...',
     '맞춤형 검진 항목을 준비하고 있습니다...',
   ];
+
+  // 저장된 설계 결과 불러오기 (location.state에 없을 때만)
+  useEffect(() => {
+    const loadSavedDesign = async () => {
+      // location.state에 이미 데이터가 있으면 불러오지 않음
+      if (location.state?.checkupDesign) {
+        console.log('✅ [검진설계] location.state에서 데이터 로드 완료');
+        return;
+      }
+
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const uuid = urlParams.get('uuid');
+        const hospitalId = urlParams.get('hospital') || urlParams.get('hospitalId');
+
+        if (!uuid || !hospitalId) {
+          console.warn('⚠️ [검진설계] UUID 또는 hospitalId가 없어 저장된 설계를 불러올 수 없습니다.');
+          return;
+        }
+
+        console.log('🔍 [검진설계] 저장된 설계 결과 조회 시작:', { uuid, hospitalId });
+        const result = await checkupDesignService.getLatestCheckupDesign(uuid, hospitalId);
+
+        if (result.success && result.data) {
+          console.log('✅ [검진설계] 저장된 설계 결과 발견 - 데이터 로드 완료');
+          setGptResponse(result.data);
+          // selectedConcerns는 design_result에 포함되어 있을 수 있으므로 확인 필요
+          if (result.data.selected_concerns) {
+            setSelectedConcerns(result.data.selected_concerns);
+          }
+          setIsLoading(false);
+        } else {
+          console.log('📭 [검진설계] 저장된 설계 결과 없음 - 처음 설계하는 경우');
+          // 저장된 설계가 없으면 로딩 표시 유지 (사용자가 설계 페이지로 이동해야 함)
+        }
+      } catch (error) {
+        console.error('❌ [검진설계] 저장된 설계 결과 조회 실패:', error);
+        // 오류 발생 시에도 계속 진행 (처음 설계하는 경우일 수 있음)
+      }
+    };
+
+    loadSavedDesign();
+  }, [location.state]);
 
   // 헤더 높이 계산 및 CSS 변수 설정 (리사이즈 시 재계산)
   useEffect(() => {
@@ -375,10 +418,7 @@ const CheckupRecommendationsPage: React.FC = () => {
     const initialExpanded = new Set<string>();
     
     // 카테고리들은 기본적으로 접힘 상태 (defaultExpanded 무시)
-    // priority_1, priority_2, priority_3 우선순위 카드만 기본 펼침
-    if (recommendationData.summary?.priority_1) {
-      initialExpanded.add(`priority_1_${recommendationData.summary.priority_1.title || '1순위'}`);
-    }
+    // priority_2, priority_3 우선순위 카드만 기본 펼침 (priority_1은 항상 펼쳐짐)
     if (recommendationData.summary?.priority_2) {
       initialExpanded.add(`priority_2_${recommendationData.summary.priority_2.title || '2순위'}`);
     }
@@ -528,7 +568,7 @@ const CheckupRecommendationsPage: React.FC = () => {
                   // 오류가 발생해도 채팅 화면으로 이동
                   const urlParams = new URLSearchParams(window.location.search);
                   urlParams.set('refresh', 'true');
-                  navigate(`/checkup-design?${urlParams.toString()}`);
+                  navigate(`/survey/checkup-design?${urlParams.toString()}`);
                 }
               }}
               aria-label="새로 설계하기"
@@ -832,18 +872,22 @@ const CheckupRecommendationsPage: React.FC = () => {
                   
                   return (
                     <>
-                      {/* priority_1: 올해 주의 깊게 보셔야 하는 항목 */}
-                      {priority1Items.length > 0 && (
-                        <p className="checkup-recommendations__summary-text">
-                          올해 주의 깊게 보셔야 하는거<br />
-                          {priority1Items.map((item: string, idx: number) => (
-                            <React.Fragment key={idx}>
-                              <span className="checkup-recommendations__summary-item-tag">{item}</span>
-                              {idx < priority1Items.length - 1 && ' '}
-                            </React.Fragment>
-                          ))}
-                        </p>
-                      )}
+                      {/* priority_1: 올해 주의 깊게 보셔야 하는 항목 (최대 3개) */}
+                      {priority1Items.length > 0 && (() => {
+                        // 최대 3개로 제한
+                        const limitedPriority1Items = priority1Items.slice(0, 3);
+                        return (
+                          <p className="checkup-recommendations__summary-text">
+                            올해 주의 깊게 보셔야 하는거<br />
+                            {limitedPriority1Items.map((item: string, idx: number) => (
+                              <React.Fragment key={idx}>
+                                <span className="checkup-recommendations__summary-item-tag">{item}</span>
+                                {idx < limitedPriority1Items.length - 1 && ' '}
+                              </React.Fragment>
+                            ))}
+                          </p>
+                        );
+                      })()}
                       
                       {/* priority_2, priority_3: 추가적으로 */}
                       {limitedAllAdditionalItems.length > 0 && context && (
@@ -868,7 +912,194 @@ const CheckupRecommendationsPage: React.FC = () => {
           </>
         )}
 
-        {/* 2. 문진 반영 내용 섹션 (아코디언) */}
+        {/* 2. 위험도 계층화 섹션 (아코디언) */}
+        {gptResponse?.risk_profile && gptResponse.risk_profile.length > 0 && (
+          <div className="checkup-recommendations__card checkup-recommendations__risk-profile-card">
+            <div className="checkup-recommendations__card-header" onClick={() => {
+              const categoryName = 'risk_profile';
+              toggleCategory(categoryName);
+            }}>
+              <div className="checkup-recommendations__card-header-left">
+              </div>
+              <div className="checkup-recommendations__card-header-right">
+                <h3 className="checkup-recommendations__card-title">위험도 계층화</h3>
+                <span className="checkup-recommendations__risk-count-badge">
+                  {gptResponse.risk_profile.filter((r: any) => r.risk_level && (r.risk_level.includes('High') || r.risk_level.includes('Very High'))).length}개 고위험
+                </span>
+              </div>
+              <div className="checkup-recommendations__card-arrow">
+                <svg
+                  className={`checkup-recommendations__card-arrow-icon ${
+                    expandedCategories.has('risk_profile') ? 'expanded' : 'collapsed'
+                  }`}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <polyline points="6,9 12,15 18,9"></polyline>
+                </svg>
+              </div>
+            </div>
+            {expandedCategories.has('risk_profile') && (
+              <div className="checkup-recommendations__card-content">
+                <div className="checkup-recommendations__card-description">
+                  <div className="checkup-recommendations__risk-profile-list">
+                    {gptResponse.risk_profile.map((risk: any, idx: number) => {
+                      const riskLevel = risk.risk_level || '';
+                      const isHighRisk = riskLevel.includes('High') || riskLevel.includes('Very High');
+                      return (
+                        <div key={idx} className={`checkup-recommendations__risk-profile-item ${isHighRisk ? 'checkup-recommendations__risk-profile-item--high' : ''}`}>
+                          <div className="checkup-recommendations__risk-profile-header">
+                            <span className="checkup-recommendations__risk-profile-organ">{risk.organ_system}</span>
+                            <span className={`checkup-recommendations__risk-profile-level checkup-recommendations__risk-profile-level--${riskLevel.toLowerCase().replace(/\s+/g, '-')}`}>
+                              {riskLevel}
+                            </span>
+                          </div>
+                          {risk.reason && (
+                            <p className="checkup-recommendations__risk-profile-reason">{risk.reason}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 3. 만성질환 연쇄 반응 섹션 (아코디언) */}
+        {gptResponse?.chronic_analysis && gptResponse.chronic_analysis.has_chronic_disease && (
+          <div className="checkup-recommendations__card checkup-recommendations__chronic-analysis-card">
+            <div className="checkup-recommendations__card-header" onClick={() => {
+              const categoryName = 'chronic_analysis';
+              toggleCategory(categoryName);
+            }}>
+              <div className="checkup-recommendations__card-header-left">
+              </div>
+              <div className="checkup-recommendations__card-header-right">
+                <h3 className="checkup-recommendations__card-title">만성질환 연쇄 반응</h3>
+                {gptResponse.chronic_analysis.disease_list && gptResponse.chronic_analysis.disease_list.length > 0 && (
+                  <span className="checkup-recommendations__chronic-disease-badge">
+                    {gptResponse.chronic_analysis.disease_list.join(', ')}
+                  </span>
+                )}
+              </div>
+              <div className="checkup-recommendations__card-arrow">
+                <svg
+                  className={`checkup-recommendations__card-arrow-icon ${
+                    expandedCategories.has('chronic_analysis') ? 'expanded' : 'collapsed'
+                  }`}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <polyline points="6,9 12,15 18,9"></polyline>
+                </svg>
+              </div>
+            </div>
+            {expandedCategories.has('chronic_analysis') && (
+              <div className="checkup-recommendations__card-content">
+                <div className="checkup-recommendations__card-description">
+                  {gptResponse.chronic_analysis.complication_risk && (
+                    <div className="checkup-recommendations__chronic-complication">
+                      <p className="checkup-recommendations__chronic-complication-text">
+                        {gptResponse.chronic_analysis.complication_risk}
+                      </p>
+                    </div>
+                  )}
+                  {gptResponse.chronic_analysis.disease_list && gptResponse.chronic_analysis.disease_list.length > 0 && (
+                    <div className="checkup-recommendations__chronic-disease-list">
+                      <p className="checkup-recommendations__chronic-disease-label">보유 중인 만성질환:</p>
+                      <ul className="checkup-recommendations__chronic-disease-items">
+                        {gptResponse.chronic_analysis.disease_list.map((disease: string, idx: number) => (
+                          <li key={idx} className="checkup-recommendations__chronic-disease-item">
+                            {disease}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 4. Bridge Strategy 섹션 (아코디언) */}
+        {gptResponse?.strategies && gptResponse.strategies.length > 0 && (
+          <div className="checkup-recommendations__card checkup-recommendations__strategies-card">
+            <div className="checkup-recommendations__card-header" onClick={() => {
+              const categoryName = 'strategies';
+              toggleCategory(categoryName);
+            }}>
+              <div className="checkup-recommendations__card-header-left">
+              </div>
+              <div className="checkup-recommendations__card-header-right">
+                <h3 className="checkup-recommendations__card-title">검진 설계 전략</h3>
+                <span className="checkup-recommendations__strategies-count-badge">
+                  {gptResponse.strategies.length}개 전략
+                </span>
+              </div>
+              <div className="checkup-recommendations__card-arrow">
+                <svg
+                  className={`checkup-recommendations__card-arrow-icon ${
+                    expandedCategories.has('strategies') ? 'expanded' : 'collapsed'
+                  }`}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <polyline points="6,9 12,15 18,9"></polyline>
+                </svg>
+              </div>
+            </div>
+            {expandedCategories.has('strategies') && (
+              <div className="checkup-recommendations__card-content">
+                <div className="checkup-recommendations__card-description">
+                  {gptResponse.strategies.map((strategy: any, idx: number) => (
+                    <div key={idx} className="checkup-recommendations__strategy-item">
+                      {strategy.category && (
+                        <h4 className="checkup-recommendations__strategy-title">{strategy.category}</h4>
+                      )}
+                      <div className="checkup-recommendations__bridging-narrative">
+                        {strategy.step1_anchor && (
+                          <div className="checkup-recommendations__bridge-step">
+                            <span className="checkup-recommendations__bridge-step-label">1. 기본 검진:</span>
+                            <span className="checkup-recommendations__bridge-step-text">{strategy.step1_anchor}</span>
+                          </div>
+                        )}
+                        {strategy.step2_gap && (
+                          <div className="checkup-recommendations__bridge-step">
+                            <span className="checkup-recommendations__bridge-step-label">2. 한계:</span>
+                            <span className="checkup-recommendations__bridge-step-text">{strategy.step2_gap}</span>
+                          </div>
+                        )}
+                        {strategy.step3_patient_context && (
+                          <div className="checkup-recommendations__bridge-step">
+                            <span className="checkup-recommendations__bridge-step-label">3. 환자 상황:</span>
+                            <span className="checkup-recommendations__bridge-step-text">{strategy.step3_patient_context}</span>
+                          </div>
+                        )}
+                        {strategy.step4_offer && (
+                          <div className="checkup-recommendations__bridge-step">
+                            <span className="checkup-recommendations__bridge-step-label">4. 정밀 검진:</span>
+                            <span className="checkup-recommendations__bridge-step-text">{strategy.step4_offer}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 5. 문진 반영 내용 섹션 (아코디언) */}
         {gptResponse?.survey_reflection && gptResponse.survey_reflection.trim() && (
           <div className="checkup-recommendations__card checkup-recommendations__survey-reflection-card">
             <div className="checkup-recommendations__card-header" onClick={() => {
@@ -1031,7 +1262,7 @@ const CheckupRecommendationsPage: React.FC = () => {
           </div>
         )}
 
-        {/* 4. 선택 항목 분석 섹션 (아코디언) */}
+        {/* 4. 선택하신 항목 분석 섹션 (아코디언) */}
         {gptResponse?.selected_concerns_analysis && gptResponse.selected_concerns_analysis.length > 0 && (
           <div className="checkup-recommendations__card checkup-recommendations__selected-concerns-card">
             <div className="checkup-recommendations__card-header" onClick={() => {
@@ -1204,187 +1435,195 @@ const CheckupRecommendationsPage: React.FC = () => {
               {recommendationData.summary?.priority_1 && (
                 <>
               <div className="checkup-recommendations__card checkup-recommendations__card--priority-1">
-                <div className="checkup-recommendations__card-header" onClick={() => {
-                  const categoryName = `priority_1_${recommendationData.summary?.priority_1?.title || '1순위'}`;
-                  toggleCategory(categoryName);
-                }}>
+                <div className="checkup-recommendations__card-header">
                   <div className="checkup-recommendations__card-header-left">
-                    <h3 className="checkup-recommendations__card-title">{removePriorityPrefix(recommendationData.summary.priority_1.title)}</h3>
+                    <h3 className="checkup-recommendations__card-title">{removePriorityPrefix(recommendationData.summary?.priority_1?.title || '')}</h3>
                     {/* 상단 뱃지 제거 */}
                   </div>
-                  <div className="checkup-recommendations__card-arrow">
-                    <svg
-                      className={`checkup-recommendations__card-arrow-icon ${
-                        expandedCategories.has(`priority_1_${recommendationData.summary?.priority_1?.title || '1순위'}`) ? 'expanded' : 'collapsed'
-                      }`}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <polyline points="6,9 12,15 18,9"></polyline>
-                    </svg>
-                  </div>
                 </div>
-                {expandedCategories.has(`priority_1_${recommendationData.summary?.priority_1?.title || '1순위'}`) && (
-                  <div className="checkup-recommendations__card-content">
+                <div className="checkup-recommendations__card-content">
                     {/* national_checkup_note를 description 위치에 배치 (간호사 말풍선 형태) */}
-                    {recommendationData.summary.priority_1.national_checkup_note && (() => {
-                      const findReferencesForPriority1 = (): string[] => {
-                        const category = recommendationData.categories.find(cat => cat.priorityLevel === 1);
-                        if (category && category.items.length > 0) {
-                          return (category.items[0] as any)?.references || [];
-                        }
-                        return [];
-                      };
-                      const priority1References = findReferencesForPriority1();
-                      const cleanedNote = cleanNationalCheckupNote(recommendationData.summary.priority_1.national_checkup_note);
-                      
-                      return (
-                      <div className="checkup-recommendations__doctor-box">
-                        <div className="checkup-recommendations__doctor-box-image">
-                          <img
-                            src={checkPlannerImage}
-                            alt="간호사 일러스트"
-                            className="checkup-recommendations__doctor-illustration"
-                          />
-                        </div>
-                        <div className="checkup-recommendations__doctor-box-text">
-                            {renderTextWithFootnotes(cleanedNote, priority1References)}
-                            {/* 각주 리스트 표시 - 텍스트에 실제로 사용된 각주만 표시 */}
-                            {(() => {
-                              const usedFootnoteNumbers = extractFootnoteNumbers(cleanedNote);
-                              
-                              if (usedFootnoteNumbers.length === 0) {
-                                return null;
-                              }
-                              
-                              return (
-                                <div className="checkup-recommendations__footnotes">
-                                  {usedFootnoteNumbers.map((footnoteNum: number) => {
-                                    const refIndex = footnoteNum - 1;
-                                    const ref = priority1References && priority1References.length > refIndex ? priority1References[refIndex] : null;
-                                    
-                                    return (
-                                      <div key={footnoteNum} className="checkup-recommendations__footnote-item">
-                                        <span className="checkup-recommendations__footnote-number">[{footnoteNum}]</span>
-                                        {ref ? (
-                                          (ref.startsWith('http://') || ref.startsWith('https://')) ? (
-                                            <a 
-                                              href={ref} 
-                                              target="_blank" 
-                                              rel="noopener noreferrer"
-                                              className="checkup-recommendations__footnote-link"
-                                            >
-                                              [링크]
-                                            </a>
-                                          ) : (
-                                            <span className="checkup-recommendations__footnote-text">{ref}</span>
-                                          )
-                                        ) : null}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              );
-                            })()}
-                  </div>
-                        </div>
-                      );
-                    })()}
-                    
-                    {/* 각 항목별 상세 정보 (focus_items) */}
-                    {recommendationData.summary.priority_1.focus_items && recommendationData.summary.priority_1.focus_items.length > 0 && (
-                      <div className="checkup-recommendations__focus-items">
-                        {recommendationData.summary.priority_1.focus_items.map((item: any, idx: number) => {
-                          // priority_1의 items에 해당하는 recommended_items에서 references, evidence, description 찾기
-                          // 매칭 로직: 정확 일치 → 부분 포함 → 정규화 후 매칭
-                          const findItemData = (itemName: string): { references: string[], evidence?: string, description?: string } => {
-                            if (!itemName) return { references: [] };
-                            
-                            // 정규화 함수: 공백, 괄호, 특수문자 제거 후 소문자 변환
-                            const normalize = (str: string): string => {
-                              return str
-                                .replace(/\s+/g, '') // 공백 제거
-                                .replace(/[()（）]/g, '') // 괄호 제거
-                                .replace(/[등및]/g, '') // "등", "및" 제거
-                                .toLowerCase();
-                            };
-                            
-                            const normalizedItemName = normalize(itemName);
-                            
-                            // 모든 1순위 카테고리를 순회
-                            const priority1Categories = recommendationData.categories.filter(cat => cat.priorityLevel === 1);
-                            
-                            for (const category of priority1Categories) {
-                              if (!category.items || category.items.length === 0) continue;
-                              
-                              for (const categoryItem of category.items) {
-                                const categoryItemName = (categoryItem as any)?.name || '';
-                                if (!categoryItemName) continue;
-                                
-                                // 1. 정확 일치
-                                if (categoryItemName === itemName) {
-                                  return {
-                                    references: (categoryItem as any)?.references || [],
-                                    evidence: (categoryItem as any)?.evidence,
-                                    description: (categoryItem as any)?.description
-                                  };
-                                }
-                                
-                                // 2. 부분 포함 (itemName이 categoryItemName을 포함하거나 그 반대)
-                                if (categoryItemName.includes(itemName) || itemName.includes(categoryItemName)) {
-                                  return {
-                                    references: (categoryItem as any)?.references || [],
-                                    evidence: (categoryItem as any)?.evidence,
-                                    description: (categoryItem as any)?.description
-                                  };
-                                }
-                                
-                                // 3. 정규화 후 매칭
-                                const normalizedCategoryName = normalize(categoryItemName);
-                                if (normalizedItemName === normalizedCategoryName) {
-                                  return {
-                                    references: (categoryItem as any)?.references || [],
-                                    evidence: (categoryItem as any)?.evidence,
-                                    description: (categoryItem as any)?.description
-                                  };
-                                }
-                                
-                                // 4. 정규화 후 부분 포함
-                                if (normalizedItemName.includes(normalizedCategoryName) || 
-                                    normalizedCategoryName.includes(normalizedItemName)) {
-                                  return {
-                                    references: (categoryItem as any)?.references || [],
-                                    evidence: (categoryItem as any)?.evidence,
-                                    description: (categoryItem as any)?.description
-                                  };
-                                }
-                                
-                                // 5. priority_1.items 배열과도 매칭 시도
-                                const priority1Items = recommendationData.summary?.priority_1?.items || [];
-                                if (priority1Items.includes(categoryItemName) && 
-                                    (priority1Items.includes(itemName) || itemName.includes(categoryItemName))) {
-                                  return {
-                                    references: (categoryItem as any)?.references || [],
-                                    evidence: (categoryItem as any)?.evidence,
-                                    description: (categoryItem as any)?.description
-                                  };
-                                }
-                              }
+                    {recommendationData.summary?.priority_1?.national_checkup_note && (
+                      <>
+                        {(() => {
+                          const findReferencesForPriority1 = (): string[] => {
+                            const category = recommendationData.categories.find(cat => cat.priorityLevel === 1);
+                            if (category && category.items.length > 0) {
+                              return (category.items[0] as any)?.references || [];
                             }
-                            
-                            return { references: [] };
+                            return [];
                           };
-                          const itemData = findItemData(item.item_name);
-                          const itemReferences = itemData.references;
-                          const itemEvidence = itemData.evidence;
-                          const itemDescription = itemData.description;
+                          const priority1References = findReferencesForPriority1();
+                          const cleanedNote = cleanNationalCheckupNote(recommendationData.summary?.priority_1?.national_checkup_note || '');
+                          const nurseAccordionKey = `priority_1_nurse_${recommendationData.summary?.priority_1?.title || '1순위'}`;
+                          const isNurseExpanded = expandedCategories.has(nurseAccordionKey);
                           
                           return (
-                            <div key={idx} className="checkup-recommendations__focus-item">
-                              {item.why_important && (
-                                <div className="checkup-recommendations__focus-item-section">
+                            <>
+                              <div className="checkup-recommendations__doctor-box-wrapper">
+                              <div className="checkup-recommendations__doctor-box">
+                                <div className="checkup-recommendations__doctor-box-image">
+                                  <img
+                                    src={checkPlannerImage}
+                                    alt="간호사 일러스트"
+                                    className="checkup-recommendations__doctor-illustration"
+                                  />
+                                </div>
+                                <div className="checkup-recommendations__doctor-box-text">
+                                  {renderTextWithFootnotes(cleanedNote, priority1References)}
+                                  {/* 각주 리스트 표시 - 텍스트에 실제로 사용된 각주만 표시 */}
+                                  {(() => {
+                                    const usedFootnoteNumbers = extractFootnoteNumbers(cleanedNote);
+                                    
+                                    if (usedFootnoteNumbers.length === 0) {
+                                      return null;
+                                    }
+                                    
+                                    return (
+                                      <div className="checkup-recommendations__footnotes">
+                                        {usedFootnoteNumbers.map((footnoteNum: number) => {
+                                          const refIndex = footnoteNum - 1;
+                                          const ref = priority1References && priority1References.length > refIndex ? priority1References[refIndex] : null;
+                                          
+                                          return (
+                                            <div key={footnoteNum} className="checkup-recommendations__footnote-item">
+                                              <span className="checkup-recommendations__footnote-number">[{footnoteNum}]</span>
+                                              {ref ? (
+                                                (ref.startsWith('http://') || ref.startsWith('https://')) ? (
+                                                  <a 
+                                                    href={ref} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="checkup-recommendations__footnote-link"
+                                                  >
+                                                    [링크]
+                                                  </a>
+                                                ) : (
+                                                  <span className="checkup-recommendations__footnote-text">{ref}</span>
+                                                )
+                                              ) : null}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+                              
+                              {/* 아코디언 화살표를 간호사 박스 밑 중앙으로 이동 */}
+                              {recommendationData.summary?.priority_1?.focus_items && recommendationData.summary.priority_1.focus_items.length > 0 && (
+                                <div 
+                                  className="checkup-recommendations__nurse-accordion-toggle"
+                                  onClick={() => toggleCategory(nurseAccordionKey)}
+                                  style={{ cursor: 'pointer' }}
+                                >
+                                  <svg
+                                    className={`checkup-recommendations__card-arrow-icon ${
+                                      isNurseExpanded ? 'expanded' : 'collapsed'
+                                    }`}
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                  >
+                                    <polyline points="6,9 12,15 18,9"></polyline>
+                                  </svg>
+                                </div>
+                              )}
+                            
+                            {/* 각 항목별 상세 정보 (focus_items) - 간호사 말풍선 기준 아코디언 */}
+                            {isNurseExpanded && recommendationData.summary?.priority_1?.focus_items && recommendationData.summary.priority_1.focus_items.length > 0 && (
+                              <div className="checkup-recommendations__focus-items">
+                                {recommendationData.summary?.priority_1?.focus_items.map((item: any, idx: number) => {
+                                  // priority_1의 items에 해당하는 recommended_items에서 references, evidence, description 찾기
+                                  // 매칭 로직: 정확 일치 → 부분 포함 → 정규화 후 매칭
+                                  const findItemData = (itemName: string): { references: string[], evidence?: string, description?: string } => {
+                                    if (!itemName) return { references: [] };
+                                    
+                                    // 정규화 함수: 공백, 괄호, 특수문자 제거 후 소문자 변환
+                                    const normalize = (str: string): string => {
+                                      return str
+                                        .replace(/\s+/g, '') // 공백 제거
+                                        .replace(/[()（）]/g, '') // 괄호 제거
+                                        .replace(/[등및]/g, '') // "등", "및" 제거
+                                        .toLowerCase();
+                                    };
+                                    
+                                    const normalizedItemName = normalize(itemName);
+                                    
+                                    // 모든 1순위 카테고리를 순회
+                                    const priority1Categories = recommendationData.categories.filter(cat => cat.priorityLevel === 1);
+                                    
+                                    for (const category of priority1Categories) {
+                                      if (!category.items || category.items.length === 0) continue;
+                                      
+                                      for (const categoryItem of category.items) {
+                                        const categoryItemName = (categoryItem as any)?.name || '';
+                                        if (!categoryItemName) continue;
+                                        
+                                        // 1. 정확 일치
+                                        if (categoryItemName === itemName) {
+                                          return {
+                                            references: (categoryItem as any)?.references || [],
+                                            evidence: (categoryItem as any)?.evidence,
+                                            description: (categoryItem as any)?.description
+                                          };
+                                        }
+                                        
+                                        // 2. 부분 포함 (itemName이 categoryItemName을 포함하거나 그 반대)
+                                        if (categoryItemName.includes(itemName) || itemName.includes(categoryItemName)) {
+                                          return {
+                                            references: (categoryItem as any)?.references || [],
+                                            evidence: (categoryItem as any)?.evidence,
+                                            description: (categoryItem as any)?.description
+                                          };
+                                        }
+                                        
+                                        // 3. 정규화 후 매칭
+                                        const normalizedCategoryName = normalize(categoryItemName);
+                                        if (normalizedItemName === normalizedCategoryName) {
+                                          return {
+                                            references: (categoryItem as any)?.references || [],
+                                            evidence: (categoryItem as any)?.evidence,
+                                            description: (categoryItem as any)?.description
+                                          };
+                                        }
+                                        
+                                        // 4. 정규화 후 부분 포함
+                                        if (normalizedItemName.includes(normalizedCategoryName) || 
+                                            normalizedCategoryName.includes(normalizedItemName)) {
+                                          return {
+                                            references: (categoryItem as any)?.references || [],
+                                            evidence: (categoryItem as any)?.evidence,
+                                            description: (categoryItem as any)?.description
+                                          };
+                                        }
+                                        
+                                        // 5. priority_1.items 배열과도 매칭 시도
+                                        const priority1Items = recommendationData.summary?.priority_1?.items || [];
+                                        if (priority1Items.includes(categoryItemName) && 
+                                            (priority1Items.includes(itemName) || itemName.includes(categoryItemName))) {
+                                          return {
+                                            references: (categoryItem as any)?.references || [],
+                                            evidence: (categoryItem as any)?.evidence,
+                                            description: (categoryItem as any)?.description
+                                          };
+                                        }
+                                      }
+                                    }
+                                    
+                                    return { references: [] };
+                                  };
+                                  const itemData = findItemData(item.item_name);
+                                  const itemReferences = itemData.references;
+                                  const itemEvidence = itemData.evidence;
+                                  const itemDescription = itemData.description;
+                                  
+                                  return (
+                                    <div key={idx} className="checkup-recommendations__focus-item">
+                                      {item.why_important && (
+                                        <div className="checkup-recommendations__focus-item-section">
                                   {/* description을 "왜 중요한지" 섹션 상단으로 이동 */}
                                   {itemDescription && (
                                     <div className="checkup-recommendations__item-description">
@@ -1505,21 +1744,149 @@ const CheckupRecommendationsPage: React.FC = () => {
                                         );
                                       })()}
                                     </div>
-                                  )}
-                                </div>
-                              )}
+                                        )}
+                                      </div>
+                                    )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
-
+                            </>
+                          )})()}
+                        </>
+                      )}
                   </div>
-                )}
               </div>
-              {/* 1순위 카테고리들 아코디언 제거 - priority_1 아코디언에 모든 정보가 통합됨 */}
                 </>
               )}
+
+              {/* priority_level이 1인 카테고리들도 1순위 섹션에 표시 */}
+              {recommendationData.categories
+                .filter((category) => category.priorityLevel === 1)
+                .map((category) => {
+                  const hasPriorityCard = !!recommendationData.summary?.priority_1;
+                  return (
+                    <div key={category.categoryName} className="checkup-recommendations__category-section">
+                      {/* 카테고리명 - (줄) */}
+                      <div className="checkup-recommendations__category-title-divider">
+                        <h3 className="checkup-recommendations__category-title">{category.categoryName}</h3>
+                        <div className="checkup-recommendations__category-divider"></div>
+                      </div>
+                          
+                      {category.items.map((item) => {
+                        const isItemExpanded = expandedItems.has(item.id);
+                        return (
+                          <div
+                            key={item.id}
+                            className={`checkup-recommendations__item-accordion ${
+                              isItemExpanded ? 'checkup-recommendations__item-accordion--expanded' : ''
+                            }`}
+                          >
+                            {/* 아이템 아코디언 헤더 (체크박스 포함) */}
+                            <div
+                              className="checkup-recommendations__item-accordion-header"
+                              onClick={() => toggleItem(item.id)}
+                            >
+                              <div className="checkup-recommendations__checkbox-wrapper">
+                                <input
+                                  type="checkbox"
+                                  id={item.id}
+                                  className="checkup-recommendations__checkbox"
+                                  defaultChecked={item.recommended}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <label
+                                  htmlFor={item.id}
+                                  className="checkup-recommendations__checkbox-label"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {item.name}
+                                  {(item as any).difficulty_level && (
+                                    <span className={`checkup-recommendations__difficulty-badge checkup-recommendations__difficulty-badge--${(item as any).difficulty_level.toLowerCase()}`}>
+                                      {(item as any).difficulty_badge || 
+                                        ((item as any).difficulty_level === 'Low' ? '부담없는' :
+                                         (item as any).difficulty_level === 'Mid' ? '추천' : '프리미엄')}
+                                    </span>
+                                  )}
+                                </label>
+                              </div>
+                              <div className="checkup-recommendations__item-accordion-arrow">
+                                <svg
+                                  className={`checkup-recommendations__item-accordion-arrow-icon ${
+                                    isItemExpanded ? 'expanded' : 'collapsed'
+                                  }`}
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <polyline points="6,9 12,15 18,9"></polyline>
+                                </svg>
+                              </div>
+                            </div>
+
+                            {/* 아이템 아코디언 내용 */}
+                            {isItemExpanded && (
+                              <div className="checkup-recommendations__item-accordion-content">
+                                {item.description && (
+                                  <div className="checkup-recommendations__item-description">
+                                    <span className="checkup-recommendations__item-info-icon">ⓘ</span>
+                                    <span className="checkup-recommendations__item-description-text">
+                                      {item.description}
+                                    </span>
+                                  </div>
+                                )}
+                                {(item as any).reason && !hasPriorityCard && (
+                                  <div className="checkup-recommendations__item-reason">
+                                    <span className="checkup-recommendations__item-reason-label">추천 이유:</span>
+                                    <span className="checkup-recommendations__item-reason-text">
+                                      {renderTextWithFootnotes(
+                                        (item as any).reason,
+                                        (item as any).references
+                                      )}
+                                    </span>
+                                  </div>
+                                )}
+                                {(item as any).evidence && (
+                                  <div className="checkup-recommendations__item-evidence">
+                                    <span className="checkup-recommendations__item-evidence-label">의학적 근거:</span>
+                                    <span className="checkup-recommendations__item-evidence-text">
+                                      {renderTextWithFootnotes(
+                                        (item as any).evidence,
+                                        (item as any).references
+                                      )}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* 의사 추천 박스 */}
+                      {category.doctorRecommendation?.hasRecommendation && (
+                        <div className="checkup-recommendations__doctor-box">
+                          <div className="checkup-recommendations__doctor-box-image">
+                            <img
+                              src={checkPlannerImage}
+                              alt="의사 일러스트"
+                              className="checkup-recommendations__doctor-illustration"
+                            />
+                          </div>
+                          <div className="checkup-recommendations__doctor-box-text">
+                            {renderHighlightedText(
+                              category.doctorRecommendation.message,
+                              category.doctorRecommendation.highlightedText
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           </>
         )}

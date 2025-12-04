@@ -5,7 +5,7 @@
 // 섹션 간격 상수 정의 (아코디언 접힌 상태 기준)
 $section-spacing: $spacing-md; // 섹션 간 일정한 간격 (문진 반영 내용, 선택하신 항목 분석 아코디언 접힌 상태 기준)
 $accordion-compact-spacing: $spacing-xs; // 아코디언 간격 (문진 반영, 선택 항목 분석용 - 배경 없이 간격만)
-$accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영, 선택 항목 분석 전용 - 더 좁은 간격)
+$accordion-ultra-compact-spacing: 2px; // 아코디언 초간격 (문진 반영, 선택 항목 분석 전용 - 더 좁은 간격)
 
 .checkup-recommendations {
   width: 100%;
@@ -293,6 +293,13 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
     color: $gray-700;
     line-height: 1.6;
     font-family: var(--font-family-greeting);
+    
+    // 문진 반영 내용, 선택하신 항목 분석 전용 스타일
+    .checkup-recommendations__survey-reflection-card &,
+    .checkup-recommendations__selected-concerns-card & {
+      color: $brand-brown-dark; // 갈색
+      font-weight: $font-weight-normal; // 얇게
+    }
   }
 
   &__analysis-highlight {
@@ -320,7 +327,7 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
   }
 
   &__citations-label {
-    font-weight: $font-weight-semibold;
+    font-weight: $font-weight-normal; // 얇게
     color: $brand-brown-dark;
     font-size: $font-sm;
     line-height: 1.5;
@@ -695,6 +702,13 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
     line-height: 1.5;
     margin-bottom: $spacing-md;
     font-family: var(--font-family-greeting);
+    
+    // 문진 반영 내용, 선택하신 항목 분석 전용 스타일
+    .checkup-recommendations__survey-reflection-card &,
+    .checkup-recommendations__selected-concerns-card & {
+      color: $brand-brown-dark; // 갈색
+      font-weight: $font-weight-normal; // 얇게
+    }
   }
 
   // 우선순위 항목 리스트
@@ -1058,6 +1072,13 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
       align-items: center;
     }
     
+    // 아코디언 헤더 텍스트를 참고자료와 같은 스타일로
+    .checkup-recommendations__card-title {
+      font-weight: $font-weight-normal; // 얇게
+      color: $brand-brown-dark; // 참고자료와 같은 색상
+      font-size: $font-sm; // 참고자료와 같은 크기
+    }
+    
     .checkup-recommendations__card-content {
       padding: $spacing-sm; // 패딩 줄이기
       margin-top: 0; // 헤더와의 간격 제거
@@ -1089,6 +1110,13 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
       align-items: center;
     }
     
+    // 아코디언 헤더 텍스트를 참고자료와 같은 스타일로
+    .checkup-recommendations__card-title {
+      font-weight: $font-weight-normal; // 얇게
+      color: $brand-brown-dark; // 참고자료와 같은 색상
+      font-size: $font-sm; // 참고자료와 같은 크기
+    }
+    
     .checkup-recommendations__card-content {
       padding: $spacing-sm; // 패딩 줄이기
       margin-top: 0; // 헤더와의 간격 제거
@@ -1097,10 +1125,336 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
       background: rgba($background-cream, 0.5); // 약간의 베이지 배경
     }
   }
+
+  // 만성질환 연쇄 반응 카드 - 배경 제거, 간격 좁히기
+  &__chronic-analysis-card {
+    background: transparent !important; // 배경 제거
+    margin-top: $accordion-ultra-compact-spacing; // 간격 더 좁히기
+    margin-bottom: $accordion-ultra-compact-spacing; // 간격 더 좁히기
+    box-shadow: none !important; // 그림자 제거
+    border: none !important; // 테두리 제거
+    
+    // 카드 헤더와 콘텐츠도 배경 제거
+    .checkup-recommendations__card-header {
+      background: transparent !important;
+      padding: $spacing-xs $spacing-sm; // 패딩 줄이기
+      justify-content: flex-end; // 오른쪽 정렬
+      gap: $spacing-xs; // 제목과 화살표 사이 간격
+      margin-bottom: $spacing-xs; // 헤더와 콘텐츠 간격 줄이기
+    }
+    
+    .checkup-recommendations__card-header-right {
+      display: flex;
+      align-items: center;
+      gap: $spacing-xs; // 제목과 뱃지 사이 간격
+    }
+    
+    // 아코디언 헤더 텍스트를 참고자료와 같은 스타일로
+    .checkup-recommendations__card-title {
+      font-weight: $font-weight-normal; // 얇게
+      color: $brand-brown-dark; // 참고자료와 같은 색상
+      font-size: $font-sm; // 참고자료와 같은 크기
+    }
+
+    // 만성질환 뱃지
+    .checkup-recommendations__chronic-disease-badge {
+      display: inline-block;
+      padding: 2px $spacing-xs;
+      background: rgba($warning, 0.1);
+      color: $warning;
+      border-radius: $border-radius-sm;
+      font-size: $font-xs;
+      font-weight: $font-weight-medium;
+    }
+    
+    .checkup-recommendations__card-content {
+      padding: $spacing-sm; // 패딩 줄이기
+      margin-top: 0; // 헤더와의 간격 제거
+      border: 1px solid rgba($brand-brown, 0.3); // 베이지색 테두리
+      border-radius: $border-radius-md;
+      background: rgba($background-cream, 0.5); // 약간의 베이지 배경
+    }
+
+    // 합병증 위험 텍스트
+    .checkup-recommendations__chronic-complication {
+      margin-bottom: $spacing-sm;
+      
+      &-text {
+        font-size: $font-sm;
+        line-height: 1.6;
+        color: $brand-brown-dark;
+        margin: 0;
+      }
+    }
+
+    // 만성질환 목록
+    .checkup-recommendations__chronic-disease-list {
+      margin-top: $spacing-sm;
+      
+      &-label {
+        font-size: $font-sm;
+        font-weight: $font-weight-medium;
+        color: $brand-brown-dark;
+        margin-bottom: $spacing-xs;
+      }
+      
+      &-items {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      
+      &-item {
+        font-size: $font-sm;
+        color: $brand-brown-dark;
+        padding: $spacing-xs 0;
+        padding-left: $spacing-md;
+        position: relative;
+        
+        &::before {
+          content: '•';
+          position: absolute;
+          left: 0;
+          color: $warning;
+          font-weight: $font-weight-bold;
+        }
+      }
+    }
+  }
   
-  // 펼쳤을 때 두 아코디언 간격 줄이기
-  &__survey-reflection-card:has(.checkup-recommendations__card-content) + &__selected-concerns-card,
-  &__selected-concerns-card:has(.checkup-recommendations__card-content) + &__survey-reflection-card {
+  // 위험도 계층화 카드
+  &__risk-profile-card {
+    background: transparent !important;
+    margin-top: $accordion-ultra-compact-spacing;
+    margin-bottom: $accordion-ultra-compact-spacing;
+    box-shadow: none !important;
+    border: none !important;
+    
+    .checkup-recommendations__card-header {
+      background: transparent !important;
+      padding: $spacing-xs $spacing-sm;
+      justify-content: flex-end;
+      gap: $spacing-xs;
+      margin-bottom: $spacing-xs;
+    }
+    
+    .checkup-recommendations__card-header-right {
+      display: flex;
+      align-items: center;
+      gap: $spacing-xs;
+    }
+    
+    .checkup-recommendations__card-title {
+      font-weight: $font-weight-normal;
+      color: $brand-brown-dark;
+      font-size: $font-sm;
+    }
+
+    .checkup-recommendations__risk-count-badge {
+      display: inline-block;
+      padding: 2px $spacing-xs;
+      background: rgba($error, 0.1);
+      color: $error;
+      border-radius: $border-radius-sm;
+      font-size: $font-xs;
+      font-weight: $font-weight-medium;
+    }
+    
+    .checkup-recommendations__card-content {
+      padding: $spacing-sm;
+      margin-top: 0;
+      border: 1px solid rgba($brand-brown, 0.3);
+      border-radius: $border-radius-md;
+      background: rgba($background-cream, 0.5);
+    }
+
+    .checkup-recommendations__risk-profile-list {
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-sm;
+    }
+
+    .checkup-recommendations__risk-profile-item {
+      padding: $spacing-sm;
+      border-radius: $border-radius-sm;
+      background: rgba($white, 0.5);
+      border: 1px solid rgba($brand-brown, 0.2);
+
+      &--high {
+        border-left: 3px solid $error;
+        background: rgba($error, 0.05);
+      }
+    }
+
+    .checkup-recommendations__risk-profile-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: $spacing-xs;
+    }
+
+    .checkup-recommendations__risk-profile-organ {
+      font-weight: $font-weight-medium;
+      color: $brand-brown-dark;
+      font-size: $font-sm;
+    }
+
+    .checkup-recommendations__risk-profile-level {
+      padding: 2px $spacing-xs;
+      border-radius: $border-radius-sm;
+      font-size: $font-xs;
+      font-weight: $font-weight-medium;
+      
+      &--low-risk,
+      &--low {
+        background: rgba($success, 0.1);
+        color: $success;
+      }
+      
+      &--moderate-risk,
+      &--moderate {
+        background: rgba($warning, 0.1);
+        color: $warning;
+      }
+      
+      &--high-risk,
+      &--high,
+      &--very-high-risk,
+      &--very-high {
+        background: rgba($error, 0.1);
+        color: $error;
+      }
+      
+      &--complex-risk,
+      &--complex {
+        background: rgba($warning, 0.1);
+        color: $warning;
+      }
+      
+      &--emerging-risk,
+      &--emerging {
+        background: rgba($warning, 0.1);
+        color: $warning;
+      }
+      
+      &--smoker-risk,
+      &--smoker {
+        background: rgba($error, 0.1);
+        color: $error;
+      }
+    }
+
+    .checkup-recommendations__risk-profile-reason {
+      font-size: $font-sm;
+      color: $brand-brown-dark;
+      line-height: 1.6;
+      margin: 0;
+    }
+  }
+
+  // Bridge Strategy 카드
+  &__strategies-card {
+    background: transparent !important;
+    margin-top: $accordion-ultra-compact-spacing;
+    margin-bottom: $accordion-ultra-compact-spacing;
+    box-shadow: none !important;
+    border: none !important;
+    
+    .checkup-recommendations__card-header {
+      background: transparent !important;
+      padding: $spacing-xs $spacing-sm;
+      justify-content: flex-end;
+      gap: $spacing-xs;
+      margin-bottom: $spacing-xs;
+    }
+    
+    .checkup-recommendations__card-header-right {
+      display: flex;
+      align-items: center;
+      gap: $spacing-xs;
+    }
+    
+    .checkup-recommendations__card-title {
+      font-weight: $font-weight-normal;
+      color: $brand-brown-dark;
+      font-size: $font-sm;
+    }
+
+    .checkup-recommendations__strategies-count-badge {
+      display: inline-block;
+      padding: 2px $spacing-xs;
+      background: rgba($info, 0.1);
+      color: $info;
+      border-radius: $border-radius-sm;
+      font-size: $font-xs;
+      font-weight: $font-weight-medium;
+    }
+    
+    .checkup-recommendations__card-content {
+      padding: $spacing-sm;
+      margin-top: 0;
+      border: 1px solid rgba($brand-brown, 0.3);
+      border-radius: $border-radius-md;
+      background: rgba($background-cream, 0.5);
+    }
+
+    .checkup-recommendations__strategy-item {
+      margin-bottom: $spacing-md;
+      padding-bottom: $spacing-md;
+      border-bottom: 1px solid rgba($brand-brown, 0.2);
+
+      &:last-child {
+        margin-bottom: 0;
+        padding-bottom: 0;
+        border-bottom: none;
+      }
+    }
+
+    .checkup-recommendations__strategy-title {
+      font-size: $font-base;
+      font-weight: $font-weight-semibold;
+      color: $brand-brown-dark;
+      margin-bottom: $spacing-sm;
+    }
+
+    .checkup-recommendations__bridging-narrative {
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-sm;
+    }
+
+    .checkup-recommendations__bridge-step {
+      display: flex;
+      flex-direction: column;
+      gap: $spacing-xs;
+      padding: $spacing-sm;
+      background: rgba($white, 0.5);
+      border-radius: $border-radius-sm;
+      border-left: 3px solid $brand-brown;
+    }
+
+    .checkup-recommendations__bridge-step-label {
+      font-weight: $font-weight-medium;
+      color: $brand-brown-dark;
+      font-size: $font-sm;
+    }
+
+    .checkup-recommendations__bridge-step-text {
+      font-size: $font-sm;
+      color: $brand-brown-dark;
+      line-height: 1.6;
+    }
+  }
+  
+  // 펼쳤을 때 아코디언 간격 줄이기
+  &__survey-reflection-card:has(.checkup-recommendations__card-content) + &__chronic-analysis-card,
+  &__chronic-analysis-card:has(.checkup-recommendations__card-content) + &__survey-reflection-card,
+  &__chronic-analysis-card:has(.checkup-recommendations__card-content) + &__selected-concerns-card,
+  &__selected-concerns-card:has(.checkup-recommendations__card-content) + &__chronic-analysis-card,
+  &__risk-profile-card:has(.checkup-recommendations__card-content) + &__chronic-analysis-card,
+  &__chronic-analysis-card:has(.checkup-recommendations__card-content) + &__risk-profile-card,
+  &__strategies-card:has(.checkup-recommendations__card-content) + &__survey-reflection-card,
+  &__survey-reflection-card:has(.checkup-recommendations__card-content) + &__strategies-card {
     margin-top: $accordion-ultra-compact-spacing;
   }
 
@@ -1327,6 +1681,16 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
     line-height: 1.5;
   }
 
+  // focus-item-section 내부의 item-description은 왼쪽 마진 제거
+  &__focus-item-section {
+    & > .checkup-recommendations__item-description {
+      margin-left: 0 !important;
+      padding-left: 0 !important;
+      padding-top: 0;
+      margin-bottom: $spacing-sm;
+    }
+  }
+
   &__item-info-icon {
     font-size: $font-xs; // 12px
     color: $gray-450;
@@ -1385,6 +1749,15 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
     padding: $spacing-sm; // 패딩 추가
     border-radius: $border-radius-md;
     // 왼쪽 테두리 제거
+    text-align: left; // 왼쪽 정렬
+
+    // focus-item-section 내부에서는 왼쪽 마진 제거
+    .checkup-recommendations__focus-item-section & {
+      margin-left: 0;
+      padding-top: $spacing-sm;
+      margin-top: $spacing-sm;
+      text-align: left; // 왼쪽 정렬
+    }
   }
 
   &__item-evidence-label {
@@ -1392,6 +1765,7 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
     color: $brand-brown-dark;
     font-size: $font-sm; // $font-xs에서 $font-sm으로 변경
     margin-bottom: 2px;
+    text-align: left; // 왼쪽 정렬
   }
 
   &__item-evidence-text {
@@ -1491,13 +1865,24 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
     padding-top: $spacing-xs;
     border-top: 1px solid $gray-200;
     font-size: $font-xs;
+    text-align: left; // 왼쪽 정렬 (의학적 근거 하단 각주)
+  }
+
+  // 의학적 근거 하단 각주는 왼쪽 정렬
+  &__item-evidence &__footnotes {
+    text-align: left;
   }
 
   &__footnote-item {
     display: flex;
     align-items: flex-start;
-    gap: 6px;
+    gap: 2px; // 간격 줄이기 (6px -> 2px)
     line-height: 1.4;
+  }
+
+  // 의학적 근거 하단 각주 항목은 왼쪽 정렬
+  &__item-evidence &__footnote-item {
+    justify-content: flex-start; // 왼쪽 정렬
   }
 
   &__footnote-number {
@@ -1505,12 +1890,18 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
     font-weight: $font-weight-semibold;
     flex-shrink: 0;
     min-width: 24px;
+    font-size: 0.85em; // 텍스트 내 각주와 동일한 크기로 통일
+    vertical-align: super; // 텍스트 내 각주와 동일한 정렬로 통일
+    font-family: var(--font-family-greeting);
   }
 
   &__footnote-link {
     color: $brand-brown-dark;
     text-decoration: underline;
     word-break: break-all;
+    font-size: 0.85em; // 텍스트 내 각주와 동일한 크기로 통일
+    vertical-align: baseline; // 하단 링크는 baseline 정렬
+    font-family: var(--font-family-greeting);
     
     &:hover {
       color: $brand-brown-darker;
@@ -1534,6 +1925,20 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
     border-radius: $border-radius-lg;
     position: relative;
 
+    &-wrapper {
+      margin-bottom: $spacing-md;
+      position: relative;
+    }
+
+    &--clickable {
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background: darken($background-cream, 3%);
+      }
+    }
+
     &-image {
       flex-shrink: 0;
       width: 80px;
@@ -1549,9 +1954,50 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
       font-family: var(--font-family-greeting);
     }
 
+    &-arrow {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      margin-left: auto;
+      margin-top: $spacing-xs;
+    }
+
     &-highlight {
       color: $error;
       font-weight: $font-weight-bold;
+    }
+  }
+
+  // 간호사 아코디언 토글 (간호사 박스 밑 중앙)
+  &__nurse-accordion-toggle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    padding: $spacing-sm 0;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+
+    &:hover {
+      opacity: 0.7;
+    }
+
+    svg {
+      width: 24px;
+      height: 24px;
+      color: $brand-brown-dark;
+      transition: transform 0.2s ease;
+
+      &.expanded {
+        transform: rotate(180deg);
+      }
+
+      &.collapsed {
+        transform: rotate(0deg);
+      }
     }
   }
 
@@ -1563,12 +2009,94 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
     border-top: 2px solid $gray-200;
   }
 
-  // 일반검진 가이드 - focus_items 스타일
-  &__focus-item-header {
+  // 카테고리 섹션 (추가로 검사해보세요)
+  &__category-section {
+    margin-bottom: $spacing-lg;
+  }
+
+  &__category-title-divider {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-md;
+  }
+
+  &__category-title {
+    font-size: $font-base;
+    font-weight: $font-weight-semibold;
+    color: $black;
+    margin: 0;
+    white-space: nowrap;
+    font-family: var(--font-family-greeting);
+  }
+
+  &__category-divider {
+    flex: 1;
+    height: 1px;
+    background: $gray-300;
+  }
+
+  // 아이템 아코디언 (추가로 검사해보세요 섹션)
+  &__item-accordion {
+    background: $white;
+    border: 1px solid $gray-200;
+    border-radius: $border-radius-md;
+    margin-bottom: $spacing-sm;
+    overflow: hidden;
+    transition: all 0.3s ease;
+
+    &--expanded {
+      box-shadow: $shadow-sm;
+    }
+  }
+
+  &__item-accordion-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: $spacing-xs;
+    padding: $spacing-sm $spacing-md;
+    cursor: pointer;
+    transition: background 0.2s ease;
+
+    &:hover {
+      background: $gray-50;
+    }
+  }
+
+  &__item-accordion-arrow {
+    display: flex;
+    align-items: center;
+    margin-left: $spacing-sm;
+  }
+
+  &__item-accordion-arrow-icon {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+    color: $gray-600;
+
+    &.expanded {
+      transform: rotate(180deg);
+    }
+
+    &.collapsed {
+      transform: rotate(0deg);
+    }
+  }
+
+  &__item-accordion-content {
+    padding: $spacing-md;
+    padding-top: 0;
+    border-top: 1px solid $gray-100;
+    background: $gray-50;
+  }
+
+  // 일반검진 가이드 - focus_items 스타일
+  &__focus-item-header {
+    display: flex;
+    align-items: center; // 같은 높이에 배치
+    justify-content: space-between; // 왜 중요한지와 뱃지를 양쪽에 배치
+    margin-bottom: $spacing-sm;
     gap: $spacing-sm;
   }
 
@@ -1625,9 +2153,10 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
       font-size: $font-sm;
       font-weight: $font-weight-semibold;
       color: $brand-brown-dark;
-      display: block;
+      display: inline-block; // inline-block으로 변경하여 뱃지와 같은 줄에 배치
       margin-bottom: 0; // header 내부에서는 margin 제거
       font-family: var(--font-family-greeting);
+      vertical-align: middle; // 뱃지와 수직 정렬
     }
 
     &-text {
@@ -1635,9 +2164,14 @@ $accordion-ultra-compact-spacing: 4px; // 아코디언 초간격 (문진 반영,
       color: $black;
       line-height: 1.8; // 가독성 향상을 위해 줄간격 증가
       margin: 0;
+      margin-top: $spacing-xs; // 텍스트와 헤더 사이 간격
       font-family: var(--font-family-greeting);
       word-break: keep-all; // 단어 단위 줄바꿈
       white-space: pre-wrap; // 줄바꿈 유지
+      
+      &--right-align {
+        text-align: right;
+      }
     }
   }
 

@@ -305,9 +305,16 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
     
     // 카드 1: survey_reflection
     if (step1Result.survey_reflection) {
+      // {highlight}...{/highlight} 태그 제거 (타이핑 메시지에서만)
+      let cleanedText = step1Result.survey_reflection
+        .replace(/\{\{highlight\}\}(.*?)\{\{\/highlight\}\}/g, '$1') // 이중 중괄호
+        .replace(/\{highlight\}(.*?)\{\/highlight\}/g, '$1') // 정상 태그
+        .replace(/\{\{highlight\}\}(.*?)\{\}/g, '$1') // 잘못된 닫는 태그
+        .replace(/\{highlight\}(.*?)\{\}/g, '$1'); // 잘못된 닫는 태그
+      
       cardsToType.push({
         cardIndex: 0,
-        text: step1Result.survey_reflection
+        text: cleanedText
       });
     }
     
@@ -372,13 +379,15 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
           }, CARD_SLIDE_DELAY);
         } else if (state.cardIndex === 1) {
           setCard2TypingComplete(true);
-          // 카드 2 완료 후 프로세스 카드로 전환 (반복)
+          // 카드 2 완료 후 프로세스 카드로 전환 (계속 순환)
           setTimeout(() => {
             setCurrentCardIndex(0); // 프로세스 카드로 돌아감
-            // 프로세스 카드 표시 후 다시 분석 카드로
+            // 프로세스 카드 표시 후 다시 분석 카드로 (무한 반복)
             setTimeout(() => {
-              // 다시 첫 번째 분석 카드로 (반복)
+              // 다시 첫 번째 분석 카드로 (순환)
               typingStateRef.current = { cardIndex: 0, textIndex: 0 };
+              setCard1TypingComplete(false); // 상태 리셋
+              setCard2TypingComplete(false); // 상태 리셋
               setCurrentCardIndex(1);
               setIsTyping(true);
               setTypingText('');

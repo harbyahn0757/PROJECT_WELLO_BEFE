@@ -79,6 +79,8 @@ class Step1Result(BaseModel):
     """STEP 1 분석 결과 모델"""
     patient_summary: str = Field(..., description="환자 상태 3줄 요약")
     analysis: str = Field(..., description="종합 분석")
+    risk_profile: Optional[List[Dict[str, Any]]] = Field(None, description="위험도 계층화 결과 (각 장기별 위험도 분류)")
+    chronic_analysis: Optional[Dict[str, Any]] = Field(None, description="만성질환 연쇄 반응 분석")
     survey_reflection: str = Field(..., description="문진 내용 반영 예고")
     selected_concerns_analysis: List[Dict[str, Any]] = Field(..., description="선택한 염려 항목별 분석")
     basic_checkup_guide: Dict[str, Any] = Field(..., description="기본 검진 가이드")
@@ -982,6 +984,27 @@ async def create_checkup_design_step2(
             ai_response["_citations"] = citations
             logger.info(f"📚 [STEP2-설계] Citations를 응답에 추가: {len(citations)}개")
         
+        # STEP 1과 STEP 2 결과 병합
+        logger.info(f"🔗 [STEP2-설계] STEP 1과 STEP 2 결과 병합 중...")
+        merged_result = merge_checkup_design_responses(step1_result_dict, ai_response)
+        logger.info(f"✅ [STEP2-설계] 병합 완료 - 최종 결과 키: {list(merged_result.keys())}")
+        
+        # 검진 설계 요청 저장 (업셀링용) - 병합된 결과 저장
+        try:
+            save_result = await wello_data_service.save_checkup_design_request(
+                uuid=request.uuid,
+                hospital_id=request.hospital_id,
+                selected_concerns=selected_concerns,
+                survey_responses=survey_responses_clean,
+                design_result=merged_result
+            )
+            if save_result.get("success"):
+                logger.info(f"✅ [STEP2-설계] 요청 저장 완료 - ID: {save_result.get('request_id')}")
+            else:
+                logger.warning(f"⚠️ [STEP2-설계] 요청 저장 실패: {save_result.get('error')}")
+        except Exception as e:
+            logger.warning(f"⚠️ [STEP2-설계] 요청 저장 중 오류 (무시): {str(e)}")
+        
         # STEP 2 응답 반환 (설계 및 근거 결과)
         logger.info(f"✅ [STEP2-설계] STEP 2 완료 - 설계 및 근거 결과 반환")
         
@@ -1047,6 +1070,8 @@ def merge_checkup_design_responses(step1_result: Dict[str, Any], step2_result: D
             # STEP 1에서 온 필드들
             "patient_summary": safe_get(step1_result, "patient_summary", ""),
             "analysis": safe_get(step1_result, "analysis", ""),
+            "risk_profile": safe_get(step1_result, "risk_profile", []),
+            "chronic_analysis": safe_get(step1_result, "chronic_analysis", {}),
             "survey_reflection": safe_get(step1_result, "survey_reflection", ""),
             "selected_concerns_analysis": safe_get(step1_result, "selected_concerns_analysis", []),
             "basic_checkup_guide": safe_get(step1_result, "basic_checkup_guide", {}),

@@ -14,7 +14,7 @@ interface ContentLayoutWithHeaderProps {
   onBack?: () => void;
   lastUpdateTime?: string | null;
   patientName?: string;
-  onRefresh?: () => void;
+  onRefresh?: (withdraw?: boolean) => void | Promise<void>;
   // 토글 props
   showToggle?: boolean;
   activeTab?: 'trends' | 'timeline';

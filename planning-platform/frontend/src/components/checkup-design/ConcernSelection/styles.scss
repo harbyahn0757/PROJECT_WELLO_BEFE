@@ -398,7 +398,7 @@
     &:checked {
       background-color: $brand-brown-light-bg;
       background-image: none;
-      border-color: $brand-brown-dark;
+      border-color: transparent; // 선택 시 내부 선 제거
       
       &::after {
         content: '✓';

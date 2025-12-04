@@ -15,7 +15,7 @@ interface HealthTrendsHeaderProps {
   headerType?: 'default' | 'large'; // 헤더 높이 타입 (기본값: 'default')
   lastUpdateTime?: string | null;
   patientName?: string;
-  onRefresh?: () => void;
+  onRefresh?: (withdraw?: boolean) => void | Promise<void>;
 }
 
 const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
@@ -28,6 +28,7 @@ const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
   onRefresh
 }) => {
   const [showRefreshModal, setShowRefreshModal] = useState(false);
+  const [withdrawChecked, setWithdrawChecked] = useState(false);
   const headerRef = useRef<HTMLDivElement>(null);
 
   // 헤더 높이 계산 및 CSS 변수 설정 (리사이즈 시 재계산)
@@ -76,12 +77,16 @@ const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
   const handleRefreshConfirm = () => {
     setShowRefreshModal(false);
     if (onRefresh) {
-      onRefresh();
+      onRefresh(withdrawChecked);
     }
+    // 체크박스 상태 초기화
+    setWithdrawChecked(false);
   };
 
   const handleRefreshCancel = () => {
     setShowRefreshModal(false);
+    // 체크박스 상태 초기화
+    setWithdrawChecked(false);
   };
   // 마지막 업데이트 시간 포맷팅
   const formatLastUpdateTime = (time: string | null | undefined): string => {
@@ -184,12 +189,32 @@ const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
           <p className="health-trends-refresh-modal__description">
             최신 건강정보로 업데이트해요.
           </p>
+          
+          {/* 탈퇴하기 체크박스 */}
+          <div className="health-trends-refresh-modal__withdraw-section">
+            <label className="health-trends-refresh-modal__withdraw-checkbox">
+              <input
+                type="checkbox"
+                checked={withdrawChecked}
+                onChange={(e) => setWithdrawChecked(e.target.checked)}
+              />
+              <span className="health-trends-refresh-modal__withdraw-label">
+                탈퇴하기
+              </span>
+            </label>
+            {withdrawChecked && (
+              <p className="health-trends-refresh-modal__withdraw-warning">
+                탈퇴 시 모든 약관 동의와 건강정보가 삭제되며, 첫 화면으로 이동합니다.
+              </p>
+            )}
+          </div>
+          
           <div className="health-trends-refresh-modal__actions">
             <button
               className="health-trends-refresh-modal__btn health-trends-refresh-modal__btn--confirm"
               onClick={handleRefreshConfirm}
             >
-              새로고침
+              {withdrawChecked ? '탈퇴하기' : '새로고침'}
             </button>
           </div>
         </div>

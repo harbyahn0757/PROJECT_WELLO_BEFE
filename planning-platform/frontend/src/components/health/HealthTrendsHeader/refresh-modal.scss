@@ -24,6 +24,43 @@
     font-family: $font-family-base;
   }
 
+  &__withdraw-section {
+    margin: $spacing-md 0;
+    padding: $spacing-sm;
+    border: 1px solid $gray-200;
+    border-radius: $border-radius-md;
+    background: $gray-50;
+  }
+
+  &__withdraw-checkbox {
+    display: flex;
+    align-items: center;
+    gap: $spacing-xs;
+    cursor: pointer;
+    user-select: none;
+    
+    input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: $brand-brown;
+    }
+  }
+
+  &__withdraw-label {
+    font-size: $font-sm;
+    color: $gray-700;
+    font-weight: $font-weight-medium;
+  }
+
+  &__withdraw-warning {
+    margin-top: $spacing-xs;
+    font-size: $font-xs;
+    color: $gray-600;
+    line-height: 1.4;
+    padding-left: 26px; // 체크박스 너비 + gap
+  }
+
   &__actions {
     display: flex;
     gap: 0; // gap 제거

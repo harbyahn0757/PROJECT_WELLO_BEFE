@@ -26,7 +26,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   onBack,
   onError
 }) => {
-  const { state } = useWelloData(); // 환자 데이터 가져오기
+  const { state, actions } = useWelloData(); // 환자 데이터 가져오기
   const navigate = useNavigate();
   
   // 이 페이지는 트렌드 상태만 처리 (질문 상태 없음)
@@ -549,7 +549,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   }, [isPulling, pullDistance, pullCount]);
 
   // 새로고침 확인 모달 핸들러
-  const handleRefreshConfirm = useCallback(() => {
+  const handleRefreshConfirm = useCallback(async (withdraw: boolean = false) => {
     setShowRefreshModal(false);
     
     // 환자 정보 유지하면서 재인증 페이지로 이동
@@ -557,16 +557,116 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
     const uuid = urlParams.get('uuid');
     const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
     
-    if (uuid && hospital) {
-      // 기존 데이터 정리
+    if (!uuid || !hospital) {
+      console.error('❌ [새로고침] UUID 또는 병원 ID가 없습니다.');
+      return;
+    }
+    
+    try {
+      // 1. 로컬 스토리지 데이터 삭제 (공통)
       localStorage.removeItem('tilko_collected_data');
       localStorage.removeItem('tilko_session_id');
       localStorage.removeItem('tilko_session_data');
+      localStorage.removeItem('wello_health_data');
+      localStorage.removeItem('wello_view_mode');
       
-      // 재인증 페이지로 이동 (환자 정보 유지)
-      navigate(`/login?uuid=${uuid}&hospital=${hospital}`);
+      // 2. 약관 동의 데이터 삭제 (UUID별로 구분된 키)
+      const termsKey = `wello_terms_agreed_${uuid}`;
+      const termsAtKey = `wello_terms_agreed_at_${uuid}`;
+      const termsListKey = `wello_terms_agreed_list_${uuid}`;
+      const termsAgreementKey = `wello_terms_agreement_${uuid}`;
+      
+      localStorage.removeItem(termsKey);
+      localStorage.removeItem(termsAtKey);
+      localStorage.removeItem(termsListKey);
+      localStorage.removeItem(termsAgreementKey);
+      
+      // 기존 전역 약관 동의 키도 삭제 (하위 호환성)
+      localStorage.removeItem('wello_terms_agreed');
+      localStorage.removeItem('wello_terms_agreed_at');
+      localStorage.removeItem('wello_terms_agreed_list');
+      localStorage.removeItem('wello_terms_agreement');
+      
+      console.log('🗑️ [새로고침] 약관 동의 데이터 삭제 완료:', uuid);
+      
+      // 3. IndexedDB 데이터 삭제
+      await WelloIndexedDB.clearAllData();
+      console.log('🗑️ [새로고침] IndexedDB 삭제 완료');
+      
+      // 4. WelloDataContext 캐시 클리어
+      if (actions.clearCache) {
+        actions.clearCache();
+      }
+      
+      // 5. 데이터베이스에서 건강정보 삭제
+      if (withdraw) {
+        // 탈퇴하기: 약관 동의 + 건강정보 모두 삭제 후 첫 화면으로
+        console.log('🗑️ [탈퇴하기] 데이터베이스에서 건강정보 삭제 시작');
+        
+        // 백엔드 API 호출하여 건강정보 삭제
+        const deleteResponse = await fetch(
+          API_ENDPOINTS.DELETE_HEALTH_DATA(uuid, hospital),
+          {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (deleteResponse.ok) {
+          const deleteResult = await deleteResponse.json();
+          console.log('✅ [탈퇴하기] 데이터베이스 건강정보 삭제 완료:', deleteResult);
+        } else {
+          console.error('❌ [탈퇴하기] 데이터베이스 건강정보 삭제 실패:', deleteResponse.status);
+        }
+        
+        // 약관 동의도 서버에서 삭제 (API가 있다면)
+        // 현재는 로컬 스토리지만 삭제
+        
+        console.log('🗑️ [탈퇴하기] 모든 데이터 삭제 완료 - 처음 랜딩 페이지로 이동');
+        
+        // 처음 랜딩 페이지로 이동 (URL 파라미터 완전 제거)
+        // window.location.href를 사용하여 완전히 새로운 페이지 로드
+        window.location.href = '/wello';
+      } else {
+        // 새로고침만: 건강정보만 삭제 후 재인증
+        console.log('🔄 [새로고침] 데이터베이스에서 건강정보만 삭제 시작');
+        
+        // 백엔드 API 호출하여 건강정보 삭제
+        const deleteResponse = await fetch(
+          API_ENDPOINTS.DELETE_HEALTH_DATA(uuid, hospital),
+          {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (deleteResponse.ok) {
+          const deleteResult = await deleteResponse.json();
+          console.log('✅ [새로고침] 데이터베이스 건강정보 삭제 완료:', deleteResult);
+        } else {
+          console.error('❌ [새로고침] 데이터베이스 건강정보 삭제 실패:', deleteResponse.status);
+        }
+        
+        console.log('🔄 [새로고침] 로컬 데이터 삭제 완료 - 재인증 페이지로 이동');
+        
+        // 재인증 페이지로 이동 (환자 정보 유지)
+        navigate(`/login?uuid=${uuid}&hospital=${hospital}`);
+      }
+    } catch (error) {
+      console.error('❌ [새로고침] 오류 발생:', error);
+      // 오류 발생해도 이동은 진행
+      if (withdraw) {
+        // 탈퇴하기: 처음 랜딩 페이지로 이동 (URL 파라미터 완전 제거)
+        window.location.href = '/wello';
+      } else {
+        navigate(`/login?uuid=${uuid}&hospital=${hospital}`);
+      }
     }
-  }, [navigate]);
+  }, [navigate, actions]);
 
   const handleRefreshCancel = useCallback(() => {
     setShowRefreshModal(false);
@@ -700,7 +800,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
         onBack={handleBack}
         lastUpdateTime={lastUpdateTime ?? undefined}
         patientName={patientName}
-        onRefresh={handleRefreshConfirm}
+        onRefresh={(withdraw?: boolean) => handleRefreshConfirm(withdraw || false)}
         showToggle={true}
         activeTab={viewMode}
         onTabChange={(tab) => {
@@ -793,7 +893,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
               </button>
               <button 
                 className="refresh-btn refresh-btn-confirm"
-                onClick={handleRefreshConfirm}
+                onClick={() => handleRefreshConfirm(false)}
               >
                 새로고침
               </button>

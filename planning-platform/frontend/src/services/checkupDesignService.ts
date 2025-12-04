@@ -49,6 +49,16 @@ export interface CheckupDesignRequest {
 export interface Step1Result {
   patient_summary: string;
   analysis: string;
+  risk_profile?: Array<{
+    organ_system: string;
+    risk_level: string; // Low / Moderate / High / Very High
+    reason: string;
+  }>;
+  chronic_analysis?: {
+    has_chronic_disease: boolean;
+    disease_list: string[];
+    complication_risk: string;
+  };
   survey_reflection: string;
   selected_concerns_analysis: Array<{
     concern_name: string;
@@ -99,7 +109,18 @@ export interface CheckupDesignResponse {
     // STEP 1 필드들
     patient_summary?: string;
     survey_reflection?: string;
+    risk_profile?: Array<{
+      organ_system: string;
+      risk_level: string;
+      reason: string;
+    }>;
+    chronic_analysis?: {
+      has_chronic_disease: boolean;
+      disease_list: string[];
+      complication_risk: string;
+    };
     selected_concerns_analysis?: Array<any>;
+    selected_concerns?: string[]; // 사용자가 선택한 항목들
     basic_checkup_guide?: any;
     // STEP 2 필드들
     summary?: any;
