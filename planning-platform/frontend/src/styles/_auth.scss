@@ -273,7 +273,7 @@ html body .auth__content ~ button.button.floating-button {
   
   // 인증 대기 상태에서 깜빡임 효과
   &.auth-waiting-button {
-    animation: buttonBlink 1.5s ease-in-out infinite;
+    animation: buttonBlink 1.2s ease-in-out infinite;
   }
   
   // 모든 상태에서 border/outline 완전 제거
@@ -298,15 +298,17 @@ html body .auth__content ~ button.button.floating-button {
   appearance: none !important;
 }
 
-// 버튼 깜빡임 애니메이션
+// 버튼 깜빡임 애니메이션 (인증 완료 버튼용)
 @keyframes buttonBlink {
   0%, 100% {
     opacity: 1;
     transform: scale(1);
+    box-shadow: 0 -4px 12px rgba(247, 232, 211, 0.3);
   }
   50% {
-    opacity: 0.85;
-    transform: scale(0.98);
+    opacity: 0.7;
+    transform: scale(0.95);
+    box-shadow: 0 -4px 20px rgba(247, 232, 211, 0.6);
   }
 }
 

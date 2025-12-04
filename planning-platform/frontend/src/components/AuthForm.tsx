@@ -358,11 +358,22 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       }, 3000);
     },
     onStatusUpdate: (status, authCompleted) => {
-      console.log('📊 [WebSocket] 상태 업데이트:', status, 'auth_completed:', authCompleted);
-      if (authCompleted && !tokenReceived) {
+      console.log('📊 [WebSocket] 상태 업데이트:', status, 'auth_completed:', authCompleted, '현재상태:', currentStatusRef.current);
+      
+      // 🛡️ 데이터 수집 중이면 인증 완료 상태로 되돌리지 않음 (ref 사용으로 최신 값 보장)
+      const isDataCollecting = isManualCollectingRef.current || 
+        currentStatusRef.current === 'data_collecting' || 
+        currentStatusRef.current === 'collecting' || 
+        currentStatusRef.current === 'manual_collecting' ||
+        currentStatusRef.current === 'data_completed';
+      
+      if (authCompleted && !tokenReceived && !isDataCollecting) {
+        console.log('✅ [WebSocket] 인증 완료 처리 (데이터 수집 중 아님)');
         setTokenReceived(true);
         setCurrentStatus('auth_completed');
         setTypingText('인증이 완료되었습니다!\n건강검진 데이터를 수집하겠습니다.');
+      } else if (isDataCollecting) {
+        console.log('⏸️ [WebSocket] 데이터 수집 중 - 인증 완료 상태 변경 건너뜀');
       }
     }
   });
@@ -377,7 +388,31 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   // 상단 타이틀 타이핑 효과
   const [titleTypingText, setTitleTypingText] = useState('');
   const [isTitleTyping, setIsTitleTyping] = useState(false);
-  const [currentStatus, setCurrentStatus] = useState<string>('start');
+  const [currentStatus, setCurrentStatusRaw] = useState<string>('start');
+  const currentStatusRef = useRef<string>('start');
+  
+  // 상태 변경 추적을 위한 래퍼 함수
+  const setCurrentStatus = useCallback((newStatus: string) => {
+    const oldStatus = currentStatusRef.current;
+    if (oldStatus !== newStatus) {
+      const stackTrace = new Error().stack;
+      const caller = stackTrace?.split('\n')[2]?.trim() || 'unknown';
+      console.log(`🔄 [상태변경] ${oldStatus} → ${newStatus}`, {
+        이전상태: oldStatus,
+        새상태: newStatus,
+        호출위치: caller,
+        스택: stackTrace?.split('\n').slice(0, 5).join('\n')
+      });
+      currentStatusRef.current = newStatus;
+    }
+    setCurrentStatusRaw(newStatus);
+  }, []);
+  
+  // currentStatus 변경 시 ref 업데이트
+  useEffect(() => {
+    currentStatusRef.current = currentStatus;
+  }, [currentStatus]);
+  
   const [isRecovering, setIsRecovering] = useState<boolean>(false);
   const [typingText, setTypingText] = useState<string>('');
   const [isTyping, setIsTyping] = useState<boolean>(false);
@@ -990,8 +1025,19 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   // App.tsx에서 인증 요청 성공 시 타이핑 효과 시작
   useEffect(() => {
     const checkAuthRequested = () => {
+      // 🛡️ 데이터 수집 중이면 인증 상태로 되돌리지 않음
+      const isDataCollecting = isManualCollectingRef.current || 
+        currentStatusRef.current === 'data_collecting' || 
+        currentStatusRef.current === 'collecting' || 
+        currentStatusRef.current === 'manual_collecting' ||
+        currentStatusRef.current === 'data_completed';
+      
+      if (isDataCollecting) {
+        return; // 데이터 수집 중이면 체크 건너뛰기
+      }
+      
       const authRequested = localStorage.getItem('tilko_auth_requested');
-      if (authRequested && !currentStatus.includes('auth')) {
+      if (authRequested && !currentStatusRef.current.includes('auth')) {
         console.log('🎯 [타이핑효과] App.tsx에서 인증 요청 성공 감지');
         localStorage.removeItem('tilko_auth_requested');
         
@@ -1013,7 +1059,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     const interval = setInterval(checkAuthRequested, 1000);
     
     return () => clearInterval(interval);
-  }, [currentStatus]);
+  }, []); // currentStatus 의존성 제거 (ref 사용)
 
   // 수동 데이터 수집 함수 (자동 폴링 제거됨)
   // 기존 데이터 확인 함수
@@ -1382,8 +1428,57 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         if (response.ok) {
           const result = await response.json();
           
-          // 인증 완료 확인 (progress.auth_completed 또는 status가 auth_completed/authenticated)
-          if ((result.progress?.auth_completed || result.status === 'auth_completed' || result.status === 'authenticated') && !tokenReceived) {
+          // 🛡️ 데이터 수집이 시작된 후에는 인증 완료 체크를 건너뛰기 (ref 사용으로 최신 값 보장)
+          const isDataCollecting = isManualCollectingRef.current || 
+            currentStatusRef.current === 'data_collecting' || 
+            currentStatusRef.current === 'collecting' || 
+            currentStatusRef.current === 'manual_collecting' ||
+            currentStatusRef.current === 'data_completed' ||
+            result.status === 'fetching_health_data' ||
+            result.status === 'fetching_prescription_data' ||
+            result.status === 'completed';
+          
+          // 데이터 수집 상태 확인 및 업데이트 (우선 처리)
+          if (result.status === 'fetching_health_data') {
+            console.log('🏥 [데이터수집] 건강검진 데이터 수집 중...');
+            setCurrentStatus('data_collecting');
+            setTypingText('건강검진 데이터를 수집하고 있습니다.\n잠시만 기다려주세요.');
+            
+            // 플로팅 버튼 숨기기 위한 플래그 설정 (이벤트 발생하지 않음 - 무한 루프 방지)
+            StorageManager.setItem('tilko_manual_collect', 'true');
+            // window.dispatchEvent(new Event('localStorageChange')); // 제거 - 무한 루프 방지
+            return; // 데이터 수집 중이면 인증 완료 체크 건너뛰기
+          } else if (result.status === 'fetching_prescription_data') {
+            console.log('💊 [데이터수집] 처방전 데이터 수집 중...');
+            setCurrentStatus('data_collecting');
+            setTypingText('처방전 데이터를 수집하고 있습니다.\n잠시만 기다려주세요.');
+            
+            // 플로팅 버튼 숨기기 위한 플래그 설정 (이벤트 발생하지 않음 - 무한 루프 방지)
+            StorageManager.setItem('tilko_manual_collect', 'true');
+            // window.dispatchEvent(new Event('localStorageChange')); // 제거 - 무한 루프 방지
+            return; // 데이터 수집 중이면 인증 완료 체크 건너뛰기
+          } else if (result.status === 'completed') {
+            console.log('✅ [데이터수집] 모든 데이터 수집 완료!');
+            setCurrentStatus('data_completed');
+            setTypingText('건강검진 및 처방전 데이터 수집이\n완료되었습니다.');
+            
+            // 데이터 수집 완료 - 플로팅 버튼 플래그 제거
+            StorageManager.removeItem('tilko_manual_collect');
+            window.dispatchEvent(new Event('localStorageChange'));
+            
+            // 수집 완료 모달 표시
+            setShowCollectionCompleteModal(true);
+            
+            // 수집 완료 시 모니터링 중단
+            if (tokenTimeout) {
+              clearTimeout(tokenTimeout);
+              setTokenTimeout(null);
+            }
+            return; // 데이터 수집 완료면 인증 완료 체크 건너뛰기
+          }
+          
+          // 인증 완료 확인 (데이터 수집이 시작되지 않은 경우에만)
+          if (!isDataCollecting && (result.progress?.auth_completed || result.status === 'auth_completed' || result.status === 'authenticated') && !tokenReceived) {
             console.log('✅ [인증완료] 사용자 인증 완료 감지!');
             setTokenReceived(true);
             setTokenRetryCount(0);
@@ -1419,42 +1514,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             // 플로팅 버튼 활성화 (자동 수집 제거)
             StorageManager.setItem('tilko_auth_waiting', 'true');
             window.dispatchEvent(new Event('localStorageChange'));
-          }
-          
-          // 데이터 수집 상태 확인 및 업데이트
-          if (result.status === 'fetching_health_data') {
-            console.log('🏥 [데이터수집] 건강검진 데이터 수집 중...');
-            setCurrentStatus('data_collecting');
-            setTypingText('건강검진 데이터를 수집하고 있습니다.\n잠시만 기다려주세요.');
-            
-            // 플로팅 버튼 숨기기 위한 플래그 설정 (이벤트 발생하지 않음 - 무한 루프 방지)
-            StorageManager.setItem('tilko_manual_collect', 'true');
-            // window.dispatchEvent(new Event('localStorageChange')); // 제거 - 무한 루프 방지
-          } else if (result.status === 'fetching_prescription_data') {
-            console.log('💊 [데이터수집] 처방전 데이터 수집 중...');
-            setCurrentStatus('data_collecting');
-            setTypingText('처방전 데이터를 수집하고 있습니다.\n잠시만 기다려주세요.');
-            
-            // 플로팅 버튼 숨기기 위한 플래그 설정 (이벤트 발생하지 않음 - 무한 루프 방지)
-            StorageManager.setItem('tilko_manual_collect', 'true');
-            // window.dispatchEvent(new Event('localStorageChange')); // 제거 - 무한 루프 방지
-          } else if (result.status === 'completed') {
-            console.log('✅ [데이터수집] 모든 데이터 수집 완료!');
-            setCurrentStatus('data_completed');
-            setTypingText('건강검진 및 처방전 데이터 수집이\n완료되었습니다.');
-            
-            // 데이터 수집 완료 - 플로팅 버튼 플래그 제거
-            StorageManager.removeItem('tilko_manual_collect');
-            window.dispatchEvent(new Event('localStorageChange'));
-            
-            // 수집 완료 모달 표시
-            setShowCollectionCompleteModal(true);
-            
-            // 수집 완료 시 모니터링 중단
-            if (tokenTimeout) {
-              clearTimeout(tokenTimeout);
-              setTokenTimeout(null);
-            }
           }
         }
       } catch (error) {
@@ -1911,13 +1970,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       ''
     ).trim();
     
-    // 인증 방법 우선순위: state > 메모리 > localStorage > confirmationData > DOM > 기본값
+    // 인증 방법 우선순위: 메모리 > localStorage > state (단, '0'이 아닐 때만) > confirmationData > DOM > 기본값
+    // '0'은 기본값이므로 실제 선택된 값이 아닐 수 있음 - 메모리/로컬스토리지 우선 사용
     const finalAuthType = (
-      (savedAuthTypeFromState && savedAuthTypeFromState.trim()) || 
-      (savedAuthTypeFromMemory && savedAuthTypeFromMemory.trim()) || 
-      (savedAuthTypeFromStorage && savedAuthTypeFromStorage.trim()) || 
-      (savedAuthTypeFromConfirmation && String(savedAuthTypeFromConfirmation || '').trim()) || 
-      (selectedAuthFromDOM && String(selectedAuthFromDOM).trim()) || 
+      (savedAuthTypeFromMemory && savedAuthTypeFromMemory !== '0' ? String(savedAuthTypeFromMemory).trim() : '') || 
+      (savedAuthTypeFromStorage && savedAuthTypeFromStorage !== '0' ? String(savedAuthTypeFromStorage).trim() : '') || 
+      (savedAuthTypeFromState && savedAuthTypeFromState !== '0' ? String(savedAuthTypeFromState).trim() : '') || 
+      (savedAuthTypeFromConfirmation && savedAuthTypeFromConfirmation !== '0' ? String(savedAuthTypeFromConfirmation || '').trim() : '') || 
+      (selectedAuthFromDOM && selectedAuthFromDOM !== '0' ? String(selectedAuthFromDOM).trim() : '') || 
       '0'
     ).trim();
     
@@ -2194,10 +2254,26 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           setCurrentStatus('auth_pending');
           setTokenReceived(false); // 토큰 상태 초기화
           
+          // 실제 요청에 사용된 인증 타입으로 state 업데이트 (메시지 일치를 위해)
+          if (finalAuthTypeForRequest !== selectedAuthType) {
+            console.log('🔄 [인증요청] 인증 타입 state 업데이트:', {
+              이전: selectedAuthType,
+              실제요청: finalAuthTypeForRequest
+            });
+            setSelectedAuthType(finalAuthTypeForRequest);
+            authTypeMemoryRef.current = finalAuthTypeForRequest;
+            // localStorage에도 저장
+            StorageManager.setItem(STORAGE_KEYS.TILKO_SELECTED_AUTH_TYPE, finalAuthTypeForRequest);
+          }
+          
+          // 실제 사용된 인증 타입 이름 가져오기
+          const actualAuthTypeName = AUTH_TYPES.find(t => t.value === finalAuthTypeForRequest)?.label || '알 수 없음';
+          
           // 인증 요청 성공 확인 로그
           console.log('✅ [인증요청] 인증 요청 전송 성공!', {
             session_id: newSessionId,
-            auth_type: authTypeName,
+            auth_type: actualAuthTypeName,
+            auth_type_value: finalAuthTypeForRequest,
             status: authResult.status,
             message: authResult.message,
             next_step: authResult.next_step
@@ -2362,7 +2438,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       const trimmedPhone = finalPhone.replace(/-/g, '').trim();
       if (!trimmedPhone || trimmedPhone.length === 0) {
         console.warn('⚠️ [handleNextStep] 전화번호가 입력되지 않았습니다.');
-        setError('전화번호를 입력해주세요.');
+        setError('전화번호를 확인해주세요.');
+        setErrorType('validation');
         return;
       }
       
@@ -2370,7 +2447,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       const phoneRegex = /^01[0-9][0-9]{7,8}$/;
       if (!phoneRegex.test(trimmedPhone)) {
         console.warn('⚠️ [handleNextStep] 전화번호 형식이 올바르지 않습니다:', trimmedPhone);
-        setError('올바른 전화번호 형식을 입력해주세요. (예: 010-1234-5678)');
+        setError('전화번호를 확인해주세요. 올바른 형식으로 입력해주세요. (예: 010-1234-5678)');
+        setErrorType('validation');
         return;
       }
       
@@ -2584,11 +2662,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       // StorageManager를 통해 확인 (메모리 fallback 지원)
       const savedAuthType = StorageManager.getItem<string>(STORAGE_KEYS.TILKO_SELECTED_AUTH_TYPE) || authTypeMemoryRef.current;
       if (savedAuthType && (!selectedAuthFromDOM || selectedAuthFromDOM === '0')) {
-        selectedAuthFromDOM = savedAuthType;
+        selectedAuthFromDOM = String(savedAuthType); // 문자열로 변환
         console.log('🔍 [handleNextStep] 스토리지에서 인증 방법 발견:', savedAuthType, StorageManager.isMemoryMode() ? '(메모리)' : '(localStorage)');
       }
       
-      const finalAuthType = selectedAuthFromDOM?.trim() || selectedAuthType?.trim() || '0';
+      const finalAuthType = (selectedAuthFromDOM ? String(selectedAuthFromDOM).trim() : '') || (selectedAuthType ? String(selectedAuthType).trim() : '') || '0';
       
       console.log('🔐 [handleNextStep] 인증 방법 확인 (버튼 클릭 시점):', {
         selectedAuthElement존재: !!selectedAuthElement,
@@ -3093,12 +3171,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           }
         };
         const authMethodName = getAuthMethodName(selectedAuthType);
-        return `인증이 요청되었습니다.\n**${authMethodName}** 인증을 완료해주세요\n인증후 아래 **데이터 수집하기**를 눌러주시면\n**건강추이확인** 하실 수 있습니다.`;
+        return `인증이 요청되었습니다.\n**${authMethodName}** 인증을 완료해주세요\n인증후 아래 **인증을 완료했어요** 버튼을 눌러주시면\n**건강추이확인** 하실 수 있습니다.`;
       }
       case 'authenticating':
         return '인증을 확인하고 건강정보를 가져오고 있습니다...';
       case 'authenticated':
         return '인증이 완료되었습니다. 건강정보를 가져오는 중입니다...';
+      case 'manual_collecting':
+      case 'collecting':
+        return '📊 건강검진 및 처방전 데이터를\n수집하고 있습니다...\n\n잠시만 기다려주세요.';
       case 'data_collecting':
         return '📊 건강검진 및 처방전 데이터를\n수집하고 있습니다...\n\n잠시만 기다려주세요.';
       case 'fetching_health_data':
@@ -3514,10 +3595,20 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                     flexDirection: 'column',
                     gap: '16px'
                   }}>
-                    {AUTH_TYPES.map((authType) => (
+                    {AUTH_TYPES.map((authType) => {
+                      // 카카오톡 인증 비활성화
+                      const isKakao = authType.value === '0';
+                      const isDisabled = isKakao;
+                      
+                      return (
                       <div
                         key={authType.value}
                         onClick={() => {
+                          // 카카오톡은 클릭 불가
+                          if (isDisabled) {
+                            return;
+                          }
+                          
                           console.log('🔘 [인증방법선택] 사용자가 선택:', {
                             value: authType.value,
                             label: authType.label,
@@ -3548,10 +3639,16 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                           padding: '16px',
                           border: selectedAuthType === authType.value ? '2px solid #7c746a' : '2px solid #e5e5e5',
                           borderRadius: '12px',
-                          backgroundColor: selectedAuthType === authType.value ? '#f9f7f4' : '#ffffff',
-                          cursor: 'pointer',
+                          backgroundColor: isDisabled 
+                            ? '#f5f5f5' 
+                            : selectedAuthType === authType.value 
+                              ? '#f9f7f4' 
+                              : '#ffffff',
+                          cursor: isDisabled ? 'not-allowed' : 'pointer',
                           transition: 'all 0.2s ease',
-                          gap: '12px'
+                          gap: '12px',
+                          opacity: isDisabled ? 0.5 : 1,
+                          pointerEvents: isDisabled ? 'none' : 'auto'
                         }}
                       >
                         <div style={{ 
@@ -3607,7 +3704,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   
                   {/* 선택 완료 버튼 제거 - 플로팅 버튼 사용 (안내 메시지도 제거) */}
@@ -4149,7 +4247,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               color: '#8B7355',
               marginBottom: '8px'
             }}>
-              💡 인증 완료 후 하단의 <strong>"데이터 수집하기"</strong> 버튼을 눌러주세요
+              💡 인증 완료 후 하단의 <strong>"인증을 완료했어요"</strong> 버튼을 눌러주세요
             </div>
           </div>
         )}

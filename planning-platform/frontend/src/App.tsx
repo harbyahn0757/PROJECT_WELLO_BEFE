@@ -189,7 +189,7 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
         };
       } else if (isAuthWaiting) {
         return {
-          text: '데이터 수집하기',
+          text: '인증을 완료했어요',
           onClick: handleAuthCompleteClick
         };
       } else if (isAuthMethodSelection) {
