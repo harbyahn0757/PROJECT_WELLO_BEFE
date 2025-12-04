@@ -293,17 +293,21 @@ def create_checkup_design_prompt_legacy(
             health_data_section += "3) 모든 분석은 맥락을 명확히 하세요 (과거 결과 + 문진 + 선택 항목의 연관성)."
         else:
             if old_count > 0:
-                health_data_section += f"최근 5년 내 검진 이력이 없습니다. (5년 이상 오래된 데이터 {old_count}건은 제외되었습니다.)\n"
+                health_data_section += f"최근 5년 내 검진 이력이 확인되지 않습니다. (5년 이상 오래된 데이터 {old_count}건은 제외되었습니다.)\n"
             else:
-                health_data_section += "검진 이력이 없습니다.\n"
-            health_data_section += "\n\n**절대 금지:** 검진 데이터가 없다고 해서 '5년간 이상소견이 없었다', '경계 소견이 없었다' 같은 판단을 하지 마세요. "
-            health_data_section += "데이터가 없을 뿐, 실제로는 이상소견이나 경계 소견이 있었을 수 있습니다. "
-            health_data_section += "데이터 부재는 '확인 불가'로만 표현하고, 추측이나 가정을 하지 마세요.\n"
+                health_data_section += "검진 이력이 확인되지 않습니다.\n"
+            health_data_section += "\n\n**절대 금지:** 검진 데이터가 없다고 해서 '5년간 이상소견이 없었다', '경계 소견이 없었다', '검진을 하지 않아서' 같은 판단을 하지 마세요. "
+            health_data_section += "우리가 갖고 있는 데이터나 고객이 우리에게 제공하지 않은 데이터가 있을 뿐, 검진이 있었는지 없었는지 모르는 것입니다. "
+            health_data_section += "정확한 표현: '검진 내용이 확인되지 않았다', '검진 데이터가 제공되지 않아', '검진 이력이 확인되지 않아' "
+            health_data_section += "절대 사용하지 말 것: '검진이 없었다', '검진을 하지 않아서', '검진을 받지 않아서' "
+            health_data_section += "데이터 부재는 '확인 불가' 또는 '확인되지 않음'으로만 표현하고, 추측이나 가정을 하지 마세요.\n"
     else:
-        health_data_section += "검진 이력이 없습니다.\n"
-        health_data_section += "\n\n**절대 금지:** 검진 데이터가 없다고 해서 '5년간 이상소견이 없었다', '경계 소견이 없었다' 같은 판단을 하지 마세요. "
-        health_data_section += "데이터가 없을 뿐, 실제로는 이상소견이나 경계 소견이 있었을 수 있습니다. "
-        health_data_section += "데이터 부재는 '확인 불가'로만 표현하고, 추측이나 가정을 하지 마세요.\n"
+        health_data_section += "검진 이력이 확인되지 않습니다.\n"
+        health_data_section += "\n\n**절대 금지:** 검진 데이터가 없다고 해서 '5년간 이상소견이 없었다', '경계 소견이 없었다', '검진을 하지 않아서' 같은 판단을 하지 마세요. "
+        health_data_section += "우리가 갖고 있는 데이터나 고객이 우리에게 제공하지 않은 데이터가 있을 뿐, 검진이 있었는지 없었는지 모르는 것입니다. "
+        health_data_section += "정확한 표현: '검진 내용이 확인되지 않았다', '검진 데이터가 제공되지 않아', '검진 이력이 확인되지 않아' "
+        health_data_section += "절대 사용하지 말 것: '검진이 없었다', '검진을 하지 않아서', '검진을 받지 않아서' "
+        health_data_section += "데이터 부재는 '확인 불가' 또는 '확인되지 않음'으로만 표현하고, 추측이나 가정을 하지 마세요.\n"
     
     # 약물 복용 이력 섹션
     prescription_section = "## 약물 복용 이력\n\n"
@@ -599,7 +603,15 @@ def create_checkup_design_prompt_legacy(
         if hospital_national_checkup:
             hospital_checkup_section += "### 일반검진(의무검진) 항목:\n"
             hospital_checkup_section += json.dumps(hospital_national_checkup, ensure_ascii=False, indent=2)
-            hospital_checkup_section += "\n\n**가장 중요:** 일반검진 항목은 의무검진이므로 결과지를 확인하실 때, "
+            hospital_checkup_section += "\n\n**가장 중요 - 카테고리 구분:** "
+            hospital_checkup_section += "hospital_national_checkup 배열의 각 항목은 'category' 필드를 가지고 있습니다. "
+            hospital_checkup_section += "category 필드 값에 따라 다음과 같이 구분됩니다:\n"
+            hospital_checkup_section += "- **'일반' 또는 '기본검진' 카테고리**: priority_1에만 포함 가능 (의무검진 항목)\n"
+            hospital_checkup_section += "- **'종합' 카테고리**: priority_2에 포함 (종합검진 항목)\n"
+            hospital_checkup_section += "- **'옵션' 카테고리**: priority_3에 포함 (선택 검진 항목)\n"
+            hospital_checkup_section += "**priority_1에는 반드시 '일반' 또는 '기본검진' 카테고리 항목만 포함하세요.** "
+            hospital_checkup_section += "'종합'이나 '옵션' 카테고리는 priority_1에 포함하지 마세요.\n\n"
+            hospital_checkup_section += "**일반검진 항목 표현 규칙:** 일반검진 항목은 의무검진이므로 결과지를 확인하실 때, "
             hospital_checkup_section += "과거 결과(특히 안 좋았던 항목)와 문진 내용, 선택한 항목의 맥락과 매칭되면 "
             hospital_checkup_section += "**'이 이유 때문에 잘 살펴보세요'**라는 친근한 관점으로 소개하세요. "
             hospital_checkup_section += "형식: '일반검진 결과지를 확인하실 때, 이 이유 때문에 잘 살펴보시길 바랍니다. (과거 검진에서 XX 경계/이상, 문진에서 YY 확인, ZZ 선택) 이 부분은 특히 눈여겨보시면 좋겠어요.' "
@@ -674,9 +686,19 @@ def create_checkup_design_prompt_legacy(
 
 **patient_summary 작성 규칙:**
 - 환자의 건강 상태와 주요 리스크를 3줄로 요약 (스토리텔링 도입부)
-- **절대 금지:** 검진 데이터가 없다고 해서 '5년간 이상소견이 없었다', '경계 소견이 없었다', '최근 5년간 건강검진에서 이상이나 경계 소견은 없으나' 같은 판단을 하지 마세요
-- 데이터가 없을 뿐, 실제로는 이상소견이나 경계 소견이 있었을 수 있습니다
-- 데이터 부재는 '검진 이력이 없어 확인 불가' 또는 '최근 검진 데이터가 제공되지 않아' 같은 표현으로만 언급하고, 추측이나 가정을 하지 마세요
+- **절대 금지:** 검진 데이터가 없다고 해서 '5년간 이상소견이 없었다', '경계 소견이 없었다', '최근 5년간 건강검진에서 이상이나 경계 소견은 없으나', '검진을 하지 않아서' 같은 판단을 하지 마세요
+- 우리가 갖고 있는 데이터나 고객이 우리에게 제공하지 않은 데이터가 있을 뿐, 검진이 있었는지 없었는지 모르는 것입니다
+- **정확한 표현 사용:**
+  * '검진 내용이 확인되지 않았다'
+  * '검진 데이터가 제공되지 않아'
+  * '검진 이력이 확인되지 않아'
+  * '최근 검진 데이터가 확인되지 않아'
+- **절대 사용하지 말 것:**
+  * '검진이 없었다'
+  * '검진을 하지 않아서'
+  * '검진을 받지 않아서'
+  * '5년간 이상소견이 없었다' (데이터가 없을 뿐, 실제로는 있었을 수 있음)
+- 데이터 부재는 '확인 불가' 또는 '확인되지 않음'으로만 언급하고, 추측이나 가정을 하지 마세요
 - 실제 데이터에 기반한 사실만 기술하세요 (예: "과거 검진에서 혈압이 140/90으로 측정되었고", "문진에서 높은 스트레스 수준을 확인했으며")
 
 ```json
@@ -711,6 +733,8 @@ def create_checkup_design_prompt_legacy(
     
     **중요 규칙 (priority_1):**
     - priority_1.items의 모든 항목은 반드시 hospital_national_checkup에 포함된 항목이어야 합니다
+    - **카테고리 구분 필수**: priority_1에는 hospital_national_checkup의 'category' 필드가 '일반' 또는 '기본검진'인 항목만 포함하세요
+    - '종합' 또는 '옵션' 카테고리는 priority_1에 포함하지 마세요 (종합은 priority_2, 옵션은 priority_3에 포함)
     - priority_1.items와 priority_1.national_checkup_items는 동일한 항목이어야 합니다
     - priority_1.items에 hospital_recommended나 hospital_external_checkup의 항목을 포함하지 마세요
     - 추가 검진 항목(심전도, 24시간 홀터 심전도 등)은 priority_2나 priority_3에 포함하세요
@@ -739,7 +763,7 @@ def create_checkup_design_prompt_legacy(
     }},
     "priority_2": {{
       "title": "2순위: 병원 추천 검진 항목",
-      "description": "병원에서 추천하는 특화 검진 항목 (업셀링 위주). 나이별 권장 검진 중에서 과거 이력, 문진, 선택 항목이 매칭되는 항목을 맥락과 함께 추천",
+      "description": "나이별 권장 검진 중에서 과거 이력, 문진, 선택 항목이 매칭되는 항목을 맥락과 함께 추천합니다.",
       "items": ["검진 항목명 1", "검진 항목명 2"],
       "count": 항목 개수 (최대 2-3개만 추천),
       "upselling_focus": true,
@@ -817,7 +841,9 @@ def create_checkup_design_prompt_legacy(
 ## STEP 1: 데이터 분석 (먼저 수행)
 
 **중요: 데이터 부재 시 판단 금지**
-- 검진 데이터가 없다고 해서 '5년간 이상소견이 없었다', '경계 소견이 없었다' 같은 판단을 절대 하지 마세요
+- 검진 데이터가 없다고 해서 '5년간 이상소견이 없었다', '경계 소견이 없었다', '검진을 하지 않아서' 같은 판단을 절대 하지 마세요
+- 정확한 표현: '검진 내용이 확인되지 않았다', '검진 데이터가 제공되지 않아', '검진 이력이 확인되지 않아'
+- 절대 사용하지 말 것: '검진이 없었다', '검진을 하지 않아서', '검진을 받지 않아서'
 - 데이터가 없을 뿐, 실제로는 이상소견이나 경계 소견이 있었을 수 있습니다
 - 데이터 부재는 '확인 불가'로만 표현하고, 추측이나 가정을 하지 마세요
 
@@ -961,10 +987,21 @@ def create_checkup_design_prompt_legacy(
 ### 6-1. evidence 작성
 - **각주 형식**: "대한의학회 가이드라인에 따르면[1], 최신 연구 결과[2]에 의하면..."
 - **필수 요소**: 가이드라인, 연구 결과, 한국인 기준 언급
+- **절대 금지**: 블로그, 유튜브, 개인 의견, 상업적 웹사이트 등 비학술적 자료는 절대 사용하지 마세요
 
 ### 6-2. references 작성
 - **형식**: ["https://pubmed.ncbi.nlm.nih.gov/12345678", "https://www.kma.org/..."]
 - **조건**: 논문 기반 자료만 사용 (PubMed, Google Scholar, 공식 가이드라인)
+- **절대 금지**: 
+  * 블로그 (blog, naver.com/blog, tistory.com 등)
+  * 유튜브 (youtube.com, youtu.be 등)
+  * 개인 의견이나 상업적 웹사이트
+  * 신뢰할 수 없는 의학 정보 사이트
+- **허용되는 자료만 사용**:
+  * PubMed (pubmed.ncbi.nlm.nih.gov)
+  * Google Scholar (scholar.google.com)
+  * 공식 의학 가이드라인 (대한의학회, 질병관리청, 대한심장학회 등)
+  * 공인된 의학 저널 (peer-reviewed journals)
 - **각주 매칭**: 텍스트의 [1], [2]와 references 배열 인덱스 매칭 (1번째 각주 = references[0])
 
 ## STEP 7: 최종 검증 체크리스트
@@ -1101,6 +1138,14 @@ def create_checkup_design_prompt_step1(
                 health_data_section += "**이상/경계 항목:**\n" + "\n".join(abnormal_items) + "\n\n"
             else:
                 health_data_section += "이상 소견 없음\n\n"
+    else:
+        health_data_section = "\n## 과거 건강검진 데이터\n"
+        health_data_section += "검진 이력이 확인되지 않습니다.\n"
+        health_data_section += "\n**절대 금지:** 검진 데이터가 없다고 해서 '5년간 이상소견이 없었다', '경계 소견이 없었다', '검진을 하지 않아서' 같은 판단을 하지 마세요. "
+        health_data_section += "우리가 갖고 있는 데이터나 고객이 우리에게 제공하지 않은 데이터가 있을 뿐, 검진이 있었는지 없었는지 모르는 것입니다. "
+        health_data_section += "정확한 표현: '검진 내용이 확인되지 않았다', '검진 데이터가 제공되지 않아', '검진 이력이 확인되지 않아' "
+        health_data_section += "절대 사용하지 말 것: '검진이 없었다', '검진을 하지 않아서', '검진을 받지 않아서' "
+        health_data_section += "데이터 부재는 '확인 불가' 또는 '확인되지 않음'으로만 표현하고, 추측이나 가정을 하지 마세요.\n"
 
     # 처방전 데이터 섹션 (간소화)
     prescription_section = ""
@@ -1205,13 +1250,19 @@ def create_checkup_design_prompt_step1(
   "survey_reflection": "문진 내용이 검진 설계에 어떻게 반영될지 예고 (강조 태그 사용 가능)",
   "selected_concerns_analysis": [
     {{
-      "concern_name": "염려 항목명",
+      "concern_name": "염려 항목명 (예: 건강검진 (2020년 09/28) [이상] 또는 혈당 (2023년 05/15) [경계])",
       "concern_type": "checkup|hospital|medication",
       "trend_analysis": "과거 추이 분석",
       "reflected_in_design": "검진 설계에 어떻게 반영될지",
       "related_items": []
     }}
   ],
+  
+  **중요 규칙 (concern_name):**
+  - concern_name에는 반드시 년도가 포함되어야 합니다 (예: "2020년 09/28" 또는 "2020/09/28")
+  - status는 한글로 표시하세요: "abnormal" → "[이상]", "warning" → "[경계]"
+  - 영어 "abnormal" 또는 "warning"을 사용하지 마세요
+  - 날짜 형식: "건강검진 (2020년 09/28) [이상]" 또는 "혈당 (2023년 05/15) [경계]"
   "basic_checkup_guide": {{
     "title": "일반검진, 이 부분은 잘 보세요",
     "description": "일반검진 결과지를 확인하실 때, [환자명]님 상황에서는 아래 항목들을 특히 잘 살펴보시길 바랍니다.",
@@ -1230,6 +1281,10 @@ def create_checkup_design_prompt_step1(
 ## patient_summary
 - 3줄로 환자 상태 요약
 - 과거 검진 이력, 현재 건강 상태, 주요 위험 요인 포함
+- **검진 데이터 표현 정확화 필수:**
+  * 정확한 표현: '검진 내용이 확인되지 않았다', '검진 데이터가 제공되지 않아', '검진 이력이 확인되지 않아'
+  * 절대 사용하지 말 것: '검진이 없었다', '검진을 하지 않아서', '검진을 받지 않아서', '5년간 이상소견이 없었다'
+  * 우리가 갖고 있는 데이터나 고객이 우리에게 제공하지 않은 데이터가 있을 뿐, 검진이 있었는지 없었는지 모르는 것입니다
 
 ## analysis
 - 과거 검진 데이터와 문진 내용의 연관성 분석
@@ -1502,7 +1557,7 @@ def create_checkup_design_prompt_step2(
     }},
     "priority_2": {{
       "title": "2순위: 병원 추천 검진 항목",
-      "description": "병원에서 추천하는 특화 검진 항목 (업셀링 위주). 나이별 권장 검진 중에서 과거 이력, 문진, 선택 항목이 매칭되는 항목을 맥락과 함께 추천",
+      "description": "나이별 권장 검진 중에서 과거 이력, 문진, 선택 항목이 매칭되는 항목을 맥락과 함께 추천합니다.",
       "items": ["검진 항목명 1", "검진 항목명 2"],
       "count": 항목 개수 (최대 2-3개만 추천),
       "upselling_focus": true,

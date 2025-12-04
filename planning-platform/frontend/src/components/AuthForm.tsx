@@ -58,7 +58,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   });
   
   // 인증 방식 선택 (기본값: 카카오톡)
-  const [selectedAuthType, setSelectedAuthType] = useState('0'); // 0: 카카오톡
+  // 메모리 fallback 지원 - localStorage 실패 시 메모리에서만 동작
+  const [selectedAuthType, setSelectedAuthType] = useState(() => {
+    // 인증 페이지 진입 시 리셋하므로 항상 기본값 '0'으로 시작
+    return '0';
+  });
+  
+  // 메모리 fallback을 위한 인증 방식 저장 (localStorage 실패 시 사용)
+  const authTypeMemoryRef = useRef<string>('0');
   
   // 지원되는 인증 방식 (선별된 3가지)
   const AUTH_TYPES = [
@@ -125,14 +132,60 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   
   // 상태 폴링 관련
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
-
-  // 상태 폴링 정리
-  const cleanupPolling = useCallback(() => {
+  
+  // 모든 폴링 interval/timeout을 추적하기 위한 ref
+  const tokenMonitoringIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const collectionPollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const authStatusPollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const collectionPollingStoppedRef = useRef<boolean>(false);
+  const tokenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+ 
+  // 모든 폴링 및 모니터링 정리
+  const cleanupAllPolling = useCallback(() => {
+    console.log('🛑 [폴링정리] 모든 세션 상태 조회 중단');
+    
+    // 상태 폴링 정리
     if (pollingInterval) {
       clearInterval(pollingInterval);
       setPollingInterval(null);
+      console.log('🛑 [폴링정리] pollingInterval 정리됨');
+    }
+    
+    // 토큰 모니터링 정리
+    if (tokenMonitoringIntervalRef.current) {
+      clearInterval(tokenMonitoringIntervalRef.current);
+      tokenMonitoringIntervalRef.current = null;
+      console.log('🛑 [폴링정리] tokenMonitoringInterval 정리됨');
+    }
+    
+    // 수집 상태 폴링 정리
+    collectionPollingStoppedRef.current = true;
+    if (collectionPollingTimeoutRef.current) {
+      clearTimeout(collectionPollingTimeoutRef.current);
+      collectionPollingTimeoutRef.current = null;
+      console.log('🛑 [폴링정리] collectionPollingTimeout 정리됨');
+    }
+    
+    // 인증 상태 폴링 정리
+    if (authStatusPollIntervalRef.current) {
+      clearInterval(authStatusPollIntervalRef.current);
+      authStatusPollIntervalRef.current = null;
+      console.log('🛑 [폴링정리] authStatusPollInterval 정리됨');
+    }
+    
+    // 타임아웃 정리 (ref로 관리)
+    const currentTokenTimeout = tokenTimeoutRef.current;
+    if (currentTokenTimeout) {
+      clearTimeout(currentTokenTimeout);
+      tokenTimeoutRef.current = null;
+      console.log('🛑 [폴링정리] tokenTimeout 정리됨');
     }
   }, [pollingInterval]);
+  
+  // 상태 폴링 정리 (기존 호환성 유지)
+  const cleanupPolling = useCallback(() => {
+    cleanupAllPolling();
+  }, [cleanupAllPolling]);
 
   // 컴포넌트 언마운트 시 폴링 정리
   useEffect(() => {
@@ -394,10 +447,34 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     console.log(`🔄 [인증페이지-${componentId}] AuthForm 완전 마운트됨 - 모든 useEffect 활성화`);
     console.log(`🔍 [인증페이지-${componentId}] 현재 patient 상태:`, patient ? { name: patient.name, uuid: patient.uuid } : 'null');
     
+    // 인증 페이지 진입 시 로컬 스토리지 리셋 (인증 방식 선택 초기화)
+    StorageManager.resetAuthPage();
+    authTypeMemoryRef.current = '0';
+    setSelectedAuthType('0');
+    console.log(`🔄 [인증페이지-${componentId}] 인증 방식 선택 리셋 완료 - 기본값 '0' (카카오톡)으로 시작`);
+    
+    // 스토리지 사용 가능 여부 확인
+    if (StorageManager.isMemoryMode()) {
+      console.warn(`⚠️ [인증페이지-${componentId}] localStorage 사용 불가 - 메모리 모드로 동작`);
+    }
+    
     // URL 파라미터에서 환자 정보 가져오기
     const urlParams = new URLSearchParams(window.location.search);
     const uuid = urlParams.get('uuid');
     const hospitalId = urlParams.get('hospital');
+    const infoRequired = urlParams.get('info_required') === 'true';
+    
+    // info_required 파라미터가 있으면 정보 확인 단계 시작
+    if (infoRequired) {
+      console.log(`⚠️ [인증페이지-${componentId}] 정보 재확인 필요 - 정보 확인 단계 시작`);
+      setShowConfirmation(true);
+      setCurrentConfirmationStep('name');
+      setError('입력하신 정보를 확인해주세요. 이름, 생년월일, 전화번호가 정확한지 확인 후 다시 시도해주세요.');
+      // URL에서 파라미터 제거 (중복 실행 방지)
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('info_required');
+      window.history.replaceState({}, '', newUrl.toString());
+    }
     
     // 랜딩 페이지에서 로드한 환자 데이터가 있으면 즉시 이름 설정
     if (patient && patient.name) {
@@ -409,7 +486,19 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     } else if (uuid && hospitalId) {
       // 환자 데이터가 없고 URL 파라미터가 있으면 데이터 로드
       console.log(`📋 [인증페이지-${componentId}] 환자 데이터 없음 - 로드 시작: ${uuid} @ ${hospitalId}`);
-      actions.loadPatientData(uuid, hospitalId, { force: false });
+      actions.loadPatientData(uuid, hospitalId, { force: false })
+        .catch((error) => {
+          console.error(`❌ [인증페이지-${componentId}] 환자 정보 로드 실패:`, error);
+          setError('환자 정보를 불러올 수 없습니다. URL을 확인해주세요.');
+          setErrorType('server');
+          setShowErrorModal(true);
+        });
+    } else if (!uuid || !hospitalId) {
+      // UUID나 병원 ID가 없으면 에러
+      console.error(`❌ [인증페이지-${componentId}] 필수 파라미터 누락 - uuid: ${uuid}, hospitalId: ${hospitalId}`);
+      setError('환자 정보가 없습니다. 올바른 URL로 접속해주세요.');
+      setErrorType('validation');
+      setShowErrorModal(true);
     }
     
     // 이전 세션의 신호들 정리 (세션 복구 후에 실행)
@@ -1101,8 +1190,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           let isPollingStopped = false;
           
           const pollCollectionStatus = async () => {
-            // 이미 중단된 경우 즉시 리턴
-            if (isPollingStopped) {
+            // 이미 중단된 경우 또는 cleanupAllPolling으로 중단된 경우 즉시 리턴
+            if (isPollingStopped || collectionPollingStoppedRef.current) {
               console.log('⏹️ [수집상태확인] 폴링 이미 중단됨');
               return;
             }
@@ -1234,8 +1323,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                 }
                 
                 // 아직 진행 중인 경우 계속 폴링 (중단 플래그 확인)
-                if (!isPollingStopped && pollCount < maxPolls) {
-                  setTimeout(pollCollectionStatus, 1000); // 1초 후 재시도
+                if (!isPollingStopped && !collectionPollingStoppedRef.current && pollCount < maxPolls) {
+                  collectionPollingTimeoutRef.current = setTimeout(pollCollectionStatus, 1000); // 1초 후 재시도
                 } else if (pollCount >= maxPolls) {
                   console.warn('⚠️ [수집상태확인] 최대 폴링 횟수 초과');
                   isPollingStopped = true; // 폴링 중단
@@ -1245,20 +1334,20 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                 }
               } else {
                 console.error('❌ [수집상태확인] 상태 확인 실패:', statusResponse.status);
-                if (!isPollingStopped && pollCount < maxPolls) {
-                  setTimeout(pollCollectionStatus, 1000); // 1초 후 재시도
+                if (!isPollingStopped && !collectionPollingStoppedRef.current && pollCount < maxPolls) {
+                  collectionPollingTimeoutRef.current = setTimeout(pollCollectionStatus, 1000); // 1초 후 재시도
                 }
               }
             } catch (error) {
               console.error('❌ [수집상태확인] 오류:', error);
-              if (!isPollingStopped && pollCount < maxPolls) {
-                setTimeout(pollCollectionStatus, 1000); // 1초 후 재시도
+              if (!isPollingStopped && !collectionPollingStoppedRef.current && pollCount < maxPolls) {
+                collectionPollingTimeoutRef.current = setTimeout(pollCollectionStatus, 1000); // 1초 후 재시도
               }
             }
           };
           
           // 2초 후 첫 번째 상태 확인 시작
-          setTimeout(pollCollectionStatus, 2000);
+          collectionPollingTimeoutRef.current = setTimeout(pollCollectionStatus, 2000);
         } else {
           console.error('❌ [수동수집] 데이터 수집 실패:', response.status);
           setLoading(false); // 로딩 스피너 종료
@@ -1375,10 +1464,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     
     // 10초마다 상태 확인 (백엔드 자동 체크 비활성화됨)
     const interval = setInterval(checkToken, 10000);
+    tokenMonitoringIntervalRef.current = interval;
     
     // 5분 후 타임아웃 (재시도 없이 안내 메시지만)
     const timeoutId = setTimeout(() => {
-      clearInterval(interval);
+      if (tokenMonitoringIntervalRef.current) {
+        clearInterval(tokenMonitoringIntervalRef.current);
+        tokenMonitoringIntervalRef.current = null;
+      }
       
       if (!tokenReceived) {
         console.log('⏰ [인증대기] 5분 경과 - 사용자 안내');
@@ -1388,6 +1481,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     }, 300000); // 5분
     
     setTokenTimeout(timeoutId);
+    tokenTimeoutRef.current = timeoutId;
     
     // 즉시 한 번 확인
     checkToken();
@@ -1712,10 +1806,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     setTermsAgreed(true);
     setShowTermsModal(false);
     
-    // 약관동의 완료 후 정보 확인 시작
-    if (typeof (window as any).welloAuthForm?.startInfoConfirmation === 'function') {
-      (window as any).welloAuthForm.startInfoConfirmation();
-    }
+    // 약관동의 완료 후 정보 확인 시작 (약관 동의 체크 없이 바로 시작)
+    // 약관 동의는 이미 완료되었으므로 체크하지 않고 바로 정보 확인 단계로 이동
+    setTimeout(() => {
+      setShowConfirmation(true);
+      setCurrentConfirmationStep('name');
+      // 플로팅 버튼 숨기기
+      StorageManager.setItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING, 'true');
+      window.dispatchEvent(new CustomEvent('tilko-status-change'));
+    }, 0);
   }, [patient, hospital]);
 
   // 약관동의 모달 표시 (컴포넌트 마운트 시)
@@ -1751,12 +1850,132 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       return;
     }
 
+    // 히스토리 상태에서 저장된 값 확인
+    const historyState = window.history.state;
+    const confirmationData = historyState?.confirmationData || {};
+    
+    // 입력 필드에서 최종 값 직접 읽기 (정보 확인 단계가 끝나면 입력 필드가 없을 수 있음)
+    const nameInput = document.querySelector('input[type="text"]:not([type="tel"])') as HTMLInputElement;
+    const phoneInput = document.querySelector('input[type="tel"]') as HTMLInputElement;
+    const birthdayInputs = document.querySelectorAll('input[type="text"]:not([type="tel"])');
+    let birthdayInput: HTMLInputElement | null = null;
+    for (let i = 0; i < birthdayInputs.length; i++) {
+      const input = birthdayInputs[i] as HTMLInputElement;
+      if (input.type === 'text' && !input.placeholder?.includes('전화번호') && !input.placeholder?.includes('이름')) {
+        birthdayInput = input;
+        break;
+      }
+    }
+    
+    // 인증 방법 선택 확인 (state 우선 > 메모리 > localStorage > confirmationData > DOM > 기본값)
+    // State가 가장 신뢰할 수 있는 소스
+    const savedAuthTypeFromState = selectedAuthType;
+    const savedAuthTypeFromMemory = authTypeMemoryRef.current;
+    const savedAuthTypeFromStorage = StorageManager.getItem<string>(STORAGE_KEYS.TILKO_SELECTED_AUTH_TYPE);
+    const savedAuthTypeFromConfirmation = (confirmationData as any)?.selectedAuthType;
+    
+    // DOM에서 선택된 항목 찾기
+    const selectedAuthElement = document.querySelector('[style*="border: 2px solid #7c746a"]') as HTMLElement;
+    let selectedAuthFromDOM = null;
+    if (selectedAuthElement) {
+      // 부모 요소에서 data-value나 다른 속성 찾기
+      const authTypeDiv = selectedAuthElement.closest('[onclick]') || selectedAuthElement.parentElement;
+      // AUTH_TYPES 배열과 매칭하여 찾기
+      AUTH_TYPES.forEach(authType => {
+        if (selectedAuthElement.textContent?.includes(authType.label)) {
+          selectedAuthFromDOM = authType.value;
+        }
+      });
+    }
+    
+    // 최종 값 결정 (입력 필드 > 히스토리 > state > 기본값)
+    const finalName = (
+      nameInput?.value?.trim() || 
+      confirmationData.name?.trim() || 
+      editableName?.trim() || 
+      ''
+    ).trim();
+    
+    const finalPhone = (
+      phoneInput?.value?.trim() || 
+      confirmationData.phone?.trim() || 
+      editablePhone?.trim() || 
+      ''
+    ).trim();
+    
+    const finalBirthday = (
+      birthdayInput?.value?.trim() || 
+      confirmationData.birthday?.trim() || 
+      editableBirthday?.trim() || 
+      patient?.birthday?.trim() || 
+      ''
+    ).trim();
+    
+    // 인증 방법 우선순위: state > 메모리 > localStorage > confirmationData > DOM > 기본값
+    const finalAuthType = (
+      (savedAuthTypeFromState && savedAuthTypeFromState.trim()) || 
+      (savedAuthTypeFromMemory && savedAuthTypeFromMemory.trim()) || 
+      (savedAuthTypeFromStorage && savedAuthTypeFromStorage.trim()) || 
+      (savedAuthTypeFromConfirmation && String(savedAuthTypeFromConfirmation || '').trim()) || 
+      (selectedAuthFromDOM && String(selectedAuthFromDOM).trim()) || 
+      '0'
+    ).trim();
+    
+    console.log('🔍 [handleAllConfirmed] 인증 방법 확인:', {
+      state: savedAuthTypeFromState,
+      메모리: savedAuthTypeFromMemory,
+      localStorage: savedAuthTypeFromStorage,
+      confirmationData: savedAuthTypeFromConfirmation,
+      DOM: selectedAuthFromDOM,
+      최종결정: finalAuthType,
+      스토리지모드: StorageManager.isMemoryMode() ? '메모리' : 'localStorage'
+    });
+    
+    console.log('🔍 [handleAllConfirmed] 최종 값 확인 (버튼 클릭 시점):', {
+      입력필드: {
+        nameInput값: nameInput?.value,
+        phoneInput값: phoneInput?.value,
+        birthdayInput값: birthdayInput?.value,
+        nameInput존재: !!nameInput,
+        phoneInput존재: !!phoneInput,
+        birthdayInput존재: !!birthdayInput
+      },
+      히스토리상태: confirmationData,
+      현재State: {
+        editableName: editableName,
+        editablePhone: editablePhone,
+        editableBirthday: editableBirthday,
+        selectedAuthType: selectedAuthType
+      },
+      최종결정값: {
+        finalName: finalName,
+        finalPhone: finalPhone,
+        finalBirthday: finalBirthday,
+        finalAuthType: finalAuthType,
+        finalAuthTypeName: AUTH_TYPES.find(t => t.value === finalAuthType)?.label || '알 수 없음'
+      }
+    });
+    
+    // state 업데이트 (나중에 사용할 수 있도록)
+    if (finalName && finalName !== editableName) {
+      setEditableName(finalName);
+    }
+    if (finalPhone && finalPhone !== editablePhone) {
+      setEditablePhone(finalPhone);
+    }
+    if (finalBirthday && finalBirthday !== editableBirthday) {
+      setEditableBirthday(finalBirthday);
+    }
+    if (finalAuthType !== selectedAuthType) {
+      setSelectedAuthType(finalAuthType);
+    }
+    
     // 수정된 정보로 authInput 업데이트
     const updatedAuthInput = {
       ...authInput,
-      name: editableName,
-      phoneNo: editablePhone.replace(/-/g, ''),
-      birthday: editableBirthday
+      name: finalName,
+      phoneNo: finalPhone.replace(/-/g, ''),
+      birthday: finalBirthday
     };
     setAuthInput(updatedAuthInput);
     setShowConfirmation(false);
@@ -1769,11 +1988,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     removeLocalStorageWithEvent('tilko_info_confirming');
     
     console.log('🎯 [인증페이지] 모든 정보 확인 완료, 인증 시작:', {
-      name: editableName,
-      phone: editablePhone,
-      birthday: editableBirthday,
-      selectedAuthType: selectedAuthType,
-      authTypeName: AUTH_TYPES.find(t => t.value === selectedAuthType)?.label || '알 수 없음'
+      name: finalName,
+      phone: finalPhone,
+      birthday: finalBirthday,
+      selectedAuthType: finalAuthType,
+      authTypeName: AUTH_TYPES.find(t => t.value === finalAuthType)?.label || '알 수 없음'
     });
     
     // 인증 방식별 안내 메시지 표시
@@ -1825,21 +2044,105 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         allTypes: AUTH_TYPES.map(t => ({ value: t.value, label: t.label }))
       });
       
+      // 최종 값 사용 (입력 필드에서 읽은 값 또는 state 값)
+      const finalNameForRequest = finalName || editableName?.trim() || '';
+      const finalPhoneForRequest = finalPhone || editablePhone?.trim() || '';
+      const finalBirthdayForRequest = finalBirthday || editableBirthday?.trim() || '';
+      const finalAuthTypeForRequest = finalAuthType || selectedAuthType?.trim() || '0';
+      
+      // 생년월일 및 인증 타입 검증
+      if (!finalBirthdayForRequest || finalBirthdayForRequest.length === 0) {
+        const errorMsg = '생년월일을 입력해주세요.';
+        console.error('❌ [세션시작] 생년월일 누락:', {
+          finalBirthdayForRequest,
+          editableBirthday,
+          authInput: updatedAuthInput.birthday,
+          patient: patient?.birthday
+        });
+        setError(errorMsg);
+        setLoading(false);
+        return;
+      }
+      
+      // 인증 방식 최종 검증
+      const VALID_AUTH_TYPES = ['0', '4', '6'];
+      
+      if (!finalAuthTypeForRequest || finalAuthTypeForRequest.length === 0) {
+        const errorMsg = '인증 방법을 선택해주세요.';
+        console.error('❌ [세션시작] 인증 타입 누락:', {
+          finalAuthTypeForRequest,
+          selectedAuthType,
+          allTypes: AUTH_TYPES
+        });
+        setError(errorMsg);
+        setLoading(false);
+        return;
+      }
+      
+      // 유효한 인증 방식인지 검증
+      if (!VALID_AUTH_TYPES.includes(finalAuthTypeForRequest)) {
+        const errorMsg = `유효하지 않은 인증 방식입니다: ${finalAuthTypeForRequest}. 다시 선택해주세요.`;
+        console.error('❌ [세션시작] 유효하지 않은 인증 타입:', {
+          finalAuthTypeForRequest,
+          selectedAuthType,
+          validTypes: VALID_AUTH_TYPES
+        });
+        setError(errorMsg);
+        setLoading(false);
+        return;
+      }
+      
+      // state와 전달값 불일치 시 경고 (에러는 아니지만 로그)
+      if (finalAuthTypeForRequest !== selectedAuthType) {
+        console.warn('⚠️ [세션시작] 인증 타입 불일치 감지:', {
+          state: selectedAuthType,
+          전달값: finalAuthTypeForRequest,
+          원인: 'fallback 로직으로 인한 변경 가능'
+        });
+        // state 업데이트하여 일치시키기
+        setSelectedAuthType(finalAuthTypeForRequest);
+        authTypeMemoryRef.current = finalAuthTypeForRequest;
+      }
+      
       // 1단계: 세션 시작
       const sessionStartPayload = {
-        private_auth_type: selectedAuthType,
-        user_name: editableName, // 수정된 이름 사용
-        birthdate: editableBirthday, // 수정된 생년월일 사용
-        phone_no: editablePhone.replace(/-/g, ''), // 수정된 전화번호 사용
+        private_auth_type: finalAuthTypeForRequest,
+        user_name: finalNameForRequest, // 최종 이름 사용
+        birthdate: finalBirthdayForRequest, // 최종 생년월일 사용
+        phone_no: finalPhoneForRequest.replace(/-/g, ''), // 최종 전화번호 사용 (하이픈 제거)
         gender: updatedAuthInput.gender,
         patient_uuid: patient?.uuid, // 환자 UUID 추가
         hospital_id: patient?.hospital_id // 병원 ID 추가
       };
       
+      // 인증 타입 매핑 확인
+      const authTypeMapping = {
+        '0': '카카오톡',
+        '4': '통신사Pass',
+        '6': '네이버'
+      };
+      
       console.log('📤 [세션시작] 요청 데이터:', {
-        ...sessionStartPayload,
-        phone_no: '***' // 개인정보 마스킹
+        private_auth_type: sessionStartPayload.private_auth_type,
+        private_auth_type_name: authTypeMapping[finalAuthTypeForRequest as keyof typeof authTypeMapping] || '알 수 없음',
+        selectedAuthType_원본값: selectedAuthType,
+        selectedAuthType_타입: typeof selectedAuthType,
+        finalAuthTypeForRequest: finalAuthTypeForRequest,
+        user_name: sessionStartPayload.user_name,
+        birthdate: sessionStartPayload.birthdate + ` (길이: ${sessionStartPayload.birthdate.length})`,
+        phone_no: '***', // 개인정보 마스킹
+        gender: sessionStartPayload.gender,
+        patient_uuid: sessionStartPayload.patient_uuid,
+        hospital_id: sessionStartPayload.hospital_id
       });
+      
+      // 인증 타입이 예상과 다른 경우 경고
+      if (finalAuthTypeForRequest !== selectedAuthType) {
+        console.warn('⚠️ [세션시작] 인증 타입 변경됨:', {
+          원본: selectedAuthType,
+          처리후: finalAuthTypeForRequest
+        });
+      }
       
       const sessionResponse = await fetch(TILKO_API.SESSION_START(), {
         method: HTTP_METHODS.POST,
@@ -1970,13 +2273,58 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     console.log('🔄 [handleNextStep] 현재 단계:', currentConfirmationStep);
     
     if (currentConfirmationStep === 'name') {
+      // 이름 입력 필드에서 현재 값을 직접 확인 (버튼 클릭 시점에 읽기)
+      const nameInputs = document.querySelectorAll('input[type="text"]:not([type="tel"])');
+      let nameInput: HTMLInputElement | null = null;
+      for (let i = 0; i < nameInputs.length; i++) {
+        const input = nameInputs[i] as HTMLInputElement;
+        if (input.placeholder?.includes('이름') || (!input.placeholder?.includes('전화번호') && !input.placeholder?.includes('생년월일'))) {
+          nameInput = input;
+          break;
+        }
+      }
+      const currentName = nameInput?.value?.trim() || editableName?.trim() || '';
+      const finalName = currentName || editableName?.trim() || PatientDataConverter.getSafeName(patient) || '';
+      
+      console.log('📝 [handleNextStep] 이름 확인 (버튼 클릭 시점):', {
+        nameInput값: nameInput?.value,
+        editableName: editableName,
+        finalName: finalName,
+        모든입력필드: Array.from(nameInputs).map((inp: any) => ({ value: inp.value, placeholder: inp.placeholder }))
+      });
+      
+      // 이름 검증 강화
+      const trimmedName = finalName.trim();
+      if (!trimmedName || trimmedName.length === 0) {
+        console.warn('⚠️ [handleNextStep] 이름이 입력되지 않았습니다.');
+        setError('이름을 입력해주세요.');
+        return;
+      }
+      
+      // 이름 형식 검증 (한글 2-10자, 특수문자 제한)
+      const nameRegex = /^[가-힣a-zA-Z\s]{2,10}$/;
+      if (!nameRegex.test(trimmedName)) {
+        console.warn('⚠️ [handleNextStep] 이름 형식이 올바르지 않습니다:', trimmedName);
+        setError('이름은 2-10자의 한글 또는 영문으로 입력해주세요.');
+        return;
+      }
+      
+      // 이름이 있으면 editableName 업데이트 (즉시 반영)
+      if (finalName) {
+        setEditableName(finalName);
+      }
+      
       // 부드러운 전환을 위한 약간의 딜레이
       setTimeout(() => {
         setCurrentConfirmationStep('phone');
-        // 히스토리에 새 상태 추가
+        // 히스토리에 새 상태 추가 (업데이트된 이름 사용)
+        const nameToSave = finalName || editableName || '';
         NavigationHelper.pushState(
-          { step: 'phone', confirmationData: { name: editableName } }
+          { step: 'phone', confirmationData: { name: nameToSave } }
         );
+        console.log('💾 [handleNextStep] 저장된 confirmationData:', {
+          name: nameToSave
+        });
         setTimeout(() => {
           const phone = (editablePhone && PatientDataConverter.cleanUndefined(editablePhone).trim()) || 
                        PatientDataConverter.getSafePhone(patient);
@@ -1984,12 +2332,76 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         }, 100);
       }, 200);
     } else if (currentConfirmationStep === 'phone') {
+      // 전화번호 입력 필드에서 현재 값을 직접 확인 (버튼 클릭 시점에 읽기)
+      const phoneInput = document.querySelector('input[type="tel"]') as HTMLInputElement;
+      
+      // 입력 필드에서 직접 읽기 (플레인 텍스트가 아닌 실제 input value)
+      const inputValue = phoneInput?.value?.trim() || '';
+      
+      // input value가 비어있거나 '전화번호' 같은 플레인 텍스트인 경우 state 우선 사용
+      const currentPhone = (
+        (inputValue && 
+         inputValue !== '전화번호' && 
+         !/^전화번호/.test(inputValue) &&
+         !/^아래 전화번호/.test(inputValue) &&
+         /[0-9]/.test(inputValue)) // 숫자가 포함되어 있는지 확인
+          ? inputValue 
+          : editablePhone?.trim() || ''
+      ) || PatientDataConverter.getSafePhone(patient) || '';
+      
+      // '전화번호' 같은 플레인 텍스트 제거 및 숫자만 추출
+      const cleanedPhone = currentPhone.replace(/[^0-9]/g, ''); // 숫자만 추출
+      const finalPhone = (
+        cleanedPhone && 
+        cleanedPhone !== '전화번호' && 
+        !/^전화번호/.test(cleanedPhone) &&
+        /^01[0-9]/.test(cleanedPhone) // 010으로 시작하는지 확인
+      ) ? cleanedPhone : (editablePhone?.trim().replace(/[^0-9]/g, '') || PatientDataConverter.getSafePhone(patient)?.replace(/[^0-9]/g, '') || '');
+      
+      // 전화번호 검증 강화
+      const trimmedPhone = finalPhone.replace(/-/g, '').trim();
+      if (!trimmedPhone || trimmedPhone.length === 0) {
+        console.warn('⚠️ [handleNextStep] 전화번호가 입력되지 않았습니다.');
+        setError('전화번호를 입력해주세요.');
+        return;
+      }
+      
+      // 전화번호 형식 검증 (010으로 시작하는 10-11자리 숫자)
+      const phoneRegex = /^01[0-9][0-9]{7,8}$/;
+      if (!phoneRegex.test(trimmedPhone)) {
+        console.warn('⚠️ [handleNextStep] 전화번호 형식이 올바르지 않습니다:', trimmedPhone);
+        setError('올바른 전화번호 형식을 입력해주세요. (예: 010-1234-5678)');
+        return;
+      }
+      
+      // 전화번호가 있으면 editablePhone 업데이트 (즉시 반영)
+      if (trimmedPhone) {
+        setEditablePhone(trimmedPhone);
+      }
+      
+      console.log('📞 [handleNextStep] 전화번호 확인 (버튼 클릭 시점):', {
+        phoneInput값: phoneInput?.value,
+        phoneInput존재: !!phoneInput,
+        inputValue: inputValue,
+        currentPhone: currentPhone,
+        cleanedPhone: cleanedPhone,
+        editablePhone: editablePhone,
+        finalPhone: finalPhone,
+        trimmedPhone: trimmedPhone,
+        patientPhone: PatientDataConverter.getSafePhone(patient)
+      });
+      
       setTimeout(() => {
         setCurrentConfirmationStep('birthday');
-        // 히스토리에 새 상태 추가
+        // 히스토리에 새 상태 추가 (업데이트된 전화번호 사용)
+        const phoneToSave = trimmedPhone || editablePhone || '';
         NavigationHelper.pushState(
-          { step: 'birthday', confirmationData: { name: editableName, phone: editablePhone } }
+          { step: 'birthday', confirmationData: { name: editableName, phone: phoneToSave } }
         );
+        console.log('💾 [handleNextStep] 저장된 confirmationData:', {
+          name: editableName,
+          phone: phoneToSave
+        });
         setTimeout(() => {
           const birthday = (editableBirthday && PatientDataConverter.cleanUndefined(editableBirthday).trim()) || 
                           PatientDataConverter.getSafeBirthday(patient);
@@ -1997,6 +2409,127 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         }, 100);
       }, 200);
     } else if (currentConfirmationStep === 'birthday') {
+      // 생년월일 입력 필드에서 현재 값을 직접 확인 (버튼 클릭 시점에 읽기)
+      // 생년월일 입력 필드 찾기 - placeholder가 '19810927'인 input 찾기
+      const birthdayInput = document.querySelector('input[placeholder="19810927"]') as HTMLInputElement;
+      
+      // 대안: 모든 text input 중에서 생년월일 필드 찾기 (이름, 전화번호 제외)
+      let foundBirthdayInput: HTMLInputElement | null = birthdayInput;
+      if (!foundBirthdayInput) {
+        const allTextInputs = document.querySelectorAll('input[type="text"]:not([type="tel"])');
+        for (let i = 0; i < allTextInputs.length; i++) {
+          const input = allTextInputs[i] as HTMLInputElement;
+          const placeholder = input.placeholder || '';
+          const value = input.value || '';
+          // 생년월일 필드 특징: placeholder가 숫자 8자리이거나, value가 숫자 8자리
+          if (input.type === 'text' && 
+              !placeholder.includes('전화번호') && 
+              !placeholder.includes('이름') &&
+              (placeholder === '19810927' || /^\d{8}$/.test(value) || /^\d{8}$/.test(placeholder))) {
+            foundBirthdayInput = input;
+            break;
+          }
+        }
+      }
+      
+      // 입력 필드에서 직접 읽기 - 간단하게: value가 있으면 value, 없으면 placeholder
+      const inputValue = foundBirthdayInput?.value?.trim() || '';
+      const placeholderValue = foundBirthdayInput?.placeholder?.trim() || '';
+      
+      // 입력창에 있는 값을 그냥 사용 (value가 있으면 value, 없으면 placeholder)
+      const currentBirthday = inputValue || (placeholderValue && placeholderValue !== '19810927' ? placeholderValue : '');
+      
+      // '생년월일' 같은 플레인 텍스트 제거 및 숫자만 추출
+      const cleanedBirthday = currentBirthday ? currentBirthday.replace(/[^0-9]/g, '') : '';
+      
+      // 숫자 8자리인지 확인하고, '생년월일' 같은 텍스트가 아닌지 확인
+      const finalBirthday = (
+        cleanedBirthday && 
+        cleanedBirthday !== '생년월일' && 
+        !/^생년월일/.test(cleanedBirthday) &&
+        /^\d{8}$/.test(cleanedBirthday)
+      ) ? cleanedBirthday : '';
+      
+      // finalBirthday가 없으면 editableBirthday나 patient 데이터에서 가져오기
+      const fallbackBirthday = finalBirthday || (
+        (editableBirthday?.trim() && editableBirthday !== '생년월일' && !/^생년월일/.test(editableBirthday) && /[0-9]/.test(editableBirthday))
+          ? editableBirthday.trim().replace(/[^0-9]/g, '')
+          : (() => {
+              const patientBirthdayRaw = PatientDataConverter.getSafeBirthday(patient) || patient?.birthday || '';
+              if (patientBirthdayRaw && patientBirthdayRaw !== '생년월일' && !/^생년월일/.test(patientBirthdayRaw)) {
+                const cleaned = patientBirthdayRaw.replace(/[^0-9]/g, '');
+                return /^\d{8}$/.test(cleaned) ? cleaned : '';
+              }
+              return '';
+            })()
+      );
+      
+      console.log('📅 [handleNextStep] 생년월일 확인 (버튼 클릭 시점):', {
+        birthdayInput값: foundBirthdayInput?.value,
+        birthdayInput존재: !!foundBirthdayInput,
+        inputValue: inputValue,
+        placeholderValue: placeholderValue,
+        currentBirthday: currentBirthday,
+        cleanedBirthday: cleanedBirthday,
+        finalBirthday: finalBirthday,
+        fallbackBirthday: fallbackBirthday,
+        editableBirthday: editableBirthday,
+        patientBirthday: PatientDataConverter.getSafeBirthday(patient) || patient?.birthday,
+        모든입력필드: Array.from(document.querySelectorAll('input[type="text"]')).map((inp: any) => ({ 
+          value: inp.value, 
+          placeholder: inp.placeholder,
+          type: inp.type
+        }))
+      });
+      
+      // 생년월일 검증 강화
+      const trimmedBirthday = finalBirthday.trim();
+      if (!trimmedBirthday || trimmedBirthday.length === 0) {
+        console.warn('⚠️ [handleNextStep] 생년월일이 입력되지 않았습니다.');
+        setError('생년월일을 입력해주세요.');
+        return;
+      }
+      
+      // 생년월일 형식 검증 (8자리 숫자)
+      if (trimmedBirthday.length !== 8 || !/^\d{8}$/.test(trimmedBirthday)) {
+        console.warn('⚠️ [handleNextStep] 생년월일 형식이 올바르지 않습니다:', trimmedBirthday);
+        setError('생년월일을 8자리 숫자로 입력해주세요. (예: 19810927)');
+        return;
+      }
+      
+      // 날짜 유효성 검증
+      const year = parseInt(trimmedBirthday.substring(0, 4));
+      const month = parseInt(trimmedBirthday.substring(4, 6));
+      const day = parseInt(trimmedBirthday.substring(6, 8));
+      
+      // 년도 범위 검증 (1900-현재년도)
+      const currentYear = new Date().getFullYear();
+      if (year < 1900 || year > currentYear) {
+        console.warn('⚠️ [handleNextStep] 생년월일 년도가 유효하지 않습니다:', year);
+        setError(`생년월일의 년도는 1900년부터 ${currentYear}년까지 입력 가능합니다.`);
+        return;
+      }
+      
+      // 월/일 유효성 검증
+      if (month < 1 || month > 12) {
+        console.warn('⚠️ [handleNextStep] 생년월일 월이 유효하지 않습니다:', month);
+        setError('생년월일의 월은 1월부터 12월까지 입력 가능합니다.');
+        return;
+      }
+      
+      // 날짜 유효성 검증 (실제 존재하는 날짜인지 확인)
+      const date = new Date(year, month - 1, day);
+      if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+        console.warn('⚠️ [handleNextStep] 생년월일 날짜가 유효하지 않습니다:', { year, month, day });
+        setError('올바른 날짜를 입력해주세요. (예: 1981년 9월 27일 → 19810927)');
+        return;
+      }
+      
+      // 검증 통과 - 생년월일이 있으면 editableBirthday 업데이트 (즉시 반영)
+      if (trimmedBirthday && trimmedBirthday !== editableBirthday) {
+        setEditableBirthday(trimmedBirthday);
+      }
+      
       setTimeout(() => {
         // showConfirmation이 true인지 확인하고 유지
         if (!showConfirmation) {
@@ -2004,10 +2537,18 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           setShowConfirmation(true);
         }
         setCurrentConfirmationStep('auth_method');
-        // 히스토리에 새 상태 추가
+        // 히스토리에 새 상태 추가 (업데이트된 모든 값 사용)
+        const nameToSave = editableName.trim() || '';
+        const phoneToSave = editablePhone.trim() || '';
+        const birthdayToSave = trimmedBirthday || editableBirthday.trim() || '';
         NavigationHelper.pushState(
-          { step: 'auth_method', confirmationData: { name: editableName, phone: editablePhone, birthday: editableBirthday } }
+          { step: 'auth_method', confirmationData: { name: nameToSave, phone: phoneToSave, birthday: birthdayToSave, selectedAuthType: selectedAuthType } }
         );
+        console.log('💾 [handleNextStep] 저장된 confirmationData:', {
+          name: nameToSave,
+          phone: phoneToSave,
+          birthday: birthdayToSave
+        });
         
         // 플로팅 버튼을 위한 상태 설정 (인증 방식 선택)
         StorageManager.setItem('tilko_auth_method_selection', 'true');
@@ -2019,6 +2560,65 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         }, 100);
       }, 200);
     } else if (currentConfirmationStep === 'auth_method') {
+      // 인증 방법 선택 확인 (버튼 클릭 시점에 읽기)
+      const selectedAuthElement = document.querySelector('[style*="border: 2px solid #7c746a"]') as HTMLElement;
+      let selectedAuthFromDOM = selectedAuthType;
+      
+      if (selectedAuthElement) {
+        // 선택된 인증 방법 찾기
+        const authTypeDiv = selectedAuthElement.closest('[onclick]') as HTMLElement;
+        AUTH_TYPES.forEach(authType => {
+          const elementText = selectedAuthElement.textContent || '';
+          const divText = authTypeDiv?.textContent || '';
+          if (elementText.includes(authType.label) || divText.includes(authType.label)) {
+            selectedAuthFromDOM = authType.value;
+            console.log('🔍 [handleNextStep] DOM에서 인증 방법 발견:', {
+              label: authType.label,
+              value: authType.value,
+              elementText: elementText.substring(0, 50)
+            });
+          }
+        });
+      }
+      
+      // StorageManager를 통해 확인 (메모리 fallback 지원)
+      const savedAuthType = StorageManager.getItem<string>(STORAGE_KEYS.TILKO_SELECTED_AUTH_TYPE) || authTypeMemoryRef.current;
+      if (savedAuthType && (!selectedAuthFromDOM || selectedAuthFromDOM === '0')) {
+        selectedAuthFromDOM = savedAuthType;
+        console.log('🔍 [handleNextStep] 스토리지에서 인증 방법 발견:', savedAuthType, StorageManager.isMemoryMode() ? '(메모리)' : '(localStorage)');
+      }
+      
+      const finalAuthType = selectedAuthFromDOM?.trim() || selectedAuthType?.trim() || '0';
+      
+      console.log('🔐 [handleNextStep] 인증 방법 확인 (버튼 클릭 시점):', {
+        selectedAuthElement존재: !!selectedAuthElement,
+        selectedAuthFromDOM: selectedAuthFromDOM,
+        selectedAuthType: selectedAuthType,
+        finalAuthType: finalAuthType,
+        finalAuthTypeName: AUTH_TYPES.find(t => t.value === finalAuthType)?.label || '알 수 없음'
+      });
+      
+      // 인증 방법이 기본값(0)이면 선택되지 않은 것으로 간주
+      if (finalAuthType === '0' && !selectedAuthElement) {
+        console.warn('⚠️ [handleNextStep] 인증 방법이 선택되지 않았습니다. 다음 단계로 넘어갈 수 없습니다.');
+        setError('인증 방법을 선택해주세요.');
+        return;
+      }
+      
+      // 인증 방법이 있으면 selectedAuthType 업데이트 (즉시 반영)
+      if (finalAuthType && finalAuthType !== selectedAuthType) {
+        setSelectedAuthType(finalAuthType);
+        // 메모리에도 저장
+        authTypeMemoryRef.current = finalAuthType;
+        // localStorage에 저장 시도
+        const saved = StorageManager.setItem(STORAGE_KEYS.TILKO_SELECTED_AUTH_TYPE, finalAuthType);
+        if (saved) {
+          console.log('💾 [handleNextStep] 인증 방법 저장:', finalAuthType, StorageManager.isMemoryMode() ? '(메모리)' : '(localStorage)');
+        } else {
+          console.warn('⚠️ [handleNextStep] 저장 실패 - 메모리만 사용:', finalAuthType);
+        }
+      }
+      
       setTimeout(() => {
         setCurrentConfirmationStep('completed');
         
@@ -2167,6 +2767,26 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           const result = await response.json();
           console.log(`📊 [폴링] 현재 상태: ${result.status}`);
           
+          // 사용자 정보 재확인 필요 상태
+          if (result.status === 'info_required') {
+            console.log('⚠️ [인증완료] 사용자 정보 재확인 필요 - 정보 확인 단계로 복귀');
+            setCurrentStatus('error');
+            setShowConfirmation(true);
+            setCurrentConfirmationStep('name');
+            // 에러 메시지 표시
+            const errorMessages = result.messages || [];
+            const lastError = errorMessages[errorMessages.length - 1];
+            if (lastError && lastError.message) {
+              const errorMsg = typeof lastError.message === 'object' 
+                ? lastError.message.message || lastError.message.title || '입력하신 정보를 확인해주세요.'
+                : lastError.message;
+              setError(errorMsg);
+            } else {
+              setError('입력하신 정보를 확인해주세요. 이름, 생년월일, 전화번호가 정확한지 확인 후 다시 시도해주세요.');
+            }
+            return true; // 폴링 중단
+          }
+          
           if (result.status === 'authenticated') {
             console.log('✅ [인증완료] 실제 인증 완료 확인됨 - 데이터 수집 시작');
             
@@ -2198,6 +2818,29 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             return true; // 폴링 중단
           } else if (result.status === 'auth_pending') {
             return false; // 계속 폴링
+        } else if (result.status === 'error') {
+            // 에러 상태 확인
+            const errorMessages = result.messages || [];
+            const lastError = errorMessages[errorMessages.length - 1];
+            if (lastError && lastError.message) {
+              const errorMsg = typeof lastError.message === 'object' 
+                ? lastError.message.message || lastError.message.title || '오류가 발생했습니다.'
+                : lastError.message;
+              
+              // 사용자 정보 오류인 경우 정보 확인 단계로 복귀
+              if (typeof lastError.message === 'object' && lastError.message.requires_info_recheck) {
+                console.log('⚠️ [인증완료] 사용자 정보 오류 감지 - 정보 확인 단계로 복귀');
+                setCurrentStatus('error');
+                setShowConfirmation(true);
+                setCurrentConfirmationStep('name');
+                setError(errorMsg);
+              } else {
+                handleError(errorMsg, 'server');
+              }
+            } else {
+              handleError('오류가 발생했습니다.', 'server');
+            }
+            return true; // 폴링 중단
         } else {
             handleError(`예상치 못한 상태: ${result.status}`, 'server');
             return true; // 폴링 중단
@@ -2222,18 +2865,25 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       const shouldStop = await checkAuthStatus();
       
       if (shouldStop || pollCount >= maxPolls) {
-        clearInterval(pollInterval);
+        if (authStatusPollIntervalRef.current) {
+          clearInterval(authStatusPollIntervalRef.current);
+          authStatusPollIntervalRef.current = null;
+        }
         if (pollCount >= maxPolls) {
           handleError('인증 대기 시간이 초과되었습니다. 다시 시도해주세요.', 'auth');
         }
       setLoading(false);
     }
     }, 3000);
+    authStatusPollIntervalRef.current = pollInterval;
     
     // 첫 번째 즉시 확인
     const shouldStop = await checkAuthStatus();
     if (shouldStop) {
-      clearInterval(pollInterval);
+      if (authStatusPollIntervalRef.current) {
+        clearInterval(authStatusPollIntervalRef.current);
+        authStatusPollIntervalRef.current = null;
+      }
       setLoading(false);
     }
   }, [sessionId, tokenReceived, isTyping]);
@@ -2873,7 +3523,24 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                             label: authType.label,
                             previousValue: selectedAuthType
                           });
+                          
+                          // State 업데이트
                           setSelectedAuthType(authType.value);
+                          
+                          // 메모리에도 저장 (localStorage 실패 시 사용)
+                          authTypeMemoryRef.current = authType.value;
+                          
+                          // localStorage에 저장 시도 (실패해도 메모리에 저장되어 있음)
+                          const saved = StorageManager.setItem(STORAGE_KEYS.TILKO_SELECTED_AUTH_TYPE, authType.value);
+                          if (saved) {
+                            if (StorageManager.isMemoryMode()) {
+                              console.log('💾 [인증방법선택] 메모리에 저장 (localStorage 사용 불가):', authType.value);
+                            } else {
+                              console.log('💾 [인증방법선택] localStorage에 저장:', authType.value);
+                            }
+                          } else {
+                            console.warn('⚠️ [인증방법선택] 저장 실패 - 메모리만 사용:', authType.value);
+                          }
                         }}
                         style={{
                           display: 'flex',
@@ -3356,6 +4023,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       <div className="back-button-container">
         <button className="back-button" onClick={() => {
           console.log('🔙 [인증페이지] 뒤로가기 버튼 클릭');
+          // 모든 폴링 및 모니터링 중단
+          cleanupAllPolling();
           onBack && onBack();
         }}>
           ←

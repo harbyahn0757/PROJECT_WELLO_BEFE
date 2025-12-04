@@ -843,6 +843,8 @@ const CheckupRecommendationsPage: React.FC = () => {
               toggleCategory(categoryName);
             }}>
               <div className="checkup-recommendations__card-header-left">
+              </div>
+              <div className="checkup-recommendations__card-header-right">
                 <h3 className="checkup-recommendations__card-title">문진 반영 내용</h3>
               </div>
               <div className="checkup-recommendations__card-arrow">
@@ -1004,6 +1006,8 @@ const CheckupRecommendationsPage: React.FC = () => {
               toggleCategory(categoryName);
             }}>
               <div className="checkup-recommendations__card-header-left">
+              </div>
+              <div className="checkup-recommendations__card-header-right">
                 <h3 className="checkup-recommendations__card-title">선택하신 항목 분석</h3>
               </div>
               <div className="checkup-recommendations__card-arrow">
@@ -1022,35 +1026,131 @@ const CheckupRecommendationsPage: React.FC = () => {
             </div>
             {expandedCategories.has('selected_concerns_analysis') && (
               <div className="checkup-recommendations__card-content">
-                {gptResponse.selected_concerns_analysis.map((concern: any, idx: number) => (
-                  <div key={idx} className="checkup-recommendations__concern-analysis">
-                    <h4 className="checkup-recommendations__concern-name">{concern.concern_name}</h4>
-                    {concern.trend_analysis && (
-                      <div className="checkup-recommendations__concern-section">
-                        <span className="checkup-recommendations__concern-label">추이 분석:</span>
-                        <p className="checkup-recommendations__concern-text">{concern.trend_analysis}</p>
+                <div className="checkup-recommendations__card-description">
+                  {gptResponse.selected_concerns_analysis.map((concern: any, idx: number) => {
+                    // concern_name에서 날짜와 status 파싱
+                    let concernName = concern.concern_name || '';
+                    // [abnormal] 또는 [warning] 제거하고 한글로 변환
+                    concernName = concernName
+                      .replace(/\[abnormal\]/gi, '[이상]')
+                      .replace(/\[warning\]/gi, '[경계]')
+                      .replace(/\[Abnormal\]/gi, '[이상]')
+                      .replace(/\[Warning\]/gi, '[경계]');
+                    
+                    // 날짜 형식 확인 및 년도 추가 (09/28 -> 2020/09/28 또는 2020년 09/28)
+                    const dateMatch = concernName.match(/\((\d{2}\/\d{2})\)/);
+                    if (dateMatch) {
+                      // 년도가 없으면 추가 (예: 2020년 또는 2020/)
+                      const dateStr = dateMatch[1];
+                      if (!concernName.match(/\d{4}/)) {
+                        // concern.date에서 년도 추출
+                        const concernDate = concern.date || '';
+                        const yearMatch = concernDate.match(/(\d{4})/);
+                        if (yearMatch) {
+                          const year = yearMatch[1];
+                          concernName = concernName.replace(
+                            `(${dateStr})`,
+                            `(${year}년 ${dateStr})`
+                          );
+                        }
+                      }
+                    }
+                    
+                    // 텍스트 구성
+                    let textContent = '';
+                    if (concernName) {
+                      textContent += `${concernName}\n\n`;
+                    }
+                    if (concern.trend_analysis) {
+                      textContent += `추이 분석: ${concern.trend_analysis}\n\n`;
+                    }
+                    if (concern.reflected_in_design) {
+                      textContent += `검진 설계 반영: ${concern.reflected_in_design}`;
+                    }
+                    
+                    return (
+                      <div key={idx} style={{ marginBottom: idx < gptResponse.selected_concerns_analysis.length - 1 ? '1.5rem' : '0' }}>
+                        {textContent.split('\n').map((line: string, lineIdx: number) => {
+                          if (!line.trim()) return <br key={`line-${idx}-${lineIdx}`} />;
+                          
+                          // 강조 텍스트 처리 (문진 반영 내용과 동일)
+                          const hasHighlight = line.includes('{highlight}') || line.includes('{');
+                          if (hasHighlight) {
+                            let cleanedLine = line
+                              .replace(/\{\{highlight\}\}(.*?)\{\{\/highlight\}\}/g, (match, content) => {
+                                return `__HIGHLIGHT_START__${content}__HIGHLIGHT_END__`;
+                              })
+                              .replace(/\{highlight\}(.*?)\{\/highlight\}/g, (match, content) => {
+                                return `__HIGHLIGHT_START__${content}__HIGHLIGHT_END__`;
+                              })
+                              .replace(/\{\{highlight\}\}/g, '')
+                              .replace(/\{\{\/highlight\}\}/g, '')
+                              .replace(/\{highlight\}/g, '')
+                              .replace(/\{\/highlight\}/g, '')
+                              .replace(/\{\}/g, '');
+                            
+                            const parts: React.ReactNode[] = [];
+                            let lastIndex = 0;
+                            let key = 0;
+                            
+                            const highlightStartRegex = /__HIGHLIGHT_START__/g;
+                            const highlightEndRegex = /__HIGHLIGHT_END__/g;
+                            
+                            let startMatch;
+                            highlightStartRegex.lastIndex = 0;
+                            
+                            while ((startMatch = highlightStartRegex.exec(cleanedLine)) !== null) {
+                              if (startMatch.index > lastIndex) {
+                                parts.push(
+                                  <span key={`text-${idx}-${lineIdx}-${key++}`}>
+                                    {cleanedLine.substring(lastIndex, startMatch.index)}
+                                  </span>
+                                );
+                              }
+                              
+                              highlightEndRegex.lastIndex = startMatch.index;
+                              const endMatch = highlightEndRegex.exec(cleanedLine);
+                              
+                              if (endMatch) {
+                                const highlightText = cleanedLine.substring(startMatch.index + '__HIGHLIGHT_START__'.length, endMatch.index);
+                                if (highlightText.trim()) {
+                                  parts.push(
+                                    <span key={`highlight-${idx}-${lineIdx}-${key++}`} className="checkup-recommendations__analysis-highlight">
+                                      {highlightText}
+                                    </span>
+                                  );
+                                }
+                                lastIndex = endMatch.index + '__HIGHLIGHT_END__'.length;
+                              } else {
+                                lastIndex = startMatch.index;
+                              }
+                            }
+                            
+                            if (lastIndex < cleanedLine.length) {
+                              parts.push(
+                                <span key={`text-${idx}-${lineIdx}-${key++}`}>
+                                  {cleanedLine.substring(lastIndex)}
+                                </span>
+                              );
+                            }
+                            
+                            return (
+                              <p key={`line-${idx}-${lineIdx}`} className="checkup-recommendations__analysis-paragraph">
+                                {parts.length > 0 ? parts : line}
+                              </p>
+                            );
+                          }
+                          
+                          return (
+                            <p key={`line-${idx}-${lineIdx}`} className="checkup-recommendations__analysis-paragraph">
+                              {line}
+                            </p>
+                          );
+                        })}
                       </div>
-                    )}
-                    {concern.reflected_in_design && (
-                      <div className="checkup-recommendations__concern-section">
-                        <span className="checkup-recommendations__concern-label">검진 설계 반영:</span>
-                        <p className="checkup-recommendations__concern-text">{concern.reflected_in_design}</p>
-                      </div>
-                    )}
-                    {concern.related_items && concern.related_items.length > 0 && (
-                      <div className="checkup-recommendations__concern-section">
-                        <span className="checkup-recommendations__concern-label">관련 검진 항목:</span>
-                        <div className="checkup-recommendations__concern-items">
-                          {concern.related_items.map((item: string, itemIdx: number) => (
-                            <span key={itemIdx} className="checkup-recommendations__concern-item-badge">
-                              {item}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -1272,11 +1372,6 @@ const CheckupRecommendationsPage: React.FC = () => {
                         onClick={() => toggleCategory(category.categoryName)}
                       >
                         <div className="checkup-recommendations__card-header-left">
-                          {category.priorityLevel && (
-                            <span className={`checkup-recommendations__category-priority-badge checkup-recommendations__category-priority-badge--${category.priorityLevel}`}>
-                              {category.priorityLevel === 1 ? '1순위' : category.priorityLevel === 2 ? '추가권고검진' : '선택 추가 항목'}
-                            </span>
-                          )}
                           <h3 className="checkup-recommendations__card-title">
                             {category.categoryName}
                           </h3>
@@ -1463,7 +1558,7 @@ const CheckupRecommendationsPage: React.FC = () => {
           <>
             <div className="checkup-recommendations__section-header">
               <h2 className="checkup-recommendations__section-title">
-                추천검진 항목
+                추가로 검사 해보세요
               </h2>
               <span className="checkup-recommendations__total-badge">
                 총 {(recommendationData.summary?.priority_2?.count || 0) + (recommendationData.summary?.priority_3?.count || 0) + 
@@ -1485,11 +1580,7 @@ const CheckupRecommendationsPage: React.FC = () => {
                   toggleCategory(categoryName);
                 }}>
                   <div className="checkup-recommendations__card-header-left">
-                    <span className="checkup-recommendations__category-priority-badge checkup-recommendations__category-priority-badge--2">추가권고검진</span>
                     <h3 className="checkup-recommendations__card-title">{removePriorityPrefix(recommendationData.summary.priority_2.title)}</h3>
-                    <span className="checkup-recommendations__card-badge">
-                      {recommendationData.summary.priority_2.count}개
-                    </span>
                   </div>
                   <div className="checkup-recommendations__card-arrow">
                     <svg
@@ -1540,11 +1631,6 @@ const CheckupRecommendationsPage: React.FC = () => {
                         onClick={() => toggleCategory(category.categoryName)}
                       >
                         <div className="checkup-recommendations__card-header-left">
-                          {category.priorityLevel && (
-                            <span className={`checkup-recommendations__category-priority-badge checkup-recommendations__category-priority-badge--${category.priorityLevel}`}>
-                              {category.priorityLevel === 1 ? '1순위' : category.priorityLevel === 2 ? '추가권고검진' : '선택 추가 항목'}
-                            </span>
-                          )}
                           <h3 className="checkup-recommendations__card-title">
                             {category.categoryName}
                           </h3>
@@ -1742,11 +1828,7 @@ const CheckupRecommendationsPage: React.FC = () => {
                   toggleCategory(categoryName);
                 }}>
                   <div className="checkup-recommendations__card-header-left">
-                    <span className="checkup-recommendations__category-priority-badge checkup-recommendations__category-priority-badge--3">선택 추가 항목</span>
                     <h3 className="checkup-recommendations__card-title">{removePriorityPrefix(recommendationData.summary.priority_3.title)}</h3>
-                    <span className="checkup-recommendations__card-badge">
-                      {recommendationData.summary.priority_3.count}개
-                    </span>
                   </div>
                   <div className="checkup-recommendations__card-arrow">
                     <svg
@@ -1797,11 +1879,6 @@ const CheckupRecommendationsPage: React.FC = () => {
                         onClick={() => toggleCategory(category.categoryName)}
                       >
                         <div className="checkup-recommendations__card-header-left">
-                          {category.priorityLevel && (
-                            <span className={`checkup-recommendations__category-priority-badge checkup-recommendations__category-priority-badge--${category.priorityLevel}`}>
-                              {category.priorityLevel === 1 ? '1순위' : category.priorityLevel === 2 ? '추가권고검진' : '선택 추가 항목'}
-                            </span>
-                          )}
                           <h3 className="checkup-recommendations__card-title">
                             {category.categoryName}
                           </h3>
@@ -1998,17 +2075,9 @@ const CheckupRecommendationsPage: React.FC = () => {
                   onClick={() => toggleCategory(category.categoryName)}
                 >
                   <div className="checkup-recommendations__card-header-left">
-                    {category.priorityLevel && (
-                      <span className={`checkup-recommendations__category-priority-badge checkup-recommendations__category-priority-badge--${category.priorityLevel}`}>
-                        {category.priorityLevel}순위
-                      </span>
-                    )}
                     <h3 className="checkup-recommendations__card-title">
                       {category.categoryName}
                     </h3>
-                    <span className="checkup-recommendations__card-badge">
-                      {category.itemCount}개
-                    </span>
                   </div>
                   <div className="checkup-recommendations__card-arrow">
                     <svg

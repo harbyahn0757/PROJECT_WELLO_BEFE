@@ -1130,17 +1130,17 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
                                                           })()
                                                         ) : (
                                                           // 진료: 기존 뱃지 유지
-                                                          <div className="record-summary">
-                                                            {record.visitCount !== null && record.visitCount !== undefined && record.visitCount > 0 && (
-                                                              <span className="visit-count">방문 {record.visitCount}회</span>
-                                                            )}
-                                                            {record.medicationCount !== null && record.medicationCount !== undefined && record.medicationCount > 0 && (
-                                                              <span className="medication-count">투약 {record.medicationCount}회</span>
-                                                            )}
-                                                            {record.prescriptionCount !== null && record.prescriptionCount !== undefined && record.prescriptionCount > 0 && (
-                                                              <span className="prescription-count">처방 {record.prescriptionCount}회</span>
-                                                            )}
-                                                          </div>
+                                                      <div className="record-summary">
+                                                        {record.visitCount !== null && record.visitCount !== undefined && record.visitCount > 0 && (
+                                                          <span className="visit-count">방문 {record.visitCount}회</span>
+                                                        )}
+                                                        {record.medicationCount !== null && record.medicationCount !== undefined && record.medicationCount > 0 && (
+                                                          <span className="medication-count">투약 {record.medicationCount}회</span>
+                                                        )}
+                                                        {record.prescriptionCount !== null && record.prescriptionCount !== undefined && record.prescriptionCount > 0 && (
+                                                          <span className="prescription-count">처방 {record.prescriptionCount}회</span>
+                                                        )}
+                                                      </div>
                                                         )}
                                                       </>
                                                     )}

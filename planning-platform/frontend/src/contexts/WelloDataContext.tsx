@@ -335,13 +335,34 @@ export const WelloDataProvider: React.FC<WelloDataProviderProps> = ({ children }
 
       setState(prev => ({ ...prev, isLoading: true, error: null }));
 
+      // 파라미터 유효성 검증 및 정리
+      const cleanUuid = uuid?.trim();
+      const cleanHospital = hospital?.trim();
+      
+      if (!cleanUuid || cleanUuid === '') {
+        throw new Error('UUID 파라미터가 유효하지 않습니다.');
+      }
+      if (!cleanHospital || cleanHospital === '') {
+        throw new Error('Hospital 파라미터가 유효하지 않습니다.');
+      }
+
+      // API 엔드포인트 생성
+      const patientUrl = API_ENDPOINTS.PATIENT(cleanUuid);
+      const hospitalUrl = API_ENDPOINTS.HOSPITAL(cleanHospital);
+      
+      console.log(`📡 [API호출] 시작:`, {
+        uuid: cleanUuid,
+        hospital: cleanHospital,
+        patientUrl,
+        hospitalUrl
+      });
+      
       // API 호출 (환경변수 기반 URL 사용)
-      console.log(`📡 [API호출] 시작: ${uuid} @ ${hospital}`);
       const [patientResponse, hospitalResponse] = await Promise.all([
-        fetch(API_ENDPOINTS.PATIENT(uuid)),
-        fetch(API_ENDPOINTS.HOSPITAL(hospital)),
+        fetch(patientUrl),
+        fetch(hospitalUrl),
       ]);
-      console.log(`✅ [API호출] 완료: ${uuid} @ ${hospital}`);
+      console.log(`✅ [API호출] 완료: ${cleanUuid} @ ${cleanHospital}`);
 
       // 응답 상태 및 Content-Type 검증
       if (!patientResponse.ok) {

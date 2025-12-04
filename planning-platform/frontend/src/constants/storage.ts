@@ -11,6 +11,7 @@ export const STORAGE_KEYS = {
   TILKO_AUTH_COMPLETED: 'tilko_auth_completed',
   TILKO_AUTH_REQUESTED: 'tilko_auth_requested',
   TILKO_COLLECTED_DATA: 'tilko_collected_data',
+  TILKO_SELECTED_AUTH_TYPE: 'tilko_selected_auth_type',
   
   // UI 상태 관리
   TILKO_INFO_CONFIRMING: 'tilko_info_confirming',
@@ -48,53 +49,150 @@ export interface UserPreferences {
   autoSave: boolean;
 }
 
+// 메모리 fallback 저장소 (localStorage 실패 시 사용)
+const memoryStorage: Map<string, string> = new Map();
+let localStorageAvailable: boolean | null = null;
+
+// localStorage 사용 가능 여부 확인
+function checkLocalStorageAvailable(): boolean {
+  if (localStorageAvailable !== null) {
+    return localStorageAvailable;
+  }
+  
+  try {
+    const testKey = '__localStorage_test__';
+    localStorage.setItem(testKey, 'test');
+    localStorage.removeItem(testKey);
+    localStorageAvailable = true;
+    return true;
+  } catch (error) {
+    localStorageAvailable = false;
+    console.warn('⚠️ [StorageManager] localStorage 사용 불가 - 메모리 모드로 전환');
+    return false;
+  }
+}
+
 // 스토리지 유틸리티 클래스
 export class StorageManager {
   /**
-   * 안전한 localStorage 아이템 가져오기
+   * 안전한 localStorage 아이템 가져오기 (메모리 fallback 지원)
    */
   static getItem<T = string>(key: string, defaultValue?: T): T | null {
     try {
-      const item = localStorage.getItem(key);
-      if (item === null) return defaultValue || null;
-      
-      // JSON 파싱 시도
-      try {
-        return JSON.parse(item) as T;
-      } catch {
-        // 파싱 실패 시 문자열로 반환
-        return item as unknown as T;
+      // localStorage 사용 가능하면 localStorage에서 읽기
+      if (checkLocalStorageAvailable()) {
+        const item = localStorage.getItem(key);
+        if (item !== null) {
+          // JSON 파싱 시도
+          try {
+            return JSON.parse(item) as T;
+          } catch {
+            // 파싱 실패 시 문자열로 반환
+            return item as unknown as T;
+          }
+        }
       }
+      
+      // localStorage 실패 또는 값이 없으면 메모리에서 읽기
+      if (memoryStorage.has(key)) {
+        const item = memoryStorage.get(key);
+        if (item !== undefined) {
+          try {
+            return JSON.parse(item) as T;
+          } catch {
+            return item as unknown as T;
+          }
+        }
+      }
+      
+      return defaultValue || null;
     } catch (error) {
-      console.warn(`localStorage 읽기 실패 (${key}):`, error);
+      console.warn(`스토리지 읽기 실패 (${key}):`, error);
+      // 메모리에서도 읽기 시도
+      if (memoryStorage.has(key)) {
+        const item = memoryStorage.get(key);
+        if (item !== undefined) {
+          try {
+            return JSON.parse(item) as unknown as T;
+          } catch {
+            return item as unknown as T;
+          }
+        }
+      }
       return defaultValue || null;
     }
   }
 
   /**
-   * 안전한 localStorage 아이템 저장
+   * 안전한 localStorage 아이템 저장 (메모리 fallback 지원)
+   * @returns 저장 성공 여부
    */
   static setItem(key: string, value: any): boolean {
-    try {
-      const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
-      localStorage.setItem(key, stringValue);
-      return true;
-    } catch (error) {
-      console.warn(`localStorage 저장 실패 (${key}):`, error);
-      return false;
+    const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
+    
+    // localStorage 사용 가능하면 localStorage에 저장 시도
+    if (checkLocalStorageAvailable()) {
+      try {
+        localStorage.setItem(key, stringValue);
+        // 저장 성공 확인 (QuotaExceededError 등 체크)
+        const saved = localStorage.getItem(key);
+        if (saved === stringValue) {
+          return true;
+        } else {
+          // 저장 실패 - 메모리로 fallback
+          console.warn(`⚠️ [StorageManager] localStorage 저장 실패 (${key}) - 메모리로 저장`);
+          memoryStorage.set(key, stringValue);
+          return true; // 메모리 저장은 성공으로 간주
+        }
+      } catch (error: any) {
+        // QuotaExceededError 또는 기타 에러
+        if (error.name === 'QuotaExceededError') {
+          console.warn(`⚠️ [StorageManager] localStorage 용량 초과 (${key}) - 메모리로 저장`);
+        } else {
+          console.warn(`⚠️ [StorageManager] localStorage 저장 실패 (${key}):`, error);
+        }
+        // 메모리로 fallback
+        memoryStorage.set(key, stringValue);
+        return true; // 메모리 저장은 성공으로 간주
+      }
+    } else {
+      // localStorage 사용 불가 - 메모리에만 저장
+      memoryStorage.set(key, stringValue);
+      return true; // 메모리 저장은 성공으로 간주
     }
+  }
+  
+  /**
+   * 저장 성공 여부 확인 (localStorage 사용 가능 여부 포함)
+   */
+  static isStorageAvailable(): boolean {
+    return checkLocalStorageAvailable();
+  }
+  
+  /**
+   * 메모리 모드인지 확인
+   */
+  static isMemoryMode(): boolean {
+    return !checkLocalStorageAvailable();
   }
 
   /**
-   * localStorage 아이템 제거
+   * localStorage 아이템 제거 (메모리 fallback 지원)
    */
   static removeItem(key: string): boolean {
     try {
-      localStorage.removeItem(key);
+      // localStorage에서 제거 시도
+      if (checkLocalStorageAvailable()) {
+        localStorage.removeItem(key);
+      }
+      // 메모리에서도 제거
+      memoryStorage.delete(key);
       return true;
     } catch (error) {
-      console.warn(`localStorage 제거 실패 (${key}):`, error);
-      return false;
+      console.warn(`스토리지 제거 실패 (${key}):`, error);
+      // 메모리에서라도 제거 시도
+      memoryStorage.delete(key);
+      return true;
     }
   }
 
@@ -159,6 +257,17 @@ export class StorageManager {
     this.removeItem(STORAGE_KEYS.TILKO_AUTH_REQUESTED);
     this.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
     this.removeItem(STORAGE_KEYS.START_INFO_CONFIRMATION);
+    this.removeItem(STORAGE_KEYS.TILKO_SELECTED_AUTH_TYPE);
+  }
+  
+  /**
+   * 인증 페이지 진입 시 초기화 (인증 방식 선택 리셋)
+   */
+  static resetAuthPage(): void {
+    console.log('🔄 [StorageManager] 인증 페이지 초기화 - 인증 방식 선택 리셋');
+    this.removeItem(STORAGE_KEYS.TILKO_SELECTED_AUTH_TYPE);
+    // 메모리에서도 제거
+    memoryStorage.delete(STORAGE_KEYS.TILKO_SELECTED_AUTH_TYPE);
   }
 
   /**

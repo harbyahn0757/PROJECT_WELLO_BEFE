@@ -154,6 +154,37 @@ async def start_auth_session(request: SimpleAuthWithSessionRequest) -> Dict[str,
     새로운 인증 세션 시작
     """
     try:
+        # 받은 데이터 로그 출력 (디버깅)
+        print(f"📥 [세션시작] 받은 요청 데이터:")
+        print(f"   - user_name: {request.user_name}")
+        print(f"   - birthdate: {request.birthdate} (타입: {type(request.birthdate)}, 길이: {len(request.birthdate) if request.birthdate else 0})")
+        print(f"   - phone_no: {request.phone_no[:3]}*** (마스킹)")
+        print(f"   - gender: {request.gender}")
+        print(f"   - private_auth_type: {request.private_auth_type} (타입: {type(request.private_auth_type)})")
+        
+        # 생년월일 검증
+        if not request.birthdate or len(request.birthdate.strip()) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail="생년월일이 전달되지 않았습니다. 생년월일을 입력해주세요."
+            )
+        
+        # 인증 방식 검증
+        VALID_AUTH_TYPES = ["0", "4", "6"]
+        private_auth_type = str(request.private_auth_type).strip() if request.private_auth_type else ""
+        
+        if not private_auth_type:
+            raise HTTPException(
+                status_code=400,
+                detail="인증 방식을 선택해주세요."
+            )
+        
+        if private_auth_type not in VALID_AUTH_TYPES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"유효하지 않은 인증 방식입니다: {private_auth_type}. 지원되는 방식: {VALID_AUTH_TYPES}"
+            )
+        
         # 이름 정규화 (suffix 제거: "-웰로", "-님" 등)
         clean_name = request.user_name
         for suffix in ["-웰로", "-님", " 님"]:
@@ -165,11 +196,18 @@ async def start_auth_session(request: SimpleAuthWithSessionRequest) -> Dict[str,
         # 세션 생성 (환자 정보 포함)
         user_info = {
             "name": clean_name,
-            "birthdate": request.birthdate,
+            "birthdate": request.birthdate.strip(),  # 공백 제거
             "phone_no": request.phone_no,
             "gender": request.gender,
-            "private_auth_type": request.private_auth_type
+            "private_auth_type": private_auth_type  # 검증된 인증 방식 저장
         }
+        
+        print(f"💾 [세션생성] 저장할 user_info:")
+        print(f"   - name: {user_info['name']}")
+        print(f"   - birthdate: {user_info['birthdate']} (길이: {len(user_info['birthdate'])})")
+        print(f"   - phone_no: {user_info['phone_no'][:3]}*** (마스킹)")
+        print(f"   - gender: {user_info['gender']}")
+        print(f"   - private_auth_type: '{user_info['private_auth_type']}' (타입: {type(user_info['private_auth_type'])})")
         
         session_id = session_manager.create_session(user_info)
         
@@ -225,8 +263,42 @@ async def session_simple_auth(
         
         user_info = session_data["user_info"]
         
-        # 선택된 인증 방법 확인
-        private_auth_type = user_info.get("private_auth_type", "0")
+        # 세션에 저장된 데이터 확인 (디버깅)
+        print(f"📋 [simple-auth] 세션에서 가져온 user_info:")
+        print(f"   - name: {user_info.get('name', 'N/A')}")
+        print(f"   - birthdate: {user_info.get('birthdate', 'N/A')} (타입: {type(user_info.get('birthdate'))}, 길이: {len(user_info.get('birthdate', '')) if user_info.get('birthdate') else 0})")
+        print(f"   - phone_no: {user_info.get('phone_no', 'N/A')[:3]}*** (마스킹)")
+        print(f"   - private_auth_type: {user_info.get('private_auth_type', 'N/A')} (타입: {type(user_info.get('private_auth_type'))})")
+        
+        # 생년월일 검증
+        birthdate = user_info.get("birthdate", "").strip() if user_info.get("birthdate") else ""
+        if not birthdate or len(birthdate) == 0:
+            error_msg = "세션에 저장된 생년월일이 없습니다. 다시 입력해주세요."
+            print(f"❌ [simple-auth] {error_msg}")
+            session_manager.add_error_message(session_id, error_msg)
+            session_manager.update_session_status(session_id, "error", error_msg)
+            raise HTTPException(status_code=400, detail=error_msg)
+        
+        # 선택된 인증 방법 확인 (기본값 없이 필수 필드로 처리)
+        private_auth_type_raw = user_info.get("private_auth_type")
+        if not private_auth_type_raw:
+            error_msg = "세션에 저장된 인증 방식이 없습니다. 다시 시작해주세요."
+            print(f"❌ [simple-auth] {error_msg}")
+            session_manager.add_error_message(session_id, error_msg)
+            session_manager.update_session_status(session_id, "error", error_msg)
+            raise HTTPException(status_code=400, detail=error_msg)
+        
+        private_auth_type = str(private_auth_type_raw).strip()
+        
+        # 유효한 인증 방식인지 검증
+        VALID_AUTH_TYPES = ["0", "4", "6"]
+        if private_auth_type not in VALID_AUTH_TYPES:
+            error_msg = f"유효하지 않은 인증 방식입니다: {private_auth_type}. 지원되는 방식: {VALID_AUTH_TYPES}"
+            print(f"❌ [simple-auth] {error_msg}")
+            session_manager.add_error_message(session_id, error_msg)
+            session_manager.update_session_status(session_id, "error", error_msg)
+            raise HTTPException(status_code=400, detail=error_msg)
+        
         auth_type_names = {
             "0": "카카오톡",
             "4": "통신사Pass",
@@ -234,7 +306,18 @@ async def session_simple_auth(
         }
         auth_type_name = auth_type_names.get(private_auth_type, f"알 수 없음({private_auth_type})")
         
-        print(f"🔍 [틸코API] simple_auth 호출 - 사용자: {user_info['name']}, 인증방법: {auth_type_name} (타입: {private_auth_type})")
+        print(f"🚨 [틸코API최종검증] simple_auth 호출 전 최종 확인:")
+        print(f"   - 세션 ID: {session_id}")
+        print(f"   - 사용자: {user_info['name']}")
+        print(f"   - 인증방법: {auth_type_name} (코드: {private_auth_type})")
+        print(f"   - 세션에 저장된 값: {user_info.get('private_auth_type')}")
+        print(f"   - 최종 전달값: {private_auth_type}")
+        print(f"   - 유효성 검증: ✅ 통과")
+        print(f"🔍 [틸코API] simple_auth 파라미터:")
+        print(f"   - private_auth_type: '{private_auth_type}'")
+        print(f"   - user_name: '{user_info['name']}'")
+        print(f"   - birthdate: '{birthdate}' (길이: {len(birthdate)})")
+        print(f"   - phone_no: '{user_info['phone_no'][:3]}***' (마스킹)")
         
         # 간편인증 요청
         auth_messages = {
@@ -253,7 +336,7 @@ async def session_simple_auth(
         result = await simple_auth(
             private_auth_type,
             user_info["name"],
-            user_info["birthdate"],
+            birthdate,  # 검증된 birthdate 사용
             user_info["phone_no"]
         )
         print(f"🔍 [틸코API] simple_auth 응답: {result}")
@@ -285,9 +368,18 @@ async def session_simple_auth(
             session_data = session_manager.get_session(session_id)
             user_info = session_data.get("user_info", {})
             
+            # private_auth_type 필수 확인
+            private_auth_type_for_temp = user_info.get("private_auth_type")
+            if not private_auth_type_for_temp:
+                error_msg = "세션에 저장된 인증 방식이 없습니다. 다시 시작해주세요."
+                print(f"❌ [simple-auth] {error_msg}")
+                session_manager.add_error_message(session_id, error_msg)
+                session_manager.update_session_status(session_id, "error", error_msg)
+                raise HTTPException(status_code=400, detail=error_msg)
+            
             temp_auth_data = {
                 "cxId": cx_id,
-                "privateAuthType": user_info.get("private_auth_type", "0"),
+                "privateAuthType": str(private_auth_type_for_temp).strip(),
                 "reqTxId": result.get("ResultData", {}).get("ReqTxId", ""),
                 "token": result.get("ResultData", {}).get("Token", ""),
                 "txId": result.get("ResultData", {}).get("TxId", ""),
@@ -301,7 +393,7 @@ async def session_simple_auth(
             session_manager._save_session(session_id, session_data)
             
             # 인증 방법에 따른 메시지 설정
-            auth_type = user_info.get("private_auth_type", "0")
+            auth_type = str(private_auth_type_for_temp).strip()
             auth_messages = {
                 "0": "카카오톡에서 인증을 진행해주세요. 인증 완료를 기다리고 있습니다...",
                 "4": "통신사Pass에서 인증을 진행해주세요. 인증 완료를 기다리고 있습니다...", 
@@ -360,12 +452,22 @@ async def session_simple_auth(
             # 틸코 API 에러 처리
             error_code = result.get("ErrorCode", "알 수 없음")
             error_msg = result.get("Message", "인증 요청 실패")
+            error_log = result.get("ErrorLog", "")
+            
             print(f"❌ [틸코에러] ErrorCode: {error_code}, Message: {error_msg}")
+            if error_log:
+                print(f"❌ [틸코에러] ErrorLog: {error_log}")
             
-            session_manager.add_error_message(session_id, f"틸코 API 에러 ({error_code}): {error_msg}")
-            session_manager.update_session_status(session_id, "error", f"틸코 API 에러: {error_msg}")
+            # ErrorLog가 있으면 더 상세한 메시지 생성
+            if error_log:
+                detailed_error_msg = f"틸코 API 에러 ({error_code}): {error_msg}\n\n상세 오류: {error_log}"
+            else:
+                detailed_error_msg = f"틸코 API 에러 ({error_code}): {error_msg}"
             
-            raise HTTPException(status_code=400, detail=f"틸코 API 에러 ({error_code}): {error_msg}")
+            session_manager.add_error_message(session_id, detailed_error_msg)
+            session_manager.update_session_status(session_id, "error", detailed_error_msg)
+            
+            raise HTTPException(status_code=400, detail=detailed_error_msg)
             
     except HTTPException:
         raise
@@ -1142,8 +1244,51 @@ async def collect_health_data_background_task(session_id: str):
             
             if health_data.get("Status") == "Error":
                 error_msg = health_data.get("Message", "건강검진 데이터 수집 실패")
-                session_manager.add_error_message(session_id, f"건강검진 데이터 오류: {error_msg}")
-                print(f"❌ [백그라운드] 건강검진 데이터 오류: {error_msg}")
+                error_code = health_data.get("ErrorCode", 0)
+                error_log = health_data.get("ErrorLog", "")
+                
+                # 사용자 정보 오류인 경우 (인증 정보 불일치)
+                is_user_info_error = (
+                    "입력하신 정보" in error_msg or 
+                    "인증을 진행할 수 없습니다" in error_msg or
+                    "사용자 정보" in error_msg or
+                    "확인 후 다시 시도" in error_msg
+                )
+                
+                if is_user_info_error:
+                    # 사용자 정보 재확인 필요 상태로 변경
+                    detailed_error = {
+                        "type": "user_info_error",
+                        "title": "사용자 정보 확인 필요",
+                        "message": error_msg,
+                        "error_code": error_code,
+                        "error_log": error_log,
+                        "requires_info_recheck": True,
+                        "retry_available": True
+                    }
+                    session_manager.add_error_message(session_id, detailed_error)
+                    session_manager.update_session_status(
+                        session_id, 
+                        "info_required", 
+                        "입력하신 정보를 확인해주세요. 이름, 생년월일, 전화번호가 정확한지 확인 후 다시 시도해주세요."
+                    )
+                    print(f"❌ [백그라운드] 건강검진 데이터 오류 (사용자 정보 오류): {error_msg}")
+                    print(f"   ErrorCode: {error_code}, ErrorLog: {error_log}")
+                    # 사용자 정보 오류인 경우 처방전 수집도 중단
+                    return
+                else:
+                    # 기타 오류 (일시적 오류 등)
+                    detailed_error = {
+                        "type": "health_data_error",
+                        "title": "건강검진 데이터 수집 실패",
+                        "message": error_msg,
+                        "error_code": error_code,
+                        "error_log": error_log,
+                        "retry_available": True
+                    }
+                    session_manager.add_error_message(session_id, detailed_error)
+                    print(f"❌ [백그라운드] 건강검진 데이터 오류: {error_msg}")
+                    # 기타 오류는 처방전 수집 계속 진행
             else:
                 session_manager.update_health_data(session_id, health_data)
                 print(f"✅ [백그라운드] 건강검진 데이터 수집 성공")
@@ -1180,21 +1325,54 @@ async def collect_health_data_background_task(session_id: str):
             
             if prescription_data.get("Status") == "Error":
                 error_msg = prescription_data.get("ErrMsg", prescription_data.get("Message", "처방전 데이터 수집 실패"))
+                error_code = prescription_data.get("ErrorCode", 0)
                 technical_detail = prescription_data.get("TechnicalDetail", "")
+                error_log = prescription_data.get("ErrorLog", "")
                 
-                # 사용자 친화적 에러 메시지와 기술적 상세 정보 분리
-                user_friendly_error = {
-                    "type": "prescription_error",
-                    "title": "처방전 데이터 수집 실패",
-                    "message": error_msg,
-                    "technical_detail": technical_detail,
-                    "retry_available": True
-                }
+                # 사용자 정보 오류인 경우 (인증 정보 불일치)
+                is_user_info_error = (
+                    "입력하신 정보" in error_msg or 
+                    "인증을 진행할 수 없습니다" in error_msg or
+                    "사용자 정보" in error_msg or
+                    "확인 후 다시 시도" in error_msg or
+                    error_code == 8801005  # 통신 오류지만 사용자 정보 문제일 수 있음
+                )
                 
-                session_manager.add_error_message(session_id, user_friendly_error)
-                print(f"❌ [백그라운드] 처방전 데이터 오류: {error_msg}")
-                if technical_detail:
-                    print(f"   기술적 상세: {technical_detail}")
+                if is_user_info_error:
+                    # 사용자 정보 재확인 필요 상태로 변경
+                    detailed_error = {
+                        "type": "user_info_error",
+                        "title": "사용자 정보 확인 필요",
+                        "message": error_msg,
+                        "error_code": error_code,
+                        "error_log": error_log,
+                        "technical_detail": technical_detail,
+                        "requires_info_recheck": True,
+                        "retry_available": True
+                    }
+                    session_manager.add_error_message(session_id, detailed_error)
+                    session_manager.update_session_status(
+                        session_id, 
+                        "info_required", 
+                        "입력하신 정보를 확인해주세요. 이름, 생년월일, 전화번호가 정확한지 확인 후 다시 시도해주세요."
+                    )
+                    print(f"❌ [백그라운드] 처방전 데이터 오류 (사용자 정보 오류): {error_msg}")
+                    print(f"   ErrorCode: {error_code}, ErrorLog: {error_log}")
+                else:
+                    # 기타 오류 (일시적 오류 등)
+                    user_friendly_error = {
+                        "type": "prescription_error",
+                        "title": "처방전 데이터 수집 실패",
+                        "message": error_msg,
+                        "error_code": error_code,
+                        "error_log": error_log,
+                        "technical_detail": technical_detail,
+                        "retry_available": True
+                    }
+                    session_manager.add_error_message(session_id, user_friendly_error)
+                    print(f"❌ [백그라운드] 처방전 데이터 오류: {error_msg}")
+                    if technical_detail:
+                        print(f"   기술적 상세: {technical_detail}")
             else:
                 session_manager.update_prescription_data(session_id, prescription_data)
                 print(f"✅ [백그라운드] 처방전 데이터 수집 성공")
@@ -1468,9 +1646,15 @@ async def streaming_auth_monitor(session_id: str):
                 # user_info에서 필요한 데이터 추출
                 user_info = session_data.get("user_info", {})
                 
+                # private_auth_type 필수 확인
+                private_auth_type_for_streaming = temp_auth_data.get("privateAuthType") or user_info.get("private_auth_type")
+                if not private_auth_type_for_streaming:
+                    print(f"❌ [스트리밍모니터] 세션에 저장된 인증 방식이 없습니다.")
+                    break
+                
                 auth_data = {
                     "CxId": temp_auth_data.get("cxId"),
-                    "PrivateAuthType": temp_auth_data.get("privateAuthType") or user_info.get("private_auth_type", "0"),
+                    "PrivateAuthType": str(private_auth_type_for_streaming).strip(),
                     "ReqTxId": temp_auth_data.get("reqTxId"),
                     "Token": temp_auth_data.get("token"),
                     "TxId": temp_auth_data.get("txId"),

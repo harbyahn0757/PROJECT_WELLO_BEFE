@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/wello/static/css/main.4cfc6a6c.css",
-    "main.js": "/wello/static/js/main.f7d630ec.js",
+    "main.css": "/wello/static/css/main.9ee4b57f.css",
+    "main.js": "/wello/static/js/main.aafa6d8d.js",
     "static/media/doc_nobg.png": "/wello/static/media/doc_nobg.777d6a56e64ed09e0ed9.png",
     "static/media/healthy_potato_nobg.png": "/wello/static/media/healthy_potato_nobg.6382d3f877e453c1c65a.png",
     "static/media/tired_potato_nobg.png": "/wello/static/media/tired_potato_nobg.d192812b130c8e6c1370.png",
@@ -12,11 +12,11 @@
     "static/media/welno_logo 2.png": "/wello/static/media/welno_logo 2.d5d3162e5efabf82cc24.png",
     "static/media/pass.png": "/wello/static/media/pass.203049a9f19b1e505577.png",
     "index.html": "/wello/index.html",
-    "main.4cfc6a6c.css.map": "/wello/static/css/main.4cfc6a6c.css.map",
-    "main.f7d630ec.js.map": "/wello/static/js/main.f7d630ec.js.map"
+    "main.9ee4b57f.css.map": "/wello/static/css/main.9ee4b57f.css.map",
+    "main.aafa6d8d.js.map": "/wello/static/js/main.aafa6d8d.js.map"
   },
   "entrypoints": [
-    "static/css/main.4cfc6a6c.css",
-    "static/js/main.f7d630ec.js"
+    "static/css/main.9ee4b57f.css",
+    "static/js/main.aafa6d8d.js"
   ]
 }

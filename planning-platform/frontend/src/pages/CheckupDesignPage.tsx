@@ -236,12 +236,7 @@ const CheckupDesignPage: React.FC = () => {
               <div className="spinner"></div>
             </div>
             <p className="loading-spinner__message">{loadingMessage}</p>
-            {loadingStage === 'sending' && (
-              <p className="loading-spinner__sub-message">서버로 전송 중입니다...</p>
-            )}
-            {loadingStage === 'processing' && (
-              <p className="loading-spinner__sub-message">AI가 분석하고 있습니다...</p>
-            )}
+            <p className="loading-spinner__sub-message">데이터를 정제 중이에요...</p>
           </div>
         </div>
       </div>

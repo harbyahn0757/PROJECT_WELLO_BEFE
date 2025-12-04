@@ -328,6 +328,50 @@ async def create_checkup_design(
                 ai_response = merge_checkup_design_responses(step1_result, step2_result)
                 logger.info(f"✅ [검진설계] 병합 완료 - 최종 결과 키: {list(ai_response.keys())}")
                 
+                # priority_1 검증: hospital_national_checkup의 일반 카테고리만 포함되는지 확인
+                try:
+                    summary = ai_response.get("summary", {})
+                    if isinstance(summary, dict):
+                        priority_1 = summary.get("priority_1", {})
+                        if isinstance(priority_1, dict) and priority_1.get("items"):
+                            priority_1_items = priority_1.get("items", [])
+                            if priority_1_items and hospital_national_checkup:
+                                # hospital_national_checkup에서 일반/기본검진 카테고리 항목만 추출
+                                general_items = []
+                                for item in hospital_national_checkup:
+                                    if isinstance(item, dict):
+                                        category = item.get("category", "").lower()
+                                        # 일반 또는 기본검진 카테고리만 포함
+                                        if category in ["일반", "기본검진", "basic", "general"]:
+                                            item_name = item.get("name", "") or item.get("item_name", "")
+                                            if item_name:
+                                                general_items.append(item_name)
+                                            # items 배열이 있으면 그 안의 항목들도 포함
+                                            if item.get("items"):
+                                                for sub_item in item.get("items", []):
+                                                    if isinstance(sub_item, str):
+                                                        general_items.append(sub_item)
+                                
+                                # priority_1.items가 일반 카테고리에 포함되는지 검증
+                                invalid_items = []
+                                for p1_item in priority_1_items:
+                                    if isinstance(p1_item, str):
+                                        # 정확히 일치하거나 부분 일치하는지 확인
+                                        found = False
+                                        for gen_item in general_items:
+                                            if p1_item == gen_item or gen_item in p1_item or p1_item in gen_item:
+                                                found = True
+                                                break
+                                        if not found:
+                                            invalid_items.append(p1_item)
+                                
+                                if invalid_items:
+                                    logger.warning(f"⚠️ [검진설계] priority_1에 일반 카테고리가 아닌 항목 발견: {invalid_items}")
+                                    logger.warning(f"⚠️ [검진설계] 일반 카테고리 항목 목록: {general_items}")
+                                    # 경고만 하고 계속 진행 (GPT가 프롬프트를 따르지 않았을 수 있음)
+                except Exception as validation_error:
+                    logger.warning(f"⚠️ [검진설계] priority_1 검증 중 오류 (무시): {str(validation_error)}")
+                
                 # Citations 추출 (STEP 2에서 온 citations 사용)
                 citations = []
                 if "_citations" in step2_result:

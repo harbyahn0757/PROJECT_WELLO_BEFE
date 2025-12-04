@@ -18,7 +18,7 @@ interface TermsAgreement {
 interface TermsAgreementModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (agreedTerms: string[], termsAgreement?: TermsAgreement) => void;
+  onConfirm: (agreedTerms: string[], termsAgreement?: TermsAgreement) => void | Promise<void>;
 }
 
 interface TermItem {
@@ -233,10 +233,14 @@ const TermsAgreementModal: React.FC<TermsAgreementModalProps> = ({
         agreed_at: new Date().toISOString()
       };
 
-      // onConfirm에 약관 동의 정보 전달
-      onConfirm(agreedTerms, termsAgreement);
+      // onConfirm에 약관 동의 정보 전달 (비동기 완료 대기)
+      const confirmResult = onConfirm(agreedTerms, termsAgreement);
+      if (confirmResult && typeof confirmResult.then === 'function') {
+        await confirmResult;
+      }
       
       setIsLoading(false);
+      // onConfirm 완료 후 모달 닫기
       onClose();
     } catch (error) {
       console.error('약관 동의 처리 실패:', error);

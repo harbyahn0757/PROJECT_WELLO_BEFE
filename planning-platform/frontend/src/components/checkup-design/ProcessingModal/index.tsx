@@ -364,14 +364,31 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
           // 카드 1 완료 후 카드 2로 전환
           setTimeout(() => {
             setCurrentCardIndex(2);
+            // 카드 2로 전환 시 바로 타이핑 시작 (텍스트 초기화)
+            typingStateRef.current.textIndex = 0;
+            setIsTyping(true);
+            setTypingText('');
+            typingTimeoutRef.current = setTimeout(typeNextChar, 100);
           }, CARD_SLIDE_DELAY);
         } else if (state.cardIndex === 1) {
           setCard2TypingComplete(true);
-          // 카드 2 완료 후 카드 3은 모든 작업 완료 시 표시
+          // 카드 2 완료 후 프로세스 카드로 전환 (반복)
+          setTimeout(() => {
+            setCurrentCardIndex(0); // 프로세스 카드로 돌아감
+            // 프로세스 카드 표시 후 다시 분석 카드로
+            setTimeout(() => {
+              // 다시 첫 번째 분석 카드로 (반복)
+              typingStateRef.current = { cardIndex: 0, textIndex: 0 };
+              setCurrentCardIndex(1);
+              setIsTyping(true);
+              setTypingText('');
+              typingTimeoutRef.current = setTimeout(typeNextChar, 100);
+            }, 2000); // 프로세스 카드 표시 시간
+          }, CARD_SLIDE_DELAY);
         }
         
         // 다음 카드가 있으면 이동
-        if (state.cardIndex < cardsToType.length - 1) {
+        if (state.cardIndex < cardsToType.length - 1 && state.cardIndex !== 1) {
           setTimeout(() => {
             state.cardIndex++;
             state.textIndex = 0;
@@ -380,15 +397,17 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
             setCurrentCardIndex(nextCardIndex);
             setIsTyping(true);
             setTypingText('');
-            typingTimeoutRef.current = setTimeout(typeNextChar, 500);
+            typingTimeoutRef.current = setTimeout(typeNextChar, 100);
           }, CARD_SLIDE_DELAY); // 카드 전환 딜레이
         }
       }
     };
 
-    // 첫 번째 카드(카드 1) 표시 전 7초 딜레이, 그 후 타이핑 시작
+    // 첫 번째 카드(카드 1) 표시 전 7초 딜레이, 그 후 카드 슬라이드와 함께 타이핑 시작
     typingTimeoutRef.current = setTimeout(() => {
+      // 카드 슬라이드와 동시에 타이핑 시작 (텍스트는 빈 상태로 시작)
       setIsTyping(true);
+      setTypingText('');
       typeNextChar();
     }, FIRST_CARD_DELAY);
 
@@ -452,7 +471,7 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
               {/* 카드 0: 기본 프로세스 단계 + 전체 프로그레스 (처음부터 표시) */}
               <div className={`processing-modal__step1-card ${currentCardIndex === 0 ? 'active' : currentCardIndex > 0 ? 'slide-out' : 'active'}`}>
                 <div className="processing-modal__step1-card-header">
-                  <h4 className="processing-modal__step1-card-title">실제 프로세스 단계:</h4>
+                  <h4 className="processing-modal__step1-card-title">제공 사항 분석 중...</h4>
                   {currentStage.estimatedTime && (
                     <span className="processing-modal__details-time">{currentStage.estimatedTime}</span>
                   )}
@@ -501,12 +520,17 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
                     <h4 className="processing-modal__step1-card-title">문진 반영 내용:</h4>
                   </div>
                   <div className="processing-modal__step1-card-content">
-                    {currentCardIndex === 1 && isTyping && typingText ? (
-                      <>
-                        {parseHighlightText(typingText)}
+                    {currentCardIndex === 1 && isTyping ? (
+                      typingText ? (
+                        <>
+                          {parseHighlightText(typingText)}
+                          <span className="processing-modal__typing-cursor"></span>
+                        </>
+                      ) : (
+                        // 타이핑 시작 전 빈 상태
                         <span className="processing-modal__typing-cursor"></span>
-                      </>
-                    ) : currentCardIndex === 1 || card1TypingComplete ? (
+                      )
+                    ) : currentCardIndex === 1 && card1TypingComplete ? (
                       parseHighlightText(step1Result.survey_reflection)
                     ) : (
                       // 빈 카드 상태
@@ -542,12 +566,17 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
                     )}
                     
                     {/* 두 번째 단계 내용 */}
-                    {currentCardIndex === 2 && isTyping && typingText ? (
-                      <>
-                        {parseHighlightText(typingText)}
+                    {currentCardIndex === 2 && isTyping ? (
+                      typingText ? (
+                        <>
+                          {parseHighlightText(typingText)}
+                          <span className="processing-modal__typing-cursor"></span>
+                        </>
+                      ) : (
+                        // 타이핑 시작 전 빈 상태
                         <span className="processing-modal__typing-cursor"></span>
-                      </>
-                    ) : currentCardIndex === 2 || card2TypingComplete ? (
+                      )
+                    ) : currentCardIndex === 2 && card2TypingComplete ? (
                       step1Result.selected_concerns_analysis.map((item: any, index: number) => (
                         <div key={index} className="processing-modal__step1-concern-item">
                           <div className="processing-modal__step1-concern-name">
@@ -587,7 +616,7 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
               {/* 카드 3: 전체 프로그레스 (최종) */}
               <div className={`processing-modal__step1-card ${currentCardIndex === 3 ? 'active' : ''}`}>
                 <div className="processing-modal__step1-card-header">
-                  <h4 className="processing-modal__step1-card-title">실제 프로세스 단계:</h4>
+                  <h4 className="processing-modal__step1-card-title">제공 사항 분석 중...</h4>
                   {currentStage.estimatedTime && (
                     <span className="processing-modal__details-time">{currentStage.estimatedTime}</span>
                   )}

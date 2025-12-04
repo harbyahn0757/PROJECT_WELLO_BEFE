@@ -101,7 +101,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     if (!healthDataItem) {
       // 개발 모드에서만 경고 출력
       if (process.env.NODE_ENV === 'development') {
-        console.warn(`⚠️ [getHealthRanges] ${metric} - healthDataItem이 null/undefined입니다`);
+      console.warn(`⚠️ [getHealthRanges] ${metric} - healthDataItem이 null/undefined입니다`);
       }
       return null;
     }
@@ -109,10 +109,10 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     if (!healthDataItem?.raw_data) {
       // 개발 모드에서만 경고 출력
       if (process.env.NODE_ENV === 'development') {
-        console.warn(`⚠️ [getHealthRanges] ${metric} - raw_data가 없습니다:`, {
-          healthDataItem: healthDataItem,
-          hasRawData: !!healthDataItem?.raw_data
-        });
+      console.warn(`⚠️ [getHealthRanges] ${metric} - raw_data가 없습니다:`, {
+        healthDataItem: healthDataItem,
+        hasRawData: !!healthDataItem?.raw_data
+      });
       }
       return null;
     }
@@ -123,11 +123,11 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     if (!rawData.Inspections || !Array.isArray(rawData.Inspections)) {
       // 개발 모드에서만 경고 출력
       if (process.env.NODE_ENV === 'development') {
-        console.warn(`⚠️ [getHealthRanges] ${metric} - Inspections가 없거나 배열이 아닙니다:`, {
-          hasInspections: !!rawData.Inspections,
-          isArray: Array.isArray(rawData.Inspections),
-          rawData: rawData
-        });
+      console.warn(`⚠️ [getHealthRanges] ${metric} - Inspections가 없거나 배열이 아닙니다:`, {
+        hasInspections: !!rawData.Inspections,
+        isArray: Array.isArray(rawData.Inspections),
+        rawData: rawData
+      });
       }
       return null;
     }
@@ -183,15 +183,15 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     if (!foundItem) {
       // 개발 모드에서만 경고 출력
       if (process.env.NODE_ENV === 'development') {
-        console.warn(`⚠️ [getHealthRanges] ${metric} - 해당 지표를 찾을 수 없습니다.`, {
-          metric,
-          검색한이름: metric.replace(' (수축기)', '').replace(' (이완기)', ''),
-          사용가능한Item이름들: allItemNames,
-          rawData구조: {
-            hasInspections: !!rawData.Inspections,
-            inspectionsCount: rawData.Inspections?.length || 0
-          }
-        });
+      console.warn(`⚠️ [getHealthRanges] ${metric} - 해당 지표를 찾을 수 없습니다.`, {
+        metric,
+        검색한이름: metric.replace(' (수축기)', '').replace(' (이완기)', ''),
+        사용가능한Item이름들: allItemNames,
+        rawData구조: {
+          hasInspections: !!rawData.Inspections,
+          inspectionsCount: rawData.Inspections?.length || 0
+        }
+      });
       }
       return null;
     }
@@ -265,12 +265,12 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     } else {
       // 개발 모드에서만 경고 출력
       if (process.env.NODE_ENV === 'development') {
-        console.warn(`⚠️ [getHealthRanges] ${metric} - ItemReferences 없음 또는 배열 아님:`, {
-          item: item,
-          hasItemReferences: !!item?.ItemReferences,
-          isArray: Array.isArray(item?.ItemReferences),
-          itemReferences: item?.ItemReferences
-        });
+      console.warn(`⚠️ [getHealthRanges] ${metric} - ItemReferences 없음 또는 배열 아님:`, {
+        item: item,
+        hasItemReferences: !!item?.ItemReferences,
+        isArray: Array.isArray(item?.ItemReferences),
+        itemReferences: item?.ItemReferences
+      });
       }
       return null;
     }
@@ -351,7 +351,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     } catch (error) {
       // 개발 모드에서만 경고 출력
       if (process.env.NODE_ENV === 'development') {
-        console.warn('정상 범위 파싱 실패:', rangeStr, error);
+      console.warn('정상 범위 파싱 실패:', rangeStr, error);
       }
       return null;
     }
@@ -499,7 +499,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     } catch (error) {
       // 개발 모드에서만 경고 출력
       if (process.env.NODE_ENV === 'development') {
-        console.warn('범위 체크 실패:', rangeStr, error);
+      console.warn('범위 체크 실패:', rangeStr, error);
       }
       return false;
     }
@@ -1034,7 +1034,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                             // 🔧 데이터에 명시된 범위에 해당하지 않는 경우 - 임의 판정하지 않음
                             // 문제 발생 시에만 로그 출력 (개발 모드에서만)
                             if (process.env.NODE_ENV === 'development') {
-                              console.warn(`⚠️ [${metric}] healthRanges 범위 체크 실패 - 값: ${pointValue}, normal: ${healthRanges.normal ? `${healthRanges.normal.min}-${healthRanges.normal.max}` : '없음'}, borderline: ${healthRanges.borderline ? `${healthRanges.borderline.min}-${healthRanges.borderline.max}` : '없음'}, abnormal: ${healthRanges.abnormal ? `${healthRanges.abnormal.min}-${healthRanges.abnormal.max}` : '없음'}`);
+                            console.warn(`⚠️ [${metric}] healthRanges 범위 체크 실패 - 값: ${pointValue}, normal: ${healthRanges.normal ? `${healthRanges.normal.min}-${healthRanges.normal.max}` : '없음'}, borderline: ${healthRanges.borderline ? `${healthRanges.borderline.min}-${healthRanges.borderline.max}` : '없음'}, abnormal: ${healthRanges.abnormal ? `${healthRanges.abnormal.min}-${healthRanges.abnormal.max}` : '없음'}`);
                             }
                           }
                         }
@@ -1049,7 +1049,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                         // 문제 발생 시에만 로그 출력
                         // 개발 모드에서만 경고 출력
                         if (process.env.NODE_ENV === 'development') {
-                          console.warn(`⚠️ [${metric}] 포인트 상태 계산 실패 - 데이터에 명시된 범위에 해당하지 않음, 값: ${pointValue}`);
+                        console.warn(`⚠️ [${metric}] 포인트 상태 계산 실패 - 데이터에 명시된 범위에 해당하지 않음, 값: ${pointValue}`);
                         }
                         return 'neutral' as const;
                       })();

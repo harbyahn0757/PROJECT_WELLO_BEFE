@@ -111,11 +111,53 @@ const CollectingDataPage: React.FC = () => {
           newProgress.isCompleted = true;
           break;
 
+        case 'info_required':
+          newProgress.hasError = true;
+          newProgress.currentStep = '정보 확인 필요';
+          newProgress.message = '입력하신 정보를 확인해주세요.';
+          // 에러 메시지에서 상세 정보 추출
+          const errorMessages = result.messages || [];
+          const lastError = errorMessages[errorMessages.length - 1];
+          if (lastError && lastError.message) {
+            const errorMsg = typeof lastError.message === 'object' 
+              ? lastError.message.message || lastError.message.title || '입력하신 정보를 확인해주세요.'
+              : lastError.message;
+            newProgress.errorMessage = errorMsg;
+          } else {
+            newProgress.errorMessage = '이름, 생년월일, 전화번호가 정확한지 확인 후 다시 시도해주세요.';
+          }
+          // 정보 확인 페이지로 리다이렉트
+          setTimeout(() => {
+            console.log('⚠️ [수집페이지] 정보 확인 필요 - 로그인 페이지로 이동');
+            navigate(`/login?uuid=${uuid}&hospital=${hospital}&info_required=true`);
+          }, 3000);
+          break;
+
         case 'error':
           newProgress.hasError = true;
           newProgress.currentStep = '오류 발생';
           newProgress.message = '데이터 수집 중 오류가 발생했습니다.';
-          newProgress.errorMessage = result.error_message || '알 수 없는 오류';
+          // 에러 메시지에서 상세 정보 추출
+          const errorMsgs = result.messages || [];
+          const lastErr = errorMsgs[errorMsgs.length - 1];
+          if (lastErr && lastErr.message) {
+            const errMsg = typeof lastErr.message === 'object' 
+              ? lastErr.message.message || lastErr.message.title || '알 수 없는 오류'
+              : lastErr.message;
+            
+            // 사용자 정보 오류인 경우 정보 확인 페이지로 리다이렉트
+            if (typeof lastErr.message === 'object' && lastErr.message.requires_info_recheck) {
+              newProgress.errorMessage = errMsg;
+              setTimeout(() => {
+                console.log('⚠️ [수집페이지] 사용자 정보 오류 - 로그인 페이지로 이동');
+                navigate(`/login?uuid=${uuid}&hospital=${hospital}&info_required=true`);
+              }, 3000);
+            } else {
+              newProgress.errorMessage = errMsg;
+            }
+          } else {
+            newProgress.errorMessage = result.error_message || '알 수 없는 오류';
+          }
           break;
 
         default:

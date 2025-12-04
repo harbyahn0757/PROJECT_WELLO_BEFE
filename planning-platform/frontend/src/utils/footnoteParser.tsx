@@ -59,12 +59,12 @@ export function parseFootnotes(text: string, references?: string[]): ParsedText 
     }
     
     // 각주 번호 저장 (각주 번호는 1부터 시작, 배열은 0부터 시작)
-    const footnoteIndex = match.index; // 각주 번호 (1, 2, 3...)
-    if (references && references.length >= footnoteIndex) {
+    const footnoteNumber = match.index; // 각주 번호 (1, 2, 3...) - FootnoteMatch 객체의 index 필드 사용
+    if (references && references.length >= footnoteNumber) {
       // 각주 번호 [1] = references[0], [2] = references[1] ...
-      const refUrl = references[footnoteIndex - 1];
+      const refUrl = references[footnoteNumber - 1];
       if (refUrl) {
-        footnotes.set(footnoteIndex, refUrl);
+        footnotes.set(footnoteNumber, refUrl);
       }
     }
     
@@ -72,7 +72,7 @@ export function parseFootnotes(text: string, references?: string[]): ParsedText 
     parts.push({
       text: match.text,
       isFootnote: true,
-      footnoteIndex: match.index // 각주 번호 저장
+      footnoteIndex: footnoteNumber // 각주 번호 저장
     });
     
     lastIndex = match.end;
