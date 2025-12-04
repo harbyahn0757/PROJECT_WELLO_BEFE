@@ -10,6 +10,25 @@ import './MainPage.scss'; // MainPage 헤더 스타일 재사용
 import './CheckupRecommendationsPage.scss';
 import '../components/shared/BackButton/styles.scss'; // BackButton 스타일 재사용
 
+/**
+ * 텍스트에서 실제로 사용된 각주 번호들을 추출
+ * @param text 각주가 포함된 텍스트
+ * @returns 사용된 각주 번호 배열 (예: [1, 2, 3])
+ */
+const extractFootnoteNumbers = (text: string): number[] => {
+  if (!text) return [];
+  const footnoteRegex = /\[(\d+)\]/g;
+  const matches: number[] = [];
+  let match;
+  while ((match = footnoteRegex.exec(text)) !== null) {
+    const footnoteNum = parseInt(match[1], 10);
+    if (!matches.includes(footnoteNum)) {
+      matches.push(footnoteNum);
+    }
+  }
+  return matches.sort((a, b) => a - b); // 오름차순 정렬
+};
+
 // 목업 데이터 타입 정의
 interface CheckupItem {
   id: string;
@@ -348,6 +367,7 @@ const CheckupRecommendationsPage: React.FC = () => {
 
   // 아코디언 상태 관리 (기본적으로 첫 번째 카테고리 펼침)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set()); // 각 아이템 아코디언 상태
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState<boolean>(false);
 
   // priority 아코디언 기본 펼침 상태 설정
@@ -377,6 +397,19 @@ const CheckupRecommendationsPage: React.FC = () => {
         newSet.delete(categoryName);
       } else {
         newSet.add(categoryName);
+      }
+      return newSet;
+    });
+  };
+
+  // 아이템 아코디언 토글
+  const toggleItem = (itemId: string) => {
+    setExpandedItems((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
       }
       return newSet;
     });
@@ -1177,15 +1210,7 @@ const CheckupRecommendationsPage: React.FC = () => {
                 }}>
                   <div className="checkup-recommendations__card-header-left">
                     <h3 className="checkup-recommendations__card-title">{removePriorityPrefix(recommendationData.summary.priority_1.title)}</h3>
-                    {recommendationData.summary.priority_1.focus_items && recommendationData.summary.priority_1.focus_items.length > 0 && (
-                      <div className="checkup-recommendations__card-header-badges">
-                        {recommendationData.summary.priority_1.focus_items.map((item: any, idx: number) => (
-                          <span key={idx} className="checkup-recommendations__card-header-badge">
-                            {item.item_name}
-                    </span>
-                        ))}
-                      </div>
-                    )}
+                    {/* 상단 뱃지 제거 */}
                   </div>
                   <div className="checkup-recommendations__card-arrow">
                     <svg
@@ -1226,31 +1251,43 @@ const CheckupRecommendationsPage: React.FC = () => {
                         </div>
                         <div className="checkup-recommendations__doctor-box-text">
                             {renderTextWithFootnotes(cleanedNote, priority1References)}
-                            {/* 각주 리스트 표시 */}
-                            {priority1References && priority1References.length > 0 && (
-                              <div className="checkup-recommendations__footnotes">
-                                {priority1References.map((ref: string, refIndex: number) => {
-                                  const isUrl = ref.startsWith('http://') || ref.startsWith('https://');
-                                  return (
-                                    <div key={refIndex} className="checkup-recommendations__footnote-item">
-                                      <span className="checkup-recommendations__footnote-number">[{refIndex + 1}]</span>
-                                      {isUrl ? (
-                                        <a 
-                                          href={ref} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className="checkup-recommendations__footnote-link"
-                                        >
-                                          {ref}
-                                        </a>
-                                      ) : (
-                                        <span className="checkup-recommendations__footnote-text">{ref}</span>
-                                      )}
-                        </div>
-                                  );
-                                })}
-                      </div>
-                    )}
+                            {/* 각주 리스트 표시 - 텍스트에 실제로 사용된 각주만 표시 */}
+                            {(() => {
+                              const usedFootnoteNumbers = extractFootnoteNumbers(cleanedNote);
+                              
+                              if (usedFootnoteNumbers.length === 0) {
+                                return null;
+                              }
+                              
+                              return (
+                                <div className="checkup-recommendations__footnotes">
+                                  {usedFootnoteNumbers.map((footnoteNum: number) => {
+                                    const refIndex = footnoteNum - 1;
+                                    const ref = priority1References && priority1References.length > refIndex ? priority1References[refIndex] : null;
+                                    
+                                    return (
+                                      <div key={footnoteNum} className="checkup-recommendations__footnote-item">
+                                        <span className="checkup-recommendations__footnote-number">[{footnoteNum}]</span>
+                                        {ref ? (
+                                          (ref.startsWith('http://') || ref.startsWith('https://')) ? (
+                                            <a 
+                                              href={ref} 
+                                              target="_blank" 
+                                              rel="noopener noreferrer"
+                                              className="checkup-recommendations__footnote-link"
+                                            >
+                                              [링크]
+                                            </a>
+                                          ) : (
+                                            <span className="checkup-recommendations__footnote-text">{ref}</span>
+                                          )
+                                        ) : null}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
                   </div>
                         </div>
                       );
@@ -1260,84 +1297,213 @@ const CheckupRecommendationsPage: React.FC = () => {
                     {recommendationData.summary.priority_1.focus_items && recommendationData.summary.priority_1.focus_items.length > 0 && (
                       <div className="checkup-recommendations__focus-items">
                         {recommendationData.summary.priority_1.focus_items.map((item: any, idx: number) => {
-                          // priority_1의 items에 해당하는 recommended_items에서 references 찾기
-                          const findReferencesForItem = (itemName: string): string[] => {
-                            const category = recommendationData.categories.find(cat => cat.priorityLevel === 1);
-                            if (category) {
-                              const foundItem = category.items.find((it: any) => it.name === itemName);
-                              return (foundItem as any)?.references || [];
+                          // priority_1의 items에 해당하는 recommended_items에서 references, evidence, description 찾기
+                          // 매칭 로직: 정확 일치 → 부분 포함 → 정규화 후 매칭
+                          const findItemData = (itemName: string): { references: string[], evidence?: string, description?: string } => {
+                            if (!itemName) return { references: [] };
+                            
+                            // 정규화 함수: 공백, 괄호, 특수문자 제거 후 소문자 변환
+                            const normalize = (str: string): string => {
+                              return str
+                                .replace(/\s+/g, '') // 공백 제거
+                                .replace(/[()（）]/g, '') // 괄호 제거
+                                .replace(/[등및]/g, '') // "등", "및" 제거
+                                .toLowerCase();
+                            };
+                            
+                            const normalizedItemName = normalize(itemName);
+                            
+                            // 모든 1순위 카테고리를 순회
+                            const priority1Categories = recommendationData.categories.filter(cat => cat.priorityLevel === 1);
+                            
+                            for (const category of priority1Categories) {
+                              if (!category.items || category.items.length === 0) continue;
+                              
+                              for (const categoryItem of category.items) {
+                                const categoryItemName = (categoryItem as any)?.name || '';
+                                if (!categoryItemName) continue;
+                                
+                                // 1. 정확 일치
+                                if (categoryItemName === itemName) {
+                                  return {
+                                    references: (categoryItem as any)?.references || [],
+                                    evidence: (categoryItem as any)?.evidence,
+                                    description: (categoryItem as any)?.description
+                                  };
+                                }
+                                
+                                // 2. 부분 포함 (itemName이 categoryItemName을 포함하거나 그 반대)
+                                if (categoryItemName.includes(itemName) || itemName.includes(categoryItemName)) {
+                                  return {
+                                    references: (categoryItem as any)?.references || [],
+                                    evidence: (categoryItem as any)?.evidence,
+                                    description: (categoryItem as any)?.description
+                                  };
+                                }
+                                
+                                // 3. 정규화 후 매칭
+                                const normalizedCategoryName = normalize(categoryItemName);
+                                if (normalizedItemName === normalizedCategoryName) {
+                                  return {
+                                    references: (categoryItem as any)?.references || [],
+                                    evidence: (categoryItem as any)?.evidence,
+                                    description: (categoryItem as any)?.description
+                                  };
+                                }
+                                
+                                // 4. 정규화 후 부분 포함
+                                if (normalizedItemName.includes(normalizedCategoryName) || 
+                                    normalizedCategoryName.includes(normalizedItemName)) {
+                                  return {
+                                    references: (categoryItem as any)?.references || [],
+                                    evidence: (categoryItem as any)?.evidence,
+                                    description: (categoryItem as any)?.description
+                                  };
+                                }
+                                
+                                // 5. priority_1.items 배열과도 매칭 시도
+                                const priority1Items = recommendationData.summary?.priority_1?.items || [];
+                                if (priority1Items.includes(categoryItemName) && 
+                                    (priority1Items.includes(itemName) || itemName.includes(categoryItemName))) {
+                                  return {
+                                    references: (categoryItem as any)?.references || [],
+                                    evidence: (categoryItem as any)?.evidence,
+                                    description: (categoryItem as any)?.description
+                                  };
+                                }
+                              }
                             }
-                            return [];
+                            
+                            return { references: [] };
                           };
-                          const itemReferences = findReferencesForItem(item.item_name);
+                          const itemData = findItemData(item.item_name);
+                          const itemReferences = itemData.references;
+                          const itemEvidence = itemData.evidence;
+                          const itemDescription = itemData.description;
                           
                           return (
                             <div key={idx} className="checkup-recommendations__focus-item">
                               {item.why_important && (
                                 <div className="checkup-recommendations__focus-item-section">
+                                  {/* description을 "왜 중요한지" 섹션 상단으로 이동 */}
+                                  {itemDescription && (
+                                    <div className="checkup-recommendations__item-description">
+                                      <span className="checkup-recommendations__item-info-icon">
+                                        ⓘ
+                                      </span>
+                                      <span className="checkup-recommendations__item-description-text">
+                                        {itemDescription}
+                                      </span>
+                                    </div>
+                                  )}
                                   <div className="checkup-recommendations__focus-item-header">
                                     <span className="checkup-recommendations__focus-item-label">왜 중요한지:</span>
                                     <span className="checkup-recommendations__focus-item-badge">{item.item_name}</span>
                                   </div>
                                   <div className="checkup-recommendations__focus-item-text">
                                     {renderTextWithFootnotes(item.why_important, itemReferences)}
+                                    {item.check_point && (
+                                      <>
+                                        {' '}
+                                        {renderTextWithFootnotes(item.check_point, itemReferences)}
+                                      </>
+                                    )}
                                   </div>
-                                  {/* 각주 리스트 표시 */}
-                                  {itemReferences && itemReferences.length > 0 && (
-                                    <div className="checkup-recommendations__footnotes">
-                                      {itemReferences.map((ref: string, refIndex: number) => {
-                                        const isUrl = ref.startsWith('http://') || ref.startsWith('https://');
+                                  {/* 각주 리스트 표시 - 텍스트에 실제로 사용된 각주만 표시 */}
+                                  {(() => {
+                                    // 텍스트에서 실제로 사용된 각주 번호 추출
+                                    const combinedText = `${item.why_important || ''} ${item.check_point || ''}`;
+                                    const usedFootnoteNumbers = extractFootnoteNumbers(combinedText);
+                                    
+                                    // 각주 참조가 없으면 표시하지 않음 (텍스트에 각주가 없으면)
+                                    if (usedFootnoteNumbers.length === 0) {
+                                      return null;
+                                    }
+                                    
+                                    return (
+                                      <div className="checkup-recommendations__footnotes">
+                                        {usedFootnoteNumbers.map((footnoteNum: number) => {
+                                          // 각주 번호는 1부터 시작, 배열은 0부터 시작
+                                          const refIndex = footnoteNum - 1;
+                                          const ref = itemReferences && itemReferences.length > refIndex ? itemReferences[refIndex] : null;
+                                          
+                                          return (
+                                            <div key={footnoteNum} className="checkup-recommendations__footnote-item">
+                                              <span className="checkup-recommendations__footnote-number">[{footnoteNum}]</span>
+                                              {ref ? (
+                                                (ref.startsWith('http://') || ref.startsWith('https://')) ? (
+                                                  <a 
+                                                    href={ref} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer"
+                                                    className="checkup-recommendations__footnote-link"
+                                                  >
+                                                    [링크]
+                                                  </a>
+                                                ) : (
+                                                  <span className="checkup-recommendations__footnote-text">{ref}</span>
+                                                )
+                                              ) : null}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    );
+                                  })()}
+                                  {/* 의학적 근거를 "왜 중요한지" 섹션 하단으로 이동 */}
+                                  {itemEvidence && (
+                                    <div className="checkup-recommendations__item-evidence">
+                                      <span className="checkup-recommendations__item-evidence-label">의학적 근거:</span>
+                                      <span className="checkup-recommendations__item-evidence-text">
+                                        {renderTextWithFootnotes(
+                                          itemEvidence,
+                                          itemReferences
+                                        )}
+                                      </span>
+                                      {/* 각주 리스트 표시 - 텍스트에 실제로 사용된 각주만 표시 */}
+                                      {(() => {
+                                        if (!itemEvidence || !itemReferences || itemReferences.length === 0) {
+                                          return null;
+                                        }
+                                        
+                                        // 텍스트에서 실제로 사용된 각주 번호 추출
+                                        const usedFootnoteNumbers = extractFootnoteNumbers(itemEvidence);
+                                        
+                                        // 각주 참조가 없으면 표시하지 않음
+                                        if (usedFootnoteNumbers.length === 0) {
+                                          return null;
+                                        }
+                                        
                                         return (
-                                          <div key={refIndex} className="checkup-recommendations__footnote-item">
-                                            <span className="checkup-recommendations__footnote-number">[{refIndex + 1}]</span>
-                                            {isUrl ? (
-                                              <a 
-                                                href={ref} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="checkup-recommendations__footnote-link"
-                                              >
-                                                {ref}
-                                              </a>
-                                            ) : (
-                                              <span className="checkup-recommendations__footnote-text">{ref}</span>
-                                            )}
+                                          <div className="checkup-recommendations__footnotes">
+                                            {usedFootnoteNumbers.map((footnoteNum: number) => {
+                                              // 각주 번호는 1부터 시작, 배열은 0부터 시작
+                                              const refIndex = footnoteNum - 1;
+                                              const ref = itemReferences && itemReferences.length > refIndex ? itemReferences[refIndex] : null;
+                                              
+                                              return (
+                                                <div key={footnoteNum} className="checkup-recommendations__footnote-item">
+                                                  <span className="checkup-recommendations__footnote-number">[{footnoteNum}]</span>
+                                                  {ref ? (
+                                                    (ref.startsWith('http://') || ref.startsWith('https://')) ? (
+                                                      <a 
+                                                        href={ref} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        className="checkup-recommendations__footnote-link"
+                                                      >
+                                                        [링크]
+                                                      </a>
+                                                    ) : (
+                                                      <span className="checkup-recommendations__footnote-text">{ref}</span>
+                                                    )
+                                                  ) : null}
+                                                </div>
+                                              );
+                                            })}
                                           </div>
                                         );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              {item.check_point && (
-                                <div className="checkup-recommendations__focus-item-section">
-                                  <span className="checkup-recommendations__focus-item-label">확인 포인트:</span>
-                                  <div className="checkup-recommendations__focus-item-text">
-                                    {renderTextWithFootnotes(item.check_point, itemReferences)}
-                                  </div>
-                                  {/* 각주 리스트 표시 */}
-                                  {itemReferences && itemReferences.length > 0 && (
-                                    <div className="checkup-recommendations__footnotes">
-                                      {itemReferences.map((ref: string, refIndex: number) => {
-                                        const isUrl = ref.startsWith('http://') || ref.startsWith('https://');
-                                        return (
-                                          <div key={refIndex} className="checkup-recommendations__footnote-item">
-                                            <span className="checkup-recommendations__footnote-number">[{refIndex + 1}]</span>
-                                            {isUrl ? (
-                                              <a 
-                                                href={ref} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="checkup-recommendations__footnote-link"
-                                              >
-                                                {ref}
-                                              </a>
-                                            ) : (
-                                              <span className="checkup-recommendations__footnote-text">{ref}</span>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
+                                      })()}
                                     </div>
                                   )}
                                 </div>
@@ -1351,201 +1517,7 @@ const CheckupRecommendationsPage: React.FC = () => {
                   </div>
                 )}
               </div>
-
-              {/* 1순위 카테고리들 */}
-              {recommendationData.categories
-                .filter((category) => category.priorityLevel === 1)
-                .map((category) => {
-                  const isExpanded = expandedCategories.has(category.categoryName);
-                  // 1순위 우선순위 카드가 있으면 중복 설명 숨김
-                  const hasPriorityCard = !!recommendationData.summary?.priority_1;
-                  return (
-                    <div
-                      key={category.categoryName}
-                      className={`checkup-recommendations__card ${
-                        isExpanded ? 'checkup-recommendations__card--expanded' : ''
-                      }`}
-                    >
-                      {/* 카드 헤더 */}
-                      <div
-                        className="checkup-recommendations__card-header"
-                        onClick={() => toggleCategory(category.categoryName)}
-                      >
-                        <div className="checkup-recommendations__card-header-left">
-                          <h3 className="checkup-recommendations__card-title">
-                            {category.categoryName}
-                          </h3>
-                        </div>
-                        <div className="checkup-recommendations__card-arrow">
-                          <svg
-                            className={`checkup-recommendations__card-arrow-icon ${
-                              isExpanded ? 'expanded' : 'collapsed'
-                            }`}
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <polyline points="6,9 12,15 18,9"></polyline>
-                          </svg>
-                        </div>
-                      </div>
-
-                      {/* 우선순위 설명 (카테고리 헤더 아래) - 우선순위 카드가 있으면 숨김 */}
-                      {category.priorityDescription && !hasPriorityCard && (
-                        <div className="checkup-recommendations__category-priority-description">
-                          {category.priorityDescription}
-                        </div>
-                      )}
-
-                      {/* 카드 내용 (펼쳐짐 시) */}
-                      {isExpanded && (
-                        <div className="checkup-recommendations__card-content">
-                          {/* 카테고리 설명 (우선순위 설명 반복 표시) - 우선순위 카드가 있으면 숨김 */}
-                          {category.priorityDescription && !hasPriorityCard && (
-                            <div className="checkup-recommendations__category-description-in-content">
-                              <span className="checkup-recommendations__category-description-label">이 카테고리는 {category.priorityLevel}순위입니다:</span>
-                              <span className="checkup-recommendations__category-description-text">{category.priorityDescription}</span>
-                            </div>
-                          )}
-                          
-                          {category.items.map((item) => (
-                            <div
-                              key={item.id}
-                              className="checkup-recommendations__checkup-item"
-                            >
-                              <div className="checkup-recommendations__checkbox-wrapper">
-                                <input
-                                  type="checkbox"
-                                  id={item.id}
-                                  className="checkup-recommendations__checkbox"
-                                  defaultChecked={item.recommended}
-                                />
-                                <label
-                                  htmlFor={item.id}
-                                  className="checkup-recommendations__checkbox-label"
-                                >
-                                  {item.name}
-                                  {/* 난이도/비용 뱃지 표시 */}
-                                  {(item as any).difficulty_level && (
-                                    <span className={`checkup-recommendations__difficulty-badge checkup-recommendations__difficulty-badge--${(item as any).difficulty_level.toLowerCase()}`}>
-                                      {(item as any).difficulty_badge || 
-                                        ((item as any).difficulty_level === 'Low' ? '부담없는' :
-                                         (item as any).difficulty_level === 'Mid' ? '추천' : '프리미엄')}
-                                    </span>
-                                  )}
-                                </label>
-                              </div>
-                              {item.description && (
-                                <div className="checkup-recommendations__item-description">
-                                  <span className="checkup-recommendations__item-info-icon">
-                                    ⓘ
-                                  </span>
-                                  <span className="checkup-recommendations__item-description-text">
-                                    {item.description}
-                                  </span>
-                                </div>
-                              )}
-                              {/* 추천 이유 표시 - 우선순위 카드가 있으면 숨김 (중복 방지) */}
-                              {(item as any).reason && !hasPriorityCard && (
-                                <div className="checkup-recommendations__item-reason">
-                                  <span className="checkup-recommendations__item-reason-label">추천 이유:</span>
-                                  <span className="checkup-recommendations__item-reason-text">
-                                    {renderTextWithFootnotes(
-                                      (item as any).reason,
-                                      (item as any).references
-                                    )}
-                                  </span>
-                                  {/* 각주 리스트 표시 */}
-                                  {(item as any).references && Array.isArray((item as any).references) && (item as any).references.length > 0 && (
-                                    <div className="checkup-recommendations__footnotes">
-                                      {(item as any).references.map((ref: string, refIndex: number) => {
-                                        const isUrl = ref.startsWith('http://') || ref.startsWith('https://');
-                                        return (
-                                          <div key={refIndex} className="checkup-recommendations__footnote-item">
-                                            <span className="checkup-recommendations__footnote-number">[{refIndex + 1}]</span>
-                                            {isUrl ? (
-                                              <a 
-                                                href={ref} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="checkup-recommendations__footnote-link"
-                                              >
-                                                {ref}
-                                              </a>
-                                            ) : (
-                                              <span className="checkup-recommendations__footnote-text">{ref}</span>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              {/* 의학적 근거 표시 (GPT 응답에 evidence가 있는 경우, 각주 포함) */}
-                              {(item as any).evidence && (
-                                <div className="checkup-recommendations__item-evidence">
-                                  <span className="checkup-recommendations__item-evidence-label">의학적 근거:</span>
-                                  <span className="checkup-recommendations__item-evidence-text">
-                                    {renderTextWithFootnotes(
-                                      (item as any).evidence,
-                                      (item as any).references
-                                    )}
-                                  </span>
-                                  {/* 각주 리스트 표시 */}
-                                  {(item as any).references && Array.isArray((item as any).references) && (item as any).references.length > 0 && (
-                                    <div className="checkup-recommendations__footnotes">
-                                      {(item as any).references.map((ref: string, refIndex: number) => {
-                                        const isUrl = ref.startsWith('http://') || ref.startsWith('https://');
-                                        return (
-                                          <div key={refIndex} className="checkup-recommendations__footnote-item">
-                                            <span className="checkup-recommendations__footnote-number">[{refIndex + 1}]</span>
-                                            {isUrl ? (
-                                              <a 
-                                                href={ref} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="checkup-recommendations__footnote-link"
-                                              >
-                                                {ref}
-                                              </a>
-                                            ) : (
-                                              <span className="checkup-recommendations__footnote-text">{ref}</span>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-
-                          {/* 의사 추천 박스 */}
-                          {category.doctorRecommendation?.hasRecommendation && (
-                            <div className="checkup-recommendations__doctor-box">
-                              <div className="checkup-recommendations__doctor-box-image">
-                                <img
-                                  src={checkPlannerImage}
-                                  alt="의사 일러스트"
-                                  className="checkup-recommendations__doctor-illustration"
-                                />
-                              </div>
-                              <div className="checkup-recommendations__doctor-box-text">
-                                {renderHighlightedText(
-                                  category.doctorRecommendation.message,
-                                  category.doctorRecommendation.highlightedText
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              {/* 1순위 카테고리들 아코디언 제거 - priority_1 아코디언에 모든 정보가 통합됨 */}
                 </>
               )}
             </div>
@@ -1558,120 +1530,40 @@ const CheckupRecommendationsPage: React.FC = () => {
           <>
             <div className="checkup-recommendations__section-header">
               <h2 className="checkup-recommendations__section-title">
-                추가로 검사 해보세요
+                이 검사도 고민해보세요
               </h2>
-              <span className="checkup-recommendations__total-badge">
-                총 {(recommendationData.summary?.priority_2?.count || 0) + (recommendationData.summary?.priority_3?.count || 0) + 
-                  recommendationData.categories
-                    .filter(cat => cat.priorityLevel === 2 || cat.priorityLevel === 3)
-                    .reduce((sum, cat) => sum + cat.itemCount, 0)}개
-              </span>
             </div>
 
             {/* 2순위, 3순위 검진 항목 카드들 */}
             <div className="checkup-recommendations__cards">
-              {/* 2순위 섹션: 우선순위 카드 + 2순위 카테고리들 */}
-              {recommendationData.summary?.priority_2 && (
-            <>
-              {/* 2순위 우선순위 카드 */}
-              <div className="checkup-recommendations__card checkup-recommendations__card--priority-2">
-                <div className="checkup-recommendations__card-header" onClick={() => {
-                  const categoryName = `priority_2_${recommendationData.summary?.priority_2?.title || '2순위'}`;
-                  toggleCategory(categoryName);
-                }}>
-                  <div className="checkup-recommendations__card-header-left">
-                    <h3 className="checkup-recommendations__card-title">{removePriorityPrefix(recommendationData.summary.priority_2.title)}</h3>
-                  </div>
-                  <div className="checkup-recommendations__card-arrow">
-                    <svg
-                      className={`checkup-recommendations__card-arrow-icon ${
-                        expandedCategories.has(`priority_2_${recommendationData.summary?.priority_2?.title || '2순위'}`) ? 'expanded' : 'collapsed'
-                      }`}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <polyline points="6,9 12,15 18,9"></polyline>
-                    </svg>
-                  </div>
-                </div>
-                {expandedCategories.has(`priority_2_${recommendationData.summary?.priority_2?.title || '2순위'}`) && (
-                  <div className="checkup-recommendations__card-content">
-                    <p className="checkup-recommendations__card-description">{recommendationData.summary.priority_2.description}</p>
-                    <div className="checkup-recommendations__priority-items">
-                      {recommendationData.summary.priority_2.items.map((item, idx) => (
-                        <div key={idx} className="checkup-recommendations__priority-item">
-                          <span className="checkup-recommendations__priority-item-name">{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 2순위 카테고리들 (comprehensive 카테고리, 최대 3개) */}
+              {/* 2순위 카테고리들 (comprehensive 카테고리, 최대 3개) - priority_2 아코디언 제거 */}
               {recommendationData.categories
                 .filter((category) => category.priorityLevel === 2)
                 .slice(0, 3) // comprehensive 카테고리 중 상위 3개만
                 .map((category) => {
-                  const isExpanded = expandedCategories.has(category.categoryName);
                   // 2순위 우선순위 카드가 있으면 중복 설명 숨김
                   const hasPriorityCard = !!recommendationData.summary?.priority_2;
                   return (
-                    <div
-                      key={category.categoryName}
-                      className={`checkup-recommendations__card ${
-                        isExpanded ? 'checkup-recommendations__card--expanded' : ''
-                      }`}
-                    >
-                      {/* 카드 헤더 */}
-                      <div
-                        className="checkup-recommendations__card-header"
-                        onClick={() => toggleCategory(category.categoryName)}
-                      >
-                        <div className="checkup-recommendations__card-header-left">
-                          <h3 className="checkup-recommendations__card-title">
-                            {category.categoryName}
-                          </h3>
-                        </div>
-                        <div className="checkup-recommendations__card-arrow">
-                          <svg
-                            className={`checkup-recommendations__card-arrow-icon ${
-                              isExpanded ? 'expanded' : 'collapsed'
-                            }`}
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <polyline points="6,9 12,15 18,9"></polyline>
-                          </svg>
-                        </div>
+                    <div key={category.categoryName} className="checkup-recommendations__category-section">
+                      {/* 카테고리명 - (줄) */}
+                      <div className="checkup-recommendations__category-title-divider">
+                        <h3 className="checkup-recommendations__category-title">{category.categoryName}</h3>
+                        <div className="checkup-recommendations__category-divider"></div>
                       </div>
-
-                      {/* 우선순위 설명 (카테고리 헤더 아래) - 우선순위 카드가 있으면 숨김 */}
-                      {category.priorityDescription && !hasPriorityCard && (
-                        <div className="checkup-recommendations__category-priority-description">
-                          {category.priorityDescription}
-                        </div>
-                      )}
-
-                      {/* 카드 내용 (펼쳐짐 시) */}
-                      {isExpanded && (
-                        <div className="checkup-recommendations__card-content">
-                          {/* 카테고리 설명 (우선순위 설명 반복 표시) - 우선순위 카드가 있으면 숨김 */}
-                          {category.priorityDescription && !hasPriorityCard && (
-                            <div className="checkup-recommendations__category-description-in-content">
-                              <span className="checkup-recommendations__category-description-label">이 카테고리는 {category.priorityLevel}순위입니다:</span>
-                              <span className="checkup-recommendations__category-description-text">{category.priorityDescription}</span>
-                            </div>
-                          )}
                           
-                          {category.items.map((item) => (
+                      {category.items.map((item) => {
+                        const isItemExpanded = expandedItems.has(item.id);
+                        return (
+                          <div
+                            key={item.id}
+                            className={`checkup-recommendations__item-accordion ${
+                              isItemExpanded ? 'checkup-recommendations__item-accordion--expanded' : ''
+                            }`}
+                          >
+                            {/* 아이템 아코디언 헤더 (체크박스 포함) */}
                             <div
-                              key={item.id}
-                              className="checkup-recommendations__checkup-item"
+                              className="checkup-recommendations__item-accordion-header"
+                              onClick={() => toggleItem(item.id)}
                             >
                               <div className="checkup-recommendations__checkbox-wrapper">
                                 <input
@@ -1679,10 +1571,12 @@ const CheckupRecommendationsPage: React.FC = () => {
                                   id={item.id}
                                   className="checkup-recommendations__checkbox"
                                   defaultChecked={item.recommended}
+                                  onClick={(e) => e.stopPropagation()} // 체크박스 클릭 시 아코디언 토글 방지
                                 />
                                 <label
                                   htmlFor={item.id}
                                   className="checkup-recommendations__checkbox-label"
+                                  onClick={(e) => e.stopPropagation()} // 라벨 클릭 시 아코디언 토글 방지
                                 >
                                   {item.name}
                                   {/* 난이도/비용 뱃지 표시 */}
@@ -1695,92 +1589,353 @@ const CheckupRecommendationsPage: React.FC = () => {
                                   )}
                                 </label>
                               </div>
-                              {item.description && (
-                                <div className="checkup-recommendations__item-description">
-                                  <span className="checkup-recommendations__item-info-icon">
-                                    ⓘ
-                                  </span>
-                                  <span className="checkup-recommendations__item-description-text">
-                                    {item.description}
-                                  </span>
-                                </div>
-                              )}
-                              {/* 추천 이유 표시 - 우선순위 카드가 있으면 숨김 (중복 방지) */}
-                              {(item as any).reason && !hasPriorityCard && (
-                                <div className="checkup-recommendations__item-reason">
-                                  <span className="checkup-recommendations__item-reason-label">추천 이유:</span>
-                                  <span className="checkup-recommendations__item-reason-text">
-                                    {renderTextWithFootnotes(
-                                      (item as any).reason,
-                                      (item as any).references
-                                    )}
-                                  </span>
-                                  {/* 각주 리스트 표시 */}
-                                  {(item as any).references && Array.isArray((item as any).references) && (item as any).references.length > 0 && (
-                                    <div className="checkup-recommendations__footnotes">
-                                      {(item as any).references.map((ref: string, refIndex: number) => {
-                                        const isUrl = ref.startsWith('http://') || ref.startsWith('https://');
-                                        return (
-                                          <div key={refIndex} className="checkup-recommendations__footnote-item">
-                                            <span className="checkup-recommendations__footnote-number">[{refIndex + 1}]</span>
-                                            {isUrl ? (
-                                              <a 
-                                                href={ref} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="checkup-recommendations__footnote-link"
-                                              >
-                                                {ref}
-                                              </a>
-                                            ) : (
-                                              <span className="checkup-recommendations__footnote-text">{ref}</span>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              {/* 의학적 근거 표시 (GPT 응답에 evidence가 있는 경우, 각주 포함) */}
-                              {(item as any).evidence && (
-                                <div className="checkup-recommendations__item-evidence">
-                                  <span className="checkup-recommendations__item-evidence-label">의학적 근거:</span>
-                                  <span className="checkup-recommendations__item-evidence-text">
-                                    {renderTextWithFootnotes(
-                                      (item as any).evidence,
-                                      (item as any).references
-                                    )}
-                                  </span>
-                                  {/* 각주 리스트 표시 */}
-                                  {(item as any).references && Array.isArray((item as any).references) && (item as any).references.length > 0 && (
-                                    <div className="checkup-recommendations__footnotes">
-                                      {(item as any).references.map((ref: string, refIndex: number) => {
-                                        const isUrl = ref.startsWith('http://') || ref.startsWith('https://');
-                                        return (
-                                          <div key={refIndex} className="checkup-recommendations__footnote-item">
-                                            <span className="checkup-recommendations__footnote-number">[{refIndex + 1}]</span>
-                                            {isUrl ? (
-                                              <a 
-                                                href={ref} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="checkup-recommendations__footnote-link"
-                                              >
-                                                {ref}
-                                              </a>
-                                            ) : (
-                                              <span className="checkup-recommendations__footnote-text">{ref}</span>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                              <div className="checkup-recommendations__item-accordion-arrow">
+                                <svg
+                                  className={`checkup-recommendations__item-accordion-arrow-icon ${
+                                    isItemExpanded ? 'expanded' : 'collapsed'
+                                  }`}
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                >
+                                  <polyline points="6,9 12,15 18,9"></polyline>
+                                </svg>
+                              </div>
                             </div>
-                          ))}
+
+                            {/* 아이템 아코디언 내용 */}
+                            {isItemExpanded && (
+                              <div className="checkup-recommendations__item-accordion-content">
+                                {item.description && (
+                                  <div className="checkup-recommendations__item-description">
+                                    <span className="checkup-recommendations__item-info-icon">
+                                      ⓘ
+                                    </span>
+                                    <span className="checkup-recommendations__item-description-text">
+                                      {item.description}
+                                    </span>
+                                  </div>
+                                )}
+                                {/* 추천 이유 표시 - 우선순위 카드가 있으면 숨김 (중복 방지) */}
+                                {(item as any).reason && !hasPriorityCard && (
+                                  <div className="checkup-recommendations__item-reason">
+                                    <span className="checkup-recommendations__item-reason-label">추천 이유:</span>
+                                    <span className="checkup-recommendations__item-reason-text">
+                                      {renderTextWithFootnotes(
+                                        (item as any).reason,
+                                        (item as any).references
+                                      )}
+                                    </span>
+                                    {/* 각주 리스트 표시 - 텍스트에 실제로 사용된 각주만 표시 */}
+                                    {(() => {
+                                      const reasonText = (item as any).reason || '';
+                                      const usedFootnoteNumbers = extractFootnoteNumbers(reasonText);
+                                      
+                                      if (usedFootnoteNumbers.length === 0 || !(item as any).references || !Array.isArray((item as any).references) || (item as any).references.length === 0) {
+                                        return null;
+                                      }
+                                      
+                                      return (
+                                        <div className="checkup-recommendations__footnotes">
+                                          {usedFootnoteNumbers.map((footnoteNum: number) => {
+                                            const refIndex = footnoteNum - 1;
+                                            const ref = (item as any).references && (item as any).references.length > refIndex ? (item as any).references[refIndex] : null;
+                                            
+                                            return (
+                                              <div key={footnoteNum} className="checkup-recommendations__footnote-item">
+                                                <span className="checkup-recommendations__footnote-number">[{footnoteNum}]</span>
+                                                {ref ? (
+                                                  (ref.startsWith('http://') || ref.startsWith('https://')) ? (
+                                                    <a 
+                                                      href={ref} 
+                                                      target="_blank" 
+                                                      rel="noopener noreferrer"
+                                                      className="checkup-recommendations__footnote-link"
+                                                    >
+                                                      [링크]
+                                                    </a>
+                                                  ) : (
+                                                    <span className="checkup-recommendations__footnote-text">{ref}</span>
+                                                  )
+                                                ) : null}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                )}
+                                {/* 의학적 근거 표시 (GPT 응답에 evidence가 있는 경우, 각주 포함) */}
+                                {(item as any).evidence && (
+                                  <div className="checkup-recommendations__item-evidence">
+                                    <span className="checkup-recommendations__item-evidence-label">의학적 근거:</span>
+                                    <span className="checkup-recommendations__item-evidence-text">
+                                      {renderTextWithFootnotes(
+                                        (item as any).evidence,
+                                        (item as any).references
+                                      )}
+                                    </span>
+                                    {/* 각주 리스트 표시 - 텍스트에 실제로 사용된 각주만 표시 */}
+                                    {(() => {
+                                      const evidenceText = (item as any).evidence || '';
+                                      const usedFootnoteNumbers = extractFootnoteNumbers(evidenceText);
+                                      
+                                      if (usedFootnoteNumbers.length === 0 || !(item as any).references || !Array.isArray((item as any).references) || (item as any).references.length === 0) {
+                                        return null;
+                                      }
+                                      
+                                      return (
+                                        <div className="checkup-recommendations__footnotes">
+                                          {usedFootnoteNumbers.map((footnoteNum: number) => {
+                                            const refIndex = footnoteNum - 1;
+                                            const ref = (item as any).references && (item as any).references.length > refIndex ? (item as any).references[refIndex] : null;
+                                            
+                                            return (
+                                              <div key={footnoteNum} className="checkup-recommendations__footnote-item">
+                                                <span className="checkup-recommendations__footnote-number">[{footnoteNum}]</span>
+                                                {ref ? (
+                                                  (ref.startsWith('http://') || ref.startsWith('https://')) ? (
+                                                    <a 
+                                                      href={ref} 
+                                                      target="_blank" 
+                                                      rel="noopener noreferrer"
+                                                      className="checkup-recommendations__footnote-link"
+                                                    >
+                                                      [링크]
+                                                    </a>
+                                                  ) : (
+                                                    <span className="checkup-recommendations__footnote-text">{ref}</span>
+                                                  )
+                                                ) : null}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })()}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* 의사 추천 박스 */}
+                      {category.doctorRecommendation?.hasRecommendation && (
+                        <div className="checkup-recommendations__doctor-box">
+                          <div className="checkup-recommendations__doctor-box-image">
+                            <img
+                              src={checkPlannerImage}
+                              alt="의사 일러스트"
+                              className="checkup-recommendations__doctor-illustration"
+                            />
+                          </div>
+                          <div className="checkup-recommendations__doctor-box-text">
+                            {renderHighlightedText(
+                              category.doctorRecommendation.message,
+                              category.doctorRecommendation.highlightedText
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* 3순위 섹션: 3순위 카테고리들만 (priority_3 아코디언 제거, 2순위와 동일한 구조) */}
+            {recommendationData.categories.some(cat => cat.priorityLevel === 3) && (
+              <>
+                {/* 3순위 카테고리들 (optional 카테고리, 최대 3개) - 2순위와 동일한 구조, 섹션 헤더 제거 */}
+                <div className="checkup-recommendations__cards">
+                  {recommendationData.categories
+                    .filter((category) => category.priorityLevel === 3)
+                    .slice(0, 3) // optional 카테고리 중 상위 3개만
+                    .map((category) => {
+                      // priority_3 아코디언 제거했으므로 항상 false
+                      const hasPriorityCard = false;
+                      return (
+                        <div key={category.categoryName} className="checkup-recommendations__category-section">
+                          {/* 카테고리명 - (줄) */}
+                          <div className="checkup-recommendations__category-title-divider">
+                            <h3 className="checkup-recommendations__category-title">{category.categoryName}</h3>
+                            <div className="checkup-recommendations__category-divider"></div>
+                          </div>
+                              
+                          {category.items.map((item) => {
+                            const isItemExpanded = expandedItems.has(item.id);
+                            return (
+                              <div
+                                key={item.id}
+                                className={`checkup-recommendations__item-accordion ${
+                                  isItemExpanded ? 'checkup-recommendations__item-accordion--expanded' : ''
+                                }`}
+                              >
+                                {/* 아이템 아코디언 헤더 (체크박스 포함) */}
+                                <div
+                                  className="checkup-recommendations__item-accordion-header"
+                                  onClick={() => toggleItem(item.id)}
+                                >
+                                  <div className="checkup-recommendations__checkbox-wrapper">
+                                    <input
+                                      type="checkbox"
+                                      id={item.id}
+                                      className="checkup-recommendations__checkbox"
+                                      defaultChecked={item.recommended}
+                                      onClick={(e) => e.stopPropagation()} // 체크박스 클릭 시 아코디언 토글 방지
+                                    />
+                                    <label
+                                      htmlFor={item.id}
+                                      className="checkup-recommendations__checkbox-label"
+                                      onClick={(e) => e.stopPropagation()} // 라벨 클릭 시 아코디언 토글 방지
+                                    >
+                                      {item.name}
+                                      {/* 난이도/비용 뱃지 표시 */}
+                                      {(item as any).difficulty_level && (
+                                        <span className={`checkup-recommendations__difficulty-badge checkup-recommendations__difficulty-badge--${(item as any).difficulty_level.toLowerCase()}`}>
+                                          {(item as any).difficulty_badge || 
+                                            ((item as any).difficulty_level === 'Low' ? '부담없는' :
+                                             (item as any).difficulty_level === 'Mid' ? '추천' : '프리미엄')}
+                                        </span>
+                                      )}
+                                    </label>
+                                  </div>
+                                  <div className="checkup-recommendations__item-accordion-arrow">
+                                    <svg
+                                      className={`checkup-recommendations__item-accordion-arrow-icon ${
+                                        isItemExpanded ? 'expanded' : 'collapsed'
+                                      }`}
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="2"
+                                    >
+                                      <polyline points="6,9 12,15 18,9"></polyline>
+                                    </svg>
+                                  </div>
+                                </div>
+
+                                {/* 아이템 아코디언 내용 */}
+                                {isItemExpanded && (
+                                  <div className="checkup-recommendations__item-accordion-content">
+                                    {item.description && (
+                                      <div className="checkup-recommendations__item-description">
+                                        <span className="checkup-recommendations__item-info-icon">
+                                          ⓘ
+                                        </span>
+                                        <span className="checkup-recommendations__item-description-text">
+                                          {item.description}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {/* 추천 이유 표시 - 우선순위 카드가 있으면 숨김 (중복 방지) */}
+                                    {(item as any).reason && !hasPriorityCard && (
+                                      <div className="checkup-recommendations__item-reason">
+                                        <span className="checkup-recommendations__item-reason-label">추천 이유:</span>
+                                        <span className="checkup-recommendations__item-reason-text">
+                                          {renderTextWithFootnotes(
+                                            (item as any).reason,
+                                            (item as any).references
+                                          )}
+                                        </span>
+                                        {/* 각주 리스트 표시 - 텍스트에 실제로 사용된 각주만 표시 */}
+                                        {(() => {
+                                          const reasonText = (item as any).reason || '';
+                                          const usedFootnoteNumbers = extractFootnoteNumbers(reasonText);
+                                          
+                                          if (usedFootnoteNumbers.length === 0 || !(item as any).references || !Array.isArray((item as any).references) || (item as any).references.length === 0) {
+                                            return null;
+                                          }
+                                          
+                                          return (
+                                            <div className="checkup-recommendations__footnotes">
+                                              {usedFootnoteNumbers.map((footnoteNum: number) => {
+                                                const refIndex = footnoteNum - 1;
+                                                const ref = (item as any).references && (item as any).references.length > refIndex ? (item as any).references[refIndex] : null;
+                                                
+                                                return (
+                                                  <div key={footnoteNum} className="checkup-recommendations__footnote-item">
+                                                    <span className="checkup-recommendations__footnote-number">[{footnoteNum}]</span>
+                                                    {ref ? (
+                                                      (ref.startsWith('http://') || ref.startsWith('https://')) ? (
+                                                        <a 
+                                                          href={ref} 
+                                                          target="_blank" 
+                                                          rel="noopener noreferrer"
+                                                          className="checkup-recommendations__footnote-link"
+                                                        >
+                                                          [링크]
+                                                        </a>
+                                                      ) : (
+                                                        <span className="checkup-recommendations__footnote-text">{ref}</span>
+                                                      )
+                                                    ) : null}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          );
+                                        })()}
+                                      </div>
+                                    )}
+                                    {/* 의학적 근거 표시 (GPT 응답에 evidence가 있는 경우, 각주 포함) */}
+                                    {(item as any).evidence && (
+                                      <div className="checkup-recommendations__item-evidence">
+                                        <span className="checkup-recommendations__item-evidence-label">의학적 근거:</span>
+                                        <span className="checkup-recommendations__item-evidence-text">
+                                          {renderTextWithFootnotes(
+                                            (item as any).evidence,
+                                            (item as any).references
+                                          )}
+                                        </span>
+                                        {/* 각주 리스트 표시 - 텍스트에 실제로 사용된 각주만 표시 */}
+                                        {(() => {
+                                          const evidenceText = (item as any).evidence || '';
+                                          const usedFootnoteNumbers = extractFootnoteNumbers(evidenceText);
+                                          
+                                          if (usedFootnoteNumbers.length === 0 || !(item as any).references || !Array.isArray((item as any).references) || (item as any).references.length === 0) {
+                                            return null;
+                                          }
+                                          
+                                          return (
+                                            <div className="checkup-recommendations__footnotes">
+                                              {usedFootnoteNumbers.map((footnoteNum: number) => {
+                                                const refIndex = footnoteNum - 1;
+                                                const ref = (item as any).references && (item as any).references.length > refIndex ? (item as any).references[refIndex] : null;
+                                                
+                                                return (
+                                                  <div key={footnoteNum} className="checkup-recommendations__footnote-item">
+                                                    <span className="checkup-recommendations__footnote-number">[{footnoteNum}]</span>
+                                                    {ref ? (
+                                                      (ref.startsWith('http://') || ref.startsWith('https://')) ? (
+                                                        <a 
+                                                          href={ref} 
+                                                          target="_blank" 
+                                                          rel="noopener noreferrer"
+                                                          className="checkup-recommendations__footnote-link"
+                                                        >
+                                                          [링크]
+                                                        </a>
+                                                      ) : (
+                                                        <span className="checkup-recommendations__footnote-text">{ref}</span>
+                                                      )
+                                                    ) : null}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          );
+                                        })()}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
 
                           {/* 의사 추천 박스 */}
                           {category.doctorRecommendation?.hasRecommendation && (
@@ -1801,262 +1956,15 @@ const CheckupRecommendationsPage: React.FC = () => {
                             </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-            </>
-          )}
-
-          {/* 3순위 섹션: 우선순위 카드 + 3순위 카테고리들 */}
-          {recommendationData.summary?.priority_3 && (
-            <>
-              {/* 3순위 섹션 헤더 */}
-              <div className="checkup-recommendations__section-header">
-                <h2 className="checkup-recommendations__section-title">
-                  이 검사도 고민해보세요
-                </h2>
-                <span className="checkup-recommendations__total-badge">
-                  {recommendationData.summary.priority_3.count}개
-                </span>
-              </div>
-              
-              {/* 3순위 우선순위 카드 */}
-              <div className="checkup-recommendations__card checkup-recommendations__card--priority-3">
-                <div className="checkup-recommendations__card-header" onClick={() => {
-                  const categoryName = `priority_3_${recommendationData.summary?.priority_3?.title || '3순위'}`;
-                  toggleCategory(categoryName);
-                }}>
-                  <div className="checkup-recommendations__card-header-left">
-                    <h3 className="checkup-recommendations__card-title">{removePriorityPrefix(recommendationData.summary.priority_3.title)}</h3>
-                  </div>
-                  <div className="checkup-recommendations__card-arrow">
-                    <svg
-                      className={`checkup-recommendations__card-arrow-icon ${
-                        expandedCategories.has(`priority_3_${recommendationData.summary?.priority_3?.title || '3순위'}`) ? 'expanded' : 'collapsed'
-                      }`}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <polyline points="6,9 12,15 18,9"></polyline>
-                    </svg>
-                  </div>
+                      );
+                    })}
                 </div>
-                {expandedCategories.has(`priority_3_${recommendationData.summary?.priority_3?.title || '3순위'}`) && (
-                  <div className="checkup-recommendations__card-content">
-                    <p className="checkup-recommendations__card-description">{recommendationData.summary.priority_3.description}</p>
-                    <div className="checkup-recommendations__priority-items">
-                      {recommendationData.summary.priority_3.items.map((item, idx) => (
-                        <div key={idx} className="checkup-recommendations__priority-item">
-                          <span className="checkup-recommendations__priority-item-name">{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              </>
+            )}
+          </>
+        )}
 
-              {/* 3순위 카테고리들 (optional 카테고리, 최대 3개) */}
-              {recommendationData.categories
-                .filter((category) => category.priorityLevel === 3)
-                .slice(0, 3) // optional 카테고리 중 상위 3개만
-                .map((category) => {
-                  const isExpanded = expandedCategories.has(category.categoryName);
-                  // 3순위 우선순위 카드가 있으면 중복 설명 숨김
-                  const hasPriorityCard = !!recommendationData.summary?.priority_3;
-                  return (
-                    <div
-                      key={category.categoryName}
-                      className={`checkup-recommendations__card ${
-                        isExpanded ? 'checkup-recommendations__card--expanded' : ''
-                      }`}
-                    >
-                      {/* 카드 헤더 */}
-                      <div
-                        className="checkup-recommendations__card-header"
-                        onClick={() => toggleCategory(category.categoryName)}
-                      >
-                        <div className="checkup-recommendations__card-header-left">
-                          <h3 className="checkup-recommendations__card-title">
-                            {category.categoryName}
-                          </h3>
-                        </div>
-                        <div className="checkup-recommendations__card-arrow">
-                          <svg
-                            className={`checkup-recommendations__card-arrow-icon ${
-                              isExpanded ? 'expanded' : 'collapsed'
-                            }`}
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <polyline points="6,9 12,15 18,9"></polyline>
-                          </svg>
-                        </div>
-                      </div>
-
-                      {/* 우선순위 설명 (카테고리 헤더 아래) - 우선순위 카드가 있으면 숨김 */}
-                      {category.priorityDescription && !hasPriorityCard && (
-                        <div className="checkup-recommendations__category-priority-description">
-                          {category.priorityDescription}
-                        </div>
-                      )}
-
-                      {/* 카드 내용 (펼쳐짐 시) */}
-                      {isExpanded && (
-                        <div className="checkup-recommendations__card-content">
-                          {/* 카테고리 설명 (우선순위 설명 반복 표시) - 우선순위 카드가 있으면 숨김 */}
-                          {category.priorityDescription && !hasPriorityCard && (
-                            <div className="checkup-recommendations__category-description-in-content">
-                              <span className="checkup-recommendations__category-description-label">이 카테고리는 {category.priorityLevel}순위입니다:</span>
-                              <span className="checkup-recommendations__category-description-text">{category.priorityDescription}</span>
-                            </div>
-                          )}
-                          
-                          {category.items.map((item) => (
-                            <div
-                              key={item.id}
-                              className="checkup-recommendations__checkup-item"
-                            >
-                              <div className="checkup-recommendations__checkbox-wrapper">
-                                <input
-                                  type="checkbox"
-                                  id={item.id}
-                                  className="checkup-recommendations__checkbox"
-                                  defaultChecked={item.recommended}
-                                />
-                                <label
-                                  htmlFor={item.id}
-                                  className="checkup-recommendations__checkbox-label"
-                                >
-                                  {item.name}
-                                  {/* 난이도/비용 뱃지 표시 */}
-                                  {(item as any).difficulty_level && (
-                                    <span className={`checkup-recommendations__difficulty-badge checkup-recommendations__difficulty-badge--${(item as any).difficulty_level.toLowerCase()}`}>
-                                      {(item as any).difficulty_badge || 
-                                        ((item as any).difficulty_level === 'Low' ? '부담없는' :
-                                         (item as any).difficulty_level === 'Mid' ? '추천' : '프리미엄')}
-                                    </span>
-                                  )}
-                                </label>
-                              </div>
-                              {item.description && (
-                                <div className="checkup-recommendations__item-description">
-                                  <span className="checkup-recommendations__item-info-icon">
-                                    ⓘ
-                                  </span>
-                                  <span className="checkup-recommendations__item-description-text">
-                                    {item.description}
-                                  </span>
-                                </div>
-                              )}
-                              {/* 추천 이유 표시 - 우선순위 카드가 있으면 숨김 (중복 방지) */}
-                              {(item as any).reason && !hasPriorityCard && (
-                                <div className="checkup-recommendations__item-reason">
-                                  <span className="checkup-recommendations__item-reason-label">추천 이유:</span>
-                                  <span className="checkup-recommendations__item-reason-text">
-                                    {renderTextWithFootnotes(
-                                      (item as any).reason,
-                                      (item as any).references
-                                    )}
-                                  </span>
-                                  {/* 각주 리스트 표시 */}
-                                  {(item as any).references && Array.isArray((item as any).references) && (item as any).references.length > 0 && (
-                                    <div className="checkup-recommendations__footnotes">
-                                      {(item as any).references.map((ref: string, refIndex: number) => {
-                                        const isUrl = ref.startsWith('http://') || ref.startsWith('https://');
-                                        return (
-                                          <div key={refIndex} className="checkup-recommendations__footnote-item">
-                                            <span className="checkup-recommendations__footnote-number">[{refIndex + 1}]</span>
-                                            {isUrl ? (
-                                              <a 
-                                                href={ref} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="checkup-recommendations__footnote-link"
-                                              >
-                                                {ref}
-                                              </a>
-                                            ) : (
-                                              <span className="checkup-recommendations__footnote-text">{ref}</span>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                              {/* 의학적 근거 표시 (GPT 응답에 evidence가 있는 경우, 각주 포함) */}
-                              {(item as any).evidence && (
-                                <div className="checkup-recommendations__item-evidence">
-                                  <span className="checkup-recommendations__item-evidence-label">의학적 근거:</span>
-                                  <span className="checkup-recommendations__item-evidence-text">
-                                    {renderTextWithFootnotes(
-                                      (item as any).evidence,
-                                      (item as any).references
-                                    )}
-                                  </span>
-                                  {/* 각주 리스트 표시 */}
-                                  {(item as any).references && Array.isArray((item as any).references) && (item as any).references.length > 0 && (
-                                    <div className="checkup-recommendations__footnotes">
-                                      {(item as any).references.map((ref: string, refIndex: number) => {
-                                        const isUrl = ref.startsWith('http://') || ref.startsWith('https://');
-                                        return (
-                                          <div key={refIndex} className="checkup-recommendations__footnote-item">
-                                            <span className="checkup-recommendations__footnote-number">[{refIndex + 1}]</span>
-                                            {isUrl ? (
-                                              <a 
-                                                href={ref} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="checkup-recommendations__footnote-link"
-                                              >
-                                                {ref}
-                                              </a>
-                                            ) : (
-                                              <span className="checkup-recommendations__footnote-text">{ref}</span>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-
-                          {/* 의사 추천 박스 */}
-                          {category.doctorRecommendation?.hasRecommendation && (
-                            <div className="checkup-recommendations__doctor-box">
-                              <div className="checkup-recommendations__doctor-box-image">
-                                <img
-                                  src={checkPlannerImage}
-                                  alt="의사 일러스트"
-                                  className="checkup-recommendations__doctor-illustration"
-                                />
-                              </div>
-                              <div className="checkup-recommendations__doctor-box-text">
-                                {renderHighlightedText(
-                                  category.doctorRecommendation.message,
-                                  category.doctorRecommendation.highlightedText
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-            </>
-          )}
-
-          {/* 우선순위가 없는 카테고리들 (priorityLevel이 없는 경우) - 추천검진 항목 섹션에 포함 */}
+        {/* 우선순위가 없는 카테고리들 (priorityLevel이 없는 경우) - 추천검진 항목 섹션에 포함 */}
           {recommendationData.categories
             .filter((category) => !category.priorityLevel)
             .map((category) => {
@@ -2159,31 +2067,44 @@ const CheckupRecommendationsPage: React.FC = () => {
                                 (item as any).references
                               )}
                             </span>
-                            {/* 각주 리스트 표시 */}
-                            {(item as any).references && Array.isArray((item as any).references) && (item as any).references.length > 0 && (
-                              <div className="checkup-recommendations__footnotes">
-                                {(item as any).references.map((ref: string, refIndex: number) => {
-                                  const isUrl = ref.startsWith('http://') || ref.startsWith('https://');
-                                  return (
-                                    <div key={refIndex} className="checkup-recommendations__footnote-item">
-                                      <span className="checkup-recommendations__footnote-number">[{refIndex + 1}]</span>
-                                      {isUrl ? (
-                                        <a 
-                                          href={ref} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className="checkup-recommendations__footnote-link"
-                                        >
-                                          {ref}
-                                        </a>
-                                      ) : (
-                                        <span className="checkup-recommendations__footnote-text">{ref}</span>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
+                            {/* 각주 리스트 표시 - 텍스트에 실제로 사용된 각주만 표시 */}
+                            {(() => {
+                              const reasonText = (item as any).reason || '';
+                              const usedFootnoteNumbers = extractFootnoteNumbers(reasonText);
+                              
+                              if (usedFootnoteNumbers.length === 0) {
+                                return null;
+                              }
+                              
+                              return (
+                                <div className="checkup-recommendations__footnotes">
+                                  {usedFootnoteNumbers.map((footnoteNum: number) => {
+                                    const refIndex = footnoteNum - 1;
+                                    const ref = (item as any).references && (item as any).references.length > refIndex ? (item as any).references[refIndex] : null;
+                                    
+                                    return (
+                                      <div key={footnoteNum} className="checkup-recommendations__footnote-item">
+                                        <span className="checkup-recommendations__footnote-number">[{footnoteNum}]</span>
+                                        {ref ? (
+                                          (ref.startsWith('http://') || ref.startsWith('https://')) ? (
+                                            <a 
+                                              href={ref} 
+                                              target="_blank" 
+                                              rel="noopener noreferrer"
+                                              className="checkup-recommendations__footnote-link"
+                                            >
+                                              [링크]
+                                            </a>
+                                          ) : (
+                                            <span className="checkup-recommendations__footnote-text">{ref}</span>
+                                          )
+                                        ) : null}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                         
@@ -2197,31 +2118,44 @@ const CheckupRecommendationsPage: React.FC = () => {
                                 (item as any).references
                               )}
                             </span>
-                            {/* 각주 리스트 표시 */}
-                            {(item as any).references && Array.isArray((item as any).references) && (item as any).references.length > 0 && (
-                              <div className="checkup-recommendations__footnotes">
-                                {(item as any).references.map((ref: string, refIndex: number) => {
-                                  const isUrl = ref.startsWith('http://') || ref.startsWith('https://');
-                                  return (
-                                    <div key={refIndex} className="checkup-recommendations__footnote-item">
-                                      <span className="checkup-recommendations__footnote-number">[{refIndex + 1}]</span>
-                                      {isUrl ? (
-                                        <a 
-                                          href={ref} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className="checkup-recommendations__footnote-link"
-                                        >
-                                          {ref}
-                                        </a>
-                                      ) : (
-                                        <span className="checkup-recommendations__footnote-text">{ref}</span>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
+                            {/* 각주 리스트 표시 - 텍스트에 실제로 사용된 각주만 표시 */}
+                            {(() => {
+                              const evidenceText = (item as any).evidence || '';
+                              const usedFootnoteNumbers = extractFootnoteNumbers(evidenceText);
+                              
+                              if (usedFootnoteNumbers.length === 0) {
+                                return null;
+                              }
+                              
+                              return (
+                                <div className="checkup-recommendations__footnotes">
+                                  {usedFootnoteNumbers.map((footnoteNum: number) => {
+                                    const refIndex = footnoteNum - 1;
+                                    const ref = (item as any).references && (item as any).references.length > refIndex ? (item as any).references[refIndex] : null;
+                                    
+                                    return (
+                                      <div key={footnoteNum} className="checkup-recommendations__footnote-item">
+                                        <span className="checkup-recommendations__footnote-number">[{footnoteNum}]</span>
+                                        {ref ? (
+                                          (ref.startsWith('http://') || ref.startsWith('https://')) ? (
+                                            <a 
+                                              href={ref} 
+                                              target="_blank" 
+                                              rel="noopener noreferrer"
+                                              className="checkup-recommendations__footnote-link"
+                                            >
+                                              [링크]
+                                            </a>
+                                          ) : (
+                                            <span className="checkup-recommendations__footnote-text">{ref}</span>
+                                          )
+                                        ) : null}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })()}
                           </div>
                         )}
                       </div>
@@ -2250,9 +2184,6 @@ const CheckupRecommendationsPage: React.FC = () => {
               </div>
             );
           })}
-            </div>
-          </>
-        )}
 
         {/* 의사 코멘트 섹션 (하단) */}
         {gptResponse?.doctor_comment && (
