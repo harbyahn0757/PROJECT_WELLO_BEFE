@@ -21,7 +21,10 @@ from ....services.checkup_design_prompt import (
     create_checkup_design_prompt_step1,
     CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1,
     create_checkup_design_prompt_step2,
-    CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2
+    CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2,
+    # Phase 1: 프롬프트 분할 함수
+    create_checkup_design_prompt_step2_priority1,
+    create_checkup_design_prompt_step2_upselling
 )
 from ....services.wello_data_service import WelloDataService
 
@@ -896,9 +899,28 @@ async def create_checkup_design_step2(
         prescription_analysis_text = survey_responses_clean.pop("prescription_analysis_text", None) or request.prescription_analysis_text
         selected_medication_texts = survey_responses_clean.pop("selected_medication_texts", None) or request.selected_medication_texts
         
-        # 7. STEP 2 프롬프트 생성 (RAG 통합) + 구조화된 에비던스 수신
-        logger.info(f"🔍 [STEP2-설계] RAG 기반 프롬프트 생성 시작...")
-        user_message, structured_evidences = await create_checkup_design_prompt_step2(
+        # ====================================================================
+        # 7. STEP 2 프롬프트 생성 및 GPT 호출 (Phase 1: 2단계 분할 전략)
+        # ====================================================================
+        logger.info(f"🔍 [STEP2-설계] 2단계 분할 전략 시작...")
+        logger.info(f"  - STEP 2-1: Priority 1 (일반검진 주의 항목)")
+        logger.info(f"  - STEP 2-2: Priority 2,3 + Strategies (업셀링)")
+        
+        # OpenAI 서비스 초기화 (한 번만)
+        logger.info(f"🔧 [STEP2-설계] OpenAI 서비스 초기화 중...")
+        await gpt_service.initialize()
+        logger.info(f"✅ [STEP2-설계] OpenAI 서비스 초기화 완료")
+        
+        powerful_model = getattr(settings, 'openai_model', 'gpt-4o')
+        
+        # ====================================================================
+        # STEP 2-1: Priority 1 (일반검진 주의 항목)
+        # ====================================================================
+        import time
+        start_time_p1 = time.time()
+        
+        logger.info(f"📋 [STEP2-1] Priority 1 프롬프트 생성 시작...")
+        user_message_p1, evidences_p1 = await create_checkup_design_prompt_step2_priority1(
             step1_result=step1_result_dict,
             patient_name=patient_name,
             patient_age=patient_age,
@@ -908,64 +930,109 @@ async def create_checkup_design_step2(
             selected_concerns=selected_concerns,
             survey_responses=survey_responses_clean,
             hospital_national_checkup=hospital_national_checkup,
-            hospital_recommended=hospital_recommended,
-            hospital_external_checkup=hospital_external_checkup,
             prescription_analysis_text=prescription_analysis_text,
             selected_medication_texts=selected_medication_texts
         )
-        logger.info(f"✅ [STEP2-설계] RAG 기반 프롬프트 생성 완료")
+        logger.info(f"✅ [STEP2-1] Priority 1 프롬프트 생성 완료 - 길이: {len(user_message_p1):,}자 ({len(user_message_p1)/1024:.1f}KB)")
         
-        # 8. 강력한 모델 선택 (STEP 2는 근거 확보가 목표)
-        # gpt-4o 사용 (강력한 추론, 환경변수 OPENAI_MODEL로 설정 가능)
-        powerful_model = getattr(settings, 'openai_model', 'gpt-4o')
-        max_tokens = 16384  # STEP 2는 근거 확보를 위해 충분한 토큰 필요
-        
-        logger.info(f"🤖 [STEP2-설계] OpenAI API 호출 시작... (모델: {powerful_model}, max_tokens: {max_tokens})")
-        logger.info(f"📊 [STEP2-설계] 프롬프트 길이: {len(user_message)} 문자")
-        logger.info(f"📊 [STEP2-설계] 시스템 메시지 길이: {len(CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2)} 문자")
-        
-        gpt_request = GPTRequest(
+        logger.info(f"🤖 [STEP2-1] GPT API 호출 중... (모델: {powerful_model})")
+        gpt_request_p1 = GPTRequest(
             system_message=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2,
-            user_message=user_message,
+            user_message=user_message_p1,
             model=powerful_model,
-            temperature=0.5,  # 0.3 → 0.5: 설명 다채롭게 (단조로움 방지)
-            max_tokens=max_tokens,
+            temperature=0.5,
+            max_tokens=2000,  # Priority 1은 짧은 응답
             response_format={"type": "json_object"}
         )
         
-        # OpenAI 서비스 초기화
-        logger.info(f"🔧 [STEP2-설계] OpenAI 서비스 초기화 중...")
-        await gpt_service.initialize()
-        logger.info(f"✅ [STEP2-설계] OpenAI 서비스 초기화 완료")
+        gpt_response_p1 = await gpt_service.call_api(gpt_request_p1, save_log=True)
+        elapsed_p1 = time.time() - start_time_p1
+        logger.info(f"✅ [STEP2-1] GPT 응답 완료 - {elapsed_p1:.1f}초")
         
-        # OpenAI API 호출
-        logger.info(f"📡 [STEP2-설계] OpenAI API 호출 중...")
-        gpt_api_response = await gpt_service.call_api(
-            gpt_request,
-            save_log=True
-        )
-        logger.info(f"📥 [STEP2-설계] OpenAI API 응답 수신 완료")
-        
-        # 응답 상태 확인
-        if not gpt_api_response.success:
-            logger.error(f"❌ [STEP2-설계] OpenAI API 호출 실패: {gpt_api_response.error}")
-            raise ValueError(f"OpenAI API 호출 실패: {gpt_api_response.error}")
-        
-        if not gpt_api_response.content:
-            logger.error(f"❌ [STEP2-설계] OpenAI 응답 내용이 비어있음")
-            raise ValueError("OpenAI 응답 내용이 비어있습니다.")
+        if not gpt_response_p1.success:
+            logger.error(f"❌ [STEP2-1] GPT 호출 실패: {gpt_response_p1.error}")
+            raise ValueError(f"STEP 2-1 실패: {gpt_response_p1.error}")
         
         # JSON 파싱
-        logger.info(f"🔍 [STEP2-설계] JSON 파싱 시작...")
         try:
-            ai_response = gpt_service.parse_json_response(
-                gpt_api_response.content
-            )
-            logger.info(f"✅ [STEP2-설계] JSON 파싱 성공")
-            logger.info(f"📊 [STEP2-설계] 파싱된 응답 키: {list(ai_response.keys()) if ai_response else 'None'}")
-        except Exception as parse_error:
-            logger.error(f"❌ [STEP2-설계] JSON 파싱 실패: {str(parse_error)}")
-            raise ValueError(f"JSON 파싱 실패: {str(parse_error)}")
+            step2_1_result = gpt_service.parse_json_response(gpt_response_p1.content)
+            logger.info(f"✅ [STEP2-1] JSON 파싱 성공 - 키: {list(step2_1_result.keys())}")
+        except Exception as e:
+            logger.error(f"❌ [STEP2-1] JSON 파싱 실패: {str(e)}")
+            raise ValueError(f"STEP 2-1 JSON 파싱 실패: {str(e)}")
+        
+        # ====================================================================
+        # STEP 2-2: Priority 2,3 + Strategies (업셀링)
+        # ====================================================================
+        start_time_p2 = time.time()
+        
+        logger.info(f"📋 [STEP2-2] Upselling 프롬프트 생성 시작...")
+        user_message_p2, evidences_p2 = await create_checkup_design_prompt_step2_upselling(
+            step1_result=step1_result_dict,
+            step2_1_result=step2_1_result,  # ← 연결성!
+            patient_name=patient_name,
+            patient_age=patient_age,
+            patient_gender=patient_gender,
+            selected_concerns=selected_concerns,
+            survey_responses=survey_responses_clean,
+            hospital_recommended=hospital_recommended,
+            hospital_external_checkup=hospital_external_checkup
+        )
+        logger.info(f"✅ [STEP2-2] Upselling 프롬프트 생성 완료 - 길이: {len(user_message_p2):,}자 ({len(user_message_p2)/1024:.1f}KB)")
+        
+        logger.info(f"🤖 [STEP2-2] GPT API 호출 중... (모델: {powerful_model})")
+        gpt_request_p2 = GPTRequest(
+            system_message=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2,
+            user_message=user_message_p2,
+            model=powerful_model,
+            temperature=0.5,
+            max_tokens=3000,  # Upselling은 조금 더 긴 응답
+            response_format={"type": "json_object"}
+        )
+        
+        gpt_response_p2 = await gpt_service.call_api(gpt_request_p2, save_log=True)
+        elapsed_p2 = time.time() - start_time_p2
+        logger.info(f"✅ [STEP2-2] GPT 응답 완료 - {elapsed_p2:.1f}초")
+        
+        if not gpt_response_p2.success:
+            logger.error(f"❌ [STEP2-2] GPT 호출 실패: {gpt_response_p2.error}")
+            # STEP 2-1 결과라도 반환 (부분 성공)
+            logger.warning(f"⚠️ [STEP2-2] 부분 성공 - Priority 1만 반환")
+            ai_response = step2_1_result
+            structured_evidences = evidences_p1
+        else:
+            # JSON 파싱
+            try:
+                step2_2_result = gpt_service.parse_json_response(gpt_response_p2.content)
+                logger.info(f"✅ [STEP2-2] JSON 파싱 성공 - 키: {list(step2_2_result.keys())}")
+                
+                # 결과 병합
+                logger.info(f"🔗 [STEP2] 결과 병합 중...")
+                ai_response = {
+                    **step2_1_result,  # summary, priority_1
+                    **step2_2_result   # priority_2, priority_3, strategies, doctor_comment
+                }
+                structured_evidences = evidences_p1 + evidences_p2
+                logger.info(f"✅ [STEP2] 결과 병합 완료")
+                
+            except Exception as e:
+                logger.error(f"❌ [STEP2-2] JSON 파싱 실패: {str(e)}")
+                # STEP 2-1 결과라도 반환
+                logger.warning(f"⚠️ [STEP2-2] 부분 성공 - Priority 1만 반환")
+                ai_response = step2_1_result
+                structured_evidences = evidences_p1
+        
+        # 전체 소요 시간 로그
+        total_elapsed = elapsed_p1 + elapsed_p2
+        logger.info(f"⏱️ [STEP2] 총 소요 시간: {total_elapsed:.1f}초 (P1: {elapsed_p1:.1f}초, P2: {elapsed_p2:.1f}초)")
+        logger.info(f"📊 [STEP2] 최종 응답 키: {list(ai_response.keys()) if ai_response else 'None'}")
+        
+        # ====================================================================
+        # 8. 응답 유효성 확인 (기존과 동일)
+        # ====================================================================
+        if not ai_response:
+            logger.error(f"❌ [STEP2-설계] 응답 내용이 비어있음")
+            raise ValueError("응답 내용이 비어있습니다.")
         
         # STEP 1과 STEP 2 결과 병합
         logger.info(f"🔗 [STEP2-설계] STEP 1과 STEP 2 결과 병합 중...")
