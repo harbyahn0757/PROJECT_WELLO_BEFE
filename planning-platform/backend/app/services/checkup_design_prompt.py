@@ -2749,7 +2749,12 @@ async def create_checkup_design_prompt_step2(
         hospital_checkup_section += "각 검진 항목의 gender 필드를 확인하여 환자 성별과 일치하는 항목만 추천하세요.\n\n"
     
     # 프롬프트 조합 (RAG 결과를 최상단에 배치)
-    prompt = f"""{rag_evidence_section}{master_knowledge_section if not rag_evidence_context else ""}
+    # f-string 대신 문자열 연결 사용 (JSON 예시 때문에 format specifier 충돌 방지)
+    prompt_parts = [rag_evidence_section]
+    if not rag_evidence_context:
+        prompt_parts.append(master_knowledge_section)
+    
+    prompt_parts.append("""
 
 # 🎯 Role (당신의 역할)
 
@@ -2793,8 +2798,8 @@ async def create_checkup_design_prompt_step2(
 ## ⚠️ 최우선 규칙 (반드시 준수!)
 
 1. **priority_1.items와 focus_items는 항목명이 정확히 일치해야 합니다**
-   - items: ['혈압측정'] → focus_items: [{item_name: '혈압측정'}]
-   - ❌ 절대 안됨: items: ['혈압'] vs focus_items: ['혈압측정']
+   - items에 '혈압측정' → focus_items에도 '혈압측정'
+   - ❌ 절대 안됨: items에 '혈압' vs focus_items에 '혈압측정'
 
 2. **가족력 확인 시 관련 검진 항목 반드시 포함**
    - 당뇨 가족력 → priority_1에 '혈당검사' 포함 (RAG 근거 있으면 필수)
@@ -3157,6 +3162,8 @@ focus_items: [
 **중요: 반드시 딕셔너리(객체) 형태의 JSON 형식으로만 응답하세요. 문자열이나 배열이 아닌 JSON 객체 형태로 반환해야 합니다.**
 예: {{"patient_summary": "...", "analysis": "...", ...}} 형태
 
-다른 설명이나 주석은 포함하지 마세요."""
+다른 설명이나 주석은 포함하지 마세요.""")
+    
+    prompt = "\n".join(prompt_parts)
     
     return prompt, structured_evidences
