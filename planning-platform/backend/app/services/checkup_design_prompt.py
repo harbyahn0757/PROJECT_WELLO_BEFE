@@ -2401,11 +2401,14 @@ async def create_checkup_design_prompt_step2(
     hospital_external_checkup: Optional[List[Dict[str, Any]]] = None,
     prescription_analysis_text: Optional[str] = None,
     selected_medication_texts: Optional[List[str]] = None
-) -> str:
+) -> tuple[str, List[Dict[str, Any]]]:
     """
     STEP 2: 설계 및 근거 전용 프롬프트 생성 (RAG 통합)
     STEP 1의 분석 결과를 컨텍스트로 받아 검진 항목을 설계하고 의학적 근거를 확보합니다.
     RAG 시스템을 통해 최신 의학 가이드라인을 검색하여 프롬프트에 통합합니다.
+    
+    Returns:
+        tuple[str, List[Dict]]: (프롬프트 문자열, 구조화된 에비던스 리스트)
     """
     # STEP 1 결과를 JSON 문자열로 변환
     step1_result_json = json.dumps(step1_result, ensure_ascii=False, indent=2)
@@ -3156,4 +3159,4 @@ focus_items: [
 
 다른 설명이나 주석은 포함하지 마세요."""
     
-    return prompt
+    return prompt, structured_evidences

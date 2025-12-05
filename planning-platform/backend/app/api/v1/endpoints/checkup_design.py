@@ -896,9 +896,9 @@ async def create_checkup_design_step2(
         prescription_analysis_text = survey_responses_clean.pop("prescription_analysis_text", None) or request.prescription_analysis_text
         selected_medication_texts = survey_responses_clean.pop("selected_medication_texts", None) or request.selected_medication_texts
         
-        # 7. STEP 2 프롬프트 생성 (RAG 통합)
+        # 7. STEP 2 프롬프트 생성 (RAG 통합) + 구조화된 에비던스 수신
         logger.info(f"🔍 [STEP2-설계] RAG 기반 프롬프트 생성 시작...")
-        user_message = await create_checkup_design_prompt_step2(
+        user_message, structured_evidences = await create_checkup_design_prompt_step2(
             step1_result=step1_result_dict,
             patient_name=patient_name,
             patient_age=patient_age,
@@ -970,6 +970,11 @@ async def create_checkup_design_step2(
         # STEP 1과 STEP 2 결과 병합
         logger.info(f"🔗 [STEP2-설계] STEP 1과 STEP 2 결과 병합 중...")
         merged_result = merge_checkup_design_responses(step1_result_dict, ai_response)
+        
+        # 구조화된 RAG 에비던스 추가 (TODO-16, TODO-18)
+        merged_result["rag_evidences"] = structured_evidences
+        logger.info(f"📚 [STEP2-설계] RAG 에비던스 추가: {len(structured_evidences)}개")
+        
         logger.info(f"✅ [STEP2-설계] 병합 완료 - 최종 결과 키: {list(merged_result.keys())}")
         
         # 검진 설계 요청 저장 (업셀링용) - 병합된 결과 저장
@@ -1090,6 +1095,83 @@ def merge_checkup_design_responses(step1_result: Dict[str, Any], step2_result: D
     except Exception as e:
         logger.warning(f"⚠️ [병합] priority_1.focus_items 복사 중 오류 (무시): {str(e)}")
     
+    # Post-processing: priority_1 일관성 검증 및 자동 보정 (TODO-5, TODO-6)
+    merged_result = validate_and_fix_priority1(merged_result)
+    
     logger.info(f"✅ [병합] 병합 완료 - 최종 결과 키: {list(merged_result.keys())}")
     
     return merged_result
+
+
+def validate_and_fix_priority1(result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    priority_1 일관성 검증 및 자동 보정 (TODO-5, TODO-6)
+    
+    1. items와 focus_items 항목명 일치 검증
+    2. 누락된 focus_items 자동 생성
+    """
+    logger.info("🔍 [검증] priority_1 일관성 검증 시작...")
+    
+    summary = result.get("summary", {})
+    if not isinstance(summary, dict):
+        return result
+    
+    priority_1 = summary.get("priority_1", {})
+    if not isinstance(priority_1, dict):
+        return result
+    
+    items = priority_1.get("items", [])
+    focus_items = priority_1.get("focus_items", [])
+    
+    if not items:
+        logger.warning("⚠️ [검증] priority_1.items가 비어있음")
+        return result
+    
+    # 항목명 정규화 매핑 (TODO-5)
+    ITEM_NAME_MAPPING = {
+        "혈압": "혈압측정",
+        "혈당": "혈당검사",
+        "허리둘레": "신체계측",
+        "체중": "신체계측",
+        "비만": "신체계측",
+        "간기능": "혈액검사",
+        "신장기능": "혈액검사",
+        "콜레스테롤": "혈액검사",
+    }
+    
+    # 1. items 정규화
+    normalized_items = []
+    for item in items:
+        normalized = ITEM_NAME_MAPPING.get(item, item)
+        normalized_items.append(normalized)
+        if normalized != item:
+            logger.info(f"📝 [검증] 항목명 정규화: '{item}' → '{normalized}'")
+    
+    priority_1["items"] = normalized_items
+    
+    # 2. focus_items 항목명 추출
+    focus_item_names = [fi.get("item_name", "") for fi in focus_items if isinstance(fi, dict)]
+    
+    # 3. 누락된 항목 찾기 (TODO-6)
+    missing_items = []
+    for item in normalized_items:
+        if item not in focus_item_names:
+            missing_items.append(item)
+            logger.warning(f"⚠️ [검증] focus_items에 누락된 항목: '{item}'")
+    
+    # 4. 누락된 focus_items 자동 생성
+    for missing_item in missing_items:
+        # 기본 템플릿으로 focus_item 생성
+        new_focus_item = {
+            "item_name": missing_item,
+            "why_important": f"{missing_item} 항목은 과거 검진 또는 문진 결과를 고려할 때 주의 깊게 확인이 필요합니다.",
+            "check_point": f"{missing_item}의 수치와 변화 추이를 확인하세요."
+        }
+        focus_items.append(new_focus_item)
+        logger.info(f"📝 [검증] focus_item 자동 생성: '{missing_item}'")
+    
+    priority_1["focus_items"] = focus_items
+    
+    logger.info(f"✅ [검증] priority_1 검증 완료 - items: {len(normalized_items)}개, focus_items: {len(focus_items)}개")
+    
+    return result
