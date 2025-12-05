@@ -3077,17 +3077,10 @@ async def create_checkup_design_prompt_step2(
 ## ❌ 부정 예시 (절대 사용 금지!)
 
 ### 잘못된 항목명 일치
-```json
-{
-  "summary": {
-    "priority_1": {
-      "items": ["혈압", "심혈관 건강"],  // ❌ 일반 카테고리명
-      "focus_items": [
-        {"item_name": "혈압측정"}  // ❌ items와 불일치
-      ]
-    }
-  }
-}
+```
+❌ 틀린 예:
+items: ["혈압", "심혈관 건강"]  (일반 카테고리명)
+focus_items: [{"item_name": "혈압측정"}]  (items와 불일치)
 ```
 
 ### 잘못된 에비던스
@@ -3114,18 +3107,13 @@ async def create_checkup_design_prompt_step2(
 ## ✅ 올바른 예시
 
 ### 올바른 항목명 일치
-```json
-{
-  "summary": {
-    "priority_1": {
-      "items": ["혈압측정", "혈당검사"],  // ✅ 구체적 항목명
-      "focus_items": [
-        {"item_name": "혈압측정"},  // ✅ items와 일치
-        {"item_name": "혈당검사"}   // ✅ items와 일치
-      ]
-    }
-  }
-}
+```
+✅ 올바른 예:
+items: ["혈압측정", "혈당검사"]  (구체적 항목명)
+focus_items: [
+  {"item_name": "혈압측정"},  (items와 일치)
+  {"item_name": "혈당검사"}   (items와 일치)
+]
 ```
 
 ### 올바른 에비던스
