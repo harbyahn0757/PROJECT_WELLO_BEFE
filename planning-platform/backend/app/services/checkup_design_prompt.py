@@ -321,80 +321,333 @@ async def init_rag_engine():
         return None
 
 
-async def get_medical_evidence_from_rag(
-    query_engine: Any,
-    patient_summary: str,
+# -----------------------------------------------------------------------------
+# [RAG 시스템] 구조화된 에비던스 추출 (TODO 1-3 통합)
+# -----------------------------------------------------------------------------
+
+def generate_specific_queries(
+    patient_context: Dict[str, Any],
     concerns: List[Dict[str, Any]]
-) -> str:
+) -> List[Dict[str, str]]:
     """
-    RAG 시스템을 사용하여 의학적 근거 검색
+    환자 맞춤 구체적인 RAG 검색 쿼리 생성 (TODO-1)
     
     Args:
-        query_engine: LlamaIndex QueryEngine 인스턴스
-        patient_summary: 환자 요약 정보
+        patient_context: 환자 정보 (연령, 성별, 가족력, 과거 검진 이상 등)
         concerns: 환자의 염려 항목 리스트
     
     Returns:
-        검색된 의학적 근거 컨텍스트 문자열
+        구체적인 쿼리 리스트 [{"query": "...", "category": "..."}]
     """
-    if query_engine is None:
+    queries = []
+    
+    age = patient_context.get('age', 40)
+    gender_kr = '남성' if patient_context.get('gender') == 'male' else '여성'
+    family_history = patient_context.get('family_history', [])
+    abnormal_items = patient_context.get('abnormal_items', [])
+    
+    # 1. 가족력 기반 쿼리
+    family_mapping = {
+        'diabetes': '당뇨',
+        'hypertension': '고혈압',
+        'cancer': '암',
+        'heart_disease': '심장질환',
+        'stroke': '뇌졸중'
+    }
+    
+    for fh_code in family_history:
+        fh_name = family_mapping.get(fh_code, fh_code)
+        queries.append({
+            "query": f"{age}세 {gender_kr} {fh_name} 가족력 선별검사 필요성 가이드라인",
+            "category": f"가족력_{fh_name}"
+        })
+    
+    # 2. 과거 검진 이상 항목 기반 쿼리
+    for item in abnormal_items:
+        item_name = item.get('name', '')
+        status = item.get('status', '')
+        if item_name and status in ['경계', '이상']:
+            queries.append({
+                "query": f"{item_name} {status} 소견 추적검사 가이드라인",
+                "category": f"이상항목_{item_name}"
+            })
+    
+    # 3. 염려 항목 기반 쿼리
+    for concern in concerns:
+        concern_name = concern.get("name", "") or concern.get("item_name", "")
+        concern_type = concern.get("type", "")
+        
+        if not concern_name:
+            continue
+        
+        if concern_type == "checkup":
+            queries.append({
+                "query": f"{concern_name} 검진 적응증 및 진료지침",
+                "category": f"염려_{concern_name}"
+            })
+        elif concern_type == "medication":
+            medication_name = concern.get("medication_name", concern_name)
+            queries.append({
+                "query": f"{medication_name} 장기 복용 시 필요한 모니터링 검사",
+                "category": f"약물_{medication_name}"
+            })
+        else:
+            queries.append({
+                "query": f"{age}세 {gender_kr} {concern_name} 검진 권고사항",
+                "category": f"기타_{concern_name}"
+            })
+    
+    # 4. 기본 연령/성별 쿼리
+    if not queries:
+        queries.append({
+            "query": f"{age}세 {gender_kr} 건강검진 권장 항목 가이드라인",
+            "category": "기본_검진"
+        })
+    
+    print(f"[INFO] 생성된 RAG 쿼리: {len(queries)}개")
+    return queries
+
+
+def extract_evidence_from_source_nodes(
+    source_nodes: List[Any],
+    query: str
+) -> List[Dict[str, Any]]:
+    """
+    source_nodes에서 구조화된 에비던스 추출 (TODO-2)
+    
+    Args:
+        source_nodes: LlamaIndex 검색 결과의 source_nodes
+        query: 검색 쿼리
+    
+    Returns:
+        구조화된 에비던스 리스트
+    """
+    evidences = []
+    
+    for node in source_nodes[:3]:  # 상위 3개만
+        try:
+            metadata = node.node.metadata if hasattr(node.node, 'metadata') else {}
+            text = node.node.text if hasattr(node.node, 'text') else ""
+            score = node.score if hasattr(node, 'score') else 0.0
+            
+            # 파일명에서 문서명, 조직, 연도 추출
+            file_name = metadata.get('file_name', '')
+            page = metadata.get('page_label', 'N/A')
+            
+            # 파일명 정리
+            doc_name = file_name.replace('.pdf', '').replace('_', ' ')
+            
+            # 조직명 및 연도 추출
+            org = ''
+            year = ''
+            if '당뇨병' in doc_name:
+                org = '대한당뇨학회'
+            elif '고혈압' in doc_name:
+                org = '대한고혈압학회'
+            elif '암' in doc_name or '검진' in doc_name:
+                org = '국립암센터'
+            
+            import re
+            year_match = re.search(r'20\d{2}', doc_name)
+            if year_match:
+                year = year_match.group()
+            
+            # 인용 가능한 문장 추출 (TODO-3)
+            citation = extract_meaningful_citation(text, query)
+            
+            evidences.append({
+                "source_document": doc_name,
+                "organization": org,
+                "year": year,
+                "page": page,
+                "citation": citation,
+                "full_text": text[:500],  # 최대 500자
+                "confidence_score": score,
+                "query": query
+            })
+            
+        except Exception as e:
+            print(f"[WARN] source_node 파싱 실패: {str(e)}")
+            continue
+    
+    return evidences
+
+
+def extract_meaningful_citation(text: str, query: str) -> str:
+    """
+    텍스트에서 의미 있는 인용구 추출 (TODO-3)
+    
+    Args:
+        text: 원본 텍스트
+        query: 검색 쿼리 (키워드 추출용)
+    
+    Returns:
+        인용 가능한 문장 (최대 200자)
+    """
+    # 줄바꿈 정리
+    text = text.replace('\n', ' ').strip()
+    
+    # 문장 단위로 분리
+    sentences = []
+    import re
+    for match in re.finditer(r'[^.!?]*[.!?]', text):
+        sentence = match.group().strip()
+        if len(sentence) > 10:  # 너무 짧은 문장 제외
+            sentences.append(sentence)
+    
+    # 쿼리 키워드 추출
+    keywords = []
+    for word in query.split():
+        if len(word) > 1 and word not in ['세', '남성', '여성', '가이드라인', '검사', '필요성']:
+            keywords.append(word)
+    
+    # 키워드를 포함한 문장 우선 선택
+    best_sentences = []
+    for sentence in sentences:
+        score = sum(1 for kw in keywords if kw in sentence)
+        if score > 0:
+            best_sentences.append((score, sentence))
+    
+    best_sentences.sort(reverse=True, key=lambda x: x[0])
+    
+    # 상위 문장 결합 (최대 200자)
+    citation = ""
+    for _, sentence in best_sentences:
+        if len(citation) + len(sentence) <= 200:
+            citation += sentence + " "
+        else:
+            break
+    
+    # 문장이 없으면 텍스트 앞부분 사용
+    if not citation:
+        citation = text[:200]
+    
+    return citation.strip()
+
+
+def format_evidence_as_citation(
+    evidences: List[Dict[str, Any]]
+) -> str:
+    """
+    구조화된 에비던스를 인용구 형식으로 변환 (TODO-3)
+    
+    Args:
+        evidences: 구조화된 에비던스 리스트
+    
+    Returns:
+        프롬프트에 포함할 인용구 형식 텍스트
+    """
+    if not evidences:
         return ""
     
-    evidence_parts = []
+    formatted_parts = []
+    
+    for idx, ev in enumerate(evidences, 1):
+        doc_name = ev.get('source_document', '문서명 없음')
+        org = ev.get('organization', '')
+        year = ev.get('year', '')
+        page = ev.get('page', 'N/A')
+        citation = ev.get('citation', '')
+        confidence = ev.get('confidence_score', 0.0)
+        
+        # 제목
+        title = f"### {idx}. {doc_name}"
+        if org:
+            title += f" ({org}"
+            if year:
+                title += f", {year}"
+            title += ")"
+        formatted_parts.append(title)
+        
+        # 인용구
+        if citation:
+            formatted_parts.append(f'\n"{citation}"\n')
+        
+        # 메타 정보
+        meta_info = f"- 페이지: {page}\n"
+        if confidence >= 0.4:
+            meta_info += f"- 신뢰도: {confidence:.3f} (높음)\n"
+        elif confidence >= 0.2:
+            meta_info += f"- 신뢰도: {confidence:.3f} (중간)\n"
+        else:
+            meta_info += f"- 신뢰도: {confidence:.3f} (낮음)\n"
+        formatted_parts.append(meta_info)
+        
+        formatted_parts.append("---\n")
+    
+    return "\n".join(formatted_parts)
+
+
+async def get_medical_evidence_from_rag(
+    query_engine: Any,
+    patient_context: Dict[str, Any],
+    concerns: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """
+    RAG 시스템을 사용하여 구조화된 의학적 근거 검색 (통합 버전)
+    
+    Args:
+        query_engine: LlamaIndex QueryEngine 인스턴스
+        patient_context: 환자 정보 (age, gender, family_history, abnormal_items 등)
+        concerns: 환자의 염려 항목 리스트
+    
+    Returns:
+        {
+            "context_text": "프롬프트에 포함할 텍스트",
+            "structured_evidences": [구조화된 에비던스 리스트]
+        }
+    """
+    if query_engine is None:
+        return {"context_text": "", "structured_evidences": []}
+    
+    all_evidences = []
     
     try:
-        # 1. 기본 검색: 환자 요약 정보 기반 위험 요인 가이드라인 검색
-        if patient_summary:
-            base_query = f"환자 위험 요인에 대한 의학 가이드라인: {patient_summary}"
-            try:
-                base_response = query_engine.query(base_query)
-                if base_response and hasattr(base_response, 'response'):
-                    evidence_text = base_response.response
-                    evidence_parts.append(f"## 환자 위험 요인 가이드라인\n{evidence_text}\n")
-                    print(f"[INFO] RAG 기본 검색 성공 - 응답 길이: {len(evidence_text)}")
-            except Exception as e:
-                print(f"[WARN] 기본 검색 실패: {str(e)}")
+        # 1. 구체적인 쿼리 생성 (TODO-1)
+        queries = generate_specific_queries(patient_context, concerns)
+        print(f"[INFO] RAG 쿼리 {len(queries)}개 생성 완료")
         
-        # 2. 심층 검색: 각 염려 항목별 구체적인 진료지침 검색
-        for concern in concerns:
-            concern_name = concern.get("name", "") or concern.get("item_name", "")
-            concern_type = concern.get("type", "")
-            
-            if not concern_name:
-                continue
-            
-            # 염려 항목별 검색 쿼리 구성
-            if concern_type == "checkup":
-                # 검진 항목 관련
-                query = f"{concern_name} 검진 가이드라인 및 진료지침"
-            elif concern_type == "medication":
-                # 약물 관련
-                medication_name = concern.get("medication_name", concern_name)
-                query = f"{medication_name} 복용 시 필요한 검진 및 모니터링 가이드라인"
-            else:
-                # 기타
-                query = f"{concern_name} 관련 의학 가이드라인 및 진료지침"
+        # 2. 각 쿼리 실행 및 source_nodes 추출 (TODO-2)
+        for query_info in queries:
+            query = query_info['query']
+            category = query_info['category']
             
             try:
-                concern_response = query_engine.query(query)
-                if concern_response and hasattr(concern_response, 'response'):
-                    evidence_parts.append(f"## {concern_name} 관련 가이드라인\n{concern_response.response}\n")
+                response = query_engine.query(query)
+                
+                if response and hasattr(response, 'source_nodes') and response.source_nodes:
+                    # source_nodes에서 구조화된 에비던스 추출
+                    evidences = extract_evidence_from_source_nodes(response.source_nodes, query)
+                    
+                    for ev in evidences:
+                        ev['category'] = category
+                        all_evidences.append(ev)
+                    
+                    print(f"[INFO] RAG 검색 성공 ({category}) - {len(evidences)}개 에비던스")
+                else:
+                    print(f"[WARN] RAG 검색 결과 없음 ({category})")
+                    
             except Exception as e:
-                print(f"[WARN] {concern_name} 검색 실패: {str(e)}")
+                print(f"[WARN] RAG 검색 실패 ({category}): {str(e)}")
         
-        # 모든 검색 결과를 하나의 문자열로 합치기
-        rag_evidence_context = "\n".join(evidence_parts)
+        # 3. 인용구 형식으로 변환 (TODO-3)
+        context_text = format_evidence_as_citation(all_evidences)
         
-        if rag_evidence_context:
-            print(f"[INFO] RAG 검색 완료 - 검색된 근거 길이: {len(rag_evidence_context)} 문자")
+        if context_text:
+            print(f"[INFO] RAG 검색 완료 - 총 {len(all_evidences)}개 에비던스, {len(context_text)}자")
         else:
             print("[WARN] RAG 검색 결과가 비어있습니다.")
         
-        return rag_evidence_context
+        return {
+            "context_text": context_text,
+            "structured_evidences": all_evidences
+        }
         
     except Exception as e:
         print(f"[ERROR] RAG 검색 중 오류 발생: {str(e)}")
-        return ""
+        import traceback
+        traceback.print_exc()
+        return {"context_text": "", "structured_evidences": []}
 
 # -----------------------------------------------------------------------------
 # [PART 0-1] MASTER DB 파싱 & 간단 검증 (런타임 안정성 확보용)
@@ -2154,26 +2407,59 @@ async def create_checkup_design_prompt_step2(
     # STEP 1 결과를 JSON 문자열로 변환
     step1_result_json = json.dumps(step1_result, ensure_ascii=False, indent=2)
     
-    # RAG 검색 수행
+    # RAG 검색 수행 (구조화된 에비던스 반환)
     rag_evidence_context = ""
+    structured_evidences = []
     try:
         # RAG 엔진 초기화
         query_engine = await init_rag_engine()
         
         if query_engine:
-            # STEP 1 결과에서 patient_summary 추출
-            patient_summary = step1_result.get("patient_summary", "")
+            # 환자 컨텍스트 구성
+            patient_context = {
+                "age": patient_age or 40,
+                "gender": "male" if patient_gender and patient_gender.upper() == "M" else "female",
+                "family_history": [],
+                "abnormal_items": []
+            }
+            
+            # 설문 응답에서 가족력 추출
+            if survey_responses:
+                family_history_raw = survey_responses.get('family_history', '')
+                if isinstance(family_history_raw, str) and family_history_raw:
+                    patient_context['family_history'] = [fh.strip() for fh in family_history_raw.split(',') if fh.strip()]
+                elif isinstance(family_history_raw, list):
+                    patient_context['family_history'] = family_history_raw
+            
+            # STEP 1 결과에서 과거 검진 이상 항목 추출
+            risk_profile = step1_result.get("risk_profile", [])
+            for risk in risk_profile:
+                if isinstance(risk, dict):
+                    factor = risk.get("factor", "")
+                    level = risk.get("level", "")
+                    if level in ['주의', '경계', '이상']:
+                        patient_context['abnormal_items'].append({
+                            "name": factor,
+                            "status": level
+                        })
             
             # RAG 검색 실행
-            rag_evidence_context = await get_medical_evidence_from_rag(
+            rag_result = await get_medical_evidence_from_rag(
                 query_engine=query_engine,
-                patient_summary=patient_summary,
+                patient_context=patient_context,
                 concerns=selected_concerns
             )
+            
+            rag_evidence_context = rag_result.get("context_text", "")
+            structured_evidences = rag_result.get("structured_evidences", [])
+            
+            print(f"[INFO] RAG 검색 완료 - {len(structured_evidences)}개 에비던스, {len(rag_evidence_context)}자")
         else:
             print("[WARN] RAG 엔진을 사용할 수 없어 하드코딩된 지식을 사용합니다.")
     except Exception as e:
         print(f"[ERROR] RAG 검색 중 오류 발생: {str(e)}")
+        import traceback
+        traceback.print_exc()
         # RAG 실패 시에도 프롬프트는 계속 진행
     
     # 현재 날짜 계산
@@ -2403,29 +2689,41 @@ async def create_checkup_design_prompt_step2(
     # Master DB 섹션 추가 (RAG 결과가 없을 때만 사용)
     master_knowledge_section = build_master_knowledge_section()
     
-    # RAG 검색 결과 섹션 구성
+    # RAG 검색 결과 섹션 구성 (인용구 형식)
     rag_evidence_section = ""
     if rag_evidence_context:
         rag_evidence_section = f"""
-# [Critical Evidence: 검색된 의학 가이드라인]
+# [Critical Evidence: 검색된 의학 가이드라인] ⭐ 최우선 근거
 
-**⚠️ 매우 중요: 아래 내용에 기반해서만 답변하세요. 이 내용이 최우선 근거입니다.**
+**⚠️ 매우 중요: 아래 인용구를 그대로 사용하세요. "Level A 에비던스" 같은 메타 정보만 나열 금지!**
 
 {rag_evidence_context}
 
-**Evidence & Citation Rules (RAG Mode):**
+**Evidence & Citation Rules (RAG Mode - 인용구 필수):**
 
-1. **[Critical Evidence] 섹션에 제공된 텍스트만**을 근거로 사용하세요.
-2. 외부 지식이나 당신의 학습 데이터보다, 위에서 제공된 **검색 결과(Context)**가 최우선입니다.
-3. 추천 이유(reason)나 근거(evidence)를 작성할 때는, 검색된 내용 중 어느 부분에서 가져왔는지 명시하세요. (예: "2025 당뇨병 진료지침에 따르면...")
-4. **절대 금지:** 제공된 Context에 없는 URL이나 논문 제목을 창작하지 마세요. 차라리 "가이드라인에 명시됨"이라고만 적으세요.
-5. 액체생검(캔서파인드 등) 관련 내용은 반드시 제공된 `[Product]` 관련 Context를 참고하여 '선별 검사'임을 명시하세요.
+1. **위 인용구를 그대로 복사하여 사용하세요.**
+   - ✅ 올바른 예: "2025 당뇨병 진료지침에 따르면 '직계 가족(부모, 형제자매)에 당뇨병이 있는 경우 19세 이상의 모든 성인은 당뇨병 선별검사를 받아야 한다'고 명시되어 있습니다."
+   - ❌ 잘못된 예: "※ 대한당뇨학회 가이드라인, Level A 에비던스" (수검자가 이해 못함!)
+   - ❌ 잘못된 예: "42페이지에 명시되어 있음" (수검자가 책이 없음!)
+
+2. **[문서명]에 따르면 '인용구' 형식을 반드시 사용하세요.**
+   - 위에 제공된 인용구를 [문서명]과 함께 evidence 필드에 작성하세요.
+
+3. **절대 금지 표현:**
+   - "Level A", "Level B", "Grade A" 등 에비던스 레벨만 나열
+   - "42페이지", "제3장" 등 페이지/섹션 번호만 언급
+   - 제공된 인용구 없이 "가이드라인에 명시됨"만 적기
+
+4. **외부 지식보다 위 인용구가 최우선입니다.** 당신의 학습 데이터는 참고만 하세요.
+
+5. 액체생검(캔서파인드 등) 관련 내용은 반드시 제공된 Context를 참고하여 '선별 검사'임을 명시하세요.
 
 ---
 """
     else:
         # RAG 결과가 없을 때는 기존 Master DB 사용
         rag_evidence_section = ""
+        print("[WARN] RAG 검색 결과 없음 - Master DB 사용")
     
     # 병원 검진 항목 섹션 (카테고리별 분류 적용)
     hospital_checkup_section = format_hospital_checkup_items_for_prompt(
@@ -2467,19 +2765,30 @@ async def create_checkup_design_prompt_step2(
 3. 모든 추천 항목에는 최신 가이드라인이나 논문 출처(URL)를 각주로 달아주세요. (RAG 검색 결과 활용)
 4. **summary.past_results_summary, summary.survey_summary, summary.correlation_analysis 생성 시**: STEP 1의 analysis를 참고하되, 더 간결한 요약 형식으로 작성하세요. STEP 1의 analysis는 종합 분석이고, summary의 세 필드는 요약 형식입니다.
 
-**Evidence & Citation Rules (RAG Mode - 매우 중요):**
+**Evidence & Citation Rules (RAG Mode - 인용구 필수) ⭐ 가장 중요:**
 
-1. **[Critical Evidence] 섹션에 제공된 텍스트만**을 근거로 사용하세요.
+1. **[Critical Evidence] 섹션의 인용구를 그대로 복사하세요.**
+   - 위에 제공된 "문서명" + "인용구"를 evidence 필드에 그대로 사용하세요.
+   - ✅ 올바른 예: "2025 당뇨병 진료지침에 따르면 '직계 가족에 당뇨가 있으면 선별검사가 필요하다'고 명시되어 있습니다."
+   - ❌ 잘못된 예: "※ 대한당뇨학회 가이드라인, Level A 에비던스" (이건 수검자가 이해 못함!)
 
-2. 외부 지식이나 당신의 학습 데이터보다, 위에서 제공된 **검색 결과(Context)**가 최우선입니다.
+2. **외부 지식보다 검색된 인용구가 최우선입니다.**
 
-3. **의학적 근거 강화 필수 (가이드라인, 사례, 실험, 에비던스):**
-   - **가이드라인**: 검색된 Context에서 진료지침, 가이드라인을 추출하여 명시하세요 (예: "2025 당뇨병 진료지침", "대한의학회 가이드라인")
-   - **⚠️ RAG 검색 결과가 없어도 evidence 필수 생성**: RAG 검색 결과가 비어있거나 부족한 경우, Master DB의 지식 베이스와 일반적인 의학 가이드라인을 참고하여 evidence를 반드시 생성하세요. (예: "※ 대한당뇨학회 가이드라인, Level A 에비던스", "※ 대한고혈압학회 권고사항")
-   - **사례**: 검색된 Context에 임상 사례나 케이스가 있으면 간단히 언급하세요 (예: "유사한 임상 사례에서...")
-   - **실험/연구**: 검색된 Context에 연구 결과나 실험 데이터가 있으면 요약하여 인용하세요 (예: "최신 연구 결과에 따르면...")
-   - **에비던스**: 검색된 Context의 에비던스 레벨이나 근거 강도를 작게 표시하세요 (예: "Level A 에비던스", "강한 근거")
-   - **작게 표시**: evidence 필드에 이러한 근거들을 **작은 텍스트 형식**으로 각주처럼 표시하세요 (예: "※ 2025 당뇨병 진료지침, Level A 에비던스")
+3. **절대 금지 표현 (수검자가 이해 불가):**
+   - "Level A", "Level B", "Grade A" 등 에비던스 레벨만 나열
+   - "42페이지", "제3장" 등 페이지/섹션 번호만 언급
+   - "가이드라인에 명시됨"만 적고 실제 내용 안적기
+
+4. **⚠️ RAG 검색 결과가 없어도 evidence 필수 생성:**
+   - RAG 결과가 비어있거나 부족한 경우, Master DB의 지식 베이스와 일반적인 의학 가이드라인을 참고하세요.
+   - 하지만 반드시 **인용구 형식**으로 작성하세요: "[기관명] 가이드라인에 따르면 '[내용]'이 권장됩니다"
+   - ✅ 예: "대한고혈압학회 가이드라인에 따르면 '수축기 혈압 140mmHg 이상 시 고혈압 진단을 고려해야 한다'고 명시되어 있습니다."
+   - ❌ 예: "※ 대한고혈압학회 권고사항" (내용 없음!)
+
+5. **evidence 필드 작성 형식:**
+   ```
+   "[문서명/기관명]에 따르면 '[실제 가이드라인 내용]'이라고 명시되어 있습니다. [추가 설명]"
+   ```
 
 4. 추천 이유(reason)나 근거(evidence)를 작성할 때는, 검색된 내용 중 어느 부분에서 가져왔는지 명시하세요. (예: "2025 당뇨병 진료지침에 따르면...")
 
