@@ -928,7 +928,7 @@ async def create_checkup_design_step2(
             system_message=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2,
             user_message=user_message,
             model=powerful_model,
-            temperature=0.3,
+            temperature=0.5,  # 0.3 → 0.5: 설명 다채롭게 (단조로움 방지)
             max_tokens=max_tokens,
             response_format={"type": "json_object"}
         )

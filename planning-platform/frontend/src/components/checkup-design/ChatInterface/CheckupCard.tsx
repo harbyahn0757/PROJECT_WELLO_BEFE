@@ -397,38 +397,38 @@ const CheckupCard: React.FC<CheckupCardProps> = ({
       >
         <div className="checkup-card__header">
           <div className="checkup-card__header-left">
-            <div className="checkup-card__checkbox-wrapper">
-              <input
-                type="checkbox"
-                className="checkup-card__checkbox"
-                checked={selected}
-                onChange={() => {}}
-                onClick={handleCheckboxClick}
+          <div className="checkup-card__checkbox-wrapper">
+            <input
+              type="checkbox"
+              className="checkup-card__checkbox"
+              checked={selected}
+              onChange={() => {}}
+              onClick={handleCheckboxClick}
                 aria-label={`${cleanYear}년 건강검진 선택`}
-              />
-            </div>
+            />
+          </div>
             {dateBadge && (
               <span className="checkup-card__date-badge">{dateBadge}</span>
+          )}
+        </div>
+          <div className="checkup-card__header-right">
+          <div className="checkup-card__status">
+            {abnormalCount > 0 && (
+              <span className="checkup-card__badge checkup-card__badge--abnormal">
+                이상 {abnormalCount}건
+              </span>
+            )}
+            {warningCount > 0 && (
+              <span className="checkup-card__badge checkup-card__badge--warning">
+                경계 {warningCount}건
+              </span>
+            )}
+            {abnormalCount === 0 && warningCount === 0 && (
+              <span className="checkup-card__badge checkup-card__badge--normal">
+                정상
+              </span>
             )}
           </div>
-          <div className="checkup-card__header-right">
-            <div className="checkup-card__status">
-              {abnormalCount > 0 && (
-                <span className="checkup-card__badge checkup-card__badge--abnormal">
-                  이상 {abnormalCount}건
-                </span>
-              )}
-              {warningCount > 0 && (
-                <span className="checkup-card__badge checkup-card__badge--warning">
-                  경계 {warningCount}건
-                </span>
-              )}
-              {abnormalCount === 0 && warningCount === 0 && (
-                <span className="checkup-card__badge checkup-card__badge--normal">
-                  정상
-                </span>
-              )}
-            </div>
           </div>
         </div>
         <div className="checkup-card__body">

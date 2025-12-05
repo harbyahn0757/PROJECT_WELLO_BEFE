@@ -103,9 +103,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message, style }) => {
           parts.push(
             <span key={`span-${matchIndex}`} className="chat-message__highlight-period">
               {match.content}
-            </span>
-          );
-        }
+          </span>
+        );
+      }
         
         currentIndex = match.end;
       });

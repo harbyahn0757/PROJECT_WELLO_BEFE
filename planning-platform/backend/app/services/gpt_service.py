@@ -19,7 +19,7 @@ class GPTRequest:
     system_message: str
     user_message: str
     model: str = "gpt-4o-mini"
-    temperature: float = 0.3
+    temperature: float = 0.5  # 0.3 → 0.5: 창의성 허용하되 통제 유지
     max_tokens: int = 2000
     response_format: Optional[Dict[str, Any]] = None
 
