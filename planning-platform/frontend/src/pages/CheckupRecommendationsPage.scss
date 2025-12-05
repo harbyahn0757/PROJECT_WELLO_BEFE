@@ -251,7 +251,7 @@ $accordion-ultra-compact-spacing: 2px; // 아코디언 초간격 (문진 반영,
   }
 
   &__analysis-text {
-    font-size: $font-sm; // $font-base에서 $font-sm으로 변경 (14px)
+    font-size: $font-base; // 폰트 +2 (14px → 16px)
     color: $gray-700;
     line-height: 1.6;
     font-family: var(--font-family-greeting);
@@ -380,7 +380,7 @@ $accordion-ultra-compact-spacing: 2px; // 아코디언 초간격 (문진 반영,
 
     // 종합 분석 내부의 요약 섹션 제목
     .checkup-recommendations__summary-title {
-      font-size: $font-base;
+      font-size: $font-lg; // 폰트 +2 (16px → 18px)
       font-weight: $font-weight-bold;
       color: $brand-brown-darker;
       margin-bottom: $spacing-sm; // 제목 아래 여백 줄임
@@ -395,11 +395,16 @@ $accordion-ultra-compact-spacing: 2px; // 아코디언 초간격 (문진 반영,
   }
 
   &__summary-text {
-    font-size: $font-sm;
+    font-size: calc(#{$font-sm} + 1px); // 폰트 +1 (14px → 15px)
     color: $gray-700;
     line-height: 1.8;
     margin: 0 0 $spacing-xs 0; // 여백 더 줄임
     font-family: var(--font-family-greeting);
+  }
+
+  &__summary-tags-wrapper {
+    display: block;
+    margin: $spacing-xs 0 0 0; // 하단 마진 제거 (뱃지와 텍스트 사이 간격 줄임)
   }
 
   &__summary-item-tag {
@@ -407,8 +412,8 @@ $accordion-ultra-compact-spacing: 2px; // 아코디언 초간격 (문진 반영,
     padding: 2px 8px;
     background: $background-yellow; // 형광색(노란색) 배경
     border: 1px solid rgba($warning, 0.3);
-    border-radius: $border-radius-full;
-    font-size: 11px;
+    border-radius: 4px; // 모서리만 살짝 둥글게
+    font-size: 15px; // 폰트 +2 (13px → 15px)
     color: $brand-brown-darker; // 텍스트 색상 진하게
     font-family: var(--font-family-greeting);
     margin: 0 4px 4px 0;
@@ -591,8 +596,8 @@ $accordion-ultra-compact-spacing: 2px; // 아코디언 초간격 (문진 반영,
     padding: 2px 8px;
     background: $background-yellow; // 형광색(노란색) 배경
     border: 1px solid rgba($warning, 0.3);
-    border-radius: $border-radius-full;
-    font-size: 11px;
+    border-radius: 4px; // 모서리만 살짝 둥글게
+    font-size: 15px; // 폰트 +2 (13px → 15px)
     color: $brand-brown-darker; // 텍스트 색상 진하게
     font-family: var(--font-family-greeting);
     margin: 0 4px 4px 0;
@@ -1030,6 +1035,20 @@ $accordion-ultra-compact-spacing: 2px; // 아코디언 초간격 (문진 반영,
     flex-direction: column;
     gap: $section-spacing; // 섹션 간 일정한 간격 (상수 사용)
     margin-top: 0; // 섹션 헤더의 margin-bottom이 간격을 제공하므로 0
+  }
+
+  // Priority 3 섹션 간격 추가
+  &__cards--priority-3 {
+    margin-top: $spacing-xl; // Priority 2와 Priority 3 사이 간격 벌리기
+  }
+
+  // 개별 항목 간격 축소 (2순위, 3순위 통합 섹션용)
+  &__cards--compact {
+    gap: $spacing-xs; // 간격 축소
+    
+    .checkup-recommendations__item-accordion {
+      margin-bottom: 0; // 개별 마진 제거 (gap으로만 간격 제어)
+    }
   }
 
   // 검진 카드
@@ -1952,6 +1971,16 @@ $accordion-ultra-compact-spacing: 2px; // 아코디언 초간격 (문진 반영,
       line-height: 1.5;
       font-weight: $font-weight-normal;
       font-family: var(--font-family-greeting);
+      position: relative;
+      transition: max-height 0.3s ease;
+    }
+    
+    // 간호사 박스 collapsed 상태
+    &.collapsed {
+      .checkup-recommendations__doctor-box-text {
+        max-height: calc(1.5em * 3); // 3줄 높이
+        overflow: hidden;
+      }
     }
 
     &-arrow {
@@ -1971,15 +2000,36 @@ $accordion-ultra-compact-spacing: 2px; // 아코디언 초간격 (문진 반영,
     }
   }
 
-  // 간호사 아코디언 토글 (간호사 박스 밑 중앙)
+  // 간호사 박스 그라데이션 오버레이 (collapsed 상태)
+  &__nurse-gradient-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 24px; // 높이 더 줄임 (마지막 0.3줄 정도만)
+    background: linear-gradient(
+      to bottom,
+      rgba(252, 248, 243, 0) 0%,  // 시작점 완전 투명
+      rgba(252, 248, 243, 0.1) 50%,
+      rgba(252, 248, 243, 0.5) 80%,
+      rgba(252, 248, 243, 1) 100%
+    );
+    pointer-events: none;
+    z-index: 5;
+  }
+  
+  // 간호사 아코디언 토글 (간호사 박스 밑 중앙, 그라데이션 영역 위에 플로팅)
   &__nurse-accordion-toggle {
     display: flex;
     justify-content: center;
     align-items: center;
     width: 100%;
-    padding: $spacing-sm 0;
+    padding: 0; // padding 완전 제거
+    margin-top: -$spacing-sm; // 위쪽 간격도 줄임
     cursor: pointer;
     transition: transform 0.2s ease;
+    z-index: 10; // 그라데이션 위에 표시
+    position: relative; // wrapper 기준 상대 위치
 
     &:hover {
       opacity: 0.7;
@@ -2104,7 +2154,7 @@ $accordion-ultra-compact-spacing: 2px; // 아코디언 초간격 (문진 반영,
     display: flex;
     flex-direction: column;
     gap: $spacing-md;
-    margin-top: $spacing-md;
+    margin-top: $spacing-xs; // 화살표와의 간격 줄임 (md → xs)
   }
 
   &__focus-item {
