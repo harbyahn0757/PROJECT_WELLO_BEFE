@@ -736,6 +736,44 @@ async def confirm_auth_and_fetch_data_sync(session_id: str) -> Dict[str, Any]:
         auth_data = temp_auth_data
         user_info = session_data.get("user_info")
         
+        # 인증 성공 시 환자 정보 저장/업데이트 (전화번호, 생년월일 포함)
+        patient_uuid = session_data.get("patient_uuid")
+        hospital_id = session_data.get("hospital_id")
+        
+        if patient_uuid and hospital_id and user_info:
+            try:
+                from ....services.wello_data_service import WelloDataService
+                wello_service = WelloDataService()
+                
+                # user_info 키 이름 변환 (phone_no → phone_number, birthdate → birth_date)
+                user_info_for_save = {
+                    "name": user_info.get("name"),
+                    "phone_number": user_info.get("phone_no"),  # phone_no → phone_number
+                    "birth_date": user_info.get("birthdate"),   # birthdate → birth_date
+                    "gender": user_info.get("gender")
+                }
+                
+                print(f"💾 [인증성공] 환자 정보 저장 시작 - UUID: {patient_uuid}, Hospital: {hospital_id}")
+                print(f"   - 이름: {user_info_for_save['name']}")
+                print(f"   - 전화번호: {user_info_for_save['phone_number'][:3]}*** (마스킹)")
+                print(f"   - 생년월일: {user_info_for_save['birth_date']}")
+                print(f"   - 성별: {user_info_for_save['gender']}")
+                
+                patient_id = await wello_service.save_patient_data(
+                    uuid=patient_uuid,
+                    hospital_id=hospital_id,
+                    user_info=user_info_for_save,
+                    session_id=session_id
+                )
+                
+                if patient_id:
+                    print(f"✅ [인증성공] 환자 정보 저장 완료 - Patient ID: {patient_id}")
+                else:
+                    print(f"⚠️ [인증성공] 환자 정보 저장 실패")
+            except Exception as e:
+                print(f"❌ [인증성공] 환자 정보 저장 중 오류: {e}")
+                # 환자 정보 저장 실패해도 데이터 수집은 계속 진행
+        
         # 데이터 수집 요청 준비
         request_login = {
             "cxId": auth_data["cxId"],
@@ -829,6 +867,44 @@ async def fetch_health_data_after_auth(session_id: str):
         if not auth_data or not user_info:
             session_manager.add_error_message(session_id, "인증 데이터 또는 사용자 정보가 없습니다.")
             return
+        
+        # 인증 성공 시 환자 정보 저장/업데이트 (전화번호, 생년월일 포함)
+        patient_uuid = session_data.get("patient_uuid")
+        hospital_id = session_data.get("hospital_id")
+        
+        if patient_uuid and hospital_id and user_info:
+            try:
+                from ....services.wello_data_service import WelloDataService
+                wello_service = WelloDataService()
+                
+                # user_info 키 이름 변환 (phone_no → phone_number, birthdate → birth_date)
+                user_info_for_save = {
+                    "name": user_info.get("name"),
+                    "phone_number": user_info.get("phone_no"),  # phone_no → phone_number
+                    "birth_date": user_info.get("birthdate"),   # birthdate → birth_date
+                    "gender": user_info.get("gender")
+                }
+                
+                print(f"💾 [인증성공-백그라운드] 환자 정보 저장 시작 - UUID: {patient_uuid}, Hospital: {hospital_id}")
+                print(f"   - 이름: {user_info_for_save['name']}")
+                print(f"   - 전화번호: {user_info_for_save['phone_number'][:3]}*** (마스킹)")
+                print(f"   - 생년월일: {user_info_for_save['birth_date']}")
+                print(f"   - 성별: {user_info_for_save['gender']}")
+                
+                patient_id = await wello_service.save_patient_data(
+                    uuid=patient_uuid,
+                    hospital_id=hospital_id,
+                    user_info=user_info_for_save,
+                    session_id=session_id
+                )
+                
+                if patient_id:
+                    print(f"✅ [인증성공-백그라운드] 환자 정보 저장 완료 - Patient ID: {patient_id}")
+                else:
+                    print(f"⚠️ [인증성공-백그라운드] 환자 정보 저장 실패")
+            except Exception as e:
+                print(f"❌ [인증성공-백그라운드] 환자 정보 저장 중 오류: {e}")
+                # 환자 정보 저장 실패해도 데이터 수집은 계속 진행
         
         # 데이터 수집 요청 준비
         request_login = {

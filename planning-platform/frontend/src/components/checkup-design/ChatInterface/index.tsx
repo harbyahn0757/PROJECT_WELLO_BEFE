@@ -604,7 +604,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         const selectedYears = selectedRecords.map(recordId => {
           const index = parseInt(recordId.replace('checkup-', ''), 10);
           const checkup = healthList[index];
-          return checkup?.year || checkup?.Year || '2023';
+          const yearRaw = checkup?.year || checkup?.Year || '2023';
+          // year에서 "년" 제거 (이미 포함되어 있을 수 있음)
+          return yearRaw.toString().replace('년', '').trim();
         });
         const uniqueYears = Array.from(new Set(selectedYears));
         const messageText = uniqueYears.length === 1

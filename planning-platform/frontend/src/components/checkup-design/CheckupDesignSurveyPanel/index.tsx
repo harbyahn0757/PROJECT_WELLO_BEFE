@@ -327,6 +327,13 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
       return;
     }
     
+    // optional_questions_enabled가 'yes'로 선택되면 questions 배열이 업데이트되므로
+    // useEffect에서 처리하도록 함 (아래 useEffect 참조)
+    if (currentQuestion.key === 'optional_questions_enabled' && value === 'yes') {
+      // questions 배열이 업데이트될 때까지 기다린 후 다음 질문으로 이동
+      return;
+    }
+    
     // 다음 질문으로 자동 이동 (마지막 질문이 아니면)
     if (!isLastQuestion) {
       setTimeout(() => {
@@ -334,6 +341,18 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
       }, 300); // 부드러운 전환을 위한 딜레이
     }
   };
+
+  // optional_questions_enabled가 'yes'로 변경되면 자동으로 다음 질문으로 이동
+  useEffect(() => {
+    if (responses.optional_questions_enabled === 'yes' && 
+        currentQuestion?.key === 'optional_questions_enabled' &&
+        currentQuestionIndex < questions.length - 1) {
+      // questions 배열이 업데이트된 후에 다음 질문으로 이동
+      setTimeout(() => {
+        setCurrentQuestionIndex(prev => prev + 1);
+      }, 300);
+    }
+  }, [responses.optional_questions_enabled, questions.length, currentQuestion?.key, currentQuestionIndex]);
 
   // 체크박스 변경 핸들러 (범용)
   const handleCheckboxChange = (value: string) => {

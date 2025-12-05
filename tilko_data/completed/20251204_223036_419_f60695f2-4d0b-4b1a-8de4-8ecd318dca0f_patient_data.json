@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "session_id": "f60695f2-4d0b-4b1a-8de4-8ecd318dca0f",
+    "data_type": "patient_data",
+    "patient_uuid": "40f02c66-d3ca-4ab6-8071-86db8b43f6bc",
+    "hospital_id": "KIM_HW_CLINIC",
+    "created_at": "2025-12-04T22:30:36.419896",
+    "file_version": "1.0",
+    "status": "completed",
+    "completed_at": "2025-12-04T22:30:36.440834"
+  },
+  "raw_data": {
+    "name": "안광수",
+    "birthdate": "19810927",
+    "phone_no": "01056180757",
+    "gender": "M",
+    "private_auth_type": "4"
+  },
+  "checksum": "fc07767306385e1f4e624198b20defe870dfdd67acf813cfc6cccc06c55f4285"
+}

@@ -577,8 +577,8 @@ export function formatEffectPatternMessage(pattern: MedicationEffectPattern): st
     ? ` (중단 후 ${pattern.patternAnalysis.restartCount}회 재시작)`
     : '';
   
-  // 기간 텍스트를 강조하기 위해 HTML 태그로 감싸기
-  return `${pattern.effect} 관련 약품을 ${years} 동안 ${densityText} 복용하셨어요. ` +
-         `전체 기간 <span class="highlight-period">${totalPeriodText}</span> 중 <span class="highlight-period">${durationText}</span>간 복용 (${pattern.prescriptionCount}회 처방)${restartInfo}`;
+  // 중요한 단어들을 볼드 처리
+  return `<strong>${pattern.effect}</strong> 관련 약품을 <strong>${years}</strong> 동안 ${densityText} 복용하셨어요. ` +
+         `전체 기간 <strong><span class="highlight-period">${totalPeriodText}</span></strong> 중 <strong><span class="highlight-period">${durationText}</span></strong>간 복용 (<strong>${pattern.prescriptionCount}회</strong> 처방)${restartInfo}`;
 }
 

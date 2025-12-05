@@ -15,7 +15,6 @@ from ....repositories.implementations import PatientRepository, CheckupDesignRep
 from ....core.security import get_current_user
 from ....core.config import settings
 from ....services.gpt_service import GPTService, GPTRequest
-from ....services.perplexity_service import PerplexityService, PerplexityRequest
 from ....services.checkup_design_prompt import (
     create_checkup_design_prompt, 
     CHECKUP_DESIGN_SYSTEM_MESSAGE,
@@ -31,7 +30,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 wello_data_service = WelloDataService()
 gpt_service = GPTService()
-perplexity_service = PerplexityService()
 
 # 의존성 주입 (추후 DI 컨테이너로 대체)
 def get_repositories():
@@ -576,7 +574,7 @@ async def create_checkup_design_step1(
     """
     STEP 1: 빠른 분석 전용 검진 설계 생성
     검진 항목 추천 없이 분석만 수행합니다 (patient_summary, analysis, survey_reflection, selected_concerns_analysis, basic_checkup_guide)
-    빠른 응답을 위해 빠른 모델 사용 (sonar-small 또는 GPT-4o-mini)
+    빠른 응답을 위해 빠른 모델 사용 (GPT-4o-mini)
     """
     try:
         logger.info(f"🔍 [STEP1-분석] 요청 시작 - UUID: {request.uuid}, 선택 항목: {len(request.selected_concerns)}개")
@@ -665,15 +663,15 @@ async def create_checkup_design_step1(
         )
         
         # 8. 빠른 모델 선택 (STEP 1은 빠른 응답이 목표)
-        # sonar 사용 (기존 기본값, 빠른 응답)
-        fast_model = getattr(settings, 'perplexity_fast_model', 'sonar')
+        # gpt-4o-mini 사용 (빠르고 저렴한 모델)
+        fast_model = getattr(settings, 'openai_fast_model', 'gpt-4o-mini')
         max_tokens = 4096  # STEP 1은 분석만 하므로 토큰 수 제한
         
-        logger.info(f"🤖 [STEP1-분석] Perplexity API 호출 시작... (모델: {fast_model}, max_tokens: {max_tokens})")
+        logger.info(f"🤖 [STEP1-분석] OpenAI API 호출 시작... (모델: {fast_model}, max_tokens: {max_tokens})")
         logger.info(f"📊 [STEP1-분석] 프롬프트 길이: {len(user_message)} 문자")
         logger.info(f"📊 [STEP1-분석] 시스템 메시지 길이: {len(CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1)} 문자")
         
-        perplexity_request = PerplexityRequest(
+        gpt_request = GPTRequest(
             system_message=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1,
             user_message=user_message,
             model=fast_model,
@@ -682,34 +680,33 @@ async def create_checkup_design_step1(
             response_format={"type": "json_object"}
         )
         
-        # Perplexity 서비스 초기화
-        logger.info(f"🔧 [STEP1-분석] Perplexity 서비스 초기화 중...")
-        await perplexity_service.initialize()
-        logger.info(f"✅ [STEP1-분석] Perplexity 서비스 초기화 완료")
+        # OpenAI 서비스 초기화
+        logger.info(f"🔧 [STEP1-분석] OpenAI 서비스 초기화 중...")
+        await gpt_service.initialize()
+        logger.info(f"✅ [STEP1-분석] OpenAI 서비스 초기화 완료")
         
-        # Perplexity API 호출
-        logger.info(f"📡 [STEP1-분석] Perplexity API 호출 중...")
-        perplexity_api_response = await perplexity_service.call_api(
-            perplexity_request,
+        # OpenAI API 호출
+        logger.info(f"📡 [STEP1-분석] OpenAI API 호출 중...")
+        gpt_api_response = await gpt_service.call_api(
+            gpt_request,
             save_log=True
         )
-        logger.info(f"📥 [STEP1-분석] Perplexity API 응답 수신 완료")
+        logger.info(f"📥 [STEP1-분석] OpenAI API 응답 수신 완료")
         
         # 응답 상태 확인
-        if not perplexity_api_response.success:
-            logger.error(f"❌ [STEP1-분석] Perplexity API 호출 실패: {perplexity_api_response.error}")
-            raise ValueError(f"Perplexity API 호출 실패: {perplexity_api_response.error}")
+        if not gpt_api_response.success:
+            logger.error(f"❌ [STEP1-분석] OpenAI API 호출 실패: {gpt_api_response.error}")
+            raise ValueError(f"OpenAI API 호출 실패: {gpt_api_response.error}")
         
-        if not perplexity_api_response.content:
-            logger.error(f"❌ [STEP1-분석] Perplexity 응답 내용이 비어있음")
-            raise ValueError("Perplexity 응답 내용이 비어있습니다.")
+        if not gpt_api_response.content:
+            logger.error(f"❌ [STEP1-분석] OpenAI 응답 내용이 비어있음")
+            raise ValueError("OpenAI 응답 내용이 비어있습니다.")
         
         # JSON 파싱
         logger.info(f"🔍 [STEP1-분석] JSON 파싱 시작...")
         try:
-            ai_response = perplexity_service.parse_json_response(
-                perplexity_api_response.content,
-                raise_on_incomplete=False
+            ai_response = gpt_service.parse_json_response(
+                gpt_api_response.content
             )
             
             # ai_response가 딕셔너리인지 확인
@@ -816,7 +813,7 @@ async def create_checkup_design_step2(
     """
     STEP 2: 설계 및 근거 전용 검진 설계 생성
     STEP 1의 분석 결과를 받아 검진 항목을 설계하고 의학적 근거를 확보합니다.
-    강력한 모델 사용 (llama-3.1-sonar-huge-128k-online 또는 GPT-4o)
+    강력한 모델 사용 (GPT-4o)
     """
     try:
         logger.info(f"🔍 [STEP2-설계] 요청 시작 - UUID: {request.uuid}, STEP 1 결과 수신 완료")
@@ -899,8 +896,9 @@ async def create_checkup_design_step2(
         prescription_analysis_text = survey_responses_clean.pop("prescription_analysis_text", None) or request.prescription_analysis_text
         selected_medication_texts = survey_responses_clean.pop("selected_medication_texts", None) or request.selected_medication_texts
         
-        # 7. STEP 2 프롬프트 생성
-        user_message = create_checkup_design_prompt_step2(
+        # 7. STEP 2 프롬프트 생성 (RAG 통합)
+        logger.info(f"🔍 [STEP2-설계] RAG 기반 프롬프트 생성 시작...")
+        user_message = await create_checkup_design_prompt_step2(
             step1_result=step1_result_dict,
             patient_name=patient_name,
             patient_age=patient_age,
@@ -915,17 +913,18 @@ async def create_checkup_design_step2(
             prescription_analysis_text=prescription_analysis_text,
             selected_medication_texts=selected_medication_texts
         )
+        logger.info(f"✅ [STEP2-설계] RAG 기반 프롬프트 생성 완료")
         
         # 8. 강력한 모델 선택 (STEP 2는 근거 확보가 목표)
-        # sonar-pro 사용 (강력한 추론, 환경변수 PERPLEXITY_MODEL로 설정 가능)
-        powerful_model = getattr(settings, 'perplexity_model', 'sonar-pro')
+        # gpt-4o 사용 (강력한 추론, 환경변수 OPENAI_MODEL로 설정 가능)
+        powerful_model = getattr(settings, 'openai_model', 'gpt-4o')
         max_tokens = 16384  # STEP 2는 근거 확보를 위해 충분한 토큰 필요
         
-        logger.info(f"🤖 [STEP2-설계] Perplexity API 호출 시작... (모델: {powerful_model}, max_tokens: {max_tokens})")
+        logger.info(f"🤖 [STEP2-설계] OpenAI API 호출 시작... (모델: {powerful_model}, max_tokens: {max_tokens})")
         logger.info(f"📊 [STEP2-설계] 프롬프트 길이: {len(user_message)} 문자")
         logger.info(f"📊 [STEP2-설계] 시스템 메시지 길이: {len(CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2)} 문자")
         
-        perplexity_request = PerplexityRequest(
+        gpt_request = GPTRequest(
             system_message=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2,
             user_message=user_message,
             model=powerful_model,
@@ -934,55 +933,39 @@ async def create_checkup_design_step2(
             response_format={"type": "json_object"}
         )
         
-        # Perplexity 서비스 초기화
-        logger.info(f"🔧 [STEP2-설계] Perplexity 서비스 초기화 중...")
-        await perplexity_service.initialize()
-        logger.info(f"✅ [STEP2-설계] Perplexity 서비스 초기화 완료")
+        # OpenAI 서비스 초기화
+        logger.info(f"🔧 [STEP2-설계] OpenAI 서비스 초기화 중...")
+        await gpt_service.initialize()
+        logger.info(f"✅ [STEP2-설계] OpenAI 서비스 초기화 완료")
         
-        # Perplexity API 호출
-        logger.info(f"📡 [STEP2-설계] Perplexity API 호출 중...")
-        perplexity_api_response = await perplexity_service.call_api(
-            perplexity_request,
+        # OpenAI API 호출
+        logger.info(f"📡 [STEP2-설계] OpenAI API 호출 중...")
+        gpt_api_response = await gpt_service.call_api(
+            gpt_request,
             save_log=True
         )
-        logger.info(f"📥 [STEP2-설계] Perplexity API 응답 수신 완료")
+        logger.info(f"📥 [STEP2-설계] OpenAI API 응답 수신 완료")
         
         # 응답 상태 확인
-        if not perplexity_api_response.success:
-            logger.error(f"❌ [STEP2-설계] Perplexity API 호출 실패: {perplexity_api_response.error}")
-            raise ValueError(f"Perplexity API 호출 실패: {perplexity_api_response.error}")
+        if not gpt_api_response.success:
+            logger.error(f"❌ [STEP2-설계] OpenAI API 호출 실패: {gpt_api_response.error}")
+            raise ValueError(f"OpenAI API 호출 실패: {gpt_api_response.error}")
         
-        if not perplexity_api_response.content:
-            logger.error(f"❌ [STEP2-설계] Perplexity 응답 내용이 비어있음")
-            raise ValueError("Perplexity 응답 내용이 비어있습니다.")
-        
-        # finish_reason 확인
-        finish_reason = perplexity_api_response.finish_reason or ""
-        if finish_reason == "length":
-            logger.warning(f"⚠️ [STEP2-설계] finish_reason이 'length'입니다 - 응답이 잘렸을 수 있음")
-            logger.warning(f"⚠️ [STEP2-설계] max_tokens: {max_tokens}, 응답 길이: {len(perplexity_api_response.content)} 문자")
-        
-        # Citations 추출
-        citations = perplexity_api_response.citations if perplexity_api_response.citations else []
-        logger.info(f"📚 [STEP2-설계] Perplexity Citations 발견: {len(citations)}개")
+        if not gpt_api_response.content:
+            logger.error(f"❌ [STEP2-설계] OpenAI 응답 내용이 비어있음")
+            raise ValueError("OpenAI 응답 내용이 비어있습니다.")
         
         # JSON 파싱
         logger.info(f"🔍 [STEP2-설계] JSON 파싱 시작...")
         try:
-            ai_response = perplexity_service.parse_json_response(
-                perplexity_api_response.content,
-                raise_on_incomplete=False
+            ai_response = gpt_service.parse_json_response(
+                gpt_api_response.content
             )
             logger.info(f"✅ [STEP2-설계] JSON 파싱 성공")
             logger.info(f"📊 [STEP2-설계] 파싱된 응답 키: {list(ai_response.keys()) if ai_response else 'None'}")
         except Exception as parse_error:
             logger.error(f"❌ [STEP2-설계] JSON 파싱 실패: {str(parse_error)}")
             raise ValueError(f"JSON 파싱 실패: {str(parse_error)}")
-        
-        # Citations를 응답에 추가
-        if citations:
-            ai_response["_citations"] = citations
-            logger.info(f"📚 [STEP2-설계] Citations를 응답에 추가: {len(citations)}개")
         
         # STEP 1과 STEP 2 결과 병합
         logger.info(f"🔗 [STEP2-설계] STEP 1과 STEP 2 결과 병합 중...")

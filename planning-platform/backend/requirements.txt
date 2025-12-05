@@ -36,3 +36,12 @@ pytest-asyncio==0.21.1
 black==23.11.0
 flake8==6.1.0
 mypy==1.7.1
+
+# LlamaIndex RAG 관련
+# 참고: tiktoken은 Python 3.9에서 prebuilt wheel이 없어서 0.9.0 버전 사용 (Rust 컴파일러 불필요)
+tiktoken<0.10
+llama-index-core>=0.10.0
+llama-index-indices-managed-llama-cloud>=0.1.0
+llama-index-llms-openai>=0.1.0
+# Google Gemini는 google-generativeai 직접 사용 (LlamaIndex 통합 패키지는 별도 설치 필요 시 추가)
+google-generativeai>=0.3.0

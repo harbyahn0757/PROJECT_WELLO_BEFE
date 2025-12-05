@@ -1,0 +1,318 @@
+/**
+ * IntroTeaser 스타일
+ */
+ @use '../../../styles/variables' as *;
+ @use '../../../styles/mixins' as *;
+ 
+ .intro-teaser {
+   position: fixed;
+   top: 0;
+   left: 0;
+   right: 0;
+   bottom: 0;
+   z-index: 10000;
+   display: flex;
+   align-items: center;
+   justify-content: center;
+ 
+   // 배경 오버레이
+   &__overlay {
+     position: absolute;
+     top: 0;
+     left: 0;
+     right: 0;
+     bottom: 0;
+     background: rgba(0, 0, 0, 0.75);
+     backdrop-filter: blur(4px);
+     cursor: pointer;
+   }
+ 
+   // 모달 패널 (높이 고정)
+   &__modal {
+     position: relative;
+     width: 90%;
+     max-width: 420px; // 모바일 친화적 너비
+     height: 65vh; // 높이 고정 (요청사항)
+     max-height: 600px;
+     background: rgba(20, 20, 20, 0.95); // 배경색 조금 더 진하게
+     border-radius: $border-radius-xl;
+     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+     overflow: hidden; // 모달 둥근 모서리 유지
+     display: flex;
+     flex-direction: column;
+     z-index: 10001;
+     animation: introTeaserFadeIn 0.3s ease-out;
+     border: 1px solid rgba(255, 255, 255, 0.1);
+   }
+ 
+   // 닫기 버튼
+   &__close-btn {
+     position: absolute;
+     top: 16px;
+     right: 16px;
+     width: 32px;
+     height: 32px;
+     border: none;
+     background: rgba(0, 0, 0, 0.3);
+     border-radius: 50%;
+     font-size: 20px;
+     color: rgba(255, 255, 255, 0.8);
+     cursor: pointer;
+     z-index: 10002;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     transition: all 0.2s ease;
+     backdrop-filter: blur(4px);
+ 
+     &:hover {
+       background: rgba(255, 255, 255, 0.2);
+       color: #fff;
+     }
+   }
+ 
+  // 슬라이드 전체 컨테이너
+  &__slide-container {
+    flex: 1; // 남은 공간 모두 차지
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    cursor: grab;
+    user-select: none; // 드래그 시 텍스트 선택 방지
+
+    &:active {
+      cursor: grabbing;
+    }
+
+    &--dragging {
+      cursor: grabbing;
+    }
+  }
+ 
+   &__slide-wrapper {
+     display: flex;
+     width: 100%;
+     height: 100%;
+     transition: transform 0.3s ease-in-out;
+   }
+ 
+   // 개별 슬라이드 (Flex Column 구조)
+   &__slide {
+     min-width: 100%;
+     width: 100%;
+     height: 100%;
+     display: flex;
+     flex-direction: column; // 세로 배치
+     box-sizing: border-box;
+     
+     // [핵심] 상단 얇은 간격 (이미지 영역 밖에서 처리)
+     padding-top: 24px; 
+     padding-left: 20px;
+     padding-right: 20px;
+   }
+ 
+   // 1. 이미지 영역 (가변 높이, 마스킹 역할)
+   &__image-container {
+     position: relative;
+     width: 100%;
+     flex: 1; // 남은 공간 중 텍스트/푸터 제외하고 최대한 차지
+     min-height: 0; // Flex item 축소 가능
+     border-radius: $border-radius-lg; // 이미지 영역 자체를 둥글게
+     overflow: hidden; // [중요] 이미지가 이 영역 밖으로 나가지 않게 자름
+     background: rgba(255, 255, 255, 0.05); // 로딩 전 배경
+     margin-bottom: $spacing-md; // 텍스트 영역과의 간격
+ 
+     // 그라데이션 오버레이 (이미지 위에 고정)
+     &::after {
+       content: '';
+       position: absolute;
+       top: 0; left: 0; right: 0; bottom: 0;
+       z-index: 2;
+       pointer-events: none;
+       // 이미지 하단을 자연스럽게 어둡게 하여 텍스트와 연결감 부여
+       background: linear-gradient(to bottom, 
+         rgba(0,0,0,0) 0%, 
+         rgba(0,0,0,0) 70%, 
+         rgba(0,0,0,0.4) 100%
+       );
+     }
+   }
+ 
+  // 실제 이미지 (움직이는 요소)
+  &__image {
+    width: 100%;
+    height: 130%; // 컨테이너보다 더 길게 설정하여 스크롤 효과 공간 확보
+    object-fit: cover;
+    display: block;
+    // 부드러운 상하 이동 애니메이션 (속도 빠르게)
+    animation: teaserImagePan 10s ease-in-out infinite alternate;
+  }
+ 
+   // 2. 텍스트 영역
+   &__text-area {
+     flex-shrink: 0; // 크기 줄어들지 않음
+     text-align: center;
+     padding: 0 $spacing-xs;
+     margin-bottom: $spacing-md;
+     z-index: 5;
+   }
+ 
+   &__title {
+     font-size: 20px;
+     font-weight: $font-weight-bold;
+     color: #fff;
+     margin-bottom: 8px;
+     line-height: 1.3;
+   }
+ 
+  &__description {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.5;
+    margin: 0;
+    
+    // 말줄임 처리 (선택사항)
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3; // 표준 속성 추가
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+ 
+   // 3. 닷 인디케이터
+   &__indicators {
+     flex-shrink: 0;
+     display: flex;
+     justify-content: center;
+     gap: 8px;
+     margin-bottom: $spacing-lg;
+     padding: 0;
+   }
+ 
+   &__indicator {
+     width: 6px;
+     height: 6px;
+     border-radius: 50%;
+     background: rgba(255, 255, 255, 0.2);
+     border: none;
+     padding: 0;
+     cursor: pointer;
+     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+ 
+     &--active {
+       background: $brand-brown; // 강조색
+       width: 18px;
+       border-radius: 10px;
+     }
+   }
+ 
+   // 4. 푸터 (버튼 영역)
+   &__actions {
+     flex-shrink: 0; // 크기 고정
+     width: 100%;
+     display: flex;
+     gap: 12px;
+     padding: 20px; // 내부 여백
+     padding-top: 16px;
+     border-top: 1px solid rgba(255, 255, 255, 0.1); // 구분선
+     background: rgba(0, 0, 0, 0.2); // 약간 어두운 배경 구분
+     margin-top: auto; // 혹시라도 공간이 남으면 바닥으로 밀기
+   }
+ 
+   &__action-btn {
+     flex: 1;
+     height: 48px; // 버튼 높이 고정
+     border: none;
+     border-radius: $border-radius-md;
+     font-size: 14px;
+     font-weight: 600;
+     cursor: pointer;
+     transition: transform 0.1s ease, background 0.2s;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+ 
+     &:active {
+       transform: scale(0.98);
+     }
+ 
+     // "다시 보지 않기" 스타일
+     &--dont-show {
+       background: rgba(255, 255, 255, 0.1);
+       color: rgba(255, 255, 255, 0.8);
+ 
+       &:hover {
+         background: rgba(255, 255, 255, 0.15);
+         color: #fff;
+       }
+     }
+ 
+     // "닫기" 스타일
+     &--close {
+       background: $brand-brown;
+       color: #fff;
+ 
+       &:hover {
+         background: lighten($brand-brown, 5%);
+       }
+     }
+   }
+ }
+ 
+ // 애니메이션 정의
+ @keyframes introTeaserFadeIn {
+   from {
+     opacity: 0;
+     transform: scale(0.95) translateY(10px);
+   }
+   to {
+     opacity: 1;
+     transform: scale(1) translateY(0);
+   }
+ }
+ 
+@keyframes teaserImagePan {
+  0% {
+    transform: translateY(0); // 상단부터 시작
+  }
+  100% {
+    transform: translateY(-20%); // 이미지가 위로 올라가서 아래 부분까지 천천히 보여줌
+  }
+}
+ 
+ // 모바일 미디어 쿼리
+ @media (max-width: 768px) {
+   .intro-teaser {
+     &__modal {
+       width: 92%; // 모바일에서 조금 더 넓게
+       height: 70vh; // 모바일에서 높이 비율 조정
+     }
+     
+     &__slide {
+       padding-top: 20px; // 상단 간격 조금 줄임
+       padding-left: 16px;
+       padding-right: 16px;
+     }
+ 
+     &__image-container {
+       margin-bottom: 16px;
+     }
+     
+     &__title {
+       font-size: 18px;
+     }
+     
+     &__description {
+       font-size: 13px;
+     }
+ 
+     &__actions {
+       padding: 16px;
+     }
+     
+     &__action-btn {
+       height: 44px;
+     }
+   }
+ }

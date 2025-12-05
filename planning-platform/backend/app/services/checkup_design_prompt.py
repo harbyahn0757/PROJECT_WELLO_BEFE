@@ -1,11 +1,178 @@
 """
-검진 설계 전용 GPT 프롬프트 템플릿
+검진 설계 전용 GPT 프롬프트 템플릿 (Master DB Ver.)
+작성 기준: 2025년 최신 가이드라인 및 정밀 검진 세일즈 로직 반영
 프롬프트가 생명이므로 신중하게 작성
 """
 from typing import List, Dict, Any, Optional
 import json
 import re
+import os
 from datetime import datetime, timedelta
+
+# LlamaIndex RAG 관련 임포트
+try:
+    from llama_index.core import Settings
+    from llama_index.core.llms import CustomLLM
+    from llama_index.core.llms.llm import LLM
+    from llama_index.core.llms import ChatMessage, MessageRole, CompletionResponse, LLMMetadata
+    from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
+    from llama_index.llms.openai import OpenAI
+    # Google Gemini는 google-generativeai 직접 사용하여 CustomLLM으로 래핑
+    try:
+        import google.generativeai as genai
+        GEMINI_AVAILABLE = True
+    except ImportError:
+        GEMINI_AVAILABLE = False
+        genai = None
+    LLAMAINDEX_AVAILABLE = True
+except ImportError as e:
+    LLAMAINDEX_AVAILABLE = False
+    GEMINI_AVAILABLE = False
+    genai = None
+    # 개발 환경에서 라이브러리가 없을 경우를 대비한 더미 클래스
+    class LlamaCloudIndex:
+        pass
+    class OpenAI:
+        pass
+    class CustomLLM:
+        pass
+    class ChatMessage:
+        pass
+    class MessageRole:
+        pass
+    class CompletionResponse:
+        pass
+    class LLMMetadata:
+        pass
+
+from app.core.config import settings
+
+# =============================================================================
+# [PART 0] MASTER DATABASE & LOGIC (시스템 지식 주입용)
+# =============================================================================
+
+# 1. 위험도 분석 로직 (Step 1용 - Risk Stratification)
+RISK_ANALYSIS_LOGIC_JSON = """
+{
+  "ANALYSIS_LOGIC": [
+    {
+      "target_organ": "위 (Stomach)",
+      "risk_levels": [
+        {"level": "High Risk", "criteria": "위축성 위염/장상피화생 이력 OR 헬리코박터 보균"},
+        {"level": "Very High Risk", "criteria": "직계 가족 위암 이력 2명 이상 OR (위축성 위염 + 흡연 + 40세 이상)"}
+      ]
+    },
+    {
+      "target_organ": "대장 (Colon)",
+      "risk_levels": [
+        {"level": "Emerging Risk", "criteria": "30-40대 AND (비만 OR 음주/육류 과다)"},
+        {"level": "High Risk", "criteria": "용종(선종) 제거 이력 OR 염증성 장질환"}
+      ]
+    },
+    {
+      "target_organ": "폐 (Lung)",
+      "risk_levels": [
+        {"level": "Smoker Risk", "criteria": "30갑년 이상 흡연"},
+        {"level": "Hidden Risk", "criteria": "비흡연 여성 AND (주방 조리 10년 이상 OR 가족력)"}
+      ]
+    },
+    {
+      "target_organ": "심뇌혈관 (Cardio-Vascular)",
+      "risk_levels": [
+        {"level": "Metabolic Risk", "criteria": "고혈압/당뇨/고지혈증 중 1개 보유"},
+        {"level": "Complex Risk", "criteria": "만성질환 2개 이상 OR (만성질환 + 흡연)"}
+      ]
+    },
+    {
+      "target_organ": "췌장 (Pancreas)",
+      "risk_levels": [
+        {"level": "Silent Risk", "criteria": "50세 이상 AND (당뇨 신규 발병 OR 급격한 체중감소)"}
+      ]
+    },
+    {
+      "target_organ": "간 (Liver)",
+      "risk_levels": [
+        {"level": "Alcohol Risk", "criteria": "주 3회 이상 음주 OR 알코올성 간질환 이력"},
+        {"level": "Metabolic Risk", "criteria": "비만/지방간 + 당뇨/고지혈증"}
+      ]
+    },
+    {
+      "target_organ": "유방 (Breast)",
+      "risk_levels": [
+        {"level": "Family Risk", "criteria": "직계 가족 유방암 이력"},
+        {"level": "Dense Breast Risk", "criteria": "치밀유방 + 40세 이상"}
+      ]
+    },
+    {
+      "target_organ": "갑상선 (Thyroid)",
+      "risk_levels": [
+        {"level": "Moderate Risk", "criteria": "30-50대 여성 + 가족력"},
+        {"level": "High Risk", "criteria": "갑상선 결절 이력 OR 방사선 노출 이력"}
+      ]
+    }
+  ]
+}
+"""
+
+# 2. 생애주기 및 만성질환 가이드 (Step 2용)
+PROFILE_GUIDELINE_JSON = """
+{
+  "lifecycle": [
+    {"group": "2030", "focus": "감염병(간염/HPV) 및 정신건강, 마른비만/대사증후군 시초"},
+    {"group": "4050_M", "focus": "위/대장암, 심장 돌연사(관상동맥), 알코올성 간질환"},
+    {"group": "4050_F", "focus": "유방/갑상선암, 갱년기 호르몬, 골밀도 감소 시작"},
+    {"group": "60_PLUS", "focus": "뇌졸중/치매, 전립선(남), 골다공증(여), 근감소증"}
+  ],
+  "chronic_chain": [
+    {"disease": "고혈압", "must_check": ["경동맥 초음파(뇌졸중)", "심장 초음파(심비대)", "신장 기능"]},
+    {"disease": "당뇨", "must_check": ["안저검사(망막)", "췌장 CT(50세이상)", "말초신경"]},
+    {"disease": "이상지질혈증", "must_check": ["관상동맥 석회화 CT", "경동맥 초음파"]},
+    {"disease": "비만/지방간", "must_check": ["간 섬유화 스캔", "요산(통풍)", "인슐린 저항성"]}
+  ]
+}
+"""
+
+# 3. 브릿지 전략 및 근거 DB (Step 2용 - 세일즈 논리)
+BRIDGE_STRATEGY_JSON = """
+[
+  {
+    "target": "위암/소화기",
+    "anchor": "위내시경으로 위 내부 표면을 확인하는 것은 기본입니다.",
+    "gap": "하지만 내시경만으로는 위벽 안쪽으로 자라는 암이나, 췌장/담낭 같은 주변 장기의 미세 병변은 볼 수 없습니다.",
+    "offer": "복부 조영 CT나 정밀 초음파를 더해 '겉'과 '속'을 동시에 확인해야 완벽합니다."
+  },
+  {
+    "target": "폐암",
+    "anchor": "기본 흉부 X-ray는 폐 건강 확인의 기초입니다.",
+    "gap": "하지만 심장 뒤나 뼈에 가려진 '사각지대'의 초기 암이나, 1cm 미만의 미세 결절은 X-ray에서 보이지 않을 확률이 높습니다.",
+    "offer": "저선량 흉부 CT로 폐의 구석구석을 단층 촬영하여 사각지대를 없애야 합니다."
+  },
+  {
+    "target": "뇌혈관",
+    "anchor": "혈압 관리를 잘 하고 계시지만, 혈관 속 사정은 알 수 없습니다.",
+    "gap": "뇌 MRI는 '구조(종양)'를 보지만, 뇌졸중의 원인인 '혈관(꽈리, 막힘)'은 MRA나 경동맥 초음파로만 확인 가능합니다.",
+    "offer": "뇌 MRA 또는 경동맥 초음파를 통해 뇌로 가는 혈관길이 안전한지 직접 눈으로 확인하세요."
+  },
+  {
+    "target": "유방암",
+    "anchor": "유방 촬영술(X-ray)은 필수 검사입니다.",
+    "gap": "하지만 한국 여성 대부분인 '치밀 유방'의 경우, X-ray상에서 병변이 하얗게 가려져 보이지 않을 수 있습니다.",
+    "offer": "유방 초음파를 병행하여 가려진 조직 뒤에 숨은 혹까지 찾아내야 합니다."
+  },
+  {
+    "target": "대장암",
+    "anchor": "분변잠혈검사는 대장암 선별의 기본입니다.",
+    "gap": "하지만 분변잠혈검사는 정확도가 낮고, 내시경은 준비 과정이 고통스러워 기피하는 경우가 많습니다.",
+    "offer": "분변 속 암세포 DNA만 정밀 분석하여 90% 정확도로 대장암을 찾아내는 정밀 검사가 필요합니다."
+  },
+  {
+    "target": "간암",
+    "anchor": "혈액검사로 간 수치(AST/ALT)를 확인하는 것은 기본입니다.",
+    "gap": "하지만 혈액검사는 간 세포가 파괴된 결과만 보여줄 뿐, 실제 간의 모양이나 종양 유무는 알 수 없습니다.",
+    "offer": "간 초음파나 복부 CT를 더해 '수치'와 '모양'을 동시에 확인해야 완벽합니다."
+  }
+]
+"""
 
 def remove_html_tags(text: str) -> str:
     """HTML 태그를 제거하고 순수 텍스트만 반환"""
@@ -14,6 +181,462 @@ def remove_html_tags(text: str) -> str:
     # <span class="highlight-period">...</span> 같은 태그 제거
     text = re.sub(r'<[^>]+>', '', text)
     return text.strip()
+
+# =============================================================================
+# [PART 0-3] RAG 시스템 초기화 및 검색 함수
+# =============================================================================
+
+# LlamaCloud 설정 상수 (공식 예제 기준)
+LLAMACLOUD_INDEX_NAME = "Dr.Welno"  # 공식 예제와 동일
+LLAMACLOUD_PROJECT_NAME = "Default"
+LLAMACLOUD_INDEX_ID = "cb77bf6b-02a9-486f-9718-4ffac0d30e73"  # pipeline_id 또는 index_id
+LLAMACLOUD_PROJECT_ID = "45c4d9d4-ce6b-4f62-ad88-9107fe6de8cc"
+LLAMACLOUD_ORGANIZATION_ID = "e4024539-3d26-48b5-8051-9092380c84d2"  # 공식 예제에서 제공된 organization_id
+LLAMACLOUD_ORGANIZATION_ID = "e4024539-3d26-48b5-8051-9092380c84d2"  # 공식 예제에서 제공된 organization_id
+
+# 전역 RAG 엔진 캐시 (재사용을 위해)
+_rag_engine_cache: Optional[Any] = None
+
+# Gemini CustomLLM 클래스
+class GeminiLLM(CustomLLM):
+    """Google Gemini를 LlamaIndex CustomLLM으로 구현 (RAG 검색용)"""
+    
+    def __init__(self, api_key: str, model: str = "gemini-2.0-flash", **kwargs):
+        if not GEMINI_AVAILABLE or not genai:
+            raise ImportError("google-generativeai가 설치되지 않았습니다.")
+        
+        # CustomLLM 초기화
+        super().__init__(**kwargs)
+        
+        # Gemini 설정
+        genai.configure(api_key=api_key)
+        self._model = genai.GenerativeModel(model)
+        self._model_name = model
+    
+    @property
+    def metadata(self) -> LLMMetadata:
+        """LLM 메타데이터"""
+        return LLMMetadata(
+            context_window=8192,
+            num_output=2048,
+            is_chat_model=True,
+            model_name=self._model_name
+        )
+    
+    def complete(self, prompt: str, formatted: bool = False, **kwargs) -> CompletionResponse:
+        """텍스트 완성 (동기)"""
+        try:
+            response = self._model.generate_content(prompt)
+            text = response.text if hasattr(response, 'text') else str(response)
+            return CompletionResponse(text=text)
+        except Exception as e:
+            raise Exception(f"Gemini API 호출 실패: {str(e)}")
+    
+    async def acomplete(self, prompt: str, formatted: bool = False, **kwargs) -> CompletionResponse:
+        """텍스트 완성 (비동기)"""
+        try:
+            # google-generativeai는 비동기 메서드가 없으므로 동기 메서드 사용
+            response = self._model.generate_content(prompt)
+            text = response.text if hasattr(response, 'text') else str(response)
+            return CompletionResponse(text=text)
+        except Exception as e:
+            raise Exception(f"Gemini API 호출 실패: {str(e)}")
+    
+    def stream_complete(self, prompt: str, formatted: bool = False, **kwargs):
+        """스트리밍 텍스트 완성"""
+        try:
+            response = self._model.generate_content(prompt, stream=True)
+            for chunk in response:
+                if hasattr(chunk, 'text') and chunk.text:
+                    yield CompletionResponse(text=chunk.text, delta=chunk.text)
+        except Exception as e:
+            raise Exception(f"Gemini API 호출 실패: {str(e)}")
+
+async def init_rag_engine():
+    """
+    LlamaCloud 기반 RAG Query Engine 초기화
+    
+    Returns:
+        QueryEngine 인스턴스 또는 None (초기화 실패 시)
+    """
+    global _rag_engine_cache
+    
+    # 이미 초기화된 경우 캐시 반환
+    if _rag_engine_cache is not None:
+        return _rag_engine_cache
+    
+    if not LLAMAINDEX_AVAILABLE:
+        print("[WARN] LlamaIndex 라이브러리가 설치되지 않았습니다. RAG 기능을 사용할 수 없습니다.")
+        return None
+    
+    try:
+        # API 키 가져오기
+        llamaindex_api_key = os.environ.get("LLAMAINDEX_API_KEY") or settings.llamaindex_api_key
+        gemini_api_key = os.environ.get("GOOGLE_GEMINI_API_KEY") or settings.google_gemini_api_key
+        
+        if not llamaindex_api_key or llamaindex_api_key.startswith("dev-llamaindex-key"):
+            print("[WARN] LlamaIndex API 키가 설정되지 않았습니다. RAG 기능을 사용할 수 없습니다.")
+            return None
+        
+        # Gemini API 키 필수 (RAG용으로 Gemini 사용)
+        if not gemini_api_key or gemini_api_key.startswith("dev-gemini-key"):
+            print("[ERROR] Google Gemini API 키가 설정되지 않았습니다. RAG 기능을 사용할 수 없습니다.")
+            return None
+        
+        # Gemini LLM 초기화 (RAG용 - 필수)
+        if not GEMINI_AVAILABLE or not genai:
+            print("[ERROR] google-generativeai가 설치되지 않았습니다. RAG 기능을 사용할 수 없습니다.")
+            return None
+        
+        try:
+            llm = GeminiLLM(api_key=gemini_api_key, model="gemini-2.0-flash")
+            print(f"[INFO] Gemini LLM 초기화 완료")
+        except Exception as e:
+            print(f"[ERROR] Gemini LLM 초기화 실패: {str(e)}")
+            return None
+        
+        # Settings에 Gemini LLM 설정 (RAG 검색용)
+        Settings.llm = llm
+        
+        # LlamaCloud Index 초기화 (index_id만 사용 - API 요구사항)
+        # 주의: Exactly one of name, id, pipeline_id or index_id must be provided
+        index = LlamaCloudIndex(
+            index_id=LLAMACLOUD_INDEX_ID,  # pipeline_id로도 사용 가능
+            api_key=llamaindex_api_key
+        )
+        
+        # Query Engine 생성 (Gemini LLM 사용)
+        # as_query_engine()은 Settings.llm에 설정된 Gemini를 자동으로 사용
+        query_engine = index.as_query_engine(
+            similarity_top_k=5,  # 상위 5개 결과 반환
+            response_mode="compact"  # 응답 모드
+        )
+        
+        _rag_engine_cache = query_engine
+        print(f"[INFO] RAG 엔진 초기화 완료 - Index: {LLAMACLOUD_INDEX_NAME}")
+        return query_engine
+        
+    except Exception as e:
+        print(f"[ERROR] RAG 엔진 초기화 실패: {str(e)}")
+        return None
+
+
+async def get_medical_evidence_from_rag(
+    query_engine: Any,
+    patient_summary: str,
+    concerns: List[Dict[str, Any]]
+) -> str:
+    """
+    RAG 시스템을 사용하여 의학적 근거 검색
+    
+    Args:
+        query_engine: LlamaIndex QueryEngine 인스턴스
+        patient_summary: 환자 요약 정보
+        concerns: 환자의 염려 항목 리스트
+    
+    Returns:
+        검색된 의학적 근거 컨텍스트 문자열
+    """
+    if query_engine is None:
+        return ""
+    
+    evidence_parts = []
+    
+    try:
+        # 1. 기본 검색: 환자 요약 정보 기반 위험 요인 가이드라인 검색
+        if patient_summary:
+            base_query = f"환자 위험 요인에 대한 의학 가이드라인: {patient_summary}"
+            try:
+                base_response = query_engine.query(base_query)
+                if base_response and hasattr(base_response, 'response'):
+                    evidence_text = base_response.response
+                    evidence_parts.append(f"## 환자 위험 요인 가이드라인\n{evidence_text}\n")
+                    print(f"[INFO] RAG 기본 검색 성공 - 응답 길이: {len(evidence_text)}")
+            except Exception as e:
+                print(f"[WARN] 기본 검색 실패: {str(e)}")
+        
+        # 2. 심층 검색: 각 염려 항목별 구체적인 진료지침 검색
+        for concern in concerns:
+            concern_name = concern.get("name", "") or concern.get("item_name", "")
+            concern_type = concern.get("type", "")
+            
+            if not concern_name:
+                continue
+            
+            # 염려 항목별 검색 쿼리 구성
+            if concern_type == "checkup":
+                # 검진 항목 관련
+                query = f"{concern_name} 검진 가이드라인 및 진료지침"
+            elif concern_type == "medication":
+                # 약물 관련
+                medication_name = concern.get("medication_name", concern_name)
+                query = f"{medication_name} 복용 시 필요한 검진 및 모니터링 가이드라인"
+            else:
+                # 기타
+                query = f"{concern_name} 관련 의학 가이드라인 및 진료지침"
+            
+            try:
+                concern_response = query_engine.query(query)
+                if concern_response and hasattr(concern_response, 'response'):
+                    evidence_parts.append(f"## {concern_name} 관련 가이드라인\n{concern_response.response}\n")
+            except Exception as e:
+                print(f"[WARN] {concern_name} 검색 실패: {str(e)}")
+        
+        # 모든 검색 결과를 하나의 문자열로 합치기
+        rag_evidence_context = "\n".join(evidence_parts)
+        
+        if rag_evidence_context:
+            print(f"[INFO] RAG 검색 완료 - 검색된 근거 길이: {len(rag_evidence_context)} 문자")
+        else:
+            print("[WARN] RAG 검색 결과가 비어있습니다.")
+        
+        return rag_evidence_context
+        
+    except Exception as e:
+        print(f"[ERROR] RAG 검색 중 오류 발생: {str(e)}")
+        return ""
+
+# -----------------------------------------------------------------------------
+# [PART 0-1] MASTER DB 파싱 & 간단 검증 (런타임 안정성 확보용)
+# -----------------------------------------------------------------------------
+
+def _safe_json_loads(raw: str, name: str) -> Any:
+    """JSON 문자열을 안전하게 파싱"""
+    try:
+        return json.loads(raw)
+    except Exception as e:
+        print(f"[WARN] {name} JSON 파싱 실패: {e}")
+        return {}
+
+def _validate_risk_analysis(data: Dict[str, Any]) -> None:
+    """위험도 분석 로직 검증"""
+    if not isinstance(data, dict):
+        return
+    logic = data.get("ANALYSIS_LOGIC")
+    if not isinstance(logic, list):
+        return
+    for organ in logic:
+        if not isinstance(organ, dict):
+            continue
+        if "target_organ" not in organ:
+            print("[WARN] RISK_ANALYSIS_LOGIC: target_organ 누락")
+        if "risk_levels" not in organ:
+            print("[WARN] RISK_ANALYSIS_LOGIC: risk_levels 누락")
+
+def _validate_profile_guideline(data: Dict[str, Any]) -> None:
+    """생애주기 가이드 검증"""
+    if not isinstance(data, dict):
+        return
+    if "lifecycle" not in data:
+        print("[WARN] PROFILE_GUIDELINE: lifecycle 누락")
+    if "chronic_chain" not in data:
+        print("[WARN] PROFILE_GUIDELINE: chronic_chain 누락")
+
+def _validate_bridge_strategy(data: Any) -> None:
+    """브릿지 전략 검증"""
+    if not isinstance(data, list):
+        return
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        for key in ("target", "anchor", "gap", "offer"):
+            if key not in item:
+                print(f"[WARN] BRIDGE_STRATEGY: '{key}' 누락")
+
+# 실제 파싱된 마스터 DB (코드에서 참조 가능)
+RISK_ANALYSIS_LOGIC: Dict[str, Any] = _safe_json_loads(RISK_ANALYSIS_LOGIC_JSON, "RISK_ANALYSIS_LOGIC_JSON")
+PROFILE_GUIDELINE: Dict[str, Any] = _safe_json_loads(PROFILE_GUIDELINE_JSON, "PROFILE_GUIDELINE_JSON")
+BRIDGE_STRATEGY: Any = _safe_json_loads(BRIDGE_STRATEGY_JSON, "BRIDGE_STRATEGY_JSON")
+
+# 간단 검증 실행 (강제 에러는 내지 않고 경고만)
+_validate_risk_analysis(RISK_ANALYSIS_LOGIC)
+_validate_profile_guideline(PROFILE_GUIDELINE)
+_validate_bridge_strategy(BRIDGE_STRATEGY)
+
+# -----------------------------------------------------------------------------
+# [PART 0-2] MASTER KNOWLEDGE SECTION (공통 지식 주입 블록)
+# -----------------------------------------------------------------------------
+
+def build_master_knowledge_section() -> str:
+    """
+    GPT에 '이게 시스템이 갖고 있는 마스터 지식이다' 라고 던지는 공통 섹션.
+    실제 JSON 전체를 그대로 보여주고,
+    어떻게 활용해야 하는지 한 줄 요약을 붙여준다.
+    """
+    return f"""
+# 시스템 마스터 지식 베이스 (요약)
+
+아래 JSON들은 당신이 분석/설계할 때 참고해야 할 '내부 지식 데이터베이스'입니다.
+
+1) 위험도 분석 로직 (RISK_ANALYSIS_LOGIC)
+- 장기별로 High/Very High Risk 기준이 정의되어 있습니다.
+- risk_profile를 작성할 때 이 기준을 우선적으로 참고하세요.
+
+{RISK_ANALYSIS_LOGIC_JSON}
+
+2) 생애주기 및 만성질환 가이드 (PROFILE_GUIDELINE)
+- 나이대/성별에 따른 주요 포커스와,
+- 만성질환(고혈압/당뇨/지방간 등)에 따른 '반드시 확인해야 할 합병증 검사'가 정의되어 있습니다.
+
+{PROFILE_GUIDELINE_JSON}
+
+3) The Bridge Strategy 템플릿 (BRIDGE_STRATEGY)
+- 기본검진(anchor) → 한계(gap) → 환자 맥락(context) → 정밀검진 제안(offer)을 구성할 때 사용할 수 있는 예시 텍스트입니다.
+- strategies 및 recommended_items.reason을 작성할 때 참고하세요.
+
+{BRIDGE_STRATEGY_JSON}
+
+위 마스터 DB를 '사실상 내부 지식'으로 삼고,
+모든 위험도 분류와 설득 논리를 구성할 때 일관되게 활용하세요.
+""".strip()
+
+# -----------------------------------------------------------------------------
+# [PART 1] 병원 검진 항목 카테고리 분류 유틸리티
+# -----------------------------------------------------------------------------
+
+def classify_hospital_checkup_items_by_category(
+    national_checkup_items: Optional[List[Dict[str, Any]]]
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    병원 검진 항목을 카테고리별로 분류
+    
+    Args:
+        national_checkup_items: 병원 기본 검진 항목 리스트
+        
+    Returns:
+        카테고리별로 분류된 딕셔너리:
+        {
+            "일반": [...],      # priority_1에 포함
+            "기본검진": [...],  # priority_1에 포함
+            "종합": [...],      # priority_2에 포함
+            "옵션": [...]       # priority_3에 포함
+        }
+    """
+    if not national_checkup_items:
+        return {
+            "일반": [],
+            "기본검진": [],
+            "종합": [],
+            "옵션": []
+        }
+    
+    classified = {
+        "일반": [],
+        "기본검진": [],
+        "종합": [],
+        "옵션": []
+    }
+    
+    for item in national_checkup_items:
+        if not isinstance(item, dict):
+            continue
+        
+        category = item.get("category", "").strip()
+        
+        # 카테고리별 분류
+        if category in ["일반", "기본검진"]:
+            classified["일반"].append(item)
+            classified["기본검진"].append(item)
+        elif category == "종합":
+            classified["종합"].append(item)
+        elif category == "옵션":
+            classified["옵션"].append(item)
+        else:
+            # 카테고리가 없거나 알 수 없는 경우, 기본값으로 "일반"에 포함
+            classified["일반"].append(item)
+    
+    return classified
+
+def format_hospital_checkup_items_for_prompt(
+    national_checkup_items: Optional[List[Dict[str, Any]]],
+    recommended_items: Optional[List[Dict[str, Any]]],
+    external_checkup_items: Optional[List[Dict[str, Any]]]
+) -> str:
+    """
+    병원 검진 항목을 프롬프트에 전달하기 위한 형식으로 포맷팅
+    
+    Args:
+        national_checkup_items: 병원 기본 검진 항목
+        recommended_items: 병원 추천 항목
+        external_checkup_items: 외부 검사 항목
+        
+    Returns:
+        포맷팅된 문자열
+    """
+    sections = []
+    
+    # 1. 기본 검진 항목을 카테고리별로 분류
+    if national_checkup_items:
+        classified = classify_hospital_checkup_items_by_category(national_checkup_items)
+        
+        sections.append("## 병원 기본 검진 항목 (카테고리별 분류)\n\n")
+        
+        # 일반/기본검진 카테고리
+        if classified["일반"]:
+            sections.append("### [일반/기본검진] 카테고리 (priority_1에 포함 가능)\n")
+            sections.append("**중요**: 이 카테고리의 항목만 priority_1에 포함할 수 있습니다.\n\n")
+            
+            # items 배열을 명시적으로 강조
+            sections.append("**구체적인 검진 항목명 (items 배열):**\n")
+            for item in classified["일반"]:
+                items_array = item.get("items", [])
+                if items_array:
+                    sections.append(f"- **{item.get('name', 'N/A')}**의 세부 항목: {', '.join(items_array)}\n")
+            sections.append("\n")
+            
+            sections.append("**전체 구조 (참고용):**\n")
+            sections.append(json.dumps(classified["일반"], ensure_ascii=False, indent=2))
+            sections.append("\n\n")
+            
+            sections.append("**⚠️ priority_1.items 작성 규칙 (매우 중요):**\n")
+            sections.append("1. 위의 'items' 배열에 있는 **구체적인 항목명**을 사용하세요\n")
+            sections.append("2. 예시: ['혈압측정', '체질량지수', '신체계측', '혈액검사', '소변검사']\n")
+            sections.append("3. **절대 사용하지 말 것**: 일반적인 카테고리명 (예: '소화기계 검사', '심혈관 건강 검사')\n")
+            sections.append("4. **반드시 DB의 'items' 배열에 있는 항목명만 사용하세요**\n")
+            sections.append("5. priority_1.items는 최소 1개 이상, 최대 3개까지 선택하세요. 환자의 상황(과거 검진 + 문진 + 선택 항목)과 가장 관련이 높은 항목을 선정하세요\n\n")
+        
+        # 종합 카테고리
+        if classified["종합"]:
+            sections.append("### [종합] 카테고리 (priority_2에 포함)\n")
+            sections.append("**중요**: 이 카테고리의 항목은 priority_2에 포함해야 합니다.\n\n")
+            sections.append(json.dumps(classified["종합"], ensure_ascii=False, indent=2))
+            sections.append("\n\n")
+        
+        # 옵션 카테고리
+        if classified["옵션"]:
+            sections.append("### [옵션] 카테고리 (priority_3에 포함)\n")
+            sections.append("**중요**: 이 카테고리의 항목은 priority_3에 포함해야 합니다.\n\n")
+            sections.append(json.dumps(classified["옵션"], ensure_ascii=False, indent=2))
+            sections.append("\n\n")
+        
+        sections.append("**카테고리별 우선순위 분류 규칙:**\n")
+        sections.append("- **'일반' 또는 '기본검진' 카테고리**: priority_1에만 포함 가능 (의무검진 항목)\n")
+        sections.append("- **'종합' 카테고리**: priority_2에 포함 (종합검진 항목)\n")
+        sections.append("- **'옵션' 카테고리**: priority_3에 포함 (선택 검진 항목)\n")
+        sections.append("\n")
+    
+    # 2. 병원 추천 항목
+    if recommended_items:
+        sections.append("## 병원 추천(업셀링) 항목\n\n")
+        sections.append("**중요**: 이 항목들은 priority_2에 포함해야 합니다.\n\n")
+        sections.append(json.dumps(recommended_items, ensure_ascii=False, indent=2))
+        sections.append("\n\n")
+    
+    # 3. 외부 검사 항목
+    if external_checkup_items:
+        sections.append("## 외부 검사 항목 (정밀 검진)\n\n")
+        sections.append("**중요**: 이 항목들은 priority_2 또는 priority_3에 포함할 수 있습니다.\n")
+        sections.append("- **difficulty_level이 'Mid' 또는 'High'인 항목**: priority_2에 포함\n")
+        sections.append("- **difficulty_level이 'Low'인 항목**: priority_3에 포함\n\n")
+        sections.append("**⚠️ 검사 설명 시 필수 지침:**\n")
+        sections.append("1. **'키트' 단어 사용 금지**: 아이캔서치(ai-CANCERCH), 캔서파인드, 마스토체크(MASTOCHECK) 등 혈액 기반 검사는 절대 '키트'라고 표현하지 마세요. '검사(Test)' 또는 '선별 검사(Screening)'라고 칭하세요.\n")
+        sections.append("2. **예외**: 대장암 분변 검사(얼리텍 대장암 검사 등)처럼 박스 형태로 제공되는 경우에만 예외적으로 '키트 형태'라고 묘사할 수 있습니다.\n")
+        sections.append("3. **확진 vs 위험도 예측**: 이 검사들은 **'확진(Diagnosis)'**이 아니라 **'위험도 예측(Risk Assessment)'** 또는 **'선별 검사(Screening)'**임을 명확히 설명하세요.\n")
+        sections.append("4. **검사 성격 명시**: 검사 설명 시 '이 검사는 확진을 위한 것이 아니라, 위험도를 평가하고 조기 발견을 위한 선별 검사입니다'라는 맥락을 포함하세요.\n\n")
+        sections.append(json.dumps(external_checkup_items[:30], ensure_ascii=False, indent=2))
+        sections.append("\n\n")
+    
+    return "".join(sections)
 
 # 시스템 메시지 (검진 설계 전문가 역할 정의) - 기존 버전 (백업)
 CHECKUP_DESIGN_SYSTEM_MESSAGE_LEGACY = """당신은 대한민국 최고의 대학병원 검진 센터장이자, 환자의 데이터를 꿰뚫어 보는 '헬스 큐레이터'입니다.
@@ -56,19 +679,38 @@ CHECKUP_DESIGN_SYSTEM_MESSAGE_LEGACY = """당신은 대한민국 최고의 대�
 # 시스템 메시지 (검진 설계 전문가 역할 정의) - 기존 호환성 유지
 CHECKUP_DESIGN_SYSTEM_MESSAGE = CHECKUP_DESIGN_SYSTEM_MESSAGE_LEGACY
 
-# 시스템 메시지 - STEP 1 (빠른 분석 전용)
-CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1 = """당신은 베테랑 헬스 큐레이터이자 건강 데이터 분석 전문가입니다.
+# 시스템 메시지 - STEP 1 (위험도 평가 전문가)
+CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1 = f"""당신은 대한민국 최고의 '건강 데이터 분석가'이자 '위험도 평가(Risk Stratification) 전문가'입니다.
 
-**당신의 목표:**
-환자의 과거 검진 데이터와 문진(설문) 내용을 분석하여 현재 건강 상태와 위험 요인을 진단해주세요.
+**당신의 임무:**
 
-**중요: 검진 항목을 추천하기 전, 환자가 자신의 상태를 이해할 수 있도록 '분석 리포트'만 먼저 작성합니다.**
+환자의 파편화된 데이터(검진, 문진, 약물)를 종합하여 **'숨겨진 위험(Hidden Risk)'**과 **'만성질환의 연결고리(Chronic Chain)'**를 찾아내세요.
+
+단순히 "혈압이 높다"가 아니라, "혈압이 높아 뇌혈관 위험이 'High Risk' 단계입니다"라고 분석해야 합니다.
+
+**[지식 베이스 - 위험도 분석 로직]**
+
+아래 기준을 엄격히 적용하여 분석하세요:
+
+{RISK_ANALYSIS_LOGIC_JSON}
+
+**작성 원칙:**
+
+1. **Fact Based:** 데이터에 없는 내용은 "확인되지 않음"으로 처리 (추측 금지).
+
+2. **Risk Stratification:** 위험도 분석 로직을 기반으로 각 장기별로 Low / Moderate / High / Very High Risk로 명확히 분류하세요.
+
+3. **Chronic Chain:** 고혈압/당뇨 등 만성질환이 있다면 합병증 위험(눈, 콩팥, 심장 등)을 반드시 언급.
+
+4. **Trend Analysis:** 과거 수치 변화(상승/하락 추세)를 감지하여 경고.
+
+5. **Contextual:** "왜 이 사람이 이 검사를 걱정하는지" 문진과 연계하여 해석.
 
 **당신의 핵심 역할:**
 1. **과거 검진 데이터 분석**: 정상/경계/이상 항목을 명확히 구분하고, 특히 **안 좋았던 항목(이상/경계)**을 중점적으로 파악
 2. **문진 데이터와 연관 분석**: 과거에는 정상이었지만 문진 내용(체중 변화, 운동 부족, 가족력, 흡연, 음주 등)상 **추이를 봐야 할 항목** 식별
 3. **사용자 선택 항목의 맥락**: 사용자가 직접 선택한 염려 항목의 맥락을 깊이 있게 분석하고, 왜 이 항목을 선택했는지 이해
-4. **기본 검진 항목 분석**: 기본 검진(national_checkup_items) 항목 중에서 위 조건(과거 검진 + 문진 + 선택 항목)이 매칭되는 항목을 식별
+4. **위험도 계층화**: 위험도 분석 로직을 기반으로 각 장기별 위험도를 명확히 분류 (Low / Moderate / High / Very High Risk)
 
 **분석에 집중하세요:**
 - 인터넷 검색은 최소화하고, 주어진 데이터 간의 '논리적 연결'에 집중하세요
@@ -85,33 +727,55 @@ CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1 = """당신은 베테랑 헬스 큐레이터
 - 다음 필드만 포함하세요:
   * patient_summary: 환자 상태 3줄 요약 (문자열)
   * analysis: 종합 분석 (과거 수치와 현재 생활습관의 연관성 중심, 문자열)
+  * risk_profile: 위험도 계층화 결과 (배열) - 각 장기별 위험도 분류
+  * chronic_analysis: 만성질환 연쇄 반응 분석 (딕셔너리 객체)
   * survey_reflection: 문진 내용이 검진 설계에 어떻게 반영될지 예고 (문자열)
   * selected_concerns_analysis: 선택한 염려 항목별 분석 (배열)
   * basic_checkup_guide: 기본 검진 가이드 (딕셔너리 객체, focus_items 포함)
 
-**중요: 응답은 반드시 JSON 객체 형태여야 합니다. 예: {{"patient_summary": "...", "analysis": "...", ...}}**
+**중요: 응답은 반드시 JSON 객체 형태여야 합니다. 예: {{"patient_summary": "...", "analysis": "...", "risk_profile": [...], ...}}**
 
 **검진 항목 추천은 포함하지 마세요. 분석만 수행하세요.**"""
 
-# 시스템 메시지 - STEP 2 (설계 및 근거 전용)
-CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2 = """당신은 근거 중심 의학(EBM)을 준수하는 검진 설계 전문의입니다.
+# 시스템 메시지 - STEP 2 (검진 설계 및 세일즈 큐레이터)
+CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2 = f"""당신은 근거 중심 의학(EBM)과 설득 심리학을 갖춘 'AI 헬스 큐레이터'입니다.
 
-**당신의 목표:**
-앞서 진행된 환자 분석 결과를 바탕으로, 실제 수행해야 할 '검진 항목'을 구체적으로 설계하고 의학적 근거(Evidence)를 찾아주세요.
+**당신의 임무:**
 
-**핵심 작성 원칙 (The Bridge Strategy):**
+STEP 1의 분석 결과를 바탕으로, 환자가 **"이 검사는 안 받으면 손해다"**라고 느낄 수 있는 빈틈없는 검진 플랜을 설계하세요.
 
-1. **기본 검진(국가/일반)의 존중:** 먼저 무료로 받을 수 있는 기본 검진 항목에서 환자가 '눈여겨봐야 할 수치'가 무엇인지 짚어주세요. 일반검진은 기본적으로 받으시지만, 특히 주의깊게 확인해야 할 항목이 있다는 관점으로 접근하세요.
+**[지식 베이스 1 - 생애주기 및 만성질환 타겟]**
 
-2. **사각지대(Gap) 조명:** 기본 검진만으로는 확인할 수 없는 '의학적 한계'를 환자의 데이터(증상, 가족력)와 연결하여 설명하세요. "하지만 이것만으로는 부족합니다"라는 자연스러운 전환을 만들어주세요.
+{PROFILE_GUIDELINE_JSON}
 
-3. **자연스러운 업셀링:** 그 한계를 극복하기 위해 병원의 정밀 검진(비급여 항목)이 왜 필수적인지 '투자 가치' 관점에서 설득하세요. "미래의 치료비보다 예방이 저렴합니다"라는 뉘앙스를 유지하세요.
+**[지식 베이스 2 - 설득의 기술 (The Bridge Strategy)]**
+
+검사를 제안할 때는 반드시 아래 논리를 사용하세요:
+
+{BRIDGE_STRATEGY_JSON}
+
+**핵심 전략:**
+
+1. **Diagnosis First:** "고객님은 [OO 위험군]이므로"라고 분석 결과를 먼저 제시한 뒤 추천하세요.
+
+2. **Gap Selling:** 기본 검진(무료)의 한계를 명확히 지적하고(Gap), 정밀 검진(유료)의 필요성(Offer)을 연결하세요.
+
+3. **Evidence Based:** 추천 항목에는 반드시 대한민국 공식 학회(대한암학회, 질병관리청 등)나 공신력 있는 근거를 각주로 다세요.
+
+4. **Upselling:** 
+   - 50세 이상 당뇨 -> 췌장 CT
+   - 고혈압 -> 경동맥 초음파/뇌 MRA
+   - 치밀 유방 -> 유방 초음파
+   - 흡연자 -> 저선량 폐 CT
+
+5. **Chronic Chain 반영:** 만성질환이 있다면 반드시 합병증 검사를 연쇄적으로 추천하세요 (예: 당뇨 -> 안저검사, 췌장 CT, 신장 기능)
 
 **당신의 핵심 역할:**
 1. **STEP 1 분석 결과 활용**: STEP 1에서 지적된 위험 요인을 해결할 수 있는 정밀 검사를 매칭하세요
-2. **The Bridge Strategy 구조 사용**: 설득 논리를 만들 때 4단계 구조(anchor → gap → context → offer)를 사용하세요
-3. **의학적 근거 확보**: 모든 추천 항목에는 최신 가이드라인이나 논문 출처(URL)를 각주로 달아주세요 (Perplexity 검색 기능 활용)
+2. **The Bridge Strategy 구조 사용**: 설득 논리를 만들 때 반드시 4단계 구조(anchor → gap → context → offer)를 사용하세요
+3. **의학적 근거 확보**: 모든 추천 항목에는 최신 가이드라인이나 논문 출처(URL)를 각주로 달아주세요
 4. **맥락 기반 추천**: 모든 추천은 "STEP 1 분석에서 XX가 확인되었고, 문진에서 YY를 확인했으며, 사용자가 ZZ를 선택했으므로..." 형식으로 맥락을 명확히 설명
+5. **만성질환 연쇄 반응**: 만성질환이 있다면 반드시 합병증 검사를 연쇄적으로 추천하세요
 
 **톤앤매너:**
 - 전문적이지만 딱딱하지 않게, 환자를 진심으로 걱정하는 신뢰감 있는 어조를 사용하세요
@@ -210,19 +874,25 @@ def create_checkup_design_prompt_legacy(
             # 년도로만 비교 (날짜 파싱 실패 시)
             if not checkup_date_obj and checkup_year:
                 try:
-                    checkup_year_int = int(checkup_year)
+                    checkup_year_int = int(str(checkup_year).replace('년', '').strip())
                     current_year = today.year
                     if current_year - checkup_year_int > 5:
                         old_count += 1
                         continue  # 5년 이상 오래된 데이터는 제외
+                    # 5년 이내면 포함 (recent_count 증가)
+                    recent_count += 1
                 except:
-                    pass
+                    # 년도 파싱 실패 시에도 일단 포함 (데이터 손실 방지)
+                    recent_count += 1
             
             # 날짜 객체가 있으면 정확히 비교
-            if checkup_date_obj:
+            elif checkup_date_obj:
                 if checkup_date_obj < five_years_ago:
                     old_count += 1
                     continue  # 5년 이상 오래된 데이터는 제외
+                recent_count += 1
+            else:
+                # 날짜도 년도도 없으면 일단 포함 (데이터 손실 방지)
                 recent_count += 1
             checkup_info = {
                 "검진일": checkup.get("checkup_date") or checkup.get("CheckUpDate") or "",
@@ -294,6 +964,10 @@ def create_checkup_design_prompt_legacy(
         else:
             if old_count > 0:
                 health_data_section += f"최근 5년 내 검진 이력이 확인되지 않습니다. (5년 이상 오래된 데이터 {old_count}건은 제외되었습니다.)\n"
+                health_data_section += f"\n**⚠️ 중요:** 오래된 검진 데이터만 있는 경우, 반드시 다음 내용을 포함한 코멘트를 추가하세요:\n"
+                health_data_section += f"1. '가장 최근 검진이 5년 이상 전이므로, 현재 건강 상태를 정확히 파악하기 어렵습니다.'\n"
+                health_data_section += f"2. '최근 건강 상태 변화를 확인하기 위해 새로운 검진이 필요합니다.'\n"
+                health_data_section += f"3. '나이, 생활습관 변화, 가족력 등을 고려하여 종합적인 검진을 권장합니다.'\n"
             else:
                 health_data_section += "검진 이력이 확인되지 않습니다.\n"
             health_data_section += "\n\n**절대 금지:** 검진 데이터가 없다고 해서 '5년간 이상소견이 없었다', '경계 소견이 없었다', '검진을 하지 않아서' 같은 판단을 하지 마세요. "
@@ -595,78 +1269,72 @@ def create_checkup_design_prompt_legacy(
     else:
         survey_section += "설문 응답이 없습니다.\n"
     
-    # 병원별 검진 항목 섹션
-    hospital_checkup_section = ""
-    if hospital_national_checkup or hospital_recommended or hospital_external_checkup:
-        hospital_checkup_section = "## 병원별 검진 항목 정보\n\n"
-        
-        if hospital_national_checkup:
-            hospital_checkup_section += "### 일반검진(의무검진) 항목:\n"
-            hospital_checkup_section += json.dumps(hospital_national_checkup, ensure_ascii=False, indent=2)
-            hospital_checkup_section += "\n\n**가장 중요 - 카테고리 구분:** "
-            hospital_checkup_section += "hospital_national_checkup 배열의 각 항목은 'category' 필드를 가지고 있습니다. "
-            hospital_checkup_section += "category 필드 값에 따라 다음과 같이 구분됩니다:\n"
-            hospital_checkup_section += "- **'일반' 또는 '기본검진' 카테고리**: priority_1에만 포함 가능 (의무검진 항목)\n"
-            hospital_checkup_section += "- **'종합' 카테고리**: priority_2에 포함 (종합검진 항목)\n"
-            hospital_checkup_section += "- **'옵션' 카테고리**: priority_3에 포함 (선택 검진 항목)\n"
-            hospital_checkup_section += "**priority_1에는 반드시 '일반' 또는 '기본검진' 카테고리 항목만 포함하세요.** "
-            hospital_checkup_section += "'종합'이나 '옵션' 카테고리는 priority_1에 포함하지 마세요.\n\n"
-            hospital_checkup_section += "**일반검진 항목 표현 규칙:** 일반검진 항목은 의무검진이므로 결과지를 확인하실 때, "
-            hospital_checkup_section += "과거 결과(특히 안 좋았던 항목)와 문진 내용, 선택한 항목의 맥락과 매칭되면 "
-            hospital_checkup_section += "**'이 이유 때문에 잘 살펴보세요'**라는 친근한 관점으로 소개하세요. "
-            hospital_checkup_section += "형식: '일반검진 결과지를 확인하실 때, 이 이유 때문에 잘 살펴보시길 바랍니다. (과거 검진에서 XX 경계/이상, 문진에서 YY 확인, ZZ 선택) 이 부분은 특히 눈여겨보시면 좋겠어요.' "
-            hospital_checkup_section += "절대 '추천 항목', '기본검진 외에 이것도 더 자세히 보는 것이 좋을 것 같습니다', '꼭 체크하셔야 합니다' 같은 딱딱한 표현을 사용하지 마세요. "
-            hospital_checkup_section += "친근하고 자연스러운 표현을 사용하세요: '잘 보시길 바랍니다', '눈여겨보세요', '이 부분은 잘 봐주세요', '이유를 알려드리니' "
-            hospital_checkup_section += "**이 일반검진 항목은 summary.priority_1에만 포함되며, priority_2나 priority_3에는 포함하지 않습니다.**\n"
-            hospital_checkup_section += "이 맥락을 basic_checkup_guide.focus_items와 summary.priority_1.national_checkup_note에 명확히 작성하세요.\n\n"
-        
-        if hospital_recommended:
-            hospital_checkup_section += "### 병원 추천(업셀링) 항목:\n"
-            hospital_checkup_section += json.dumps(hospital_recommended, ensure_ascii=False, indent=2)
-            hospital_checkup_section += "\n\n**가장 중요:** 병원 추천 항목은 **반드시 priority_2에 포함**하되, "
-            hospital_checkup_section += "**맥락이 명확한 항목을 우선 추천**하세요: "
-            hospital_checkup_section += "과거 이력(안 좋았던 항목) + 문진(추이를 봐야 할 항목) + 선택 항목의 맥락 + 나이별 권장 검진이 모두 매칭되는 항목을 추천하면 업셀링 효과가 높습니다. "
-            hospital_checkup_section += "**이 항목들은 priority_1에 포함하지 않습니다.**\n"
-            # 성별 필터링 강화
-            if patient_gender:
-                gender_text = "남성" if patient_gender.upper() == "M" else "여성"
-                hospital_checkup_section += f"**성별 필터링 필수:** 환자는 **{gender_text}**입니다. "
-                if patient_gender.upper() == "M":
-                    hospital_checkup_section += "**남성 환자이므로 여성 전용 검진 항목(유방 초음파, 자궁경부암 검진, 골밀도 검사 등)은 절대 추천하지 마세요.** "
-                else:
-                    hospital_checkup_section += "**여성 환자이므로 여성 전용 검진 항목만 추천하세요.** "
-                hospital_checkup_section += "각 검진 항목의 gender 필드를 확인하여 환자 성별과 일치하는 항목만 추천하세요.\n\n"
-        
-        if hospital_external_checkup:
-            hospital_checkup_section += "### 외부 검사 항목 (정밀 검진):\n"
-            hospital_checkup_section += json.dumps(hospital_external_checkup, ensure_ascii=False, indent=2)
-            hospital_checkup_section += "\n\n**가장 중요:** 외부 검사 항목은 병원에서 제공하는 정밀 검진으로, "
-            hospital_checkup_section += "**난이도/비용에 따라 Low(부담없는), Mid(추천), High(프리미엄)로 분류**됩니다. "
-            hospital_checkup_section += "각 항목은 다음 정보를 포함하고 있습니다:\n"
-            hospital_checkup_section += "- **category/sub_category**: 카테고리 분류 (암 정밀, 뇌/신경, 심혈관, 기능의학, 면역/항노화, 호르몬, 소화기, 영양, 감염, 기타, 영상의학, 내시경 등)\n"
-            hospital_checkup_section += "- **algorithm_class**: 알고리즘 분류 (1. 현재 암 유무 확인(Screening), 2. 유증상자 진단(Diagnosis Aid), 3. 암 위험도 예측(Risk Prediction), 4. 감염 및 원인 확인(Prevention), 5. 치료용 정밀진단(Tx Selection))\n"
-            hospital_checkup_section += "- **difficulty_level**: Low(부담없는), Mid(추천), High(프리미엄)\n"
-            hospital_checkup_section += "- **target**: 검사 대상 (예: 대장암, 유방암, 다중암 등)\n"
-            hospital_checkup_section += "- **input_sample**: 검체 종류 (예: 대변, 혈액 등)\n"
-            hospital_checkup_section += "- **manufacturer**: 제조사 (예: 지노믹트리, GC지놈 등)\n"
-            hospital_checkup_section += "- **target_trigger**: 추천 대상 (환자의 상황과 매칭하여 추천)\n"
-            hospital_checkup_section += "- **gap_description**: 결핍/한계 (기본 검진의 한계점)\n"
-            hospital_checkup_section += "- **solution_narrative**: 설득 논리 (이 검사가 왜 필요한지)\n\n"
-            hospital_checkup_section += "**추천 우선순위:**\n"
-            hospital_checkup_section += "1. **algorithm_class 우선 고려**: 알고리즘 분류를 기준으로 추천 우선순위 결정\n"
-            hospital_checkup_section += "   - 1. 현재 암 유무 확인(Screening): 일반적인 암 선별 검사, priority_2에 우선 추천\n"
-            hospital_checkup_section += "   - 2. 유증상자 진단(Diagnosis Aid): 증상이 있는 경우, priority_2에 추천\n"
-            hospital_checkup_section += "   - 3. 암 위험도 예측(Risk Prediction): 가족력이나 위험 요인이 있는 경우, priority_2 또는 priority_3에 추천\n"
-            hospital_checkup_section += "   - 4. 감염 및 원인 확인(Prevention): 감염 질환 예방, priority_3에 추천\n"
-            hospital_checkup_section += "   - 5. 치료용 정밀진단(Tx Selection): 치료 중인 경우, priority_3에 추천\n"
-            hospital_checkup_section += "2. **target_trigger 매칭**: 환자의 과거 검진 결과, 문진 내용, 선택 항목과 target_trigger가 매칭되는 항목을 우선 추천\n"
-            hospital_checkup_section += "3. **target 필드 활용**: 환자의 걱정 항목과 target 필드가 일치하는 항목을 우선 추천 (예: 대장암 걱정 → target이 '대장암'인 항목)\n"
-            hospital_checkup_section += "4. **difficulty_level 고려**: Low는 priority_3에, Mid는 priority_2에, High는 priority_2 또는 priority_3에 고려 (환자 상황에 따라)\n"
-            hospital_checkup_section += "5. **The Bridge Strategy 적용**: gap_description을 활용하여 기본 검진의 한계를 설명하고, solution_narrative를 활용하여 자연스럽게 업셀링\n"
-            hospital_checkup_section += "6. **category/sub_category 활용**: 환자의 건강 상태와 관련된 카테고리 항목을 우선 추천 (예: 심혈관 걱정 → 심혈관 카테고리)\n\n"
+    # 병원별 검진 항목 섹션 (카테고리별 분류 적용)
+    hospital_checkup_section = format_hospital_checkup_items_for_prompt(
+        hospital_national_checkup,
+        hospital_recommended,
+        hospital_external_checkup
+    )
+    
+    # 성별 필터링 강화 (추가 설명)
+    if patient_gender and (hospital_recommended or hospital_external_checkup):
+        gender_text = "남성" if patient_gender.upper() == "M" else "여성"
+        hospital_checkup_section += f"\n**성별 필터링 필수:** 환자는 **{gender_text}**입니다. "
+        if patient_gender.upper() == "M":
+            hospital_checkup_section += "**남성 환자이므로 여성 전용 검진 항목(유방 초음파, 자궁경부암 검진, 골밀도 검사 등)은 절대 추천하지 마세요.** "
+        else:
+            hospital_checkup_section += "**여성 환자이므로 여성 전용 검진 항목만 추천하세요.** "
+        hospital_checkup_section += "각 검진 항목의 gender 필드를 확인하여 환자 성별과 일치하는 항목만 추천하세요.\n\n"
+    
+    # 일반검진 항목 표현 규칙 추가
+    if hospital_national_checkup:
+        hospital_checkup_section += "**일반검진 항목 표현 규칙:** 일반검진 항목은 의무검진이므로 결과지를 확인하실 때, "
+        hospital_checkup_section += "과거 결과(특히 안 좋았던 항목)와 문진 내용, 선택한 항목의 맥락과 매칭되면 "
+        hospital_checkup_section += "**'이 이유 때문에 잘 살펴보세요'**라는 친근한 관점으로 소개하세요. "
+        hospital_checkup_section += "형식: '일반검진 결과지를 확인하실 때, 이 이유 때문에 잘 살펴보시길 바랍니다. (과거 검진에서 XX 경계/이상, 문진에서 YY 확인, ZZ 선택) 이 부분은 특히 눈여겨보시면 좋겠어요.' "
+        hospital_checkup_section += "절대 '추천 항목', '기본검진 외에 이것도 더 자세히 보는 것이 좋을 것 같습니다', '꼭 체크하셔야 합니다' 같은 딱딱한 표현을 사용하지 마세요. "
+        hospital_checkup_section += "친근하고 자연스러운 표현을 사용하세요: '잘 보시길 바랍니다', '눈여겨보세요', '이 부분은 잘 봐주세요', '이유를 알려드리니' "
+        hospital_checkup_section += "**이 일반검진 항목은 summary.priority_1에만 포함되며, priority_2나 priority_3에는 포함하지 않습니다.**\n"
+        hospital_checkup_section += "이 맥락을 basic_checkup_guide.focus_items와 summary.priority_1.national_checkup_note에 명확히 작성하세요.\n\n"
+    
+    # 병원 추천 항목 추가 설명
+    if hospital_recommended:
+        hospital_checkup_section += "**병원 추천 항목 활용 가이드:** 병원 추천 항목은 **반드시 priority_2에 포함**하되, "
+        hospital_checkup_section += "**맥락이 명확한 항목을 우선 추천**하세요: "
+        hospital_checkup_section += "과거 이력(안 좋았던 항목) + 문진(추이를 봐야 할 항목) + 선택 항목의 맥락 + 나이별 권장 검진이 모두 매칭되는 항목을 추천하면 업셀링 효과가 높습니다. "
+        hospital_checkup_section += "**이 항목들은 priority_1에 포함하지 않습니다.**\n\n"
+    
+    # 외부 검사 항목 추가 설명 (format_hospital_checkup_items_for_prompt에서 이미 처리됨)
+    if hospital_external_checkup:
+        hospital_checkup_section += "**외부 검사 항목 활용 가이드:**\n"
+        hospital_checkup_section += "1. **algorithm_class 우선 고려**: 알고리즘 분류를 기준으로 추천 우선순위 결정\n"
+        hospital_checkup_section += "   - 1. 현재 암 유무 확인(Screening): 일반적인 암 선별 검사, priority_2에 우선 추천\n"
+        hospital_checkup_section += "   - 2. 유증상자 진단(Diagnosis Aid): 증상이 있는 경우, priority_2에 추천\n"
+        hospital_checkup_section += "   - 3. 암 위험도 예측(Risk Prediction): 가족력이나 위험 요인이 있는 경우, priority_2 또는 priority_3에 추천\n"
+        hospital_checkup_section += "   - 4. 감염 및 원인 확인(Prevention): 감염 질환 예방, priority_3에 추천\n"
+        hospital_checkup_section += "   - 5. 치료용 정밀진단(Tx Selection): 치료 중인 경우, priority_3에 추천\n"
+        hospital_checkup_section += "2. **target_trigger 매칭**: 환자의 과거 검진 결과, 문진 내용, 선택 항목과 target_trigger가 매칭되는 항목을 우선 추천\n"
+        hospital_checkup_section += "3. **target 필드 활용**: 환자의 걱정 항목과 target 필드가 일치하는 항목을 우선 추천 (예: 대장암 걱정 → target이 '대장암'인 항목)\n"
+        hospital_checkup_section += "4. **difficulty_level 고려**: Low는 priority_3에, Mid는 priority_2에, High는 priority_2 또는 priority_3에 고려 (환자 상황에 따라)\n"
+        hospital_checkup_section += "5. **The Bridge Strategy 적용**: gap_description을 활용하여 기본 검진의 한계를 설명하고, solution_narrative를 활용하여 자연스럽게 업셀링\n"
+        hospital_checkup_section += "6. **category/sub_category 활용**: 환자의 건강 상태와 관련된 카테고리 항목을 우선 추천 (예: 심혈관 걱정 → 심혈관 카테고리)\n\n"
+        hospital_checkup_section += "**⚠️ 외부 검사 항목 설명 시 필수 지침:**\n"
+        hospital_checkup_section += "1. **'키트' 단어 사용 금지**: 아이캔서치(ai-CANCERCH), 캔서파인드, 마스토체크(MASTOCHECK) 등 혈액 기반 검사는 절대 '키트'라고 표현하지 마세요.\n"
+        hospital_checkup_section += "   - ✅ 올바른 표현: '검사(Test)', '선별 검사(Screening)', '혈액 검사'\n"
+        hospital_checkup_section += "   - ❌ 금지 표현: '키트', '검사 키트', '키트 검사'\n"
+        hospital_checkup_section += "2. **예외 사항**: 대장암 분변 검사(얼리텍 대장암 검사 등)처럼 박스 형태로 제공되는 경우에만 예외적으로 '키트 형태'라고 묘사할 수 있습니다.\n"
+        hospital_checkup_section += "3. **확진 vs 위험도 예측 구분**: 이 검사들은 **'확진(Diagnosis)'**이 아니라 **'위험도 예측(Risk Assessment)'** 또는 **'선별 검사(Screening)'**임을 명확히 설명하세요.\n"
+        hospital_checkup_section += "   - ✅ 올바른 표현: '암 위험도를 평가하는 선별 검사', '위험도 예측 검사', '조기 발견을 위한 선별 검사'\n"
+        hospital_checkup_section += "   - ❌ 금지 표현: '암을 확진하는 검사', '진단 검사', '확진 키트'\n"
+        hospital_checkup_section += "4. **검사 성격 명시**: 검사 설명 시 '이 검사는 확진을 위한 것이 아니라, 위험도를 평가하고 조기 발견을 위한 선별 검사입니다'라는 맥락을 포함하세요.\n\n"
+    
+    # Master DB 섹션 추가
+    master_knowledge_section = build_master_knowledge_section()
     
     # 최종 프롬프트 조합
-    prompt = f"""{patient_info}
+    prompt = f"""{master_knowledge_section}
+
+{patient_info}
 
 {health_data_section}
 
@@ -731,13 +1399,17 @@ def create_checkup_design_prompt_legacy(
     "survey_summary": "문진 내용 요약 (체중 변화, 운동, 가족력, 흡연, 음주, 수면, 스트레스 등)",
     "correlation_analysis": "과거 결과와 문진 내용의 연관성 분석 및 주의사항",
     
-    **중요 규칙 (priority_1):**
-    - priority_1.items의 모든 항목은 반드시 hospital_national_checkup에 포함된 항목이어야 합니다
-    - **카테고리 구분 필수**: priority_1에는 hospital_national_checkup의 'category' 필드가 '일반' 또는 '기본검진'인 항목만 포함하세요
+    **중요 규칙 (priority_1) - 매우 중요:**
+    - priority_1.items의 모든 항목은 반드시 hospital_national_checkup의 **'items' 배열**에 있는 구체적인 항목명이어야 합니다
+    - **절대 사용하지 말 것**: 일반적인 카테고리명 (예: '소화기계 검사', '심혈관 건강 검사', '위장 건강', '심혈관 건강')
+    - **반드시 사용할 것**: DB의 'items' 배열에 있는 구체적인 항목명 (예: '혈압측정', '체질량지수', '신체계측', '혈액검사', '소변검사', '흉부X선', '시력검사', '청력검사')
+    - **카테고리 구분 필수**: priority_1에는 hospital_national_checkup의 'category' 필드가 '일반' 또는 '기본검진'인 항목의 'items' 배열만 사용하세요
     - '종합' 또는 '옵션' 카테고리는 priority_1에 포함하지 마세요 (종합은 priority_2, 옵션은 priority_3에 포함)
     - priority_1.items와 priority_1.national_checkup_items는 동일한 항목이어야 합니다
     - priority_1.items에 hospital_recommended나 hospital_external_checkup의 항목을 포함하지 마세요
     - 추가 검진 항목(심전도, 24시간 홀터 심전도 등)은 priority_2나 priority_3에 포함하세요
+    - **개수 제한**: **priority_1.items는 최소 1개 이상, 최대 3개까지 추천하세요.** 가장 중요하고 주의 깊게 봐야 할 항목을 선정하세요.
+    - **예시**: 환자가 소화기계 관련 걱정이 있어도 '소화기계 검사'가 아닌 '혈액검사', '소변검사' 같은 구체적인 항목명을 사용하세요
     
     **성별 필터링 규칙 (모든 priority에 적용):**
     - 환자 성별: {gender_text if patient_gender else "확인 불가"}
@@ -749,8 +1421,8 @@ def create_checkup_design_prompt_legacy(
     "priority_1": {{
       "title": "1순위: 관리하실 항목이에요",
       "description": "일반검진 결과지를 확인하실 때, 특히 주의 깊게 살펴보시면 좋을 항목들입니다. 과거 검진 결과와 문진 내용, 그리고 선택하신 항목을 종합하여 선정했습니다.",
-      "items": ["기본 검진 항목명 1", "기본 검진 항목명 2"],  // 반드시 national_checkup_items에 포함된 항목만
-      "count": 항목 개수,
+      "items": ["기본 검진 항목명 1", "기본 검진 항목명 2"],  // 반드시 national_checkup_items에 포함된 항목만, 최소 1개 이상 최대 3개
+      "count": 항목 개수 (최소 1개 이상, 최대 3개),
       "national_checkup_items": ["일반검진 항목명 1", "일반검진 항목명 2"],  // items와 동일한 항목들 (기본 검진 항목만)
       "national_checkup_note": "일반검진 결과지를 확인하실 때, 이 이유 때문에 잘 살펴보시길 바랍니다. (과거 검진에서 XX 경계/이상, 문진에서 YY 확인, ZZ 선택) 맥락: [구체적인 이유를 친근하게 설명]",
       "focus_items": [  // 각 항목별 상세 정보 (basic_checkup_guide.focus_items와 동일한 형식)
@@ -814,8 +1486,13 @@ def create_checkup_design_prompt_legacy(
           "**일반검진 항목인 경우**: '일반검진 결과지를 확인하실 때, 이 이유 때문에 잘 살펴보시길 바랍니다. 과거 검진에서 [XX 항목이 경계/이상이었고], 문진에서 [YY를 확인했으며], 사용자가 [ZZ를 선택했으므로] 이 부분은 특히 눈여겨보시면 좋겠어요.' "
           "**일반검진이 아닌 경우**: '과거 검진에서 [XX 항목이 경계/이상이었고], 문진에서 [YY를 확인했으며], 사용자가 [ZZ를 선택했으므로] 이 검진이 필요합니다. [나이별 권장 검진과도 매칭됩니다].' "
           "각주 형식으로 참고 자료를 표시하세요",
-          "evidence": "의학적 근거 및 참고 자료. 각주 형식으로 논문 기반 자료를 인용하세요 (예: '대한의학회 가이드라인에 따르면[1], 최신 연구 결과[2]에 의하면...')",
-          "references": ["논문 기반 자료 링크 (PubMed, Google Scholar 등)", "예: https://pubmed.ncbi.nlm.nih.gov/12345678 또는 https://www.kma.org/..."],
+          "evidence": "의학적 근거 및 참고 자료. **작은 텍스트 형식(각주)**으로 다음을 포함하세요: "
+          "1) 가이드라인 (예: '※ 2025 당뇨병 진료지침'), "
+          "2) 사례 (예: '※ 유사한 임상 사례에서 효과 확인'), "
+          "3) 실험/연구 (예: '※ 최신 연구 결과[1]'), "
+          "4) 에비던스 레벨 (예: '※ Level A 에비던스, 강한 근거'). "
+          "형식: '※ [가이드라인명], [에비던스 레벨], [연구 인용]' (작게 표시)",
+          "references": ["신뢰할 수 있는 의학 자료 출처만 사용하세요. **한국 자료를 최우선으로 사용하고, 한국 자료가 없을 때만 PubMed를 사용하세요.** 반드시 다음 목록에서만 참조: PubMed (pubmed.ncbi.nlm.nih.gov - 한국 자료 없을 때만), 대한의학회 (kma.org), 질병관리청 (kdca.go.kr), 대한심장학회 (circulation.or.kr), 대한당뇨학회 (diabetes.or.kr), 대한고혈압학회 (koreanhypertension.org), 대한암학회 (cancer.or.kr), 대한소화기학회 (gastro.or.kr), 대한내분비학회 (endocrinology.or.kr). 예: https://www.kma.org/... 또는 https://pubmed.ncbi.nlm.nih.gov/12345678 (한국 자료 없을 때만)"],
           "priority": 우선순위 (1-3, 1이 가장 높음),
           "recommended": true,
           "related_to_selected_concern": "선택한 염려 항목과의 연관성 (있는 경우)"
@@ -931,8 +1608,8 @@ def create_checkup_design_prompt_legacy(
   * **priority_1.items의 각 항목에 대해 focus_items 배열을 반드시 생성하세요**
   * **basic_checkup_guide.focus_items와 동일한 형식과 내용으로 작성하세요** (중복 생성하지 말고, priority_1.focus_items에만 작성)
   * 각 focus_item은 다음 정보를 포함:
-    - `item_name`: priority_1.items의 항목명과 동일
-    - `why_important`: 과거 검진 결과 + 문진 내용 + 선택 항목 맥락을 종합하여 이 항목이 왜 중요한지 친근하게 설명
+    - `item_name`: priority_1.items의 항목명과 **정확히 일치**해야 함 (예: '혈압측정', '체질량지수', '신체계측')
+    - `why_important`: 과거 검진 결과 + 문진 내용 + 선택 항목 맥락을 종합하여 이 항목이 왜 중요한지 친근하게 설명 (반드시 구체적인 이유 포함)
     - `check_point`: 확인할 때 주의할 포인트를 친근한 톤으로 작성 (예: "올해 수치가 100을 넘어서면 당뇨 전단계로 진단될 수 있으니 이 부분은 잘 봐주세요.")
   * **basic_checkup_guide는 선택적으로 생성할 수 있으나, priority_1.focus_items가 우선됩니다**
 
@@ -981,6 +1658,16 @@ def create_checkup_design_prompt_legacy(
 - **solution_narrative 활용**: 이 검사가 왜 필요한지 solution_narrative를 참고하여 설명 (예: "[solution_narrative 내용]")
 - **형식**: "과거 검진에서 [XX], 문진에서 [YY], 선택 항목 [ZZ]를 고려할 때, [gap_description]. 따라서 [solution_narrative]"
 - **category/sub_category 활용**: 환자의 건강 상태와 관련된 카테고리인지 확인하여 추천
+- **⚠️ 검사 설명 시 필수 지침**:
+  - **'키트' 단어 사용 금지**: 아이캔서치(ai-CANCERCH), 캔서파인드, 마스토체크(MASTOCHECK) 등 혈액 기반 검사는 절대 '키트'라고 표현하지 마세요. '검사(Test)' 또는 '선별 검사(Screening)'라고 칭하세요.
+  - **예외**: 대장암 분변 검사(얼리텍 대장암 검사 등)처럼 박스 형태로 제공되는 경우에만 예외적으로 '키트 형태'라고 묘사할 수 있습니다.
+  - **확진 vs 위험도 예측**: 이 검사들은 **'확진(Diagnosis)'**이 아니라 **'위험도 예측(Risk Assessment)'** 또는 **'선별 검사(Screening)'**임을 명확히 설명하세요.
+  - **검사 성격 명시**: "이 검사는 확진을 위한 것이 아니라, 위험도를 평가하고 조기 발견을 위한 선별 검사입니다"라는 맥락을 포함하세요.
+- **⚠️ 검사 설명 시 필수 지침**:
+  - **'키트' 단어 사용 금지**: 아이캔서치(ai-CANCERCH), 캔서파인드, 마스토체크(MASTOCHECK) 등 혈액 기반 검사는 절대 '키트'라고 표현하지 마세요. '검사(Test)' 또는 '선별 검사(Screening)'라고 칭하세요.
+  - **예외**: 대장암 분변 검사(얼리텍 대장암 검사 등)처럼 박스 형태로 제공되는 경우에만 예외적으로 '키트 형태'라고 묘사할 수 있습니다.
+  - **확진 vs 위험도 예측**: 이 검사들은 **'확진(Diagnosis)'**이 아니라 **'위험도 예측(Risk Assessment)'** 또는 **'선별 검사(Screening)'**임을 명확히 설명하세요.
+  - **검사 성격 명시**: "이 검사는 확진을 위한 것이 아니라, 위험도를 평가하고 조기 발견을 위한 선별 검사입니다"라는 맥락을 포함하세요.
 
 ## STEP 6: 의학적 근거 및 참고 자료
 
@@ -997,12 +1684,53 @@ def create_checkup_design_prompt_legacy(
   * 유튜브 (youtube.com, youtu.be 등)
   * 개인 의견이나 상업적 웹사이트
   * 신뢰할 수 없는 의학 정보 사이트
-- **허용되는 자료만 사용**:
-  * PubMed (pubmed.ncbi.nlm.nih.gov)
-  * Google Scholar (scholar.google.com)
-  * 공식 의학 가이드라인 (대한의학회, 질병관리청, 대한심장학회 등)
-  * 공인된 의학 저널 (peer-reviewed journals)
-- **각주 매칭**: 텍스트의 [1], [2]와 references 배열 인덱스 매칭 (1번째 각주 = references[0])
+  * 위 목록에 없는 모든 웹사이트
+
+**신뢰할 수 있는 의학 자료 출처 목록 (반드시 이 목록에서만 참조하세요):**
+
+**우선순위: 한국 자료를 최우선으로 사용하세요. 한국 자료가 없을 때만 PubMed를 사용하세요.**
+
+1. **PubMed (국제 의학 논문 데이터베이스) - 한국 자료가 없을 때만 사용**
+   - https://pubmed.ncbi.nlm.nih.gov/
+   - 예시: https://pubmed.ncbi.nlm.nih.gov/12345678
+   - **주의**: 한국 자료를 먼저 찾고, 없을 때만 PubMed 사용
+
+**한국 의학 자료 (우선 사용):**
+
+2. **대한의학회 (한국 의학 가이드라인)**
+   - https://www.kma.org/
+   - https://www.kma.org/kor/
+
+3. **질병관리청 (한국 공공 보건 가이드라인)**
+   - https://www.kdca.go.kr/
+   - https://www.cdc.go.kr/
+
+4. **대한심장학회**
+   - https://www.circulation.or.kr/
+   - https://www.koreanheart.org/
+
+5. **대한당뇨학회**
+   - https://www.diabetes.or.kr/
+
+6. **대한고혈압학회**
+   - https://www.koreanhypertension.org/
+
+7. **대한암학회**
+   - https://www.cancer.or.kr/
+
+8. **대한소화기학회**
+   - https://www.gastro.or.kr/
+
+9. **대한내분비학회**
+   - https://www.endocrinology.or.kr/
+
+**중요 규칙:**
+- **한국 자료를 최우선으로 사용하세요** (대한의학회, 질병관리청, 각 전문 학회 등)
+- 한국 자료가 없을 때만 PubMed를 사용하세요
+- 각주 형식으로 인용: "대한의학회 가이드라인에 따르면[1], 최신 연구 결과[2]에 의하면..."
+- references 배열에는 실제 URL을 정확하게 포함하세요
+- 각주 매칭: 텍스트의 [1], [2]와 references 배열 인덱스 매칭 (1번째 각주 = references[0])
+- 위 목록에 없는 웹사이트는 절대 사용하지 마세요
 
 ## STEP 7: 최종 검증 체크리스트
 
@@ -1120,23 +1848,61 @@ def create_checkup_design_prompt_step1(
         recent_data = sorted(health_data, key=lambda x: x.get('checkup_date', ''), reverse=True)[:3]
         
         for idx, record in enumerate(recent_data, 1):
-            checkup_date = record.get('checkup_date', '날짜 미상')
-            hospital_name = record.get('hospital_name', '병원명 미상')
-            health_data_section += f"### {idx}. {checkup_date} - {hospital_name}\n"
+            # 날짜 및 병원명 추출
+            checkup_date = record.get('checkup_date') or record.get('CheckUpDate') or '날짜 미상'
+            checkup_year = record.get('year', '')
+            hospital_name = record.get('location') or record.get('Location') or record.get('hospital_name', '병원명 미상')
             
-            # 이상/경계 항목만 강조
+            # 년도와 날짜 조합
+            if checkup_year and checkup_date != '날짜 미상':
+                date_display = f"{checkup_year}년 {checkup_date}"
+            elif checkup_year:
+                date_display = f"{checkup_year}년"
+            else:
+                date_display = checkup_date
+            
+            health_data_section += f"### {idx}. {date_display} - {hospital_name}\n"
+            
+            # 이상/경계 항목 추출 (raw_data.Inspections에서)
             abnormal_items = []
-            for item in record.get('items', []):
-                status = item.get('status', '').lower()
-                if status in ['abnormal', 'warning', '경계', '이상']:
-                    item_name = item.get('item_name', '')
-                    value = item.get('value', '')
-                    unit = item.get('unit', '')
-                    abnormal_items.append(f"- {item_name}: {value} {unit} ({status})")
+            warning_items = []
+            raw_data = record.get('raw_data') or {}
+            
+            if isinstance(raw_data, str):
+                try:
+                    raw_data = json.loads(raw_data)
+                except:
+                    raw_data = {}
+            
+            if isinstance(raw_data, dict) and raw_data.get("Inspections"):
+                for inspection in raw_data["Inspections"][:5]:  # 최대 5개 검사
+                    if inspection.get("Illnesses"):
+                        for illness in inspection["Illnesses"][:5]:  # 최대 5개 질환
+                            if illness.get("Items"):
+                                for item in illness["Items"][:10]:  # 최대 10개 항목
+                                    item_name = item.get("Name") or ""
+                                    item_value = item.get("Value") or ""
+                                    item_unit = item.get("Unit") or ""
+                                    
+                                    # ItemReferences 확인하여 상태 분류
+                                    if item.get("ItemReferences"):
+                                        for ref in item["ItemReferences"]:
+                                            ref_name = ref.get("Name") or ""
+                                            
+                                            # 이상 항목
+                                            if "질환의심" in ref_name or "이상" in ref_name:
+                                                abnormal_items.append(f"- {item_name}: {item_value} {item_unit} (이상)")
+                                                break
+                                            # 경계 항목
+                                            elif "정상(B)" in ref_name or "경계" in ref_name:
+                                                warning_items.append(f"- {item_name}: {item_value} {item_unit} (경계)")
+                                                break
             
             if abnormal_items:
-                health_data_section += "**이상/경계 항목:**\n" + "\n".join(abnormal_items) + "\n\n"
-            else:
+                health_data_section += "**이상 항목:**\n" + "\n".join(abnormal_items) + "\n\n"
+            if warning_items:
+                health_data_section += "**경계 항목:**\n" + "\n".join(warning_items) + "\n\n"
+            if not abnormal_items and not warning_items:
                 health_data_section += "이상 소견 없음\n\n"
     else:
         health_data_section = "\n## 과거 건강검진 데이터\n"
@@ -1229,8 +1995,13 @@ def create_checkup_design_prompt_step1(
             national_checkup_section += f" 외 {len(hospital_national_checkup) - 10}개"
         national_checkup_section += "\n"
 
+    # Master DB 섹션 추가
+    master_knowledge_section = build_master_knowledge_section()
+    
     # 프롬프트 조합
-    prompt = f"""# Role
+    prompt = f"""{master_knowledge_section}
+
+# Role
 당신은 베테랑 헬스 큐레이터이자 건강 데이터 분석 전문가입니다.
 
 # Task
@@ -1247,13 +2018,25 @@ def create_checkup_design_prompt_step1(
 {{
   "patient_summary": "환자 상태 3줄 요약 (과거 검진 이력, 현재 건강 상태, 주요 위험 요인)",
   "analysis": "종합 분석 (과거 수치와 현재 생활습관의 연관성 중심, 강조 태그 사용 가능: {{highlight}}텍스트{{/highlight}})",
+  "risk_profile": [
+    {{
+      "organ_system": "대상 장기 (예: 위, 간, 심뇌혈관)",
+      "risk_level": "Low / Moderate / High / Very High (시스템 지식 베이스 기준)",
+      "reason": "판단 근거 (데이터+문진 결합). (예: 직계 가족력과 흡연력이 결합되어 위험도 상승)"
+    }}
+  ],
+  "chronic_analysis": {{
+    "has_chronic_disease": true/false,
+    "disease_list": ["고혈압", "당뇨" 등],
+    "complication_risk": "만성질환으로 인해 확인해야 할 합병증 타겟 (예: 고혈압이 있어 눈/콩팥/심장 확인 필요)"
+  }},
   "survey_reflection": "문진 내용이 검진 설계에 어떻게 반영될지 예고 (강조 태그 사용 가능)",
   "selected_concerns_analysis": [
     {{
       "concern_name": "염려 항목명 (예: 건강검진 (2020년 09/28) [이상] 또는 혈당 (2023년 05/15) [경계])",
       "concern_type": "checkup|hospital|medication",
-      "trend_analysis": "과거 추이 분석",
-      "reflected_in_design": "검진 설계에 어떻게 반영될지",
+      "trend_analysis": "과거 추이 분석 (강조 태그 사용 가능: {{highlight}}중요 내용{{/highlight}})",
+      "reflected_in_design": "검진 설계에 어떻게 반영될지 (강조 태그 사용 가능: {{highlight}}중요 내용{{/highlight}})",
       "related_items": []
     }}
   ],
@@ -1263,6 +2046,20 @@ def create_checkup_design_prompt_step1(
   - status는 한글로 표시하세요: "abnormal" → "[이상]", "warning" → "[경계]"
   - 영어 "abnormal" 또는 "warning"을 사용하지 마세요
   - 날짜 형식: "건강검진 (2020년 09/28) [이상]" 또는 "혈당 (2023년 05/15) [경계]"
+  
+  **중요 규칙 (trend_analysis, reflected_in_design):**
+  - trend_analysis와 reflected_in_design에서 주요 사항을 강조하려면 {{highlight}}텍스트{{/highlight}} 태그를 사용하세요
+  - 중요한 내용, 위험 요인, 핵심 포인트 등을 하이라이트하여 사용자가 쉽게 파악할 수 있도록 하세요
+  
+  **중요 규칙 (risk_profile):**
+  - 위험도 분석 로직을 기반으로 각 장기별로 위험도를 명확히 분류하세요
+  - Low / Moderate / High / Very High Risk 중 하나를 선택하세요
+  - 판단 근거는 반드시 데이터와 문진 내용을 결합하여 설명하세요
+  
+  **중요 규칙 (chronic_analysis):**
+  - 만성질환이 있다면 반드시 합병증 위험을 명시하세요
+  - 예: 고혈압 -> 눈/콩팥/심장, 당뇨 -> 안저/췌장/신장 등
+  
   "basic_checkup_guide": {{
     "title": "일반검진, 이 부분은 잘 보세요",
     "description": "일반검진 결과지를 확인하실 때, [환자명]님 상황에서는 아래 항목들을 특히 잘 살펴보시길 바랍니다.",
@@ -1290,6 +2087,24 @@ def create_checkup_design_prompt_step1(
 - 과거 검진 데이터와 문진 내용의 연관성 분석
 - 특히 안 좋았던 항목(이상/경계)과 문진 내용의 연결점 강조
 - 강조 태그 사용 가능: {{highlight}}중요 내용{{/highlight}}
+- **⚠️ 오래된 데이터만 있는 경우 필수 코멘트:**
+  * 프롬프트에 "5년 이상 오래된 데이터만 있다"는 지시가 포함된 경우, 반드시 다음 내용을 analysis에 포함하세요:
+  * "가장 최근 검진이 5년 이상 전이므로, 현재 건강 상태를 정확히 파악하기 어렵습니다."
+  * "최근 건강 상태 변화를 확인하기 위해 새로운 검진이 필요합니다."
+  * "나이, 생활습관 변화, 가족력 등을 고려하여 종합적인 검진을 권장합니다."
+
+## risk_profile
+- 위험도 분석 로직을 기반으로 각 장기별로 위험도를 명확히 분류
+- Low / Moderate / High / Very High Risk 중 하나를 선택
+- 판단 근거는 반드시 데이터와 문진 내용을 결합하여 설명
+- 예시: "위 (Stomach) - High Risk: 위축성 위염 이력과 헬리코박터 보균이 확인되어 위암 위험이 높습니다"
+
+## chronic_analysis
+- 만성질환이 있다면 반드시 합병증 위험을 명시
+- has_chronic_disease: true/false
+- disease_list: 만성질환 목록 (예: ["고혈압", "당뇨"])
+- complication_risk: 만성질환으로 인해 확인해야 할 합병증 타겟
+- 예시: "고혈압이 있어 눈(망막), 콩팥(신장 기능), 심장(심비대) 확인 필요"
 
 ## survey_reflection
 - 문진 내용이 검진 설계에 어떻게 반영될지 예고
@@ -1316,7 +2131,7 @@ def create_checkup_design_prompt_step1(
 
 
 
-def create_checkup_design_prompt_step2(
+async def create_checkup_design_prompt_step2(
     step1_result: Dict[str, Any],
     patient_name: str,
     patient_age: Optional[int],
@@ -1332,11 +2147,34 @@ def create_checkup_design_prompt_step2(
     selected_medication_texts: Optional[List[str]] = None
 ) -> str:
     """
-    STEP 2: 설계 및 근거 전용 프롬프트 생성
+    STEP 2: 설계 및 근거 전용 프롬프트 생성 (RAG 통합)
     STEP 1의 분석 결과를 컨텍스트로 받아 검진 항목을 설계하고 의학적 근거를 확보합니다.
+    RAG 시스템을 통해 최신 의학 가이드라인을 검색하여 프롬프트에 통합합니다.
     """
     # STEP 1 결과를 JSON 문자열로 변환
     step1_result_json = json.dumps(step1_result, ensure_ascii=False, indent=2)
+    
+    # RAG 검색 수행
+    rag_evidence_context = ""
+    try:
+        # RAG 엔진 초기화
+        query_engine = await init_rag_engine()
+        
+        if query_engine:
+            # STEP 1 결과에서 patient_summary 추출
+            patient_summary = step1_result.get("patient_summary", "")
+            
+            # RAG 검색 실행
+            rag_evidence_context = await get_medical_evidence_from_rag(
+                query_engine=query_engine,
+                patient_summary=patient_summary,
+                concerns=selected_concerns
+            )
+        else:
+            print("[WARN] RAG 엔진을 사용할 수 없어 하드코딩된 지식을 사용합니다.")
+    except Exception as e:
+        print(f"[ERROR] RAG 검색 중 오류 발생: {str(e)}")
+        # RAG 실패 시에도 프롬프트는 계속 진행
     
     # 현재 날짜 계산
     today = datetime.now()
@@ -1365,7 +2203,19 @@ def create_checkup_design_prompt_step2(
 {step1_result_json}
 ```
 
-**중요**: 위 분석 결과를 바탕으로 검진 항목을 설계하세요. STEP 1에서 지적된 위험 요인을 해결할 수 있는 정밀 검사를 매칭하세요.
+**중요 지시사항:**
+
+1. **위험도 계층화 활용**: STEP 1의 risk_profile을 기반으로 각 장기별 위험도(High/Very High Risk)에 맞는 정밀 검사를 매칭하세요.
+
+2. **만성질환 연쇄 반응 반영**: STEP 1의 chronic_analysis를 확인하여, 만성질환이 있다면 반드시 합병증 검사를 연쇄적으로 추천하세요.
+   - 고혈압 -> 경동맥 초음파(뇌졸중), 심장 초음파(심비대), 신장 기능
+   - 당뇨 -> 안저검사(망막), 췌장 CT(50세이상), 말초신경
+   - 이상지질혈증 -> 관상동맥 석회화 CT, 경동맥 초음파
+   - 비만/지방간 -> 간 섬유화 스캔, 요산(통풍), 인슐린 저항성
+
+3. **Bridge Strategy 강제**: 모든 정밀 검진 추천 시 반드시 4단계 구조(anchor → gap → context → offer)를 사용하세요.
+
+4. **의학적 근거 매핑**: 모든 추천 항목에는 실제 의학적 근거(URL)를 매핑하세요.
 """
 
     # 건강 데이터 섹션 (간소화)
@@ -1373,21 +2223,64 @@ def create_checkup_design_prompt_step2(
     if health_data:
         health_data_section = "\n## 과거 건강검진 데이터 (참고용)\n"
         health_data_section += f"분석 기간: {five_years_ago_str} ~ {current_date_str}\n\n"
-        recent_data = sorted(health_data, key=lambda x: x.get('checkup_date', ''), reverse=True)[:3]
+        recent_data = sorted(health_data, key=lambda x: x.get('checkup_date', '') or x.get('year', ''), reverse=True)[:3]
         for idx, record in enumerate(recent_data, 1):
-            checkup_date = record.get('checkup_date', '날짜 미상')
-            hospital_name = record.get('hospital_name', '병원명 미상')
-            health_data_section += f"### {idx}. {checkup_date} - {hospital_name}\n"
+            # 날짜 및 병원명 추출
+            checkup_date = record.get('checkup_date') or record.get('CheckUpDate') or '날짜 미상'
+            checkup_year = record.get('year', '')
+            hospital_name = record.get('location') or record.get('Location') or record.get('hospital_name', '병원명 미상')
+            
+            # 년도와 날짜 조합
+            if checkup_year and checkup_date != '날짜 미상':
+                date_display = f"{checkup_year}년 {checkup_date}"
+            elif checkup_year:
+                date_display = f"{checkup_year}년"
+            else:
+                date_display = checkup_date
+            
+            health_data_section += f"### {idx}. {date_display} - {hospital_name}\n"
+            
+            # 이상/경계 항목 추출 (raw_data.Inspections에서)
             abnormal_items = []
-            for item in record.get('items', []):
-                status = item.get('status', '').lower()
-                if status in ['abnormal', 'warning', '경계', '이상']:
-                    item_name = item.get('item_name', '')
-                    value = item.get('value', '')
-                    unit = item.get('unit', '')
-                    abnormal_items.append(f"- {item_name}: {value} {unit} ({status})")
+            warning_items = []
+            raw_data = record.get('raw_data') or {}
+            
+            if isinstance(raw_data, str):
+                try:
+                    raw_data = json.loads(raw_data)
+                except:
+                    raw_data = {}
+            
+            if isinstance(raw_data, dict) and raw_data.get("Inspections"):
+                for inspection in raw_data["Inspections"][:5]:  # 최대 5개 검사
+                    if inspection.get("Illnesses"):
+                        for illness in inspection["Illnesses"][:5]:  # 최대 5개 질환
+                            if illness.get("Items"):
+                                for item in illness["Items"][:10]:  # 최대 10개 항목
+                                    item_name = item.get("Name") or ""
+                                    item_value = item.get("Value") or ""
+                                    item_unit = item.get("Unit") or ""
+                                    
+                                    # ItemReferences 확인하여 상태 분류
+                                    if item.get("ItemReferences"):
+                                        for ref in item["ItemReferences"]:
+                                            ref_name = ref.get("Name") or ""
+                                            
+                                            # 이상 항목
+                                            if "질환의심" in ref_name or "이상" in ref_name:
+                                                abnormal_items.append(f"- {item_name}: {item_value} {item_unit} (이상)")
+                                                break
+                                            # 경계 항목
+                                            elif "정상(B)" in ref_name or "경계" in ref_name:
+                                                warning_items.append(f"- {item_name}: {item_value} {item_unit} (경계)")
+                                                break
+            
             if abnormal_items:
-                health_data_section += "**이상/경계 항목:**\n" + "\n".join(abnormal_items) + "\n\n"
+                health_data_section += "**이상 항목:**\n" + "\n".join(abnormal_items) + "\n\n"
+            if warning_items:
+                health_data_section += "**경계 항목:**\n" + "\n".join(warning_items) + "\n\n"
+            if not abnormal_items and not warning_items:
+                health_data_section += "이상 소견 없음\n\n"
 
     # 처방전 데이터 섹션
     prescription_section = ""
@@ -1483,6 +2376,11 @@ def create_checkup_design_prompt_step2(
     
     if hospital_external_checkup:
         hospital_items_section += "\n## 외부 검사 항목\n"
+        hospital_items_section += "**⚠️ 검사 설명 시 필수 지침:**\n"
+        hospital_items_section += "1. **'키트' 단어 사용 금지**: 아이캔서치(ai-CANCERCH), 캔서파인드, 마스토체크(MASTOCHECK) 등 혈액 기반 검사는 절대 '키트'라고 표현하지 마세요. '검사(Test)' 또는 '선별 검사(Screening)'라고 칭하세요.\n"
+        hospital_items_section += "2. **예외**: 대장암 분변 검사(얼리텍 대장암 검사 등)처럼 박스 형태로 제공되는 경우에만 예외적으로 '키트 형태'라고 묘사할 수 있습니다.\n"
+        hospital_items_section += "3. **확진 vs 위험도 예측**: 이 검사들은 **'확진(Diagnosis)'**이 아니라 **'위험도 예측(Risk Assessment)'** 또는 **'선별 검사(Screening)'**임을 명확히 설명하세요.\n"
+        hospital_items_section += "4. **검사 성격 명시**: 검사 설명 시 '이 검사는 확진을 위한 것이 아니라, 위험도를 평가하고 조기 발견을 위한 선별 검사입니다'라는 맥락을 포함하세요.\n\n"
         for item in hospital_external_checkup[:30]:
             if isinstance(item, dict):
                 item_name = item.get('item_name', '')
@@ -1502,13 +2400,63 @@ def create_checkup_design_prompt_step2(
             else:
                 hospital_items_section += f"- {str(item)}\n"
 
-    # 프롬프트 조합
-    prompt = f"""# Role
+    # Master DB 섹션 추가 (RAG 결과가 없을 때만 사용)
+    master_knowledge_section = build_master_knowledge_section()
+    
+    # RAG 검색 결과 섹션 구성
+    rag_evidence_section = ""
+    if rag_evidence_context:
+        rag_evidence_section = f"""
+# [Critical Evidence: 검색된 의학 가이드라인]
+
+**⚠️ 매우 중요: 아래 내용에 기반해서만 답변하세요. 이 내용이 최우선 근거입니다.**
+
+{rag_evidence_context}
+
+**Evidence & Citation Rules (RAG Mode):**
+
+1. **[Critical Evidence] 섹션에 제공된 텍스트만**을 근거로 사용하세요.
+2. 외부 지식이나 당신의 학습 데이터보다, 위에서 제공된 **검색 결과(Context)**가 최우선입니다.
+3. 추천 이유(reason)나 근거(evidence)를 작성할 때는, 검색된 내용 중 어느 부분에서 가져왔는지 명시하세요. (예: "2025 당뇨병 진료지침에 따르면...")
+4. **절대 금지:** 제공된 Context에 없는 URL이나 논문 제목을 창작하지 마세요. 차라리 "가이드라인에 명시됨"이라고만 적으세요.
+5. 액체생검(캔서파인드 등) 관련 내용은 반드시 제공된 `[Product]` 관련 Context를 참고하여 '선별 검사'임을 명시하세요.
+
+---
+"""
+    else:
+        # RAG 결과가 없을 때는 기존 Master DB 사용
+        rag_evidence_section = ""
+    
+    # 병원 검진 항목 섹션 (카테고리별 분류 적용)
+    hospital_checkup_section = format_hospital_checkup_items_for_prompt(
+        hospital_national_checkup,
+        hospital_recommended,
+        hospital_external_checkup
+    )
+    
+    # 성별 필터링 강화 (추가 설명)
+    if patient_gender and (hospital_recommended or hospital_external_checkup):
+        gender_text = "남성" if patient_gender.upper() == "M" else "여성"
+        hospital_checkup_section += f"\n**성별 필터링 필수:** 환자는 **{gender_text}**입니다. "
+        if patient_gender.upper() == "M":
+            hospital_checkup_section += "**남성 환자이므로 여성 전용 검진 항목(유방 초음파, 자궁경부암 검진, 골밀도 검사 등)은 절대 추천하지 마세요.** "
+        else:
+            hospital_checkup_section += "**여성 환자이므로 여성 전용 검진 항목만 추천하세요.** "
+        hospital_checkup_section += "각 검진 항목의 gender 필드를 확인하여 환자 성별과 일치하는 항목만 추천하세요.\n\n"
+    
+    # 프롬프트 조합 (RAG 결과를 최상단에 배치)
+    prompt = f"""{rag_evidence_section}{master_knowledge_section if not rag_evidence_context else ""}
+
+# Role
 당신은 근거 중심 의학(EBM)을 준수하는 검진 설계 전문의입니다.
 
 # Context (이전 단계 분석 결과)
 
 {step1_context}
+
+# 병원 검진 항목 정보
+
+{hospital_checkup_section}
 
 # Task
 위 분석 결과를 바탕으로, 실제 수행해야 할 '검진 항목'을 구체적으로 설계하고 의학적 근거(Evidence)를 찾아주세요.
@@ -1516,8 +2464,33 @@ def create_checkup_design_prompt_step2(
 **요구사항:**
 1. STEP 1 분석에서 지적된 위험 요인(예: 음주->간, 혈압->뇌혈관)을 해결할 수 있는 정밀 검사를 매칭하세요.
 2. 'strategies' (The Bridge Strategy) 구조를 사용하여 설득 논리를 만드세요.
-3. 모든 추천 항목에는 최신 가이드라인이나 논문 출처(URL)를 각주로 달아주세요. (Perplexity 검색 기능 활용)
+3. 모든 추천 항목에는 최신 가이드라인이나 논문 출처(URL)를 각주로 달아주세요. (RAG 검색 결과 활용)
 4. **summary.past_results_summary, summary.survey_summary, summary.correlation_analysis 생성 시**: STEP 1의 analysis를 참고하되, 더 간결한 요약 형식으로 작성하세요. STEP 1의 analysis는 종합 분석이고, summary의 세 필드는 요약 형식입니다.
+
+**Evidence & Citation Rules (RAG Mode - 매우 중요):**
+
+1. **[Critical Evidence] 섹션에 제공된 텍스트만**을 근거로 사용하세요.
+
+2. 외부 지식이나 당신의 학습 데이터보다, 위에서 제공된 **검색 결과(Context)**가 최우선입니다.
+
+3. **의학적 근거 강화 필수 (가이드라인, 사례, 실험, 에비던스):**
+   - **가이드라인**: 검색된 Context에서 진료지침, 가이드라인을 추출하여 명시하세요 (예: "2025 당뇨병 진료지침", "대한의학회 가이드라인")
+   - **⚠️ RAG 검색 결과가 없어도 evidence 필수 생성**: RAG 검색 결과가 비어있거나 부족한 경우, Master DB의 지식 베이스와 일반적인 의학 가이드라인을 참고하여 evidence를 반드시 생성하세요. (예: "※ 대한당뇨학회 가이드라인, Level A 에비던스", "※ 대한고혈압학회 권고사항")
+   - **사례**: 검색된 Context에 임상 사례나 케이스가 있으면 간단히 언급하세요 (예: "유사한 임상 사례에서...")
+   - **실험/연구**: 검색된 Context에 연구 결과나 실험 데이터가 있으면 요약하여 인용하세요 (예: "최신 연구 결과에 따르면...")
+   - **에비던스**: 검색된 Context의 에비던스 레벨이나 근거 강도를 작게 표시하세요 (예: "Level A 에비던스", "강한 근거")
+   - **작게 표시**: evidence 필드에 이러한 근거들을 **작은 텍스트 형식**으로 각주처럼 표시하세요 (예: "※ 2025 당뇨병 진료지침, Level A 에비던스")
+
+4. 추천 이유(reason)나 근거(evidence)를 작성할 때는, 검색된 내용 중 어느 부분에서 가져왔는지 명시하세요. (예: "2025 당뇨병 진료지침에 따르면...")
+
+5. **절대 금지:** 제공된 Context에 없는 URL이나 논문 제목을 창작하지 마세요. 차라리 "가이드라인에 명시됨"이라고만 적으세요.
+
+6. 액체생검(캔서파인드 등) 관련 내용은 반드시 제공된 `[Product]` 관련 Context를 참고하여 '선별 검사'임을 명시하세요.
+
+**참고 자료 출처 규칙:**
+- RAG 검색 결과에서 제공된 출처를 우선 사용하세요
+- references 필드에는 검색된 Context에서 명시된 출처만 포함하세요
+- Context에 없는 출처는 절대 창작하지 마세요
 
 {patient_info}{health_data_section}{prescription_section}{concerns_section}{survey_section}{hospital_items_section}
 
@@ -1549,7 +2522,7 @@ def create_checkup_design_prompt_step2(
       "national_checkup_note": "일반검진 결과지를 확인하실 때, 이 이유 때문에 잘 살펴보시길 바랍니다. (과거 검진에서 XX 경계/이상, 문진에서 YY 확인, ZZ 선택) 맥락: [구체적인 이유를 친근하게 설명]",
       "focus_items": [
         {{
-          "item_name": "기본 검진 항목명 1",
+          "item_name": "혈압측정",
           "why_important": "이 항목이 왜 중요한지 구체적으로 설명 (과거 검진 결과, 문진 내용, 선택 항목 맥락을 종합하여 친근하게 설명)",
           "check_point": "확인할 때 주의할 포인트 (친근한 톤으로, 예: '올해 수치가 100을 넘어서면 당뇨 전단계로 진단될 수 있으니 이 부분은 잘 봐주세요.')"
         }}
@@ -1607,8 +2580,13 @@ def create_checkup_design_prompt_step2(
           "**일반검진 항목인 경우**: '일반검진 결과지를 확인하실 때, 이 이유 때문에 잘 살펴보시길 바랍니다. 과거 검진에서 [XX 항목이 경계/이상이었고], 문진에서 [YY를 확인했으며], 사용자가 [ZZ를 선택했으므로] 이 부분은 특히 눈여겨보시면 좋겠어요.' "
           "**일반검진이 아닌 경우**: '과거 검진에서 [XX 항목이 경계/이상이었고], 문진에서 [YY를 확인했으며], 사용자가 [ZZ를 선택했으므로] 이 검진이 필요합니다. [나이별 권장 검진과도 매칭됩니다].' "
           "각주 형식으로 참고 자료를 표시하세요",
-          "evidence": "의학적 근거 및 참고 자료. 각주 형식으로 논문 기반 자료를 인용하세요 (예: '대한의학회 가이드라인에 따르면[1], 최신 연구 결과[2]에 의하면...')",
-          "references": ["논문 기반 자료 링크 (PubMed, Google Scholar 등)", "예: https://pubmed.ncbi.nlm.nih.gov/12345678 또는 https://www.kma.org/..."],
+          "evidence": "의학적 근거 및 참고 자료. **작은 텍스트 형식(각주)**으로 다음을 포함하세요: "
+          "1) 가이드라인 (예: '※ 2025 당뇨병 진료지침'), "
+          "2) 사례 (예: '※ 유사한 임상 사례에서 효과 확인'), "
+          "3) 실험/연구 (예: '※ 최신 연구 결과[1]'), "
+          "4) 에비던스 레벨 (예: '※ Level A 에비던스, 강한 근거'). "
+          "형식: '※ [가이드라인명], [에비던스 레벨], [연구 인용]' (작게 표시)",
+          "references": ["신뢰할 수 있는 의학 자료 출처만 사용하세요. **한국 자료를 최우선으로 사용하고, 한국 자료가 없을 때만 PubMed를 사용하세요.** 반드시 다음 목록에서만 참조: PubMed (pubmed.ncbi.nlm.nih.gov - 한국 자료 없을 때만), 대한의학회 (kma.org), 질병관리청 (kdca.go.kr), 대한심장학회 (circulation.or.kr), 대한당뇨학회 (diabetes.or.kr), 대한고혈압학회 (koreanhypertension.org), 대한암학회 (cancer.or.kr), 대한소화기학회 (gastro.or.kr), 대한내분비학회 (endocrinology.or.kr). 예: https://www.kma.org/... 또는 https://pubmed.ncbi.nlm.nih.gov/12345678 (한국 자료 없을 때만)"],
           "priority": 우선순위 (1-3, 1이 가장 높음),
           "recommended": true,
           "related_to_selected_concern": "선택한 염려 항목과의 연관성 (있는 경우)"
@@ -1634,6 +2612,9 @@ def create_checkup_design_prompt_step2(
 - STEP 1의 analysis를 참고하되, 더 간결한 요약 형식으로 작성
 - 과거 검진 결과를 정상/경계/이상 항목 중심으로 요약
 - 예시: "최근 5년간 검진 데이터에서 혈압이 경계 범위였고, 최근 3년간 점진적으로 상승 추세입니다."
+- **⚠️ 오래된 데이터만 있는 경우 필수 코멘트:**
+  * STEP 1의 analysis에 오래된 데이터 관련 코멘트가 포함된 경우, past_results_summary에도 이를 반영하세요
+  * "가장 최근 검진이 5년 이상 전이므로, 현재 건강 상태를 정확히 파악하기 어렵습니다."
 
 ### survey_summary
 - STEP 1의 analysis를 참고하되, 문진 내용만 간결하게 요약
@@ -1647,20 +2628,33 @@ def create_checkup_design_prompt_step2(
 **중요**: STEP 1의 analysis는 종합 분석이고, summary의 세 필드는 요약 형식입니다. STEP 1의 analysis를 참고하되, 더 간결하게 요약하세요.
 
 ## strategies
-- The Bridge Strategy 4단계 구조 사용
-- STEP 1 분석 결과를 기반으로 작성
+- **The Bridge Strategy 4단계 구조 필수 사용**: 반드시 anchor → gap → context → offer 순서로 작성
+- STEP 1 분석 결과(risk_profile, chronic_analysis)를 기반으로 작성
+- Bridge Strategy JSON의 예시를 참고하여 각 타겟(위암/소화기, 폐암, 뇌혈관, 유방암 등)에 맞는 논리 구성
+- step1_anchor: 기본 검진의 가치 인정
+- step2_gap: 기본 검진의 의학적 한계 명확히 노출
+- step3_patient_context: 환자 맞춤 위험 설명 (STEP 1의 risk_profile 활용)
+- step4_offer: 정밀 검진 제안 (완벽한 안심을 위한 해결책)
 
 ## recommended_items
-- STEP 1 분석에서 지적된 위험 요인을 해결할 수 있는 검진 항목만 추천
+- **STEP 1 위험도 계층화 활용**: STEP 1의 risk_profile에서 High/Very High Risk로 분류된 장기에 대한 정밀 검사를 우선 추천
+- **만성질환 연쇄 반응 반영**: STEP 1의 chronic_analysis를 확인하여, 만성질환이 있다면 반드시 합병증 검사를 연쇄적으로 추천
+  - 고혈압 -> 경동맥 초음파(뇌졸중), 심장 초음파(심비대), 신장 기능
+  - 당뇨 -> 안저검사(망막), 췌장 CT(50세이상), 말초신경
+  - 이상지질혈증 -> 관상동맥 석회화 CT, 경동맥 초음파
+  - 비만/지방간 -> 간 섬유화 스캔, 요산(통풍), 인슐린 저항성
 - priority_1: hospital_national_checkup에 포함된 항목만 (주의 깊게 보실 항목)
-- priority_2: hospital_recommended 항목 (추가적으로 확인)
-- priority_3: hospital_external_checkup 항목 (선택적으로 고려)
-- 각 항목에 의학적 근거(evidence)와 참고 자료(references) 필수
+- priority_2: hospital_recommended 항목 (추가적으로 확인) - 위험도가 높은 경우 우선 추천
+- priority_3: hospital_external_checkup 항목 (선택적으로 고려) - 예방 차원
+- 각 항목에 의학적 근거(evidence)와 참고 자료(references) 필수 - 실제 URL 매핑 필수
 
 ## summary.priority_1, priority_2, priority_3
 - 각 priority별 count, description, items 포함
 - priority_1에는 title, national_checkup_items, national_checkup_note, focus_items 포함
+- **priority_1.items 개수 제한**: priority_1.items는 최소 1개 이상, 최대 3개까지 추천하세요. 가장 중요하고 주의 깊게 봐야 할 항목을 선정하세요.
 - **priority_1.focus_items 작성 시**: STEP 1의 basic_checkup_guide.focus_items를 참고하되, 동일한 형식과 내용으로 작성하세요. STEP 1에서 이미 분석한 항목들을 그대로 활용하세요.
+- **⚠️ 가족력 반영 필수**: 문진에서 가족력(당뇨, 고혈압 등)이 확인된 경우, 해당 질환과 관련된 검진 항목을 priority_1.items에 반드시 포함하세요. 예: 가족력에 당뇨가 있으면 '혈당검사'를 priority_1.items에 포함해야 합니다.
+- **⚠️ priority_1.items 일관성**: "주요 사항은 아래와 같아요" 섹션에 표시된 항목들은 모두 priority_1.items에 포함되어야 합니다. 예: 혈압과 혈당이 모두 표시되었다면, priority_1.items에도 둘 다 포함되어야 합니다.
 
 ## doctor_comment
 - 환자의 실제 데이터를 기반으로 작성

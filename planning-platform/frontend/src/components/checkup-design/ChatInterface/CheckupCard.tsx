@@ -29,6 +29,24 @@ const CheckupCard: React.FC<CheckupCardProps> = ({
   animationDelay = 0,
   checkup
 }) => {
+  // year에서 "년" 제거 (이미 포함되어 있을 수 있음)
+  const cleanYear = year.toString().replace('년', '').trim();
+  
+  // 날짜를 뱃지 형식으로 변환 (예: "09/28" -> "21.09")
+  const formatDateBadge = (dateStr: string, yearStr: string): string => {
+    if (!dateStr) return '';
+    // "09/28" 형태에서 월 추출
+    const parts = dateStr.split('/');
+    if (parts.length >= 1) {
+      const month = parts[0].padStart(2, '0');
+      // 년도 2자리 (예: 2021 -> 21)
+      const yearShort = yearStr.length > 2 ? yearStr.slice(-2) : yearStr;
+      return `${yearShort}.${month}`;
+    }
+    return '';
+  };
+  
+  const dateBadge = formatDateBadge(date, cleanYear);
   const [expanded, setExpanded] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<string>('');
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
@@ -164,7 +182,7 @@ const CheckupCard: React.FC<CheckupCardProps> = ({
 
   const handleCardClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('.checkup-card__checkbox') ||
-        (e.target as HTMLElement).closest('.checkup-card__expand-button') ||
+        (e.target as HTMLElement).closest('.checkup-card__detail-button') ||
         (e.target as HTMLElement).closest('.checkup-card__details')) {
       return;
     }
@@ -178,6 +196,7 @@ const CheckupCard: React.FC<CheckupCardProps> = ({
 
   const handleExpandClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     setExpanded(!expanded);
   };
 
@@ -377,47 +396,52 @@ const CheckupCard: React.FC<CheckupCardProps> = ({
         }}
       >
         <div className="checkup-card__header">
-          <div className="checkup-card__checkbox-wrapper">
-            <input
-              type="checkbox"
-              className="checkup-card__checkbox"
-              checked={selected}
-              onChange={() => {}}
-              onClick={handleCheckboxClick}
-              aria-label={`${year}년 건강검진 선택`}
-            />
+          <div className="checkup-card__header-left">
+            <div className="checkup-card__checkbox-wrapper">
+              <input
+                type="checkbox"
+                className="checkup-card__checkbox"
+                checked={selected}
+                onChange={() => {}}
+                onClick={handleCheckboxClick}
+                aria-label={`${cleanYear}년 건강검진 선택`}
+              />
+            </div>
+            {dateBadge && (
+              <span className="checkup-card__date-badge">{dateBadge}</span>
+            )}
           </div>
-          <h3 className="checkup-card__title">{year}년</h3>
-          <span className="checkup-card__date">{date}</span>
-          {checkup && (
-            <button
-              className="checkup-card__expand-button"
-              onClick={handleExpandClick}
-              aria-label={expanded ? '접기' : '펼치기'}
-            >
-              {expanded ? '▼' : '▶'}
-            </button>
-          )}
+          <div className="checkup-card__header-right">
+            <div className="checkup-card__status">
+              {abnormalCount > 0 && (
+                <span className="checkup-card__badge checkup-card__badge--abnormal">
+                  이상 {abnormalCount}건
+                </span>
+              )}
+              {warningCount > 0 && (
+                <span className="checkup-card__badge checkup-card__badge--warning">
+                  경계 {warningCount}건
+                </span>
+              )}
+              {abnormalCount === 0 && warningCount === 0 && (
+                <span className="checkup-card__badge checkup-card__badge--normal">
+                  정상
+                </span>
+              )}
+            </div>
+          </div>
         </div>
         <div className="checkup-card__body">
           <div className="checkup-card__location">{location}</div>
-          <div className="checkup-card__status">
-            {abnormalCount > 0 && (
-              <span className="checkup-card__badge checkup-card__badge--abnormal">
-                이상 {abnormalCount}건
-              </span>
-            )}
-            {warningCount > 0 && (
-              <span className="checkup-card__badge checkup-card__badge--warning">
-                경계 {warningCount}건
-              </span>
-            )}
-            {abnormalCount === 0 && warningCount === 0 && (
-              <span className="checkup-card__badge checkup-card__badge--normal">
-                정상
-              </span>
-            )}
-          </div>
+          {checkup && (
+            <button
+              className="checkup-card__detail-button"
+              onClick={handleExpandClick}
+              aria-label={expanded ? '접기' : '상세 항목보기'}
+            >
+              {expanded ? '접기' : '상세 항목보기'}
+            </button>
+          )}
         </div>
       </div>
       {renderCheckupDetails()}

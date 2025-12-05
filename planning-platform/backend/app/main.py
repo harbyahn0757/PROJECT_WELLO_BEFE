@@ -97,10 +97,18 @@ async def serve_react_app(request: Request, full_path: str = ""):
     
     # 정적 파일이 실제로 존재하는지 확인 (CSS, JS, 이미지 등)
     if full_path:
+        # 먼저 static 폴더에서 확인
         file_path = os.path.join(static_dir, full_path)
         if os.path.isfile(file_path):
             # 실제 파일이 존재하면 해당 파일 반환
             return FileResponse(file_path)
+        
+        # 개발 환경: static 폴더에 없으면 public 폴더에서 확인
+        public_dir = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "public")
+        public_file_path = os.path.join(public_dir, full_path)
+        if os.path.isfile(public_file_path):
+            # public 폴더에 파일이 있으면 반환
+            return FileResponse(public_file_path)
     
     # 그 외의 모든 경우에는 React 앱의 index.html 반환
     # 쿼리 파라미터는 FastAPI가 자동으로 보존하므로 React Router에서 처리 가능

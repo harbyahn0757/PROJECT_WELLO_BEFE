@@ -50,10 +50,9 @@ class OpenAISettings(BaseModel):
     model: str = Field(default="gpt-4", env="GPT_MODEL")
     max_tokens: int = Field(default=2000, env="MAX_TOKENS")
 
-class PerplexitySettings(BaseModel):
-    """Perplexity AI 설정"""
-    api_key: str = Field(default="dev-perplexity-key", env="PERPLEXITY_API_KEY")
-    model: str = Field(default="sonar", env="PERPLEXITY_MODEL")
+class LlamaIndexSettings(BaseModel):
+    """LlamaIndex RAG 벡터 설정"""
+    api_key: str = Field(default="dev-llamaindex-key", env="LLAMAINDEX_API_KEY")
 
 class GoogleAnalyticsSettings(BaseModel):
     """Google Analytics 설정"""
@@ -111,10 +110,14 @@ class Settings(BaseSettings):
     
     # OpenAI 설정
     openai_api_key: str = Field(default="dev-openai-key", env="OPENAI_API_KEY")
+    openai_fast_model: str = Field(default="gpt-4o-mini", env="OPENAI_FAST_MODEL")  # STEP 1용 빠른 모델
+    openai_model: str = Field(default="gpt-4o", env="OPENAI_MODEL")  # STEP 2용 강력한 모델
     
-    # Perplexity 설정
-    perplexity_api_key: str = Field(default="dev-perplexity-key", env="PERPLEXITY_API_KEY")
-    perplexity_model: str = Field(default="sonar-pro", env="PERPLEXITY_MODEL")  # STEP 2용 강력한 모델
+    # LlamaIndex 설정 (RAG 벡터 제공용)
+    llamaindex_api_key: str = Field(default="dev-llamaindex-key", env="LLAMAINDEX_API_KEY")
+    
+    # Google Gemini 설정 (RAG용)
+    google_gemini_api_key: str = Field(default="dev-gemini-key", env="GOOGLE_GEMINI_API_KEY")
     
     model_config = {
         "env_file": [".env.local", "config.env", ".env"],
