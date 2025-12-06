@@ -28,11 +28,18 @@ def parse_json_safely(data: Any) -> Dict[str, Any]:
 def build_bridge_strategy_knowledge() -> str:
     """Bridge Strategy 지식 베이스 텍스트 생성"""
     knowledge = ""
-    for idx, strategy in enumerate(BRIDGE_STRATEGY_JSON, 1):
-        knowledge += f"{idx}. {strategy['target']} 전략\n"
-        knowledge += f"   - Anchor: {strategy['anchor']}\n"
-        knowledge += f"   - Gap: {strategy['gap']}\n"
-        knowledge += f"   - Offer: {strategy['offer']}\n"
+    strategies = parse_json_safely(BRIDGE_STRATEGY_JSON)
+    if isinstance(strategies, list):
+        for idx, strategy in enumerate(strategies, 1):
+            target = strategy.get('target', '')
+            anchor = strategy.get('anchor', '')
+            gap = strategy.get('gap', '')
+            offer = strategy.get('offer', '')
+            
+            knowledge += f"{idx}. {target} 전략\n"
+            knowledge += f"   - Anchor: {anchor}\n"
+            knowledge += f"   - Gap: {gap}\n"
+            knowledge += f"   - Offer: {offer}\n"
     return knowledge
 
 def generate_behavior_section(user_attributes: List[Dict[str, Any]]) -> str:
