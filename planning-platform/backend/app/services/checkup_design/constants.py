@@ -124,6 +124,18 @@ PROFILE_GUIDELINE_JSON = """
 }
 """
 
+# 하이브리드 페르소나 Alias 정의
+HYBRID_PERSONA_ALIASES = {
+    "Worrier_Manager": "Anxious Controller (불안하지만 관리하려는 성향)",
+    "Worrier_Symptom Solver": "Hypochondriac (증상에 민감한 건강염려형)",
+    "Worrier_Optimizer": "Perfectionist Worrier (완벽을 추구하는 염려형)",
+    "Symptom Solver_Manager": "Problem Solver (증상 해결 중심의 관리자)",
+    "Symptom Solver_Optimizer": "Bio-Hacker (적극적 증상 해결 및 최적화)",
+    "Manager_Optimizer": "Executive Manager (체계적이고 효율적인 관리자)",
+    "Manager_Worrier": "Cautious Manager (신중한 관리자)",
+    "Optimizer_Worrier": "Health Enthusiast (건강에 진심인 활력가)",
+}
+
 # 3. 브릿지 전략 및 근거 DB (Step 2용 - 세일즈 논리)
 BRIDGE_STRATEGY_JSON = """
 [

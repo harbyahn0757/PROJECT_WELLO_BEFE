@@ -34,7 +34,10 @@ def determine_persona(survey_responses: Dict[str, Any], patient_age: int) -> Dic
         
     Returns:
         {
+            "type": "Worrier",              # Primary Persona (Backward compatible)
             "primary_persona": "Worrier",
+            "secondary_persona": "Manager", # 조건 불만족 시 None
+            "combined_type": "Worrier_Manager",
             "persona_score": {
                 "Worrier": 85,
                 "Symptom Solver": 40,
@@ -44,11 +47,12 @@ def determine_persona(survey_responses: Dict[str, Any], patient_age: int) -> Dic
             },
             "bridge_strategy": "Peace of Mind",
             "tone": "공감, 안심, 확신",
-            "upselling_intensity": "very_high"
+            "upselling_intensity": "very_high",
+            "persuasion_message": "..."
         }
     """
     # 점수 초기화
-    scores = {
+    scores: Dict[str, int] = {
         "Worrier": 0,
         "Symptom Solver": 0,
         "Manager": 0,
@@ -64,14 +68,22 @@ def determine_persona(survey_responses: Dict[str, Any], patient_age: int) -> Dic
     # ==========================================
     family_history = survey_responses.get("family_history", [])
     if family_history and "none" not in family_history:
-        scores["Worrier"] = 100  # 최고 점수
+        # 만성질환 퍼스트 전략에 맞게 Worrier 기본 점수를 낮추고,
+        # 가족력 종류에 따라 가산점을 부여하는 Additive Scoring으로 변경합니다.
+        scores["Worrier"] = 30  # 기본점 (과도한 1인자 방지)
         scores["Minimalist"] = 0
-        
+
         # 가족력 종류별 가중치
         if "cancer" in family_history:
-            scores["Worrier"] += 20  # 암 가족력은 더 강력
+            scores["Worrier"] += 30
         if "stroke" in family_history or "heart_disease" in family_history:
-            scores["Worrier"] += 15
+            scores["Worrier"] += 20
+
+        # 그 외 가족력(당뇨, 고혈압 등)은 완만한 가중치
+        for fh in family_history:
+            if fh in ["cancer", "stroke", "heart_disease", "none"]:
+                continue
+            scores["Worrier"] += 10
     
     # ==========================================
     # 2순위: Symptom Solver (증상/문제 해결)
@@ -175,11 +187,41 @@ def determine_persona(survey_responses: Dict[str, Any], patient_age: int) -> Dic
     # 5순위: Minimalist (실속형) - 기본값
     # ==========================================
     # 다른 페르소나 점수가 낮으면 자동으로 Minimalist 유지
-    
+
     # ==========================================
-    # 최종 판정
+    # 가중치 재조정 (만성질환 퍼스트 전략)
     # ==========================================
-    primary_persona = max(scores, key=scores.get)
+    # Manager(흡연/음주/비만) 비중을 1.5배, Symptom Solver(피로/수면/증상)를 1.2배 상향
+    scores["Manager"] = int(scores["Manager"] * 1.5)
+    scores["Symptom Solver"] = int(scores["Symptom Solver"] * 1.2)
+
+    # Worrier는 가족력 + 실제 만성 리스크가 동반될 때만 지나치게 우세해지지 않도록 조정
+    if scores["Worrier"] > 0 and scores["Manager"] == 0 and scores["Symptom Solver"] == 0 and scores["Optimizer"] == 0:
+        # 가족력만 있고 다른 리스크가 없으면 Worrier 점수를 완만하게 제한
+        scores["Worrier"] = min(scores["Worrier"], 40)
+
+    # ==========================================
+    # 최종 판정 (Primary / Secondary)
+    # ==========================================
+    persona_priority = ["Worrier", "Symptom Solver", "Manager", "Optimizer", "Minimalist"]
+
+    # Primary: 최고 점수 + 동점 시 우선순위 테이블로 결정
+    max_score = max(scores.values())
+    candidates = [p for p, s in scores.items() if s == max_score]
+    primary_persona: str = next(p for p in persona_priority if p in candidates)
+
+    # Secondary: 2순위 후보 (충분히 강한 경우에만 채택)
+    sorted_personas = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
+    secondary_persona: Optional[str] = None
+
+    if len(sorted_personas) > 1:
+        second_name, second_score = sorted_personas[1]
+        primary_score = scores[primary_persona]
+
+        if primary_persona != "Minimalist" and (
+            second_score >= int(primary_score * 0.7) or second_score >= 50
+        ):
+            secondary_persona = second_name
     
     # 업셀링 강도 설정
     upselling_map = {
@@ -189,7 +231,7 @@ def determine_persona(survey_responses: Dict[str, Any], patient_age: int) -> Dic
         "Optimizer": "very_high",
         "Minimalist": "low"
     }
-    
+
     # Bridge Strategy 설정
     bridge_strategy_map = {
         "Worrier": "Peace of Mind",
@@ -198,7 +240,7 @@ def determine_persona(survey_responses: Dict[str, Any], patient_age: int) -> Dic
         "Optimizer": "Vitality",
         "Minimalist": "Efficiency"
     }
-    
+
     # 톤앤매너 설정
     tone_map = {
         "Worrier": "공감, 안심, 확신",
@@ -207,7 +249,7 @@ def determine_persona(survey_responses: Dict[str, Any], patient_age: int) -> Dic
         "Optimizer": "프리미엄, 최신지견",
         "Minimalist": "간결, 핵심, 가성비"
     }
-    
+
     # 설득 메시지 템플릿
     persuasion_message_map = {
         "Worrier": "가족력 때문에 불안하시죠? 눈으로 확인하고 마음의 짐을 덜으세요.",
@@ -216,12 +258,23 @@ def determine_persona(survey_responses: Dict[str, Any], patient_age: int) -> Dic
         "Optimizer": "병이 없는 것과 활력이 넘치는 건 다릅니다. 최상의 컨디션을 만드세요.",
         "Minimalist": "바쁘시겠지만, 가성비 있게 딱 이것 하나만 챙기시면 됩니다."
     }
-    
+
+    combined_type = (
+        f"{primary_persona}_{secondary_persona}"
+        if secondary_persona
+        else primary_persona
+    )
+
     return {
+        # Backward compatible 필드
+        "type": primary_persona,
         "primary_persona": primary_persona,
+        # 신규 필드
+        "secondary_persona": secondary_persona,
+        "combined_type": combined_type,
         "persona_score": scores,
         "bridge_strategy": bridge_strategy_map[primary_persona],
         "tone": tone_map[primary_persona],
         "upselling_intensity": upselling_map[primary_persona],
-        "persuasion_message": persuasion_message_map[primary_persona]
+        "persuasion_message": persuasion_message_map[primary_persona],
     }

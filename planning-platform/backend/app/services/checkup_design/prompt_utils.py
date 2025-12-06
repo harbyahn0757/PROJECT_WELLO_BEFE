@@ -83,3 +83,53 @@ def generate_behavior_section(user_attributes: List[Dict[str, Any]]) -> str:
     behavior_section += "- **Critical Worry**: 사용자가 구체적으로 서술한 걱정입니다. 반드시 해소해줘야 합니다.\n"
     
     return behavior_section
+
+def generate_clinical_rules(survey_responses: Dict[str, Any]) -> str:
+    """
+    문진 데이터 기반 임상 우선순위 규칙(Clinical Rules) 생성
+    만성질환(대사/혈관/간/폐) 퍼스트 전략 적용
+    """
+    rules = []
+    
+    weight_change = survey_responses.get("weight_change", "")
+    family_history = survey_responses.get("family_history", [])
+    smoking = survey_responses.get("smoking", "")
+    drinking = survey_responses.get("drinking", "")
+    # daily_routine = survey_responses.get("daily_routine", []) # 필요시 활용
+
+    # Rule 1: 의도치 않은 체중 감소 (Red Flag)
+    if weight_change == "decrease_bad":
+        rules.append(
+            "1. ⚠️ **RED FLAG (체중 감소)**: 환자는 의도치 않은 체중 감소(3kg 이상)가 있습니다.\n"
+            "   - **Action**: 위/대장 내시경, 복부 CT/초음파, 갑상선 검사 등 **'구조적 이상'을 확인하는 검사**를 최우선(Priority 2)으로 제안하십시오.\n"
+            "   - **Restriction**: 원인 규명용으로 유전자 검사나 종양 표지자만 단독 제안하는 것을 금지합니다. 반드시 눈으로 보는 검사가 메인이어야 합니다."
+        )
+
+    # Rule 2: 심장 가족력 (Heart Risk)
+    if "heart_disease" in family_history:
+        rules.append(
+            "2. ⚠️ **Heart Risk (심장 가족력)**: 심장 질환 가족력이 확인됩니다.\n"
+            "   - **Action**: 혈관 상태를 직접 확인할 수 있는 **'관상동맥 석회화 CT'**를 Priority 2 필수 항목으로 포함하십시오.\n"
+            "   - **Message**: '가족력이 있으니, 혈관이 얼마나 딱딱해졌는지 눈으로 확인하고 관리 기준을 잡으셔야 합니다'라는 톤으로 설득하십시오."
+        )
+
+    # Rule 3: 흡연 (Lung Risk -> Chronic Care)
+    if smoking == "current_smoker":
+        rules.append(
+            "3. 🚬 **Smoker Care (흡연)**: 현재 흡연 중입니다.\n"
+            "   - **Action**: **'저선량 폐 CT'**를 만성 흡연 관리 패키지의 일환으로 제안하십시오.\n"
+            "   - **Tone**: 폐암 공포를 조장하기보다, '흡연으로 지친 폐 상태를 점검하고 관리하자'는 현실적인 톤을 유지하십시오."
+        )
+
+    # Rule 4: 만성질환/대사 관리 기본 (General Metabolic Rule)
+    # 특별한 Red Flag가 없더라도 기본적으로 깔고 가야 할 규칙
+    rules.append(
+        "4. 🛡️ **Metabolic First (만성질환 우선)**: 모든 제안의 80%는 **혈압/혈당/지질/비만/간/수면/스트레스** 관리에 집중하십시오.\n"
+        "   - 암이나 희귀질환은 '혹시 모를 위험을 닫아두는 옵션'으로 20% 비중만 할애하십시오.\n"
+        "   - '안 하면 죽습니다'가 아니라 **'이거 딱 챙기면 1년이 편해집니다'**라는 가성비/효율 톤으로 제안하십시오."
+    )
+
+    if not rules:
+        return ""
+
+    return "\n[CRITICAL CLINICAL RULES]\n" + "\n".join(rules) + "\n"

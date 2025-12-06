@@ -1,7 +1,7 @@
 import json
 from typing import List, Dict, Any, Optional, Tuple
 from .rag_service import init_rag_engine, get_medical_evidence_from_rag
-from .prompt_utils import build_bridge_strategy_knowledge, generate_behavior_section
+from .prompt_utils import build_bridge_strategy_knowledge, generate_behavior_section, generate_clinical_rules
 
 async def create_checkup_design_prompt_step2_upselling(
     request: Any,
@@ -191,6 +191,12 @@ async def create_checkup_design_prompt_step2_upselling(
                     hospital_items_section += f": {desc}"
                 hospital_items_section += "\n"
 
+    # [신규] Clinical Rules 생성 (만성질환 퍼스트 & Red Flag)
+    clinical_rules = generate_clinical_rules(survey_responses or {})
+
+    # [신규] Step 1 Persona Conflict Summary 추출
+    persona_conflict_summary = step1_result.get("persona_conflict_summary", "")
+    
     # 프롬프트 조합
     prompt_parts = []
     
@@ -198,25 +204,31 @@ async def create_checkup_design_prompt_step2_upselling(
     prompt_parts.append(f"""
 # 🛑 SYSTEM INSTRUCTION (Upselling & Persona)
 
-1. **RAG 우선 & 각주 필수**: [Critical Evidence]에 있는 내용을 반드시 인용하고, 문장 끝에 `[1]`, `[2]`와 같이 출처 번호를 표기하세요. (예: ...권고됩니다 [1].)
-2. **소통 전략: '활력과 관리(Vitality & Care)' 중심 접근**: 
-   - **핵심 철학**: "암"이라는 단어는 고객에게 공포감과 거부감을 줄 수 있습니다. 모든 검사 제안의 입구(Hook)는 **'현재의 컨디션 관리'**와 **'만성질환 예방'**이어야 합니다.
-   - **프레이밍(Framing) 규칙**:
-     - ❌ **공포 소구 (지양)**: "이 검사 안 하면 위암으로 죽을 수 있습니다." (너무 무거움)
-     - ✅ **관리 소구 (지향)**: "속쓰림이나 소화불량이 반복된다면, 위 내시경으로 **위장 점막 상태(염증)**를 확인해서 편안한 속을 되찾아야 합니다." (가볍고 실용적)
-     - ✅ **연결 고리**: 암 검진 항목이라도 '대사 질환'이나 '생활 습관'과 연결하여 추천하세요. (예: 폐암 검사 → "흡연으로 지친 폐의 회복 상태 확인")
-   - **우선순위**: 고객이 당장 체감하는 **혈압, 혈당, 비만, 피로** 문제를 해결하는 검사를 최우선으로 배치하고, 암 검진은 이를 확인하는 과정에서의 '안심 옵션'으로 제안하세요.
-3. **페르소나 적용 & 공감**: 환자는 **'{persona_type}' ({persona_desc})** 성향입니다.
-   - **가장 먼저 할 일**: 환자가 선택한 '염려 항목(selected_concerns)'에 대해 공감하는 멘트로 시작하세요.
-   - **Worrier (불안형)**: "가족력 때문에 걱정이 많으시죠? 이 검사로 확실하게 확인하고 안심하세요."
-   - **Validator (확인형)**: "최신 가이드라인 [1]에 따르면, 이 수치에서는 정밀 검사가 필수적입니다."
-   - **Efficient (효율형)**: "가성비가 가장 높은 핵심 검사만 선별했습니다."
-   - **General (일반)**: 친근하고 알기 쉽게 설명하세요.
-4. **행동 데이터 활용 (Behavioral Signals)**:
-   - [Behavioral Signals] 섹션에 있는 진심도/고민 흔적을 Upselling 전략에 활용하세요.
-   - 예: "이 항목에서 특히 망설이신 것 같은데, 이 검사로 확실하게 확인해보시죠."
+{clinical_rules}
 
-5. **앵무새 금지**: 예시 문구("환자 데이터 활용" 등)를 그대로 복사하지 말고, 실제 환자 데이터와 의학적 내용을 채워 넣으세요.
+## 🎯 TARGET PERSONA STRATEGY
+{persona_conflict_summary}
+
+위 [CRITICAL CLINICAL RULES]와 [TARGET PERSONA STRATEGY]를 바탕으로 모든 제안을 구성하십시오.
+
+1. **RAG 우선 & 각주 필수**: [Critical Evidence]에 있는 내용을 반드시 인용하고, 문장 끝에 `[1]`, `[2]`와 같이 출처 번호를 표기하세요.
+2. **소통 전략: 'Casual & Smart (형/오빠 톤)'**: 
+   - **Tone & Manner**: 딱딱한 의사가 아닌, **"건강 챙겨주는 센스 있는 형/오빠/친구"** 톤을 유지하세요.
+   - **Key Message**: "안 하면 큰일 납니다(Fear)"가 아니라 **"이거 딱 챙기면 1년 농사 편해집니다(Value/Efficiency)"**로 설득하세요.
+   - **만성질환 퍼스트**: 암 검진이라도 '대사 관리'나 '생활 습관'과 연결하여 추천하세요. (예: 폐암 검사 → "흡연으로 지친 폐 상태 점검")
+   
+3. **페르소나 적용 & 공감**: 환자는 **'{persona_type}' ({persona_desc})** 성향입니다.
+   - **Worrier**: 확신과 안심("이 검사 하나로 불안을 끝내십시오.")
+   - **Manager**: 효율과 통제("수치를 눈으로 확인하고 관리 기준을 잡으십시오.")
+   - **Symptom Solver**: 원인 규명("증상의 뿌리를 찾아 해결합시다.")
+   - **Minimalist/Optimizer**: 가치 제안("이것이 가장 확실한 투자입니다.")
+   
+4. **Safety Guardrail (Hallucination Prevention)**:
+   - **체중 감소 시**: 반드시 내시경/CT 등 **구조적 검사**를 1순위로 제안하십시오. 유전자/마커 단독 제안 금지.
+   - **심장 가족력 시**: **관상동맥 석회화 CT**를 필수 제안하십시오.
+
+5. **행동 데이터 활용 (Behavioral Signals)**:
+   - [Behavioral Signals] 섹션에 있는 진심도/고민 흔적을 Upselling 전략에 활용하세요.
 """)
 
     # 2. RAG Evidence
@@ -258,33 +270,28 @@ async def create_checkup_design_prompt_step2_upselling(
 
     # 4. Task & Output Format
     task_section = f"""
-# 🎯 Task - Upselling 논리 설계 (Gap Analysis)
+# 🎯 Task - Upselling 논리 설계 (4-Step Bridge Strategy)
 
 **[핵심 지시사항]**
-STEP 1의 환자 데이터(걱정/위험요소)와 **행동 패턴(Behavioral Signals)**을 추천 검사와 연결하되, **반드시 "기본 검사의 한계(Blind Spot)"를 지적하며 설득**하세요.
-단순히 "좋다"고 하지 말고, **"기본 검사(A)로는 X를 볼 수 없지만, 이 정밀 검사(B)는 Y를 볼 수 있다"**는 **대조(Contrast) 구조**를 사용하세요.
+STEP 1의 환자 데이터, 페르소나 충돌 정보, 행동 패턴을 바탕으로 **"기본 검사의 한계"**를 지적하며 **"당신의 불안을 해소하고 행동을 교정해 드립니다"**는 화법으로 설득하십시오.
 
 **[논리 작성 규칙 - Must Do]**
-1. **Target**: 추천할 정밀 검사 항목 (**반드시 제공된 '병원 추천 검진 항목' 리스트 내 명칭만 사용. 절대 지어내지 말 것.**)
-   - ⚠️ **중요**: priority_2와 priority_3에 있는 모든 항목에 대해 반드시 strategies를 생성하세요. priority_3에 '온코캐치-E'가 있다면 반드시 strategies에 포함하세요.
-2. **Anchor (수진자 데이터)**: 환자의 2021년 수치(혈압, 허리둘레 등)나 구체적 가족력, **그리고 설문 시 고민했던 행동(Hesitation)**을 명시.
-3. **Gap (결핍 지적)**: 기본 공단 검진(혈액검사, X-ray, 신체계측)이 가진 물리적 한계를 지적하고, **구체적으로 어떤 문제가 발생할 수 있는지 명시**하세요. (Not A)
-   - (나쁜 예) "정밀한 검사가 필요합니다."
-   - (좋은 예) "기본 혈액 검사로는 간 효소 수치만 알 수 있고, 실제 간이 딱딱해졌는지(모양)는 볼 수 없습니다."
-   - (좋은 예) "흉부 X-ray는 뼈에 가려진 작은 초기 암을 놓칠 확률이 높습니다."
-   - (좋은 예) "일반 검진의 혈압 측정은 '혈관의 압력'만 잴 뿐, 심장이 불규칙하게 뛰는 '부정맥(심방세동, 조기박동 등)'이나 '허혈성 변화(심근경색 전조)'는 잡아낼 수 없습니다. 부정맥이나 허혈성 변화가 있으면 심장 건강 관리가 필요합니다."
-4. **Offer (해결책)**: 위 한계를 정밀 검사가 어떻게 해결하는지 설명. (But B)
-5. **Evidence (의학적 근거)**: doctor_recommendation.evidence 필드에 [Critical Evidence] 섹션의 실제 텍스트를 그대로 복사하세요. [1], [2] 같은 번호만 쓰지 말고, 해당 번호의 실제 문장을 포함하세요.
-   - (나쁜 예) "2025 고혈압 진료지침 [1]에 따르면..."
-   - (좋은 예) "고혈압 가족력이 있는 경우, 매년 고혈압 선별검사를 받는 것이 좋습니다 [1]"
-6. **References (참고 자료 배열)**: doctor_recommendation.references 필드에 evidence에 사용된 각주 번호 순서대로 URL 배열을 포함하세요.
-   - evidence에 "[1]"이 있으면 references[0]에 해당 URL
-   - evidence에 "[2]"가 있으면 references[1]에 해당 URL
-   - [Critical Evidence] 섹션에서 각 번호에 해당하는 출처 URL을 찾아서 포함하세요.
-   - 예: "evidence": "... [1] ... [2]" → "references": ["https://...", "https://..."]
+strategies 배열 내 각 항목은 다음 4단계 구조를 엄격히 따르십시오:
 
-**[사고 과정 (Thinking Process)]**
-JSON 생성 전, `_thought_process` 필드에 위 논리(Anchor -> Gap -> Offer)를 구성하는 과정을 먼저 서술하세요.
+1. **Target**: 추천할 정밀 검사 항목 (**반드시 제공된 '병원 추천 검진 항목' 리스트 내 명칭만 사용**)
+2. **Anchor (Empathy & Behavior)**: `step1_anchor` 필드.
+   - Primary Persona의 감정(불안, 귀찮음 등)에 먼저 공감한 뒤,
+   - Secondary Persona의 위험한 행동(술, 담배, 방치)이 그 감정과 모순되는 지점을 '하지만(But)' 화법으로 지적하십시오.
+   - 예: "가족력 때문에 늘 불안하셨죠?(Primary) 하지만 매일 술을 드시는 건 그 불안을 현실로 만드는 행동입니다.(Secondary)"
+3. **Gap (Clinical Reality)**: `step2_gap` 필드.
+   - 기본 검사의 물리적 한계(Blind Spot)와 [CRITICAL CLINICAL RULES]의 Red Flag(체중감소 등)를 언급하십시오.
+   - 예: "체중 감소는 몸이 보내는 구조적 위험 신호일 수 있습니다. 기본 피검사로는 암의 위치를 알 수 없습니다."
+4. **Offer (Hybrid Offer)**: `step3_offer` 필드.
+   - 감정을 해소하고 행동을 바꿀 구체적 검사 제안.
+   - 예: "간 섬유화 스캔으로 간 상태를 눈으로 확인하고, 술을 줄일 강력한 동기를 만드십시오."
+
+5. **Evidence**: `doctor_recommendation.evidence` 필드에 [Critical Evidence] 텍스트 인용.
+6. **Message**: `doctor_recommendation.message` 필드에 **"안심하고(Primary), 관리하세요(Secondary)"** 톤의 최종 제안.
 """
 
     output_format_section = """
@@ -295,7 +302,7 @@ JSON 생성 전, `_thought_process` 필드에 위 논리(Anchor -> Gap -> Offer)
 - **환자의 실제 데이터(수치, 병력)를 채워 넣으세요.**
 
 {
-  "_thought_process": "1. 환자는 고혈압 경계(140/90) 및 부친 뇌졸중 가족력 보유. 2. 기본 혈압계는 '압력'만 잴 뿐, '리듬(부정맥)'은 못 봄. 3. 병원 추천 리스트의 '심전도 검사'가 이를 해결. 4. 따라서 '혈압약 먹기 전 리듬 확인' 논리로 제안.",
+  "_thought_process": "1. Worrier(가족력 불안) vs Manager(음주 지속) 충돌 감지. 2. 체중 감소 Rule 발동 -> 위내시경/복부CT 우선 배정. 3. '술 줄일 명분'으로 간 정밀 검사 제안.",
   "priority_2": {
     "title": "병원에서 추천하는 정밀 검진",
     "description": "40대 남성 필수 가이드라인 및 가족력 기반 추천",
@@ -312,37 +319,23 @@ JSON 생성 전, `_thought_process` 필드에 위 논리(Anchor -> Gap -> Offer)
   },
   "strategies": [
     {
-      "target": "<병원 추천 리스트에 있는 정확한 항목명 (예: 심전도 검사)>",
-      "⚠️ 중요: priority_2와 priority_3에 있는 모든 항목에 대해 반드시 strategies를 생성하세요. priority_3에 '온코캐치-E'가 있다면 반드시 strategies에 포함하세요.",
-      "step1_anchor": "부친의 뇌졸중 가족력 및 2021년 혈압 경계(140/90mmHg) 소견 (설문 시 이 부분에서 고민하심)",
-      "step2_gap": "일반 검진의 혈압 측정은 '혈관의 압력'만 잴 뿐, 심장이 불규칙하게 뛰는 '부정맥(심방세동, 조기박동 등)'이나 '허혈성 변화(심근경색 전조)'는 잡아낼 수 없습니다. 부정맥이나 허혈성 변화가 있으면 심장 건강 관리가 필요합니다.",
-      "step3_offer": "심전도 검사로 심장 전기 신호의 파형을 직접 확인하여 심장 컨디션을 체크하고 관리하시죠.",
-      "doctor_recommendation": {
-        "reason": "가족력이 있고 혈압이 높은 안광수님에게는 단순 수치 확인보다 리듬 확인이 시급합니다.",
-        "evidence": "[Critical Evidence] 섹션의 [1] 번호에 해당하는 실제 텍스트를 그대로 복사하세요. 예: '고혈압 가족력이 있는 경우, 매년 고혈압 선별검사를 받는 것이 좋습니다 [1]'",
-        "references": ["https://...", "https://..."],  // evidence에 사용된 각주 번호 순서대로 URL 배열
-        "message": "안광수님, 혈압약 드시기 전에 심장 리듬부터 확실히 체크하고 넘어갑시다."
-      }
-    },
-    {
-      "target": "<병원 추천 리스트에 있는 정확한 항목명 (예: 복부 초음파)>",
-      "step1_anchor": "최근 체중 3kg 증가 및 허리둘레 89cm(복부비만 위험)",
+      "target": "<병원 추천 리스트에 있는 정확한 항목명>",
+      "step1_anchor": "가족력 때문에 늘 불안하셨죠?(Primary) 하지만 매일 술을 드시는 건 그 불안을 현실로 만드는 행동입니다.(Secondary)",
       "step2_gap": "기본 피검사(AST/ALT)는 간 기능의 30% 정도만 반영하며, 실제 지방간이 얼마나 쌓였는지, 간 표면이 거칠어졌는지는 '눈'으로 보지 않으면 알 수 없습니다.",
-      "step3_offer": "복부 초음파가 포함된 정밀 검진으로 간, 췌장 등 주요 장기의 실제 모양을 확인합니다.",
+      "step3_offer": "복부 초음파가 포함된 정밀 검진으로 간, 췌장 등 주요 장기의 실제 모양을 확인하여 술을 줄일 확실한 계기를 만드십시오.",
       "doctor_recommendation": {
         "reason": "체중 증가와 복부 비만은 지방간의 직접적 원인이 되므로 영상 검사가 필수입니다.",
         "evidence": "40세 이상 비만 소견자 복부 정밀 검사 필요 [2]",
-        "references": ["https://..."],  // evidence에 사용된 각주 번호 순서대로 URL 배열
+        "references": ["https://..."],
         "message": "살이 찌면 겉만 찌는 게 아니라 간에도 기름이 낍니다. 초음파로 한번 싹 훑어보시죠."
       }
     }
   ],
   "doctor_comment": {
-    "overall_assessment": "전체적인 검진 방향에 대한 의사의 종합 평가 (페르소나 반영, 2-3문장으로 작성)",
+    "overall_assessment": "전체적인 검진 방향에 대한 의사의 종합 평가 (페르소나 반영, 2-3문장, 친근한 톤)",
     "key_recommendations": [
-      "핵심 추천사항 1 (구체적 검사명 포함, 예: '심전도 검사로 심장 리듬을 확인하세요')",
-      "핵심 추천사항 2 (예: '정밀 검진으로 폐 상태를 세밀하게 점검하세요')",
-      "핵심 추천사항 3 (선택적, priority_3 항목이 있으면 포함)"
+      "핵심 추천사항 1",
+      "핵심 추천사항 2"
     ]
   }
 }
