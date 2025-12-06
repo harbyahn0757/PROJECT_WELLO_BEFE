@@ -78,7 +78,10 @@ def create_step1_prompt(
     # ==========================================
     persona_result = determine_persona(
         survey_responses=survey_responses or {},
-        patient_age=patient_age or 0
+        patient_age=patient_age or 0,
+        health_history=health_data or [],         # [신규] 과거 검진 기록
+        selected_concerns=selected_concerns or [],# [신규] 채팅 선택 항목
+        prescription_data=prescription_data or [] # [신규] 처방 이력
     )
     
     # 페르소나 섹션 생성 (하이브리드 정보 확장)
@@ -446,7 +449,8 @@ def create_step1_prompt(
     "secondary_type": "{secondary_persona if secondary_persona else 'None'}",
     "combined_type": "{combined_type}",
     "description": "{primary_persona}의 성향이 강하지만, 실제 행동 패턴은 {secondary_persona if secondary_persona else 'None'}에 가까운 복합적 성향",
-    "strategy_key": "{persona_result.get('bridge_strategy', 'Standard')}"
+    "strategy_key": "{persona_result.get('bridge_strategy', 'Standard')}",
+    "risk_flags": {json.dumps(persona_result.get('risk_flags', []))}
   }},
   "persona_conflict_summary": "Step 2 전략 수립용 내부 요약. (예: 가족력 때문에 Worrier 성향이 강하지만, 음주/흡연 패턴은 Manager에 가깝습니다. 불안을 줄이기 위해 행동 교정형 전략이 필요합니다.)",
   "concern_vs_reality": {{

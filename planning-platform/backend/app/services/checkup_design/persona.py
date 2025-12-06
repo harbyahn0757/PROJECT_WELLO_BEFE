@@ -1,57 +1,32 @@
 """
-페르소나 판정 알고리즘
-문진 응답을 기반으로 5가지 페르소나 유형을 판정합니다.
+페르소나 판정 알고리즘 (3-Layer Integrated Model)
+문진(Lifestyle), 검진기록(Body Reality), 채팅선택(User Intent)을 통합 분석합니다.
 """
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+from datetime import datetime
+import re
 
-
-def determine_persona(survey_responses: Dict[str, Any], patient_age: int) -> Dict[str, Any]:
+def determine_persona(
+    survey_responses: Dict[str, Any], 
+    patient_age: int,
+    health_history: Optional[List[Dict[str, Any]]] = None,
+    selected_concerns: Optional[List[Dict[str, Any]]] = None,
+    prescription_data: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
     """
-    페르소나 판정 알고리즘 (점수 기반)
-    
-    우선순위:
-    1. Worrier (가족력/불안형) - 가장 강력한 트리거
-    2. Symptom Solver (증상해결형)
-    3. Manager (만성질환 관리형)
-    4. Optimizer (웰니스/활력형)
-    5. Minimalist (실속형) - 기본값
+    3차원 통합 페르소나 판정 알고리즘
     
     Args:
-        survey_responses: 문진 응답 데이터
-            {
-                "weight_change": "decrease_bad",
-                "daily_routine": "desk_job",
-                "exercise_frequency": "regular",
-                "smoking": "current_smoker",
-                "drinking": "weekly_3plus",
-                "sleep_hours": "less_5",
-                "stress_level": "very_high",
-                "family_history": ["cancer", "diabetes"],
-                "colonoscopy_experience": "no_afraid",
-                "additional_concerns": "최근 두통이 심합니다"
-            }
+        survey_responses: 문진 데이터
         patient_age: 환자 나이
+        health_history: 과거 검진 기록 리스트
+        selected_concerns: 채팅 선택 항목 리스트
+        prescription_data: 처방 이력 리스트
         
     Returns:
-        {
-            "type": "Worrier",              # Primary Persona (Backward compatible)
-            "primary_persona": "Worrier",
-            "secondary_persona": "Manager", # 조건 불만족 시 None
-            "combined_type": "Worrier_Manager",
-            "persona_score": {
-                "Worrier": 85,
-                "Symptom Solver": 40,
-                "Manager": 30,
-                "Optimizer": 10,
-                "Minimalist": 0
-            },
-            "bridge_strategy": "Peace of Mind",
-            "tone": "공감, 안심, 확신",
-            "upselling_intensity": "very_high",
-            "persuasion_message": "..."
-        }
+        Dict: 페르소나 판정 결과 및 Risk Flags
     """
-    # 점수 초기화
+    # 0. 초기화
     scores: Dict[str, int] = {
         "Worrier": 0,
         "Symptom Solver": 0,
@@ -59,222 +34,250 @@ def determine_persona(survey_responses: Dict[str, Any], patient_age: int) -> Dic
         "Optimizer": 0,
         "Minimalist": 100  # 기본값
     }
+    risk_flags = []
     
-    # survey_responses가 None이면 빈 딕셔너리로 처리
-    survey_responses = survey_responses or {}
+    # 데이터 정규화
+    survey = survey_responses or {}
+    history = health_history or []
+    concerns = selected_concerns or []
+    prescriptions = prescription_data or []
     
     # ==========================================
-    # 1순위: Worrier (가족력) - 가장 강력한 트리거
+    # Layer 1: Lifestyle Survey (문진) - Action First
     # ==========================================
-    family_history = survey_responses.get("family_history", [])
-    if family_history and "none" not in family_history:
-        # 만성질환 퍼스트 전략에 맞게 Worrier 기본 점수를 낮추고,
-        # 가족력 종류에 따라 가산점을 부여하는 Additive Scoring으로 변경합니다.
-        scores["Worrier"] = 30  # 기본점 (과도한 1인자 방지)
+    _calculate_survey_score(survey, scores, risk_flags)
+    
+    # ==========================================
+    # Layer 2: Body Reality (검진기록) - Time Decay & Gap Analysis
+    # ==========================================
+    _calculate_body_score(history, prescriptions, scores, risk_flags)
+    
+    # ==========================================
+    # Layer 3: User Intent (채팅선택)
+    # ==========================================
+    _calculate_intent_score(concerns, scores)
+    
+    # ==========================================
+    # 최종 판정 로직
+    # ==========================================
+    # Minimalist는 다른 점수가 있으면 0점으로 처리
+    if any(s > 0 for k, s in scores.items() if k != "Minimalist"):
         scores["Minimalist"] = 0
+        
+    # 우선순위: Manager(위급) > Symptom(고통) > Worrier(불안) > Optimizer > Minimalist
+    persona_priority = ["Manager", "Symptom Solver", "Worrier", "Optimizer", "Minimalist"]
 
-        # 가족력 종류별 가중치
-        if "cancer" in family_history:
-            scores["Worrier"] += 30
-        if "stroke" in family_history or "heart_disease" in family_history:
-            scores["Worrier"] += 20
-
-        # 그 외 가족력(당뇨, 고혈압 등)은 완만한 가중치
-        for fh in family_history:
-            if fh in ["cancer", "stroke", "heart_disease", "none"]:
-                continue
-            scores["Worrier"] += 10
-    
-    # ==========================================
-    # 2순위: Symptom Solver (증상/문제 해결)
-    # ==========================================
-    
-    # Q1: 의도치 않은 체중 감소 (질환 의심)
-    weight_change = survey_responses.get("weight_change", "")
-    if weight_change == "decrease_bad":
-        scores["Symptom Solver"] += 50
-        scores["Minimalist"] = 0
-    
-    # Q6: 심각한 수면 부족
-    sleep_hours = survey_responses.get("sleep_hours", "")
-    if sleep_hours == "less_5":
-        scores["Symptom Solver"] += 30
-        scores["Minimalist"] = 0
-    
-    # Q7: 스트레스 대체 (daily_routine 기반 추론)
-    # mental_stress(정신적 압박) 또는 service_job(감정 소모) -> Symptom Solver 가중치
-    daily_routine = survey_responses.get("daily_routine", [])
-    if isinstance(daily_routine, str):
-        daily_routine = [daily_routine]  # 하위 호환
-    
-    if any(job in daily_routine for job in ["mental_stress", "service_job"]):
-        scores["Symptom Solver"] += 40
-        scores["Worrier"] += 15  # 불안감 동반 가능성
-        scores["Minimalist"] = 0
-    
-    # Q2: 육체노동 (신체 피로)
-    if "physical_job" in daily_routine:
-        scores["Symptom Solver"] += 20
-        scores["Minimalist"] = 0
-    
-    # Q10: 자유 텍스트에 증상 언급 (키워드 분석)
-    additional_concerns = survey_responses.get("additional_concerns", "")
-    symptom_keywords = ["통증", "아픔", "아파", "불편", "두통", "피로", "어지럼", "답답", "저림", 
-                        "숨", "가슴", "배", "허리", "무릎", "관절", "소화", "변비", "설사"]
-    if additional_concerns and any(keyword in additional_concerns for keyword in symptom_keywords):
-        scores["Symptom Solver"] += 35
-        scores["Minimalist"] = 0
-    
-    # ==========================================
-    # 3순위: Manager (만성질환 관리)
-    # ==========================================
-    
-    # Q4: 현재 흡연
-    smoking = survey_responses.get("smoking", "")
-    if smoking == "current_smoker":
-        scores["Manager"] += 40
-        scores["Minimalist"] = 0
-    
-    # Q5: 잦은 음주 (주 2회 이상)
-    drinking = survey_responses.get("drinking", "")
-    if drinking in ["weekly_1_2", "weekly_3plus"]:
-        scores["Manager"] += 30
-        scores["Minimalist"] = 0
-    
-    # Q1: 체중 증가
-    if weight_change in ["increase_some", "increase_more"]:
-        scores["Manager"] += 25
-        scores["Minimalist"] = 0
-    
-    # Q7: 스트레스 대체 (daily_routine 기반 추론)
-    # irregular(불규칙한 생활) -> Manager 가중치
-    if "irregular" in daily_routine:
-        scores["Manager"] += 20
-        scores["Minimalist"] = 0
-    
-    # 복합 위험 가중치 (흡연 + 음주 + 비만)
-    if (smoking == "current_smoker" and
-        drinking in ["weekly_1_2", "weekly_3plus"] and
-        weight_change == "increase_more"):
-        scores["Manager"] += 30  # 추가 가중치
-    
-    # ==========================================
-    # 4순위: Optimizer (웰니스/활력)
-    # ==========================================
-    
-    # Q3: 규칙적 운동
-    exercise_frequency = survey_responses.get("exercise_frequency", "")
-    if exercise_frequency == "regular":
-        scores["Optimizer"] += 40
-    
-    # Q2: 고소득 직업군 (전문직/관리직) - 배열 처리
-    if isinstance(daily_routine, list):
-        if "desk_job" in daily_routine or "mental_stress" in daily_routine:
-            scores["Optimizer"] += 30
-    elif daily_routine in ["desk_job", "mental_stress"]:
-        scores["Optimizer"] += 30
-    
-    # Q1: 다이어트 성공 (자기관리)
-    if weight_change == "decrease_good":
-        scores["Optimizer"] += 25
-        scores["Minimalist"] = 0
-    
-    # Optimizer + 고소득 복합 (프리미엄 타겟) - 배열 처리
-    if (exercise_frequency == "regular" and "mental_stress" in daily_routine):
-        scores["Optimizer"] += 20  # 추가 가중치
-    
-    # ==========================================
-    # 5순위: Minimalist (실속형) - 기본값
-    # ==========================================
-    # 다른 페르소나 점수가 낮으면 자동으로 Minimalist 유지
-
-    # ==========================================
-    # 가중치 재조정 (만성질환 퍼스트 전략)
-    # ==========================================
-    # Manager(흡연/음주/비만) 비중을 1.5배, Symptom Solver(피로/수면/증상)를 1.2배 상향
-    scores["Manager"] = int(scores["Manager"] * 1.5)
-    scores["Symptom Solver"] = int(scores["Symptom Solver"] * 1.2)
-
-    # Worrier는 가족력 + 실제 만성 리스크가 동반될 때만 지나치게 우세해지지 않도록 조정
-    if scores["Worrier"] > 0 and scores["Manager"] == 0 and scores["Symptom Solver"] == 0 and scores["Optimizer"] == 0:
-        # 가족력만 있고 다른 리스크가 없으면 Worrier 점수를 완만하게 제한
-        scores["Worrier"] = min(scores["Worrier"], 40)
-
-    # ==========================================
-    # 최종 판정 (Primary / Secondary)
-    # ==========================================
-    persona_priority = ["Worrier", "Symptom Solver", "Manager", "Optimizer", "Minimalist"]
-
-    # Primary: 최고 점수 + 동점 시 우선순위 테이블로 결정
+    # Primary 결정
     max_score = max(scores.values())
     candidates = [p for p, s in scores.items() if s == max_score]
-    primary_persona: str = next(p for p in persona_priority if p in candidates)
+    # 동점 시 우선순위 테이블 적용
+    primary_persona = next(p for p in persona_priority if p in candidates)
 
-    # Secondary: 2순위 후보 (충분히 강한 경우에만 채택)
+    # Secondary 결정 (1위 점수의 70% 이상 또는 50점 이상)
     sorted_personas = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
-    secondary_persona: Optional[str] = None
-
+    secondary_persona = None
+    
     if len(sorted_personas) > 1:
         second_name, second_score = sorted_personas[1]
         primary_score = scores[primary_persona]
+        
+        if primary_persona != "Minimalist" and second_score > 0:
+            if second_score >= (primary_score * 0.7) or second_score >= 50:
+                secondary_persona = second_name
 
-        if primary_persona != "Minimalist" and (
-            second_score >= int(primary_score * 0.7) or second_score >= 50
-        ):
-            secondary_persona = second_name
+    # 메타데이터 매핑
+    combined_type = f"{primary_persona}_{secondary_persona}" if secondary_persona else primary_persona
     
-    # 업셀링 강도 설정
-    upselling_map = {
-        "Worrier": "very_high",
-        "Symptom Solver": "high",
-        "Manager": "medium",
-        "Optimizer": "very_high",
-        "Minimalist": "low"
+    return {
+        "type": primary_persona,
+        "primary_persona": primary_persona,
+        "secondary_persona": secondary_persona,
+        "combined_type": combined_type,
+        "persona_score": scores,
+        "risk_flags": risk_flags, # Step 2에서 활용할 Red Flags
+        "bridge_strategy": _get_strategy_map(primary_persona),
+        "tone": _get_tone_map(primary_persona),
+        "persuasion_message": _get_message_map(primary_persona)
     }
 
-    # Bridge Strategy 설정
-    bridge_strategy_map = {
-        "Worrier": "Peace of Mind",
-        "Symptom Solver": "Gap Filling",
-        "Manager": "Linkage",
-        "Optimizer": "Vitality",
-        "Minimalist": "Efficiency"
-    }
+def _calculate_survey_score(survey: Dict[str, Any], scores: Dict[str, int], risk_flags: List[str]):
+    """문진 데이터 기반 점수 계산 (행동 중심 가중치)"""
+    
+    # 1. Manager Factors (나쁜 습관 = 고득점)
+    # 흡연
+    if survey.get("smoking") == "current_smoker":
+        scores["Manager"] += 60
+    
+    # 음주
+    drinking = survey.get("drinking", "")
+    if drinking == "weekly_3plus":
+        scores["Manager"] += 50
+    elif drinking == "weekly_1_2":
+        scores["Manager"] += 20
+        
+    # 체중 증가
+    weight_change = survey.get("weight_change", "")
+    if weight_change == "increase_more": # 3kg 이상 증가
+        scores["Manager"] += 40
+        
+    # 불규칙한 생활 (daily_routine)
+    daily_routine = survey.get("daily_routine", [])
+    if isinstance(daily_routine, str): daily_routine = [daily_routine]
+    if "irregular" in daily_routine:
+        scores["Manager"] += 40
+    if "desk_job" in daily_routine: # 운동 부족 잠재
+        scores["Manager"] += 20
 
-    # 톤앤매너 설정
-    tone_map = {
+    # 2. Symptom Solver Factors (통증/직업병)
+    # 직업적 증상 유발
+    if any(job in daily_routine for job in ["mental_stress", "service_job", "physical_job"]):
+        scores["Symptom Solver"] += 30
+        
+    # 수면 부족
+    if survey.get("sleep_hours") == "less_5":
+        scores["Symptom Solver"] += 40
+        
+    # 직접 호소 (통증 키워드)
+    concerns = survey.get("additional_concerns", "")
+    pain_keywords = ["통증", "아픔", "아파", "불편", "두통", "피로", "어지럼", "소화", "변비"]
+    if concerns and any(k in concerns for k in pain_keywords):
+        scores["Symptom Solver"] += 50
+        
+    # Red Flag 처리 (점수 대신 Flag)
+    if weight_change == "decrease_bad":
+        risk_flags.append("unintended_weight_loss") # 체중 급감
+
+    # 3. Worrier Factors (가족력 - 0점 시작)
+    family_history = survey.get("family_history", [])
+    if family_history and "none" not in family_history:
+        if "cancer" in family_history: scores["Worrier"] += 30
+        if "stroke" in family_history: scores["Worrier"] += 20
+        if "heart_disease" in family_history: scores["Worrier"] += 20
+        if "diabetes" in family_history: scores["Worrier"] += 10
+        if "hypertension" in family_history: scores["Worrier"] += 10
+        
+        # 대장내시경 회피
+        if survey.get("colonoscopy_experience") == "no_afraid":
+            scores["Worrier"] += 40
+
+    # 4. Optimizer Factors (좋은 습관)
+    # 운동
+    exercise = survey.get("exercise_frequency", "")
+    if exercise == "regular":
+        scores["Optimizer"] += 60
+    
+    # 다이어트 성공
+    if weight_change == "decrease_good":
+        scores["Optimizer"] += 40
+        
+    # 정기 내시경
+    if survey.get("colonoscopy_experience") == "yes_comfortable":
+        scores["Optimizer"] += 30
+        
+    # 금연 성공
+    if survey.get("smoking") == "ex_smoker":
+        scores["Optimizer"] += 20
+
+def _calculate_body_score(history: List[Dict[str, Any]], prescriptions: List[Dict[str, Any]], scores: Dict[str, int], risk_flags: List[str]):
+    """검진 기록 및 처방 이력 기반 점수 (Time Decay 적용)"""
+    current_year = datetime.now().year
+    
+    # 투약 여부 확인 (최근 1년 내)
+    has_medication = False
+    for rx in prescriptions:
+        # 간단한 로직: 처방 내역이 있으면 관리 중으로 간주
+        # 실제로는 날짜 파싱이 필요하지만, 여기서는 존재 여부로 판단
+        has_medication = True
+        scores["Manager"] += 20 # 약을 먹는다는 건 평생 관리 대상임
+        
+    # 검진 데이터 분석
+    for record in history:
+        # 날짜 파싱
+        checkup_year = current_year # Default
+        checkup_date = record.get("checkup_date") or record.get("CheckUpDate")
+        year_val = record.get("year")
+        
+        if year_val:
+            try: checkup_year = int(year_val)
+            except: pass
+        elif checkup_date:
+            try: checkup_year = int(checkup_date[:4])
+            except: pass
+            
+        time_diff = current_year - checkup_year
+        
+        # Time Decay Factor
+        if time_diff <= 1: decay = 1.0     # 1년 이내: 강력
+        elif time_diff <= 3: decay = 0.5   # 3년 이내: 절반
+        else: decay = 0.1                  # 3년 초과: 미미함
+        
+        # 이상 소견 추출 (raw_data 파싱 가정 또는 이미 전처리된 필드 사용)
+        # 여기서는 간단히 'abnormal_items' 필드가 있다고 가정하거나, 원본 로직을 단순화하여 구현
+        # 실제 데이터 구조에 따라 파싱 로직 고도화 필요
+        
+        # 예시: raw_data 내의 판정 결과나 요약 필드 활용
+        summary = str(record).lower()
+        
+        # 대사 증후군 지표 (Manager)
+        if any(x in summary for x in ["고혈압", "당뇨", "비만", "고지혈증", "이상지질", "지방간"]):
+            score = 50 * decay
+            if not has_medication and time_diff <= 2:
+                # 약도 안 먹고 수치도 나쁨 -> 방치 (Critical)
+                score *= 1.5 
+                risk_flags.append(f"untreated_risk_{checkup_year}")
+            scores["Manager"] += int(score)
+            
+        # 정상 소견 (Optimizer)
+        if "정상A" in summary or "특이소견 없음" in summary:
+            scores["Optimizer"] += int(40 * decay)
+
+def _calculate_intent_score(concerns: List[Dict[str, Any]], scores: Dict[str, int]):
+    """채팅 선택 항목 기반 의도 분석"""
+    
+    for item in concerns:
+        name = item.get("name", "")
+        # concernLevel = item.get("concernLevel", "implicit")
+        
+        # 키워드 매칭
+        # Worrier
+        if any(k in name for k in ["암", "종양", "유전자", "마커", "가족력", "뇌졸중", "치매", "심장"]):
+            scores["Worrier"] += 15
+            
+        # Symptom Solver
+        if any(k in name for k in ["초음파", "CT", "내시경", "MRI", "통증", "소화", "위", "대장"]):
+            scores["Symptom Solver"] += 15
+            
+        # Optimizer
+        if any(k in name for k in ["활력", "호르몬", "기능", "노화", "영양", "알레르기", "면역"]):
+            scores["Optimizer"] += 15
+            
+        # Manager
+        if any(k in name for k in ["간", "지방간", "혈관", "동맥경화", "당뇨", "혈압", "비만"]):
+            scores["Manager"] += 10
+
+def _get_strategy_map(persona):
+    return {
+        "Worrier": "Peace of Mind (불안 해소)",
+        "Symptom Solver": "Gap Filling (원인 규명)",
+        "Manager": "Linkage (연결고리 관리)",
+        "Optimizer": "Vitality (최적화)",
+        "Minimalist": "Efficiency (핵심만)"
+    }.get(persona, "Standard")
+
+def _get_tone_map(persona):
+    return {
         "Worrier": "공감, 안심, 확신",
         "Symptom Solver": "분석적, 해결책 제시",
         "Manager": "경고, 관리, 체계적",
         "Optimizer": "프리미엄, 최신지견",
         "Minimalist": "간결, 핵심, 가성비"
-    }
+    }.get(persona, "친근함")
 
-    # 설득 메시지 템플릿
-    persuasion_message_map = {
+def _get_message_map(persona):
+    return {
         "Worrier": "가족력 때문에 불안하시죠? 눈으로 확인하고 마음의 짐을 덜으세요.",
         "Symptom Solver": "단순 피로가 아닙니다. 숨겨진 원인을 데이터로 찾아야 합니다.",
         "Manager": "음주와 비만이 만나면 간이 굳어집니다. 연결고리를 끊어야 합니다.",
         "Optimizer": "병이 없는 것과 활력이 넘치는 건 다릅니다. 최상의 컨디션을 만드세요.",
         "Minimalist": "바쁘시겠지만, 가성비 있게 딱 이것 하나만 챙기시면 됩니다."
-    }
-
-    combined_type = (
-        f"{primary_persona}_{secondary_persona}"
-        if secondary_persona
-        else primary_persona
-    )
-
-    return {
-        # Backward compatible 필드
-        "type": primary_persona,
-        "primary_persona": primary_persona,
-        # 신규 필드
-        "secondary_persona": secondary_persona,
-        "combined_type": combined_type,
-        "persona_score": scores,
-        "bridge_strategy": bridge_strategy_map[primary_persona],
-        "tone": tone_map[primary_persona],
-        "upselling_intensity": upselling_map[primary_persona],
-        "persuasion_message": persuasion_message_map[primary_persona],
-    }
+    }.get(persona, "건강을 챙기세요.")
