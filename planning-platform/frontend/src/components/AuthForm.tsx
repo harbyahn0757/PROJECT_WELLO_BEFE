@@ -236,6 +236,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     message: string;
     technicalDetail?: string;
     retryAvailable?: boolean;
+    redirect_to_landing?: boolean;
   } | null>(null);
   const [authRequested, setAuthRequested] = useState(false);
   // progress 상태 제거됨 - currentStatus로 통합
@@ -315,6 +316,55 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     onDataCollectionProgress: (progressType, message, data?: any) => {
       console.log('📈 [WebSocket] 데이터 수집 진행:', progressType, message, data);
       
+      // 건강검진 데이터 수집 완료
+      if (progressType === 'health_data_completed') {
+        const count = data?.count || 0;
+        setTypingText(`건강검진 데이터 ${count}건 수집했습니다.\n\n처방전 데이터를 수집하고 있습니다...`);
+        setCurrentStatus('data_collecting');
+        setLoading(true);
+        return;
+      }
+      
+      // 처방전 데이터 수집 실패
+      if (progressType === 'prescription_data_failed') {
+        setCurrentStatus('error');
+        setLoading(false);
+        
+        // 에러 모달 표시
+        displayErrorModal({
+          title: '처방전 데이터 수집 실패',
+          message: message || '처방전 데이터 수집에 실패했습니다.\n확인 버튼을 누르면 메인 페이지로 이동합니다.',
+          retryAvailable: false,
+          redirect_to_landing: true
+        });
+        
+        return;
+      }
+      
+      // 건강검진 데이터 수집 실패 (WebSocket을 통해 전달되는 경우)
+      if (progressType === 'health_data_failed') {
+        setCurrentStatus('error');
+        setLoading(false);
+        
+        // 에러 모달 표시
+        displayErrorModal({
+          title: '건강검진 데이터 수집 실패',
+          message: message || '건강검진 데이터 수집에 실패했습니다.\n확인 버튼을 누르면 메인 페이지로 이동합니다.',
+          retryAvailable: false,
+          redirect_to_landing: true
+        });
+        
+        return;
+      }
+      
+      // 처방전 데이터 수집 중
+      if (progressType === 'fetching_prescription_data') {
+        setTypingText('처방전 데이터를 수집하고 있습니다...');
+        setCurrentStatus('data_collecting');
+        setLoading(true);
+        return;
+      }
+      
       // 완료 상태 확인
       if (progressType === 'completed' || message?.includes('모든 데이터 수집이 완료')) {
         console.log('🎉 [WebSocket] 데이터 수집 완료 알림 수신!', data);
@@ -344,6 +394,24 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     onError: (error) => {
       console.error('❌ [WebSocket] 에러:', error);
       handleError(error, 'server');
+      
+      // 처방전 타임아웃 등 심각한 에러인 경우 랜딩 페이지로 이동
+      const errorStr = typeof error === 'string' ? error : String(error);
+      if (errorStr.includes('처방전') && (errorStr.includes('시간이 초과') || errorStr.includes('타임아웃'))) {
+        console.log('⏰ [에러처리] 처방전 타임아웃 감지 - 5초 후 랜딩 페이지로 이동');
+        setTypingText('처방전 데이터 수집에 시간이 오래 걸리고 있습니다.\n5초 후 처음 페이지로 돌아갑니다.');
+        setTimeout(() => {
+          console.log('🔄 [에러처리] 랜딩 페이지로 이동');
+          navigate('/');
+        }, 5000);
+      } else if (errorStr.includes('시간이 초과') || errorStr.includes('타임아웃')) {
+        console.log('⏰ [에러처리] 타임아웃 감지 - 5초 후 랜딩 페이지로 이동');
+        setTypingText('데이터 수집에 시간이 오래 걸리고 있습니다.\n5초 후 처음 페이지로 돌아갑니다.');
+        setTimeout(() => {
+          console.log('🔄 [에러처리] 랜딩 페이지로 이동');
+          navigate('/');
+        }, 5000);
+      }
     },
     onAuthTimeout: (message) => {
       console.log('⏰ [WebSocket] 인증 타임아웃:', message);
@@ -482,11 +550,22 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     console.log(`🔄 [인증페이지-${componentId}] AuthForm 완전 마운트됨 - 모든 useEffect 활성화`);
     console.log(`🔍 [인증페이지-${componentId}] 현재 patient 상태:`, patient ? { name: patient.name, uuid: patient.uuid } : 'null');
     
-    // 인증 페이지 진입 시 로컬 스토리지 리셋 (인증 방식 선택 초기화)
-    StorageManager.resetAuthPage();
-    authTypeMemoryRef.current = '4';
-    setSelectedAuthType('4');
-    console.log(`🔄 [인증페이지-${componentId}] 인증 방식 선택 리셋 완료 - 기본값 '4' (통신사Pass)으로 시작`);
+    // 인증 페이지 진입 시 인증 방식 복원 (에러 후 재진입 시에도 이전 선택 유지)
+    // 단, 완전히 새로운 세션이거나 명시적으로 리셋이 필요한 경우에만 초기화
+    const savedAuthType = StorageManager.getItem<string>(STORAGE_KEYS.TILKO_SELECTED_AUTH_TYPE) || authTypeMemoryRef.current;
+    
+    if (savedAuthType && savedAuthType !== '0') {
+      // 이전에 선택한 인증 방식이 있고 카카오가 아닌 경우 복원
+      authTypeMemoryRef.current = savedAuthType;
+      setSelectedAuthType(savedAuthType);
+      console.log(`🔄 [인증페이지-${componentId}] 인증 방식 복원: '${savedAuthType}' (이전 선택 유지)`);
+    } else {
+      // 새로운 세션이거나 카카오인 경우 기본값으로 설정
+      StorageManager.resetAuthPage();
+      authTypeMemoryRef.current = '4';
+      setSelectedAuthType('4');
+      console.log(`🔄 [인증페이지-${componentId}] 인증 방식 선택 리셋 완료 - 기본값 '4' (통신사Pass)으로 시작`);
+    }
     
     // 스토리지 사용 가능 여부 확인
     if (StorageManager.isMemoryMode()) {
@@ -1312,7 +1391,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                       title: latestError.title || '데이터 수집 오류',
                       message: latestError.message || '데이터 수집 중 문제가 발생했습니다.',
                       technicalDetail: latestError.technical_detail,
-                      retryAvailable: latestError.retry_available !== false
+                      retryAvailable: latestError.retry_available !== false,
+                      redirect_to_landing: latestError.redirect_to_landing || false
                     });
                     
                     setCurrentStatus('error');
@@ -1799,18 +1879,26 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     message: string;
     technicalDetail?: string;
     retryAvailable?: boolean;
+    redirect_to_landing?: boolean;
   }) => {
     setErrorModalData(errorData);
     setShowErrorModal(true);
   }, []);
 
-  // 에러 클리어
-  const clearError = useCallback(() => {
+  // 에러 클리어 (메인 페이지로 이동 옵션 포함)
+  const clearError = useCallback((redirectToMain: boolean = false) => {
     setError(null);
     setErrorType(null);
     setShowErrorModal(false);
+    
+    // 메인 페이지로 이동이 필요한 경우
+    if (redirectToMain) {
+      console.log('🔄 [에러모달] 확인 버튼 클릭 - 메인 페이지로 이동');
+      navigate('/');
+    }
+    
     setErrorModalData(null);
-  }, []);
+  }, [navigate]);
 
   // messageReplace 제거됨 - 사용되지 않음
 
@@ -4322,7 +4410,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             {error}
             {errorType === 'validation' && (
               <button 
-                onClick={clearError}
+                onClick={() => clearError(false)}
                 style={{
                   marginLeft: '8px',
                   background: 'none',
@@ -4469,7 +4557,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               justifyContent: 'flex-end'
             }}>
               <button
-                onClick={clearError}
+                onClick={() => {
+                  // 에러 모달 데이터에서 redirect_to_landing 플래그 확인
+                  const shouldRedirect = errorModalData?.redirect_to_landing || false;
+                  clearError(shouldRedirect);
+                }}
                 style={{
                   padding: '10px 20px',
                   border: '1px solid #ddd',
@@ -4480,7 +4572,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                   fontSize: '14px'
                 }}
               >
-                닫기
+                {errorModalData?.redirect_to_landing ? '확인' : '닫기'}
               </button>
               {errorModalData.retryAvailable && (
                 <button

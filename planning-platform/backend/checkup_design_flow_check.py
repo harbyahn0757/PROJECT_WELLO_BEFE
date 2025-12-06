@@ -19,7 +19,7 @@ from app.api.v1.endpoints.checkup_design import (
     CheckupDesignStep2Request,
     Step1Result
 )
-from app.services.checkup_design_prompt import (
+from app.services.checkup_design import (
     create_checkup_design_prompt_step1,
     create_checkup_design_prompt_step2
 )

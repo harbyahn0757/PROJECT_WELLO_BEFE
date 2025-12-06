@@ -118,6 +118,8 @@ class Settings(BaseSettings):
     
     # Google Gemini 설정 (RAG용)
     google_gemini_api_key: str = Field(default="dev-gemini-key", env="GOOGLE_GEMINI_API_KEY")
+    google_gemini_fast_model: str = Field(default="gemini-2.0-flash", env="GOOGLE_GEMINI_FAST_MODEL") # STEP 1용 빠른 모델
+    google_gemini_model: str = Field(default="gemini-2.0-flash", env="GOOGLE_GEMINI_MODEL") # STEP 2용 강력한 모델
     
     model_config = {
         "env_file": [".env.local", "config.env", ".env"],

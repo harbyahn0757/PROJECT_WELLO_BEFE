@@ -682,8 +682,8 @@
 
   &--expanded {
     min-width: 240px; // 기본 카드 너비 유지
-    max-width: 600px; // 최대 너비 제한
-    width: auto; // 내용에 맞게 자동 조정
+    max-width: 340px; // 최대 너비 제한 (600px -> 340px로 축소)
+    width: 100%; // 내용에 맞게 자동 조정
     position: relative;
     z-index: 10;
   }

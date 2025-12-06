@@ -4,33 +4,27 @@
  */
 import React, { useState, useEffect, useMemo } from 'react';
 import checkPlannerImage from '../../../assets/images/check_planner.png';
+import { useSurveyTracker, InteractionEvent } from './useSurveyTracker';
 import './styles.scss';
 
 export interface SurveyResponses {
   weight_change: string;
+  daily_routine: string[]; // 멀티셀렉트 (체크박스)
   exercise_frequency: string;
-  family_history: string[];
   smoking: string;
   drinking: string;
   sleep_hours: string;
-  stress_level: string;
+  family_history: string[];
+  colonoscopy_experience?: string; // 35세 이상 조건부
   additional_concerns: string;
-  // 선택적 추가 질문
-  optional_questions_enabled?: string; // 'yes' | 'no'
-  cancer_history?: string;
-  hepatitis_carrier?: string;
-  colonoscopy_experience?: string;
-  lung_nodule?: string;
-  gastritis?: string;
-  imaging_aversion?: string[]; // 체크박스 필드는 배열
-  genetic_test?: string;
 }
 
 interface CheckupDesignSurveyPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (responses: SurveyResponses) => void;
+  onSubmit: (responses: SurveyResponses, events: InteractionEvent[]) => void;
   selectedCount: number;
+  patientAge?: number; // 나이 정보 추가 (colonoscopy_experience 조건부 표시용)
 }
 
 interface Question {
@@ -48,23 +42,31 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
   isOpen,
   onClose,
   onSubmit,
-  selectedCount
+  selectedCount,
+  patientAge
 }) => {
   const [responses, setResponses] = useState<SurveyResponses>({
     weight_change: '',
+    daily_routine: [],
     exercise_frequency: '',
-    family_history: [],
     smoking: '',
     drinking: '',
     sleep_hours: '',
-    stress_level: '',
-    additional_concerns: '',
-    optional_questions_enabled: undefined,
-    imaging_aversion: [] // 체크박스 필드는 배열로 초기화
+    family_history: [],
+    additional_concerns: ''
   });
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
+  // 이벤트 트래커 훅 사용
+  const { 
+    events, 
+    trackSlideEnter, 
+    trackOptionClick, 
+    trackNavigation, 
+    trackInputTyping 
+  } = useSurveyTracker();
 
   // 패널이 열릴 때 초기화
   useEffect(() => {
@@ -72,56 +74,56 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
       setCurrentQuestionIndex(0);
       setResponses({
         weight_change: '',
+        daily_routine: [],
         exercise_frequency: '',
-        family_history: [],
         smoking: '',
         drinking: '',
         sleep_hours: '',
-        stress_level: '',
-        additional_concerns: '',
-        optional_questions_enabled: undefined,
-        imaging_aversion: [] // 체크박스 필드는 배열로 초기화
+        family_history: [],
+        additional_concerns: ''
       });
       setErrors({});
+      // 첫 질문 슬라이드 진입 추적
+      // questions 배열이 렌더링 시점에 생성되므로, 여기서 직접 접근하기보다 questions가 준비된 후 호출하도록 함
     }
   }, [isOpen]);
 
-  // 기본 질문 정의 (필수)
+  // 질문 정의 (10개 구조)
   const basicQuestions: Question[] = [
     {
       key: 'weight_change',
-      label: '최근 3개월간 체중 변화가 있으신가요?',
+      label: '최근 1년, 체중 변화가 있었나요?',
       type: 'radio',
       options: [
-        { value: 'increase_more', label: '증가 (3kg 이상)' },
-        { value: 'increase_some', label: '약간 증가 (1-3kg)' },
-        { value: 'maintain', label: '유지' },
-        { value: 'decrease_some', label: '약간 감소 (1-3kg)' },
-        { value: 'decrease_more', label: '감소 (3kg 이상)' }
+        { value: 'maintain', label: '변화 없음' },
+        { value: 'decrease_bad', label: '의도치 않게 빠짐 (3kg 이상)' },
+        { value: 'decrease_good', label: '다이어트로 뺌' },
+        { value: 'increase_some', label: '조금 쪘음 (1~3kg)' },
+        { value: 'increase_more', label: '많이 쪘음 (3kg 이상)' }
+      ]
+    },
+    {
+      key: 'daily_routine',
+      label: '평소 하루 일과는 어떠신가요? (복수 선택 가능)',
+      type: 'checkbox',
+      options: [
+        { value: 'desk_job', label: '주로 앉아서 모니터 집중' },
+        { value: 'mental_stress', label: '중요한 결정/정신적 압박' },
+        { value: 'service_job', label: '사람 상대/감정 소모' },
+        { value: 'physical_job', label: '몸을 쓰거나 서 있는 일' },
+        { value: 'irregular', label: '밤낮 불규칙/식사 불규칙' },
+        { value: 'home_maker', label: '가사/은퇴 후 휴식' }
       ]
     },
     {
       key: 'exercise_frequency',
-      label: '최근 운동을 하시나요?',
+      label: '운동은 하시나요?',
       type: 'radio',
       options: [
         { value: 'regular', label: '규칙적으로 운동함 (주 3회 이상)' },
         { value: 'sometimes', label: '가끔 운동함 (주 1-2회)' },
         { value: 'rarely', label: '거의 안 함' },
         { value: 'never', label: '전혀 안 함' }
-      ]
-    },
-    {
-      key: 'family_history',
-      label: '가족 중에 다음 질환이 있으신가요? (복수 선택 가능)',
-      type: 'checkbox',
-      options: [
-        { value: 'hypertension', label: '고혈압' },
-        { value: 'diabetes', label: '당뇨병' },
-        { value: 'heart_disease', label: '심장질환' },
-        { value: 'cancer', label: '암' },
-        { value: 'stroke', label: '뇌졸중' },
-        { value: 'none', label: '없음' }
       ]
     },
     {
@@ -159,145 +161,62 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
       ]
     },
     {
-      key: 'stress_level',
-      label: '최근 스트레스 수준은?',
-      type: 'radio',
+      key: 'family_history',
+      label: '가족 중에 다음 질환이 있으신가요? (복수 선택 가능)',
+      type: 'checkbox',
       options: [
-        { value: 'very_high', label: '매우 높음' },
-        { value: 'high', label: '높음' },
-        { value: 'medium', label: '보통' },
-        { value: 'low', label: '낮음' },
-        { value: 'very_low', label: '매우 낮음' }
+        { value: 'cancer', label: '암' },
+        { value: 'stroke', label: '뇌졸중' },
+        { value: 'heart_disease', label: '심장질환' },
+        { value: 'diabetes', label: '당뇨' },
+        { value: 'hypertension', label: '고혈압' },
+        { value: 'none', label: '없음' }
       ]
     },
     {
       key: 'additional_concerns',
-      label: '검진 설계 시 고려해주셨으면 하는 특이사항이나 고민사항이 있으신가요?',
+      label: '특별히 걱정되거나 확인하고 싶은 부분이 있으신가요?',
       type: 'textarea',
-      placeholder: '예: 최근 두통이 자주 발생합니다, 가족 중 암 환자가 있어서 걱정됩니다 등',
+      placeholder: '예: 최근 두통이 자주 발생합니다, 소화가 잘 안됩니다 등 (선택사항)',
       maxLength: 500
-    },
-    // 선택적 질문 활성화 여부 질문
-    {
-      key: 'optional_questions_enabled',
-      label: '더 정확한 검진 설계를 위해 추가 질문에 답하시겠어요?',
-      type: 'radio',
-      options: [
-        { value: 'yes', label: '예, 답하겠습니다' },
-        { value: 'no', label: '아니오, 이대로 진행하겠습니다' }
-      ]
     }
   ];
 
-  // 선택적 추가 질문 정의 (optional_questions_enabled가 'yes'일 때만 표시)
-  const optionalQuestions: Question[] = [
-    {
-      key: 'cancer_history',
-      label: '과거 암 진단을 받으신 적이 있으신가요?',
-      type: 'radio',
-      options: [
-        { value: 'yes_current', label: '예, 현재 치료 중입니다' },
-        { value: 'yes_past', label: '예, 과거에 치료를 받았습니다' },
-        { value: 'no', label: '아니오' }
-      ],
-      isOptional: true,
-      showIf: { key: 'optional_questions_enabled', value: 'yes' }
-    },
-    {
-      key: 'hepatitis_carrier',
-      label: 'B형 또는 C형 간염 보균자이신가요?',
-      type: 'radio',
-      options: [
-        { value: 'hepatitis_b', label: 'B형 간염 보균자' },
-        { value: 'hepatitis_c', label: 'C형 간염 보균자' },
-        { value: 'both', label: '둘 다' },
-        { value: 'no', label: '아니오' }
-      ],
-      isOptional: true,
-      showIf: { key: 'optional_questions_enabled', value: 'yes' }
-    },
-    {
+  // 35세 이상일 경우 추가되는 질문
+  const conditionalQuestions: Question[] = [];
+  if (patientAge && patientAge >= 35) {
+    conditionalQuestions.push({
       key: 'colonoscopy_experience',
-      label: '대장내시경 검사를 받으신 적이 있으신가요?',
+      label: '대장내시경 경험이 있나요?',
       type: 'radio',
       options: [
         { value: 'yes_comfortable', label: '예, 불편함 없이 받았습니다' },
         { value: 'yes_uncomfortable', label: '예, 불편했습니다' },
         { value: 'no_afraid', label: '아니오, 두려워서 받지 않았습니다' },
         { value: 'no_never', label: '아니오, 받아본 적이 없습니다' }
-      ],
-      isOptional: true,
-      showIf: { key: 'optional_questions_enabled', value: 'yes' }
-    },
-    {
-      key: 'lung_nodule',
-      label: '흉부 CT나 X-ray에서 폐 결절이 발견된 적이 있으신가요?',
-      type: 'radio',
-      options: [
-        { value: 'yes', label: '예' },
-        { value: 'no', label: '아니오' },
-        { value: 'unknown', label: '모르겠습니다' }
-      ],
-      isOptional: true,
-      showIf: { key: 'optional_questions_enabled', value: 'yes' }
-    },
-    {
-      key: 'gastritis',
-      label: '현재 또는 과거에 위염이나 소화불량 증상이 있으신가요?',
-      type: 'radio',
-      options: [
-        { value: 'yes_current', label: '예, 현재 있습니다' },
-        { value: 'yes_past', label: '예, 과거에 있었습니다' },
-        { value: 'no', label: '아니오' }
-      ],
-      isOptional: true,
-      showIf: { key: 'optional_questions_enabled', value: 'yes' }
-    },
-    {
-      key: 'imaging_aversion',
-      label: '다음 검사 중 기피하거나 불편함을 느끼는 검사가 있으신가요?',
-      type: 'checkbox',
-      options: [
-        { value: 'ct', label: 'CT (컴퓨터 단층촬영)' },
-        { value: 'xray', label: 'X-ray (엑스레이)' },
-        { value: 'mri', label: 'MRI (자기공명영상)' },
-        { value: 'none', label: '없음' }
-      ],
-      isOptional: true,
-      showIf: { key: 'optional_questions_enabled', value: 'yes' }
-    },
-    {
-      key: 'genetic_test',
-      label: '가족 중 유전성 암(브라카 변이 등)이 의심되는 경우가 있으신가요?',
-      type: 'radio',
-      options: [
-        { value: 'yes', label: '예' },
-        { value: 'no', label: '아니오' },
-        { value: 'unknown', label: '모르겠습니다' }
-      ],
-      isOptional: true,
-      showIf: { key: 'optional_questions_enabled', value: 'yes' }
-    }
-  ];
+      ]
+    });
+  }
 
-  // 표시할 질문 목록 계산 (조건부 필터링)
+  // 전체 질문 목록 (기본 + 조건부)
   const questions = useMemo(() => {
-    const allQuestions = [...basicQuestions];
-    
-    // optional_questions_enabled가 'yes'인 경우에만 선택적 질문 추가
-    if (responses.optional_questions_enabled === 'yes') {
-      allQuestions.push(...optionalQuestions);
-    }
-    
-    return allQuestions;
-  }, [responses.optional_questions_enabled]);
+    return [...basicQuestions, ...conditionalQuestions];
+  }, [patientAge]);
 
   const currentQuestion = questions[currentQuestionIndex];
   const isLastQuestion = currentQuestionIndex === questions.length - 1;
   const isFirstQuestion = currentQuestionIndex === 0;
 
+  // 질문 인덱스 변경 시 슬라이드 진입 추적
+  useEffect(() => {
+    if (isOpen && currentQuestion) {
+      trackSlideEnter(currentQuestion.key);
+    }
+  }, [isOpen, currentQuestionIndex, currentQuestion, trackSlideEnter]);
+
   // 가족력 다중 선택 핸들러
   const handleFamilyHistoryChange = (value: string) => {
+    trackOptionClick('family_history', value); // 클릭 추적
     setResponses(prev => {
       const current = [...prev.family_history];
       if (value === 'none') {
@@ -313,75 +232,48 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
     });
   };
 
+  // daily_routine 다중 선택 핸들러
+  const handleDailyRoutineChange = (value: string) => {
+    trackOptionClick('daily_routine', value); // 클릭 추적
+    setResponses(prev => {
+      const current = [...prev.daily_routine];
+      if (current.includes(value)) {
+        return { ...prev, daily_routine: current.filter(v => v !== value) };
+      } else {
+        return { ...prev, daily_routine: [...current, value] };
+      }
+    });
+  };
+
   // 라디오 선택 핸들러 (자동으로 다음 질문으로 이동)
   const handleRadioChange = (value: string) => {
+    trackOptionClick(currentQuestion.key, value); // 클릭 추적
     setResponses(prev => ({ ...prev, [currentQuestion.key]: value }));
     setErrors(prev => ({ ...prev, [currentQuestion.key]: '' }));
-    
-    // optional_questions_enabled가 'no'로 선택되면 바로 제출 가능
-    if (currentQuestion.key === 'optional_questions_enabled' && value === 'no') {
-      // 기본 질문만으로 제출 가능 (선택적 질문은 빈 값으로)
-      setTimeout(() => {
-        handleSubmit();
-      }, 300);
-      return;
-    }
-    
-    // optional_questions_enabled가 'yes'로 선택되면 questions 배열이 업데이트되므로
-    // useEffect에서 처리하도록 함 (아래 useEffect 참조)
-    if (currentQuestion.key === 'optional_questions_enabled' && value === 'yes') {
-      // questions 배열이 업데이트될 때까지 기다린 후 다음 질문으로 이동
-      return;
-    }
     
     // 다음 질문으로 자동 이동 (마지막 질문이 아니면)
     if (!isLastQuestion) {
       setTimeout(() => {
+        trackNavigation(currentQuestion.key, 'NEXT'); // 자동 이동도 네비게이션으로 추적
         setCurrentQuestionIndex(prev => prev + 1);
       }, 300); // 부드러운 전환을 위한 딜레이
     }
   };
 
-  // optional_questions_enabled가 'yes'로 변경되면 자동으로 다음 질문으로 이동
-  useEffect(() => {
-    if (responses.optional_questions_enabled === 'yes' && 
-        currentQuestion?.key === 'optional_questions_enabled' &&
-        currentQuestionIndex < questions.length - 1) {
-      // questions 배열이 업데이트된 후에 다음 질문으로 이동
-      setTimeout(() => {
-        setCurrentQuestionIndex(prev => prev + 1);
-      }, 300);
-    }
-  }, [responses.optional_questions_enabled, questions.length, currentQuestion?.key, currentQuestionIndex]);
-
-  // 체크박스 변경 핸들러 (범용)
+  // 체크박스 변경 핸들러 (family_history, daily_routine)
   const handleCheckboxChange = (value: string) => {
-    const questionKey = currentQuestion.key;
-    
-    // 가족력은 특별 처리
-    if (questionKey === 'family_history') {
+    // family_history는 특별 처리 ('none' 선택 시 단독 선택)
+    if (currentQuestion.key === 'family_history') {
       handleFamilyHistoryChange(value);
-    } else {
-      // 다른 체크박스 필드 (imaging_aversion 등)
-      setResponses(prev => {
-        const current = (prev[questionKey] as string[]) || [];
-        if (value === 'none') {
-          return { ...prev, [questionKey]: ['none'] };
-        } else {
-          const filtered = current.filter(v => v !== 'none');
-          if (filtered.includes(value)) {
-            return { ...prev, [questionKey]: filtered.filter(v => v !== value) };
-          } else {
-            return { ...prev, [questionKey]: [...filtered, value] };
-          }
-        }
-      });
+    } else if (currentQuestion.key === 'daily_routine') {
+      handleDailyRoutineChange(value);
     }
-    setErrors(prev => ({ ...prev, [questionKey]: '' }));
+    setErrors(prev => ({ ...prev, [currentQuestion.key]: '' }));
   };
 
   // 텍스트 영역 변경 핸들러
   const handleTextareaChange = (value: string) => {
+    trackInputTyping(currentQuestion.key, value.length); // 타이핑 추적
     setResponses(prev => ({ ...prev, [currentQuestion.key]: value }));
     setErrors(prev => ({ ...prev, [currentQuestion.key]: '' }));
   };
@@ -389,6 +281,7 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
   // 이전 질문으로 이동
   const handlePrevious = () => {
     if (!isFirstQuestion) {
+      trackNavigation(currentQuestion.key, 'PREV'); // 이전 버튼 클릭 추적
       setCurrentQuestionIndex(prev => prev - 1);
     }
   };
@@ -406,6 +299,7 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
     }
 
     if (!isLastQuestion) {
+      trackNavigation(currentQuestion.key, 'NEXT'); // 다음 버튼 클릭 추적
       setCurrentQuestionIndex(prev => prev + 1);
     }
   };
@@ -414,20 +308,9 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
   const validate = (): boolean => {
     const newErrors: { [key: string]: string } = {};
 
-    // "아니오"를 선택한 경우, optional_questions_enabled 질문까지의 기본 질문만 검증
-    // (optional_questions_enabled 질문 자체는 이미 선택되었으므로 검증 제외)
-    const questionsToValidate = responses.optional_questions_enabled === 'yes' 
-      ? questions 
-      : basicQuestions.filter(q => q.key !== 'optional_questions_enabled' || responses.optional_questions_enabled === 'no');
-
-    questionsToValidate.forEach(question => {
-      // optional_questions_enabled 질문은 이미 선택되었으므로 검증 제외
-      if (question.key === 'optional_questions_enabled') {
-        return;
-      }
-      
-      // 선택적 질문은 optional_questions_enabled가 'yes'일 때만 검증
-      if (question.isOptional && responses.optional_questions_enabled !== 'yes') {
+    questions.forEach(question => {
+      // textarea는 선택사항이므로 검증 제외
+      if (question.type === 'textarea') {
         return;
       }
       
@@ -445,7 +328,8 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
   // 제출 핸들러
   const handleSubmit = () => {
     if (validate()) {
-      onSubmit(responses);
+      trackNavigation(currentQuestion.key, 'NEXT'); // 제출도 네비게이션으로 간주 (마지막 완료)
+      onSubmit(responses, events);
     } else {
       // 에러가 있는 첫 번째 질문으로 이동
       const firstErrorIndex = questions.findIndex(q => errors[q.key]);

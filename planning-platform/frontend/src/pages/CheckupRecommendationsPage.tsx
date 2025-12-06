@@ -30,6 +30,98 @@ const extractFootnoteNumbers = (text: string): number[] => {
   return matches.sort((a, b) => a - b); // 오름차순 정렬
 };
 
+// --- [Evidence Modal Component] ---
+interface EvidenceModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  evidenceData: any; // 구체적인 타입은 CheckupDesignResponse 참조
+  targetItemName?: string;
+}
+
+const EvidenceModal: React.FC<EvidenceModalProps> = ({ isOpen, onClose, evidenceData, targetItemName }) => {
+  if (!isOpen) return null;
+
+  // evidenceData가 배열인지 단일 객체인지 확인하여 처리
+  const evidences = Array.isArray(evidenceData) ? evidenceData : (evidenceData ? [evidenceData] : []);
+
+  return (
+    <div className="processing-modal-overlay" style={{ zIndex: 9999 }}>
+      <div className="processing-modal-content" style={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', padding: '0' }}>
+        <div style={{ padding: '20px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 10 }}>
+          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: '#111827' }}>
+             🩺 의학적 근거 자료
+          </h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#6b7280' }}>×</button>
+        </div>
+        
+        <div style={{ padding: '20px' }}>
+          {targetItemName && (
+            <div style={{ marginBottom: '20px', padding: '12px', backgroundColor: '#f3f4f6', borderRadius: '8px', fontSize: '14px', color: '#374151' }}>
+              <strong>'{targetItemName}'</strong> 검사와 관련된 전문 의학 지침입니다.
+            </div>
+          )}
+
+          {evidences.length === 0 ? (
+            <p style={{ textAlign: 'center', color: '#6b7280', padding: '20px' }}>관련된 근거 자료를 찾을 수 없습니다.</p>
+          ) : (
+            evidences.map((ev, idx) => (
+              <div key={idx} style={{ marginBottom: '24px', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+                <div style={{ backgroundColor: '#f9fafb', padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 'bold', color: '#4b5563', fontSize: '14px' }}>
+                    {ev.organization || '출처 미상'} {ev.year ? `(${ev.year})` : ''}
+                  </span>
+                  <span style={{ fontSize: '12px', color: '#6b7280', backgroundColor: '#e5e7eb', padding: '2px 6px', borderRadius: '4px' }}>
+                    신뢰도: {ev.confidence_score ? Math.round(ev.confidence_score * 100) + '%' : 'N/A'}
+                  </span>
+                </div>
+                
+                <div style={{ padding: '16px' }}>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>
+                    {ev.source_document || '문서명 없음'}
+                  </h4>
+                  
+                  {ev.page && (
+                     <div style={{ display: 'inline-block', marginBottom: '12px', fontSize: '12px', color: '#059669', backgroundColor: '#d1fae5', padding: '2px 8px', borderRadius: '9999px' }}>
+                       Page: {ev.page}
+                     </div>
+                  )}
+
+                  <div style={{ fontSize: '14px', lineHeight: '1.6', color: '#374151', backgroundColor: '#fff', padding: '12px', borderRadius: '6px', border: '1px dashed #d1d5db' }}>
+                    {ev.full_text || ev.citation || '내용 없음'}
+                  </div>
+                  
+                  {ev.query && (
+                    <div style={{ marginTop: '12px', fontSize: '12px', color: '#9ca3af' }}>
+                      검색 키워드: {ev.query}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        
+        <div style={{ padding: '16px 20px', borderTop: '1px solid #eee', textAlign: 'right', background: '#f9fafb' }}>
+          <button 
+            onClick={onClose}
+            style={{ 
+              padding: '8px 16px', 
+              backgroundColor: '#3b82f6', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '6px', 
+              fontWeight: '500', 
+              cursor: 'pointer' 
+            }}
+          >
+            확인
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // 목업 데이터 타입 정의
 interface CheckupItem {
   id: string;
@@ -196,6 +288,37 @@ const CheckupRecommendationsPage: React.FC = () => {
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState('');
+
+  // Evidence Modal 상태
+  const [evidenceModalOpen, setEvidenceModalOpen] = useState(false);
+  const [selectedEvidence, setSelectedEvidence] = useState<any>(null);
+  const [selectedItemName, setSelectedItemName] = useState<string>('');
+
+  const handleShowEvidence = (evidenceIdOrName: string) => {
+    // 1. rag_evidences가 있는지 확인
+    const ragEvidences = gptResponse?.rag_evidences || [];
+    
+    // 2. 매칭 로직 (현재는 evidence_id가 없으므로 간단한 키워드 매칭 또는 전체 표시)
+    // TODO: 추후 백엔드에서 evidence_id를 내려주면 정확한 매칭 가능
+    
+    let matchedEvidences = [];
+    
+    if (ragEvidences.length > 0) {
+      // 이름으로 매칭 시도 (검사명이 텍스트에 포함되어 있는지)
+      matchedEvidences = ragEvidences.filter((ev: any) => {
+        return ev.full_text?.includes(evidenceIdOrName) || ev.citation?.includes(evidenceIdOrName) || ev.query?.includes(evidenceIdOrName);
+      });
+      
+      // 매칭된 게 없으면 신뢰도 높은 순으로 상위 3개 보여줌 (Fallback)
+      if (matchedEvidences.length === 0) {
+         matchedEvidences = ragEvidences.slice(0, 3);
+      }
+    }
+
+    setSelectedItemName(evidenceIdOrName);
+    setSelectedEvidence(matchedEvidences);
+    setEvidenceModalOpen(true);
+  };
 
   // 로딩 메시지 단계
   const loadingMessages = [
@@ -380,41 +503,117 @@ const CheckupRecommendationsPage: React.FC = () => {
 
   // GPT 응답 데이터를 RecommendationData 형식으로 변환
   const convertGPTResponseToRecommendationData = (gptData: any): RecommendationData => {
-    if (!gptData || !gptData.recommended_items) {
-      // GPT 응답이 없으면 목업 데이터 사용
+    if (!gptData) {
       return {
         ...mockRecommendationData,
         patientName: patient?.name || mockRecommendationData.patientName,
       };
     }
 
-    const categories: RecommendationCategory[] = gptData.recommended_items.map((cat: any) => ({
-      categoryName: cat.category || '기타',
-      categoryNameEn: cat.category_en,
-      itemCount: cat.itemCount || cat.items?.length || 0,
-      priorityLevel: cat.priorityLevel || cat.priority_level, // 우선순위 레벨 (camelCase 우선)
-      priorityDescription: cat.priority_description, // 우선순위 설명 추가
-      items: (cat.items || []).map((item: any, index: number) => ({
-        id: `item-${cat.category}-${index}`,
-        name: item.name || '',
-        nameEn: item.nameEn || item.name_en,
-        description: item.description,
-        reason: item.reason, // 추천 이유
-        evidence: item.evidence, // 의학적 근거
-        references: item.references || [], // 참고 자료 (링크 또는 출처)
-        recommended: item.recommended !== false, // 기본값 true
-        difficulty_level: item.difficulty_level, // 난이도 레벨
-        difficulty_badge: item.difficulty_badge, // 난이도 뱃지
-      })),
-      doctorRecommendation: cat.doctor_recommendation ? {
-        hasRecommendation: cat.doctor_recommendation.has_recommendation !== false,
-        message: cat.doctor_recommendation.message || '',
-        highlightedText: cat.doctor_recommendation.highlighted_text || cat.doctor_recommendation.highlightedText,
-      } : undefined,
-      defaultExpanded: cat.defaultExpanded !== false, // 기본값 true
-    }));
+    // 1. Strategies 매핑 (Item Name -> Strategy)
+    const strategyMap = new Map<string, any>();
+    if (gptData.strategies && Array.isArray(gptData.strategies)) {
+      gptData.strategies.forEach((strat: any) => {
+        if (strat.target) {
+          strategyMap.set(strat.target, strat);
+        }
+      });
+    }
 
-    // summary 객체 구성: gptData.summary가 있으면 사용하고, priority_1, priority_2, priority_3는 별도 필드에서 가져오기
+    // 2. 카테고리 구성 (Priority 2, 3 및 기타 카테고리 통합)
+    let categories: RecommendationCategory[] = [];
+
+    // Priority 2 (병원 추천 정밀 검진)
+    if (gptData.priority_2) {
+      const p2 = gptData.priority_2;
+      const p2Items = (p2.items || []).map((itemName: string, idx: number) => {
+        const strategy = strategyMap.get(itemName);
+        // strategy가 없으면 기본값 생성
+        const reason = strategy?.doctor_recommendation?.reason || '';
+        const evidence = strategy?.doctor_recommendation?.evidence || '';
+        
+        return {
+          id: `p2-item-${idx}`,
+          name: itemName,
+          nameEn: '',
+          description: p2.health_context || '',
+          reason: reason,
+          evidence: evidence,
+          recommended: true,
+          difficulty_level: 'Mid',
+          // ⭐ Bridge Strategy 주입
+          bridge_strategy: strategy ? {
+            step1_anchor: strategy.step1_anchor,
+            step2_gap: strategy.step2_gap,
+            step3_offer: strategy.step3_offer,
+            evidence_id: strategy.target // 임시로 target 이름을 ID로 사용 (추후 백엔드 ID로 교체)
+          } : undefined
+        };
+      });
+
+      categories.push({
+        categoryName: p2.title || '병원 추천 정밀 검진',
+        itemCount: p2Items.length,
+        priorityLevel: 2,
+        priorityDescription: p2.description,
+        items: p2Items,
+        defaultExpanded: true
+      });
+    }
+
+    // Priority 3 (선택 검진)
+    if (gptData.priority_3) {
+      const p3 = gptData.priority_3;
+      const p3Items = (p3.items || []).map((itemName: string, idx: number) => {
+        const strategy = strategyMap.get(itemName);
+        const reason = strategy?.doctor_recommendation?.reason || '';
+        const evidence = strategy?.doctor_recommendation?.evidence || '';
+
+        return {
+          id: `p3-item-${idx}`,
+          name: itemName,
+          nameEn: '',
+          description: p3.health_context || '',
+          reason: reason,
+          evidence: evidence,
+          recommended: false, // 선택 항목은 기본 해제 검토
+          difficulty_level: 'High',
+          bridge_strategy: strategy ? {
+            step1_anchor: strategy.step1_anchor,
+            step2_gap: strategy.step2_gap,
+            step3_offer: strategy.step3_offer,
+            evidence_id: strategy.target
+          } : undefined
+        };
+      });
+
+      categories.push({
+        categoryName: p3.title || '선택 검진 항목',
+        itemCount: p3Items.length,
+        priorityLevel: 3,
+        priorityDescription: '개인적 필요에 따라 선택할 수 있는 항목입니다.',
+        items: p3Items,
+        defaultExpanded: true
+      });
+    }
+
+    // 기존 recommended_items가 있다면 추가 (호환성 유지)
+    if (gptData.recommended_items && (!gptData.priority_2 && !gptData.priority_3)) {
+      const legacyCategories = gptData.recommended_items.map((cat: any) => ({
+        categoryName: cat.category || '기타',
+        itemCount: cat.itemCount || cat.items?.length || 0,
+        items: (cat.items || []).map((item: any, index: number) => ({
+          id: `legacy-${index}`,
+          name: item.name,
+          reason: item.reason,
+          recommended: true
+        })),
+        defaultExpanded: true
+      }));
+      categories = [...categories, ...legacyCategories];
+    }
+
+    // summary 객체 구성
     const summary = gptData.summary ? {
       ...gptData.summary,
       priority_1: gptData.priority_1 || gptData.summary.priority_1,
@@ -428,7 +627,7 @@ const CheckupRecommendationsPage: React.FC = () => {
 
     return {
       patientName: patient?.name || '환자',
-      totalCount: gptData.total_count || categories.reduce((sum, cat) => sum + cat.itemCount, 0),
+      totalCount: categories.reduce((sum, cat) => sum + cat.itemCount, 0),
       categories,
       summary,
     };
@@ -581,6 +780,7 @@ const CheckupRecommendationsPage: React.FC = () => {
                        isExpanded={expandedItems.has(item.id)}
                        onToggle={toggleItem}
                        hideReason={hasPriorityCardInHeader && !!category.priorityLevel} 
+                       onShowEvidence={handleShowEvidence}
                      />
                    ))}
                    {category.doctorRecommendation?.hasRecommendation && (
@@ -1326,6 +1526,7 @@ const CheckupRecommendationsPage: React.FC = () => {
                       isExpanded={expandedItems.has(item.id)}
                       onToggle={toggleItem}
                       hideReason={false}
+                      onShowEvidence={handleShowEvidence}
                     />
                   );
                 });
@@ -1647,6 +1848,13 @@ const CheckupRecommendationsPage: React.FC = () => {
         )}
 
       </div>
+      {/* 근거 모달 */}
+      <EvidenceModal
+        isOpen={evidenceModalOpen}
+        onClose={() => setEvidenceModalOpen(false)}
+        evidenceData={selectedEvidence}
+        targetItemName={selectedItemName}
+      />
     </div>
   );
 };

@@ -1357,17 +1357,47 @@ async def collect_health_data_background_task(session_id: str):
                     detailed_error = {
                         "type": "health_data_error",
                         "title": "건강검진 데이터 수집 실패",
-                        "message": error_msg,
+                        "message": f"건강검진 데이터 수집에 실패했습니다.\n{error_msg}\n\n확인 버튼을 누르면 메인 페이지로 이동합니다.",
                         "error_code": error_code,
                         "error_log": error_log,
-                        "retry_available": True
+                        "retry_available": False,
+                        "redirect_to_landing": True
                     }
                     session_manager.add_error_message(session_id, detailed_error)
+                    
+                    # 건강검진 실패 메시지 전송
+                    try:
+                        await notify_streaming_status(
+                            session_id,
+                            "health_data_failed",
+                            f"건강검진 데이터 수집에 실패했습니다.\n{error_msg}",
+                            {"redirect": True}
+                        )
+                    except Exception as e:
+                        print(f"⚠️ [백그라운드] 건강검진 실패 알림 실패: {e}")
+                    
                     print(f"❌ [백그라운드] 건강검진 데이터 오류: {error_msg}")
                     # 기타 오류는 처방전 수집 계속 진행
             else:
                 session_manager.update_health_data(session_id, health_data)
-                print(f"✅ [백그라운드] 건강검진 데이터 수집 성공")
+                
+                # 건강검진 기록 수 확인
+                result_list = health_data.get("ResultList", [])
+                health_count = len(result_list) if isinstance(result_list, list) else 0
+                
+                # 건강검진 수집 완료 메시지 전송
+                health_success_message = f"건강검진 데이터 {health_count}건 수집했습니다."
+                try:
+                    await notify_streaming_status(
+                        session_id,
+                        "health_data_completed",
+                        health_success_message,
+                        {"count": health_count}
+                    )
+                except Exception as e:
+                    print(f"⚠️ [백그라운드] 건강검진 완료 알림 실패: {e}")
+                
+                print(f"✅ [백그라운드] 건강검진 데이터 수집 성공 - {health_count}건")
                 print(f"✅ [백그라운드] JSON 파일 저장 완료")
                 
         except Exception as e:
@@ -1439,13 +1469,26 @@ async def collect_health_data_background_task(session_id: str):
                     user_friendly_error = {
                         "type": "prescription_error",
                         "title": "처방전 데이터 수집 실패",
-                        "message": error_msg,
+                        "message": f"처방전 데이터 수집에 실패했습니다.\n{error_msg}\n\n5초 후 처음 페이지로 돌아갑니다.",
                         "error_code": error_code,
                         "error_log": error_log,
                         "technical_detail": technical_detail,
-                        "retry_available": True
+                        "retry_available": False,
+                        "redirect_to_landing": True
                     }
                     session_manager.add_error_message(session_id, user_friendly_error)
+                    
+                    # 처방전 실패 메시지 전송
+                    try:
+                        await notify_streaming_status(
+                            session_id,
+                            "prescription_data_failed",
+                            f"처방전 데이터 수집에 실패했습니다.\n{error_msg}\n\n5초 후 처음 페이지로 돌아갑니다.",
+                            {"error_code": error_code, "redirect": True}
+                        )
+                    except Exception as e:
+                        print(f"⚠️ [백그라운드] 처방전 실패 알림 실패: {e}")
+                    
                     print(f"❌ [백그라운드] 처방전 데이터 오류: {error_msg}")
                     if technical_detail:
                         print(f"   기술적 상세: {technical_detail}")
@@ -1456,15 +1499,29 @@ async def collect_health_data_background_task(session_id: str):
                 
         except Exception as e:
             # 예외 발생 시 사용자 친화적 에러 메시지
+            error_message = f"처방전 데이터 수집에 실패했습니다.\n처방전 데이터를 가져오는 중 문제가 발생했습니다.\n\n5초 후 처음 페이지로 돌아갑니다."
             user_friendly_error = {
                 "type": "prescription_exception",
                 "title": "처방전 데이터 수집 실패",
-                "message": "처방전 데이터를 가져오는 중 문제가 발생했습니다. 잠시 후 다시 시도해주세요.",
+                "message": error_message,
                 "technical_detail": f"Exception: {str(e)}",
-                "retry_available": True
+                "retry_available": False,
+                "redirect_to_landing": True
             }
             
             session_manager.add_error_message(session_id, user_friendly_error)
+            
+            # 처방전 실패 메시지 전송
+            try:
+                await notify_streaming_status(
+                    session_id,
+                    "prescription_data_failed",
+                    error_message,
+                    {"redirect": True}
+                )
+            except Exception as e2:
+                print(f"⚠️ [백그라운드] 처방전 실패 알림 실패: {e2}")
+            
             print(f"❌ [백그라운드] 처방전 데이터 수집 실패: {str(e)}")
         
         # 모든 데이터 수집 완료

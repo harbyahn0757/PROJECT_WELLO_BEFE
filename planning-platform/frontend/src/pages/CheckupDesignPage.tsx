@@ -6,6 +6,7 @@ import ChatInterface from '../components/checkup-design/ChatInterface';
 import checkupDesignService, { Step1Result, CheckupDesignStep2Request } from '../services/checkupDesignService';
 import { loadHealthData } from '../utils/healthDataLoader';
 import ProcessingModal, { ProcessingStage } from '../components/checkup-design/ProcessingModal';
+import { InteractionEvent } from '../components/checkup-design/CheckupDesignSurveyPanel/useSurveyTracker';
 import './CheckupDesignPage.scss';
 
 const CheckupDesignPage: React.FC = () => {
@@ -95,11 +96,17 @@ const CheckupDesignPage: React.FC = () => {
   };
 
   // 다음 단계 핸들러 (설문 응답 포함)
-  const handleNext = async (items: Set<string>, selectedConcerns: any[], surveyResponses?: any) => {
+  const handleNext = async (
+    items: Set<string>, 
+    selectedConcerns: any[], 
+    surveyResponses?: any,
+    events?: InteractionEvent[]
+  ) => {
     try {
       console.log('✅ [검진설계] 선택된 항목:', Array.from(items));
       console.log('✅ [검진설계] 선택된 염려 항목:', selectedConcerns);
       console.log('✅ [검진설계] 설문 응답:', surveyResponses);
+      console.log('✅ [검진설계] 행동 로그:', events);
       
       // 선택된 염려 항목 저장 (ProcessingModal에 전달용)
       setCurrentSelectedConcerns(selectedConcerns);
@@ -134,12 +141,20 @@ const CheckupDesignPage: React.FC = () => {
       setLoadingMessage('데이터를 보내는 중...');
       
       console.log('🔍 [CheckupDesignPage] STEP 1 API 호출 시작');
-      const step1Response = await checkupDesignService.createCheckupDesignStep1({
+      // events 파라미터가 있다면 API 호출에 포함
+      // (현재 checkupDesignService는 any로 받아주거나, 별도 인터페이스 수정 필요)
+      // 여기서는 service의 메서드 시그니처가 any를 포함하고 있다고 가정하고 보냄
+      // 실제로는 service 정의도 업데이트 해야 함. (일단 any로 보낸다고 가정)
+      
+      const step1Request = {
         uuid,
         hospital_id: hospital,
         selected_concerns: selectedConcerns,
-        survey_responses: surveyResponses
-      });
+        survey_responses: surveyResponses,
+        events: events // 행동 로그 추가
+      };
+
+      const step1Response = await checkupDesignService.createCheckupDesignStep1(step1Request);
       
       console.log('✅ [CheckupDesignPage] STEP 1 응답 수신:', step1Response);
       
@@ -147,6 +162,15 @@ const CheckupDesignPage: React.FC = () => {
       if (step1Response.success && step1Response.data) {
         setStep1Result(step1Response.data);
         setProcessingProgress(50);
+        
+        // 세션 ID 추출
+        const sessionId = step1Response.data.session_id;
+        if (sessionId) {
+          console.log('🎬 [CheckupDesignPage] STEP 1에서 세션 ID 받음:', sessionId);
+        } else {
+          console.warn('⚠️ [CheckupDesignPage] STEP 1 응답에 session_id가 없음');
+        }
+        
         // analyzing 단계 유지 (타이핑 효과가 시작되도록)
         // 약간의 딜레이 후 designing 단계로 전환
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -172,7 +196,8 @@ const CheckupDesignPage: React.FC = () => {
           title: '',
           description: '',
           focus_items: []
-        }
+        },
+        session_id: step1Data.session_id // 세션 ID 전달
       };
       
       const step2Request: CheckupDesignStep2Request = {
@@ -180,8 +205,14 @@ const CheckupDesignPage: React.FC = () => {
         hospital_id: hospital,
         step1_result: step1Result,
         selected_concerns: selectedConcerns,
-        survey_responses: surveyResponses
+        survey_responses: surveyResponses,
+        session_id: step1Data.session_id // 세션 ID 전달
       };
+      
+      // 세션 ID 로그
+      if (step1Data.session_id) {
+        console.log('🎬 [CheckupDesignPage] STEP 2에 세션 ID 전달:', step1Data.session_id);
+      }
       
       console.log('🔍 [CheckupDesignPage] STEP 2 API 호출 시작');
       const step2Response = await checkupDesignService.createCheckupDesignStep2(step2Request);
@@ -190,11 +221,22 @@ const CheckupDesignPage: React.FC = () => {
       
       setProcessingProgress(80);
       
-      // STEP 1과 STEP 2 결과 병합 (백엔드에서 이미 병합되어 있지만, 프론트엔드에서도 확인)
-      const mergedData = {
-        ...step1Response.data,
-        ...step2Response.data
-      };
+      // STEP 2 응답에 이미 STEP 1 + STEP 2가 병합되어 있음
+      // 프론트엔드는 STEP 2 응답만 사용
+      const mergedData = step2Response.data;
+      
+      if (!mergedData) {
+        throw new Error('STEP 2 응답 데이터가 없습니다.');
+      }
+      
+      console.log('📦 [CheckupDesignPage] 최종 병합 데이터:', {
+        keys: Object.keys(mergedData),
+        has_priority_1: 'priority_1' in mergedData,
+        has_priority_2: 'priority_2' in mergedData,
+        has_priority_3: 'priority_3' in mergedData,
+        has_recommended_items: 'recommended_items' in mergedData,
+        recommended_items_count: mergedData.recommended_items?.length || 0
+      });
       
       setProcessingProgress(90);
       
@@ -216,7 +258,8 @@ const CheckupDesignPage: React.FC = () => {
         state: { 
           checkupDesign: mergedData,
           selectedConcerns: selectedConcerns,
-          surveyResponses: surveyResponses
+          surveyResponses: surveyResponses,
+          events // 결과 페이지에도 events 전달 (필요 시 활용)
         }
       });
     } catch (error) {

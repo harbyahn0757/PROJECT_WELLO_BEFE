@@ -13,7 +13,7 @@ from pathlib import Path
 # 프로젝트 루트를 sys.path에 추가
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from app.services.checkup_design_prompt import (
+from app.services.checkup_design import (
     init_rag_engine,
     get_medical_evidence_from_rag
 )

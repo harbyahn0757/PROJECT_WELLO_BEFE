@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "session_id": "f8c43751-666d-49c6-bd3f-43a5a3a303be",
+    "data_type": "patient_data",
+    "patient_uuid": "d43bc03c-7211-4049-aba1-90e192470927",
+    "hospital_id": "KIM_HW_CLINIC",
+    "created_at": "2025-12-07T02:35:32.909090",
+    "file_version": "1.0",
+    "status": "completed",
+    "completed_at": "2025-12-07T02:35:32.928380"
+  },
+  "raw_data": {
+    "name": "김태연",
+    "birthdate": "19870429",
+    "phone_no": "01092813507",
+    "gender": "M",
+    "private_auth_type": "6"
+  },
+  "checksum": "bd8cdfadd99255efe9653a7657c6fce43bb77034dec953f5a0d0817942ecf066"
+}

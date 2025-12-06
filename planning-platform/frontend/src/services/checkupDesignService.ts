@@ -44,6 +44,7 @@ export interface CheckupDesignRequest {
     selected_medication_texts?: string[]; // 선택된 약품의 사용자 친화적 텍스트 (프롬프트용)
   };
   additional_info?: Record<string, any>;
+  session_id?: string; // 세션 ID (로깅용)
 }
 
 export interface Step1Result {
@@ -76,10 +77,12 @@ export interface Step1Result {
       check_point: string;
     }>;
   };
+  session_id?: string; // 세션 ID (STEP 1에서 생성되어 반환됨)
 }
 
 export interface CheckupDesignStep2Request extends CheckupDesignRequest {
   step1_result: Step1Result;
+  session_id?: string; // 세션 ID (로깅용) - STEP 1에서 전달받음
 }
 
 export interface CheckupDesignResponse {
@@ -127,6 +130,18 @@ export interface CheckupDesignResponse {
     strategies?: Array<any>;
     doctor_comment?: string;
     _citations?: string[];
+    rag_evidences?: Array<{
+      source_document: string;
+      organization: string;
+      year: string;
+      page: string;
+      citation: string;
+      full_text: string;
+      confidence_score: number;
+      query: string;
+    }>;
+    // 세션 관리
+    session_id?: string; // 세션 ID (STEP 1에서 생성되어 반환됨)
   } | null;
   message?: string;
 }
@@ -167,8 +182,14 @@ class CheckupDesignService {
         success: result.success,
         has_analysis: !!result.data?.analysis,
         has_survey_reflection: !!result.data?.survey_reflection,
-        has_selected_concerns_analysis: !!result.data?.selected_concerns_analysis
+        has_selected_concerns_analysis: !!result.data?.selected_concerns_analysis,
+        session_id: result.data?.session_id
       });
+      
+      // session_id가 있으면 로그 출력
+      if (result.data?.session_id) {
+        console.log('🎬 [SessionLogger] STEP 1에서 세션 ID 받음:', result.data.session_id);
+      }
       
       return result;
     } catch (error) {
@@ -190,8 +211,14 @@ class CheckupDesignService {
         url,
         uuid: request.uuid,
         hospital_id: request.hospital_id,
-        has_step1_result: !!request.step1_result
+        has_step1_result: !!request.step1_result,
+        session_id: request.session_id
       });
+      
+      // session_id가 있으면 로그 출력
+      if (request.session_id) {
+        console.log('🎬 [SessionLogger] STEP 2에 세션 ID 전달:', request.session_id);
+      }
       
       const response = await fetch(url, {
         method: 'POST',

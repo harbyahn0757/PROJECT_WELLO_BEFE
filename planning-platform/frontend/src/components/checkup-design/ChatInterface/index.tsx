@@ -13,6 +13,7 @@ import MedicationCard from './MedicationCard';
 import CheckupCard from './CheckupCard';
 import HealthTrendsHeader from '../../health/HealthTrendsHeader';
 import CheckupDesignSurveyPanel, { SurveyResponses } from '../CheckupDesignSurveyPanel';
+import { InteractionEvent } from '../CheckupDesignSurveyPanel/useSurveyTracker';
 import { WELLO_LOGO_IMAGE } from '../../../constants/images';
 import './styles.scss';
 
@@ -30,7 +31,7 @@ const THINKING_TEXT_DELAY = 1000; // 중얼중얼 텍스트 변경 딜레이 (ms
 interface ChatInterfaceProps {
   healthData: any;
   prescriptionData: any;
-  onNext: (items: Set<string>, selectedConcerns: any[], surveyResponses?: any) => void;
+  onNext: (items: Set<string>, selectedConcerns: any[], surveyResponses?: any, events?: InteractionEvent[]) => void;
 }
 
 const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -49,6 +50,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     selectedCheckupRecords: [],
     selectedTreatmentRecords: []
   });
+  
+  // 세부 항목 선택 상태 관리 (CardID -> 선택된 항목 리스트)
+  // 예: { "checkup-0": ["혈압(경계)", "공복혈당(이상)"] }
+  const [selectedDetailConcerns, setSelectedDetailConcerns] = useState<Record<string, string[]>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const optionsContainerRef = useRef<HTMLDivElement>(null);
@@ -414,8 +419,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // 검진 상태 분석 함수
   const analyzeCheckupStatus = (checkup: any) => {
     const statusCounts = { normal: 0, warning: 0, abnormal: 0 };
+    const detailItems: string[] = []; // 구체적인 이상/경계 항목 수집
     
-    if (!checkup?.Inspections) return statusCounts;
+    if (!checkup?.Inspections) return { statusCounts, detailItems };
     
     const determineItemStatus = (item: any): 'normal' | 'warning' | 'abnormal' => {
       if (!item.Value || !item.ItemReferences || item.ItemReferences.length === 0) {
@@ -471,18 +477,24 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               if (itemName === '허리둘레') {
                 const status = determineItemStatus(item);
                 statusCounts[status]++;
+                if (status !== 'normal') {
+                  detailItems.push(`${itemName}(${status === 'abnormal' ? '이상' : '경계'})`);
+                }
                 return;
               }
               
               const status = determineItemStatus(item);
               statusCounts[status]++;
+              if (status !== 'normal') {
+                detailItems.push(`${itemName}(${status === 'abnormal' ? '이상' : '경계'})`);
+              }
             });
           }
         });
       }
     });
     
-    return statusCounts;
+    return { statusCounts, detailItems };
   };
 
   // 검진 옵션 생성
@@ -495,7 +507,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       const location = checkup.Location || checkup.location || checkupData.Location || '국민건강보험공단';
       
       // 실제 이상/경계 건수 계산
-      const statusCounts = analyzeCheckupStatus(checkupData);
+      const { statusCounts } = analyzeCheckupStatus(checkupData);
       const abnormalCount = statusCounts.abnormal;
       const warningCount = statusCounts.warning;
 
@@ -723,7 +735,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   };
 
   // 문진 패널 제출 핸들러
-  const handleSurveySubmit = (surveyResponses: SurveyResponses) => {
+  const handleSurveySubmit = (surveyResponses: SurveyResponses, events: InteractionEvent[]) => {
     setShowSurveyPanel(false);
     
     // 선택된 항목들 수집
@@ -804,9 +816,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         const checkupData = checkup.raw_data || checkup;
         
         // 기존 ConcernSelection 구조: { type: 'checkup', id, name, date, location, status, abnormalCount, warningCount }
-        const statusCounts = analyzeCheckupStatus(checkupData);
+        const { statusCounts, detailItems: allDetailItems } = analyzeCheckupStatus(checkupData);
         const date = checkup.CheckUpDate || checkup.checkup_date || checkupData.CheckUpDate || '';
         const location = checkup.Location || checkup.location || checkupData.Location || '국민건강보험공단';
+        
+        // 사용자가 명시적으로 선택한 세부 항목이 있는지 확인 (깊은 걱정 vs 얕은 걱정)
+        const userSelectedDetails = selectedDetailConcerns[recordId];
+        const isExplicitConcern = userSelectedDetails && userSelectedDetails.length > 0;
+        
+        // 명시적 선택이면 그것만 사용, 아니면 전체 이상 항목 사용
+        const finalDetailItems = isExplicitConcern ? userSelectedDetails : allDetailItems;
+        const concernLevel = isExplicitConcern ? 'explicit' : 'implicit';
         
         // status 계산 (기존 ConcernSelection 로직과 동일)
         let status: 'warning' | 'abnormal' | undefined = undefined;
@@ -824,7 +844,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           location: location,
           status: status,
           abnormalCount: statusCounts.abnormal,
-          warningCount: statusCounts.warning
+          warningCount: statusCounts.warning,
+          detailItems: finalDetailItems, // 최종 결정된 상세 항목
+          concernLevel: concernLevel // 걱정 강도 (explicit/implicit)
         };
         console.log('🔍 [ChatInterface] 검진 데이터 변환:', checkupConcern);
         selectedConcerns.push(checkupConcern);
@@ -835,6 +857,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     console.log('🔍 [ChatInterface] 최종 selectedConcerns:', JSON.stringify(selectedConcerns, null, 2));
     console.log('🔍 [ChatInterface] 약품 분석 결과 텍스트:', prescriptionAnalysisText);
     console.log('🔍 [ChatInterface] 선택된 약품 텍스트:', selectedMedicationTexts);
+    console.log('🔍 [ChatInterface] 행동 로그:', events);
     
     // surveyResponses에 분석 결과 텍스트와 선택된 약품 텍스트 추가
     const enhancedSurveyResponses = {
@@ -843,7 +866,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       selected_medication_texts: selectedMedicationTexts
     };
     
-    onNext(selectedItems, selectedConcerns, enhancedSurveyResponses);
+    onNext(selectedItems, selectedConcerns, enhancedSurveyResponses, events);
   };
 
   // 현재 메시지의 옵션 가져오기 (showOptions가 true일 때만)
@@ -989,6 +1012,30 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         abnormalCount={abnormalCount}
                         warningCount={warningCount}
                         onClick={() => handleOptionClick(option)}
+                        onItemSelect={(cardId, items) => {
+                          console.log(`🔍 [ChatInterface] 세부 항목 업데이트: ${cardId}`, items);
+                          setSelectedDetailConcerns(prev => ({
+                            ...prev,
+                            [cardId]: items
+                          }));
+                          
+                          // [UX 개선] 세부 항목을 선택했다면, 해당 카드도 자동으로 '선택됨' 상태로 만들어줌
+                          // 그래야 '다음' 버튼이 활성화됨
+                          if (items.length > 0 && !state.selectedCheckupRecords.includes(cardId)) {
+                             // handleOptionClick을 호출하여 선택 처리 (카드 옵션을 찾아서 전달해야 함)
+                             const cardOption = currentOptions.find(opt => opt.id === cardId);
+                             if (cardOption) {
+                               handleOptionClick(cardOption);
+                             }
+                          }
+                          // 반대로 세부 항목을 모두 해제했다면(items.length === 0), 카드 선택도 자동으로 해제
+                          else if (items.length === 0 && state.selectedCheckupRecords.includes(cardId)) {
+                             const cardOption = currentOptions.find(opt => opt.id === cardId);
+                             if (cardOption) {
+                               handleOptionClick(cardOption);
+                             }
+                          }
+                        }}
                         selected={state.selectedCheckupRecords.includes(option.id)}
                         animationDelay={index * 200} // 카드 하나씩 순차적으로 나타나게 (200ms 간격)
                         checkup={checkup}
@@ -1094,4 +1141,3 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 };
 
 export default ChatInterface;
-

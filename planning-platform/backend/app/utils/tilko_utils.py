@@ -200,7 +200,7 @@ async def get_prescription_data(
     
     print(f"💊 [처방전API] 요청 파라미터 수: {len(request_data)} (기간 파라미터 포함)")
     
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=300.0) as client:  # 120초 -> 300초(5분)로 증가
         try:
             response = await client.post(
                 f"{TILKO_API_HOST}/api/v1.0/NhisSimpleAuth/RetrieveTreatmentInjectionInformationPerson",
@@ -257,7 +257,7 @@ async def get_prescription_data(
                 "ResultCode": "TIMEOUT",
                 "ErrMsg": "처방전 조회 시간이 초과되었습니다. 네트워크 상태를 확인하고 다시 시도해주세요.",
                 "Message": "처방전 조회 시간 초과",
-                "TechnicalDetail": f"Timeout after 120 seconds: {str(e)}"
+                "TechnicalDetail": f"Timeout after 300 seconds: {str(e)}"
             }
         except httpx.ConnectError as e:
             print(f"❌ [처방전API] 연결 오류: {e}")

@@ -139,3 +139,4 @@ python backend/scripts/list_hospital_checkup_items.py KIM_HW_CLINIC
 - 데이터베이스가 "단일 진실의 원천(Single Source of Truth)" 역할
 - 병원별 매핑은 `wello_hospital_external_checkup_mapping` 테이블로 관리
 
+

@@ -64,6 +64,6 @@ export interface ConcernSelectionProps {
   healthData: HealthDataFormat | any[];
   prescriptionData: HealthDataFormat | any[];
   onSelectionChange: (selectedItems: Set<string>) => void;
-  onNext: (selectedItems: Set<string>, selectedConcerns: ConcernItemForAPI[], surveyResponses?: any) => void;
+  onNext: (selectedItems: Set<string>, selectedConcerns: ConcernItemForAPI[], surveyResponses?: any, events?: any[]) => void;
 }
 

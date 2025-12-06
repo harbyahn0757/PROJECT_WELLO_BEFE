@@ -154,9 +154,19 @@ const CollectingDataPage: React.FC = () => {
               }, 3000);
             } else {
               newProgress.errorMessage = errMsg;
+              // 처방전 타임아웃 등 일반 에러인 경우 5초 후 랜딩 페이지로 이동
+              setTimeout(() => {
+                console.log('🔄 [수집페이지] 에러 발생 - 랜딩 페이지로 이동');
+                navigate('/');
+              }, 5000);
             }
           } else {
             newProgress.errorMessage = result.error_message || '알 수 없는 오류';
+            // 에러 메시지가 없는 경우에도 5초 후 랜딩 페이지로 이동
+            setTimeout(() => {
+              console.log('🔄 [수집페이지] 에러 발생 - 랜딩 페이지로 이동');
+              navigate('/');
+            }, 5000);
           }
           break;
 
@@ -185,6 +195,12 @@ const CollectingDataPage: React.FC = () => {
         message: '서버와의 연결에 문제가 발생했습니다.',
         errorMessage: error instanceof Error ? error.message : '알 수 없는 오류'
       }));
+      
+      // 에러 발생 시 5초 후 랜딩 페이지로 이동
+      setTimeout(() => {
+        console.log('🔄 [수집페이지] 연결 오류 - 랜딩 페이지로 이동');
+        navigate('/');
+      }, 5000);
     }
   }, [sessionId, uuid, hospital, navigate]);
 

@@ -122,3 +122,4 @@
 - `checkup_design_issues_analysis.md`: 기존 문제점 분석
 - `checkup_design_prompt.py`: 통합된 프롬프트 생성 코드
 
+

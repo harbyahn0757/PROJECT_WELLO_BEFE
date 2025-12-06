@@ -11,7 +11,7 @@ import asyncio
 # 프로젝트 루트를 Python 경로에 추가
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__))))
 
-from app.services.checkup_design_prompt import (
+from app.services.checkup_design import (
     init_rag_engine,
     generate_specific_queries,
     extract_evidence_from_source_nodes,

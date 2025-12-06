@@ -12,6 +12,7 @@ interface CheckupCardProps {
   abnormalCount: number;
   warningCount: number;
   onClick: (id: string) => void;
+  onItemSelect?: (id: string, items: string[]) => void; // 세부 항목 선택 콜백 추가
   selected?: boolean;
   animationDelay?: number; // 애니메이션 딜레이 (ms)
   checkup?: any; // 검진 상세 데이터
@@ -25,6 +26,7 @@ const CheckupCard: React.FC<CheckupCardProps> = ({
   abnormalCount,
   warningCount,
   onClick,
+  onItemSelect,
   selected = false,
   animationDelay = 0,
   checkup
@@ -173,12 +175,26 @@ const CheckupCard: React.FC<CheckupCardProps> = ({
     return { statusCounts: counts, groupedItems: groups };
   }, [checkup]);
 
-  // 첫 번째 그룹 선택
-  useMemo(() => {
-    if (Object.keys(groupedItems).length > 0 && !selectedGroup) {
-      setSelectedGroup(Object.keys(groupedItems)[0]);
-    }
-  }, [groupedItems, selectedGroup]);
+  // 선택된 항목이 변경될 때 상위로 알림을 보내는 헬퍼 함수
+  const notifySelectionChange = (newSet: Set<string>) => {
+    if (!onItemSelect) return;
+
+    const selectedDetails: string[] = [];
+    
+    // groupedItems를 순회하며 선택된 항목 찾기
+    Object.entries(groupedItems).forEach(([groupName, items]: [string, any]) => {
+      items.forEach((item: any, index: number) => {
+        const itemId = `${id}-${groupName}-${index}`;
+        if (newSet.has(itemId)) {
+          // 이름과 상태를 함께 전달 (예: "공복혈당(이상)")
+          const statusText = item.status === 'abnormal' ? '이상' : item.status === 'warning' ? '경계' : '정상';
+          selectedDetails.push(`${item.name}(${statusText})`);
+        }
+      });
+    });
+
+    onItemSelect(id, selectedDetails);
+  };
 
   const handleCardClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('.checkup-card__checkbox') ||
@@ -269,33 +285,31 @@ const CheckupCard: React.FC<CheckupCardProps> = ({
             <div className="checkup-card__items-empty">선택 가능한 항목이 없습니다.</div>
           ) : (
             items.map((item: any, index: number) => {
-            const itemId = `${id}-${selectedGroup}-${index}`;
+            const itemId = `${id}-${currentGroup}-${index}`;
             const isItemSelected = selectedItems.has(itemId);
             
             const handleItemClick = (e: React.MouseEvent) => {
               e.stopPropagation();
-              setSelectedItems(prev => {
-                const newSet = new Set(prev);
-                if (newSet.has(itemId)) {
-                  newSet.delete(itemId);
-                } else {
-                  newSet.add(itemId);
-                }
-                return newSet;
-              });
+              const newSet = new Set(selectedItems);
+              if (newSet.has(itemId)) {
+                newSet.delete(itemId);
+              } else {
+                newSet.add(itemId);
+              }
+              setSelectedItems(newSet);
+              notifySelectionChange(newSet);
             };
 
             const handleItemCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
               e.stopPropagation();
-              setSelectedItems(prev => {
-                const newSet = new Set(prev);
-                if (newSet.has(itemId)) {
-                  newSet.delete(itemId);
-                } else {
-                  newSet.add(itemId);
-                }
-                return newSet;
-              });
+              const newSet = new Set(selectedItems);
+              if (newSet.has(itemId)) {
+                newSet.delete(itemId);
+              } else {
+                newSet.add(itemId);
+              }
+              setSelectedItems(newSet);
+              notifySelectionChange(newSet);
             };
 
             return (

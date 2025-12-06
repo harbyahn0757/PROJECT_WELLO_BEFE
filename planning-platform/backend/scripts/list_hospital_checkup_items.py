@@ -278,3 +278,4 @@ if __name__ == "__main__":
     hospital_id = sys.argv[1] if len(sys.argv) > 1 else "KIM_HW_CLINIC"
     asyncio.run(list_hospital_checkup_items(hospital_id))
 
+

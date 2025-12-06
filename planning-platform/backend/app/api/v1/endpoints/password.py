@@ -25,7 +25,7 @@ class PasswordSetRequest(BaseModel):
     password: str = Field(..., description="6자리 숫자 비밀번호", min_length=6, max_length=6)
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "password": "******"
             }
@@ -35,7 +35,7 @@ class PasswordVerifyRequest(BaseModel):
     password: str = Field(..., description="6자리 숫자 비밀번호", min_length=6, max_length=6)
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "password": "******"
             }
@@ -46,7 +46,7 @@ class PasswordChangeRequest(BaseModel):
     newPassword: str = Field(..., description="새 비밀번호", min_length=6, max_length=6)
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "currentPassword": "******",
                 "newPassword": "******"
@@ -58,7 +58,7 @@ class SessionCreateRequest(BaseModel):
     deviceFingerprint: str = Field(..., description="디바이스 고유 식별자", min_length=10, max_length=100)
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "deviceFingerprint": "chrome_119_windows_1920x1080_ko"
             }
@@ -69,7 +69,7 @@ class SessionVerifyRequest(BaseModel):
     deviceFingerprint: str = Field(..., description="디바이스 고유 식별자", min_length=10, max_length=100)
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "sessionToken": "abc123def456...",
                 "deviceFingerprint": "chrome_119_windows_1920x1080_ko"

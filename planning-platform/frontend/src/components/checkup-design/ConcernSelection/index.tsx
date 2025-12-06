@@ -7,6 +7,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import HealthTrendsHeader from '../../health/HealthTrendsHeader';
 import WelloModal from '../../common/WelloModal';
 import CheckupDesignSurveyPanel, { SurveyResponses } from '../CheckupDesignSurveyPanel';
+import { InteractionEvent } from '../CheckupDesignSurveyPanel/useSurveyTracker';
 import {
   ConcernSelectionProps,
   ConcernItemForAPI
@@ -858,10 +859,10 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
   };
 
   // 설문 제출 후 실제 API 호출
-  const handleSurveySubmit = (surveyResponses: any) => {
+  const handleSurveySubmit = (surveyResponses: SurveyResponses, events: InteractionEvent[]) => {
     setShowSurveyPanel(false);
     // 설문 응답을 포함하여 onNext 호출
-    onNext(selectedItems, pendingConcerns, surveyResponses);
+    onNext(selectedItems, pendingConcerns, surveyResponses, events);
   };
 
   // UnifiedHealthTimeline 구조로 렌더링 (체크박스 추가)
@@ -1373,4 +1374,3 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
 };
 
 export default ConcernSelection;
-
