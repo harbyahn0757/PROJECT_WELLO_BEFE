@@ -180,6 +180,8 @@ const mockRecommendationData: RecommendationData = {
 const CheckupRecommendationsPage: React.FC = () => {
   const { state } = useWelloData();
   const { patient, hospital } = state;
+  const [debugClickCount, setDebugClickCount] = useState(0);
+  const [showDebugPanel, setShowDebugPanel] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -202,6 +204,49 @@ const CheckupRecommendationsPage: React.FC = () => {
     '의사 추천 검진 계획을 수립하고 있습니다...',
     '맞춤형 검진 항목을 준비하고 있습니다...',
   ];
+
+  // 🔧 디버그 패널 토글 핸들러 (로고 5번 클릭)
+  const handleLogoClick = () => {
+    const newCount = debugClickCount + 1;
+    setDebugClickCount(newCount);
+    
+    if (newCount >= 5) {
+      setShowDebugPanel(!showDebugPanel);
+      setDebugClickCount(0); // 카운트 초기화
+    }
+    
+    // 3초 후 자동 초기화
+    setTimeout(() => {
+      setDebugClickCount(0);
+    }, 3000);
+  };
+
+  // 🔧 로그 파일 다운로드 핸들러
+  const handleDownloadLogs = async () => {
+    try {
+      const apiUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/v1/debug/download-logs?count=6`);
+      
+      if (!response.ok) {
+        throw new Error('로그 다운로드 실패');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gpt_logs_${new Date().getTime()}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      alert('✅ 로그 파일 다운로드 완료!');
+    } catch (error) {
+      console.error('❌ 로그 다운로드 오류:', error);
+      alert('❌ 로그 다운로드 실패');
+    }
+  };
 
   // 저장된 설계 결과 불러오기 (location.state에 없을 때만)
   useEffect(() => {
@@ -595,7 +640,7 @@ const CheckupRecommendationsPage: React.FC = () => {
             </button>
           </div>
           
-          <div className="main-page__header-logo">
+          <div className="main-page__header-logo" onClick={handleLogoClick} style={{ cursor: 'pointer' }}>
             <img
               src={getHospitalLogoUrl(hospital)}
               alt={`${hospital?.name || '병원'} 로고`}
@@ -1266,6 +1311,12 @@ const CheckupRecommendationsPage: React.FC = () => {
                     recommended: true,
                     difficulty_level: strategy?.difficulty_level || (priority2Items.includes(itemName) ? 'Mid' : 'High'),
                     difficulty_badge: strategy?.difficulty_badge || (priority2Items.includes(itemName) ? '추천' : '프리미엄'),
+                    // ⭐ Bridge 전략 3단계 데이터 추가
+                    bridge_strategy: strategy ? {
+                      step1_anchor: strategy.step1_anchor || '',
+                      step2_gap: strategy.step2_gap || '',
+                      step3_offer: strategy.step3_offer || '',
+                    } : undefined,
                   };
                   
                   return (
@@ -1522,6 +1573,78 @@ const CheckupRecommendationsPage: React.FC = () => {
             false
           );
         })()}
+
+        {/* ⭐ 의사 종합 코멘트 - 페이지 최하단 */}
+        {gptResponse?.doctor_comment && (
+          <div className="doctor-final-comment-section">
+            <div className="checkup-recommendations__doctor-box doctor-final-comment-box">
+              {/* 상단: 이미지 + 의사 코멘트 */}
+              <div className="doctor-comment-top-row">
+                <div className="checkup-recommendations__doctor-box-image">
+                  <img
+                    src={checkPlannerImage}
+                    alt="의사 일러스트"
+                    className="checkup-recommendations__doctor-illustration"
+                  />
+                </div>
+                <div className="checkup-recommendations__doctor-box-text doctor-final-comment-text">
+                  {/* 전체 평가 */}
+                  {gptResponse.doctor_comment.overall_assessment && (
+                    <div className="comment-assessment">
+                      <h3>의사 종합 코멘트</h3>
+                      <p>{gptResponse.doctor_comment.overall_assessment}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* 하단: 핵심 추천사항 (전체 너비 사용) */}
+              {gptResponse.doctor_comment.key_recommendations && 
+               gptResponse.doctor_comment.key_recommendations.length > 0 && (
+                <div className="comment-recommendations-full-width">
+                  <h3>핵심 추천사항</h3>
+                  <ul className="recommendations-list">
+                    {gptResponse.doctor_comment.key_recommendations.map((rec: string, idx: number) => (
+                      <li key={idx}>
+                        <span className="check-icon">✓</span>
+                        <span>{rec}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 🔧 디버그 패널 (개발자 전용) */}
+        {showDebugPanel && (
+          <div className="debug-panel">
+            <div className="debug-panel__header">
+              <h3>🔧 개발자 디버그 패널</h3>
+              <button 
+                className="debug-panel__close"
+                onClick={() => setShowDebugPanel(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="debug-panel__content">
+              <p className="debug-panel__description">
+                최근 GPT 프롬프트 및 응답 로그 파일 (6개 세트)를 다운로드합니다.
+              </p>
+              <button 
+                className="debug-panel__download-button"
+                onClick={handleDownloadLogs}
+              >
+                📥 로그 파일 다운로드 (ZIP)
+              </button>
+              <p className="debug-panel__hint">
+                💡 Tip: 로고를 5번 클릭하면 이 패널이 나타납니다
+              </p>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

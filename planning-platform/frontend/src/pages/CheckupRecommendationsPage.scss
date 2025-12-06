@@ -2359,3 +2359,249 @@ $accordion-ultra-compact-spacing: 2px; // 아코디언 초간격 (문진 반영,
   }
 }
 
+// ========================================
+// ⭐ Bridge 전략 통합 스타일 (갈색 테두리 + 베이지 배경)
+// ========================================
+.bridge-strategy-unified {
+  margin: 16px 0 20px 0;
+  padding: 16px 18px;
+  background: rgba(245, 237, 220, 0.6); // 베이지 투명
+  border: 2px solid #a16a51; // 갈색 테두리
+  border-radius: 10px;
+  
+  // 첫 번째 + 두 번째 텍스트 (줄바꿈 없이 연결)
+  .bridge-text-inline {
+    margin: 0 0 12px 0;
+    line-height: 1.7;
+    color: #333;
+    font-size: 14px;
+    font-weight: 400;
+  }
+  
+  // 마지막 텍스트 (갈색 볼드)
+  .bridge-text-bold {
+    margin: 0;
+    line-height: 1.7;
+    color: #a16a51; // 갈색
+    font-size: 14px;
+    font-weight: 700; // 볼드
+  }
+}
+
+// ========================================
+// 의사 종합 코멘트 (페이지 하단)
+// ========================================
+.doctor-final-comment-section {
+  margin-top: 48px;
+  margin-bottom: 32px;
+  padding: 0 16px;
+
+  // 의사 코멘트 박스 구조 변경 (Block 형태로)
+  .doctor-final-comment-box {
+    display: block !important; // Flex 해제
+    padding-bottom: 24px; // 하단 여백 추가
+  }
+
+  // 상단: 이미지 + 텍스트 (Flex 유지)
+  .doctor-comment-top-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px; // $spacing-md 직접 입력
+    margin-bottom: 20px; // 하단 추천사항과의 간격
+  }
+
+  // 상단 텍스트 영역
+  .doctor-final-comment-text {
+    flex: 1;
+    // 기존 doctor-box-text 스타일 상속
+  }
+}
+
+.comment-assessment {
+  // margin-bottom: 24px; // 제거 (top-row의 margin-bottom으로 대체)
+  
+  h3 {
+    color: $brand-brown-darker;
+    font-size: 18px;
+    margin: 0 0 12px 0;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    font-family: var(--font-family-greeting);
+  }
+  
+  p {
+    color: $gray-800;
+    line-height: 1.8;
+    font-size: 15px;
+    margin: 0;
+    font-family: var(--font-family-greeting);
+  }
+}
+
+// 하단: 핵심 추천사항 (전체 너비 사용)
+.comment-recommendations-full-width {
+  width: 100%;
+  padding-top: 20px;
+  border-top: 1px solid rgba($brand-brown, 0.15); // 구분선 추가로 영역 분리 명확화
+
+  h3 {
+    color: $brand-brown-darker;
+    font-size: 18px;
+    margin: 0 0 16px 0;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    font-family: var(--font-family-greeting);
+  }
+}
+
+.recommendations-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  
+  li {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 10px;
+    padding: 14px 16px;
+    background: white; // 흰색 배경
+    border: 1px solid rgba($brand-brown, 0.2); // 연한 갈색 테두리
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      background: #fafafa;
+      transform: translateX(4px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
+.check-icon {
+  color: $success; // 초록색 유지 (변수 사용)
+  font-size: 20px;
+  font-weight: bold;
+  margin-right: 12px;
+  flex-shrink: 0;
+  line-height: 1.6;
+}
+
+.recommendations-list li span:last-child {
+  color: $gray-800; // 진한 회색으로 변경
+  line-height: 1.7;
+  flex: 1;
+  font-size: 15px;
+  font-family: var(--font-family-greeting);
+}
+
+// 🔧 디버그 패널 스타일 (개발자 전용)
+.debug-panel {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  padding: 0;
+  width: 360px;
+  max-width: calc(100vw - 40px);
+  z-index: 1000;
+  animation: slideInUp 0.3s ease-out;
+  
+  @keyframes slideInUp {
+    from {
+      transform: translateY(100px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    
+    h3 {
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      margin: 0;
+    }
+  }
+  
+  &__close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+      transform: rotate(90deg);
+    }
+  }
+  
+  &__content {
+    padding: 20px;
+  }
+  
+  &__description {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0 0 16px 0;
+  }
+  
+  &__download-button {
+    width: 100%;
+    padding: 14px 20px;
+    background: white;
+    color: #667eea;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+      background: #f8f9ff;
+    }
+    
+    &:active {
+      transform: translateY(0);
+    }
+  }
+  
+  &__hint {
+    margin: 12px 0 0 0;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+    text-align: center;
+    line-height: 1.4;
+  }
+}
+
