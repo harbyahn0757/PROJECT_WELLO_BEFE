@@ -9,24 +9,26 @@ from fastapi import APIRouter, HTTPException, Query, Path, Depends
 from pydantic import BaseModel, Field
 import logging
 from datetime import datetime
+import os
+import json
+import time
 
 from ....services.exceptions import PatientNotFoundError, CheckupDesignError
 from ....repositories.implementations import PatientRepository, CheckupDesignRepository
 from ....core.security import get_current_user
 from ....core.config import settings
 from ....services.gpt_service import GPTService, GPTRequest
-from ....services.checkup_design_prompt import (
-    create_checkup_design_prompt, 
-    CHECKUP_DESIGN_SYSTEM_MESSAGE,
+from ....services.gemini_service import gemini_service, GeminiRequest
+from ....services.checkup_design import (
     create_checkup_design_prompt_step1,
-    CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1,
-    create_checkup_design_prompt_step2,
-    CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2,
-    # Phase 1: 프롬프트 분할 함수
     create_checkup_design_prompt_step2_priority1,
-    create_checkup_design_prompt_step2_upselling
+    create_checkup_design_prompt_step2_upselling,
+    CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2
 )
 from ....services.wello_data_service import WelloDataService
+from ....services.session_logger import get_session_logger
+from ....services.worry_service import worry_service # 추가
+from ....services.checkup_design import rag_service
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,23 @@ gpt_service = GPTService()
 # 의존성 주입 (추후 DI 컨테이너로 대체)
 def get_repositories():
     return PatientRepository(), CheckupDesignRepository()
+
+
+def normalize_survey_responses(responses: Optional[Any]) -> Dict[str, Any]:
+    """
+    survey_responses는 클라이언트에서 딕셔너리 또는 JSON 문자열로 전달될 수 있으므로
+    안전하게 dict로 변환하여 반환합니다.
+    """
+    if isinstance(responses, dict):
+        return dict(responses)
+    if isinstance(responses, str):
+        try:
+            parsed = json.loads(responses)
+            if isinstance(parsed, dict):
+                return dict(parsed)
+        except json.JSONDecodeError:
+            logger.warning(f"⚠️ [검진설계] survey_responses JSON 파싱 실패: {responses}")
+    return {}
 
 
 class ConcernItem(BaseModel):
@@ -67,6 +86,7 @@ class CheckupDesignRequest(BaseModel):
     # 약품 분석 결과 텍스트 (전체 처방 데이터 대신 사용)
     prescription_analysis_text: Optional[str] = Field(None, description="약품 분석 결과 텍스트 (프롬프트용)")
     selected_medication_texts: Optional[List[str]] = Field(None, description="선택된 약품의 사용자 친화적 텍스트 (프롬프트용)")
+    events: Optional[List[Dict[str, Any]]] = Field(None, description="사용자 행동 로그 (체류 시간, 클릭 등)") # 추가
 
 
 class CheckupDesignResponse(BaseModel):
@@ -80,6 +100,7 @@ class Step1Result(BaseModel):
     """STEP 1 분석 결과 모델"""
     patient_summary: str = Field(..., description="환자 상태 3줄 요약")
     analysis: str = Field(..., description="종합 분석")
+    persona: Optional[Dict[str, Any]] = Field(None, description="환자 페르소나 분석 결과")  # 🔥 추가됨
     risk_profile: Optional[List[Dict[str, Any]]] = Field(None, description="위험도 계층화 결과 (각 장기별 위험도 분류)")
     chronic_analysis: Optional[Dict[str, Any]] = Field(None, description="만성질환 연쇄 반응 분석")
     survey_reflection: str = Field(..., description="문진 내용 반영 예고")
@@ -97,6 +118,7 @@ class CheckupDesignStep2Request(BaseModel):
     additional_info: Optional[Dict[str, Any]] = Field(None, description="추가 정보")
     prescription_analysis_text: Optional[str] = Field(None, description="약품 분석 결과 텍스트")
     selected_medication_texts: Optional[List[str]] = Field(None, description="선택된 약품의 사용자 친화적 텍스트")
+    session_id: Optional[str] = Field(None, description="세션 ID (로깅용)")
 
 
 class TrendAnalysisResponse(BaseModel):
@@ -222,8 +244,6 @@ async def create_checkup_design(
         
         # 4. 선택한 염려 항목 변환
         selected_concerns = []
-        # 선택된 약품 텍스트 추출 (survey_responses에서)
-        selected_medication_texts = request.survey_responses.get("selected_medication_texts") if request.survey_responses else None
         
         for concern in request.selected_concerns:
             concern_dict = {
@@ -262,7 +282,7 @@ async def create_checkup_design(
         logger.info(f"🔄 [검진설계] 2단계 파이프라인 시작...")
         
         # survey_responses에서 약품 분석 텍스트 추출
-        survey_responses_clean = request.survey_responses or {}
+        survey_responses_clean = normalize_survey_responses(request.survey_responses)
         prescription_analysis_text = survey_responses_clean.pop("prescription_analysis_text", None) or request.prescription_analysis_text
         selected_medication_texts = survey_responses_clean.pop("selected_medication_texts", None) or request.selected_medication_texts
         
@@ -293,16 +313,20 @@ async def create_checkup_design(
             # STEP 1 결과를 Step1Result 구조체로 변환
             step1_result_model = Step1Result(**step1_result)
             
+            # session_id 추출 (STEP 1에서 생성됨)
+            session_id = step1_result.get('session_id')
+            
             # STEP 2 요청 생성
             step2_request = CheckupDesignStep2Request(
                 uuid=request.uuid,
                 hospital_id=request.hospital_id,
                 step1_result=step1_result_model,
                 selected_concerns=request.selected_concerns,
-                survey_responses=request.survey_responses,
+                survey_responses=survey_responses_clean,
                 additional_info=request.additional_info,
                 prescription_analysis_text=prescription_analysis_text,
-                selected_medication_texts=selected_medication_texts
+                selected_medication_texts=selected_medication_texts,
+                session_id=session_id  # 세션 ID 전달
             )
             
             # STEP 2 호출
@@ -411,7 +435,7 @@ async def create_checkup_design(
                 uuid=request.uuid,
                 hospital_id=request.hospital_id,
                 selected_concerns=selected_concerns,
-                survey_responses=request.survey_responses,
+                survey_responses=survey_responses_clean,
                 design_result=ai_response
             )
             if save_result.get("success"):
@@ -582,6 +606,15 @@ async def create_checkup_design_step1(
     try:
         logger.info(f"🔍 [STEP1-분석] 요청 시작 - UUID: {request.uuid}, 선택 항목: {len(request.selected_concerns)}개")
         
+        # 세션 로거 시작
+        session_logger = get_session_logger()
+        session_id = session_logger.start_session(
+            patient_uuid=request.uuid,
+            patient_name="",  # 환자 정보 조회 후 업데이트
+            hospital_id=request.hospital_id
+        )
+        logger.info(f"🎬 [SessionLogger] 세션 시작: {session_id}")
+        
         # 1. 환자 정보 조회
         patient_info = await wello_data_service.get_patient_by_uuid(request.uuid)
         if "error" in patient_info:
@@ -647,12 +680,32 @@ async def create_checkup_design_step1(
             selected_concerns.append(concern_dict)
         
         # 6. 설문 응답 정리
-        survey_responses_clean = request.survey_responses or {}
+        survey_responses_clean = normalize_survey_responses(request.survey_responses)
         prescription_analysis_text = survey_responses_clean.pop("prescription_analysis_text", None) or request.prescription_analysis_text
         selected_medication_texts = survey_responses_clean.pop("selected_medication_texts", None) or request.selected_medication_texts
         
-        # 7. STEP 1 프롬프트 생성
-        user_message = create_checkup_design_prompt_step1(
+        # ====================================================================
+        # [신규] 사용자 행동 속성 분석 및 주입
+        # ====================================================================
+        user_attributes = worry_service.analyze_user_attributes(
+            events=request.events or [],
+            survey_responses=survey_responses_clean
+        )
+        logger.info(f"🔍 [STEP1-분석] 사용자 행동 속성 분석 완료: {len(user_attributes)}개")
+        
+        # 속성 정보를 프롬프트에 주입하기 위해 survey_responses에 추가
+        if user_attributes:
+            survey_responses_clean['user_attributes'] = [attr.dict() for attr in user_attributes]
+            
+        # 7. STEP 1 프롬프트 생성 (페르소나 판정 포함)
+        logger.info(
+            f"🧠 [STEP1-분석] 프롬프트 입력 샘플 - patient_name={patient_name}, "
+            f"patient_age={patient_age}, patient_gender={patient_gender}, "
+            f"selected_concerns={len(selected_concerns)}건, "
+            f"survey_responses_keys={list(survey_responses_clean.keys())}, "
+            f"prescription_analysis_text={'있음' if prescription_analysis_text else '없음'}"
+        )
+        step1_result = create_checkup_design_prompt_step1(
             patient_name=patient_name,
             patient_age=patient_age,
             patient_gender=patient_gender,
@@ -665,52 +718,72 @@ async def create_checkup_design_step1(
             selected_medication_texts=selected_medication_texts
         )
         
-        # 8. 빠른 모델 선택 (STEP 1은 빠른 응답이 목표)
-        # gpt-4o-mini 사용 (빠르고 저렴한 모델)
-        fast_model = getattr(settings, 'openai_fast_model', 'gpt-4o-mini')
+        # 프롬프트와 페르소나 결과 분리
+        user_message = step1_result["prompt"]
+        persona_result = step1_result["persona_result"]
+        
+        # 페르소나 정보 로깅
+        logger.info(f"👤 [STEP1-페르소나] Primary Persona: {persona_result['primary_persona']}")
+        logger.info(f"🎯 [STEP1-페르소나] Bridge Strategy: {persona_result['bridge_strategy']}")
+        logger.info(f"💬 [STEP1-페르소나] 톤앤매너: {persona_result['tone']}")
+        
+        # 8. 빠른 모델 선택 (STEP 1은 분석만 하므로 토큰 수 제한)
+        # gpt-4o-mini 대신 Gemini Flash 사용 (빠르고 저렴한 모델)
+        fast_model = getattr(settings, 'google_gemini_fast_model', 'gemini-2.0-flash')
         max_tokens = 4096  # STEP 1은 분석만 하므로 토큰 수 제한
         
-        logger.info(f"🤖 [STEP1-분석] OpenAI API 호출 시작... (모델: {fast_model}, max_tokens: {max_tokens})")
+        logger.info(f"🤖 [STEP1-분석] Gemini API 호출 시작... (모델: {fast_model}, max_tokens: {max_tokens})")
         logger.info(f"📊 [STEP1-분석] 프롬프트 길이: {len(user_message)} 문자")
-        logger.info(f"📊 [STEP1-분석] 시스템 메시지 길이: {len(CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1)} 문자")
         
-        gpt_request = GPTRequest(
-            system_message=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1,
-            user_message=user_message,
+        gemini_request = GeminiRequest(
+            prompt=user_message,
             model=fast_model,
             temperature=0.3,
             max_tokens=max_tokens,
             response_format={"type": "json_object"}
         )
         
-        # OpenAI 서비스 초기화
-        logger.info(f"🔧 [STEP1-분석] OpenAI 서비스 초기화 중...")
-        await gpt_service.initialize()
-        logger.info(f"✅ [STEP1-분석] OpenAI 서비스 초기화 완료")
+        # Gemini 서비스 초기화
+        logger.info(f"🔧 [STEP1-분석] Gemini 서비스 초기화 중...")
+        await gemini_service.initialize()
+        logger.info(f"✅ [STEP1-분석] Gemini 서비스 초기화 완료")
         
-        # OpenAI API 호출
-        logger.info(f"📡 [STEP1-분석] OpenAI API 호출 중...")
-        gpt_api_response = await gpt_service.call_api(
-            gpt_request,
-            save_log=True
+        # Gemini API 호출
+        logger.info(f"📡 [STEP1-분석] Gemini API 호출 중...")
+        gemini_api_response = await gemini_service.call_api(
+            gemini_request,
+            save_log=True,
+            patient_uuid=request.uuid,
+            session_id=session_id,
+            step_number="1",
+            step_name="건강 분석"
         )
-        logger.info(f"📥 [STEP1-분석] OpenAI API 응답 수신 완료")
+        logger.info(f"📥 [STEP1-분석] Gemini API 응답 수신 완료")
         
         # 응답 상태 확인
-        if not gpt_api_response.success:
-            logger.error(f"❌ [STEP1-분석] OpenAI API 호출 실패: {gpt_api_response.error}")
-            raise ValueError(f"OpenAI API 호출 실패: {gpt_api_response.error}")
+        if not gemini_api_response.success:
+            logger.error(f"❌ [STEP1-분석] Gemini API 호출 실패: {gemini_api_response.error}")
+            raise ValueError(f"Gemini API 호출 실패: {gemini_api_response.error}")
         
-        if not gpt_api_response.content:
-            logger.error(f"❌ [STEP1-분석] OpenAI 응답 내용이 비어있음")
-            raise ValueError("OpenAI 응답 내용이 비어있습니다.")
+        if not gemini_api_response.content:
+            logger.error(f"❌ [STEP1-분석] Gemini 응답 내용이 비어있음")
+            raise ValueError("Gemini 응답 내용이 비어있습니다.")
         
-        # JSON 파싱
+        # JSON 파싱 (GPTService의 유틸리티 재사용 또는 직접 파싱)
         logger.info(f"🔍 [STEP1-분석] JSON 파싱 시작...")
         try:
-            ai_response = gpt_service.parse_json_response(
-                gpt_api_response.content
-            )
+            # Gemini는 마크다운 코드블록(```json ... ```)을 포함할 수 있으므로 제거 필요
+            content = gemini_api_response.content.strip()
+            if content.startswith("```json"):
+                content = content[7:]
+            if content.startswith("```"):
+                content = content[3:]
+            if content.endswith("```"):
+                content = content[:-3]
+            content = content.strip()
+            
+            import json
+            ai_response = json.loads(content)
             
             # ai_response가 딕셔너리인지 확인
             if not isinstance(ai_response, dict):
@@ -722,10 +795,76 @@ async def create_checkup_design_step1(
             logger.info(f"📊 [STEP1-분석] 파싱된 응답 키: {list(ai_response.keys())}")
         except Exception as parse_error:
             logger.error(f"❌ [STEP1-분석] JSON 파싱 실패: {str(parse_error)}")
+            logger.error(f"❌ [STEP1-분석] 원본 응답: {gemini_api_response.content}")
             raise ValueError(f"JSON 파싱 실패: {str(parse_error)}")
         
         # STEP 1 응답 반환 (분석 결과만)
         logger.info(f"✅ [STEP1-분석] STEP 1 완료 - 분석 결과 반환")
+        
+        # 응답에 session_id 포함
+        ai_response['session_id'] = session_id
+
+        # [CRITICAL FIX] 모델이 persona를 누락할 수 있으므로, 백엔드에서 계산한 정확한 값을 강제 주입
+        # 이를 통해 Step 2에서 'NoneType' 오류가 발생하는 것을 원천 차단함
+        if persona_result:
+            ai_response['persona'] = persona_result
+            logger.info(f"✅ [STEP1-분석] 백엔드 페르소나 정보 강제 주입 완료: {persona_result.get('primary_persona')}")
+        
+        # 📝 [LOGGING] STEP 1 프롬프트 및 응답 txt 파일 저장
+        # session_dir을 try 블록 밖에서 정의하여 두 저장 모두에서 사용 가능하도록 함
+        import os
+        from datetime import datetime
+        
+        today = datetime.now().strftime("%Y%m%d")
+        log_base_dir = f"logs/planning_{today}"
+        session_dir = os.path.join(log_base_dir, session_id)
+        os.makedirs(session_dir, exist_ok=True)
+        
+        # STEP 1 프롬프트 저장
+        try:
+            prompt_txt_file = os.path.join(session_dir, "step1_prompt.txt")
+            with open(prompt_txt_file, "w", encoding="utf-8") as f:
+                f.write("=" * 80 + "\n")
+                f.write("STEP 1 PROMPT\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(user_message)
+                f.write("\n\n")
+                f.write("=" * 80 + "\n")
+                f.write("METADATA\n")
+                f.write("=" * 80 + "\n")
+                f.write(f"Model: {fast_model}\n")
+                f.write(f"Temperature: 0.3\n")
+                f.write(f"Max Tokens: {max_tokens}\n")
+                f.write(f"Session ID: {session_id}\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+            
+            logger.info(f"💾 [STEP1] 프롬프트 txt 저장 완료: {prompt_txt_file}")
+        except Exception as e:
+            logger.warning(f"⚠️ [STEP1] 프롬프트 txt 저장 실패: {str(e)}")
+        
+        # STEP 1 응답 저장
+        try:
+            response_txt_file = os.path.join(session_dir, "step1_result.txt")
+            with open(response_txt_file, "w", encoding="utf-8") as f:
+                f.write("=" * 80 + "\n")
+                f.write("STEP 1 RESPONSE\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(gemini_api_response.content)
+                f.write("\n\n")
+                f.write("=" * 80 + "\n")
+                f.write("PARSED JSON\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(json.dumps(ai_response, ensure_ascii=False, indent=2))
+                f.write("\n\n")
+                f.write("=" * 80 + "\n")
+                f.write("METADATA\n")
+                f.write("=" * 80 + "\n")
+                f.write(f"Response Length: {len(gemini_api_response.content) if gemini_api_response.content else 0}\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+            
+            logger.info(f"💾 [STEP1] 응답 txt 저장 완료: {response_txt_file}")
+        except Exception as e:
+            logger.warning(f"⚠️ [STEP1] 응답 txt 저장 실패: {str(e)}")
         
         return CheckupDesignResponse(
             success=True,
@@ -840,6 +979,33 @@ async def create_checkup_design_step2(
         
         patient_gender = patient_info.get("gender")
         
+        # [CRITICAL] 페르소나 데이터 검증 및 복구
+        if not step1_result_dict.get("persona"):
+            logger.warning("⚠️ [STEP2-설계] STEP 1 결과에 페르소나 정보 누락됨. 백엔드에서 재계산 시도...")
+            try:
+                from ....services.checkup_design.persona import determine_persona
+                
+                # 설문 응답 정리
+                survey_res = normalize_survey_responses(request.survey_responses)
+                
+                persona_result = determine_persona(
+                    survey_responses=survey_res,
+                    age=patient_age,
+                    gender=patient_gender
+                )
+                step1_result_dict["persona"] = persona_result
+                logger.info(f"✅ [STEP2-설계] 페르소나 재계산 완료: {persona_result.get('primary_persona')}")
+            except Exception as e:
+                logger.error(f"❌ [STEP2-설계] 페르소나 재계산 실패: {str(e)}")
+                # 기본값 설정
+                step1_result_dict["persona"] = {
+                    "primary_persona": "General",
+                    "type": "General", # type 필드 추가 (step2_upselling.py에서 사용)
+                    "description": "일반적인 건강검진 수검자",
+                    "bridge_strategy": "친절하고 이해하기 쉬운 설명",
+                    "tone": "전문적이면서도 친근한 어조"
+                }
+
         # 2. 병원 정보 조회 (검진 항목 포함) - 기존 방식과 동일
         logger.info(f"🏥 [STEP2-설계] 병원 정보 조회 시작 - hospital_id: {request.hospital_id}")
         hospital_info = await wello_data_service.get_hospital_by_id(request.hospital_id)
@@ -895,7 +1061,7 @@ async def create_checkup_design_step2(
             selected_concerns.append(concern_dict)
         
         # 6. 설문 응답 정리
-        survey_responses_clean = request.survey_responses or {}
+        survey_responses_clean = normalize_survey_responses(request.survey_responses)
         prescription_analysis_text = survey_responses_clean.pop("prescription_analysis_text", None) or request.prescription_analysis_text
         selected_medication_texts = survey_responses_clean.pop("selected_medication_texts", None) or request.selected_medication_texts
         
@@ -911,7 +1077,13 @@ async def create_checkup_design_step2(
         await gpt_service.initialize()
         logger.info(f"✅ [STEP2-설계] OpenAI 서비스 초기화 완료")
         
-        powerful_model = getattr(settings, 'openai_model', 'gpt-4o')
+        # Gemini 서비스 초기화 (한 번만)
+        logger.info(f"🔧 [STEP2-설계] Gemini 서비스 초기화 중...")
+        await gemini_service.initialize()
+        logger.info(f"✅ [STEP2-설계] Gemini 서비스 초기화 완료")
+        
+        # 강력한 모델 선택 (GPT-4o -> Gemini Pro)
+        powerful_model = getattr(settings, 'google_gemini_model', 'gemini-2.0-flash')
         
         # ====================================================================
         # STEP 2-1: Priority 1 (일반검진 주의 항목)
@@ -920,7 +1092,7 @@ async def create_checkup_design_step2(
         start_time_p1 = time.time()
         
         logger.info(f"📋 [STEP2-1] Priority 1 프롬프트 생성 시작...")
-        user_message_p1, evidences_p1 = await create_checkup_design_prompt_step2_priority1(
+        user_message_p1, evidences_p1, rag_evidence_context_p1 = await create_checkup_design_prompt_step2_priority1(
             step1_result=step1_result_dict,
             patient_name=patient_name,
             patient_age=patient_age,
@@ -934,31 +1106,132 @@ async def create_checkup_design_step2(
             selected_medication_texts=selected_medication_texts
         )
         logger.info(f"✅ [STEP2-1] Priority 1 프롬프트 생성 완료 - 길이: {len(user_message_p1):,}자 ({len(user_message_p1)/1024:.1f}KB)")
+        logger.info(f"💊 [STEP2-1] RAG Context 획득 완료 - 길이: {len(rag_evidence_context_p1):,}자")
         
-        logger.info(f"🤖 [STEP2-1] GPT API 호출 중... (모델: {powerful_model})")
-        gpt_request_p1 = GPTRequest(
-            system_message=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2,
-            user_message=user_message_p1,
+        # 📝 [LOGGING] STEP 2-1 프롬프트 파일 저장 (사용자 요청)
+        try:
+            # 세션 로그 디렉토리 경로 결정
+            import os
+            from datetime import datetime
+            
+            if request.session_id:
+                # SessionLogger와 동일한 경로 사용 (logs/planning_YYYYMMDD/SESSION_ID)
+                # request.session_id는 이미 "YYYYMMDD_HHMMSS_SHORTUUID" 형식임
+                log_base_dir = f"logs/planning_{request.session_id.split('_')[0]}"
+                session_dir = os.path.join(log_base_dir, request.session_id)
+            else:
+                # 세션 ID가 없는 경우 (예외적 상황) -> 임시 생성
+                log_base_dir = f"logs/planning_{datetime.now().strftime('%Y%m%d')}"
+                timestamp = datetime.now().strftime("%H%M%S")
+                short_uuid = request.uuid.split('-')[0]
+                session_dir = os.path.join(log_base_dir, f"{timestamp}_{short_uuid}")
+            
+            os.makedirs(session_dir, exist_ok=True)
+            
+            # 프롬프트 저장
+            prompt_file_path = os.path.join(session_dir, "step2_1_prompt.txt")
+            # 실제 API에 전달되는 전체 프롬프트 저장 (system message + user message)
+            full_prompt_p1_for_log = f"{CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2}\n\n---\n\n{user_message_p1}"
+            with open(prompt_file_path, "w", encoding="utf-8") as f:
+                f.write("=" * 80 + "\n")
+                f.write("STEP 2-1 FULL PROMPT (실제 API에 전달되는 전체 내용)\n")
+                f.write("=" * 80 + "\n\n")
+                f.write("=" * 80 + "\n")
+                f.write("SYSTEM MESSAGE\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2)
+                f.write("\n\n")
+                f.write("=" * 80 + "\n")
+                f.write("USER MESSAGE\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(user_message_p1)
+                f.write("\n\n")
+                f.write("=" * 80 + "\n")
+                f.write("METADATA\n")
+                f.write("=" * 80 + "\n")
+                f.write(f"Model: {powerful_model}\n")
+                f.write(f"Temperature: 0.5\n")
+                f.write(f"Max Tokens: 2000\n")
+                f.write(f"Session ID: {request.session_id}\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+            
+            logger.info(f"💾 [STEP2-1] 프롬프트 txt 저장 완료: {prompt_file_path}")
+            
+        except Exception as e:
+            logger.warning(f"⚠️ [STEP2-1] 프롬프트 파일 저장 실패: {str(e)}")
+
+        logger.info(f"🤖 [STEP2-1] Gemini API 호출 중... (모델: {powerful_model})")
+        
+        # 시스템 메시지를 사용자 메시지 앞단에 결합 (Gemini는 system_instruction을 지원하지만 여기서는 단순화)
+        full_prompt_p1 = f"{CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2}\n\n---\n\n{user_message_p1}"
+        
+        gemini_request_p1 = GeminiRequest(
+            prompt=full_prompt_p1,
             model=powerful_model,
             temperature=0.5,
             max_tokens=2000,  # Priority 1은 짧은 응답
             response_format={"type": "json_object"}
         )
         
-        gpt_response_p1 = await gpt_service.call_api(gpt_request_p1, save_log=True)
+        gemini_response_p1 = await gemini_service.call_api(
+            gemini_request_p1,
+            save_log=True,
+            patient_uuid=request.uuid,
+            session_id=request.session_id if hasattr(request, 'session_id') and request.session_id else None,
+            step_number="2-1",
+            step_name="Priority 1 - 일반검진 주의 항목"
+        )
         elapsed_p1 = time.time() - start_time_p1
-        logger.info(f"✅ [STEP2-1] GPT 응답 완료 - {elapsed_p1:.1f}초")
+        logger.info(f"✅ [STEP2-1] Gemini 응답 완료 - {elapsed_p1:.1f}초")
         
-        if not gpt_response_p1.success:
-            logger.error(f"❌ [STEP2-1] GPT 호출 실패: {gpt_response_p1.error}")
-            raise ValueError(f"STEP 2-1 실패: {gpt_response_p1.error}")
+        if not gemini_response_p1.success:
+            logger.error(f"❌ [STEP2-1] Gemini 호출 실패: {gemini_response_p1.error}")
+            raise ValueError(f"STEP 2-1 실패: {gemini_response_p1.error}")
         
         # JSON 파싱
         try:
-            step2_1_result = gpt_service.parse_json_response(gpt_response_p1.content)
+            content = gemini_response_p1.content.strip()
+            if content.startswith("```json"):
+                content = content[7:]
+            if content.startswith("```"):
+                content = content[3:]
+            if content.endswith("```"):
+                content = content[:-3]
+            content = content.strip()
+            
+            import json
+            step2_1_result = json.loads(content)
             logger.info(f"✅ [STEP2-1] JSON 파싱 성공 - 키: {list(step2_1_result.keys())}")
+            
+            # 📝 [LOGGING] STEP 2-1 결과 JSON 파일 저장 제거 (txt만 사용)
+            
+            # 📝 [LOGGING] STEP 2-1 응답 txt 파일 저장
+            try:
+                response_txt_file = os.path.join(session_dir, "step2_1_result.txt")
+                with open(response_txt_file, "w", encoding="utf-8") as f:
+                    f.write("=" * 80 + "\n")
+                    f.write("STEP 2-1 RESPONSE (원본)\n")
+                    f.write("=" * 80 + "\n\n")
+                    f.write(gemini_response_p1.content)
+                    f.write("\n\n")
+                    f.write("=" * 80 + "\n")
+                    f.write("STEP 2-1 RESPONSE (파싱된 JSON)\n")
+                    f.write("=" * 80 + "\n\n")
+                    f.write(json.dumps(step2_1_result, ensure_ascii=False, indent=2))
+                    f.write("\n\n")
+                    f.write("=" * 80 + "\n")
+                    f.write("METADATA\n")
+                    f.write("=" * 80 + "\n")
+                    f.write(f"Response Length: {len(gemini_response_p1.content) if gemini_response_p1.content else 0}\n")
+                    f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                
+                logger.info(f"💾 [STEP2-1] 응답 txt 저장 완료: {response_txt_file}")
+            except Exception as e:
+                logger.warning(f"⚠️ [STEP2-1] 응답 txt 저장 실패: {str(e)}")
+
         except Exception as e:
             logger.error(f"❌ [STEP2-1] JSON 파싱 실패: {str(e)}")
+            logger.error(f"❌ [STEP2-1] 원본 응답: {gemini_response_p1.content}")
             raise ValueError(f"STEP 2-1 JSON 파싱 실패: {str(e)}")
         
         # ====================================================================
@@ -966,31 +1239,82 @@ async def create_checkup_design_step2(
         # ====================================================================
         start_time_p2 = time.time()
         
-        logger.info(f"📋 [STEP2-2] Upselling 프롬프트 생성 시작...")
-        user_message_p2, evidences_p2 = await create_checkup_design_prompt_step2_upselling(
-            step1_result=step1_result_dict,
-            step2_1_result=step2_1_result,  # ← 연결성!
+        # RAG 엔진 획득
+        rag_engine = await rag_service.init_rag_engine()
+        
+        # Step 2-2 호출을 위한 요청 객체 구성 (step2_upselling.py 호환)
+        from types import SimpleNamespace
+        upselling_request = SimpleNamespace(
             patient_name=patient_name,
-            patient_age=patient_age,
-            patient_gender=patient_gender,
+            birth_date=patient_age, # 나이(int)로 전달
+            gender=patient_gender,
             selected_concerns=selected_concerns,
             survey_responses=survey_responses_clean,
-            hospital_recommended=hospital_recommended,
-            hospital_external_checkup=hospital_external_checkup
+            hospital_recommended_items=hospital_recommended,
+            hospital_external_checkup_items=hospital_external_checkup
+        )
+
+        logger.info(f"📋 [STEP2-2] Upselling 프롬프트 생성 시작...")
+        user_message_p2, evidences_p2, rag_context_p2 = await create_checkup_design_prompt_step2_upselling(
+            request=upselling_request,
+            step1_result=step1_result_dict,
+            step2_1_summary=json.dumps(step2_1_result, ensure_ascii=False, indent=2), # JSON 문자열로 변환하여 전달
+            rag_service_instance=rag_engine,
+            prev_rag_context=rag_evidence_context_p1
         )
         logger.info(f"✅ [STEP2-2] Upselling 프롬프트 생성 완료 - 길이: {len(user_message_p2):,}자 ({len(user_message_p2)/1024:.1f}KB)")
         
-        logger.info(f"🤖 [STEP2-2] GPT API 호출 중... (모델: {powerful_model})")
+        # 세일즈 작문(Upselling)은 GPT-4o가 더 우수하므로 여기서는 OpenAI 사용
+        openai_model = getattr(settings, 'openai_model', 'gpt-4o')
+        
+        # 📝 [LOGGING] STEP 2-2 프롬프트 파일 저장 (추가)
+        try:
+            # 앞서 생성된 session_dir 사용
+            prompt_file_path_p2 = os.path.join(session_dir, "step2_2_prompt.txt")
+            with open(prompt_file_path_p2, "w", encoding="utf-8") as f:
+                f.write("=" * 80 + "\n")
+                f.write("STEP 2-2 FULL PROMPT (실제 API에 전달되는 전체 내용)\n")
+                f.write("=" * 80 + "\n\n")
+                f.write("=" * 80 + "\n")
+                f.write("SYSTEM MESSAGE\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2)
+                f.write("\n\n")
+                f.write("=" * 80 + "\n")
+                f.write("USER MESSAGE\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(user_message_p2)
+                f.write("\n\n")
+                f.write("=" * 80 + "\n")
+                f.write("METADATA\n")
+                f.write("=" * 80 + "\n")
+                f.write(f"Model: {openai_model}\n")
+                f.write(f"Temperature: 0.5\n")
+                f.write(f"Max Tokens: 3000\n")
+                f.write(f"Session ID: {request.session_id if hasattr(request, 'session_id') and request.session_id else 'N/A'}\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+            logger.info(f"💾 [STEP2-2] 프롬프트 txt 저장 완료: {prompt_file_path_p2}")
+        except Exception as e:
+            logger.warning(f"⚠️ [STEP2-2] 프롬프트 txt 저장 실패: {str(e)}")
+        logger.info(f"🤖 [STEP2-2] GPT API 호출 중... (모델: {openai_model})")
+        
         gpt_request_p2 = GPTRequest(
             system_message=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2,
             user_message=user_message_p2,
-            model=powerful_model,
+            model=openai_model,
             temperature=0.5,
             max_tokens=3000,  # Upselling은 조금 더 긴 응답
             response_format={"type": "json_object"}
         )
         
-        gpt_response_p2 = await gpt_service.call_api(gpt_request_p2, save_log=True)
+        gpt_response_p2 = await gpt_service.call_api(
+            gpt_request_p2,
+            save_log=True,
+            patient_uuid=request.uuid,
+            session_id=request.session_id if hasattr(request, 'session_id') and request.session_id else None,
+            step_number="2-2",
+            step_name="Priority 2, 3 - Upselling 전략"
+        )
         elapsed_p2 = time.time() - start_time_p2
         logger.info(f"✅ [STEP2-2] GPT 응답 완료 - {elapsed_p2:.1f}초")
         
@@ -1005,6 +1329,32 @@ async def create_checkup_design_step2(
             try:
                 step2_2_result = gpt_service.parse_json_response(gpt_response_p2.content)
                 logger.info(f"✅ [STEP2-2] JSON 파싱 성공 - 키: {list(step2_2_result.keys())}")
+                
+                # 📝 [LOGGING] STEP 2-2 결과 JSON 파일 저장 제거 (txt만 사용)
+                
+                # 📝 [LOGGING] STEP 2-2 응답 txt 파일 저장
+                try:
+                    response_txt_file_p2 = os.path.join(session_dir, "step2_2_result.txt")
+                    with open(response_txt_file_p2, "w", encoding="utf-8") as f:
+                        f.write("=" * 80 + "\n")
+                        f.write("STEP 2-2 RESPONSE (원본)\n")
+                        f.write("=" * 80 + "\n\n")
+                        f.write(gpt_response_p2.content)
+                        f.write("\n\n")
+                        f.write("=" * 80 + "\n")
+                        f.write("STEP 2-2 RESPONSE (파싱된 JSON)\n")
+                        f.write("=" * 80 + "\n\n")
+                        f.write(json.dumps(step2_2_result, ensure_ascii=False, indent=2))
+                        f.write("\n\n")
+                        f.write("=" * 80 + "\n")
+                        f.write("METADATA\n")
+                        f.write("=" * 80 + "\n")
+                        f.write(f"Response Length: {len(gpt_response_p2.content) if gpt_response_p2.content else 0}\n")
+                        f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                    
+                    logger.info(f"💾 [STEP2-2] 응답 txt 저장 완료: {response_txt_file_p2}")
+                except Exception as e:
+                    logger.warning(f"⚠️ [STEP2-2] 응답 txt 저장 실패: {str(e)}")
                 
                 # 결과 병합
                 logger.info(f"🔗 [STEP2] 결과 병합 중...")
@@ -1062,10 +1412,20 @@ async def create_checkup_design_step2(
         
         # STEP 2 응답 반환 (설계 및 근거 결과)
         logger.info(f"✅ [STEP2-설계] STEP 2 완료 - 설계 및 근거 결과 반환")
+        logger.info(f"📦 [STEP2-설계] 반환 데이터 키: {list(merged_result.keys())}")
+        
+        # 세션 완료 마킹
+        if request.session_id:
+            try:
+                session_logger = get_session_logger()
+                session_logger.complete_session(request.uuid, request.session_id)
+                logger.info(f"🏁 [SessionLogger] 세션 완료: {request.session_id}")
+            except Exception as e:
+                logger.warning(f"⚠️ [SessionLogger] 세션 완료 실패: {str(e)}")
         
         return CheckupDesignResponse(
             success=True,
-            data=ai_response,
+            data=merged_result,  # ✅ ai_response → merged_result로 수정!
             message="STEP 2 설계 및 근거 확보 완료"
         )
         
@@ -1133,6 +1493,9 @@ def merge_checkup_design_responses(step1_result: Dict[str, Any], step2_result: D
             
             # STEP 2에서 온 필드들
             "summary": safe_get(step2_result, "summary", {}),
+            "priority_1": safe_get(step2_result, "priority_1", {}),  # ✅ 추가!
+            "priority_2": safe_get(step2_result, "priority_2", {}),  # ✅ 추가!
+            "priority_3": safe_get(step2_result, "priority_3", {}),  # ✅ 추가!
             "strategies": safe_get(step2_result, "strategies", []),
             "recommended_items": safe_get(step2_result, "recommended_items", []),
             "doctor_comment": safe_get(step2_result, "doctor_comment", ""),
@@ -1165,9 +1528,128 @@ def merge_checkup_design_responses(step1_result: Dict[str, Any], step2_result: D
     # Post-processing: priority_1 일관성 검증 및 자동 보정 (TODO-5, TODO-6)
     merged_result = validate_and_fix_priority1(merged_result)
     
+    # 🔄 Priority 구조 → recommended_items 변환 (프론트엔드 호환성)
+    merged_result = convert_priorities_to_recommended_items(merged_result)
+    
     logger.info(f"✅ [병합] 병합 완료 - 최종 결과 키: {list(merged_result.keys())}")
     
     return merged_result
+
+
+def convert_priorities_to_recommended_items(result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Priority 구조(priority_1, priority_2, priority_3)를 recommended_items 형식으로 변환
+    프론트엔드 호환성을 위한 변환 함수
+    """
+    logger.info("🔄 [변환] Priority → recommended_items 변환 시작...")
+    
+    recommended_items = []
+    
+    # Priority 1: 일반검진 주의 항목 (최상위 또는 summary 내부)
+    priority_1 = result.get("priority_1") or result.get("summary", {}).get("priority_1", {})
+    if isinstance(priority_1, dict) and priority_1.get("items"):
+        category_item = {
+            "category": priority_1.get("title", "이번 검진 시 유의 깊게 보실 항목이에요"),
+            "category_en": "Priority 1",
+            "itemCount": len(priority_1.get("items", [])),
+            "items": [],
+            "doctor_recommendation": {
+                "has_recommendation": True,
+                "message": priority_1.get("description", "")
+            },
+            "defaultExpanded": True,
+            "priorityLevel": 1
+        }
+        
+        # focus_items를 items로 변환
+        for focus_item in priority_1.get("focus_items", []):
+            if isinstance(focus_item, dict):
+                category_item["items"].append({
+                    "name": focus_item.get("name", ""),
+                    "description": focus_item.get("why_important", ""),
+                    "reason": focus_item.get("check_point", ""),
+                    "priority": 1,
+                    "recommended": True
+                })
+        
+        recommended_items.append(category_item)
+        logger.info(f"📝 [변환] Priority 1 변환 완료: {category_item['itemCount']}개")
+    
+    # Priority 2: 병원 추천 정밀 검진 (최상위 또는 summary 내부)
+    priority_2 = result.get("priority_2") or result.get("summary", {}).get("priority_2", {})
+    if isinstance(priority_2, dict) and priority_2.get("items"):
+        category_item = {
+            "category": priority_2.get("title", "병원에서 추천하는 정밀 검진"),
+            "category_en": "Priority 2",
+            "itemCount": len(priority_2.get("items", [])),
+            "items": [],
+            "doctor_recommendation": {
+                "has_recommendation": True,
+                "message": priority_2.get("description", "")
+            },
+            "defaultExpanded": False
+        }
+        
+        # strategies에서 해당 항목의 상세 정보 찾기
+        strategies = result.get("strategies", [])
+        strategy_map = {s.get("target"): s for s in strategies if isinstance(s, dict)}
+        
+        for item_name in priority_2.get("items", []):
+            strategy = strategy_map.get(item_name, {})
+            doctor_rec = strategy.get("doctor_recommendation", {})
+            
+            category_item["items"].append({
+                "name": item_name,
+                "description": doctor_rec.get("reason", "") + " " + doctor_rec.get("evidence", ""),
+                "reason": doctor_rec.get("message", ""),
+                "priority": 2,
+                "recommended": True
+            })
+        
+        recommended_items.append(category_item)
+        logger.info(f"📝 [변환] Priority 2 변환 완료: {category_item['itemCount']}개")
+    
+    # Priority 3: 선택 검진 항목 (최상위 또는 summary 내부)
+    priority_3 = result.get("priority_3") or result.get("summary", {}).get("priority_3", {})
+    if isinstance(priority_3, dict) and priority_3.get("items"):
+        category_item = {
+            "category": priority_3.get("title", "선택 검진 항목"),
+            "category_en": "Priority 3",
+            "itemCount": len(priority_3.get("items", [])),
+            "items": [],
+            "doctor_recommendation": {
+                "has_recommendation": True,
+                "message": priority_3.get("description", "")
+            },
+            "defaultExpanded": False
+        }
+        
+        # strategies에서 해당 항목의 상세 정보 찾기
+        strategies = result.get("strategies", [])
+        strategy_map = {s.get("target"): s for s in strategies if isinstance(s, dict)}
+        
+        for item_name in priority_3.get("items", []):
+            strategy = strategy_map.get(item_name, {})
+            doctor_rec = strategy.get("doctor_recommendation", {})
+            
+            category_item["items"].append({
+                "name": item_name,
+                "description": doctor_rec.get("reason", "") + " " + doctor_rec.get("evidence", ""),
+                "reason": doctor_rec.get("message", ""),
+                "priority": 3,
+                "recommended": True
+            })
+        
+        recommended_items.append(category_item)
+        logger.info(f"📝 [변환] Priority 3 변환 완료: {category_item['itemCount']}개")
+    
+    # recommended_items 업데이트
+    result["recommended_items"] = recommended_items
+    result["total_count"] = sum(cat["itemCount"] for cat in recommended_items)
+    
+    logger.info(f"✅ [변환] 변환 완료 - {len(recommended_items)}개 카테고리, 총 {result['total_count']}개 항목")
+    
+    return result
 
 
 def validate_and_fix_priority1(result: Dict[str, Any]) -> Dict[str, Any]:

@@ -57,15 +57,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     maxRetries: 2
   });
   
-  // 인증 방식 선택 (기본값: 카카오톡)
+  // 인증 방식 선택 (기본값: 통신사Pass)
   // 메모리 fallback 지원 - localStorage 실패 시 메모리에서만 동작
   const [selectedAuthType, setSelectedAuthType] = useState(() => {
-    // 인증 페이지 진입 시 리셋하므로 항상 기본값 '0'으로 시작
-    return '0';
+    // 인증 페이지 진입 시 리셋하므로 항상 기본값 '4' (통신사Pass)로 시작
+    return '4';
   });
   
   // 메모리 fallback을 위한 인증 방식 저장 (localStorage 실패 시 사용)
-  const authTypeMemoryRef = useRef<string>('0');
+  const authTypeMemoryRef = useRef<string>('4');
   
   // 지원되는 인증 방식 (선별된 3가지)
   const AUTH_TYPES = [
@@ -484,9 +484,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     
     // 인증 페이지 진입 시 로컬 스토리지 리셋 (인증 방식 선택 초기화)
     StorageManager.resetAuthPage();
-    authTypeMemoryRef.current = '0';
-    setSelectedAuthType('0');
-    console.log(`🔄 [인증페이지-${componentId}] 인증 방식 선택 리셋 완료 - 기본값 '0' (카카오톡)으로 시작`);
+    authTypeMemoryRef.current = '4';
+    setSelectedAuthType('4');
+    console.log(`🔄 [인증페이지-${componentId}] 인증 방식 선택 리셋 완료 - 기본값 '4' (통신사Pass)으로 시작`);
     
     // 스토리지 사용 가능 여부 확인
     if (StorageManager.isMemoryMode()) {
@@ -1971,14 +1971,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     ).trim();
     
     // 인증 방법 우선순위: 메모리 > localStorage > state (단, '0'이 아닐 때만) > confirmationData > DOM > 기본값
-    // '0'은 기본값이므로 실제 선택된 값이 아닐 수 있음 - 메모리/로컬스토리지 우선 사용
+    // '0'은 카카오톡(비활성화)이므로 실제 선택된 값이 아닐 수 있음 - 메모리/로컬스토리지 우선 사용
+    // 기본값은 '4' (통신사Pass)
     const finalAuthType = (
       (savedAuthTypeFromMemory && savedAuthTypeFromMemory !== '0' ? String(savedAuthTypeFromMemory).trim() : '') || 
       (savedAuthTypeFromStorage && savedAuthTypeFromStorage !== '0' ? String(savedAuthTypeFromStorage).trim() : '') || 
       (savedAuthTypeFromState && savedAuthTypeFromState !== '0' ? String(savedAuthTypeFromState).trim() : '') || 
       (savedAuthTypeFromConfirmation && savedAuthTypeFromConfirmation !== '0' ? String(savedAuthTypeFromConfirmation || '').trim() : '') || 
       (selectedAuthFromDOM && selectedAuthFromDOM !== '0' ? String(selectedAuthFromDOM).trim() : '') || 
-      '0'
+      '4'
     ).trim();
     
     console.log('🔍 [handleAllConfirmed] 인증 방법 확인:', {
@@ -2108,7 +2109,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       const finalNameForRequest = finalName || editableName?.trim() || '';
       const finalPhoneForRequest = finalPhone || editablePhone?.trim() || '';
       const finalBirthdayForRequest = finalBirthday || editableBirthday?.trim() || '';
-      const finalAuthTypeForRequest = finalAuthType || selectedAuthType?.trim() || '0';
+      const finalAuthTypeForRequest = finalAuthType || selectedAuthType?.trim() || '4';
       
       // 생년월일 및 인증 타입 검증
       if (!finalBirthdayForRequest || finalBirthdayForRequest.length === 0) {
@@ -2666,7 +2667,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         console.log('🔍 [handleNextStep] 스토리지에서 인증 방법 발견:', savedAuthType, StorageManager.isMemoryMode() ? '(메모리)' : '(localStorage)');
       }
       
-      const finalAuthType = (selectedAuthFromDOM ? String(selectedAuthFromDOM).trim() : '') || (selectedAuthType ? String(selectedAuthType).trim() : '') || '0';
+      const finalAuthType = (selectedAuthFromDOM ? String(selectedAuthFromDOM).trim() : '') || (selectedAuthType ? String(selectedAuthType).trim() : '') || '4';
       
       console.log('🔐 [handleNextStep] 인증 방법 확인 (버튼 클릭 시점):', {
         selectedAuthElement존재: !!selectedAuthElement,
