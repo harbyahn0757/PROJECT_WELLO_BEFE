@@ -4,6 +4,7 @@ LlamaIndex 및 Gemini LLM 기반 의료 지식 검색 엔진
 """
 import os
 import json
+import re
 from typing import List, Dict, Any, Optional
 from app.core.config import settings
 
@@ -143,6 +144,39 @@ async def init_rag_engine():
         print(f"[ERROR] RAG 엔진 초기화 중 오류: {str(e)}")
         return None
 
+def clean_html_content(text: str) -> str:
+    """
+    RAG 검색 결과(PDF 파싱 텍스트)에 포함된 HTML 태그를 제거하고 
+    가독성 있는 텍스트로 정제합니다.
+    """
+    if not text:
+        return ""
+    
+    try:
+        # 1. HTML Table 태그를 구조적 텍스트로 변환 시도
+        # </tr> -> 줄바꿈
+        text = re.sub(r'</tr>', '\n', text, flags=re.IGNORECASE)
+        # </td>, </th> -> 구분자 ( | )
+        text = re.sub(r'</td>', ' | ', text, flags=re.IGNORECASE)
+        text = re.sub(r'</th>', ' | ', text, flags=re.IGNORECASE)
+        # <br> -> 줄바꿈
+        text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+        
+        # 2. 나머지 HTML 태그 제거
+        text = re.sub(r'<[^>]+>', '', text)
+        
+        # 3. 마크다운 테이블 문법 보정 (파이프가 연속될 경우 정리)
+        text = re.sub(r'\|\s*\|', '|', text)
+        
+        # 4. 다중 공백/줄바꿈 정리
+        text = re.sub(r'\n\s*\n', '\n', text) # 과도한 줄바꿈 제거
+        text = re.sub(r' +', ' ', text) # 과도한 공백 제거
+        
+        return text.strip()
+    except Exception as e:
+        print(f"[WARN] HTML 정제 중 오류: {str(e)}")
+        return text
+
 def extract_evidence_from_source_nodes(response) -> List[Dict[str, Any]]:
     """LlamaIndex 응답에서 소스 노드 메타데이터 추출"""
     evidences = []
@@ -150,6 +184,10 @@ def extract_evidence_from_source_nodes(response) -> List[Dict[str, Any]]:
         for node in response.source_nodes:
             metadata = node.metadata if hasattr(node, 'metadata') else {}
             text = node.text if hasattr(node, 'text') else ""
+            
+            # [CRITICAL] HTML 태그 정제 (Table Cleaning)
+            text = clean_html_content(text)
+            
             score = node.score if hasattr(node, 'score') else 0.0
             
             # 메타데이터 추출 (파일명, 페이지 등)

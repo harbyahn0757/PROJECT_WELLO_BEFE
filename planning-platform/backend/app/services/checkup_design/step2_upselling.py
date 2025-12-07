@@ -27,6 +27,8 @@ async def create_checkup_design_prompt_step2_upselling(
     # 병원 추천 항목 (DB에서 가져온 것)
     hospital_recommended = request.hospital_recommended_items or []
     hospital_external_checkup = request.hospital_external_checkup_items or []
+    # [신규] 기본 검사 항목 (중복 방지용)
+    hospital_national_checkup = getattr(request, 'hospital_national_checkup_items', []) or []
     
     # 페르소나 정보 추출
     persona_info = step1_result.get("persona")
@@ -153,6 +155,20 @@ async def create_checkup_design_prompt_step2_upselling(
     if user_attributes:
         behavior_section = generate_behavior_section(user_attributes)
 
+    # [신규] 기본 검사 항목 섹션 구성 (참고 및 중복 방지용)
+    national_items_section = ""
+    if hospital_national_checkup:
+        national_items_section += "\n## [참고] 기본 검사 항목 (Gap 분석 대상 & 중복 추천 금지)\n"
+        national_items_section += "이 항목들은 환자가 기본적으로 받게 될 검사입니다. 1) Upselling 제안 시 이 항목들의 '의학적 한계'를 구체적으로 지적하는 근거로 사용하고, 2) Upselling 항목으로 중복 제안하지 마십시오.\n"
+        for item in hospital_national_checkup[:50]: # 너무 길면 자름
+            if isinstance(item, str):
+                name = item
+            else:
+                name = item.get('name') or item.get('item_name')
+            
+            if name:
+                national_items_section += f"- {name}\n"
+
     # 병원 추천 항목 섹션 구성
     hospital_items_section = ""
     if hospital_recommended:
@@ -197,6 +213,54 @@ async def create_checkup_design_prompt_step2_upselling(
     # [신규] Step 1 Persona Conflict Summary 추출
     persona_conflict_summary = step1_result.get("persona_conflict_summary", "")
     
+    # [신규] Risk Flags 기반 추천 항목 재정렬 (Reordering) - Python Logic
+    # LLM이 놓칠 수 있는 우선순위를 강제로 조정합니다.
+    risk_flags = step1_result.get("persona", {}).get("risk_flags", [])
+    if isinstance(risk_flags, str):
+        try: risk_flags = json.loads(risk_flags)
+        except: risk_flags = []
+        
+    if risk_flags and hospital_items_names:
+        reordered_items = []
+        normal_items = []
+        
+        # 우선순위 키워드 정의
+        priority_keywords = []
+        if "unintended_weight_loss" in risk_flags:
+            priority_keywords.extend(["내시경", "CT", "초음파", "암", "종양"])
+        if any("untreated_risk" in f for f in risk_flags):
+            priority_keywords.extend(["혈액", "정밀", "기능"])
+            
+        # 재정렬 수행
+        for item in hospital_items_names:
+            if any(k in item for k in priority_keywords):
+                reordered_items.append(item)
+            else:
+                normal_items.append(item)
+        
+        # 합치기 (우선순위 항목 + 나머지)
+        hospital_items_names = reordered_items + normal_items
+        
+        # hospital_items_section 재생성 (재정렬된 순서 반영)
+        hospital_items_section = "\n## 병원 추천 검진 항목 (우선 고려 - 재정렬됨)\n"
+        # 원래 객체 정보 매핑을 위해 간단히 이름만 나열하거나, 원본 객체를 찾아야 함.
+        # 여기서는 이름 리스트를 재정렬했으므로, 텍스트 생성 시 이 순서를 따르도록 함.
+        # (원본 hospital_recommended 객체 매핑은 복잡하므로, Prompt에 나열되는 순서만 변경)
+        for item_name in hospital_items_names:
+             # 원본 리스트에서 해당 이름의 설명을 찾아서 붙임 (비효율적이지만 안전)
+             found_item = next((i for i in hospital_recommended if (isinstance(i, str) and i == item_name) or (isinstance(i, dict) and (i.get('name') == item_name or i.get('item_name') == item_name))), None)
+             
+             if found_item:
+                if isinstance(found_item, str):
+                    hospital_items_section += f"- {found_item} (기타)\n"
+                else:
+                    name = found_item.get('name') or found_item.get('item_name')
+                    cat = found_item.get('category', '기타')
+                    desc = found_item.get('description', '')
+                    hospital_items_section += f"- {name} ({cat})"
+                    if desc: hospital_items_section += f": {desc}"
+                    hospital_items_section += "\n"
+
     # 프롬프트 조합
     prompt_parts = []
     
@@ -211,11 +275,21 @@ async def create_checkup_design_prompt_step2_upselling(
 
 위 [CRITICAL CLINICAL RULES]와 [TARGET PERSONA STRATEGY]를 바탕으로 모든 제안을 구성하십시오.
 
+## [Communication Rules] ⭐ Medical Reframing (암 → 만성질환 치환)
+**'암'이라는 단어는 공포를 유발합니다. 모든 검사 항목을 '만성질환 관리'와 '현재 상태 확인'의 관점으로 재해석(Reframing)하여 제안하십시오.**
+
+| 검사 항목 | ❌ 기존 논리 (Cancer-Focus) | ✅ 변경된 논리 (Chronic-Focus) |
+| :--- | :--- | :--- |
+| **저선량 폐 CT** | "폐암 조기 발견" | **"흡연과 미세먼지로 지친 폐의 '염증 상태' 확인 및 호흡기 관리"** |
+| **복부 초음파** | "간암, 췌장암 발견" | **"지방간이 얼마나 쌓였는지 눈으로 확인하고, '술 줄일 명분' 만들기"** |
+| **뇌 MRA/MRI** | "뇌종양, 뇌졸중 예방" | **"혈관이 얼마나 깨끗한지 확인하고, 고혈압/두통 관리를 위한 '기준점' 잡기"** |
+| **위/대장 내시경** | "위암, 대장암 진단" | **"속쓰림과 더부룩함의 원인(위염/용종)을 제거해서, '편안한 속' 되찾기"** |
+| **관상동맥 석회화 CT** | "심근경색 예방" | **"혈관 나이를 측정해서, 내 몸의 '엔진(심장)'이 얼마나 튼튼한지 성적표 받기"** |
+
 1. **RAG 우선 & 각주 필수**: [Critical Evidence]에 있는 내용을 반드시 인용하고, 문장 끝에 `[1]`, `[2]`와 같이 출처 번호를 표기하세요.
 2. **소통 전략: 'Casual & Smart (형/오빠 톤)'**: 
    - **Tone & Manner**: 딱딱한 의사가 아닌, **"건강 챙겨주는 센스 있는 형/오빠/친구"** 톤을 유지하세요.
    - **Key Message**: "안 하면 큰일 납니다(Fear)"가 아니라 **"이거 딱 챙기면 1년 농사 편해집니다(Value/Efficiency)"**로 설득하세요.
-   - **만성질환 퍼스트**: 암 검진이라도 '대사 관리'나 '생활 습관'과 연결하여 추천하세요. (예: 폐암 검사 → "흡연으로 지친 폐 상태 점검")
    
 3. **페르소나 적용 & 공감**: 환자는 **'{persona_type}' ({persona_desc})** 성향입니다.
    - **Worrier**: 확신과 안심("이 검사 하나로 불안을 끝내십시오.")
@@ -224,6 +298,7 @@ async def create_checkup_design_prompt_step2_upselling(
    - **Minimalist/Optimizer**: 가치 제안("이것이 가장 확실한 투자입니다.")
    
 4. **Safety Guardrail (Hallucination Prevention)**:
+   - **중복 방지 (No Duplication)**: '[참고] 기본 검사 항목'에 있는 검사는 이미 포함되어 있습니다. 이를 Upselling 항목으로 중복 제안하지 마십시오.
    - **체중 감소 시**: 반드시 내시경/CT 등 **구조적 검사**를 1순위로 제안하십시오. 유전자/마커 단독 제안 금지.
    - **심장 가족력 시**: **관상동맥 석회화 CT**를 필수 제안하십시오.
 
@@ -265,6 +340,7 @@ async def create_checkup_design_prompt_step2_upselling(
 
 {patient_info}
 {behavior_section}
+{national_items_section}
 {hospital_items_section}
 """)
 
@@ -276,7 +352,8 @@ async def create_checkup_design_prompt_step2_upselling(
 STEP 1의 환자 데이터, 페르소나 충돌 정보, 행동 패턴을 바탕으로 **"기본 검사의 한계"**를 지적하며 **"당신의 불안을 해소하고 행동을 교정해 드립니다"**는 화법으로 설득하십시오.
 
 **[논리 작성 규칙 - Must Do]**
-strategies 배열 내 각 항목은 다음 4단계 구조를 엄격히 따르십시오:
+strategies 배열은 **Priority 2와 Priority 3에 포함된 '모든 항목'에 대해 각각 작성**해야 합니다. (누락 금지)
+각 항목은 다음 4단계 구조를 엄격히 따르십시오:
 
 1. **Target**: 추천할 정밀 검사 항목 (**반드시 제공된 '병원 추천 검진 항목' 리스트 내 명칭만 사용**)
 2. **Anchor (Empathy & Behavior)**: `step1_anchor` 필드.
@@ -284,8 +361,10 @@ strategies 배열 내 각 항목은 다음 4단계 구조를 엄격히 따르십
    - Secondary Persona의 위험한 행동(술, 담배, 방치)이 그 감정과 모순되는 지점을 '하지만(But)' 화법으로 지적하십시오.
    - 예: "가족력 때문에 늘 불안하셨죠?(Primary) 하지만 매일 술을 드시는 건 그 불안을 현실로 만드는 행동입니다.(Secondary)"
 3. **Gap (Clinical Reality)**: `step2_gap` 필드.
-   - 기본 검사의 물리적 한계(Blind Spot)와 [CRITICAL CLINICAL RULES]의 Red Flag(체중감소 등)를 언급하십시오.
-   - 예: "체중 감소는 몸이 보내는 구조적 위험 신호일 수 있습니다. 기본 피검사로는 암의 위치를 알 수 없습니다."
+   - **Context의 `[참고] 기본 검사 항목`에 있는 구체적인 항목을 언급하며 한계를 지적하십시오.**
+   - 막연히 "기본 검사로는 안 됩니다"가 아니라, **"기본 패키지의 '흉부 촬영'으로는 1cm 미만의 결절을 발견하기 어렵습니다"**와 같이 구체적으로 비교하십시오.
+   - [CRITICAL CLINICAL RULES]의 Red Flag(체중감소 등)와 연결하여 정밀 검사의 필요성을 강조하십시오.
+   - 예: "체중 감소는 구조적 위험 신호인데, 기본 포함된 '혈액 검사'만으로는 암의 위치를 알 수 없습니다."
 4. **Offer (Hybrid Offer)**: `step3_offer` 필드.
    - 감정을 해소하고 행동을 바꿀 구체적 검사 제안.
    - 예: "간 섬유화 스캔으로 간 상태를 눈으로 확인하고, 술을 줄일 강력한 동기를 만드십시오."

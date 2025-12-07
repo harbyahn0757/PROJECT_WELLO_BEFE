@@ -1,0 +1,3169 @@
+[
+  {
+    "uuid": "ea95112e-99e9-4d12-babf-18fcd5dd828e",
+    "case_description": "Case A: [Conflict] Worrier(가족력) vs Manager(음주/흡연) 점수 충돌",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "이모순",
+    "age": 45,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "checkup",
+        "id": "c1",
+        "name": "위 내시경",
+        "status": "warning"
+      },
+      {
+        "type": "keyword",
+        "id": "k1",
+        "name": "암 가족력",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "drinking": "weekly_3plus",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": [
+        "heartburn"
+      ],
+      "job_type": "sales",
+      "stress_level": "high",
+      "sleep_time": "less_6h"
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 25000
+      }
+    ]
+  },
+  {
+    "uuid": "1ec42b72-de2e-4572-8873-437a477220ce",
+    "case_description": "Case B: [Symptom Solver] 다발성 증상 및 스트레스 기반 추천 유도",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "박통증",
+    "age": 38,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "symptom",
+        "id": "s1",
+        "name": "만성 피로",
+        "status": "high"
+      }
+    ],
+    "survey_responses": {
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": [
+        "fatigue",
+        "indigestion",
+        "headache",
+        "insomnia"
+      ],
+      "job_type": "office",
+      "stress_level": "extreme",
+      "sleep_time": "less_6h"
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "72810b1c-1821-49b5-810e-e03f1fd89a38",
+    "case_description": "Case C: [Red Flag Rule A] 의도치 않은 체중 감소 (Priority 강제 발동)",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "최감소",
+    "age": 52,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "drinking": "weekly_1",
+      "smoking": "past_smoker",
+      "exercise": "weekly_1",
+      "weight_change": "decrease_bad",
+      "family_history": [
+        "diabetes"
+      ],
+      "symptoms": [
+        "fatigue"
+      ],
+      "job_type": "executive",
+      "stress_level": "moderate",
+      "sleep_time": "6h_to_8h"
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "247f2378-2742-47a5-9eed-8c87a614ff7b",
+    "case_description": "Case D: [Optimizer] 건강하지만 고관여층 (Upselling 테스트)",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "정웰빙",
+    "age": 32,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "p1",
+        "name": "유전자 검사",
+        "status": "interest"
+      },
+      {
+        "type": "premium",
+        "id": "p2",
+        "name": "마이크로바이옴",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "daily",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": [],
+      "job_type": "freelance",
+      "stress_level": "low",
+      "sleep_time": "more_8h"
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "read_health_news",
+        "value": true
+      }
+    ]
+  },
+  {
+    "uuid": "7fca31cf-d87e-4ddc-8bf4-c1db56092a81",
+    "case_description": "Case E: [Red Flag Rule B] 과거 이상 소견 방치 (Metabolic Risk)",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "김방치",
+    "age": 49,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "drinking": "weekly_3plus",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "hypertension"
+      ],
+      "symptoms": [],
+      "job_type": "labor",
+      "stress_level": "moderate",
+      "sleep_time": "6h_to_8h"
+    },
+    "health_history": [
+      {
+        "year": 2023,
+        "item": "BP",
+        "result": "145/95",
+        "status": "abnormal"
+      },
+      {
+        "year": 2023,
+        "item": "FBS",
+        "result": "115",
+        "status": "borderline"
+      }
+    ],
+    "user_attributes": []
+  },
+  {
+    "uuid": "5068b78e-799f-4c81-8bb8-70bb17b5bdf2",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "김민지",
+    "age": 43,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "high",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_3plus",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "hypertension"
+      ],
+      "symptoms": [
+        "indigestion",
+        "fatigue"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "2d3f5960-a5bd-4b9a-b649-6c125086a96b",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "박지훈",
+    "age": 48,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "freelance",
+      "stress_level": "low",
+      "sleep_time": "6h_to_8h",
+      "drinking": "weekly_1",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "hypertension"
+      ],
+      "symptoms": [
+        "chest_pain"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "5feba617-2036-4381-b58a-c79dedbcd225",
+    "case_description": "Case Random: Normal Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임혜진",
+    "age": 30,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "high",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "dfac739d-d0e0-49e4-abfb-f13df01834fa",
+    "case_description": "Case Random: Normal Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임영희",
+    "age": 55,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "b494a15a-d6d8-4014-8840-ff65ba45cbca",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "강서연",
+    "age": 51,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "moderate",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_3plus",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "diabetes"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "88acebc9-d6b7-4af6-b355-da6f8a54f29b",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "정지훈",
+    "age": 41,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_3plus",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": [
+        "headache"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "980aee84-ce91-45b5-a29f-a2bdcfeb9321",
+    "case_description": "Case Random: Optimizer Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "최민지",
+    "age": 42,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "o1",
+        "name": "유전자 검사",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "weekly_3",
+      "weight_change": "none",
+      "family_history": [
+        "colon_cancer"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "6ba7422e-6192-4103-961c-737ea870205d",
+    "case_description": "Case Random: Normal Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "조현우",
+    "age": 39,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "extreme",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "ae352b54-a1c5-4a07-8d2a-0e2e69c1234d",
+    "case_description": "Case Random: Optimizer Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "강성민",
+    "age": 52,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "o1",
+        "name": "호르몬 나이",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "low",
+      "sleep_time": "more_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "daily",
+      "weight_change": "none",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "0f7a6e1b-9c21-4053-b894-7a9fd0cdba58",
+    "case_description": "Case Random (Red Flag A): Worrier with Weight Loss",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "정광수",
+    "age": 40,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "CT",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "decrease_bad",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": [
+        "insomnia",
+        "constipation",
+        "indigestion"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 17476
+      }
+    ]
+  },
+  {
+    "uuid": "7d64d289-3b20-4f4e-b004-32ad0382b22c",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "장혜진",
+    "age": 30,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "freelance",
+      "stress_level": "low",
+      "sleep_time": "more_8h",
+      "drinking": "weekly_3plus",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "4f5bae03-1fbf-4558-8443-d32f96242ea2",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "장영희",
+    "age": 33,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "sales",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_1",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "diabetes"
+      ],
+      "symptoms": [
+        "indigestion"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "c0ca1663-ee54-4ef3-a3d4-26df9525c45e",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임민수",
+    "age": 48,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "CT",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "freelance",
+      "stress_level": "extreme",
+      "sleep_time": "less_6h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": [
+        "headache"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 18454
+      }
+    ]
+  },
+  {
+    "uuid": "9137287e-cd17-47a6-9e18-620dcdfd71a0",
+    "case_description": "Case Random: Normal Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "정준호",
+    "age": 44,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "freelance",
+      "stress_level": "high",
+      "sleep_time": "6h_to_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "ebf34ac3-46e3-4c9b-864f-4f0ba8acea33",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "윤영희",
+    "age": 48,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "정밀 검진",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "extreme",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": [
+        "fatigue"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 19525
+      }
+    ]
+  },
+  {
+    "uuid": "d2e0381f-b1de-4df0-aaac-e540d593f485",
+    "case_description": "Case Random: Optimizer Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임철수",
+    "age": 40,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "o1",
+        "name": "마이크로바이옴",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "high",
+      "sleep_time": "6h_to_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "weekly_3",
+      "weight_change": "none",
+      "family_history": [
+        "diabetes"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "552965ec-26c0-484e-8d95-a4056f5739a0",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "박도현",
+    "age": 33,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "sales",
+      "stress_level": "extreme",
+      "sleep_time": "6h_to_8h",
+      "drinking": "weekly_3plus",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "diabetes"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "61677349-0067-419d-873d-758e55649d35",
+    "case_description": "Case Random: Symptom Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임민지",
+    "age": 49,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "symptom",
+        "id": "s1",
+        "name": "만성 피로",
+        "status": "pain"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "high",
+      "sleep_time": "6h_to_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": [
+        "fatigue",
+        "indigestion",
+        "dizziness",
+        "insomnia",
+        "chest_pain"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "b00a1e81-b048-4cd3-8810-feba0d87d125",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "정민지",
+    "age": 37,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "extreme",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_3plus",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": [
+        "chest_pain"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "80227427-bd1a-4446-baec-c8ad3c5045e6",
+    "case_description": "Case Random: Symptom Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "윤지은",
+    "age": 54,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "symptom",
+        "id": "s1",
+        "name": "만성 피로",
+        "status": "pain"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "freelance",
+      "stress_level": "high",
+      "sleep_time": "more_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "decrease_diet",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": [
+        "constipation",
+        "dizziness",
+        "heartburn",
+        "headache",
+        "indigestion",
+        "chest_pain"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "91ea9ba6-80b0-4262-9e9e-52a677090724",
+    "case_description": "Case Random: Normal Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "김혜진",
+    "age": 47,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "extreme",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "9ea069dd-cf38-497a-9b49-013f54410409",
+    "case_description": "Case Random: Normal Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "이혜진",
+    "age": 53,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "moderate",
+      "sleep_time": "more_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "ccddb92b-6199-4002-ab3b-07c4f67e61ca",
+    "case_description": "Case Random: Normal Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "윤영진",
+    "age": 41,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "moderate",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "7f09cbc4-b4ba-4ed2-ae71-1ceb73d38963",
+    "case_description": "Case Random: Optimizer Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "장지훈",
+    "age": 55,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "o1",
+        "name": "유전자 검사",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "high",
+      "sleep_time": "6h_to_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "daily",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "0828ec11-ea83-4e1a-9e20-6ed687134d55",
+    "case_description": "Case Random (Red Flag B): Worrier with Untreated History",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "박철수",
+    "age": 38,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "정밀 검진",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "low",
+      "sleep_time": "more_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": [
+        "indigestion",
+        "fatigue",
+        "headache"
+      ]
+    },
+    "health_history": [
+      {
+        "year": 2022,
+        "item": "BP",
+        "result": "150/90",
+        "status": "abnormal"
+      }
+    ],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 27404
+      }
+    ]
+  },
+  {
+    "uuid": "baa3ab59-1786-460f-a2e9-1fa394273500",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "정광수",
+    "age": 52,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "sales",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_1",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": [
+        "dizziness"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "8d1eadf2-2ab6-405f-8b17-3f951e612c9b",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "이성민",
+    "age": 31,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "CT",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": [
+        "heartburn",
+        "constipation",
+        "insomnia"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 21788
+      }
+    ]
+  },
+  {
+    "uuid": "646f9588-1aa2-4087-8efa-0daa5188da0d",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "윤철수",
+    "age": 55,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "moderate",
+      "sleep_time": "more_8h",
+      "drinking": "weekly_1",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "diabetes"
+      ],
+      "symptoms": [
+        "indigestion"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "06b3070b-aead-4be3-b490-b87cea545c63",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임철수",
+    "age": 54,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "MRI",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "extreme",
+      "sleep_time": "6h_to_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "colon_cancer"
+      ],
+      "symptoms": [
+        "indigestion",
+        "constipation"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 19640
+      }
+    ]
+  },
+  {
+    "uuid": "78e55457-e960-43bb-ae6b-26a367750d3b",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "김준호",
+    "age": 52,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "extreme",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_1",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "hypertension"
+      ],
+      "symptoms": [
+        "dizziness"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "db9b152c-afda-4838-a4b5-e0689c23d273",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "최영희",
+    "age": 49,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "MRI",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "high",
+      "sleep_time": "6h_to_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": [
+        "heartburn"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 15313
+      }
+    ]
+  },
+  {
+    "uuid": "6c598a50-9b4e-4027-b287-e30d22364bcd",
+    "case_description": "Case Random (Red Flag B): Manager with Untreated History",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임혜진",
+    "age": 32,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "freelance",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_3plus",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [
+      {
+        "year": 2022,
+        "item": "BP",
+        "result": "150/90",
+        "status": "abnormal"
+      }
+    ],
+    "user_attributes": []
+  },
+  {
+    "uuid": "c5dbf4c9-1d84-41de-b096-9e8b0eea1077",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "강혜진",
+    "age": 47,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "암 표지자",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "moderate",
+      "sleep_time": "6h_to_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": [
+        "fatigue",
+        "insomnia",
+        "constipation"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 20677
+      }
+    ]
+  },
+  {
+    "uuid": "ec55aaa7-75d1-4b12-a441-1272f311b85a",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "강지은",
+    "age": 44,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "moderate",
+      "sleep_time": "more_8h",
+      "drinking": "weekly_1",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "6068d86e-0e9f-4061-ab9e-103236886a01",
+    "case_description": "Case Random (Red Flag A): Manager with Weight Loss",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "최성민",
+    "age": 30,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "high",
+      "sleep_time": "more_8h",
+      "drinking": "weekly_1",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "decrease_bad",
+      "family_history": [
+        "hypertension"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "6793b082-730c-4d82-a62c-3780ac9dc7c7",
+    "case_description": "Case Random: Optimizer Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "정도현",
+    "age": 35,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "o1",
+        "name": "호르몬 나이",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "extreme",
+      "sleep_time": "6h_to_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "daily",
+      "weight_change": "none",
+      "family_history": [
+        "colon_cancer"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "ffdb2780-51eb-40db-87b3-ff7b6511c28b",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "장민지",
+    "age": 32,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "high",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_1",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "5669617f-5060-4fdb-8978-c6d090fc237a",
+    "case_description": "Case Random (Red Flag A): Worrier with Weight Loss",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "강민수",
+    "age": 40,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "뇌동맥류",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "moderate",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "decrease_bad",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": [
+        "fatigue",
+        "chest_pain",
+        "headache"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 16350
+      }
+    ]
+  },
+  {
+    "uuid": "629b4a92-ab00-4fa2-b61d-293099b610b2",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "정서연",
+    "age": 33,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "정밀 검진",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "freelance",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": [
+        "chest_pain",
+        "heartburn"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 15504
+      }
+    ]
+  },
+  {
+    "uuid": "3ad25e40-ba6d-44a6-9ad0-8099aa874085",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "박영희",
+    "age": 40,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "high",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_3plus",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "stroke"
+      ],
+      "symptoms": [
+        "heartburn"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "9e831255-80f0-493c-b109-805f20758aea",
+    "case_description": "Case Random: Normal Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "김광수",
+    "age": 32,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "sales",
+      "stress_level": "moderate",
+      "sleep_time": "more_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "3e90bd12-962d-4841-8417-ee8991870874",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임준호",
+    "age": 38,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "high",
+      "sleep_time": "more_8h",
+      "drinking": "weekly_1",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "colon_cancer"
+      ],
+      "symptoms": [
+        "indigestion",
+        "chest_pain"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "ae93b014-ea2b-45d9-a3d9-5c1441ad3c37",
+    "case_description": "Case Random (Red Flag B): Optimizer with Untreated History",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "장민수",
+    "age": 50,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "o1",
+        "name": "유전자 검사",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "extreme",
+      "sleep_time": "less_6h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "weekly_3",
+      "weight_change": "none",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": []
+    },
+    "health_history": [
+      {
+        "year": 2022,
+        "item": "BP",
+        "result": "150/90",
+        "status": "abnormal"
+      }
+    ],
+    "user_attributes": []
+  },
+  {
+    "uuid": "c6eebac5-9ea4-44ac-8719-cc983215c15e",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "장현우",
+    "age": 38,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "freelance",
+      "stress_level": "moderate",
+      "sleep_time": "6h_to_8h",
+      "drinking": "weekly_3plus",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "colon_cancer"
+      ],
+      "symptoms": [
+        "constipation"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "4845a464-2cef-41dc-b318-ea6306cd4cd1",
+    "case_description": "Case Random: Symptom Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "윤성민",
+    "age": 40,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "symptom",
+        "id": "s1",
+        "name": "통증 원인",
+        "status": "pain"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "sales",
+      "stress_level": "high",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "decrease_diet",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": [
+        "headache",
+        "dizziness",
+        "chest_pain",
+        "indigestion"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "da4d7363-0939-47c9-895e-3c0e21b189bf",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임영희",
+    "age": 50,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "extreme",
+      "sleep_time": "more_8h",
+      "drinking": "weekly_1",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "ef25240a-a49b-499a-9982-9cfd74a41c84",
+    "case_description": "Case Random: Normal Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "박성민",
+    "age": 52,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "sales",
+      "stress_level": "extreme",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "efbb3f1a-a273-4373-8048-fcba0babe4b9",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "강민수",
+    "age": 53,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "뇌동맥류",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "high",
+      "sleep_time": "6h_to_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "colon_cancer"
+      ],
+      "symptoms": [
+        "heartburn",
+        "indigestion"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 16823
+      }
+    ]
+  },
+  {
+    "uuid": "ebb69599-a5ef-46d7-89cf-b5820e9529b8",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임광수",
+    "age": 49,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "MRI",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "extreme",
+      "sleep_time": "less_6h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": [
+        "indigestion",
+        "heartburn",
+        "insomnia"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 23153
+      }
+    ]
+  },
+  {
+    "uuid": "021caee6-7c49-4a2e-bba0-4404d28907f6",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "정지은",
+    "age": 36,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "뇌동맥류",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "moderate",
+      "sleep_time": "6h_to_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": [
+        "dizziness",
+        "fatigue",
+        "indigestion"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 24190
+      }
+    ]
+  },
+  {
+    "uuid": "32276327-bcef-4499-a848-752106888878",
+    "case_description": "Case Random: Normal Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "이민지",
+    "age": 32,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "low",
+      "sleep_time": "6h_to_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "bae01137-3de9-40b8-9dcb-368c1a8bf0dd",
+    "case_description": "Case Random: Optimizer Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "윤민지",
+    "age": 49,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "o1",
+        "name": "유전자 검사",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "high",
+      "sleep_time": "more_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "weekly_3",
+      "weight_change": "none",
+      "family_history": [
+        "hypertension"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "a4205c82-aed6-41fe-986a-3d5766571129",
+    "case_description": "Case Random: Normal Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "조수빈",
+    "age": 33,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "extreme",
+      "sleep_time": "6h_to_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "ad2ca89a-0312-4c5d-be13-623ece0ba688",
+    "case_description": "Case Random: Optimizer Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "최서연",
+    "age": 34,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "o1",
+        "name": "유전자 검사",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "extreme",
+      "sleep_time": "6h_to_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "daily",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "d666743d-a63d-4043-b255-b65072a590e2",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "최철수",
+    "age": 52,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "extreme",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_3plus",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "diabetes"
+      ],
+      "symptoms": [
+        "constipation"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "99abcc65-d1a5-401e-80d7-8ddd689391b7",
+    "case_description": "Case Random (Red Flag A): Symptom with Weight Loss",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "윤영진",
+    "age": 50,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "symptom",
+        "id": "s1",
+        "name": "기능 의학",
+        "status": "pain"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "high",
+      "sleep_time": "more_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "decrease_bad",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": [
+        "headache",
+        "chest_pain",
+        "insomnia",
+        "heartburn"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "848b4b16-0a46-4855-bf05-fb01e94874e4",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "장혜진",
+    "age": 45,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "high",
+      "sleep_time": "more_8h",
+      "drinking": "weekly_1",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": [
+        "fatigue",
+        "constipation"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "a9f8020a-ba8e-4c1d-bfa8-8bf25368e50f",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "정지훈",
+    "age": 40,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "정밀 검진",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "moderate",
+      "sleep_time": "6h_to_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": [
+        "insomnia",
+        "indigestion",
+        "headache"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 19136
+      }
+    ]
+  },
+  {
+    "uuid": "d6e63151-0d82-41f0-a404-65326694a926",
+    "case_description": "Case Random (Red Flag B): Worrier with Untreated History",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "강지은",
+    "age": 45,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "MRI",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "moderate",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": [
+        "heartburn",
+        "headache",
+        "indigestion"
+      ]
+    },
+    "health_history": [
+      {
+        "year": 2022,
+        "item": "BP",
+        "result": "150/90",
+        "status": "abnormal"
+      }
+    ],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 17799
+      }
+    ]
+  },
+  {
+    "uuid": "6701568f-f73b-41af-bcdc-1c9bd0710bb9",
+    "case_description": "Case Random: Symptom Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임지은",
+    "age": 33,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "symptom",
+        "id": "s1",
+        "name": "만성 피로",
+        "status": "pain"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "freelance",
+      "stress_level": "high",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": [
+        "indigestion",
+        "heartburn",
+        "headache"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "bb7b759f-1b00-430c-8b1c-b8bc62f6b28d",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "장성민",
+    "age": 49,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "MRI",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "extreme",
+      "sleep_time": "6h_to_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "colon_cancer"
+      ],
+      "symptoms": [
+        "fatigue",
+        "chest_pain",
+        "constipation"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 18266
+      }
+    ]
+  },
+  {
+    "uuid": "657d2faa-d48c-4ca1-8788-e33efd7a915c",
+    "case_description": "Case Random: Optimizer Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "이영희",
+    "age": 49,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "o1",
+        "name": "항산화 검사",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "high",
+      "sleep_time": "more_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "weekly_3",
+      "weight_change": "none",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "9391971b-fe4d-4e8f-8936-be52386f108f",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "정지훈",
+    "age": 30,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "CT",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "high",
+      "sleep_time": "6h_to_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": [
+        "chest_pain"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 23187
+      }
+    ]
+  },
+  {
+    "uuid": "65e87661-ab14-4f49-8210-0284e46dda93",
+    "case_description": "Case Random: Optimizer Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "이성민",
+    "age": 36,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "o1",
+        "name": "유전자 검사",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "sales",
+      "stress_level": "moderate",
+      "sleep_time": "more_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "daily",
+      "weight_change": "none",
+      "family_history": [
+        "diabetes"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "a501e71b-da09-4cd7-b6da-41062796a3f9",
+    "case_description": "Case Random: Symptom Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "이철수",
+    "age": 40,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "symptom",
+        "id": "s1",
+        "name": "통증 원인",
+        "status": "pain"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "high",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": [
+        "indigestion",
+        "chest_pain",
+        "fatigue"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "01a15346-bff7-4758-ab67-c81f1549c537",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임지은",
+    "age": 53,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "암 표지자",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": [
+        "chest_pain"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 17483
+      }
+    ]
+  },
+  {
+    "uuid": "c40bacea-d0b7-4327-ad89-4b59b83365db",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "장현우",
+    "age": 39,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "뇌동맥류",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "sales",
+      "stress_level": "high",
+      "sleep_time": "more_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": [
+        "dizziness",
+        "insomnia",
+        "fatigue"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 28937
+      }
+    ]
+  },
+  {
+    "uuid": "1922279d-e6d4-46ea-b809-e4a373b947f4",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "이현우",
+    "age": 44,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "high",
+      "sleep_time": "more_8h",
+      "drinking": "weekly_3plus",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "ba56c2b2-162d-4894-a735-337f376b217a",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "최민수",
+    "age": 39,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_1",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "0d39a45a-e1ad-4d11-aa44-644216a51521",
+    "case_description": "Case Random: Symptom Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임수빈",
+    "age": 41,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "symptom",
+        "id": "s1",
+        "name": "통증 원인",
+        "status": "pain"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "high",
+      "sleep_time": "6h_to_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": [
+        "constipation",
+        "headache",
+        "dizziness",
+        "heartburn",
+        "fatigue"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "2d2a22ef-3c5e-4e77-90a9-f9083f3d2c9b",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임영진",
+    "age": 33,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "freelance",
+      "stress_level": "low",
+      "sleep_time": "more_8h",
+      "drinking": "weekly_1",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": [
+        "constipation",
+        "indigestion"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "511ee852-00c7-4cd5-b90b-f563188f5517",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "강수빈",
+    "age": 46,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "정밀 검진",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "high",
+      "sleep_time": "less_6h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "colon_cancer"
+      ],
+      "symptoms": [
+        "indigestion",
+        "heartburn"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 19454
+      }
+    ]
+  },
+  {
+    "uuid": "dae4ded2-c6ce-4497-a6e6-7182eee43d50",
+    "case_description": "Case Random: Optimizer Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "조현우",
+    "age": 54,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "o1",
+        "name": "항산화 검사",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "high",
+      "sleep_time": "6h_to_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "daily",
+      "weight_change": "none",
+      "family_history": [
+        "diabetes"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "0c9669ea-6cda-4bb0-aeb4-97cf339faad7",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "이영희",
+    "age": 36,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "high",
+      "sleep_time": "more_8h",
+      "drinking": "weekly_3plus",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "hypertension"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "e834cf60-e3c9-4e11-b2d2-2ff08a760b67",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "이현우",
+    "age": 35,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_1",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": [
+        "constipation",
+        "fatigue"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "4b2ae0f1-5549-4f44-a58f-7c3fbe451f33",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "박도현",
+    "age": 54,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "extreme",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_1",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "14a60d4f-1917-4ff4-bee3-bfaae913c276",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "장철수",
+    "age": 30,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "암 표지자",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "extreme",
+      "sleep_time": "6h_to_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "colon_cancer"
+      ],
+      "symptoms": [
+        "constipation"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 19931
+      }
+    ]
+  },
+  {
+    "uuid": "795c7022-1710-41fc-a90c-69cf8afeb594",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "정성민",
+    "age": 39,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "high",
+      "sleep_time": "more_8h",
+      "drinking": "weekly_3plus",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "colon_cancer"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "21f10667-a70b-440f-ae60-1308a0117a53",
+    "case_description": "Case Random (Red Flag B): Worrier with Untreated History",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "박영희",
+    "age": 50,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "정밀 검진",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": [
+        "chest_pain",
+        "fatigue"
+      ]
+    },
+    "health_history": [
+      {
+        "year": 2022,
+        "item": "BP",
+        "result": "150/90",
+        "status": "abnormal"
+      }
+    ],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 16272
+      }
+    ]
+  },
+  {
+    "uuid": "608c0d6f-d52d-4946-be4d-a52e1f3dd101",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "박현우",
+    "age": 48,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "정밀 검진",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "sales",
+      "stress_level": "extreme",
+      "sleep_time": "less_6h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": [
+        "constipation",
+        "fatigue",
+        "insomnia"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 25316
+      }
+    ]
+  },
+  {
+    "uuid": "a8968bf6-a2a5-452a-8dff-73a5665b5354",
+    "case_description": "Case Random: Optimizer Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "강영희",
+    "age": 38,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "o1",
+        "name": "호르몬 나이",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "sales",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "weekly_3",
+      "weight_change": "none",
+      "family_history": [
+        "diabetes"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "336a6367-d094-4227-a6b3-53ff974dea93",
+    "case_description": "Case Random: Symptom Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "임지훈",
+    "age": 35,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "symptom",
+        "id": "s1",
+        "name": "기능 의학",
+        "status": "pain"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "high",
+      "sleep_time": "less_6h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "decrease_diet",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": [
+        "insomnia",
+        "heartburn",
+        "indigestion"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "4b036bfb-7581-47e0-8594-680fa53995c5",
+    "case_description": "Case Random: Optimizer Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "김현우",
+    "age": 43,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "o1",
+        "name": "유전자 검사",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "weekly_3",
+      "weight_change": "none",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "f21f88b3-24ca-479b-ab6e-87c00b51d4c8",
+    "case_description": "Case Random (Red Flag B): Symptom with Untreated History",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "정지훈",
+    "age": 53,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "symptom",
+        "id": "s1",
+        "name": "기능 의학",
+        "status": "pain"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "high",
+      "sleep_time": "more_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "decrease_diet",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": [
+        "dizziness",
+        "headache",
+        "constipation",
+        "fatigue",
+        "heartburn"
+      ]
+    },
+    "health_history": [
+      {
+        "year": 2022,
+        "item": "BP",
+        "result": "150/90",
+        "status": "abnormal"
+      }
+    ],
+    "user_attributes": []
+  },
+  {
+    "uuid": "468417e3-ed57-4c01-ba4c-396dfd9c72c5",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "최혜진",
+    "age": 54,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "extreme",
+      "sleep_time": "6h_to_8h",
+      "drinking": "weekly_3plus",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "stroke"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "21c81757-95ef-4dad-b90a-9285168fed09",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "강철수",
+    "age": 32,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "executive",
+      "stress_level": "extreme",
+      "sleep_time": "6h_to_8h",
+      "drinking": "weekly_1",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "diabetes"
+      ],
+      "symptoms": [
+        "headache"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "4b67568a-a9f0-488e-bb40-75287ce46de7",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "강광수",
+    "age": 36,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "뇌동맥류",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "sales",
+      "stress_level": "moderate",
+      "sleep_time": "6h_to_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": [
+        "headache",
+        "heartburn"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 19016
+      }
+    ]
+  },
+  {
+    "uuid": "3391ba7b-2439-459b-82dc-7c4cb853be3f",
+    "case_description": "Case Random: Optimizer Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "강영희",
+    "age": 41,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "premium",
+        "id": "o1",
+        "name": "마이크로바이옴",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "office",
+      "stress_level": "extreme",
+      "sleep_time": "6h_to_8h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "daily",
+      "weight_change": "none",
+      "family_history": [
+        "diabetes"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "8e924bf1-598b-4b62-a9f0-767f310144b2",
+    "case_description": "Case Random: Normal Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "윤혜진",
+    "age": 30,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "low",
+      "sleep_time": "6h_to_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "86e03ef9-493e-473d-93c8-416c52890ca5",
+    "case_description": "Case Random (Red Flag A): Manager with Weight Loss",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "박광수",
+    "age": 42,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "housewife",
+      "stress_level": "extreme",
+      "sleep_time": "more_8h",
+      "drinking": "weekly_3plus",
+      "smoking": "current_smoker",
+      "exercise": "none",
+      "weight_change": "decrease_bad",
+      "family_history": [
+        "hypertension"
+      ],
+      "symptoms": [
+        "dizziness"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "503087c7-497f-40e6-ac03-e62f4e86614c",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "박도현",
+    "age": 37,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "CT",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "freelance",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": [
+        "constipation",
+        "headache",
+        "fatigue"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 20124
+      }
+    ]
+  },
+  {
+    "uuid": "9b4608ae-ffa2-499d-b323-d9580f746baa",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "강서연",
+    "age": 37,
+    "gender": "F",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "MRI",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "sales",
+      "stress_level": "high",
+      "sleep_time": "6h_to_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "stomach_cancer"
+      ],
+      "symptoms": [
+        "constipation",
+        "headache",
+        "dizziness"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 18038
+      }
+    ]
+  },
+  {
+    "uuid": "e3ae2362-1cb8-4850-b7b4-803d45d21965",
+    "case_description": "Case Random: Normal Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "김혜진",
+    "age": 55,
+    "gender": "M",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "labor",
+      "stress_level": "extreme",
+      "sleep_time": "more_8h",
+      "drinking": "monthly_1",
+      "smoking": "none",
+      "exercise": "weekly_1",
+      "weight_change": "none",
+      "family_history": [
+        "none"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  },
+  {
+    "uuid": "b56db70e-9d60-4082-afa8-b6fb2b732a97",
+    "case_description": "Case Random: Worrier Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "윤혜진",
+    "age": 44,
+    "gender": "M",
+    "selected_concerns": [
+      {
+        "type": "keyword",
+        "id": "w1",
+        "name": "MRI",
+        "status": "interest"
+      }
+    ],
+    "survey_responses": {
+      "job_type": "freelance",
+      "stress_level": "extreme",
+      "sleep_time": "less_6h",
+      "drinking": "none",
+      "smoking": "none",
+      "exercise": "none",
+      "weight_change": "none",
+      "family_history": [
+        "liver_cancer"
+      ],
+      "symptoms": [
+        "indigestion",
+        "chest_pain"
+      ]
+    },
+    "health_history": [],
+    "user_attributes": [
+      {
+        "key": "dwell_time_family_history",
+        "value": 22328
+      }
+    ]
+  },
+  {
+    "uuid": "7dc239a7-a639-4d1e-90d9-384befa55d34",
+    "case_description": "Case Random: Manager Type",
+    "hospital_id": "test-hospital-01",
+    "patient_name": "강광수",
+    "age": 41,
+    "gender": "F",
+    "selected_concerns": [],
+    "survey_responses": {
+      "job_type": "sales",
+      "stress_level": "low",
+      "sleep_time": "less_6h",
+      "drinking": "weekly_3plus",
+      "smoking": "past_smoker",
+      "exercise": "none",
+      "weight_change": "increase",
+      "family_history": [
+        "hypertension"
+      ],
+      "symptoms": []
+    },
+    "health_history": [],
+    "user_attributes": []
+  }
+]

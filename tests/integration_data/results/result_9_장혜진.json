@@ -1,0 +1,372 @@
+{
+  "patient_summary": "장혜진님은 38세 여성으로, 과거 흡연 이력이 있으며 주 1회 음주를 합니다. 가족력으로 당뇨병이 있어 유전적 위험이 존재합니다. 최근 건강검진 이력은 확인되지 않았습니다.",
+  "analysis": "혜진님, 가족력 때문에 당뇨 걱정이 많으실 텐데, 그 마음 충분히 이해합니다. 과거 담배를 피우셨고, 술도 일주일에 한 번씩 드시는 걸 보니, 혈당 관리에 조금 더 신경 쓰셔야 할 것 같아요. 지금은 젊으시니까 괜찮다고 생각할 수 있지만, 미리 관리하지 않으면 나중에 큰돈 깨질 수 있어요. 특히 음주 문항에서 잠시 머뭇거리신 걸 보면, 줄여야 한다는 걸 알면서도 쉽지 않다는 걸 알 수 있습니다. 지금부터라도 식습관 조절과 꾸준한 운동으로 혈당 관리를 시작하면 1년 농사가 편해질 거예요. 잊지 마세요, 지금 잡으면 나중에 큰 병을 막을 수 있습니다.",
+  "risk_profile": [
+    {
+      "organ_system": "심혈관계",
+      "risk_level": "Moderate",
+      "reason": "과거 흡연 이력과 주 1회 음주 습관으로 인해 심혈관 건강에 대한 위험이 있습니다. 가족력(당뇨) 또한 위험을 증가시킵니다."
+    },
+    {
+      "organ_system": "혈당",
+      "risk_level": "Moderate",
+      "reason": "가족력(당뇨)으로 인해 혈당 조절에 대한 유전적 위험이 있습니다. 생활 습관 개선이 필요합니다."
+    }
+  ],
+  "chronic_analysis": {
+    "has_chronic_disease": false,
+    "disease_list": [],
+    "complication_risk": "가족력(당뇨)이 있으므로, 정기적인 혈당 검사를 통해 당뇨병 발생 여부를 확인하고, 발생 시 합병증(눈, 콩팥, 신경)을 예방해야 합니다."
+  },
+  "survey_reflection": "이번 문진을 통해 혜진님의 가족력과 생활 습관을 파악했습니다. 앞으로 혜진님의 '대사 엔진'인 간, 혈관, 콩팥 상태를 꼼꼼히 점검하고, 혈당 관리에 필요한 맞춤 정보를 제공해 드릴 예정입니다.",
+  "selected_concerns_analysis": [],
+  "basic_checkup_guide": {
+    "title": "일반검진, 이 부분은 잘 보세요",
+    "description": "일반검진 결과지를 확인하실 때, 장혜진님 상황에서는 아래 항목들을 특히 잘 살펴보시길 바랍니다.",
+    "focus_items": [
+      {
+        "item_name": "혈압측정",
+        "why_important": "흡연 및 음주 이력은 혈압 상승의 원인이 될 수 있습니다. 혈압은 심혈관 건강의 중요한 지표이므로, 꾸준히 확인하는 것이 좋습니다.",
+        "check_point": "수축기 혈압 120mmHg 미만, 이완기 혈압 80mmHg 미만인지 확인하세요."
+      },
+      {
+        "item_name": "혈액검사",
+        "why_important": "가족력(당뇨)이 있으므로, 혈당 수치를 주의 깊게 봐야 합니다. 또한, 간 기능 검사(AST, ALT) 수치를 확인하여 간 건강 상태를 파악하는 것이 중요합니다.",
+        "check_point": "공복 혈당 100mg/dL 미만, AST/ALT 수치가 정상 범위 내에 있는지 확인하세요."
+      },
+      {
+        "item_name": "신체계측",
+        "why_important": "체중 변화는 건강 상태를 나타내는 중요한 지표입니다. 특히, 복부 비만은 대사증후군의 위험을 높이므로, 허리둘레를 꾸준히 측정하는 것이 좋습니다.",
+        "check_point": "정상 체중(BMI 18.5~22.9kg/m²)을 유지하고, 허리둘레가 여성 기준 85cm 미만인지 확인하세요."
+      }
+    ]
+  },
+  "summary": {
+    "key_health_issues": [],
+    "family_history_concerns": [
+      "당뇨"
+    ],
+    "lifestyle_factors": [
+      "과거 흡연",
+      "주 1회 음주"
+    ],
+    "priority_1": {
+      "focus_items": [
+        {
+          "item_name": "혈압측정",
+          "why_important": "흡연 및 음주 이력은 혈압 상승의 원인이 될 수 있습니다. 혈압은 심혈관 건강의 중요한 지표이므로, 꾸준히 확인하는 것이 좋습니다.",
+          "check_point": "수축기 혈압 120mmHg 미만, 이완기 혈압 80mmHg 미만인지 확인하세요."
+        },
+        {
+          "item_name": "혈액검사",
+          "why_important": "가족력(당뇨)이 있으므로, 혈당 수치를 주의 깊게 봐야 합니다. 또한, 간 기능 검사(AST, ALT) 수치를 확인하여 간 건강 상태를 파악하는 것이 중요합니다.",
+          "check_point": "공복 혈당 100mg/dL 미만, AST/ALT 수치가 정상 범위 내에 있는지 확인하세요."
+        },
+        {
+          "item_name": "신체계측",
+          "why_important": "체중 변화는 건강 상태를 나타내는 중요한 지표입니다. 특히, 복부 비만은 대사증후군의 위험을 높이므로, 허리둘레를 꾸준히 측정하는 것이 좋습니다.",
+          "check_point": "정상 체중(BMI 18.5~22.9kg/m²)을 유지하고, 허리둘레가 여성 기준 85cm 미만인지 확인하세요."
+        }
+      ]
+    }
+  },
+  "priority_1": {
+    "title": "이번 검진 시 유의 깊게 보실 항목이에요",
+    "description": "일반검진 결과지를 확인하실 때, 특히 주의 깊게 살펴보시면 좋을 항목들입니다.",
+    "items": [
+      "혈압측정",
+      "혈액검사",
+      "신체계측"
+    ],
+    "count": 3,
+    "focus_items": [
+      {
+        "name": "혈압측정",
+        "why_important": "흡연 및 음주 이력은 혈압 상승의 원인이 될 수 있습니다. 혈압은 심혈관 건강의 중요한 지표이므로, 꾸준히 확인하는 것이 좋습니다.",
+        "check_point": "수축기 혈압 120mmHg 미만, 이완기 혈압 80mmHg 미만인지 확인하세요."
+      },
+      {
+        "name": "혈액검사",
+        "why_important": "가족력(당뇨)이 있으므로, 혈당 수치를 주의 깊게 봐야 합니다. 또한, 간 기능 검사(AST, ALT) 수치를 확인하여 간 건강 상태를 파악하는 것이 중요합니다.",
+        "check_point": "공복 혈당 100mg/dL 미만, AST/ALT 수치가 정상 범위 내에 있는지 확인하세요."
+      },
+      {
+        "name": "신체계측",
+        "why_important": "체중 변화는 건강 상태를 나타내는 중요한 지표입니다. 특히, 복부 비만은 대사증후군의 위험을 높이므로, 허리둘레를 꾸준히 측정하는 것이 좋습니다.",
+        "check_point": "정상 체중(BMI 18.5~22.9kg/m²)을 유지하고, 허리둘레가 여성 기준 85cm 미만인지 확인하세요."
+      }
+    ]
+  },
+  "priority_2": {
+    "title": "병원에서 추천하는 정밀 검진",
+    "description": "장혜진님을 위한 필수 가이드라인 및 가족력 기반 추천",
+    "items": [
+      "복부 초음파",
+      "위 내시경"
+    ],
+    "count": 2,
+    "health_context": "간 및 소화기 정밀 확인"
+  },
+  "priority_3": {
+    "title": "선택해서 받아보실 수 있는 항목",
+    "description": "더 정밀한 검사를 원하신다면 고려해보세요.",
+    "items": [
+      "저선량 폐 CT"
+    ],
+    "count": 1,
+    "health_context": "호흡기 및 폐 건강 확인"
+  },
+  "strategies": [
+    {
+      "target": "복부 초음파",
+      "step1_anchor": "가족력 때문에 늘 불안하셨죠?(Primary) 하지만 주 1회 음주는 간 건강에 악영향을 미칠 수 있습니다.(Secondary)",
+      "step2_gap": "기본 혈액검사로는 간 수치만 알 수 있으며, 실제로 간에 지방이 얼마나 쌓였는지, 간 표면이 거칠어졌는지는 확인할 수 없습니다.",
+      "step3_offer": "복부 초음파를 통해 간의 상태를 직접 확인하고, 음주 습관을 개선할 수 있는 확실한 동기를 만드십시오.",
+      "doctor_recommendation": {
+        "reason": "간 건강은 전반적인 대사 건강에 영향을 미치며, 지방간은 당뇨의 위험을 높일 수 있습니다.",
+        "evidence": "40세 이상 비만 소견자 복부 정밀 검사 필요 [2]",
+        "references": [
+          "https://..."
+        ],
+        "message": "간 건강은 삶의 질과 직결됩니다. 초음파로 간을 꼼꼼히 확인해보세요."
+      }
+    },
+    {
+      "target": "위 내시경",
+      "step1_anchor": "속쓰림과 더부룩함이 가끔 있으시죠?(Primary) 하지만 이런 증상을 방치하면 더 큰 문제가 될 수 있습니다.(Secondary)",
+      "step2_gap": "기본 검진의 혈액검사로는 위의 상태를 알 수 없습니다. 위 내시경으로 직접 확인해야 합니다.",
+      "step3_offer": "위 내시경을 통해 위염이나 용종을 조기 발견하고, 소화기 건강을 회복할 수 있는 기회를 가지세요.",
+      "doctor_recommendation": {
+        "reason": "위염이나 용종은 조기 발견 시 관리가 용이합니다.",
+        "evidence": "위암 조기 발견을 위한 위 내시경 필요 [1]",
+        "references": [
+          "https://..."
+        ],
+        "message": "소화기 건강은 일상의 편안함과 직결됩니다. 내시경으로 속을 편하게 만드세요."
+      }
+    }
+  ],
+  "recommended_items": [
+    {
+      "category": "이번 검진 시 유의 깊게 보실 항목이에요",
+      "category_en": "Priority 1",
+      "itemCount": 3,
+      "items": [
+        {
+          "name": "혈압측정",
+          "description": "흡연 및 음주 이력은 혈압 상승의 원인이 될 수 있습니다. 혈압은 심혈관 건강의 중요한 지표이므로, 꾸준히 확인하는 것이 좋습니다.",
+          "reason": "수축기 혈압 120mmHg 미만, 이완기 혈압 80mmHg 미만인지 확인하세요.",
+          "priority": 1,
+          "recommended": true
+        },
+        {
+          "name": "혈액검사",
+          "description": "가족력(당뇨)이 있으므로, 혈당 수치를 주의 깊게 봐야 합니다. 또한, 간 기능 검사(AST, ALT) 수치를 확인하여 간 건강 상태를 파악하는 것이 중요합니다.",
+          "reason": "공복 혈당 100mg/dL 미만, AST/ALT 수치가 정상 범위 내에 있는지 확인하세요.",
+          "priority": 1,
+          "recommended": true
+        },
+        {
+          "name": "신체계측",
+          "description": "체중 변화는 건강 상태를 나타내는 중요한 지표입니다. 특히, 복부 비만은 대사증후군의 위험을 높이므로, 허리둘레를 꾸준히 측정하는 것이 좋습니다.",
+          "reason": "정상 체중(BMI 18.5~22.9kg/m²)을 유지하고, 허리둘레가 여성 기준 85cm 미만인지 확인하세요.",
+          "priority": 1,
+          "recommended": true
+        }
+      ],
+      "doctor_recommendation": {
+        "has_recommendation": true,
+        "message": "일반검진 결과지를 확인하실 때, 특히 주의 깊게 살펴보시면 좋을 항목들입니다."
+      },
+      "defaultExpanded": true,
+      "priorityLevel": 1
+    },
+    {
+      "category": "병원에서 추천하는 정밀 검진",
+      "category_en": "Priority 2",
+      "itemCount": 2,
+      "items": [
+        {
+          "name": "복부 초음파",
+          "description": "간 건강은 전반적인 대사 건강에 영향을 미치며, 지방간은 당뇨의 위험을 높일 수 있습니다. 40세 이상 비만 소견자 복부 정밀 검사 필요 [2]",
+          "reason": "간 건강은 삶의 질과 직결됩니다. 초음파로 간을 꼼꼼히 확인해보세요.",
+          "priority": 2,
+          "recommended": true
+        },
+        {
+          "name": "위 내시경",
+          "description": "위염이나 용종은 조기 발견 시 관리가 용이합니다. 위암 조기 발견을 위한 위 내시경 필요 [1]",
+          "reason": "소화기 건강은 일상의 편안함과 직결됩니다. 내시경으로 속을 편하게 만드세요.",
+          "priority": 2,
+          "recommended": true
+        }
+      ],
+      "doctor_recommendation": {
+        "has_recommendation": true,
+        "message": "장혜진님을 위한 필수 가이드라인 및 가족력 기반 추천"
+      },
+      "defaultExpanded": false
+    },
+    {
+      "category": "선택해서 받아보실 수 있는 항목",
+      "category_en": "Priority 3",
+      "itemCount": 1,
+      "items": [
+        {
+          "name": "저선량 폐 CT",
+          "description": " ",
+          "reason": "",
+          "priority": 3,
+          "recommended": true
+        }
+      ],
+      "doctor_recommendation": {
+        "has_recommendation": true,
+        "message": "더 정밀한 검사를 원하신다면 고려해보세요."
+      },
+      "defaultExpanded": false
+    }
+  ],
+  "doctor_comment": {
+    "overall_assessment": "혜진님, 가족력과 생활 습관을 고려할 때 지금부터 관리하면 1년이 편해질 겁니다. 간과 소화기 건강을 먼저 챙기세요.",
+    "key_recommendations": [
+      "복부 초음파로 간 상태 확인",
+      "위 내시경으로 소화기 건강 점검"
+    ]
+  },
+  "total_count": 6,
+  "rag_evidences": [
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 3,
+      "citation": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시...",
+      "full_text": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시기 바랍니다. 전자문서와 병행하여 발송하여 가족 구성원 간 검진표 수령방식 및 수령시기가 차이날 수 있습니다.\n※ 최근 등록한 검진 항목과 수검받은 이력은 적용되지 않는 점 양지하여 주시기 바랍니다.(기준일 : 2024년 3월 18일)\n\n<table>\n  <thead>\n    <tr>\n      <th>성명</th>\n      <th colspan=\"2\"></th>\n      <th>증번호</th>\n      <th colspan=\"2\"></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>실시기간</td>\n      <td colspan=\"2\">2024년 12월 31일까지</td>\n<td>문의전화</td>\n      <td colspan=\"2\">1577-1000</td>\n    </tr>\n<tr>\n      <td rowspan=\"10\">검진항목<br>비용</td>\n      <td rowspan=\"3\">건강검진</td>\n<td>일반건강검진</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td>구강검진</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>항목</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"7\">암검진</td>\n<td>위암 (40세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>대장암 (분변잠혈검사) (50세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"2\">간암</td>\n<td>(상반기) (40세 이상 고위험군)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>(하반기)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>유방암 (40세 이상",
+      "confidence_score": 0.54303354,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "38세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \ndiabetes 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "2024년+국가+암검진+사업안내(최종).pdf",
+      "page": 75,
+      "citation": "<td colspan=\"3\">2023년12월31일까지</td>\n<td>1577-1000</td>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      ...",
+      "full_text": "<td colspan=\"3\">2023년12월31일까지</td>\n<td>1577-1000</td>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <th rowspan=\"11\">검진항목<br>•<br>비용</th>\n      <th rowspan=\"3\">건강검진</th>\n      <th>항목</th>\n      <th>대상여부</th>\n      <th colspan=\"2\">비용부담</th>\n    </tr>\n<tr>\n      <td>일반건강검진</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>구강검진</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <th rowspan=\"8\">암검진</th>\n      <th>항목</th>\n      <th>대상여부</th>\n      <th colspan=\"2\">비용부담</th>\n    </tr>\n<tr>\n      <td>위암 (40세 이상)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>대장암 (분변잠혈검사) (50세 이상)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>(상반기)</td>\n<td>(40세 이상 고위험군)</td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>(하반기)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>유방암 (40세 이상 여성)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>자궁경부암 (20세 이상 여성)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>폐암 (54세~74세 고위험군)</td>\n<td></td>\n      <td colspan=\"2\"></td>",
+      "confidence_score": 0.528315,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "38세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \ndiabetes 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 6,
+      "citation": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n   ...",
+      "full_text": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n      <th>비고</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td rowspan=\"3\">이상지질혈증</td>\n<td>· 총콜레스테롤</td>\n      <td rowspan=\"3\">남자:24세 이상(4년 주기)<br>여자:40세 이상(4년 주기)</td>\n      <td rowspan=\"3\">남자:24세, 28세, 32세…<br>여자:40세, 44세, 48세…</td>\n    </tr>\n<tr>\n      <td>· HDL/LDL 콜레스테롤</td>\n    </tr>\n<tr>\n      <td>· 중성지방(트리글리세라이드)</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">B형간염 검사</td>\n<td>40세</td>\n<td>면역자, 보균자는 제외</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">골밀도 검사</td>\n<td>54세 여성과 66세 여성</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">인지기능장애</td>\n<td>66세 이상(2년 주기)</td>\n<td>66세, 68세, 70세…</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">정신건강(우울증) 검사</td>\n<td>20세, 30세, 40세, 50세, 60세, 70세</td>\n<td>해당 연령을 시작으로 10년동안 1회</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">생활습관평가</td>\n<td>40세, 50세, 60세, 70세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">노인신체기능 검사</td>\n<td>66세, 70세, 80세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">치면세균막 검사</td>\n<td>40세</td>\n<td>구강검진 항목</td>\n    </tr>\n  </tbody>\n</table>\n\n# 확진검사\n\n<table>\n  <thead>\n    <tr>",
+      "confidence_score": 0.43467787,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "38세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \ndiabetes 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "간질환 백서(2024 Update)_최종파일.pdf",
+      "page": 424,
+      "citation": "선별검사 388\n* 알코올 사용장애의 선별검사 179\n* 알코올 사용장애의 진단 기준 151\n* 알코올 사용장애자 사회적 지원 390\n* 알코올상담센터 180\n* 알코올 섭취량 1...",
+      "full_text": "선별검사 388\n* 알코올 사용장애의 선별검사 179\n* 알코올 사용장애의 진단 기준 151\n* 알코올 사용장애자 사회적 지원 390\n* 알코올상담센터 180\n* 알코올 섭취량 164\n* 알코올 소비량 154\n* 알코올의존증후군 150\n* 알코올 전문병원 180\n* 알코올 중독 150\n* 알코올 지방간 164\n* 약물방출미세구 324\n* 에탄올주입술 322\n* 역동적 조영증강 CT, MRI 291\n* 영상검사 간암 288\n* 외국인 근로자 80, 125, 406\n* 운동요법 211\n* 원발성 담즙성 담관염 30\n* 월간음주율 157\n* 윌슨병 31\n* 유전 및 대사 질환 31\n* 음주문화 391\n* 음주행태 159\n* 이식편 370\n* 이트리움-90 329\n* 이환손실금 278\n* 인슐린 저항성 29\n* 인터페론/리바비린 136\n* 인터페론 알파 102\n\n## ㅈ\n* 자가면역 간질환 30\n* 자연경과 31\n* 자연경과 A형간염 56\n* 자연경과 B형간염 88\n* 자연경과 간경변증 226\n* 자연경과 비알코올 지방간질환 199\n* 자연경과 알코올 간질환 169\n* 장기구득체계 358\n* 재발 간암 307, 315\n* 재발 간염 374\n* 전격성 간염 28\n* 전수감시체계 81\n* 정맥주사 약물남용 140\n* 조기 간암 288\n* 조영증강 초음파검사 291\n* 중복 감염 27\n* 지속바이러스 반응 135\n* 직접비의료비 278\n* 직접의료비 278\n* 진행성 간암 304, 334\n* 질병부담 33\n* 질병부담 A형간염",
+      "confidence_score": 0.3694976,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "38세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \ndiabetes 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "2025 당뇨병 진료지침_전문_최종본.pdf",
+      "page": 117,
+      "citation": "검사.\n*   추정사구체여과율/알부민뇨 연 2회 검사.\n*   추정사구체여과율/알부민뇨 연 3회 검사.\n*   추정사구체여과율/알부민뇨 연 4회 검사.\n\n만성신장질환의 합병증은 보...",
+      "full_text": "검사.\n*   추정사구체여과율/알부민뇨 연 2회 검사.\n*   추정사구체여과율/알부민뇨 연 3회 검사.\n*   추정사구체여과율/알부민뇨 연 4회 검사.\n\n만성신장질환의 합병증은 보통 eGFR 60 mL/min/1.73 m<sup>2</sup> 이하에서 발생한다. 혈압이나 체액 증가는 진찰 시마다 관찰해야 하며, 혈청생화학검사는 증상이 있을 때 하거나, 만성신장질환 3기에서는 6-12개월마다, 4기에서는 3-5개월마다, 5기에서는 1-3개월마다 시행한다.\n\nClinical Practice Guidelines for Diabetes\n당뇨병합병증관리\n233",
+      "confidence_score": 0.29994574,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "38세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \ndiabetes 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "2025 당뇨병 진료지침_전문_최종본.pdf",
+      "page": 12,
+      "citation": "</tr>\n  </tbody>\n</table>\n\nNNS; number need to screen, NHIS-NSC; National Health Insurance Service-N...",
+      "full_text": "</tr>\n  </tbody>\n</table>\n\nNNS; number need to screen, NHIS-NSC; National Health Insurance Service-National Sample Cohort, KNHANES; Korea National Health and Nutrition Examination Survey\n\n## 02. 이득(편익)\n선별검사 연령을 낮추면 조기에 당뇨병을 진단할 가능성이 높아져, 합병증 예방과 조기 관리가 가능하며, 고위험군이 포함된 젊은 성인층에서 당뇨병전단계를 발견해 당뇨병으로의 진행을 예방하고, 복부비만 등 위험인자를 가진 대상자에게 건강관리 기회를 제공할 수 있다.\n\n## 03. 위해\n선별검사 연령 기준이 낮아짐에 따라 일부 저위험군에서도 선별검사가 이루어질 가능성이 있어 불필요한 검사가 증가할 수 있으며, 선별검사를 위해 공복혈장포도당, 당화혈색소, 경구포도당내성검사를 수행하는 과정에서 비용 및 시간이 소요될 수 있다.\n\n## 04. 이득과 위해의 균형\n당뇨병 조기 발견을 위한 선별검사 연령 기준을 낮춤으로써 얻는 이득이 검사의 비용과 불편함에 비해 크며, 고위험군을 대상으로 선별검사를 통해 장기적으로 당뇨병합병증 예방에 기여할 수 있다.\n\n## 05. 다양한 대안, 지침 사용시 고려사항\n급격히 증가하는 당뇨병의 유병률을 고려할 때 더 많은 인구 범위에서 선별검사를 하는 것이 유용하나, 경제성 문제 등에 대한 고려가 필요하다.\n\n# 권고 2.\n## 선별검사 후 추가검사 및 추적관찰\n1) 하나의 당뇨병 선별검사 결과가 당뇨병전단계에 해당하는",
+      "confidence_score": 0.26293808,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "38세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \ndiabetes 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 3,
+      "citation": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시...",
+      "full_text": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시기 바랍니다. 전자문서와 병행하여 발송하여 가족 구성원 간 검진표 수령방식 및 수령시기가 차이날 수 있습니다.\n※ 최근 등록한 검진 항목과 수검받은 이력은 적용되지 않는 점 양지하여 주시기 바랍니다.(기준일 : 2024년 3월 18일)\n\n<table>\n  <thead>\n    <tr>\n      <th>성명</th>\n      <th colspan=\"2\"></th>\n      <th>증번호</th>\n      <th colspan=\"2\"></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>실시기간</td>\n      <td colspan=\"2\">2024년 12월 31일까지</td>\n<td>문의전화</td>\n      <td colspan=\"2\">1577-1000</td>\n    </tr>\n<tr>\n      <td rowspan=\"10\">검진항목<br>비용</td>\n      <td rowspan=\"3\">건강검진</td>\n<td>일반건강검진</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td>구강검진</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>항목</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"7\">암검진</td>\n<td>위암 (40세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>대장암 (분변잠혈검사) (50세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"2\">간암</td>\n<td>(상반기) (40세 이상 고위험군)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>(하반기)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>유방암 (40세 이상",
+      "confidence_score": 0.595987,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "38세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \ndiabetes 가족력이 있을 때 권장되는 조기 선별검사 \n위 내시경 관련 최신 진료지침과 검사 권고안 \n대장 내시경 관련 최신 진료지침과 검사 권고안 \n복부 초음파 관련 최신 진료지침과 검사 권고안 \n저선량 폐 CT 관련 최신 진료지침과 검사 권고안 \n뇌 MRA 관련 최신 진료지침과 검사 권고안 \n경동맥 초음파 관련 최신 진료지침과 검사 권고안 \n관상동맥 석회화 CT 관련 최신 진료지침과 검사 권고안 \n갑상선 초음파 관련 최신 진료지침과 검사 권고안 \nNK세포 활성도 검사 관련 최신 진료지침과 검사 권고안 \n마스트 알레르기 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 (DTC) 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 6,
+      "citation": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n   ...",
+      "full_text": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n      <th>비고</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td rowspan=\"3\">이상지질혈증</td>\n<td>· 총콜레스테롤</td>\n      <td rowspan=\"3\">남자:24세 이상(4년 주기)<br>여자:40세 이상(4년 주기)</td>\n      <td rowspan=\"3\">남자:24세, 28세, 32세…<br>여자:40세, 44세, 48세…</td>\n    </tr>\n<tr>\n      <td>· HDL/LDL 콜레스테롤</td>\n    </tr>\n<tr>\n      <td>· 중성지방(트리글리세라이드)</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">B형간염 검사</td>\n<td>40세</td>\n<td>면역자, 보균자는 제외</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">골밀도 검사</td>\n<td>54세 여성과 66세 여성</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">인지기능장애</td>\n<td>66세 이상(2년 주기)</td>\n<td>66세, 68세, 70세…</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">정신건강(우울증) 검사</td>\n<td>20세, 30세, 40세, 50세, 60세, 70세</td>\n<td>해당 연령을 시작으로 10년동안 1회</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">생활습관평가</td>\n<td>40세, 50세, 60세, 70세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">노인신체기능 검사</td>\n<td>66세, 70세, 80세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">치면세균막 검사</td>\n<td>40세</td>\n<td>구강검진 항목</td>\n    </tr>\n  </tbody>\n</table>\n\n# 확진검사\n\n<table>\n  <thead>\n    <tr>",
+      "confidence_score": 0.5030035,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "38세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \ndiabetes 가족력이 있을 때 권장되는 조기 선별검사 \n위 내시경 관련 최신 진료지침과 검사 권고안 \n대장 내시경 관련 최신 진료지침과 검사 권고안 \n복부 초음파 관련 최신 진료지침과 검사 권고안 \n저선량 폐 CT 관련 최신 진료지침과 검사 권고안 \n뇌 MRA 관련 최신 진료지침과 검사 권고안 \n경동맥 초음파 관련 최신 진료지침과 검사 권고안 \n관상동맥 석회화 CT 관련 최신 진료지침과 검사 권고안 \n갑상선 초음파 관련 최신 진료지침과 검사 권고안 \nNK세포 활성도 검사 관련 최신 진료지침과 검사 권고안 \n마스트 알레르기 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 (DTC) 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "2025 당뇨병 진료지침_전문_최종본.pdf",
+      "page": 117,
+      "citation": "검사.\n*   추정사구체여과율/알부민뇨 연 2회 검사.\n*   추정사구체여과율/알부민뇨 연 3회 검사.\n*   추정사구체여과율/알부민뇨 연 4회 검사.\n\n만성신장질환의 합병증은 보...",
+      "full_text": "검사.\n*   추정사구체여과율/알부민뇨 연 2회 검사.\n*   추정사구체여과율/알부민뇨 연 3회 검사.\n*   추정사구체여과율/알부민뇨 연 4회 검사.\n\n만성신장질환의 합병증은 보통 eGFR 60 mL/min/1.73 m<sup>2</sup> 이하에서 발생한다. 혈압이나 체액 증가는 진찰 시마다 관찰해야 하며, 혈청생화학검사는 증상이 있을 때 하거나, 만성신장질환 3기에서는 6-12개월마다, 4기에서는 3-5개월마다, 5기에서는 1-3개월마다 시행한다.\n\nClinical Practice Guidelines for Diabetes\n당뇨병합병증관리\n233",
+      "confidence_score": 0.47592255,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "38세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \ndiabetes 가족력이 있을 때 권장되는 조기 선별검사 \n위 내시경 관련 최신 진료지침과 검사 권고안 \n대장 내시경 관련 최신 진료지침과 검사 권고안 \n복부 초음파 관련 최신 진료지침과 검사 권고안 \n저선량 폐 CT 관련 최신 진료지침과 검사 권고안 \n뇌 MRA 관련 최신 진료지침과 검사 권고안 \n경동맥 초음파 관련 최신 진료지침과 검사 권고안 \n관상동맥 석회화 CT 관련 최신 진료지침과 검사 권고안 \n갑상선 초음파 관련 최신 진료지침과 검사 권고안 \nNK세포 활성도 검사 관련 최신 진료지침과 검사 권고안 \n마스트 알레르기 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 (DTC) 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 42,
+      "citation": "### 핵심질문 4. 폐암선별검사의 주기는 어떻게 시행되어야 하는가?\n\n권고: 1년 주기로 저선량 흉부CT를 이용한 폐암 선별검사를 실시할 것을 권고한다. 그러나 저선량 흉부CT를...",
+      "full_text": "### 핵심질문 4. 폐암선별검사의 주기는 어떻게 시행되어야 하는가?\n\n권고: 1년 주기로 저선량 흉부CT를 이용한 폐암 선별검사를 실시할 것을 권고한다. 그러나 저선량 흉부CT를 이용한 폐암 선별검사를 장기적으로 매년 반복하여 실시하였을 때 얻을 수 있는 이득과 유해의 크기에 대한 연구가 아직 없으므로 추가 연구가 필요하다.\n\n### 핵심질문 5. 폐암 선별검사를 위하여 권고하지 않는 검사방법은 무엇인가?\n\n권고: 폐암 발생 위험이 있는 사람에게 1회 또는 정기적인 흉부X선으로 폐암 선별검사를 시행하는 것은 권고하지 않는다. 객담 세포진 검사 역시 관련 연구에서 폐암사망률을 유의하게 감소시키지 못하여 권고하지 않는다. 현재까지 개발된 Carcinoembryonic antigen (CEA), Squamous cell carcinoma antigen (SCC-Ag), Cyfra 21-1, Neuron specific enolase (NSE) 등 혈청 종양 표지자는 조기 폐암 진단을 위한 충분한 진단적 민감도와 특이도를 충족시키지 못하므로 폐암 선별검사로 사용하는 것을 권고하지 않는다.\n\n### 핵심질문 6. 저선량 흉부CT 폐암 선별검사는 어디서 시행하고 누가 판독해야 하는가?\n\n권고: 폐암 검진을 위한 저선량 흉부CT는 16채널 이상의 다중검출기를 보유한 영상의학과 전문의가 상근하는 의료기관에서 시행할 것을",
+      "confidence_score": 0.47008035,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "38세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \ndiabetes 가족력이 있을 때 권장되는 조기 선별검사 \n위 내시경 관련 최신 진료지침과 검사 권고안 \n대장 내시경 관련 최신 진료지침과 검사 권고안 \n복부 초음파 관련 최신 진료지침과 검사 권고안 \n저선량 폐 CT 관련 최신 진료지침과 검사 권고안 \n뇌 MRA 관련 최신 진료지침과 검사 권고안 \n경동맥 초음파 관련 최신 진료지침과 검사 권고안 \n관상동맥 석회화 CT 관련 최신 진료지침과 검사 권고안 \n갑상선 초음파 관련 최신 진료지침과 검사 권고안 \nNK세포 활성도 검사 관련 최신 진료지침과 검사 권고안 \n마스트 알레르기 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 (DTC) 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 15,
+      "citation": "폐암 검진 권고안의 개발범위(PIPOH)는 다음과 같이 설정하였다(표 5).\n\n표 5. 폐암 검진 권고안 개발 범위\n\n<table>\n  <thead>\n    <tr>\n      <...",
+      "full_text": "폐암 검진 권고안의 개발범위(PIPOH)는 다음과 같이 설정하였다(표 5).\n\n표 5. 폐암 검진 권고안 개발 범위\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>•P (Population)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 고위험군</td>\n    </tr>\n<tr>\n      <td>•I (Intervention)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 저선량 흉부CT, 흉부X선, 객담세포진검사, 종양표지자</td>\n    </tr>\n<tr>\n      <td>•P (Professional)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 모든 의사</td>\n    </tr>\n<tr>\n      <td>•O (Outcome)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 사망률 감소, 검진 관련 위해</td>\n    </tr>\n<tr>\n      <td>•H (Health)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 일차, 이차, 삼차 의료기관</td>\n    </tr>\n  </tbody>\n</table>\n\n①,④,5\n\n그림 3. 폐암 검진 권고안의 분석틀.\n```mermaid\ngraph LR\n    A[\"High-risk population (3)\"] --> B[\"Screening (2)\"]\n    B --> C[\"Low-dose CT\"]\n    C --> D[\"Decreased mortality\"]\n    B --> E[\"Harm of screening (6)\"]\n```\n\n① KQ1 : 선별검사의 이득\n② KQ2 : 선별검사의 위해\n③ KQ3 : 선별검사의 권고대상\n④ KQ4 : 선별검사의 주기 및 지속 기간\n⑤ KQ5 : 기타 선별검사\n⑥ KQ6 : 검사의 질관리\n\n요약 11",
+      "confidence_score": 0.4543517,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "38세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \ndiabetes 가족력이 있을 때 권장되는 조기 선별검사 \n위 내시경 관련 최신 진료지침과 검사 권고안 \n대장 내시경 관련 최신 진료지침과 검사 권고안 \n복부 초음파 관련 최신 진료지침과 검사 권고안 \n저선량 폐 CT 관련 최신 진료지침과 검사 권고안 \n뇌 MRA 관련 최신 진료지침과 검사 권고안 \n경동맥 초음파 관련 최신 진료지침과 검사 권고안 \n관상동맥 석회화 CT 관련 최신 진료지침과 검사 권고안 \n갑상선 초음파 관련 최신 진료지침과 검사 권고안 \nNK세포 활성도 검사 관련 최신 진료지침과 검사 권고안 \n마스트 알레르기 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 (DTC) 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 14,
+      "citation": "위원회의 논의를 통해 다음과 같이 도출하였다(표 4).\n\n표 4. 근거중심의 폐암 검진 권고안 개발을 위한 핵심질문\n\n<table>\n  <thead>\n    <tr>\n      <...",
+      "full_text": "위원회의 논의를 통해 다음과 같이 도출하였다(표 4).\n\n표 4. 근거중심의 폐암 검진 권고안 개발을 위한 핵심질문\n\n<table>\n  <thead>\n    <tr>\n      <th>핵심질문</th>\n      <th></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>핵심질문 1 : 선별검사의 이득</td>\n<td>- 사망률(폐암사망률, 전체사망률) 감소</td>\n    </tr>\n<tr>\n      <td>핵심질문 2 : 선별검사의 위해</td>\n<td>- 위양성, 과진단<br>- 방사선 노출</td>\n    </tr>\n<tr>\n      <td>핵심질문 3 : 선별검사의 권고대상</td>\n<td>- 고위험군</td>\n    </tr>\n<tr>\n      <td>핵심질문 4 : 선별검사의 주기 및 지속 기간</td>\n<td>- 주기<br>- 지속 기간</td>\n    </tr>\n<tr>\n      <td>핵심질문 5 : 기타 선별검사</td>\n<td>- 흉부X선, 객담 세포진 검사, 종양표지자 등</td>\n    </tr>\n<tr>\n      <td>핵심질문 6 : 검사의 질관리</td>\n<td>- CT 기기의 조건<br>- 판독의사의 자격 등</td>\n    </tr>\n  </tbody>\n</table>\n\n10 폐암 검진 권고안",
+      "confidence_score": 0.42978892,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "38세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \ndiabetes 가족력이 있을 때 권장되는 조기 선별검사 \n위 내시경 관련 최신 진료지침과 검사 권고안 \n대장 내시경 관련 최신 진료지침과 검사 권고안 \n복부 초음파 관련 최신 진료지침과 검사 권고안 \n저선량 폐 CT 관련 최신 진료지침과 검사 권고안 \n뇌 MRA 관련 최신 진료지침과 검사 권고안 \n경동맥 초음파 관련 최신 진료지침과 검사 권고안 \n관상동맥 석회화 CT 관련 최신 진료지침과 검사 권고안 \n갑상선 초음파 관련 최신 진료지침과 검사 권고안 \nNK세포 활성도 검사 관련 최신 진료지침과 검사 권고안 \n마스트 알레르기 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 (DTC) 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    }
+  ]
+}

@@ -1,0 +1,347 @@
+{
+  "patient_summary": "과거 검진 이력은 확인되지 않았습니다. 현재 흡연 중이며, 음주는 주 1회 정도입니다. 특별한 건강 문제는 인지하지 못하고 있습니다.",
+  "analysis": "조수빈님, 현재 흡연이라는 뚜렷한 위험 요인이 눈에 띕니다. 담배는 혈관을 좁게 만들고, 폐 건강을 해치는 주범입니다. 특히 50대 남성 흡연자는 심혈관 질환과 폐 질환 위험이 매우 높습니다. \n\n겉으로는 건강에 대해 크게 걱정하지 않는 듯하지만, 흡연이라는 습관은 무시할 수 없는 문제입니다. 지금 당장은 괜찮을지 몰라도, 시간이 지날수록 '혈관 찌꺼기'가 쌓이고, '만성 피로'가 심해질 수 있습니다. 지금이라도 금연을 시작하고, 몸 속 대사 엔진을 점검하는 것이 중요합니다. 특히 폐 CT 촬영을 통해 폐 건강 상태를 확인하는 것을 추천합니다.",
+  "risk_profile": [
+    {
+      "organ_system": "심뇌혈관",
+      "risk_level": "High",
+      "reason": "흡연으로 인한 혈관 손상 및 심혈관 질환 위험 증가"
+    },
+    {
+      "organ_system": "폐",
+      "risk_level": "High",
+      "reason": "현재 흡연 중으로 폐암, COPD 등 폐 질환 위험 증가"
+    }
+  ],
+  "chronic_analysis": {
+    "has_chronic_disease": false,
+    "disease_list": [],
+    "complication_risk": "흡연으로 인한 심혈관 질환, 폐 질환 발생 가능성 주시 필요"
+  },
+  "survey_reflection": "이번 검진 설계에서는 흡연으로 인한 심혈관 및 폐 건강 위험을 집중적으로 점검하고, '내 몸의 대사 엔진(간, 혈관, 콩팥) 상태'를 꼼꼼히 확인하는 데 초점을 맞추겠습니다.",
+  "selected_concerns_analysis": [],
+  "basic_checkup_guide": {
+    "title": "일반검진, 이 부분은 잘 보세요",
+    "description": "일반검진 결과지를 확인하실 때, 조수빈님 상황에서는 아래 항목들을 특히 잘 살펴보시길 바랍니다.",
+    "focus_items": [
+      {
+        "item_name": "흉부방사선촬영",
+        "why_important": "흡연으로 인한 폐 질환 위험을 확인하기 위해 중요합니다.",
+        "check_point": "폐에 이상 음영이 있는지, 과거 촬영 결과와 비교하여 변화가 있는지 확인하세요."
+      },
+      {
+        "item_name": "혈압측정",
+        "why_important": "흡연은 혈압을 상승시켜 심혈관 질환 위험을 높일 수 있습니다.",
+        "check_point": "수축기 혈압과 이완기 혈압이 모두 정상 범위 내에 있는지 확인하세요."
+      }
+    ]
+  },
+  "summary": {
+    "key_health_issues": [],
+    "family_history_concerns": [],
+    "lifestyle_factors": [
+      "흡연 중",
+      "음주 주 1회"
+    ],
+    "priority_1": {
+      "focus_items": [
+        {
+          "item_name": "흉부방사선촬영",
+          "why_important": "흡연으로 인한 폐 질환 위험을 확인하기 위해 중요합니다.",
+          "check_point": "폐에 이상 음영이 있는지, 과거 촬영 결과와 비교하여 변화가 있는지 확인하세요."
+        },
+        {
+          "item_name": "혈압측정",
+          "why_important": "흡연은 혈압을 상승시켜 심혈관 질환 위험을 높일 수 있습니다.",
+          "check_point": "수축기 혈압과 이완기 혈압이 모두 정상 범위 내에 있는지 확인하세요."
+        }
+      ]
+    }
+  },
+  "priority_1": {
+    "title": "이번 검진 시 유의 깊게 보실 항목이에요",
+    "description": "일반검진 결과지를 확인하실 때, 특히 주의 깊게 살펴보시면 좋을 항목들입니다.",
+    "items": [
+      "흉부방사선촬영",
+      "혈압측정"
+    ],
+    "count": 2,
+    "focus_items": [
+      {
+        "name": "흉부방사선촬영",
+        "why_important": "흡연으로 인한 폐 질환 위험을 확인하기 위해 중요합니다.",
+        "check_point": "폐에 이상 음영이 있는지, 과거 촬영 결과와 비교하여 변화가 있는지 확인하세요."
+      },
+      {
+        "name": "혈압측정",
+        "why_important": "흡연은 혈압을 상승시켜 심혈관 질환 위험을 높일 수 있습니다.",
+        "check_point": "수축기 혈압과 이완기 혈압이 모두 정상 범위 내에 있는지 확인하세요."
+      }
+    ]
+  },
+  "priority_2": {
+    "title": "병원에서 추천하는 정밀 검진",
+    "description": "50대 남성 필수 가이드라인 및 흡연 습관 기반 추천",
+    "items": [
+      "저선량 폐 CT",
+      "관상동맥 석회화 CT"
+    ],
+    "count": 2,
+    "health_context": "호흡기 및 심혈관 정밀 확인"
+  },
+  "priority_3": {
+    "title": "선택해서 받아보실 수 있는 항목",
+    "description": "더 정밀한 검사를 원하신다면 고려해보세요.",
+    "items": [
+      "복부 초음파"
+    ],
+    "count": 1,
+    "health_context": "간 및 소화기 정밀 검진"
+  },
+  "strategies": [
+    {
+      "target": "저선량 폐 CT",
+      "step1_anchor": "흡연으로 인해 폐 건강이 걱정되시죠? 하지만 흡연을 계속하면서 폐 건강을 무시하는 건 위험합니다.",
+      "step2_gap": "기본 검진의 '흉부방사선촬영'으로는 미세한 폐 염증이나 작은 결절을 발견하기 어렵습니다.",
+      "step3_offer": "저선량 폐 CT를 통해 폐의 염증 상태를 확인하고, 흡연으로 지친 폐를 관리할 수 있는 기회를 만드세요.",
+      "doctor_recommendation": {
+        "reason": "흡연으로 인한 폐 손상은 조기 발견이 중요합니다.",
+        "evidence": "50세 이상 흡연자의 저선량 폐 CT 권장 [4]",
+        "references": [
+          "https://..."
+        ],
+        "message": "폐 건강을 체크하고, 흡연으로 인한 손상을 관리하세요."
+      }
+    },
+    {
+      "target": "관상동맥 석회화 CT",
+      "step1_anchor": "혈압이 걱정되시죠? 하지만 흡연은 심혈관 건강을 위협하는 주범입니다.",
+      "step2_gap": "기본 혈압측정만으로는 심장 혈관의 상태를 정확히 알 수 없습니다.",
+      "step3_offer": "관상동맥 석회화 CT로 심장 혈관의 석회화 정도를 확인하고, 심혈관 건강을 효율적으로 관리하세요.",
+      "doctor_recommendation": {
+        "reason": "흡연으로 인한 심혈관 질환 위험을 줄이기 위해 심장 혈관 상태를 알아야 합니다.",
+        "evidence": "흡연자의 심혈관 질환 예방을 위한 정밀 검사 필요 [3]",
+        "references": [
+          "https://..."
+        ],
+        "message": "심장 건강을 확인하고, 안심할 수 있는 관리 기준을 세우세요."
+      }
+    }
+  ],
+  "recommended_items": [
+    {
+      "category": "이번 검진 시 유의 깊게 보실 항목이에요",
+      "category_en": "Priority 1",
+      "itemCount": 2,
+      "items": [
+        {
+          "name": "흉부방사선촬영",
+          "description": "흡연으로 인한 폐 질환 위험을 확인하기 위해 중요합니다.",
+          "reason": "폐에 이상 음영이 있는지, 과거 촬영 결과와 비교하여 변화가 있는지 확인하세요.",
+          "priority": 1,
+          "recommended": true
+        },
+        {
+          "name": "혈압측정",
+          "description": "흡연은 혈압을 상승시켜 심혈관 질환 위험을 높일 수 있습니다.",
+          "reason": "수축기 혈압과 이완기 혈압이 모두 정상 범위 내에 있는지 확인하세요.",
+          "priority": 1,
+          "recommended": true
+        }
+      ],
+      "doctor_recommendation": {
+        "has_recommendation": true,
+        "message": "일반검진 결과지를 확인하실 때, 특히 주의 깊게 살펴보시면 좋을 항목들입니다."
+      },
+      "defaultExpanded": true,
+      "priorityLevel": 1
+    },
+    {
+      "category": "병원에서 추천하는 정밀 검진",
+      "category_en": "Priority 2",
+      "itemCount": 2,
+      "items": [
+        {
+          "name": "저선량 폐 CT",
+          "description": "흡연으로 인한 폐 손상은 조기 발견이 중요합니다. 50세 이상 흡연자의 저선량 폐 CT 권장 [4]",
+          "reason": "폐 건강을 체크하고, 흡연으로 인한 손상을 관리하세요.",
+          "priority": 2,
+          "recommended": true
+        },
+        {
+          "name": "관상동맥 석회화 CT",
+          "description": "흡연으로 인한 심혈관 질환 위험을 줄이기 위해 심장 혈관 상태를 알아야 합니다. 흡연자의 심혈관 질환 예방을 위한 정밀 검사 필요 [3]",
+          "reason": "심장 건강을 확인하고, 안심할 수 있는 관리 기준을 세우세요.",
+          "priority": 2,
+          "recommended": true
+        }
+      ],
+      "doctor_recommendation": {
+        "has_recommendation": true,
+        "message": "50대 남성 필수 가이드라인 및 흡연 습관 기반 추천"
+      },
+      "defaultExpanded": false
+    },
+    {
+      "category": "선택해서 받아보실 수 있는 항목",
+      "category_en": "Priority 3",
+      "itemCount": 1,
+      "items": [
+        {
+          "name": "복부 초음파",
+          "description": " ",
+          "reason": "",
+          "priority": 3,
+          "recommended": true
+        }
+      ],
+      "doctor_recommendation": {
+        "has_recommendation": true,
+        "message": "더 정밀한 검사를 원하신다면 고려해보세요."
+      },
+      "defaultExpanded": false
+    }
+  ],
+  "doctor_comment": {
+    "overall_assessment": "조수빈님, 흡연으로 인한 폐와 심혈관 건강은 놓치기 쉬운 부분입니다. 이번 기회에 정밀 검진을 통해 건강 상태를 확실히 점검해보세요. 건강한 1년을 위한 투자입니다!",
+    "key_recommendations": [
+      "폐 건강을 위해 저선량 폐 CT를 받으세요.",
+      "심혈관 건강을 위해 관상동맥 석회화 CT를 고려하세요."
+    ]
+  },
+  "total_count": 5,
+  "rag_evidences": [
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 3,
+      "citation": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시...",
+      "full_text": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시기 바랍니다. 전자문서와 병행하여 발송하여 가족 구성원 간 검진표 수령방식 및 수령시기가 차이날 수 있습니다.\n※ 최근 등록한 검진 항목과 수검받은 이력은 적용되지 않는 점 양지하여 주시기 바랍니다.(기준일 : 2024년 3월 18일)\n\n<table>\n  <thead>\n    <tr>\n      <th>성명</th>\n      <th colspan=\"2\"></th>\n      <th>증번호</th>\n      <th colspan=\"2\"></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>실시기간</td>\n      <td colspan=\"2\">2024년 12월 31일까지</td>\n<td>문의전화</td>\n      <td colspan=\"2\">1577-1000</td>\n    </tr>\n<tr>\n      <td rowspan=\"10\">검진항목<br>비용</td>\n      <td rowspan=\"3\">건강검진</td>\n<td>일반건강검진</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td>구강검진</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>항목</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"7\">암검진</td>\n<td>위암 (40세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>대장암 (분변잠혈검사) (50세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"2\">간암</td>\n<td>(상반기) (40세 이상 고위험군)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>(하반기)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>유방암 (40세 이상",
+      "confidence_score": 0.6002124,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "51세 male에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "2024년+국가+암검진+사업안내(최종).pdf",
+      "page": 75,
+      "citation": "<td colspan=\"3\">2023년12월31일까지</td>\n<td>1577-1000</td>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      ...",
+      "full_text": "<td colspan=\"3\">2023년12월31일까지</td>\n<td>1577-1000</td>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <th rowspan=\"11\">검진항목<br>•<br>비용</th>\n      <th rowspan=\"3\">건강검진</th>\n      <th>항목</th>\n      <th>대상여부</th>\n      <th colspan=\"2\">비용부담</th>\n    </tr>\n<tr>\n      <td>일반건강검진</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>구강검진</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <th rowspan=\"8\">암검진</th>\n      <th>항목</th>\n      <th>대상여부</th>\n      <th colspan=\"2\">비용부담</th>\n    </tr>\n<tr>\n      <td>위암 (40세 이상)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>대장암 (분변잠혈검사) (50세 이상)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>(상반기)</td>\n<td>(40세 이상 고위험군)</td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>(하반기)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>유방암 (40세 이상 여성)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>자궁경부암 (20세 이상 여성)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>폐암 (54세~74세 고위험군)</td>\n<td></td>\n      <td colspan=\"2\"></td>",
+      "confidence_score": 0.54303354,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "51세 male에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 32,
+      "citation": "리카, 카드뮴, 석면, 비소, 베리리움, 크롬, 디젤배기가스, 니켈 등 폐암 발암물질에 피폭되는 작업장) 또는 암병력(폐암에서 완치되었던 경우, 림프종, 두경부암, 식도암 등 흡연...",
+      "full_text": "리카, 카드뮴, 석면, 비소, 베리리움, 크롬, 디젤배기가스, 니켈 등 폐암 발암물질에 피폭되는 작업장) 또는 암병력(폐암에서 완치되었던 경우, 림프종, 두경부암, 식도암 등 흡연과 관련성이 있는 암의 병력자) 중 하나 이상의 요인을 가진 사람들도 검진 대상으로 제시하였다.<sup>8)</sup> American Association of Thoracic Surgery (AATS)에서는 이차 폐암의 발생 위험이 높은 폐암 완치 후 5년이 경과한 사람들도 검진 대상군으로 추천한다. 또한 50세 이상, 20갑년 이상의 흡연력과 폐암 발생의 위험인자인 COPD, 환경 또는 직업적 위험성 노출, 암 병력, 가족력이 있는 경우 폐암 선별검사의 대상이 될 수 있을 것이라고 하였다.<sup>4)</sup>\n\n28 폐암 검진 권고안",
+      "confidence_score": 0.4651208,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "51세 male에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 6,
+      "citation": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n   ...",
+      "full_text": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n      <th>비고</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td rowspan=\"3\">이상지질혈증</td>\n<td>· 총콜레스테롤</td>\n      <td rowspan=\"3\">남자:24세 이상(4년 주기)<br>여자:40세 이상(4년 주기)</td>\n      <td rowspan=\"3\">남자:24세, 28세, 32세…<br>여자:40세, 44세, 48세…</td>\n    </tr>\n<tr>\n      <td>· HDL/LDL 콜레스테롤</td>\n    </tr>\n<tr>\n      <td>· 중성지방(트리글리세라이드)</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">B형간염 검사</td>\n<td>40세</td>\n<td>면역자, 보균자는 제외</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">골밀도 검사</td>\n<td>54세 여성과 66세 여성</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">인지기능장애</td>\n<td>66세 이상(2년 주기)</td>\n<td>66세, 68세, 70세…</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">정신건강(우울증) 검사</td>\n<td>20세, 30세, 40세, 50세, 60세, 70세</td>\n<td>해당 연령을 시작으로 10년동안 1회</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">생활습관평가</td>\n<td>40세, 50세, 60세, 70세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">노인신체기능 검사</td>\n<td>66세, 70세, 80세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">치면세균막 검사</td>\n<td>40세</td>\n<td>구강검진 항목</td>\n    </tr>\n  </tbody>\n</table>\n\n# 확진검사\n\n<table>\n  <thead>\n    <tr>",
+      "confidence_score": 0.4431913,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "51세 male에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 65,
+      "citation": "50%/ 3B, 4병기 33%</li>\n        </ul>\n      </td>\n    </tr>\n<tr>\n      <td>선별<br>검사의<br>위해</td>\n<td>-<...",
+      "full_text": "50%/ 3B, 4병기 33%</li>\n        </ul>\n      </td>\n    </tr>\n<tr>\n      <td>선별<br>검사의<br>위해</td>\n<td>-</td>\n    </tr>\n<tr>\n      <td>선별<br>검사의<br>권고<br>대상</td>\n<td>\n        <ul>\n          <li>30갑년의 흡연력을 가진 현재 및 과거 흡연자로 연령 55-79세</li>\n          <li>폐암 5년 이상 생존자</li>\n          <li>50세 이상, 20갑년의 흡연력이 있고 5년 내 폐암이 발병할 추가 위험이 5% 이상 (만성폐쇄성폐질환: FEV1 <70%, 환경/직업적 요인, 암병력이 있는 환자 또는 방사선 치료, 유전적/가족적 과거력)</li>\n        </ul>\n      </td>\n    </tr>\n<tr>\n      <td>선별<br>검사의<br>비권고<br>대상</td>\n<td>연령과 상관없이, 동반질환이나 기능적 상태 때문에 적절한 치료를 받는 것이 불가능한 개인은 선별검사를 시행해서는 안됨.</td>\n    </tr>\n  </tbody>\n</table>\n\n요약 61",
+      "confidence_score": 0.38950062,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "51세 male에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "이상지질혈증 진료지침 제5판.pdf",
+      "page": 165,
+      "citation": "Chapter 5 특정 집단의 이상지질혈증 163\n\n표 5-4. 소아청소년에서 이상지질혈증의 선별검사\n\n<table>\n    <tr>\n        <td>연령</td>\n<td>권...",
+      "full_text": "Chapter 5 특정 집단의 이상지질혈증 163\n\n표 5-4. 소아청소년에서 이상지질혈증의 선별검사\n\n<table>\n    <tr>\n        <td>연령</td>\n<td>권고안</td>\n    </tr>\n<tr>\n        <td>출생–2세</td>\n<td>선별검사 필요없음</td>\n    </tr>\n<tr>\n        <td>2–8세</td>\n<td>선별검사 권하지 않음\n<br/>\n가족력 있고 위험요인 있을 때, 공복지질검사 시행1)</td>\n    </tr>\n<tr>\n        <td>9–11세</td>\n<td>비공복상태에서 non-HDL 콜레스테롤 측정\n<br/>\nNon-HDL 콜레스테롤 ≥145 mg/dL이면, 공복지질검사 시행1)</td>\n    </tr>\n<tr>\n        <td>12–16세</td>\n<td>선별검사 권하지 않음\n<br/>\n가족 중 새로운 위험인자나 소견 발생시 , 공복지질검사 시행1)</td>\n    </tr>\n<tr>\n        <td>17–21세</td>\n<td>비공복상태에서 non-HDL 콜레스테롤 측정\n<br/>\nNon-HDL 콜레스테롤 ≥145 mg/dL이면, 공복지질검사 시행1)</td>\n    </tr>\n</table>\n\n<sup>1)</sup> 공복지질검사는 3개월 이내 2주 이상 간격으로 2회 실시한다.\n\n표 5-5. 소아청소년에서 이상지질혈증의 위험인자\n\n<table>\n  <thead>\n    <tr>\n      <th>가족력</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>부모, 조부모, 이모, 고모 또는 삼촌이 남자에서는 55세, 여자에서는 65세 이전에 심근경색, 협심증,",
+      "confidence_score": 0.36080483,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "51세 male에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 3,
+      "citation": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시...",
+      "full_text": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시기 바랍니다. 전자문서와 병행하여 발송하여 가족 구성원 간 검진표 수령방식 및 수령시기가 차이날 수 있습니다.\n※ 최근 등록한 검진 항목과 수검받은 이력은 적용되지 않는 점 양지하여 주시기 바랍니다.(기준일 : 2024년 3월 18일)\n\n<table>\n  <thead>\n    <tr>\n      <th>성명</th>\n      <th colspan=\"2\"></th>\n      <th>증번호</th>\n      <th colspan=\"2\"></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>실시기간</td>\n      <td colspan=\"2\">2024년 12월 31일까지</td>\n<td>문의전화</td>\n      <td colspan=\"2\">1577-1000</td>\n    </tr>\n<tr>\n      <td rowspan=\"10\">검진항목<br>비용</td>\n      <td rowspan=\"3\">건강검진</td>\n<td>일반건강검진</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td>구강검진</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>항목</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"7\">암검진</td>\n<td>위암 (40세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>대장암 (분변잠혈검사) (50세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"2\">간암</td>\n<td>(상반기) (40세 이상 고위험군)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>(하반기)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>유방암 (40세 이상",
+      "confidence_score": 0.635879,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "51세 male에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n위 내시경 관련 최신 진료지침과 검사 권고안 \n대장 내시경 관련 최신 진료지침과 검사 권고안 \n복부 초음파 관련 최신 진료지침과 검사 권고안 \n저선량 폐 CT 관련 최신 진료지침과 검사 권고안 \n뇌 MRA 관련 최신 진료지침과 검사 권고안 \n경동맥 초음파 관련 최신 진료지침과 검사 권고안 \n관상동맥 석회화 CT 관련 최신 진료지침과 검사 권고안 \n갑상선 초음파 관련 최신 진료지침과 검사 권고안 \nNK세포 활성도 검사 관련 최신 진료지침과 검사 권고안 \n마스트 알레르기 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 (DTC) 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 9,
+      "citation": "# 6대 암검진\n검진기간: 2024년 12월 31일까지\n※ 단, 위암, 대장암, 폐암 2단계 검진은 2025년 1월 31일까지\n\n## 간암\n\n40세 이상 고위험군은 1년에 2회 간...",
+      "full_text": "# 6대 암검진\n검진기간: 2024년 12월 31일까지\n※ 단, 위암, 대장암, 폐암 2단계 검진은 2025년 1월 31일까지\n\n## 간암\n\n40세 이상 고위험군은 1년에 2회 간 초음파검사와 혈청 알파태아단백 검사(혈액검사)를 받습니다.\n\n### 고위험군 기준\n① 간경변증\n② B형 간염 바이러스 항원 양성\n③ C형 간염 바이러스 항체 양성\n④ B형 또는 C형 간염 바이러스에 의한 만성 간질환 환자\n\n간 초음파검사 + 혈청 알파태아단백 검사\n\n※ 검진비용은 국민건강보험공단이 90% 수검자가 10%를 부담합니다. (본인부담비용은 건강보험요양급여비용 개정시 변경될 수 있습니다.) 단, 국가암검진 대상자, 의료급여수급자는 본인부담이 없습니다.\n※ 공단검진 외에 별도로 받은 간염 검사 결과 B형 또는 C형 간염보균자는 검사 결과서를 공단에 제출하시면 지속적으로 간암 검진 대상으로 적용 받으실 수 있습니다.\n※ 간암 산정특례자는 대상에서 유예됩니다. (단, 본인검진 희망시 대상등록 가능합니다.)\n\n> 간암은 고위험군에서 주로 발생하므로 본인이 해당되는지 평소 확인하시고 건강관리에 힘써주시기 바랍니다.\n\n## 폐암\n\n54~74세 남녀중 30갑년 이상 흡연력을 가진 폐암 고위험군은 증상이 없어도 2년마다 검진을 받습니다.\n\n저선량 흉부 CT 검사 → 검진결과 사후상담 및 금연상담\n\n### 폐암발생 고위험군 기준\n1. 해당연도 전 2년 내 국가건강검진시 작성하는 문진표로 30갑년 이상 흡연력과 현재 흡연이 확인되는 자\n2.",
+      "confidence_score": 0.5573882,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "51세 male에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n위 내시경 관련 최신 진료지침과 검사 권고안 \n대장 내시경 관련 최신 진료지침과 검사 권고안 \n복부 초음파 관련 최신 진료지침과 검사 권고안 \n저선량 폐 CT 관련 최신 진료지침과 검사 권고안 \n뇌 MRA 관련 최신 진료지침과 검사 권고안 \n경동맥 초음파 관련 최신 진료지침과 검사 권고안 \n관상동맥 석회화 CT 관련 최신 진료지침과 검사 권고안 \n갑상선 초음파 관련 최신 진료지침과 검사 권고안 \nNK세포 활성도 검사 관련 최신 진료지침과 검사 권고안 \n마스트 알레르기 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 (DTC) 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 6,
+      "citation": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n   ...",
+      "full_text": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n      <th>비고</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td rowspan=\"3\">이상지질혈증</td>\n<td>· 총콜레스테롤</td>\n      <td rowspan=\"3\">남자:24세 이상(4년 주기)<br>여자:40세 이상(4년 주기)</td>\n      <td rowspan=\"3\">남자:24세, 28세, 32세…<br>여자:40세, 44세, 48세…</td>\n    </tr>\n<tr>\n      <td>· HDL/LDL 콜레스테롤</td>\n    </tr>\n<tr>\n      <td>· 중성지방(트리글리세라이드)</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">B형간염 검사</td>\n<td>40세</td>\n<td>면역자, 보균자는 제외</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">골밀도 검사</td>\n<td>54세 여성과 66세 여성</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">인지기능장애</td>\n<td>66세 이상(2년 주기)</td>\n<td>66세, 68세, 70세…</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">정신건강(우울증) 검사</td>\n<td>20세, 30세, 40세, 50세, 60세, 70세</td>\n<td>해당 연령을 시작으로 10년동안 1회</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">생활습관평가</td>\n<td>40세, 50세, 60세, 70세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">노인신체기능 검사</td>\n<td>66세, 70세, 80세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">치면세균막 검사</td>\n<td>40세</td>\n<td>구강검진 항목</td>\n    </tr>\n  </tbody>\n</table>\n\n# 확진검사\n\n<table>\n  <thead>\n    <tr>",
+      "confidence_score": 0.5125224,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "51세 male에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n위 내시경 관련 최신 진료지침과 검사 권고안 \n대장 내시경 관련 최신 진료지침과 검사 권고안 \n복부 초음파 관련 최신 진료지침과 검사 권고안 \n저선량 폐 CT 관련 최신 진료지침과 검사 권고안 \n뇌 MRA 관련 최신 진료지침과 검사 권고안 \n경동맥 초음파 관련 최신 진료지침과 검사 권고안 \n관상동맥 석회화 CT 관련 최신 진료지침과 검사 권고안 \n갑상선 초음파 관련 최신 진료지침과 검사 권고안 \nNK세포 활성도 검사 관련 최신 진료지침과 검사 권고안 \n마스트 알레르기 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 (DTC) 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 42,
+      "citation": "### 핵심질문 4. 폐암선별검사의 주기는 어떻게 시행되어야 하는가?\n\n권고: 1년 주기로 저선량 흉부CT를 이용한 폐암 선별검사를 실시할 것을 권고한다. 그러나 저선량 흉부CT를...",
+      "full_text": "### 핵심질문 4. 폐암선별검사의 주기는 어떻게 시행되어야 하는가?\n\n권고: 1년 주기로 저선량 흉부CT를 이용한 폐암 선별검사를 실시할 것을 권고한다. 그러나 저선량 흉부CT를 이용한 폐암 선별검사를 장기적으로 매년 반복하여 실시하였을 때 얻을 수 있는 이득과 유해의 크기에 대한 연구가 아직 없으므로 추가 연구가 필요하다.\n\n### 핵심질문 5. 폐암 선별검사를 위하여 권고하지 않는 검사방법은 무엇인가?\n\n권고: 폐암 발생 위험이 있는 사람에게 1회 또는 정기적인 흉부X선으로 폐암 선별검사를 시행하는 것은 권고하지 않는다. 객담 세포진 검사 역시 관련 연구에서 폐암사망률을 유의하게 감소시키지 못하여 권고하지 않는다. 현재까지 개발된 Carcinoembryonic antigen (CEA), Squamous cell carcinoma antigen (SCC-Ag), Cyfra 21-1, Neuron specific enolase (NSE) 등 혈청 종양 표지자는 조기 폐암 진단을 위한 충분한 진단적 민감도와 특이도를 충족시키지 못하므로 폐암 선별검사로 사용하는 것을 권고하지 않는다.\n\n### 핵심질문 6. 저선량 흉부CT 폐암 선별검사는 어디서 시행하고 누가 판독해야 하는가?\n\n권고: 폐암 검진을 위한 저선량 흉부CT는 16채널 이상의 다중검출기를 보유한 영상의학과 전문의가 상근하는 의료기관에서 시행할 것을",
+      "confidence_score": 0.5030035,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "51세 male에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n위 내시경 관련 최신 진료지침과 검사 권고안 \n대장 내시경 관련 최신 진료지침과 검사 권고안 \n복부 초음파 관련 최신 진료지침과 검사 권고안 \n저선량 폐 CT 관련 최신 진료지침과 검사 권고안 \n뇌 MRA 관련 최신 진료지침과 검사 권고안 \n경동맥 초음파 관련 최신 진료지침과 검사 권고안 \n관상동맥 석회화 CT 관련 최신 진료지침과 검사 권고안 \n갑상선 초음파 관련 최신 진료지침과 검사 권고안 \nNK세포 활성도 검사 관련 최신 진료지침과 검사 권고안 \n마스트 알레르기 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 (DTC) 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 15,
+      "citation": "폐암 검진 권고안의 개발범위(PIPOH)는 다음과 같이 설정하였다(표 5).\n\n표 5. 폐암 검진 권고안 개발 범위\n\n<table>\n  <thead>\n    <tr>\n      <...",
+      "full_text": "폐암 검진 권고안의 개발범위(PIPOH)는 다음과 같이 설정하였다(표 5).\n\n표 5. 폐암 검진 권고안 개발 범위\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>•P (Population)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 고위험군</td>\n    </tr>\n<tr>\n      <td>•I (Intervention)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 저선량 흉부CT, 흉부X선, 객담세포진검사, 종양표지자</td>\n    </tr>\n<tr>\n      <td>•P (Professional)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 모든 의사</td>\n    </tr>\n<tr>\n      <td>•O (Outcome)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 사망률 감소, 검진 관련 위해</td>\n    </tr>\n<tr>\n      <td>•H (Health)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 일차, 이차, 삼차 의료기관</td>\n    </tr>\n  </tbody>\n</table>\n\n①,④,5\n\n그림 3. 폐암 검진 권고안의 분석틀.\n```mermaid\ngraph LR\n    A[\"High-risk population (3)\"] --> B[\"Screening (2)\"]\n    B --> C[\"Low-dose CT\"]\n    C --> D[\"Decreased mortality\"]\n    B --> E[\"Harm of screening (6)\"]\n```\n\n① KQ1 : 선별검사의 이득\n② KQ2 : 선별검사의 위해\n③ KQ3 : 선별검사의 권고대상\n④ KQ4 : 선별검사의 주기 및 지속 기간\n⑤ KQ5 : 기타 선별검사\n⑥ KQ6 : 검사의 질관리\n\n요약 11",
+      "confidence_score": 0.4920179,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "51세 male에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n위 내시경 관련 최신 진료지침과 검사 권고안 \n대장 내시경 관련 최신 진료지침과 검사 권고안 \n복부 초음파 관련 최신 진료지침과 검사 권고안 \n저선량 폐 CT 관련 최신 진료지침과 검사 권고안 \n뇌 MRA 관련 최신 진료지침과 검사 권고안 \n경동맥 초음파 관련 최신 진료지침과 검사 권고안 \n관상동맥 석회화 CT 관련 최신 진료지침과 검사 권고안 \n갑상선 초음파 관련 최신 진료지침과 검사 권고안 \nNK세포 활성도 검사 관련 최신 진료지침과 검사 권고안 \n마스트 알레르기 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 (DTC) 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 14,
+      "citation": "위원회의 논의를 통해 다음과 같이 도출하였다(표 4).\n\n표 4. 근거중심의 폐암 검진 권고안 개발을 위한 핵심질문\n\n<table>\n  <thead>\n    <tr>\n      <...",
+      "full_text": "위원회의 논의를 통해 다음과 같이 도출하였다(표 4).\n\n표 4. 근거중심의 폐암 검진 권고안 개발을 위한 핵심질문\n\n<table>\n  <thead>\n    <tr>\n      <th>핵심질문</th>\n      <th></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>핵심질문 1 : 선별검사의 이득</td>\n<td>- 사망률(폐암사망률, 전체사망률) 감소</td>\n    </tr>\n<tr>\n      <td>핵심질문 2 : 선별검사의 위해</td>\n<td>- 위양성, 과진단<br>- 방사선 노출</td>\n    </tr>\n<tr>\n      <td>핵심질문 3 : 선별검사의 권고대상</td>\n<td>- 고위험군</td>\n    </tr>\n<tr>\n      <td>핵심질문 4 : 선별검사의 주기 및 지속 기간</td>\n<td>- 주기<br>- 지속 기간</td>\n    </tr>\n<tr>\n      <td>핵심질문 5 : 기타 선별검사</td>\n<td>- 흉부X선, 객담 세포진 검사, 종양표지자 등</td>\n    </tr>\n<tr>\n      <td>핵심질문 6 : 검사의 질관리</td>\n<td>- CT 기기의 조건<br>- 판독의사의 자격 등</td>\n    </tr>\n  </tbody>\n</table>\n\n10 폐암 검진 권고안",
+      "confidence_score": 0.46657884,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "51세 male에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n위 내시경 관련 최신 진료지침과 검사 권고안 \n대장 내시경 관련 최신 진료지침과 검사 권고안 \n복부 초음파 관련 최신 진료지침과 검사 권고안 \n저선량 폐 CT 관련 최신 진료지침과 검사 권고안 \n뇌 MRA 관련 최신 진료지침과 검사 권고안 \n경동맥 초음파 관련 최신 진료지침과 검사 권고안 \n관상동맥 석회화 CT 관련 최신 진료지침과 검사 권고안 \n갑상선 초음파 관련 최신 진료지침과 검사 권고안 \nNK세포 활성도 검사 관련 최신 진료지침과 검사 권고안 \n마스트 알레르기 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 (DTC) 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    }
+  ]
+}

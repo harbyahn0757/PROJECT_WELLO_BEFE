@@ -63,3 +63,4 @@ COMMENT ON COLUMN wello.wello_external_checkup_items.reimbursement_status IS '�
 COMMENT ON COLUMN wello.wello_external_checkup_items.reference_urls IS '참고 자료 URL 리스트 (JSONB)';
 COMMENT ON COLUMN wello.wello_external_checkup_items.clinical_summary IS '주요 임상연구 결과 요약 (벡터 DB 임베딩용)';
 
+

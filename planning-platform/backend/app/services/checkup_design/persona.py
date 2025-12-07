@@ -5,6 +5,7 @@
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 import re
+import json
 
 def determine_persona(
     survey_responses: Dict[str, Any], 
@@ -211,31 +212,61 @@ def _calculate_body_score(history: List[Dict[str, Any]], prescriptions: List[Dic
         elif time_diff <= 3: decay = 0.5   # 3년 이내: 절반
         else: decay = 0.1                  # 3년 초과: 미미함
         
-        # 이상 소견 추출 (raw_data 파싱 가정 또는 이미 전처리된 필드 사용)
-        # 여기서는 간단히 'abnormal_items' 필드가 있다고 가정하거나, 원본 로직을 단순화하여 구현
-        # 실제 데이터 구조에 따라 파싱 로직 고도화 필요
+        # 이상 소견 추출 (정밀 파싱)
+        raw_data = record.get('raw_data') or {}
+        if isinstance(raw_data, str):
+            try:
+                raw_data = json.loads(raw_data)
+            except:
+                raw_data = {}
         
-        # 예시: raw_data 내의 판정 결과나 요약 필드 활용
-        summary = str(record).lower()
+        found_risks = []
+        is_normal = False
         
-        # 대사 증후군 지표 (Manager)
-        if any(x in summary for x in ["고혈압", "당뇨", "비만", "고지혈증", "이상지질", "지방간"]):
+        # 구조적 파싱 (Inspections -> Illnesses -> Items -> ItemReferences)
+        if isinstance(raw_data, dict) and raw_data.get("Inspections"):
+            for inspection in raw_data["Inspections"]:
+                if inspection.get("Illnesses"):
+                    for illness in inspection["Illnesses"]:
+                        if illness.get("Items"):
+                            for item in illness["Items"]:
+                                if item.get("ItemReferences"):
+                                    for ref in item["ItemReferences"]:
+                                        ref_name = ref.get("Name", "")
+                                        # 정상 판정
+                                        if "정상(A)" in ref_name:
+                                            is_normal = True
+                                        # 질환 판정
+                                        elif any(k in ref_name for k in ["질환의심", "유질환", "고혈압", "당뇨", "비만", "고지혈", "이상지질", "간장질환"]):
+                                            found_risks.append(ref_name)
+        
+        # 백업: 구조적 데이터가 없으면 문자열 검색 (단, '없음' 제외 등 방어 로직 추가)
+        if not found_risks and not is_normal:
+            summary = str(record).lower()
+            # '이상 없음', '특이소견 없음' 등을 제외하고 키워드 매칭
+            if "없음" not in summary:
+                if any(x in summary for x in ["고혈압", "당뇨", "비만", "고지혈증", "이상지질", "지방간"]):
+                    found_risks.append("detected_by_keyword")
+                if "정상a" in summary or "정상(a)" in summary:
+                    is_normal = True
+
+        # 점수 반영
+        if found_risks:
             score = 50 * decay
+            # Untreated Risk Check
             if not has_medication and time_diff <= 2:
-                # 약도 안 먹고 수치도 나쁨 -> 방치 (Critical)
                 score *= 1.5 
                 risk_flags.append(f"untreated_risk_{checkup_year}")
             scores["Manager"] += int(score)
             
-        # 정상 소견 (Optimizer)
-        if "정상A" in summary or "특이소견 없음" in summary:
+        if is_normal and not found_risks:
             scores["Optimizer"] += int(40 * decay)
 
 def _calculate_intent_score(concerns: List[Dict[str, Any]], scores: Dict[str, int]):
     """채팅 선택 항목 기반 의도 분석"""
     
     for item in concerns:
-        name = item.get("name", "")
+        name = item.get("name") or ""
         # concernLevel = item.get("concernLevel", "implicit")
         
         # 키워드 매칭

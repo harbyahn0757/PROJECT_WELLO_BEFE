@@ -1251,7 +1251,8 @@ async def create_checkup_design_step2(
             selected_concerns=selected_concerns,
             survey_responses=survey_responses_clean,
             hospital_recommended_items=hospital_recommended,
-            hospital_external_checkup_items=hospital_external_checkup
+            hospital_external_checkup_items=hospital_external_checkup,
+            hospital_national_checkup_items=hospital_national_checkup  # [추가] 중복 방지용
         )
 
         logger.info(f"📋 [STEP2-2] Upselling 프롬프트 생성 시작...")
@@ -1386,7 +1387,11 @@ async def create_checkup_design_step2(
         
         # STEP 1과 STEP 2 결과 병합
         logger.info(f"🔗 [STEP2-설계] STEP 1과 STEP 2 결과 병합 중...")
-        merged_result = merge_checkup_design_responses(step1_result_dict, ai_response)
+        merged_result = merge_checkup_design_responses(
+            step1_result_dict, 
+            ai_response,
+            hospital_recommended=hospital_recommended  # [추가] 설명 보완용 데이터 전달
+        )
         
         # 구조화된 RAG 에비던스 추가 (TODO-16, TODO-18)
         merged_result["rag_evidences"] = structured_evidences
@@ -1436,16 +1441,21 @@ async def create_checkup_design_step2(
         raise HTTPException(status_code=500, detail=f"검진 설계 생성 중 오류: {str(e)}")
 
 
-def merge_checkup_design_responses(step1_result: Dict[str, Any], step2_result: Dict[str, Any]) -> Dict[str, Any]:
+def merge_checkup_design_responses(
+    step1_result: Dict[str, Any], 
+    step2_result: Dict[str, Any],
+    hospital_recommended: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
     """
     STEP 1 결과와 STEP 2 결과를 병합하여 기존 형식과 동일한 최종 JSON 생성
     
     Args:
-        step1_result: STEP 1 분석 결과 (patient_summary, analysis, survey_reflection, selected_concerns_analysis, basic_checkup_guide)
-        step2_result: STEP 2 설계 결과 (summary, strategies, recommended_items, doctor_comment, total_count)
+        step1_result: STEP 1 분석 결과
+        step2_result: STEP 2 설계 결과
+        hospital_recommended: 병원 추천 항목 리스트 (설명 보완용 Fallback 데이터)
     
     Returns:
-        병합된 최종 결과 (기존 /create 엔드포인트와 동일한 형식)
+        병합된 최종 결과
     """
     logger.info(f"🔗 [병합] STEP 1과 STEP 2 결과 병합 시작...")
     
@@ -1529,22 +1539,74 @@ def merge_checkup_design_responses(step1_result: Dict[str, Any], step2_result: D
     merged_result = validate_and_fix_priority1(merged_result)
     
     # 🔄 Priority 구조 → recommended_items 변환 (프론트엔드 호환성)
-    merged_result = convert_priorities_to_recommended_items(merged_result)
+    merged_result = convert_priorities_to_recommended_items(merged_result, hospital_recommended)
     
     logger.info(f"✅ [병합] 병합 완료 - 최종 결과 키: {list(merged_result.keys())}")
     
     return merged_result
 
 
-def convert_priorities_to_recommended_items(result: Dict[str, Any]) -> Dict[str, Any]:
+def convert_priorities_to_recommended_items(
+    result: Dict[str, Any], 
+    hospital_recommended: Optional[List[Dict[str, Any]]] = None
+) -> Dict[str, Any]:
     """
     Priority 구조(priority_1, priority_2, priority_3)를 recommended_items 형식으로 변환
     프론트엔드 호환성을 위한 변환 함수
+    
+    Args:
+        result: 변환할 결과 딕셔너리
+        hospital_recommended: 설명 보완을 위한 병원 추천 항목 데이터 (Fallback)
     """
     logger.info("🔄 [변환] Priority → recommended_items 변환 시작...")
     
     recommended_items = []
     
+    # [Fallback 준비] DB 항목 매핑 생성
+    db_item_map = {}
+    if hospital_recommended:
+        try:
+            for item in hospital_recommended:
+                if isinstance(item, dict):
+                    name = item.get('name') or item.get('item_name')
+                    if name:
+                        db_item_map[name] = item
+                elif isinstance(item, str):
+                    # 문자열인 경우 이름만 매핑 (설명 없음)
+                    db_item_map[item] = {"name": item}
+        except Exception as e:
+            logger.warning(f"⚠️ [변환] DB 항목 매핑 중 오류: {str(e)}")
+
+    # 헬퍼 함수: 설명 및 이유 가져오기 (Strategy -> DB Fallback -> Default)
+    def get_item_details(item_name, strategy_map):
+        strategy = strategy_map.get(item_name, {})
+        doctor_rec = strategy.get("doctor_recommendation", {})
+        
+        # 1. Strategy에서 가져오기
+        description = (doctor_rec.get("reason", "") + " " + doctor_rec.get("evidence", "")).strip()
+        reason = doctor_rec.get("message", "").strip()
+        
+        # 2. Fallback: 설명이 없으면 DB 데이터 조회
+        if not description:
+            db_item = db_item_map.get(item_name)
+            if db_item:
+                # DB의 description, summary, why_important 등을 순차적으로 확인
+                description = (
+                    db_item.get('description') or 
+                    db_item.get('summary') or 
+                    db_item.get('why_important') or 
+                    ""
+                ).strip()
+        
+        # 3. Default: 여전히 없으면 기본 메시지
+        if not description:
+            description = "전문의와의 상담을 통해 검사 필요성을 확인하시기 바랍니다."
+            
+        if not reason:
+            reason = "건강 상태 확인을 위해 권장되는 항목입니다."
+            
+        return description, reason
+
     # Priority 1: 일반검진 주의 항목 (최상위 또는 summary 내부)
     priority_1 = result.get("priority_1") or result.get("summary", {}).get("priority_1", {})
     if isinstance(priority_1, dict) and priority_1.get("items"):
@@ -1595,13 +1657,12 @@ def convert_priorities_to_recommended_items(result: Dict[str, Any]) -> Dict[str,
         strategy_map = {s.get("target"): s for s in strategies if isinstance(s, dict)}
         
         for item_name in priority_2.get("items", []):
-            strategy = strategy_map.get(item_name, {})
-            doctor_rec = strategy.get("doctor_recommendation", {})
+            description, reason = get_item_details(item_name, strategy_map)
             
             category_item["items"].append({
                 "name": item_name,
-                "description": doctor_rec.get("reason", "") + " " + doctor_rec.get("evidence", ""),
-                "reason": doctor_rec.get("message", ""),
+                "description": description,
+                "reason": reason,
                 "priority": 2,
                 "recommended": True
             })
@@ -1629,13 +1690,12 @@ def convert_priorities_to_recommended_items(result: Dict[str, Any]) -> Dict[str,
         strategy_map = {s.get("target"): s for s in strategies if isinstance(s, dict)}
         
         for item_name in priority_3.get("items", []):
-            strategy = strategy_map.get(item_name, {})
-            doctor_rec = strategy.get("doctor_recommendation", {})
+            description, reason = get_item_details(item_name, strategy_map)
             
             category_item["items"].append({
                 "name": item_name,
-                "description": doctor_rec.get("reason", "") + " " + doctor_rec.get("evidence", ""),
-                "reason": doctor_rec.get("message", ""),
+                "description": description,
+                "reason": reason,
                 "priority": 3,
                 "recommended": True
             })

@@ -1,0 +1,356 @@
+{
+  "patient_summary": "32세 여성 김혜진님은 만성 피로를 주된 건강 고민으로 꼽았습니다. 최근 검진 이력은 확인되지 않으며, 월 1회 음주를 합니다. 가족력은 없습니다.",
+  "analysis": "현재 김혜진님은 만성 피로를 느끼고 있지만, 검진 이력이 없고 음주를 하고 있어 피로의 원인을 정확히 파악하기 어렵습니다. 잦은 야근이나 스트레스, 불규칙한 생활 습관이 피로를 유발할 수 있습니다. \n\n혜진님은 간결하고 효율적인 정보 전달을 선호하는 Minimalist 성향입니다. 따라서 '피로 해소를 위해 무엇을 해야 할까요?'라는 질문에 대해, '이것만 딱 챙기면 1년 농사 편해집니다'라는 식으로 핵심적인 해결책을 제시하는 것이 효과적입니다. 음주 습관에 대한 문진에서 잠시 머뭇거린 점으로 보아, 건강에 대한 약간의 불안감은 있지만, 귀찮음 때문에 적극적인 관리를 미루고 있을 가능성이 있습니다. 지금부터라도 간단한 습관 개선을 통해 피로를 줄이고 활력을 되찾을 수 있습니다.",
+  "risk_profile": [
+    {
+      "organ_system": "간",
+      "risk_level": "Moderate",
+      "reason": "월 1회 음주 습관이 있으며, 만성 피로를 호소하고 있어 간 기능 저하 가능성이 있습니다."
+    },
+    {
+      "organ_system": "심뇌혈관",
+      "risk_level": "Moderate",
+      "reason": "검진 이력이 없고, 만성 피로를 호소하고 있어 심혈관 건강 상태를 정확히 파악하기 어렵습니다."
+    }
+  ],
+  "chronic_analysis": {
+    "has_chronic_disease": false,
+    "disease_list": [],
+    "complication_risk": null
+  },
+  "survey_reflection": "이번 문진을 통해 혜진님의 생활 습관과 피로의 연관성을 파악했습니다. 앞으로 혜진님의 '대사 엔진'인 간과 혈관 건강 상태를 집중적으로 점검하고, 맞춤형 솔루션을 제공하여 활기찬 일상을 되찾을 수 있도록 돕겠습니다.",
+  "selected_concerns_analysis": [
+    {
+      "concern_name": "만성 피로 [pain]",
+      "concern_type": "pain",
+      "trend_analysis": "과거 데이터가 없어 추이 분석이 어렵습니다.",
+      "reflected_in_design": "피로의 원인을 파악하기 위한 간 기능 검사, 갑상선 기능 검사 등을 고려해볼 수 있습니다.",
+      "related_items": []
+    }
+  ],
+  "basic_checkup_guide": {
+    "title": "일반검진, 이 부분은 잘 보세요",
+    "description": "일반검진 결과지를 확인하실 때, 김혜진님 상황에서는 아래 항목들을 특히 잘 살펴보시길 바랍니다.",
+    "focus_items": [
+      {
+        "item_name": "AST/ALT (간수치)",
+        "why_important": "잦은 피로감과 월 1회 음주 습관은 간 건강에 영향을 줄 수 있습니다. 간수치를 통해 간의 건강 상태를 확인하는 것이 중요합니다.",
+        "check_point": "정상 범위(AST 0~40 IU/L, ALT 0~40 IU/L)를 벗어나는지 확인하고, 벗어난다면 의사와 상담하세요."
+      },
+      {
+        "item_name": "혈압",
+        "why_important": "피로는 혈압 상승의 원인이 될 수 있습니다. 혈압을 주기적으로 확인하여 심혈관 질환을 예방하는 것이 중요합니다.",
+        "check_point": "수축기 혈압 120mmHg 미만, 이완기 혈압 80mmHg 미만인지 확인하세요."
+      }
+    ]
+  },
+  "summary": {
+    "key_health_issues": [
+      "만성 피로"
+    ],
+    "family_history_concerns": [],
+    "lifestyle_factors": [
+      "월 1회 음주"
+    ],
+    "priority_1": {
+      "focus_items": [
+        {
+          "item_name": "AST/ALT (간수치)",
+          "why_important": "잦은 피로감과 월 1회 음주 습관은 간 건강에 영향을 줄 수 있습니다. 간수치를 통해 간의 건강 상태를 확인하는 것이 중요합니다.",
+          "check_point": "정상 범위(AST 0~40 IU/L, ALT 0~40 IU/L)를 벗어나는지 확인하고, 벗어난다면 의사와 상담하세요."
+        },
+        {
+          "item_name": "혈압",
+          "why_important": "피로는 혈압 상승의 원인이 될 수 있습니다. 혈압을 주기적으로 확인하여 심혈관 질환을 예방하는 것이 중요합니다.",
+          "check_point": "수축기 혈압 120mmHg 미만, 이완기 혈압 80mmHg 미만인지 확인하세요."
+        }
+      ]
+    }
+  },
+  "priority_1": {
+    "title": "이번 검진 시 유의 깊게 보실 항목이에요",
+    "description": "일반검진 결과지를 확인하실 때, 특히 주의 깊게 살펴보시면 좋을 항목들입니다.",
+    "items": [
+      "AST/ALT (간수치)",
+      "혈압"
+    ],
+    "count": 2,
+    "focus_items": [
+      {
+        "name": "AST/ALT (간수치)",
+        "why_important": "잦은 피로감과 월 1회 음주 습관은 간 건강에 영향을 줄 수 있습니다. 간수치를 통해 간의 건강 상태를 확인하는 것이 중요합니다.",
+        "check_point": "정상 범위(AST 0~40 IU/L, ALT 0~40 IU/L)를 벗어나는지 확인하고, 벗어난다면 의사와 상담하세요."
+      },
+      {
+        "name": "혈압",
+        "why_important": "피로는 혈압 상승의 원인이 될 수 있습니다. 혈압을 주기적으로 확인하여 심혈관 질환을 예방하는 것이 중요합니다.",
+        "check_point": "수축기 혈압 120mmHg 미만, 이완기 혈압 80mmHg 미만인지 확인하세요."
+      }
+    ]
+  },
+  "priority_2": {
+    "title": "병원에서 추천하는 정밀 검진",
+    "description": "김혜진님의 만성 피로와 간 건강을 위한 추천 검진입니다.",
+    "items": [
+      "심전도 검사",
+      "정밀 검진"
+    ],
+    "count": 2,
+    "health_context": "심혈관 및 간 건강 정밀 확인"
+  },
+  "priority_3": {
+    "title": "선택해서 받아보실 수 있는 항목",
+    "description": "더 정밀한 검사를 원하신다면 고려해보세요.",
+    "items": [
+      "유전자 검사"
+    ],
+    "count": 1,
+    "health_context": "유전적 질환 위험도 평가"
+  },
+  "strategies": [
+    {
+      "target": "정밀 검진",
+      "step1_anchor": "만성 피로 때문에 늘 지치셨죠? 하지만 음주 습관은 그 피로를 더 악화시킬 수 있습니다.",
+      "step2_gap": "기본 혈액검사로는 간 수치만 알 수 있으며, 실제 간의 상태나 지방간 여부는 확인할 수 없습니다.",
+      "step3_offer": "복부 초음파가 포함된 정밀 검진으로 간의 실제 상태를 확인하고, 피로의 원인을 정확히 파악하여 개선할 수 있는 기회를 만드십시오.",
+      "doctor_recommendation": {
+        "reason": "간 건강을 정확히 파악하고 피로의 원인을 해결하기 위해서는 영상 검사가 필수입니다.",
+        "evidence": "32세 여성의 경우 간 건강을 위한 정밀 검진이 권장됩니다 [1]",
+        "references": [
+          "https://..."
+        ],
+        "message": "간 상태를 직접 확인하여 피로의 원인을 제거하고 활력을 되찾으세요."
+      }
+    },
+    {
+      "target": "심전도 검사",
+      "step1_anchor": "만성 피로가 심혈관 건강에 영향을 미칠 수 있다는 점에 걱정되시죠? 하지만 지금까지 검진을 미루고 계셨습니다.",
+      "step2_gap": "기본 혈압 측정만으로는 심장의 전반적인 상태를 알기 어렵습니다.",
+      "step3_offer": "심전도 검사를 통해 심장의 전기적 활동을 확인하고, 피로의 원인을 심혈관 측면에서도 점검해 보세요.",
+      "doctor_recommendation": {
+        "reason": "피로가 심혈관계에 미치는 영향을 평가하기 위해 심전도 검사가 필요합니다.",
+        "evidence": "심혈관 건강을 위한 정기적인 심전도 검사가 권장됩니다 [2]",
+        "references": [
+          "https://..."
+        ],
+        "message": "심장의 상태를 꼼꼼히 체크하고, 피로의 원인을 심혈관 측면에서도 확인하세요."
+      }
+    }
+  ],
+  "recommended_items": [
+    {
+      "category": "이번 검진 시 유의 깊게 보실 항목이에요",
+      "category_en": "Priority 1",
+      "itemCount": 2,
+      "items": [
+        {
+          "name": "AST/ALT (간수치)",
+          "description": "잦은 피로감과 월 1회 음주 습관은 간 건강에 영향을 줄 수 있습니다. 간수치를 통해 간의 건강 상태를 확인하는 것이 중요합니다.",
+          "reason": "정상 범위(AST 0~40 IU/L, ALT 0~40 IU/L)를 벗어나는지 확인하고, 벗어난다면 의사와 상담하세요.",
+          "priority": 1,
+          "recommended": true
+        },
+        {
+          "name": "혈압",
+          "description": "피로는 혈압 상승의 원인이 될 수 있습니다. 혈압을 주기적으로 확인하여 심혈관 질환을 예방하는 것이 중요합니다.",
+          "reason": "수축기 혈압 120mmHg 미만, 이완기 혈압 80mmHg 미만인지 확인하세요.",
+          "priority": 1,
+          "recommended": true
+        }
+      ],
+      "doctor_recommendation": {
+        "has_recommendation": true,
+        "message": "일반검진 결과지를 확인하실 때, 특히 주의 깊게 살펴보시면 좋을 항목들입니다."
+      },
+      "defaultExpanded": true,
+      "priorityLevel": 1
+    },
+    {
+      "category": "병원에서 추천하는 정밀 검진",
+      "category_en": "Priority 2",
+      "itemCount": 2,
+      "items": [
+        {
+          "name": "심전도 검사",
+          "description": "피로가 심혈관계에 미치는 영향을 평가하기 위해 심전도 검사가 필요합니다. 심혈관 건강을 위한 정기적인 심전도 검사가 권장됩니다 [2]",
+          "reason": "심장의 상태를 꼼꼼히 체크하고, 피로의 원인을 심혈관 측면에서도 확인하세요.",
+          "priority": 2,
+          "recommended": true
+        },
+        {
+          "name": "정밀 검진",
+          "description": "간 건강을 정확히 파악하고 피로의 원인을 해결하기 위해서는 영상 검사가 필수입니다. 32세 여성의 경우 간 건강을 위한 정밀 검진이 권장됩니다 [1]",
+          "reason": "간 상태를 직접 확인하여 피로의 원인을 제거하고 활력을 되찾으세요.",
+          "priority": 2,
+          "recommended": true
+        }
+      ],
+      "doctor_recommendation": {
+        "has_recommendation": true,
+        "message": "김혜진님의 만성 피로와 간 건강을 위한 추천 검진입니다."
+      },
+      "defaultExpanded": false
+    },
+    {
+      "category": "선택해서 받아보실 수 있는 항목",
+      "category_en": "Priority 3",
+      "itemCount": 1,
+      "items": [
+        {
+          "name": "유전자 검사",
+          "description": " ",
+          "reason": "",
+          "priority": 3,
+          "recommended": true
+        }
+      ],
+      "doctor_recommendation": {
+        "has_recommendation": true,
+        "message": "더 정밀한 검사를 원하신다면 고려해보세요."
+      },
+      "defaultExpanded": false
+    }
+  ],
+  "doctor_comment": {
+    "overall_assessment": "혜진님, 간단하고 핵심적인 검진으로 피로의 원인을 정확히 파악하고 개선할 수 있는 기회를 잡으세요. 간과 심혈관 건강을 중점적으로 확인하여 더 활기찬 일상을 되찾으실 수 있습니다.",
+    "key_recommendations": [
+      "정밀 검진으로 간 건강 상태 확인",
+      "심전도 검사로 심혈관 상태 점검"
+    ]
+  },
+  "total_count": 5,
+  "rag_evidences": [
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 6,
+      "citation": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n   ...",
+      "full_text": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n      <th>비고</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td rowspan=\"3\">이상지질혈증</td>\n<td>· 총콜레스테롤</td>\n      <td rowspan=\"3\">남자:24세 이상(4년 주기)<br>여자:40세 이상(4년 주기)</td>\n      <td rowspan=\"3\">남자:24세, 28세, 32세…<br>여자:40세, 44세, 48세…</td>\n    </tr>\n<tr>\n      <td>· HDL/LDL 콜레스테롤</td>\n    </tr>\n<tr>\n      <td>· 중성지방(트리글리세라이드)</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">B형간염 검사</td>\n<td>40세</td>\n<td>면역자, 보균자는 제외</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">골밀도 검사</td>\n<td>54세 여성과 66세 여성</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">인지기능장애</td>\n<td>66세 이상(2년 주기)</td>\n<td>66세, 68세, 70세…</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">정신건강(우울증) 검사</td>\n<td>20세, 30세, 40세, 50세, 60세, 70세</td>\n<td>해당 연령을 시작으로 10년동안 1회</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">생활습관평가</td>\n<td>40세, 50세, 60세, 70세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">노인신체기능 검사</td>\n<td>66세, 70세, 80세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">치면세균막 검사</td>\n<td>40세</td>\n<td>구강검진 항목</td>\n    </tr>\n  </tbody>\n</table>\n\n# 확진검사\n\n<table>\n  <thead>\n    <tr>",
+      "confidence_score": 0.5170594,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "32세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n만성 피로 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 3,
+      "citation": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시...",
+      "full_text": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시기 바랍니다. 전자문서와 병행하여 발송하여 가족 구성원 간 검진표 수령방식 및 수령시기가 차이날 수 있습니다.\n※ 최근 등록한 검진 항목과 수검받은 이력은 적용되지 않는 점 양지하여 주시기 바랍니다.(기준일 : 2024년 3월 18일)\n\n<table>\n  <thead>\n    <tr>\n      <th>성명</th>\n      <th colspan=\"2\"></th>\n      <th>증번호</th>\n      <th colspan=\"2\"></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>실시기간</td>\n      <td colspan=\"2\">2024년 12월 31일까지</td>\n<td>문의전화</td>\n      <td colspan=\"2\">1577-1000</td>\n    </tr>\n<tr>\n      <td rowspan=\"10\">검진항목<br>비용</td>\n      <td rowspan=\"3\">건강검진</td>\n<td>일반건강검진</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td>구강검진</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>항목</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"7\">암검진</td>\n<td>위암 (40세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>대장암 (분변잠혈검사) (50세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"2\">간암</td>\n<td>(상반기) (40세 이상 고위험군)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>(하반기)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>유방암 (40세 이상",
+      "confidence_score": 0.4562407,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "32세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n만성 피로 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 32,
+      "citation": "리카, 카드뮴, 석면, 비소, 베리리움, 크롬, 디젤배기가스, 니켈 등 폐암 발암물질에 피폭되는 작업장) 또는 암병력(폐암에서 완치되었던 경우, 림프종, 두경부암, 식도암 등 흡연...",
+      "full_text": "리카, 카드뮴, 석면, 비소, 베리리움, 크롬, 디젤배기가스, 니켈 등 폐암 발암물질에 피폭되는 작업장) 또는 암병력(폐암에서 완치되었던 경우, 림프종, 두경부암, 식도암 등 흡연과 관련성이 있는 암의 병력자) 중 하나 이상의 요인을 가진 사람들도 검진 대상으로 제시하였다.<sup>8)</sup> American Association of Thoracic Surgery (AATS)에서는 이차 폐암의 발생 위험이 높은 폐암 완치 후 5년이 경과한 사람들도 검진 대상군으로 추천한다. 또한 50세 이상, 20갑년 이상의 흡연력과 폐암 발생의 위험인자인 COPD, 환경 또는 직업적 위험성 노출, 암 병력, 가족력이 있는 경우 폐암 선별검사의 대상이 될 수 있을 것이라고 하였다.<sup>4)</sup>\n\n28 폐암 검진 권고안",
+      "confidence_score": 0.28832906,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "32세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n만성 피로 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 80,
+      "citation": "# 부록 12. 7대 암종 검진 권고안 용어 색인\n\n<table>\n  <thead>\n    <tr>\n      <th>한글</th>\n      <th>영어</th>\n      <t...",
+      "full_text": "# 부록 12. 7대 암종 검진 권고안 용어 색인\n\n<table>\n  <thead>\n    <tr>\n      <th>한글</th>\n      <th>영어</th>\n      <th>설명</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>과진단</td>\n<td>Overdiagnosis</td>\n<td>환자가 암이 아닌 다른 원인으로 사망할 것인데도 검진을 시행하여 암이 있다고 진단하는 경우</td>\n    </tr>\n<tr>\n      <td>수용개작</td>\n<td>Adaptation</td>\n<td>4가지 기준을 모두 만족한 경우\n        <br>1) 기존의 암검진 관련 국내외 진료지침(권고안)(혹은 systematic review)이 전체의 핵심질문을 모두 포함하는 경우\n        <br>2) 암검진 관련 국내외 진료지침(권고안)(혹은 systematic review)이 5년 이내에 개발되었고 결정적인 추가 근거가 없는 경우\n        <br>3) 암검진 관련 국내외 진료지침(권고안)(혹은 systematic review)이 근거중심방법론을 사용한 경우(체계적 문헌 검색에 대한 보고가 있고, 권고와 지지 근거 사이에 명확한 연계가 있는 것, 혹은 AGREE 방법론 점수가 50% 이상인 경우)\n        <br>4) 암검진 관련 국내외 진료지침(권고안)이 국가 혹은 대표적인 학회에서 개발한 경우</td>\n    </tr>\n<tr>\n      <td>선별검사, 검진</td>\n<td>Screening</td>\n<td>특정한 질병이 있을",
+      "confidence_score": 0.2877733,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "32세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n만성 피로 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "이상지질혈증 진료지침 제5판.pdf",
+      "page": 165,
+      "citation": "Chapter 5 특정 집단의 이상지질혈증 163\n\n표 5-4. 소아청소년에서 이상지질혈증의 선별검사\n\n<table>\n    <tr>\n        <td>연령</td>\n<td>권...",
+      "full_text": "Chapter 5 특정 집단의 이상지질혈증 163\n\n표 5-4. 소아청소년에서 이상지질혈증의 선별검사\n\n<table>\n    <tr>\n        <td>연령</td>\n<td>권고안</td>\n    </tr>\n<tr>\n        <td>출생–2세</td>\n<td>선별검사 필요없음</td>\n    </tr>\n<tr>\n        <td>2–8세</td>\n<td>선별검사 권하지 않음\n<br/>\n가족력 있고 위험요인 있을 때, 공복지질검사 시행1)</td>\n    </tr>\n<tr>\n        <td>9–11세</td>\n<td>비공복상태에서 non-HDL 콜레스테롤 측정\n<br/>\nNon-HDL 콜레스테롤 ≥145 mg/dL이면, 공복지질검사 시행1)</td>\n    </tr>\n<tr>\n        <td>12–16세</td>\n<td>선별검사 권하지 않음\n<br/>\n가족 중 새로운 위험인자나 소견 발생시 , 공복지질검사 시행1)</td>\n    </tr>\n<tr>\n        <td>17–21세</td>\n<td>비공복상태에서 non-HDL 콜레스테롤 측정\n<br/>\nNon-HDL 콜레스테롤 ≥145 mg/dL이면, 공복지질검사 시행1)</td>\n    </tr>\n</table>\n\n<sup>1)</sup> 공복지질검사는 3개월 이내 2주 이상 간격으로 2회 실시한다.\n\n표 5-5. 소아청소년에서 이상지질혈증의 위험인자\n\n<table>\n  <thead>\n    <tr>\n      <th>가족력</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>부모, 조부모, 이모, 고모 또는 삼촌이 남자에서는 55세, 여자에서는 65세 이전에 심근경색, 협심증,",
+      "confidence_score": 0.24575007,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "32세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n만성 피로 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "2024년+국가+암검진+사업안내(최종).pdf",
+      "page": 103,
+      "citation": "진료를 받으셔야 하며, 선택의료급여기관 적용 대상자는 본인이 선택한 의료급여기관에서 먼저 진료를 받으셔야 합니다.\n*   위암은 우리나라 암 발생률 1위로 정기검진을 통해 조기 발...",
+      "full_text": "진료를 받으셔야 하며, 선택의료급여기관 적용 대상자는 본인이 선택한 의료급여기관에서 먼저 진료를 받으셔야 합니다.\n*   위암은 우리나라 암 발생률 1위로 정기검진을 통해 조기 발견이 가능하며, 조기 발견된 경우 내시경적 치료 또는 수술적 치료로 완치 가능한 암입니다.\n*   위암은 40세이상에서 급격하게 증가하므로 특별한 증상이 없더라도 40세이상 남녀 모두 2년 마다 위내시경 또는 위장조영검사를 받을 것을 권고하고 있습니다. 위장조영검사에 이상이 있는 경우에는 다음연도 1. 31.일까지 위내시경검사를 통해 위암 발생 여부를 확인할 수 있습니다.\n*   위암검진 결과가 이상소견이 없더라도 복통, 속쓰림 등의 증상이 있을 경우 의사와 상담이 필요하고, 검사결과 이상소견없음 이외의 판정을 받은 경우 권고사항에 따라 조치를 취하시기 바랍니다.\n*   위암 산정특례자로 등록된 수검자는 산정특례 종료일까지 위암검진을 유예할 수 있습니다.\n*   위암으로 진단받은 사람 중 관련 요건(건강보험료, 국가 암검진 수검 여부 등)을 갖춘 사람은 암환자 의료비 지원사업의 대상이 될 수 있습니다.(상세 내용은 관할 보건소 문의)\n\n귀하의 위암 검진 결과를 위와 같이 통보합니다.\n\n년 월 일\n\n요양기관기호 검진기관명\n\n※ 암검진 결과통보서는 별첨의 암검진 결과 기록지를 근거로 검사항목에 따라 변형해 작성\n210㎜ × 297㎜[백상지(80g/㎡)]\n\n• 97",
+      "confidence_score": 0.21002041,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "32세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n만성 피로 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 6,
+      "citation": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n   ...",
+      "full_text": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n      <th>비고</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td rowspan=\"3\">이상지질혈증</td>\n<td>· 총콜레스테롤</td>\n      <td rowspan=\"3\">남자:24세 이상(4년 주기)<br>여자:40세 이상(4년 주기)</td>\n      <td rowspan=\"3\">남자:24세, 28세, 32세…<br>여자:40세, 44세, 48세…</td>\n    </tr>\n<tr>\n      <td>· HDL/LDL 콜레스테롤</td>\n    </tr>\n<tr>\n      <td>· 중성지방(트리글리세라이드)</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">B형간염 검사</td>\n<td>40세</td>\n<td>면역자, 보균자는 제외</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">골밀도 검사</td>\n<td>54세 여성과 66세 여성</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">인지기능장애</td>\n<td>66세 이상(2년 주기)</td>\n<td>66세, 68세, 70세…</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">정신건강(우울증) 검사</td>\n<td>20세, 30세, 40세, 50세, 60세, 70세</td>\n<td>해당 연령을 시작으로 10년동안 1회</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">생활습관평가</td>\n<td>40세, 50세, 60세, 70세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">노인신체기능 검사</td>\n<td>66세, 70세, 80세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">치면세균막 검사</td>\n<td>40세</td>\n<td>구강검진 항목</td>\n    </tr>\n  </tbody>\n</table>\n\n# 확진검사\n\n<table>\n  <thead>\n    <tr>",
+      "confidence_score": 0.6334335,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "32세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n심전도 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 관련 최신 진료지침과 검사 권고안 \n여성 검진 관련 최신 진료지침과 검사 권고안 \n정밀 검진 관련 최신 진료지침과 검사 권고안 \n헤포덱트(HEPOtect) 관련 최신 진료지침과 검사 권고안 \n아이캔서치(ai-CANCERCH) 관련 최신 진료지침과 검사 권고안 \n온코캐치-E(OncoCatch-E) 관련 최신 진료지침과 검사 권고안 \n얼리텍 대장암 검사(EarlyTect-C) 관련 최신 진료지침과 검사 권고안 \n마스토체크(MASTOCHECK) 관련 최신 진료지침과 검사 권고안 \n얼리텍 폐암 검사(EarlyTect-L) 관련 최신 진료지침과 검사 권고안 \n얼리텍 방광암 검사(EarlyTect-B) 관련 최신 진료지침과 검사 권고안 \n아이파인더(i-FINDER) 관련 최신 진료지침과 검사 권고안 \n캔서 리스크 스크린(Cancer Risk Screen) 관련 최신 진료지침과 검사 권고안 \n제노팩 캔서(GenoPac) 관련 최신 진료지침과 검사 권고안 \nH.pylori 검사(Allplex H.pylori) 관련 최신 진료지침과 검사 권고안 \nHPV 검사(Allplex HPV) 관련 최신 진료지침과 검사 권고안 \n스마트 바이옵시(Smart Biopsy) 관련 최신 진료지침과 검사 권고안 \n온코아큐패널 등 관련 최신 진료지침과 검사 권고안 \nPNAClamp 등 관련 최신 진료지침과 검사 권고안 \n만성 피로 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 3,
+      "citation": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시...",
+      "full_text": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시기 바랍니다. 전자문서와 병행하여 발송하여 가족 구성원 간 검진표 수령방식 및 수령시기가 차이날 수 있습니다.\n※ 최근 등록한 검진 항목과 수검받은 이력은 적용되지 않는 점 양지하여 주시기 바랍니다.(기준일 : 2024년 3월 18일)\n\n<table>\n  <thead>\n    <tr>\n      <th>성명</th>\n      <th colspan=\"2\"></th>\n      <th>증번호</th>\n      <th colspan=\"2\"></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>실시기간</td>\n      <td colspan=\"2\">2024년 12월 31일까지</td>\n<td>문의전화</td>\n      <td colspan=\"2\">1577-1000</td>\n    </tr>\n<tr>\n      <td rowspan=\"10\">검진항목<br>비용</td>\n      <td rowspan=\"3\">건강검진</td>\n<td>일반건강검진</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td>구강검진</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>항목</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"7\">암검진</td>\n<td>위암 (40세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>대장암 (분변잠혈검사) (50세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"2\">간암</td>\n<td>(상반기) (40세 이상 고위험군)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>(하반기)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>유방암 (40세 이상",
+      "confidence_score": 0.585789,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "32세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n심전도 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 관련 최신 진료지침과 검사 권고안 \n여성 검진 관련 최신 진료지침과 검사 권고안 \n정밀 검진 관련 최신 진료지침과 검사 권고안 \n헤포덱트(HEPOtect) 관련 최신 진료지침과 검사 권고안 \n아이캔서치(ai-CANCERCH) 관련 최신 진료지침과 검사 권고안 \n온코캐치-E(OncoCatch-E) 관련 최신 진료지침과 검사 권고안 \n얼리텍 대장암 검사(EarlyTect-C) 관련 최신 진료지침과 검사 권고안 \n마스토체크(MASTOCHECK) 관련 최신 진료지침과 검사 권고안 \n얼리텍 폐암 검사(EarlyTect-L) 관련 최신 진료지침과 검사 권고안 \n얼리텍 방광암 검사(EarlyTect-B) 관련 최신 진료지침과 검사 권고안 \n아이파인더(i-FINDER) 관련 최신 진료지침과 검사 권고안 \n캔서 리스크 스크린(Cancer Risk Screen) 관련 최신 진료지침과 검사 권고안 \n제노팩 캔서(GenoPac) 관련 최신 진료지침과 검사 권고안 \nH.pylori 검사(Allplex H.pylori) 관련 최신 진료지침과 검사 권고안 \nHPV 검사(Allplex HPV) 관련 최신 진료지침과 검사 권고안 \n스마트 바이옵시(Smart Biopsy) 관련 최신 진료지침과 검사 권고안 \n온코아큐패널 등 관련 최신 진료지침과 검사 권고안 \nPNAClamp 등 관련 최신 진료지침과 검사 권고안 \n만성 피로 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 18,
+      "citation": "```mermaid\ngraph TD\n    A[선별검사의 편익] --> B(Ovid-Medline<br>Ovid-Embase)\n    C[선별검사의 위해] --> D(Ovid-Me...",
+      "full_text": "```mermaid\ngraph TD\n    A[선별검사의 편익] --> B(Ovid-Medline<br>Ovid-Embase)\n    C[선별검사의 위해] --> D(Ovid-Medline<br>Ovid-Embase)\n    B --> E{본문 평가}\n    D --> F{본문 평가}\n    E -- 230 --> G(0)\n    F -- 116 --> H(35)\n\n    subgraph 그림 5. 최신성 검색 및 선택.\n        A\n        C\n        B\n        D\n        E\n        F\n        G\n        H\n    end\n```\n\n```mermaid\ngraph TD\n    Koreamed --> K1(198)\n    KISS --> K2(52)\n    NDSL --> K3(92)\n    PubMed --> K4(238)\n\n    K1 --> L1{중복 배제}\n    K2 --> L2{중복 배제}\n    K3 --> L3{중복 배제}\n    K4 --> L4{중복 배제}\n\n    L1 -- 1 --> M(2)\n    L2 -- 0 --> M\n    L3 -- 2 --> M\n    L4 -- 1 --> M\n\n    subgraph 그림 6. 국내문헌 검색 및 선택.\n        Koreamed\n        KISS\n        NDSL\n        PubMed\n        K1\n        K2\n        K3\n        K4\n        L1\n        L2\n        L3\n        L4\n        M\n    end\n```\n\n4) 진료지침의 근거요약\n\n최종 선정된 폐암 선별검사 관련 임상진료지침을 대상으로 각 지침의 근거를 요약정리하였다 (부록 7).\n\n5) 통계적 분석 및 자료합성\n\n기존 6개의 지침에서 인용하였던 사망률과 관련한 일차 연구의 원자료를 추출하여 Cochrane website에서 제공하는 Review Manager (RevMan) 프로그램(http://tech.cochrane.org/revman)\n\n14 폐암 검진 권고안",
+      "confidence_score": 0.51866865,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "32세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n심전도 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 관련 최신 진료지침과 검사 권고안 \n여성 검진 관련 최신 진료지침과 검사 권고안 \n정밀 검진 관련 최신 진료지침과 검사 권고안 \n헤포덱트(HEPOtect) 관련 최신 진료지침과 검사 권고안 \n아이캔서치(ai-CANCERCH) 관련 최신 진료지침과 검사 권고안 \n온코캐치-E(OncoCatch-E) 관련 최신 진료지침과 검사 권고안 \n얼리텍 대장암 검사(EarlyTect-C) 관련 최신 진료지침과 검사 권고안 \n마스토체크(MASTOCHECK) 관련 최신 진료지침과 검사 권고안 \n얼리텍 폐암 검사(EarlyTect-L) 관련 최신 진료지침과 검사 권고안 \n얼리텍 방광암 검사(EarlyTect-B) 관련 최신 진료지침과 검사 권고안 \n아이파인더(i-FINDER) 관련 최신 진료지침과 검사 권고안 \n캔서 리스크 스크린(Cancer Risk Screen) 관련 최신 진료지침과 검사 권고안 \n제노팩 캔서(GenoPac) 관련 최신 진료지침과 검사 권고안 \nH.pylori 검사(Allplex H.pylori) 관련 최신 진료지침과 검사 권고안 \nHPV 검사(Allplex HPV) 관련 최신 진료지침과 검사 권고안 \n스마트 바이옵시(Smart Biopsy) 관련 최신 진료지침과 검사 권고안 \n온코아큐패널 등 관련 최신 진료지침과 검사 권고안 \nPNAClamp 등 관련 최신 진료지침과 검사 권고안 \n만성 피로 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 80,
+      "citation": "# 부록 12. 7대 암종 검진 권고안 용어 색인\n\n<table>\n  <thead>\n    <tr>\n      <th>한글</th>\n      <th>영어</th>\n      <t...",
+      "full_text": "# 부록 12. 7대 암종 검진 권고안 용어 색인\n\n<table>\n  <thead>\n    <tr>\n      <th>한글</th>\n      <th>영어</th>\n      <th>설명</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>과진단</td>\n<td>Overdiagnosis</td>\n<td>환자가 암이 아닌 다른 원인으로 사망할 것인데도 검진을 시행하여 암이 있다고 진단하는 경우</td>\n    </tr>\n<tr>\n      <td>수용개작</td>\n<td>Adaptation</td>\n<td>4가지 기준을 모두 만족한 경우\n        <br>1) 기존의 암검진 관련 국내외 진료지침(권고안)(혹은 systematic review)이 전체의 핵심질문을 모두 포함하는 경우\n        <br>2) 암검진 관련 국내외 진료지침(권고안)(혹은 systematic review)이 5년 이내에 개발되었고 결정적인 추가 근거가 없는 경우\n        <br>3) 암검진 관련 국내외 진료지침(권고안)(혹은 systematic review)이 근거중심방법론을 사용한 경우(체계적 문헌 검색에 대한 보고가 있고, 권고와 지지 근거 사이에 명확한 연계가 있는 것, 혹은 AGREE 방법론 점수가 50% 이상인 경우)\n        <br>4) 암검진 관련 국내외 진료지침(권고안)이 국가 혹은 대표적인 학회에서 개발한 경우</td>\n    </tr>\n<tr>\n      <td>선별검사, 검진</td>\n<td>Screening</td>\n<td>특정한 질병이 있을",
+      "confidence_score": 0.49948794,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "32세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n심전도 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 관련 최신 진료지침과 검사 권고안 \n여성 검진 관련 최신 진료지침과 검사 권고안 \n정밀 검진 관련 최신 진료지침과 검사 권고안 \n헤포덱트(HEPOtect) 관련 최신 진료지침과 검사 권고안 \n아이캔서치(ai-CANCERCH) 관련 최신 진료지침과 검사 권고안 \n온코캐치-E(OncoCatch-E) 관련 최신 진료지침과 검사 권고안 \n얼리텍 대장암 검사(EarlyTect-C) 관련 최신 진료지침과 검사 권고안 \n마스토체크(MASTOCHECK) 관련 최신 진료지침과 검사 권고안 \n얼리텍 폐암 검사(EarlyTect-L) 관련 최신 진료지침과 검사 권고안 \n얼리텍 방광암 검사(EarlyTect-B) 관련 최신 진료지침과 검사 권고안 \n아이파인더(i-FINDER) 관련 최신 진료지침과 검사 권고안 \n캔서 리스크 스크린(Cancer Risk Screen) 관련 최신 진료지침과 검사 권고안 \n제노팩 캔서(GenoPac) 관련 최신 진료지침과 검사 권고안 \nH.pylori 검사(Allplex H.pylori) 관련 최신 진료지침과 검사 권고안 \nHPV 검사(Allplex HPV) 관련 최신 진료지침과 검사 권고안 \n스마트 바이옵시(Smart Biopsy) 관련 최신 진료지침과 검사 권고안 \n온코아큐패널 등 관련 최신 진료지침과 검사 권고안 \nPNAClamp 등 관련 최신 진료지침과 검사 권고안 \n만성 피로 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 14,
+      "citation": "위원회의 논의를 통해 다음과 같이 도출하였다(표 4).\n\n표 4. 근거중심의 폐암 검진 권고안 개발을 위한 핵심질문\n\n<table>\n  <thead>\n    <tr>\n      <...",
+      "full_text": "위원회의 논의를 통해 다음과 같이 도출하였다(표 4).\n\n표 4. 근거중심의 폐암 검진 권고안 개발을 위한 핵심질문\n\n<table>\n  <thead>\n    <tr>\n      <th>핵심질문</th>\n      <th></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>핵심질문 1 : 선별검사의 이득</td>\n<td>- 사망률(폐암사망률, 전체사망률) 감소</td>\n    </tr>\n<tr>\n      <td>핵심질문 2 : 선별검사의 위해</td>\n<td>- 위양성, 과진단<br>- 방사선 노출</td>\n    </tr>\n<tr>\n      <td>핵심질문 3 : 선별검사의 권고대상</td>\n<td>- 고위험군</td>\n    </tr>\n<tr>\n      <td>핵심질문 4 : 선별검사의 주기 및 지속 기간</td>\n<td>- 주기<br>- 지속 기간</td>\n    </tr>\n<tr>\n      <td>핵심질문 5 : 기타 선별검사</td>\n<td>- 흉부X선, 객담 세포진 검사, 종양표지자 등</td>\n    </tr>\n<tr>\n      <td>핵심질문 6 : 검사의 질관리</td>\n<td>- CT 기기의 조건<br>- 판독의사의 자격 등</td>\n    </tr>\n  </tbody>\n</table>\n\n10 폐암 검진 권고안",
+      "confidence_score": 0.45348024,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "32세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n심전도 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 관련 최신 진료지침과 검사 권고안 \n여성 검진 관련 최신 진료지침과 검사 권고안 \n정밀 검진 관련 최신 진료지침과 검사 권고안 \n헤포덱트(HEPOtect) 관련 최신 진료지침과 검사 권고안 \n아이캔서치(ai-CANCERCH) 관련 최신 진료지침과 검사 권고안 \n온코캐치-E(OncoCatch-E) 관련 최신 진료지침과 검사 권고안 \n얼리텍 대장암 검사(EarlyTect-C) 관련 최신 진료지침과 검사 권고안 \n마스토체크(MASTOCHECK) 관련 최신 진료지침과 검사 권고안 \n얼리텍 폐암 검사(EarlyTect-L) 관련 최신 진료지침과 검사 권고안 \n얼리텍 방광암 검사(EarlyTect-B) 관련 최신 진료지침과 검사 권고안 \n아이파인더(i-FINDER) 관련 최신 진료지침과 검사 권고안 \n캔서 리스크 스크린(Cancer Risk Screen) 관련 최신 진료지침과 검사 권고안 \n제노팩 캔서(GenoPac) 관련 최신 진료지침과 검사 권고안 \nH.pylori 검사(Allplex H.pylori) 관련 최신 진료지침과 검사 권고안 \nHPV 검사(Allplex HPV) 관련 최신 진료지침과 검사 권고안 \n스마트 바이옵시(Smart Biopsy) 관련 최신 진료지침과 검사 권고안 \n온코아큐패널 등 관련 최신 진료지침과 검사 권고안 \nPNAClamp 등 관련 최신 진료지침과 검사 권고안 \n만성 피로 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 15,
+      "citation": "폐암 검진 권고안의 개발범위(PIPOH)는 다음과 같이 설정하였다(표 5).\n\n표 5. 폐암 검진 권고안 개발 범위\n\n<table>\n  <thead>\n    <tr>\n      <...",
+      "full_text": "폐암 검진 권고안의 개발범위(PIPOH)는 다음과 같이 설정하였다(표 5).\n\n표 5. 폐암 검진 권고안 개발 범위\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>•P (Population)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 고위험군</td>\n    </tr>\n<tr>\n      <td>•I (Intervention)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 저선량 흉부CT, 흉부X선, 객담세포진검사, 종양표지자</td>\n    </tr>\n<tr>\n      <td>•P (Professional)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 모든 의사</td>\n    </tr>\n<tr>\n      <td>•O (Outcome)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 사망률 감소, 검진 관련 위해</td>\n    </tr>\n<tr>\n      <td>•H (Health)</td>\n<td></td>\n    </tr>\n<tr>\n      <td></td>\n<td>- 일차, 이차, 삼차 의료기관</td>\n    </tr>\n  </tbody>\n</table>\n\n①,④,5\n\n그림 3. 폐암 검진 권고안의 분석틀.\n```mermaid\ngraph LR\n    A[\"High-risk population (3)\"] --> B[\"Screening (2)\"]\n    B --> C[\"Low-dose CT\"]\n    C --> D[\"Decreased mortality\"]\n    B --> E[\"Harm of screening (6)\"]\n```\n\n① KQ1 : 선별검사의 이득\n② KQ2 : 선별검사의 위해\n③ KQ3 : 선별검사의 권고대상\n④ KQ4 : 선별검사의 주기 및 지속 기간\n⑤ KQ5 : 기타 선별검사\n⑥ KQ6 : 검사의 질관리\n\n요약 11",
+      "confidence_score": 0.4429021,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "32세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nnone 가족력이 있을 때 권장되는 조기 선별검사 \n심전도 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 관련 최신 진료지침과 검사 권고안 \n여성 검진 관련 최신 진료지침과 검사 권고안 \n정밀 검진 관련 최신 진료지침과 검사 권고안 \n헤포덱트(HEPOtect) 관련 최신 진료지침과 검사 권고안 \n아이캔서치(ai-CANCERCH) 관련 최신 진료지침과 검사 권고안 \n온코캐치-E(OncoCatch-E) 관련 최신 진료지침과 검사 권고안 \n얼리텍 대장암 검사(EarlyTect-C) 관련 최신 진료지침과 검사 권고안 \n마스토체크(MASTOCHECK) 관련 최신 진료지침과 검사 권고안 \n얼리텍 폐암 검사(EarlyTect-L) 관련 최신 진료지침과 검사 권고안 \n얼리텍 방광암 검사(EarlyTect-B) 관련 최신 진료지침과 검사 권고안 \n아이파인더(i-FINDER) 관련 최신 진료지침과 검사 권고안 \n캔서 리스크 스크린(Cancer Risk Screen) 관련 최신 진료지침과 검사 권고안 \n제노팩 캔서(GenoPac) 관련 최신 진료지침과 검사 권고안 \nH.pylori 검사(Allplex H.pylori) 관련 최신 진료지침과 검사 권고안 \nHPV 검사(Allplex HPV) 관련 최신 진료지침과 검사 권고안 \n스마트 바이옵시(Smart Biopsy) 관련 최신 진료지침과 검사 권고안 \n온코아큐패널 등 관련 최신 진료지침과 검사 권고안 \nPNAClamp 등 관련 최신 진료지침과 검사 권고안 \n만성 피로 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    }
+  ]
+}

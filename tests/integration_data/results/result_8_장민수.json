@@ -1,0 +1,335 @@
+{
+  "patient_summary": "과거 검진 이력은 확인되지 않았습니다. 현재 흡연 중이며, 고혈압 가족력이 있습니다. 전반적인 건강 상태 점검과 함께, 생활 습관 개선이 시급합니다.",
+  "analysis": "장민수님, 30대 후반이신데 검진 이력이 없다는 점이 조금 아쉽네요. 현재 흡연을 하고 계시고, 고혈압 가족력까지 있으셔서 심혈관 건강에 적신호가 켜질 가능성이 높습니다. 특히 흡연은 '혈관 찌꺼기'를 쌓이게 하고, 혈압을 높이는 주범입니다. \n\n겉으로는 괜찮은 척, '나는 괜찮겠지' 생각하실 수 있지만(Manager), 몸은 정직하게 반응합니다. 흡연 문항에서 망설임이 없으셨던 걸 보면, 금연에 대한 의지가 아직은 약하신 것 같아요. 하지만 지금이라도 늦지 않았습니다. 담배 딱 끊고, 혈관 청소에 집중하면 훨씬 건강하게 40대를 맞이할 수 있습니다.",
+  "risk_profile": [
+    {
+      "organ_system": "심뇌혈관",
+      "risk_level": "High",
+      "reason": "현재 흡연 중이며, 고혈압 가족력이 있습니다. 혈압 및 혈관 건강에 대한 정밀 검사가 필요합니다."
+    },
+    {
+      "organ_system": "폐",
+      "risk_level": "High",
+      "reason": "현재 흡연 중이므로 폐암 및 COPD 위험이 높습니다. 흉부 CT 검사를 통해 폐 건강 상태를 확인해야 합니다."
+    }
+  ],
+  "chronic_analysis": {
+    "has_chronic_disease": false,
+    "disease_list": [],
+    "complication_risk": "고혈압 가족력이 있으므로, 혈압을 주기적으로 확인하고 관리해야 합니다. 필요 시 심장, 뇌, 콩팥 합병증 검사 고려"
+  },
+  "survey_reflection": "이번 검진에서는 장민수님의 '혈관 나이'와 '폐 건강'을 집중적으로 점검할 계획입니다. 특히 흡연으로 인해 쌓였을 '혈관 찌꺼기'는 얼마나 되는지, '폐활량'은 괜찮은지 꼼꼼하게 확인해서, 앞으로 어떻게 관리해야 할지 명확하게 알려드릴게요. 내 몸의 대사 엔진, 특히 혈관과 폐 상태를 제대로 파악하는 것이 목표입니다.",
+  "selected_concerns_analysis": [],
+  "basic_checkup_guide": {
+    "title": "일반검진, 이 부분은 잘 보세요",
+    "description": "일반검진 결과지를 확인하실 때, 장민수님 상황에서는 아래 항목들을 특히 잘 살펴보시길 바랍니다.",
+    "focus_items": [
+      {
+        "item_name": "혈압",
+        "why_important": "고혈압 가족력이 있으므로, 혈압 수치를 꼼꼼히 확인하여 관리해야 합니다.",
+        "check_point": "수축기 혈압 120 미만, 이완기 혈압 80 미만 유지 목표"
+      },
+      {
+        "item_name": "흉부 X선",
+        "why_important": "흡연자이므로, 폐 건강 상태를 확인하기 위해 흉부 X선 검사 결과를 주의 깊게 봐야 합니다.",
+        "check_point": "폐에 이상 음영이 있는지 확인"
+      }
+    ]
+  },
+  "summary": {
+    "key_health_issues": [],
+    "family_history_concerns": [
+      "고혈압"
+    ],
+    "lifestyle_factors": [
+      "흡연"
+    ],
+    "priority_1": {
+      "focus_items": [
+        {
+          "item_name": "혈압",
+          "why_important": "고혈압 가족력이 있으므로, 혈압 수치를 꼼꼼히 확인하여 관리해야 합니다.",
+          "check_point": "수축기 혈압 120 미만, 이완기 혈압 80 미만 유지 목표"
+        },
+        {
+          "item_name": "흉부 X선",
+          "why_important": "흡연자이므로, 폐 건강 상태를 확인하기 위해 흉부 X선 검사 결과를 주의 깊게 봐야 합니다.",
+          "check_point": "폐에 이상 음영이 있는지 확인"
+        }
+      ]
+    }
+  },
+  "priority_1": {
+    "title": "이번 검진 시 유의 깊게 보실 항목이에요",
+    "description": "일반검진 결과지를 확인하실 때, 특히 주의 깊게 살펴보시면 좋을 항목들입니다.",
+    "items": [
+      "혈압"
+    ],
+    "count": 1,
+    "focus_items": [
+      {
+        "name": "혈압",
+        "why_important": "고혈압의 가족력이 있는 고위험군에게는 매년 고혈압 선별검사를 받는 것이 좋습니다. 고혈압 선별검사로는 진료실 혈압 측정이 권장됩니다. 특히 가족력 부분에서 깊이 고민하신 점을 고려하여, 이번 기회에 혈압을 꼼꼼히 확인하는 것이 중요합니다.",
+        "check_point": "수축기 혈압 120 미만, 이완기 혈압 80 미만 유지 목표"
+      }
+    ]
+  },
+  "priority_2": {
+    "title": "병원에서 추천하는 정밀 검진",
+    "description": "흡연 및 고혈압 가족력 기반 필수 가이드라인",
+    "items": [
+      "저선량 폐 CT",
+      "심전도 검사"
+    ],
+    "count": 2,
+    "health_context": "폐 및 심혈관 정밀 확인"
+  },
+  "priority_3": {
+    "title": "선택해서 받아보실 수 있는 항목",
+    "description": "더 정밀한 검사를 원하신다면 고려해보세요.",
+    "items": [
+      "유전자 검사"
+    ],
+    "count": 1,
+    "health_context": "유전적 질환 위험도 평가"
+  },
+  "strategies": [
+    {
+      "target": "저선량 폐 CT",
+      "step1_anchor": "흡연 때문에 폐 건강이 걱정되시죠?(Primary) 하지만 흡연을 계속하는 것은 그 걱정을 현실로 만드는 행동입니다.(Secondary)",
+      "step2_gap": "기본 포함된 '흉부 X선'으로는 미세한 폐 변화나 염증 상태를 확인하기 어렵습니다.",
+      "step3_offer": "저선량 폐 CT로 폐의 염증 상태를 확인하고, 흡연으로 인해 지친 폐를 관리할 수 있는 확실한 방향을 잡으세요.",
+      "doctor_recommendation": {
+        "reason": "흡연으로 인한 폐 손상은 조기 발견이 중요하며, 저선량 폐 CT는 이를 확인하는 데 효과적입니다.",
+        "evidence": "폐 건강 상태 확인 및 관리 필요 [5]",
+        "references": [
+          "https://..."
+        ],
+        "message": "흡연으로 지친 폐, 저선량 CT로 한번 점검하고 관리 시작해보세요."
+      }
+    },
+    {
+      "target": "심전도 검사",
+      "step1_anchor": "고혈압 가족력 때문에 심장이 걱정되시죠?(Primary) 하지만 혈압 관리를 소홀히 하는 것은 그 걱정을 현실로 만드는 행동입니다.(Secondary)",
+      "step2_gap": "기본 혈압 측정만으로는 심장의 전기적 활동이나 이상 리듬을 알 수 없습니다.",
+      "step3_offer": "심전도 검사를 통해 심장의 전기적 활동을 확인하고, 고혈압으로 인한 심혈관 위험을 미리 관리하세요.",
+      "doctor_recommendation": {
+        "reason": "심전도 검사는 심장의 전기적 이상을 조기에 발견하여 심혈관 질환을 예방하는 데 유용합니다.",
+        "evidence": "심혈관 건강 확인 및 관리 필요 [1]",
+        "references": [
+          "https://..."
+        ],
+        "message": "심장이 보내는 신호, 심전도로 한번 체크해보세요."
+      }
+    }
+  ],
+  "recommended_items": [
+    {
+      "category": "이번 검진 시 유의 깊게 보실 항목이에요",
+      "category_en": "Priority 1",
+      "itemCount": 1,
+      "items": [
+        {
+          "name": "혈압",
+          "description": "고혈압의 가족력이 있는 고위험군에게는 매년 고혈압 선별검사를 받는 것이 좋습니다. 고혈압 선별검사로는 진료실 혈압 측정이 권장됩니다. 특히 가족력 부분에서 깊이 고민하신 점을 고려하여, 이번 기회에 혈압을 꼼꼼히 확인하는 것이 중요합니다.",
+          "reason": "수축기 혈압 120 미만, 이완기 혈압 80 미만 유지 목표",
+          "priority": 1,
+          "recommended": true
+        }
+      ],
+      "doctor_recommendation": {
+        "has_recommendation": true,
+        "message": "일반검진 결과지를 확인하실 때, 특히 주의 깊게 살펴보시면 좋을 항목들입니다."
+      },
+      "defaultExpanded": true,
+      "priorityLevel": 1
+    },
+    {
+      "category": "병원에서 추천하는 정밀 검진",
+      "category_en": "Priority 2",
+      "itemCount": 2,
+      "items": [
+        {
+          "name": "저선량 폐 CT",
+          "description": "흡연으로 인한 폐 손상은 조기 발견이 중요하며, 저선량 폐 CT는 이를 확인하는 데 효과적입니다. 폐 건강 상태 확인 및 관리 필요 [5]",
+          "reason": "흡연으로 지친 폐, 저선량 CT로 한번 점검하고 관리 시작해보세요.",
+          "priority": 2,
+          "recommended": true
+        },
+        {
+          "name": "심전도 검사",
+          "description": "심전도 검사는 심장의 전기적 이상을 조기에 발견하여 심혈관 질환을 예방하는 데 유용합니다. 심혈관 건강 확인 및 관리 필요 [1]",
+          "reason": "심장이 보내는 신호, 심전도로 한번 체크해보세요.",
+          "priority": 2,
+          "recommended": true
+        }
+      ],
+      "doctor_recommendation": {
+        "has_recommendation": true,
+        "message": "흡연 및 고혈압 가족력 기반 필수 가이드라인"
+      },
+      "defaultExpanded": false
+    },
+    {
+      "category": "선택해서 받아보실 수 있는 항목",
+      "category_en": "Priority 3",
+      "itemCount": 1,
+      "items": [
+        {
+          "name": "유전자 검사",
+          "description": " ",
+          "reason": "",
+          "priority": 3,
+          "recommended": true
+        }
+      ],
+      "doctor_recommendation": {
+        "has_recommendation": true,
+        "message": "더 정밀한 검사를 원하신다면 고려해보세요."
+      },
+      "defaultExpanded": false
+    }
+  ],
+  "doctor_comment": {
+    "overall_assessment": "장민수님, 흡연과 고혈압 가족력으로 인해 심혈관과 폐 건강에 주의가 필요합니다. 이번 기회에 정밀 검진을 통해 현재 상태를 정확히 파악하고, 건강한 생활 습관을 시작해보세요.",
+    "key_recommendations": [
+      "저선량 폐 CT로 폐 건강 상태 점검",
+      "심전도 검사로 심혈관 상태 확인"
+    ]
+  },
+  "total_count": 4,
+  "rag_evidences": [
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 3,
+      "citation": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시...",
+      "full_text": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시기 바랍니다. 전자문서와 병행하여 발송하여 가족 구성원 간 검진표 수령방식 및 수령시기가 차이날 수 있습니다.\n※ 최근 등록한 검진 항목과 수검받은 이력은 적용되지 않는 점 양지하여 주시기 바랍니다.(기준일 : 2024년 3월 18일)\n\n<table>\n  <thead>\n    <tr>\n      <th>성명</th>\n      <th colspan=\"2\"></th>\n      <th>증번호</th>\n      <th colspan=\"2\"></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>실시기간</td>\n      <td colspan=\"2\">2024년 12월 31일까지</td>\n<td>문의전화</td>\n      <td colspan=\"2\">1577-1000</td>\n    </tr>\n<tr>\n      <td rowspan=\"10\">검진항목<br>비용</td>\n      <td rowspan=\"3\">건강검진</td>\n<td>일반건강검진</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td>구강검진</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>항목</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"7\">암검진</td>\n<td>위암 (40세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>대장암 (분변잠혈검사) (50세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"2\">간암</td>\n<td>(상반기) (40세 이상 고위험군)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>(하반기)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>유방암 (40세 이상",
+      "confidence_score": 0.5501488,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "37세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nhypertension 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "2024년+국가+암검진+사업안내(최종).pdf",
+      "page": 75,
+      "citation": "<td colspan=\"3\">2023년12월31일까지</td>\n<td>1577-1000</td>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      ...",
+      "full_text": "<td colspan=\"3\">2023년12월31일까지</td>\n<td>1577-1000</td>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <th rowspan=\"11\">검진항목<br>•<br>비용</th>\n      <th rowspan=\"3\">건강검진</th>\n      <th>항목</th>\n      <th>대상여부</th>\n      <th colspan=\"2\">비용부담</th>\n    </tr>\n<tr>\n      <td>일반건강검진</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>구강검진</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <th rowspan=\"8\">암검진</th>\n      <th>항목</th>\n      <th>대상여부</th>\n      <th colspan=\"2\">비용부담</th>\n    </tr>\n<tr>\n      <td>위암 (40세 이상)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>대장암 (분변잠혈검사) (50세 이상)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>(상반기)</td>\n<td>(40세 이상 고위험군)</td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>(하반기)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>유방암 (40세 이상 여성)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>자궁경부암 (20세 이상 여성)</td>\n<td></td>\n      <td colspan=\"2\"></td>\n    </tr>\n<tr>\n      <td>폐암 (54세~74세 고위험군)</td>\n<td></td>\n      <td colspan=\"2\"></td>",
+      "confidence_score": 0.52027756,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "37세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nhypertension 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 6,
+      "citation": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n   ...",
+      "full_text": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n      <th>비고</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td rowspan=\"3\">이상지질혈증</td>\n<td>· 총콜레스테롤</td>\n      <td rowspan=\"3\">남자:24세 이상(4년 주기)<br>여자:40세 이상(4년 주기)</td>\n      <td rowspan=\"3\">남자:24세, 28세, 32세…<br>여자:40세, 44세, 48세…</td>\n    </tr>\n<tr>\n      <td>· HDL/LDL 콜레스테롤</td>\n    </tr>\n<tr>\n      <td>· 중성지방(트리글리세라이드)</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">B형간염 검사</td>\n<td>40세</td>\n<td>면역자, 보균자는 제외</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">골밀도 검사</td>\n<td>54세 여성과 66세 여성</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">인지기능장애</td>\n<td>66세 이상(2년 주기)</td>\n<td>66세, 68세, 70세…</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">정신건강(우울증) 검사</td>\n<td>20세, 30세, 40세, 50세, 60세, 70세</td>\n<td>해당 연령을 시작으로 10년동안 1회</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">생활습관평가</td>\n<td>40세, 50세, 60세, 70세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">노인신체기능 검사</td>\n<td>66세, 70세, 80세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">치면세균막 검사</td>\n<td>40세</td>\n<td>구강검진 항목</td>\n    </tr>\n  </tbody>\n</table>\n\n# 확진검사\n\n<table>\n  <thead>\n    <tr>",
+      "confidence_score": 0.43295085,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "37세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nhypertension 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "13.대한고혈압학회 - 2022 고혈압 진료지침_221206.pdf",
+      "page": 33,
+      "citation": "고혈압 선별검사를 받을 것을 권고한다<sup>46)</sup>. 고혈압의 일차 선별검사 목적으로는 진료실혈압 측정을 권장한다.\n\n가정혈압 측정이나 활동혈압 측정은 선별검사에서 고혈...",
+      "full_text": "고혈압 선별검사를 받을 것을 권고한다<sup>46)</sup>. 고혈압의 일차 선별검사 목적으로는 진료실혈압 측정을 권장한다.\n\n가정혈압 측정이나 활동혈압 측정은 선별검사에서 고혈압이 발견되었을 때, 치료 전 고혈압 진단을 확인하기 위한 목적으로 사용될 수 있다. 진료실자동혈압 측정의 선별검사로서의 유용성에 대한 근거는 아직 부족하다. 진료실혈압 측정 결과 고혈압이 의심될 경우, 재방문하여 진료실혈압 측정을 반복하거나 가정혈압 측정, 활동혈압 측정 등으로 고혈압 진단을 확인하는 것이 필요하다.\n\n# 7. 환자의 평가\n\n고혈압을 진단하고 평가를 위해서는 1) 일차성과 이차성 고혈압을 감별하고, 2) 고혈압의 중증도를 평가하고, 3) 심뇌혈관질환의 위험인자와 생활습관을 파악하고, 4) 심뇌혈관질환 유무와 치료에 영향을 줄 수 있는 동반질환 또는 무증상장기손상 유무를 확인해야 한다.\n\n## 7.1. 증상 및 징후\n\n대개의 고혈압환자는 혈압 상승과 관련된 특이한 증상이 없다. 대부분 우연히 혈압 상승을 발견하거나, 고혈압성 심뇌혈관질환의 증상이나, 이차성 고혈압을 유발하는 기저질환에 의한 증상이 있을 때 진료실을 찾게",
+      "confidence_score": 0.39040667,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "37세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nhypertension 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "간질환 백서(2024 Update)_최종파일.pdf",
+      "page": 424,
+      "citation": "선별검사 388\n* 알코올 사용장애의 선별검사 179\n* 알코올 사용장애의 진단 기준 151\n* 알코올 사용장애자 사회적 지원 390\n* 알코올상담센터 180\n* 알코올 섭취량 1...",
+      "full_text": "선별검사 388\n* 알코올 사용장애의 선별검사 179\n* 알코올 사용장애의 진단 기준 151\n* 알코올 사용장애자 사회적 지원 390\n* 알코올상담센터 180\n* 알코올 섭취량 164\n* 알코올 소비량 154\n* 알코올의존증후군 150\n* 알코올 전문병원 180\n* 알코올 중독 150\n* 알코올 지방간 164\n* 약물방출미세구 324\n* 에탄올주입술 322\n* 역동적 조영증강 CT, MRI 291\n* 영상검사 간암 288\n* 외국인 근로자 80, 125, 406\n* 운동요법 211\n* 원발성 담즙성 담관염 30\n* 월간음주율 157\n* 윌슨병 31\n* 유전 및 대사 질환 31\n* 음주문화 391\n* 음주행태 159\n* 이식편 370\n* 이트리움-90 329\n* 이환손실금 278\n* 인슐린 저항성 29\n* 인터페론/리바비린 136\n* 인터페론 알파 102\n\n## ㅈ\n* 자가면역 간질환 30\n* 자연경과 31\n* 자연경과 A형간염 56\n* 자연경과 B형간염 88\n* 자연경과 간경변증 226\n* 자연경과 비알코올 지방간질환 199\n* 자연경과 알코올 간질환 169\n* 장기구득체계 358\n* 재발 간암 307, 315\n* 재발 간염 374\n* 전격성 간염 28\n* 전수감시체계 81\n* 정맥주사 약물남용 140\n* 조기 간암 288\n* 조영증강 초음파검사 291\n* 중복 감염 27\n* 지속바이러스 반응 135\n* 직접비의료비 278\n* 직접의료비 278\n* 진행성 간암 304, 334\n* 질병부담 33\n* 질병부담 A형간염",
+      "confidence_score": 0.3620896,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "37세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nhypertension 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "13.대한고혈압학회 - 2022 고혈압 진료지침_221206.pdf",
+      "page": 33,
+      "citation": "2022년 고혈압 진료지침\n\n작다고 할 수 있다.\n\n성인 대상 고혈압 선별검사의 최적 주기에 대한 근거는 부족하다. 혈압 측정은 심각한 부작용이 없고, 비용도 크지 않기 때문에, ...",
+      "full_text": "2022년 고혈압 진료지침\n\n작다고 할 수 있다.\n\n성인 대상 고혈압 선별검사의 최적 주기에 대한 근거는 부족하다. 혈압 측정은 심각한 부작용이 없고, 비용도 크지 않기 때문에, 많은 국가에서 비용-효과 분석 결과보다는 그 나라의 의료환경이나 건강검진 인프라 수준을 고려하여 고혈압 선별검사 주기를 정하고 있다<sup>46)114)</sup>.\n\n우리나라는 국민건강보험공단에서 모든 성인을 대상으로 2년 주기의 일반건강검진 프로그램을 운영하고 있고, 민간건강검진을 받는 인구도 많기 때문에 2년마다 혈압 측정을 하는 것이 적절할 것이다. 그러나, 고혈압 고위험군인 경우, 더 자주 혈압을 측정하는 것이 권장된다. 미국질병예방서비스위원회(US Preventive Services Task Force)는 40세 이상 성인과 고혈압 고위험군(흑인, 고혈압전단계, 과체중/비만 등)에게 매년 고혈압 선별검사를 받을 것을 권고한다<sup>46)</sup>. 고혈압의 일차 선별검사 목적으로는 진료실혈압 측정을 권장한다.\n\n가정혈압 측정이나 활동혈압 측정은 선별검사에서 고혈압이 발견되었을 때, 치료 전 고혈압 진단을 확인하기 위한 목적으로 사용될 수 있다. 진료실자동혈압 측정의 선별검사로서의 유용성에 대한 근거는 아직 부족하다.",
+      "confidence_score": 0.33215925,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "37세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nhypertension 가족력이 있을 때 권장되는 조기 선별검사",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 3,
+      "citation": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시...",
+      "full_text": "# 건강검진\n# 일반건강검진 · 암검진 검진표\nh.well\n국민건강보험\nNational Health Insurance Service\n\n※ 이미 검진을 받으신 분은 검진표를 폐기하시기 바랍니다. 전자문서와 병행하여 발송하여 가족 구성원 간 검진표 수령방식 및 수령시기가 차이날 수 있습니다.\n※ 최근 등록한 검진 항목과 수검받은 이력은 적용되지 않는 점 양지하여 주시기 바랍니다.(기준일 : 2024년 3월 18일)\n\n<table>\n  <thead>\n    <tr>\n      <th>성명</th>\n      <th colspan=\"2\"></th>\n      <th>증번호</th>\n      <th colspan=\"2\"></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>실시기간</td>\n      <td colspan=\"2\">2024년 12월 31일까지</td>\n<td>문의전화</td>\n      <td colspan=\"2\">1577-1000</td>\n    </tr>\n<tr>\n      <td rowspan=\"10\">검진항목<br>비용</td>\n      <td rowspan=\"3\">건강검진</td>\n<td>일반건강검진</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td>구강검진</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>항목</td>\n<td>대상여부</td>\n<td>비용부담</td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"7\">암검진</td>\n<td>위암 (40세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>대장암 (분변잠혈검사) (50세 이상)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td rowspan=\"2\">간암</td>\n<td>(상반기) (40세 이상 고위험군)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>(하반기)</td>\n<td></td>\n<td></td>\n<td></td>\n    </tr>\n<tr>\n      <td>유방암 (40세 이상",
+      "confidence_score": 0.6122407,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "37세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nhypertension 가족력이 있을 때 권장되는 조기 선별검사 \n심전도 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 관련 최신 진료지침과 검사 권고안 \n여성 검진 관련 최신 진료지침과 검사 권고안 \n정밀 검진 관련 최신 진료지침과 검사 권고안 \n헤포덱트(HEPOtect) 관련 최신 진료지침과 검사 권고안 \n아이캔서치(ai-CANCERCH) 관련 최신 진료지침과 검사 권고안 \n온코캐치-E(OncoCatch-E) 관련 최신 진료지침과 검사 권고안 \n얼리텍 대장암 검사(EarlyTect-C) 관련 최신 진료지침과 검사 권고안 \n마스토체크(MASTOCHECK) 관련 최신 진료지침과 검사 권고안 \n얼리텍 폐암 검사(EarlyTect-L) 관련 최신 진료지침과 검사 권고안 \n얼리텍 방광암 검사(EarlyTect-B) 관련 최신 진료지침과 검사 권고안 \n아이파인더(i-FINDER) 관련 최신 진료지침과 검사 권고안 \n캔서 리스크 스크린(Cancer Risk Screen) 관련 최신 진료지침과 검사 권고안 \n제노팩 캔서(GenoPac) 관련 최신 진료지침과 검사 권고안 \nH.pylori 검사(Allplex H.pylori) 관련 최신 진료지침과 검사 권고안 \nHPV 검사(Allplex HPV) 관련 최신 진료지침과 검사 권고안 \n스마트 바이옵시(Smart Biopsy) 관련 최신 진료지침과 검사 권고안 \n온코아큐패널 등 관련 최신 진료지침과 검사 권고안 \nPNAClamp 등 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "필수_일반공단검진_2024.pdf",
+      "page": 6,
+      "citation": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n   ...",
+      "full_text": "# 성·연령별 검사항목\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>검사항목</th>\n      <th>대상연령</th>\n      <th>비고</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td rowspan=\"3\">이상지질혈증</td>\n<td>· 총콜레스테롤</td>\n      <td rowspan=\"3\">남자:24세 이상(4년 주기)<br>여자:40세 이상(4년 주기)</td>\n      <td rowspan=\"3\">남자:24세, 28세, 32세…<br>여자:40세, 44세, 48세…</td>\n    </tr>\n<tr>\n      <td>· HDL/LDL 콜레스테롤</td>\n    </tr>\n<tr>\n      <td>· 중성지방(트리글리세라이드)</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">B형간염 검사</td>\n<td>40세</td>\n<td>면역자, 보균자는 제외</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">골밀도 검사</td>\n<td>54세 여성과 66세 여성</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">인지기능장애</td>\n<td>66세 이상(2년 주기)</td>\n<td>66세, 68세, 70세…</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">정신건강(우울증) 검사</td>\n<td>20세, 30세, 40세, 50세, 60세, 70세</td>\n<td>해당 연령을 시작으로 10년동안 1회</td>\n    </tr>\n<tr>\n      <td colspan=\"2\">생활습관평가</td>\n<td>40세, 50세, 60세, 70세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">노인신체기능 검사</td>\n<td>66세, 70세, 80세</td>\n<td></td>\n    </tr>\n<tr>\n      <td colspan=\"2\">치면세균막 검사</td>\n<td>40세</td>\n<td>구강검진 항목</td>\n    </tr>\n  </tbody>\n</table>\n\n# 확진검사\n\n<table>\n  <thead>\n    <tr>",
+      "confidence_score": 0.6058229,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "37세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nhypertension 가족력이 있을 때 권장되는 조기 선별검사 \n심전도 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 관련 최신 진료지침과 검사 권고안 \n여성 검진 관련 최신 진료지침과 검사 권고안 \n정밀 검진 관련 최신 진료지침과 검사 권고안 \n헤포덱트(HEPOtect) 관련 최신 진료지침과 검사 권고안 \n아이캔서치(ai-CANCERCH) 관련 최신 진료지침과 검사 권고안 \n온코캐치-E(OncoCatch-E) 관련 최신 진료지침과 검사 권고안 \n얼리텍 대장암 검사(EarlyTect-C) 관련 최신 진료지침과 검사 권고안 \n마스토체크(MASTOCHECK) 관련 최신 진료지침과 검사 권고안 \n얼리텍 폐암 검사(EarlyTect-L) 관련 최신 진료지침과 검사 권고안 \n얼리텍 방광암 검사(EarlyTect-B) 관련 최신 진료지침과 검사 권고안 \n아이파인더(i-FINDER) 관련 최신 진료지침과 검사 권고안 \n캔서 리스크 스크린(Cancer Risk Screen) 관련 최신 진료지침과 검사 권고안 \n제노팩 캔서(GenoPac) 관련 최신 진료지침과 검사 권고안 \nH.pylori 검사(Allplex H.pylori) 관련 최신 진료지침과 검사 권고안 \nHPV 검사(Allplex HPV) 관련 최신 진료지침과 검사 권고안 \n스마트 바이옵시(Smart Biopsy) 관련 최신 진료지침과 검사 권고안 \n온코아큐패널 등 관련 최신 진료지침과 검사 권고안 \nPNAClamp 등 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 18,
+      "citation": "```mermaid\ngraph TD\n    A[선별검사의 편익] --> B(Ovid-Medline<br>Ovid-Embase)\n    C[선별검사의 위해] --> D(Ovid-Me...",
+      "full_text": "```mermaid\ngraph TD\n    A[선별검사의 편익] --> B(Ovid-Medline<br>Ovid-Embase)\n    C[선별검사의 위해] --> D(Ovid-Medline<br>Ovid-Embase)\n    B --> E{본문 평가}\n    D --> F{본문 평가}\n    E -- 230 --> G(0)\n    F -- 116 --> H(35)\n\n    subgraph 그림 5. 최신성 검색 및 선택.\n        A\n        C\n        B\n        D\n        E\n        F\n        G\n        H\n    end\n```\n\n```mermaid\ngraph TD\n    Koreamed --> K1(198)\n    KISS --> K2(52)\n    NDSL --> K3(92)\n    PubMed --> K4(238)\n\n    K1 --> L1{중복 배제}\n    K2 --> L2{중복 배제}\n    K3 --> L3{중복 배제}\n    K4 --> L4{중복 배제}\n\n    L1 -- 1 --> M(2)\n    L2 -- 0 --> M\n    L3 -- 2 --> M\n    L4 -- 1 --> M\n\n    subgraph 그림 6. 국내문헌 검색 및 선택.\n        Koreamed\n        KISS\n        NDSL\n        PubMed\n        K1\n        K2\n        K3\n        K4\n        L1\n        L2\n        L3\n        L4\n        M\n    end\n```\n\n4) 진료지침의 근거요약\n\n최종 선정된 폐암 선별검사 관련 임상진료지침을 대상으로 각 지침의 근거를 요약정리하였다 (부록 7).\n\n5) 통계적 분석 및 자료합성\n\n기존 6개의 지침에서 인용하였던 사망률과 관련한 일차 연구의 원자료를 추출하여 Cochrane website에서 제공하는 Review Manager (RevMan) 프로그램(http://tech.cochrane.org/revman)\n\n14 폐암 검진 권고안",
+      "confidence_score": 0.54753727,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "37세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nhypertension 가족력이 있을 때 권장되는 조기 선별검사 \n심전도 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 관련 최신 진료지침과 검사 권고안 \n여성 검진 관련 최신 진료지침과 검사 권고안 \n정밀 검진 관련 최신 진료지침과 검사 권고안 \n헤포덱트(HEPOtect) 관련 최신 진료지침과 검사 권고안 \n아이캔서치(ai-CANCERCH) 관련 최신 진료지침과 검사 권고안 \n온코캐치-E(OncoCatch-E) 관련 최신 진료지침과 검사 권고안 \n얼리텍 대장암 검사(EarlyTect-C) 관련 최신 진료지침과 검사 권고안 \n마스토체크(MASTOCHECK) 관련 최신 진료지침과 검사 권고안 \n얼리텍 폐암 검사(EarlyTect-L) 관련 최신 진료지침과 검사 권고안 \n얼리텍 방광암 검사(EarlyTect-B) 관련 최신 진료지침과 검사 권고안 \n아이파인더(i-FINDER) 관련 최신 진료지침과 검사 권고안 \n캔서 리스크 스크린(Cancer Risk Screen) 관련 최신 진료지침과 검사 권고안 \n제노팩 캔서(GenoPac) 관련 최신 진료지침과 검사 권고안 \nH.pylori 검사(Allplex H.pylori) 관련 최신 진료지침과 검사 권고안 \nHPV 검사(Allplex HPV) 관련 최신 진료지침과 검사 권고안 \n스마트 바이옵시(Smart Biopsy) 관련 최신 진료지침과 검사 권고안 \n온코아큐패널 등 관련 최신 진료지침과 검사 권고안 \nPNAClamp 등 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 80,
+      "citation": "# 부록 12. 7대 암종 검진 권고안 용어 색인\n\n<table>\n  <thead>\n    <tr>\n      <th>한글</th>\n      <th>영어</th>\n      <t...",
+      "full_text": "# 부록 12. 7대 암종 검진 권고안 용어 색인\n\n<table>\n  <thead>\n    <tr>\n      <th>한글</th>\n      <th>영어</th>\n      <th>설명</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>과진단</td>\n<td>Overdiagnosis</td>\n<td>환자가 암이 아닌 다른 원인으로 사망할 것인데도 검진을 시행하여 암이 있다고 진단하는 경우</td>\n    </tr>\n<tr>\n      <td>수용개작</td>\n<td>Adaptation</td>\n<td>4가지 기준을 모두 만족한 경우\n        <br>1) 기존의 암검진 관련 국내외 진료지침(권고안)(혹은 systematic review)이 전체의 핵심질문을 모두 포함하는 경우\n        <br>2) 암검진 관련 국내외 진료지침(권고안)(혹은 systematic review)이 5년 이내에 개발되었고 결정적인 추가 근거가 없는 경우\n        <br>3) 암검진 관련 국내외 진료지침(권고안)(혹은 systematic review)이 근거중심방법론을 사용한 경우(체계적 문헌 검색에 대한 보고가 있고, 권고와 지지 근거 사이에 명확한 연계가 있는 것, 혹은 AGREE 방법론 점수가 50% 이상인 경우)\n        <br>4) 암검진 관련 국내외 진료지침(권고안)이 국가 혹은 대표적인 학회에서 개발한 경우</td>\n    </tr>\n<tr>\n      <td>선별검사, 검진</td>\n<td>Screening</td>\n<td>특정한 질병이 있을",
+      "confidence_score": 0.5128152,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "37세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nhypertension 가족력이 있을 때 권장되는 조기 선별검사 \n심전도 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 관련 최신 진료지침과 검사 권고안 \n여성 검진 관련 최신 진료지침과 검사 권고안 \n정밀 검진 관련 최신 진료지침과 검사 권고안 \n헤포덱트(HEPOtect) 관련 최신 진료지침과 검사 권고안 \n아이캔서치(ai-CANCERCH) 관련 최신 진료지침과 검사 권고안 \n온코캐치-E(OncoCatch-E) 관련 최신 진료지침과 검사 권고안 \n얼리텍 대장암 검사(EarlyTect-C) 관련 최신 진료지침과 검사 권고안 \n마스토체크(MASTOCHECK) 관련 최신 진료지침과 검사 권고안 \n얼리텍 폐암 검사(EarlyTect-L) 관련 최신 진료지침과 검사 권고안 \n얼리텍 방광암 검사(EarlyTect-B) 관련 최신 진료지침과 검사 권고안 \n아이파인더(i-FINDER) 관련 최신 진료지침과 검사 권고안 \n캔서 리스크 스크린(Cancer Risk Screen) 관련 최신 진료지침과 검사 권고안 \n제노팩 캔서(GenoPac) 관련 최신 진료지침과 검사 권고안 \nH.pylori 검사(Allplex H.pylori) 관련 최신 진료지침과 검사 권고안 \nHPV 검사(Allplex HPV) 관련 최신 진료지침과 검사 권고안 \n스마트 바이옵시(Smart Biopsy) 관련 최신 진료지침과 검사 권고안 \n온코아큐패널 등 관련 최신 진료지침과 검사 권고안 \nPNAClamp 등 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 14,
+      "citation": "위원회의 논의를 통해 다음과 같이 도출하였다(표 4).\n\n표 4. 근거중심의 폐암 검진 권고안 개발을 위한 핵심질문\n\n<table>\n  <thead>\n    <tr>\n      <...",
+      "full_text": "위원회의 논의를 통해 다음과 같이 도출하였다(표 4).\n\n표 4. 근거중심의 폐암 검진 권고안 개발을 위한 핵심질문\n\n<table>\n  <thead>\n    <tr>\n      <th>핵심질문</th>\n      <th></th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>핵심질문 1 : 선별검사의 이득</td>\n<td>- 사망률(폐암사망률, 전체사망률) 감소</td>\n    </tr>\n<tr>\n      <td>핵심질문 2 : 선별검사의 위해</td>\n<td>- 위양성, 과진단<br>- 방사선 노출</td>\n    </tr>\n<tr>\n      <td>핵심질문 3 : 선별검사의 권고대상</td>\n<td>- 고위험군</td>\n    </tr>\n<tr>\n      <td>핵심질문 4 : 선별검사의 주기 및 지속 기간</td>\n<td>- 주기<br>- 지속 기간</td>\n    </tr>\n<tr>\n      <td>핵심질문 5 : 기타 선별검사</td>\n<td>- 흉부X선, 객담 세포진 검사, 종양표지자 등</td>\n    </tr>\n<tr>\n      <td>핵심질문 6 : 검사의 질관리</td>\n<td>- CT 기기의 조건<br>- 판독의사의 자격 등</td>\n    </tr>\n  </tbody>\n</table>\n\n10 폐암 검진 권고안",
+      "confidence_score": 0.46599558,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "37세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nhypertension 가족력이 있을 때 권장되는 조기 선별검사 \n심전도 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 관련 최신 진료지침과 검사 권고안 \n여성 검진 관련 최신 진료지침과 검사 권고안 \n정밀 검진 관련 최신 진료지침과 검사 권고안 \n헤포덱트(HEPOtect) 관련 최신 진료지침과 검사 권고안 \n아이캔서치(ai-CANCERCH) 관련 최신 진료지침과 검사 권고안 \n온코캐치-E(OncoCatch-E) 관련 최신 진료지침과 검사 권고안 \n얼리텍 대장암 검사(EarlyTect-C) 관련 최신 진료지침과 검사 권고안 \n마스토체크(MASTOCHECK) 관련 최신 진료지침과 검사 권고안 \n얼리텍 폐암 검사(EarlyTect-L) 관련 최신 진료지침과 검사 권고안 \n얼리텍 방광암 검사(EarlyTect-B) 관련 최신 진료지침과 검사 권고안 \n아이파인더(i-FINDER) 관련 최신 진료지침과 검사 권고안 \n캔서 리스크 스크린(Cancer Risk Screen) 관련 최신 진료지침과 검사 권고안 \n제노팩 캔서(GenoPac) 관련 최신 진료지침과 검사 권고안 \nH.pylori 검사(Allplex H.pylori) 관련 최신 진료지침과 검사 권고안 \nHPV 검사(Allplex HPV) 관련 최신 진료지침과 검사 권고안 \n스마트 바이옵시(Smart Biopsy) 관련 최신 진료지침과 검사 권고안 \n온코아큐패널 등 관련 최신 진료지침과 검사 권고안 \nPNAClamp 등 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    },
+    {
+      "source_document": "국립암센터 폐암 검진 권고안_최종_150701.pdf",
+      "page": 55,
+      "citation": "# 부록 2. 국가암검진 권고안 제·개정 위원회 구성\n\n```mermaid\ngraph TD\n    A[7대암 검진권고안 제·개정 총괄위원회] --> B[근거평가 실무위원회]\n   ...",
+      "full_text": "# 부록 2. 국가암검진 권고안 제·개정 위원회 구성\n\n```mermaid\ngraph TD\n    A[7대암 검진권고안 제·개정 총괄위원회] --> B[근거평가 실무위원회]\n    A --> C[자문위원회]\n    A --> D[위암 검진 권고안 개정 위원회]\n    A --> E[간암 검진 권고안 개정 위원회]\n    A --> F[대장암 검진 권고안 개정 위원회]\n    A --> G[유방암 검진 권고안 개정 위원회]\n    A --> H[자궁경부암 검진 권고안 개정 위원회]\n    A --> I[폐암 검진 권고안 개정 위원회]\n    A --> J[갑상선암 검진 권고안 개정 위원회]\n    D --> K[암검진 근거 연구 상설위원회(향후 발전방향)]\n    E --> K\n    F --> K\n    G --> K\n    H --> K\n    I --> K\n    J --> K\n```\n\n<자문위원회>\n\n<table>\n  <thead>\n    <tr>\n      <th></th>\n      <th>이름</th>\n      <th>소속 및 전공</th>\n      <th>비고</th>\n    </tr>\n  </thead>\n  <tbody>\n    <tr>\n      <td>위원</td>\n<td>김동익</td>\n<td>연세의대, 영상의학</td>\n<td>대한의학회 회장</td>\n    </tr>\n<tr>\n      <td>위원</td>\n<td>김열홍</td>\n<td>고려의대, 혈액종양내과</td>\n<td>대한암학회 학술이사</td>\n    </tr>\n<tr>",
+      "confidence_score": 0.45682228,
+      "organization": "의학회",
+      "year": "2024",
+      "query": "37세 female에게 권장되는 필수 건강검진 항목과 암 선별검사 기준 \nhypertension 가족력이 있을 때 권장되는 조기 선별검사 \n심전도 검사 관련 최신 진료지침과 검사 권고안 \n유전자 검사 관련 최신 진료지침과 검사 권고안 \n여성 검진 관련 최신 진료지침과 검사 권고안 \n정밀 검진 관련 최신 진료지침과 검사 권고안 \n헤포덱트(HEPOtect) 관련 최신 진료지침과 검사 권고안 \n아이캔서치(ai-CANCERCH) 관련 최신 진료지침과 검사 권고안 \n온코캐치-E(OncoCatch-E) 관련 최신 진료지침과 검사 권고안 \n얼리텍 대장암 검사(EarlyTect-C) 관련 최신 진료지침과 검사 권고안 \n마스토체크(MASTOCHECK) 관련 최신 진료지침과 검사 권고안 \n얼리텍 폐암 검사(EarlyTect-L) 관련 최신 진료지침과 검사 권고안 \n얼리텍 방광암 검사(EarlyTect-B) 관련 최신 진료지침과 검사 권고안 \n아이파인더(i-FINDER) 관련 최신 진료지침과 검사 권고안 \n캔서 리스크 스크린(Cancer Risk Screen) 관련 최신 진료지침과 검사 권고안 \n제노팩 캔서(GenoPac) 관련 최신 진료지침과 검사 권고안 \nH.pylori 검사(Allplex H.pylori) 관련 최신 진료지침과 검사 권고안 \nHPV 검사(Allplex HPV) 관련 최신 진료지침과 검사 권고안 \n스마트 바이옵시(Smart Biopsy) 관련 최신 진료지침과 검사 권고안 \n온코아큐패널 등 관련 최신 진료지침과 검사 권고안 \nPNAClamp 등 관련 최신 진료지침과 검사 권고안",
+      "category": "Clinical Guideline"
+    }
+  ]
+}
