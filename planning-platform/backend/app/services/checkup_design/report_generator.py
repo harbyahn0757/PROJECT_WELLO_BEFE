@@ -1,0 +1,111 @@
+import json
+from typing import Dict, Any, List
+from datetime import datetime
+
+class PersonaAnalysisReportGenerator:
+    """
+    페르소나 분석 과정을 상세한 Markdown 리포트로 생성하는 클래스
+    IR 자료, 디버깅, 내부 감사용으로 활용 가능
+    """
+
+    def __init__(self, patient_name: str, session_id: str):
+        self.patient_name = patient_name
+        self.session_id = session_id
+        self.timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.buffer = []
+
+    def _add(self, text: str):
+        self.buffer.append(text)
+
+    def generate_report(self, 
+                        input_data: Dict[str, Any],
+                        step1_result: Dict[str, Any],
+                        step2_1_result: Dict[str, Any],
+                        step2_2_result: Dict[str, Any],
+                        demographic_info: Dict[str, Any] = None) -> str:
+        
+        # 1. Header
+        self._add(f"# 🧬 Wello Persona Analysis Report")
+        self._add(f"> **Patient**: {self.patient_name} | **Session ID**: `{self.session_id}` | **Date**: {self.timestamp}")
+        self._add(f"\n---\n")
+
+        # 2. Input Analysis (Patient Profile)
+        self._add(f"## 1. Patient Profile Analysis (Input Layer)")
+        self._add(f"환자의 기본 정보와 문진 데이터를 통해 1차적인 건강 상태를 파악합니다.")
+        
+        age = input_data.get('birth_date', 'Unknown')
+        gender = input_data.get('gender', 'Unknown')
+        address = input_data.get('address', 'Unknown')
+        
+        self._add(f"### 📋 Demographic Info")
+        self._add(f"- **Age/Gender**: {age} / {gender}")
+        self._add(f"- **Region**: {address}")
+        if demographic_info:
+            self._add(f"- **Target Segment**: `{demographic_info.get('age_group')}`")
+            self._add(f"- **Region Tone**: {demographic_info.get('region_type')} ({demographic_info.get('region_tone', '').split(':')[0].replace('*', '')})")
+
+        survey = input_data.get('survey_responses', {})
+        self._add(f"\n### 📝 Key Survey Responses")
+        if survey:
+            for key, value in survey.items():
+                if key in ['drinking', 'smoking', 'exercise_frequency', 'family_history', 'weight_change']:
+                    self._add(f"- **{key}**: `{value}`")
+        else:
+            self._add("- No survey data available.")
+
+        # 3. 3D Persona Analysis (Logic Layer)
+        persona = step1_result.get('persona', {})
+        self._add(f"\n## 2. 3D Persona Analysis (Logic Layer)")
+        self._add(f"Fact, Mindset, Action 3가지 레이어를 분석하여 페르소나를 도출했습니다.")
+
+        self._add(f"### 🧠 Psychological Profile (Mindset)")
+        self._add(f"- **Primary Persona**: **{persona.get('primary_persona', 'Unknown')}**")
+        self._add(f"- **Scores**:")
+        scores = persona.get('persona_score', {})
+        for p_type, score in scores.items():
+            if score > 0:
+                self._add(f"  - {p_type}: **{score}**")
+        
+        self._add(f"\n### 🫀 Clinical Archetype (Body Fact)")
+        self._add(f"- **Type**: **{persona.get('clinical_archetype', 'Unknown')}**")
+        
+        risk_flags = persona.get('risk_flags', [])
+        if risk_flags:
+            self._add(f"- **Detected Risk Flags**:")
+            for flag in risk_flags:
+                self._add(f"  - 🚩 `{flag}`")
+
+        # 4. Strategy Matrix
+        self._add(f"\n## 3. Interaction Matrix Strategy")
+        self._add(f"페르소나와 임상 상태가 교차하는 지점의 최적 설득 전략입니다.")
+        self._add(f"- **Strategy Name**: `{persona.get('bridge_strategy', 'Standard')}`")
+        self._add(f"- **Description**: {persona.get('strategy_description', '')}")
+        self._add(f"- **Persuasion Tone**: \"{persona.get('tone', '')}\"")
+        self._add(f"- **Key Message**: \"{persona.get('persuasion_message', '')}\"")
+
+        # 5. Output Generation (Result Layer)
+        self._add(f"\n## 4. Final Generation (Output Layer)")
+        
+        self._add(f"### 🩺 Doctor's Comment")
+        doc_comment = step2_2_result.get('doctor_comment', {})
+        if isinstance(doc_comment, dict):
+            self._add(f"> \"{doc_comment.get('overall_assessment', '')}\"")
+        else:
+            self._add(f"> \"{doc_comment}\"")
+
+        self._add(f"\n### 💊 Upselling Proposal (Strategies)")
+        strategies = step2_2_result.get('strategies', [])
+        for idx, strategy in enumerate(strategies, 1):
+            target = strategy.get('target', 'Unknown Item')
+            offer = strategy.get('step3_offer', '')
+            message = strategy.get('doctor_recommendation', {}).get('message', '')
+            
+            self._add(f"#### Proposal {idx}: {target}")
+            self._add(f"- **Offer Logic**: {offer}")
+            self._add(f"- **Final Message**: \"{message}\"")
+
+        self._add(f"\n---\n")
+        self._add(f"*Generated by Wello Persona Engine v2.0*")
+
+        return "\n".join(self.buffer)
+

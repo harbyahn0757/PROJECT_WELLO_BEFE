@@ -3,6 +3,45 @@ from typing import List, Dict, Any, Optional, Tuple
 from .rag_service import init_rag_engine, get_medical_evidence_from_rag
 from .prompt_utils import build_bridge_strategy_knowledge, generate_behavior_section, generate_clinical_rules
 
+def get_demographic_keywords(age: int, address: str) -> Dict[str, str]:
+    """
+    환자의 나이와 주소를 기반으로 Demographic Sales Matrix 키워드를 반환합니다.
+    """
+    # 1. Age Group Matrix
+    age_group = ""
+    age_keywords = ""
+    
+    if age < 50: # 3040
+        age_group = "3040 (청년/중년)"
+        age_keywords = "'효율', '가성비', '미래 투자', '스마트한 관리'"
+    elif age < 70: # 5060
+        age_group = "5060 (장년)"
+        age_keywords = "'품격', '인생 2막', '여유', '리모델링', '든든한'"
+    else: # 70+
+        age_group = "70+ (노년)"
+        age_keywords = "'안심', '편안함', '건강 수명', '자녀 걱정 없는'"
+
+    # 2. Region Matrix (간단한 로직)
+    region_type = ""
+    region_tone = ""
+    
+    urban_areas = ["서울", "경기", "인천", "부산", "대구", "대전", "광주", "울산", "세종"]
+    is_urban = any(city in (address or "") for city in urban_areas)
+    
+    if is_urban:
+        region_type = "Urban (수도권/대도시)"
+        region_tone = "**Sophisticated (세련됨)**: '최첨단', '트렌드', '앞서가는' 느낌의 어휘 사용"
+    else:
+        region_type = "Local (지방/소도시)"
+        region_tone = "**Reliable (따뜻함/신뢰)**: '가까운', '믿을 수 있는', '가족 같은' 느낌의 어휘 사용"
+
+    return {
+        "age_group": age_group,
+        "age_keywords": age_keywords,
+        "region_type": region_type,
+        "region_tone": region_tone
+    }
+
 async def create_checkup_design_prompt_step2_upselling(
     request: Any,
     step1_result: Dict[str, Any],
@@ -17,7 +56,20 @@ async def create_checkup_design_prompt_step2_upselling(
     # 기본 정보 추출
     patient_name = request.patient_name
     patient_age = request.birth_date  # 나이 계산 로직 필요 시 추가
+    # 간단한 나이 계산 (YYYYMMDD or YYYY) - 여기서는 정수로 가정하거나 2025년 기준 계산
+    try:
+        if isinstance(patient_age, str) and len(patient_age) >= 4:
+            birth_year = int(patient_age[:4])
+            current_year = 2025 # 시스템 기준 연도
+            calculated_age = current_year - birth_year
+        else:
+            calculated_age = int(patient_age) if patient_age else 40
+    except:
+        calculated_age = 40
+
     patient_gender = request.gender
+    patient_address = getattr(request, 'address', "") # 주소 필드 추가 가정
+    
     selected_concerns = request.selected_concerns or []
     survey_responses = request.survey_responses or {}
     
@@ -46,6 +98,57 @@ async def create_checkup_design_prompt_step2_upselling(
 
     persona_type = persona_info.get("type") or persona_info.get("primary_persona", "General")
     persona_desc = persona_info.get("description", "일반적인 환자")
+    
+    # [수정 1] 페르소나 상세 정보 추출 (Tone, Strategy 추가)
+    persona_tone = persona_info.get("tone", "전문적이고 신뢰감 있는")
+    bridge_strategy = persona_info.get("bridge_strategy", "표준 가이드")
+
+    # [수정 2] 페르소나별 맞춤 가이드라인 생성 (Derived Layers 활용)
+    # Persona Engine에서 계산된 Derived Layer 정보를 활용
+    derived_layers = persona_info.get("derived_layers", {})
+    
+    # 1. Job Role (Communication Style)
+    role_info = derived_layers.get("job_role", {})
+    role_grade = role_info.get("grade", "Mid Role")
+    
+    tone_instruction = ""
+    if role_grade == "High Role":
+        tone_instruction = "결론부터 말하고, 시간을 아껴주는 효율적인 '보고서' 스타일로 제안하십시오."
+    elif role_grade == "Low Role":
+        tone_instruction = "어려운 용어를 풀어서 설명하고, 공감하며 설득하는 '상담' 스타일로 제안하십시오."
+        
+    # 2. Investment (Upselling Intensity)
+    invest_info = derived_layers.get("health_investment", {})
+    invest_grade = invest_info.get("grade", "Medium Investment")
+    
+    upselling_instruction = ""
+    if invest_grade == "High Investment":
+        upselling_instruction = "가격보다는 '가치'와 '최고의 기술'을 강조하여 프리미엄 검사를 적극 제안하십시오."
+    elif invest_grade == "Low Investment":
+        upselling_instruction = "비용 효율성을 강조하고, '꼭 필요한 핵심 검사' 위주로 제안하십시오."
+
+    # 3. Goal (Persuasion Hook)
+    goal = derived_layers.get("psychological_goal", "HealthCheck")
+    
+    # 4. Stability (Urgency)
+    stability_info = derived_layers.get("lifestyle_stability", {})
+    stability_level = stability_info.get("level", "Mid")
+    
+    urgency_instruction = ""
+    if stability_level == "Very Low" or stability_level == "Low":
+        urgency_instruction = "생활 리듬이 매우 불안정합니다. '지금 검사하지 않으면 건강이 무너질 수 있다'는 경고 메시지를 포함하십시오."
+    elif stability_level == "High":
+        urgency_instruction = "현재의 좋은 상태를 유지하기 위한 '예방과 관리' 관점에서 제안하십시오."
+
+    persona_guideline = f"""
+    * **Tone Strategy ({role_grade})**: {tone_instruction}
+    * **Upselling Strategy ({invest_grade})**: {upselling_instruction}
+    * **Urgency Level ({stability_level})**: {urgency_instruction}
+    * **Core Goal**: 이 환자의 검진 목표는 **'{goal}'** 입니다. 이 키워드를 설득 논리의 핵심으로 사용하십시오.
+    """
+
+    # [신규] Demographic Sales Matrix 키워드 생성
+    demographic_info = get_demographic_keywords(calculated_age, patient_address)
 
     # 병원 추천 항목 이름 추출 (검색용)
     hospital_items_names = []
@@ -266,14 +369,30 @@ async def create_checkup_design_prompt_step2_upselling(
     
     # 1. System Instruction
     prompt_parts.append(f"""
-# 🛑 SYSTEM INSTRUCTION (Upselling & Persona)
+# 🛑 SYSTEM INSTRUCTION (Role & Persona Strategy)
+
+당신은 환자의 건강 자산을 관리해주는 **[퍼스널 헬스 전략가]**입니다.
+Step 1 분석 결과를 바탕으로, 환자의 성향에 딱 맞는 **설득 전략(Strategy)**을 구사하여 정밀 검진을 제안하십시오.
 
 {clinical_rules}
 
-## 🎯 TARGET PERSONA STRATEGY
+## 🌍 DEMOGRAPHIC SALES CONTEXT (Targeting Strategy)
+**환자의 연령과 거주 지역을 고려하여, 아래 키워드와 톤을 마케팅 메시지에 자연스럽게 녹여내십시오.**
+1. **Age Group ({demographic_info['age_group']})**: {demographic_info['age_keywords']} 키워드 활용.
+2. **Region Tone ({demographic_info['region_type']})**: {demographic_info['region_tone']}
+
+## 🎯 DYNAMIC PERSONA INJECTION (현재 환자 정보)
+**이 환자는 '{persona_type}' 성향입니다. 아래 지침을 반드시 따르십시오.**
+
+1. **Tone & Manner**: {persona_tone}
+2. **Key Strategy**: {bridge_strategy}
+3. **설득 가이드라인**:
+{persona_guideline}
+
+## 💡 TARGET PERSONA CONFLICT (해결해야 할 모순)
 {persona_conflict_summary}
 
-위 [CRITICAL CLINICAL RULES]와 [TARGET PERSONA STRATEGY]를 바탕으로 모든 제안을 구성하십시오.
+---
 
 ## [Communication Rules] ⭐ Medical Reframing (암 → 만성질환 치환)
 **'암'이라는 단어는 공포를 유발합니다. 모든 검사 항목을 '만성질환 관리'와 '현재 상태 확인'의 관점으로 재해석(Reframing)하여 제안하십시오.**
@@ -290,6 +409,7 @@ async def create_checkup_design_prompt_step2_upselling(
 2. **소통 전략: 'Casual & Smart (형/오빠 톤)'**: 
    - **Tone & Manner**: 딱딱한 의사가 아닌, **"건강 챙겨주는 센스 있는 형/오빠/친구"** 톤을 유지하세요.
    - **Key Message**: "안 하면 큰일 납니다(Fear)"가 아니라 **"이거 딱 챙기면 1년 농사 편해집니다(Value/Efficiency)"**로 설득하세요.
+   - **[중요] 과거 병력 해석 (Past History)**: 과거의 병력(궤양, 결핵 등)을 현재의 질병으로 단정하지 마십시오. **"과거 기록을 고려하여 현재 상태를 한번 더 점검하자"**는 뉘앙스로, '확인 필요성'에 집중하십시오. (비난/단정 금지)
    
 3. **페르소나 적용 & 공감**: 환자는 **'{persona_type}' ({persona_desc})** 성향입니다.
    - **Worrier**: 확신과 안심("이 검사 하나로 불안을 끝내십시오.")
@@ -359,18 +479,19 @@ strategies 배열은 **Priority 2와 Priority 3에 포함된 '모든 항목'에 
 2. **Anchor (Empathy & Behavior)**: `step1_anchor` 필드.
    - Primary Persona의 감정(불안, 귀찮음 등)에 먼저 공감한 뒤,
    - Secondary Persona의 위험한 행동(술, 담배, 방치)이 그 감정과 모순되는 지점을 '하지만(But)' 화법으로 지적하십시오.
-   - 예: "가족력 때문에 늘 불안하셨죠?(Primary) 하지만 매일 술을 드시는 건 그 불안을 현실로 만드는 행동입니다.(Secondary)"
+   - 예: "가족력 때문에 늘 불안하셨죠? 하지만..." (Primary/Secondary 용어 노출 금지)
 3. **Gap (Clinical Reality)**: `step2_gap` 필드.
-   - **Context의 `[참고] 기본 검사 항목`에 있는 구체적인 항목을 언급하며 한계를 지적하십시오.**
-   - 막연히 "기본 검사로는 안 됩니다"가 아니라, **"기본 패키지의 '흉부 촬영'으로는 1cm 미만의 결절을 발견하기 어렵습니다"**와 같이 구체적으로 비교하십시오.
+   - **[CRITICAL] 구체적 데이터 기반 한계 지적 (Soft & Professional)**: 
+     막연한 지적 대신, **환자의 구체적인 문진 답변(음주, 가족력 등)**을 인용하되, **"비난하는 어조"가 아닌 "의학적 한계를 설명하는 어조"**로 작성하십시오.
+   - ❌ "술을 많이 드셔서 기본 검사로는 안 됩니다." (Blunt/Accusatory)
+   - ✅ "주 3회 음주 습관을 고려할 때, 기본 혈액검사(AST/ALT)만으로는 간의 섬유화 진행 여부를 확인하는 데 **'구조적 한계'**가 있습니다." (Professional & Fact-based)
    - [CRITICAL CLINICAL RULES]의 Red Flag(체중감소 등)와 연결하여 정밀 검사의 필요성을 강조하십시오.
-   - 예: "체중 감소는 구조적 위험 신호인데, 기본 포함된 '혈액 검사'만으로는 암의 위치를 알 수 없습니다."
 4. **Offer (Hybrid Offer)**: `step3_offer` 필드.
    - 감정을 해소하고 행동을 바꿀 구체적 검사 제안.
    - 예: "간 섬유화 스캔으로 간 상태를 눈으로 확인하고, 술을 줄일 강력한 동기를 만드십시오."
 
 5. **Evidence**: `doctor_recommendation.evidence` 필드에 [Critical Evidence] 텍스트 인용.
-6. **Message**: `doctor_recommendation.message` 필드에 **"안심하고(Primary), 관리하세요(Secondary)"** 톤의 최종 제안.
+6. **Message**: `doctor_recommendation.message` 필드에 **"안심하고, 관리하세요"** 톤의 최종 제안. (페르소나 용어 노출 금지)
 """
 
     output_format_section = """
@@ -379,9 +500,10 @@ strategies 배열은 **Priority 2와 Priority 3에 포함된 '모든 항목'에 
 **생성 전 주의사항:**
 - JSON의 값(Value)에 "가이드라인 활용" 같은 추상적 지시문을 쓰지 마세요.
 - **환자의 실제 데이터(수치, 병력)를 채워 넣으세요.**
+- **[금지 사항] 'Optimizer', 'Worrier', 'Manager', 'Primary', 'Secondary' 등 페르소나 분석 용어를 결과 텍스트에 절대 포함하지 마십시오. 고객은 자신의 페르소나를 모릅니다.**
 
 {
-  "_thought_process": "1. Worrier(가족력 불안) vs Manager(음주 지속) 충돌 감지. 2. 체중 감소 Rule 발동 -> 위내시경/복부CT 우선 배정. 3. '술 줄일 명분'으로 간 정밀 검사 제안.",
+  "_thought_process": "1. 가족력 불안 vs 음주 지속 충돌 감지. 2. 체중 감소 Rule 발동 -> 위내시경/복부CT 우선 배정. 3. '술 줄일 명분'으로 간 정밀 검사 제안.",
   "priority_2": {
     "title": "병원에서 추천하는 정밀 검진",
     "description": "40대 남성 필수 가이드라인 및 가족력 기반 추천",
@@ -399,7 +521,7 @@ strategies 배열은 **Priority 2와 Priority 3에 포함된 '모든 항목'에 
   "strategies": [
     {
       "target": "<병원 추천 리스트에 있는 정확한 항목명>",
-      "step1_anchor": "가족력 때문에 늘 불안하셨죠?(Primary) 하지만 매일 술을 드시는 건 그 불안을 현실로 만드는 행동입니다.(Secondary)",
+      "step1_anchor": "가족력 때문에 늘 불안하셨죠? 하지만 매일 술을 드시는 건 그 불안을 현실로 만드는 행동입니다.",
       "step2_gap": "기본 피검사(AST/ALT)는 간 기능의 30% 정도만 반영하며, 실제 지방간이 얼마나 쌓였는지, 간 표면이 거칠어졌는지는 '눈'으로 보지 않으면 알 수 없습니다.",
       "step3_offer": "복부 초음파가 포함된 정밀 검진으로 간, 췌장 등 주요 장기의 실제 모양을 확인하여 술을 줄일 확실한 계기를 만드십시오.",
       "doctor_recommendation": {

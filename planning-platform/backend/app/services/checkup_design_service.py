@@ -15,6 +15,10 @@ from ..models.value_objects import CheckupItem, GPTPrompt
 from ..repositories.interfaces import IPatientRepository, ICheckupDesignRepository
 from ..core.config import settings
 from .exceptions import PatientNotFoundError, CheckupDesignError, GPTServiceError
+from .checkup_design.report_generator import PersonaAnalysisReportGenerator
+from .checkup_design.step2_upselling import get_demographic_keywords
+import os
+
 
 
 class CheckupDesignService:
@@ -47,6 +51,11 @@ class CheckupDesignService:
         if not patient:
             raise PatientNotFoundError(f"환자를 찾을 수 없습니다: {patient_uuid}")
         
+        # [신규] 리포트 생성기 초기화
+        # session_id 생성 로직이 필요 (여기서는 현재시간 + UUID 조합 임시 사용)
+        session_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{str(patient_uuid)[:8]}"
+        report_gen = PersonaAnalysisReportGenerator(patient.info.name, session_id)
+        
         # GPT 프롬프트 생성
         prompt = self._create_checkup_design_prompt(
             patient, additional_symptoms, priority_areas
@@ -58,6 +67,43 @@ class CheckupDesignService:
             
             # GPT 응답 파싱
             recommended_items, analysis, reason = self._parse_gpt_response(gpt_response)
+
+            # [신규] 리포트 생성 로직 추가 (Step 1, 2 결과가 있다고 가정하고 Mock 데이터로 처리해야 함)
+            # 현재 이 메서드는 전체 로직의 일부만 구현된 예제 코드임.
+            # 실제 Step 1, Step 2 로직이 구현된 곳에서 호출해야 정확하나, 
+            # 요청에 따라 이 파일에 통합함.
+            
+            # (실제 로직에서는 step1_result, step2_result를 받아와야 함)
+            # 여기서는 파일 구조상 분리되어 있으므로, 로그 저장 기능만 예시로 구현.
+            
+            # 만약 이 클래스가 메인 오케스트레이터라면, 아래와 같이 데이터를 모아서 리포트 생성
+            # 1. Input Data
+            input_data = {
+                "birth_date": patient.info.get_age(),
+                "gender": patient.info.gender.value,
+                "address": getattr(patient.info, 'address', 'Unknown'),
+                "survey_responses": {} # 실제로는 설문 데이터 필요
+            }
+            
+            # 2. Demographic Info
+            # 나이, 주소 정보가 없으므로 임시값 사용
+            demographic_info = get_demographic_keywords(input_data['birth_date'], input_data['address'])
+
+            # 3. Report Generation
+            # (step1_result 등이 없으므로 빈 딕셔너리로 호출하지만, 실제 데이터가 있으면 채워짐)
+            report_content = report_gen.generate_report(
+                input_data=input_data,
+                step1_result={}, # 실제 Step 1 결과
+                step2_1_result={}, # 실제 Step 2-1 결과
+                step2_2_result={"doctor_comment": analysis, "strategies": []}, # GPT 결과를 매핑
+                demographic_info=demographic_info
+            )
+            
+            # 4. Save Report
+            log_dir = f"logs/planning_{datetime.now().strftime('%Y%m%d')}/{session_id}"
+            os.makedirs(log_dir, exist_ok=True)
+            with open(f"{log_dir}/persona_analysis_report.md", "w", encoding="utf-8") as f:
+                f.write(report_content)
             
             # 검진 설계 객체 생성
             design = CheckupDesign(
