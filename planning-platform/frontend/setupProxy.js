@@ -1,14 +1,14 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function(app) {
-  console.log('🔧 WELLO 프록시 설정 로드됨!');
+  console.log('🔧 WELNO 프록시 설정 로드됨!');
   
-  // 모든 /wello-api 요청을 localhost:8082/api로 프록시
-  app.use('/wello-api', createProxyMiddleware({
+  // 모든 /welno-api 요청을 localhost:8082/api로 프록시
+  app.use('/welno-api', createProxyMiddleware({
     target: 'http://localhost:8082',
     changeOrigin: true,
     pathRewrite: {
-      '^/wello-api': '/api'
+      '^/welno-api': '/api'
     },
     logLevel: 'info',
     onProxyReq: (proxyReq, req, res) => {
@@ -38,6 +38,6 @@ module.exports = function(app) {
     }
   }));
   
-  console.log('✅ WELLO 프록시 설정 완료: /wello-api → http://localhost:8082/api');
+  console.log('✅ WELNO 프록시 설정 완료: /welno-api → http://localhost:8082/api');
   console.log('✅ 파트너 마케팅 프록시 설정 완료: /api/partner-marketing → http://localhost:8000/api/partner-marketing');
 };

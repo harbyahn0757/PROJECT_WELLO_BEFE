@@ -16,40 +16,43 @@ const getApiHost = (endpoint: 'local' | 'production' = 'local'): string => {
 
 // Tilko API 엔드포인트 (올바른 경로로 수정)
 export const TILKO_API = {
-  // 세션 관리 (wello-api 경로로 통일)
-  SESSION_START: () => `/wello-api/v1/tilko/session/start`,
+  // 세션 관리 (welno-api 경로로 통일)
+  SESSION_START: () => `/welno-api/v1/tilko/session/start`,
   
-  SESSION_STATUS: (sessionId: string) => `/wello-api/v1/tilko/session/${sessionId}/status`,
+  SESSION_STATUS: (sessionId: string) => `/welno-api/v1/tilko/session/${sessionId}/status`,
   
-  SESSION_CLEANUP_USER: (userName: string) => `/wello-api/v1/tilko/session/cleanup-user/${encodeURIComponent(userName)}`,
+  SESSION_CLEANUP_USER: (userName: string) => `/welno-api/v1/tilko/session/cleanup-user/${encodeURIComponent(userName)}`,
   
-  SESSION_DELETE: (sessionId: string) => `/wello-api/v1/tilko/session/${sessionId}`,
+  SESSION_DELETE: (sessionId: string) => `/welno-api/v1/tilko/session/${sessionId}`,
   
-  SESSION_MESSAGES: (sessionId: string) => `/wello-api/v1/tilko/session/${sessionId}/messages`,
+  SESSION_MESSAGES: (sessionId: string) => `/welno-api/v1/tilko/session/${sessionId}/messages`,
   
   // 데이터 수집 (통합)
-  COLLECT_DATA: (sessionId: string) => `/wello-api/v1/tilko/session/${sessionId}/collect-data`,
+  COLLECT_DATA: (sessionId: string) => `/welno-api/v1/tilko/session/${sessionId}/collect-data`,
   
   // 인증
-  SIMPLE_AUTH: (sessionId: string) => `/wello-api/v1/tilko/session/simple-auth?session_id=${sessionId}`,
+  SIMPLE_AUTH: (sessionId: string) => `/welno-api/v1/tilko/session/simple-auth?session_id=${sessionId}`,
   
   // 데이터 수집
-  COLLECT_HEALTH_DATA: (sessionId: string) => `/wello-api/v1/tilko/session/${sessionId}/collect-health-data`
+  COLLECT_HEALTH_DATA: (sessionId: string) => `/welno-api/v1/tilko/session/${sessionId}/collect-health-data`
 } as const;
 
-// WELLO API 엔드포인트 (wello-api로 통일)
-export const WELLO_API = {
-  PATIENT_DATA: (patientId: string) => `/wello-api/v1/wello/patients/${patientId}`,
-  HEALTH_RECORDS: (patientId: string) => `/wello-api/v1/wello/patients/${patientId}/health-records`,
-  PATIENT_HEALTH_DATA: (uuid: string, hospitalId: string) => `/wello-api/v1/wello/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`,
+// WELNO API 엔드포인트 (welno-api로 통일)
+export const WELNO_API = {
+  PATIENT_DATA: (patientId: string) => `/welno-api/v1/welno/patients/${patientId}`,
+  HEALTH_RECORDS: (patientId: string) => `/welno-api/v1/welno/patients/${patientId}/health-records`,
+  PATIENT_HEALTH_DATA: (uuid: string, hospitalId: string) => `/welno-api/v1/welno/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`,
   // AI 분석 엔드포인트
-  HEALTH_ANALYSIS: () => `/wello-api/v1/health-analysis/analyze`
+  HEALTH_ANALYSIS: () => `/welno-api/v1/health-analysis/analyze`
 } as const;
+
+// 하위 호환성을 위한 WELLO_API 별칭
+export const WELLO_API = WELNO_API;
 
 // 기타 API 엔드포인트 (하위 호환성)
 export const API_ENDPOINTS = {
-  PATIENT_DATA: (patientId: string) => `/wello-api/v1/wello/patients/${patientId}`,
-  HEALTH_RECORDS: (patientId: string) => `/wello-api/v1/wello/patients/${patientId}/health-records`
+  PATIENT_DATA: (patientId: string) => `/welno-api/v1/welno/patients/${patientId}`,
+  HEALTH_RECORDS: (patientId: string) => `/welno-api/v1/welno/patients/${patientId}/health-records`
 } as const;
 
 // HTTP 메서드 상수

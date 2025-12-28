@@ -90,14 +90,47 @@ module.exports = {
         console.log('✅ [CRACO] 포트 강제 설정: 9282');
       }
       
-      // WELLO API 프록시 직접 설정
+      // 정적 파일 서빙 미들웨어 추가 (React Router보다 우선)
+      const path = require('path');
+      const fs = require('fs');
+      
+      // /welno 경로의 이미지 파일 직접 서빙
+      // /welno/welno-icon.png → public/welno/welno-icon.png
+      devServer.app.use('/welno', (req, res, next) => {
+        // 이미지 파일 확장자 체크
+        if (req.path.match(/\.(png|jpg|jpeg|gif|svg|ico|webp)$/i)) {
+          const fileName = req.path.replace(/^\/welno\//, '');
+          const filePath = path.join(__dirname, 'public', 'welno', fileName);
+          
+          if (fs.existsSync(filePath)) {
+            const ext = path.extname(filePath).toLowerCase();
+            const contentType = {
+              '.png': 'image/png',
+              '.jpg': 'image/jpeg',
+              '.jpeg': 'image/jpeg',
+              '.gif': 'image/gif',
+              '.svg': 'image/svg+xml',
+              '.ico': 'image/x-icon',
+              '.webp': 'image/webp'
+            }[ext] || 'application/octet-stream';
+            
+            res.setHeader('Content-Type', contentType);
+            return res.sendFile(path.resolve(filePath));
+          }
+        }
+        next();
+      });
+      
+      console.log('✅ [CRACO] 정적 파일 서빙 미들웨어 추가: /welno/*.(png|jpg|...) → public/welno/');
+      
+      // WELNO API 프록시 직접 설정
       const { createProxyMiddleware } = require('http-proxy-middleware');
       
-      devServer.app.use('/wello-api', createProxyMiddleware({
+      devServer.app.use('/welno-api', createProxyMiddleware({
         target: 'http://localhost:8082',
         changeOrigin: true,
         pathRewrite: {
-          '^/wello-api': '/api'
+          '^/welno-api': '/api'
         },
         logLevel: 'info',
         onProxyReq: (proxyReq, req, res) => {
@@ -111,7 +144,7 @@ module.exports = {
         }
       }));
       
-      console.log('✅ WELLO 프록시 직접 설정 완료: /wello-api → http://localhost:8082/api');
+      console.log('✅ WELNO 프록시 직접 설정 완료: /welno-api → http://localhost:8082/api');
       
       // 파트너 마케팅 API 프록시 (localhost:8000)
       devServer.app.use('/api/partner-marketing', createProxyMiddleware({

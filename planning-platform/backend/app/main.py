@@ -9,7 +9,23 @@ from fastapi.responses import FileResponse
 from fastapi.openapi.utils import get_openapi
 import os
 
-from .api.v1.endpoints import patients, hospitals, health, checkup_design, auth, tilko_auth, websocket_auth, wello_data, file_management, health_analysis, password, sync, surveys, debug
+from .api.v1.endpoints import (
+    patients,
+    hospitals,
+    health,
+    checkup_design,
+    auth,
+    tilko_auth,
+    websocket_auth,
+    welno_data,
+    file_management,
+    health_analysis,
+    password,
+    sync,
+    surveys,
+    debug,
+    rag_test,
+)
 from .core.config import settings
 from .data.redis_session_manager import redis_session_manager as session_manager
 
@@ -33,7 +49,7 @@ app.add_middleware(
 # 정적 파일 서빙 (React 빌드 파일)
 static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
 # StaticFiles 마운트 제거 - catch-all 라우트에서 처리하도록 변경
-# app.mount("/wello", StaticFiles(directory=static_dir, html=True), name="wello_static")
+# app.mount("/welno", StaticFiles(directory=static_dir, html=True), name="welno_static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # API 라우터 등록 (기본 경로)
@@ -44,56 +60,58 @@ app.include_router(websocket_auth.router, prefix="/api/v1/tilko", tags=["websock
 app.include_router(patients.router, prefix="/api/v1/patients", tags=["patients"])
 app.include_router(hospitals.router, prefix="/api/v1/hospitals", tags=["hospitals"])
 app.include_router(checkup_design.router, prefix="/api/v1/checkup-design", tags=["checkup-design"])
-app.include_router(wello_data.router, prefix="/api/v1/wello", tags=["wello"])
+app.include_router(welno_data.router, prefix="/api/v1/welno", tags=["welno"])
 app.include_router(file_management.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(password.router, prefix="/api/v1", tags=["password"])
 app.include_router(health_analysis.router, prefix="/api/v1/health-analysis", tags=["health-analysis"])
 app.include_router(sync.router, prefix="/api/v1", tags=["sync"])
 app.include_router(surveys.router, prefix="/api/v1", tags=["surveys"])
 app.include_router(debug.router, prefix="/api/v1/debug", tags=["debug"])
+app.include_router(rag_test.router, prefix="/api/v1", tags=["rag-test"])
 
-# 배포환경을 위한 wello-api 경로 추가 (프록시 없이 직접 접근)
-app.include_router(health.router, prefix="/wello-api/v1/health", tags=["health-wello"])
-app.include_router(auth.router, prefix="/wello-api/v1/auth", tags=["auth-wello"])
-app.include_router(tilko_auth.router, prefix="/wello-api/v1/tilko", tags=["tilko-wello"])
-app.include_router(websocket_auth.router, prefix="/wello-api/v1/tilko", tags=["websocket-wello"])
-app.include_router(patients.router, prefix="/wello-api/v1/patients", tags=["patients-wello"])
-app.include_router(hospitals.router, prefix="/wello-api/v1/hospitals", tags=["hospitals-wello"])
-app.include_router(checkup_design.router, prefix="/wello-api/v1/checkup-design", tags=["checkup-design-wello"])
-app.include_router(wello_data.router, prefix="/wello-api/v1/wello", tags=["wello-wello"])
-app.include_router(file_management.router, prefix="/wello-api/v1/admin", tags=["admin-wello"])
-app.include_router(password.router, prefix="/wello-api/v1", tags=["password-wello"])
-app.include_router(health_analysis.router, prefix="/wello-api/v1/health-analysis", tags=["health-analysis-wello"])
-app.include_router(sync.router, prefix="/wello-api/v1", tags=["sync-wello"])
-app.include_router(surveys.router, prefix="/wello-api/v1", tags=["surveys-wello"])
-app.include_router(debug.router, prefix="/wello-api/v1/debug", tags=["debug-wello"])
+# 배포환경을 위한 welno-api 경로 추가 (프록시 없이 직접 접근)
+app.include_router(health.router, prefix="/welno-api/v1/health", tags=["health-welno"])
+app.include_router(auth.router, prefix="/welno-api/v1/auth", tags=["auth-welno"])
+app.include_router(tilko_auth.router, prefix="/welno-api/v1/tilko", tags=["tilko-welno"])
+app.include_router(websocket_auth.router, prefix="/welno-api/v1/tilko", tags=["websocket-welno"])
+app.include_router(patients.router, prefix="/welno-api/v1/patients", tags=["patients-welno"])
+app.include_router(hospitals.router, prefix="/welno-api/v1/hospitals", tags=["hospitals-welno"])
+app.include_router(checkup_design.router, prefix="/welno-api/v1/checkup-design", tags=["checkup-design-welno"])
+app.include_router(welno_data.router, prefix="/welno-api/v1/welno", tags=["welno-welno"])
+app.include_router(file_management.router, prefix="/welno-api/v1/admin", tags=["admin-welno"])
+app.include_router(password.router, prefix="/welno-api/v1", tags=["password-welno"])
+app.include_router(health_analysis.router, prefix="/welno-api/v1/health-analysis", tags=["health-analysis-welno"])
+app.include_router(sync.router, prefix="/welno-api/v1", tags=["sync-welno"])
+app.include_router(surveys.router, prefix="/welno-api/v1", tags=["surveys-welno"])
+app.include_router(debug.router, prefix="/welno-api/v1/debug", tags=["debug-welno"])
+app.include_router(rag_test.router, prefix="/welno-api/v1", tags=["rag-test-welno"])
 
 # React Router를 위한 catch-all 라우트 (모든 API 라우터 등록 후에 추가)
 # GET과 HEAD 메서드 모두 지원
-@app.api_route("/wello", methods=["GET", "HEAD"])
-@app.api_route("/wello/", methods=["GET", "HEAD"])
-@app.api_route("/wello/{full_path:path}", methods=["GET", "HEAD"])
+@app.api_route("/welno", methods=["GET", "HEAD"])
+@app.api_route("/welno/", methods=["GET", "HEAD"])
+@app.api_route("/welno/{full_path:path}", methods=["GET", "HEAD"])
 async def serve_react_app(request: Request, full_path: str = ""):
     """React Router의 클라이언트 사이드 라우팅을 위한 catch-all 라우트 (쿼리 파라미터는 자동 보존됨)"""
     # 쿼리 파라미터 확인 (디버깅용)
     if request.query_params:
         print(f"🔍 [FastAPI] 쿼리 파라미터 수신: {dict(request.query_params)}")
     
-    # /wello (슬래시 없음)로 접속한 경우 쿼리 파라미터를 보존하여 /wello/로 리다이렉트
-    # React Router의 basename="/wello"와 일치하도록 슬래시 추가
-    if not full_path and request.url.path == "/wello":
+    # /welno (슬래시 없음)로 접속한 경우 쿼리 파라미터를 보존하여 /welno/로 리다이렉트
+    # React Router의 basename="/welno"와 일치하도록 슬래시 추가
+    if not full_path and request.url.path == "/welno":
         from fastapi.responses import RedirectResponse
         query_string = str(request.url.query)
-        # 쿼리 파라미터를 포함하여 /wello/로 리다이렉트
-        redirect_url = f"/wello/?{query_string}" if query_string else "/wello/"
-        print(f"🔄 [FastAPI] /wello → /wello/ 리다이렉트 (쿼리 보존): {redirect_url}")
+        # 쿼리 파라미터를 포함하여 /welno/로 리다이렉트
+        redirect_url = f"/welno/?{query_string}" if query_string else "/welno/"
+        print(f"🔄 [FastAPI] /welno → /welno/ 리다이렉트 (쿼리 보존): {redirect_url}")
         # 307 Temporary Redirect 사용 (브라우저가 쿼리 파라미터를 보존함)
         return RedirectResponse(url=redirect_url, status_code=307)
     static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
     index_file = os.path.join(static_dir, "index.html")
     
     # API 경로는 제외 (이미 위에서 처리됨)
-    if full_path.startswith("api/") or full_path.startswith("wello-api/"):
+    if full_path.startswith("api/") or full_path.startswith("welno-api/"):
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="API endpoint not found")
     
