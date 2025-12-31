@@ -14,9 +14,9 @@ import {
   transformPrescriptionDataForBarChart 
 } from '../../utils/healthDataTransformers';
 import { TilkoHealthCheckupRaw, TilkoPrescriptionRaw } from '../../types/health';
-import { WELLO_API, API_ENDPOINTS } from '../../constants/api';
-import { WelloIndexedDB } from '../../services/WelloIndexedDB';
-import { WELLO_LOGO_IMAGE } from '../../constants/images';
+import { WELNO_API, API_ENDPOINTS } from '../../constants/api';
+import { WelnoIndexedDB } from '../../services/WelnoIndexedDB';
+import { WELNO_LOGO_IMAGE } from '../../constants/images';
 import config from '../../config/config.json';
 import './styles.scss';
 import '../../components/health/HealthDataViewer/styles.scss';
@@ -90,7 +90,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
     
     // 재분석인 경우 기존 결과 초기화
     if (gptAnalysis) {
-      console.log('🔄 [GPT분석] 재분석 시작 - 기존 결과 초기화');
+      console.log('[GPT분석] 재분석 시작 - 기존 결과 초기화');
       setGptAnalysis(null);
     }
 
@@ -99,8 +99,8 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       setAnalysisProgress(20);
       setAnalysisStep('건강 데이터 분석 중...');
       
-      console.log('🧠 [GPT분석] 분석 요청 시작');
-      console.log('📊 [GPT분석] 전송 데이터:', {
+      console.log('[GPT분석] 분석 요청 시작');
+      console.log('[GPT분석] 전송 데이터:', {
         healthDataCount: healthData.length,
         prescriptionDataCount: prescriptionData.length,
         healthSample: healthData.slice(0, 1),
@@ -134,7 +134,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
 
       console.log('📤 [GPT분석] API 요청 데이터:', requestData);
 
-      const response = await fetch('/wello-api/v1/health-analysis/analyze', {
+      const response = await fetch('/welno-api/v1/health-analysis/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -151,7 +151,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       setAnalysisStep('분석 결과 처리 중...');
 
       const result = await response.json();
-      console.log('📥 [GPT분석] API 응답:', result);
+      console.log('[GPT분석] API 응답:', result);
 
       if (result.success && result.analysis) {
         // 진행률 완료
@@ -179,8 +179,8 @@ const ComprehensiveAnalysisPage: React.FC = () => {
         throw new Error('분석 결과가 올바르지 않습니다.');
       }
     } catch (error) {
-      console.error('❌ [GPT분석] 분석 실패:', error);
-      console.log('🔄 [GPT분석] 목 데이터로 폴백');
+      console.error('[GPT분석] 분석 실패:', error);
+      console.log('[GPT분석] 목 데이터로 폴백');
       // 목 데이터로 폴백
       const mockResult = getMockAnalysisResult();
       setGptAnalysis(mockResult);
@@ -209,7 +209,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
   // 플로팅 버튼에서 AI 분석 시작 이벤트 리스너
   useEffect(() => {
     const handleStartAnalysis = () => {
-      console.log('🎯 [ComprehensiveAnalysisPage] 플로팅 버튼에서 AI 분석 시작 요청');
+      console.log('[ComprehensiveAnalysisPage] 플로팅 버튼에서 AI 분석 시작 요청');
       analyzeHealthData();
     };
     
@@ -668,7 +668,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       const validatedData = validateChartData(chartData) || [];
       return validatedData;
     } catch (error) {
-      console.error('❌ [차트변환] 건강 차트 데이터 변환 실패:', error);
+      console.error('[차트변환] 건강 차트 데이터 변환 실패:', error);
       return [];
     }
   }, [healthData, validateChartData, selectedHealthMetric, healthMetrics]);
@@ -738,7 +738,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       const validatedData = validateChartData(chartData) || [];
       return validatedData;
     } catch (error) {
-      console.error('❌ [차트변환] 처방 차트 데이터 변환 실패:', error);
+      console.error('[차트변환] 처방 차트 데이터 변환 실패:', error);
       return [];
     }
   }, [prescriptionData, validateChartData]);
@@ -826,7 +826,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       const validatedData = validateChartData(chartData) || [];
       return validatedData;
     } catch (error) {
-      console.error('❌ [차트변환] 병원 방문 차트 데이터 변환 실패:', error);
+      console.error('[차트변환] 병원 방문 차트 데이터 변환 실패:', error);
       return [];
     }
   }, [prescriptionData, validateChartData]);
@@ -915,11 +915,11 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       
       if (!uuid || !hospital) {
         // URL 파라미터가 없으면 IndexedDB에서 시도
-        console.log('📭 [종합분석] URL 파라미터 없음, IndexedDB에서 데이터 검색');
+        console.log('[종합분석] URL 파라미터 없음, IndexedDB에서 데이터 검색');
         
         try {
           // 모든 건강 데이터 조회하여 가장 최근 것 사용
-          const allHealthData = await WelloIndexedDB.getAllHealthData();
+          const allHealthData = await WelnoIndexedDB.getAllHealthData();
           
           if (allHealthData.length > 0) {
             // 가장 최근 업데이트된 데이터 선택
@@ -927,7 +927,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
               new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
             )[0];
             
-            console.log('✅ [IndexedDB] 최신 데이터 로드:', {
+            console.log('[IndexedDB] 최신 데이터 로드:', {
               uuid: latestData.uuid,
               patientName: latestData.patientName,
               건강검진개수: latestData.healthData.length,
@@ -941,14 +941,14 @@ const ComprehensiveAnalysisPage: React.FC = () => {
             return;
           }
         } catch (indexedDBError) {
-          console.error('❌ [IndexedDB] 데이터 로드 실패:', indexedDBError);
+          console.error('[IndexedDB] 데이터 로드 실패:', indexedDBError);
         }
         
         // IndexedDB 실패 시 localStorage 폴백
         const collectedDataStr = localStorage.getItem('tilko_collected_data');
         if (collectedDataStr) {
           const collectedData = JSON.parse(collectedDataStr);
-          console.log('📊 [폴백] localStorage에서 데이터 로드');
+          console.log('[폴백] localStorage에서 데이터 로드');
           
           if (collectedData.health_data?.ResultList) {
             setHealthData(collectedData.health_data.ResultList);
@@ -964,13 +964,13 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       }
 
       // UUID가 있으면 먼저 IndexedDB에서 확인
-      console.log('🔍 [종합분석] IndexedDB에서 특정 환자 데이터 조회:', uuid);
+      console.log('[종합분석] IndexedDB에서 특정 환자 데이터 조회:', uuid);
       
       try {
-        const indexedDBRecord = await WelloIndexedDB.getHealthData(uuid);
+        const indexedDBRecord = await WelnoIndexedDB.getHealthData(uuid);
         
         if (indexedDBRecord) {
-          console.log('✅ [IndexedDB] 환자 데이터 로드 성공:', {
+          console.log('[IndexedDB] 환자 데이터 로드 성공:', {
             uuid: indexedDBRecord.uuid,
             patientName: indexedDBRecord.patientName,
             건강검진개수: indexedDBRecord.healthData.length,
@@ -983,14 +983,14 @@ const ComprehensiveAnalysisPage: React.FC = () => {
           setIsLoadingVisitData(false);
           return;
         } else {
-          console.log('📭 [IndexedDB] 해당 환자 데이터 없음, API 호출 진행');
+          console.log('[IndexedDB] 해당 환자 데이터 없음, API 호출 진행');
         }
       } catch (indexedDBError) {
-        console.error('❌ [IndexedDB] 특정 환자 데이터 조회 실패:', indexedDBError);
+        console.error('[IndexedDB] 특정 환자 데이터 조회 실패:', indexedDBError);
       }
 
       // 실제 API 호출로 데이터 가져오기
-      const response = await fetch(WELLO_API.PATIENT_HEALTH_DATA(uuid, hospital));
+      const response = await fetch(WELNO_API.PATIENT_HEALTH_DATA(uuid, hospital));
       
       if (!response.ok) {
         throw new Error(`API 호출 실패: ${response.status}`);
@@ -999,7 +999,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       const result = await response.json();
       
       // 실제 데이터 구조 파악을 위한 핵심 로그
-      console.log('📋 [데이터 구조] API 응답:', {
+      console.log('[데이터 구조] API 응답:', {
         success: result.success,
         healthDataSample: result.data?.health_data?.[0] || null,
         prescriptionDataSample: result.data?.prescription_data?.[0] || null,
@@ -1010,7 +1010,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
       // API 응답의 첫 번째 건강 데이터 상세 구조 로깅
       if (result.data?.health_data?.[0]) {
         const firstHealthData = result.data.health_data[0];
-        console.log('🔍 [API 구조] 첫 번째 건강 데이터 상세:', {
+        console.log('[API 구조] 첫 번째 건강 데이터 상세:', {
           keys: Object.keys(firstHealthData),
           hasInspections: !!firstHealthData.Inspections,
           inspectionsCount: firstHealthData.Inspections?.length || 0,
@@ -1075,12 +1075,12 @@ const ComprehensiveAnalysisPage: React.FC = () => {
 
             saveToLocalStorage(result.data.health_data || [], result.data.prescription_data || []);
       } else {
-        console.error('❌ [종합분석] API 응답 구조 오류:', { success: result.success, data: result.data });
+        console.error('[종합분석] API 응답 구조 오류:', { success: result.success, data: result.data });
         throw new Error('API 응답 데이터가 올바르지 않습니다.');
       }
         
       } catch (error) {
-      console.error('❌ [종합분석] 데이터 로드 실패:', error);
+      console.error('[종합분석] 데이터 로드 실패:', error);
       setError(`건강 데이터를 불러오는데 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
       
       // API 실패 시 localStorage 폴백
@@ -1100,7 +1100,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
           setError(null); // 폴백 성공 시 에러 클리어
         }
       } catch (fallbackError) {
-        console.error('❌ [종합분석] localStorage 폴백도 실패:', fallbackError);
+        console.error('[종합분석] localStorage 폴백도 실패:', fallbackError);
       }
     }
   };
@@ -1197,7 +1197,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                     >
                       <div className="empty-content">
                         <img 
-                          src={WELLO_LOGO_IMAGE} 
+                          src={WELNO_LOGO_IMAGE} 
                           alt="빈 슬롯" 
                           className="empty-icon"
                         />
@@ -1311,21 +1311,21 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                                       // 질환의심 범위 체크 (우선순위)
                                       const abnormal = item.ItemReferences.find((ref: any) => ref.Name === '질환의심');
                                       if (abnormal && isInRange(itemValue, abnormal.Value)) {
-                                        console.log(`✅ [${metric}] 포인트 상태: abnormal (질환의심), 값: ${itemValue}, 범위: ${abnormal.Value}`);
+                                        console.log(`[${metric}] 포인트 상태: abnormal (질환의심), 값: ${itemValue}, 범위: ${abnormal.Value}`);
                                         return 'abnormal' as const;
                                       }
                                       
                                       // 정상(B) 또는 경계 범위 체크
                                       const normalB = item.ItemReferences.find((ref: any) => ref.Name === '정상(B)' || ref.Name === '정상(경계)');
                                       if (normalB && isInRange(itemValue, normalB.Value)) {
-                                        console.log(`✅ [${metric}] 포인트 상태: warning (정상B), 값: ${itemValue}, 범위: ${normalB.Value}`);
+                                        console.log(`[${metric}] 포인트 상태: warning (정상B), 값: ${itemValue}, 범위: ${normalB.Value}`);
                                         return 'warning' as const;
                                       }
                                       
                                       // 정상(A) 범위 체크
                                       const normalA = item.ItemReferences.find((ref: any) => ref.Name === '정상(A)');
                                       if (normalA && isInRange(itemValue, normalA.Value)) {
-                                        console.log(`✅ [${metric}] 포인트 상태: normal (정상A), 값: ${itemValue}, 범위: ${normalA.Value}`);
+                                        console.log(`[${metric}] 포인트 상태: normal (정상A), 값: ${itemValue}, 범위: ${normalA.Value}`);
                                         return 'normal' as const;
                                       }
                                     }
@@ -1345,24 +1345,24 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                           if (healthRanges) {
                             // 이상 범위 체크 (우선순위)
                             if (healthRanges.abnormal && pointValue >= healthRanges.abnormal.min && pointValue <= healthRanges.abnormal.max) {
-                              console.log(`✅ [${metric}] 포인트 상태: abnormal (healthRanges), 값: ${pointValue}, 범위: ${healthRanges.abnormal.min}-${healthRanges.abnormal.max}`);
+                              console.log(`[${metric}] 포인트 상태: abnormal (healthRanges), 값: ${pointValue}, 범위: ${healthRanges.abnormal.min}-${healthRanges.abnormal.max}`);
                               return 'abnormal' as const;
                             }
                             // 경계 범위 체크
                             if (healthRanges.borderline && pointValue >= healthRanges.borderline.min && pointValue <= healthRanges.borderline.max) {
-                              console.log(`✅ [${metric}] 포인트 상태: warning (healthRanges), 값: ${pointValue}, 범위: ${healthRanges.borderline.min}-${healthRanges.borderline.max}`);
+                              console.log(`[${metric}] 포인트 상태: warning (healthRanges), 값: ${pointValue}, 범위: ${healthRanges.borderline.min}-${healthRanges.borderline.max}`);
                               return 'warning' as const;
                             }
                             // 정상 범위 체크
                             if (healthRanges.normal && pointValue >= healthRanges.normal.min && pointValue <= healthRanges.normal.max) {
-                              console.log(`✅ [${metric}] 포인트 상태: normal (healthRanges), 값: ${pointValue}, 범위: ${healthRanges.normal.min}-${healthRanges.normal.max}`);
+                              console.log(`[${metric}] 포인트 상태: normal (healthRanges), 값: ${pointValue}, 범위: ${healthRanges.normal.min}-${healthRanges.normal.max}`);
                               return 'normal' as const;
                             }
                           }
                         }
                         
                         // 3순위: 기본값 (상태를 알 수 없을 때)
-                        console.warn(`⚠️ [${metric}] 포인트 상태 계산 실패, 기본값 normal 반환, 값: ${pointValue}`);
+                        console.warn(`[${metric}] 포인트 상태 계산 실패, 기본값 normal 반환, 값: ${pointValue}`);
                         return 'normal' as const;
                       })();
 
@@ -1376,7 +1376,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   })()
                 }] : [];
                 
-                // 🔧 최신 건강 데이터 올바른 추출 (날짜 기준 정렬)
+                // 최신 건강 데이터 올바른 추출 (날짜 기준 정렬)
                 const getLatestHealthData = () => {
                   if (!healthData || healthData.length === 0) return null;
                   
@@ -1387,7 +1387,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                     return dateB.getTime() - dateA.getTime(); // 내림차순 (최신 먼저)
                   });
                   
-                  console.log(`🔍 [${metric}] 건강 데이터 정렬 결과:`, {
+                  console.log(`[${metric}] 건강 데이터 정렬 결과:`, {
                     metric,
                     totalCount: healthData.length,
                     latestDate: sortedData[0]?.CheckUpDate || sortedData[0]?.Year,
@@ -1397,7 +1397,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   return sortedData[0]; // 가장 최신 데이터
                 };
 
-                // 🔧 건강지표 값 직접 추출 (raw_data 우선)
+                // 건강지표 값 직접 추출 (raw_data 우선)
                 const getValueFromHealthData = (healthDataItem: any, metric: string): number => {
                   if (!healthDataItem) return 0;
                   
@@ -1421,7 +1421,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                             
                             if (item && item.Value) {
                               const value = parseFloat(item.Value);
-                              console.log(`✅ [${metric}] raw_data에서 값 추출:`, {
+                              console.log(`[${metric}] raw_data에서 값 추출:`, {
                                 metric,
                                 itemName: item.Name,
                                 value,
@@ -1438,7 +1438,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   // 폴백: 기존 필드에서 추출
                   const fieldName = getFieldNameForMetric(metric);
                   const value = parseFloat(healthDataItem[fieldName]) || 0;
-                  console.log(`⚠️ [${metric}] 폴백으로 값 추출:`, {
+                  console.log(`[${metric}] 폴백으로 값 추출:`, {
                     metric,
                     fieldName,
                     value,
@@ -1451,7 +1451,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                 const latestValue = latestHealthData ? 
                   getValueFromHealthData(latestHealthData, metric) : 0;
 
-                // 🔧 상태 판단 (최신 데이터 기준)
+                // 상태 판단 (최신 데이터 기준)
                 const healthStatus = latestHealthData ? 
                   getHealthStatus(metric, latestValue, latestHealthData) : 
                   { status: 'normal' as const, text: '정상', date: '' };
@@ -1585,7 +1585,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                           const healthRanges = getHealthRanges(metric, healthData[0], 'M'); // 성별은 추후 환자 정보에서 가져올 수 있음
                           
                           // 모든 건강지표 파싱 상태 확인
-                          console.log(`🎯 [${metric}] 건강범위 파싱 결과:`, {
+                          console.log(`[${metric}] 건강범위 파싱 결과:`, {
                             metric,
                             healthRanges,
                             hasAllRanges: !!(healthRanges?.normal && healthRanges?.borderline && healthRanges?.abnormal),
@@ -1717,9 +1717,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   <div className="chart-loading">
                     <div className="loading-spinner">
                       <img 
-                        src={WELLO_LOGO_IMAGE} 
+                        src={WELNO_LOGO_IMAGE} 
                         alt="로딩 중" 
-                        className="wello-icon-blink"
+                        className="welno-icon-blink"
                       />
                     </div>
                     <p className="loading-text">처방 데이터 분석 중...</p>
@@ -1734,9 +1734,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   <div className="chart-loading">
                     <div className="loading-spinner">
                       <img 
-                        src={WELLO_LOGO_IMAGE} 
+                        src={WELNO_LOGO_IMAGE} 
                         alt="데이터 없음" 
-                        className="wello-icon-blink"
+                        className="welno-icon-blink"
                         style={{ opacity: 0.5, animation: 'none' }}
                       />
                     </div>
@@ -1756,9 +1756,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   <div className="chart-loading">
                     <div className="loading-spinner">
                       <img 
-                        src={WELLO_LOGO_IMAGE} 
+                        src={WELNO_LOGO_IMAGE} 
                         alt="로딩 중" 
-                        className="wello-icon-blink"
+                        className="welno-icon-blink"
                       />
                     </div>
                     <p className="loading-text">병원 방문 데이터 분석 중...</p>
@@ -1774,9 +1774,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   <div className="chart-loading">
                     <div className="loading-spinner">
                       <img 
-                        src={WELLO_LOGO_IMAGE} 
+                        src={WELNO_LOGO_IMAGE} 
                         alt="데이터 없음" 
-                        className="wello-icon-blink"
+                        className="welno-icon-blink"
                         style={{ opacity: 0.5, animation: 'none' }}
                       />
                     </div>
@@ -1865,9 +1865,9 @@ const ComprehensiveAnalysisPage: React.FC = () => {
               <div className="loading-content">
                 <div className="loading-spinner">
                   <img 
-                    src={WELLO_LOGO_IMAGE}
+                    src={WELNO_LOGO_IMAGE}
                     alt="분석 중" 
-                    className="wello-icon-blink"
+                    className="welno-icon-blink"
             />
           </div>
                 <p className="loading-text">AI가 건강 데이터를 분석하고 있습니다...</p>
@@ -1893,7 +1893,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   {isAnalyzing ? (
                     <>
                       <img 
-                        src={WELLO_LOGO_IMAGE} 
+                        src={WELNO_LOGO_IMAGE} 
                         alt="분석 중" 
                         className="button-spinner"
                       />
@@ -1944,7 +1944,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
               <div className="no-interactions">
                 <div className="safe-icon">
                   <img 
-                    src="/wello/wello-icon.png" 
+                    src="/welno/welno_logo.png" 
                     alt="안전" 
                     className="status-icon"
                   />
@@ -1974,7 +1974,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                     <h3 className="nutrition-title">피해야 할 음식</h3>
                     <div className="warning-icon">
                       <img 
-                        src={WELLO_LOGO_IMAGE} 
+                        src={WELNO_LOGO_IMAGE} 
                         alt="주의" 
                         className="status-icon warning"
                       />
@@ -1996,7 +1996,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                     <h3 className="nutrition-title">권장 음식</h3>
                     <div className="recommend-icon">
                       <img 
-                        src={WELLO_LOGO_IMAGE} 
+                        src={WELNO_LOGO_IMAGE} 
                         alt="권장" 
                         className="status-icon recommend"
                       />

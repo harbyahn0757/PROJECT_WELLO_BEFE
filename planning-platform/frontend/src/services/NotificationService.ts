@@ -42,7 +42,7 @@ class NotificationService {
 
   // 설정 로드
   private loadSettings(): NotificationSettings {
-    const saved = localStorage.getItem('wello_notification_settings');
+    const saved = localStorage.getItem('welno_notification_settings');
     if (saved) {
       return JSON.parse(saved);
     }
@@ -63,12 +63,12 @@ class NotificationService {
 
   // 설정 저장
   private saveSettings(): void {
-    localStorage.setItem('wello_notification_settings', JSON.stringify(this.settings));
+    localStorage.setItem('welno_notification_settings', JSON.stringify(this.settings));
   }
 
   // 알림 로드
   private loadNotifications(): void {
-    const saved = localStorage.getItem('wello_notifications');
+    const saved = localStorage.getItem('welno_notifications');
     if (saved) {
       this.notifications = JSON.parse(saved).map((n: any) => ({
         ...n,
@@ -80,7 +80,7 @@ class NotificationService {
 
   // 알림 저장
   private saveNotifications(): void {
-    localStorage.setItem('wello_notifications', JSON.stringify(this.notifications));
+    localStorage.setItem('welno_notifications', JSON.stringify(this.notifications));
     this.notifyListeners();
   }
 
@@ -131,8 +131,8 @@ class NotificationService {
     if ('Notification' in window && Notification.permission === 'granted') {
       const browserNotification = new Notification(notification.title, {
         body: notification.message,
-        icon: '/wello-icon.png',
-        badge: '/wello-icon.png',
+        icon: '/welno/welno_logo.png',
+        badge: '/welno/welno_logo.png',
         tag: notification.id,
         requireInteraction: notification.priority === 'urgent',
         silent: notification.priority === 'low'
@@ -339,7 +339,7 @@ class NotificationService {
 
   // 검진 리마인더 체크
   private checkForCheckupReminders(): void {
-    const healthData = localStorage.getItem('wello_health_data');
+    const healthData = localStorage.getItem('welno_health_data');
     if (!healthData) return;
 
     try {
@@ -356,7 +356,7 @@ class NotificationService {
             title: "정기 건강검진 알림",
             message: `마지막 검진 후 ${Math.floor(daysSinceLastCheckup / 365)}년이 지났습니다. 정기 검진을 받아보세요.`,
             priority: 'medium',
-            actionUrl: '/wello/login',
+            actionUrl: '/welno/login',
             actionLabel: '검진 예약하기'
           });
         }
@@ -370,7 +370,7 @@ class NotificationService {
   private setupAbnormalValueCheck(): void {
     // localStorage 변경 감지
     window.addEventListener('storage', (e) => {
-      if (e.key === 'wello_health_data') {
+      if (e.key === 'welno_health_data') {
         this.checkForAbnormalValues();
       }
     });
@@ -378,7 +378,7 @@ class NotificationService {
 
   // 이상 수치 체크
   private checkForAbnormalValues(): void {
-    const healthData = localStorage.getItem('wello_health_data');
+    const healthData = localStorage.getItem('welno_health_data');
     if (!healthData) return;
 
     try {
@@ -392,7 +392,7 @@ class NotificationService {
             title: "이상 수치 발견",
             message: `${checkup.Year} ${checkup.CheckUpDate} 검진에서 이상 수치가 발견되었습니다. 의료진과 상담하세요.`,
             priority: 'high',
-            actionUrl: '/wello/dashboard',
+            actionUrl: '/welno/dashboard',
             actionLabel: '상세 보기',
             data: { checkup }
           });
@@ -410,7 +410,7 @@ class NotificationService {
       title: "복용 시간 알림",
       message: `${medicationName} ${dosage} 복용 시간입니다.`,
       priority: 'medium',
-      actionUrl: '/wello/prescriptions',
+      actionUrl: '/welno/prescriptions',
       actionLabel: '처방전 보기'
     });
   }

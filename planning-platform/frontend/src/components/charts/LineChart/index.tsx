@@ -5,7 +5,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import BaseChart, { BaseChartProps, ChartDimensions } from '../BaseChart';
 import { HealthStatus } from '../../../types/health';
-import { WELLO_LOGO_IMAGE } from '../../../constants/images';
+import { WELNO_LOGO_IMAGE } from '../../../constants/images';
 import './styles.scss';
 
 export interface LineChartDataPoint {
@@ -382,11 +382,11 @@ const LineChart: React.FC<LineChartProps> = ({
   ) => {
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) {
-      console.warn('⚠️ [툴팁] SVG rect를 찾을 수 없음');
+      console.warn('[툴팁] SVG rect를 찾을 수 없음');
       return;
     }
 
-    // 🔧 간단한 툴팁 내용 (병원명 | 상태, 수치만)
+    // 간단한 툴팁 내용 (병원명 | 상태, 수치만)
     const statusText = point.status ? getStatusText(point.status) : '';
     // 실제 데이터에서 병원명 추출
     const locationText = (point as any).location || 
@@ -394,12 +394,12 @@ const LineChart: React.FC<LineChartProps> = ({
                         (point as any).item?.Location ||
                         "병원";
     
-    // 🔧 신장 같은 경우 상태가 없으므로 병원명만 표시
+    // 신장 같은 경우 상태가 없으므로 병원명만 표시
     const headerText = statusText ? `${locationText} | ${statusText}` : locationText;
     
     const tooltipContent = `
-      <div class="wello-chart-tooltip__header">${headerText}</div>
-      <div class="wello-chart-tooltip__value">${valueFormat(point.value)}${seriesData.unit ? ` ${seriesData.unit}` : ''}</div>
+      <div class="welno-chart-tooltip__header">${headerText}</div>
+      <div class="welno-chart-tooltip__value">${valueFormat(point.value)}${seriesData.unit ? ` ${seriesData.unit}` : ''}</div>
     `;
 
     setTooltip({
@@ -420,7 +420,7 @@ const LineChart: React.FC<LineChartProps> = ({
   const renderChart = (dimensions: ChartDimensions) => {
     if (!chartData || !series.length) {
       return (
-        <div className="wello-line-chart__empty">
+        <div className="welno-line-chart__empty">
           <p>표시할 데이터가 없습니다</p>
         </div>
       );
@@ -431,12 +431,12 @@ const LineChart: React.FC<LineChartProps> = ({
     const chartHeight = height - margin.top - margin.bottom;
 
     return (
-      <div className="wello-line-chart" style={{ overflow: 'visible' }}>
+      <div className="welno-line-chart" style={{ overflow: 'visible' }}>
         <svg
           ref={svgRef}
           width={width}
           height={height}
-          className="wello-line-chart__svg"
+          className="welno-line-chart__svg"
           style={{ overflow: 'visible' }}
           role="img"
           aria-label={`${baseProps.title || '라인 차트'} - ${series.length}개 데이터 시리즈`}
@@ -464,7 +464,7 @@ const LineChart: React.FC<LineChartProps> = ({
                 })();
             const xGridLines = Array.from({ length: sortedYears.length }, (_, i) => i);
             return (
-              <g className="wello-line-chart__grid">
+              <g className="welno-line-chart__grid">
                 {/* 세로 그리드 라인 */}
                 {xGridLines.map((i) => {
                   const x = margin.left + (i / (sortedYears.length - 1 || 1)) * chartWidth;
@@ -475,7 +475,7 @@ const LineChart: React.FC<LineChartProps> = ({
                       y1={margin.top}
                       x2={x}
                       y2={margin.top + chartHeight}
-                      className="wello-line-chart__grid-line"
+                      className="welno-line-chart__grid-line"
                     />
                   );
                 })}
@@ -490,7 +490,7 @@ const LineChart: React.FC<LineChartProps> = ({
                       y1={y}
                       x2={margin.left + chartWidth}
                       y2={y}
-                      className="wello-line-chart__grid-line"
+                      className="welno-line-chart__grid-line"
                     />
                   );
                 })}
@@ -501,7 +501,7 @@ const LineChart: React.FC<LineChartProps> = ({
           {/* 참조선 */}
           {showReferenceLines && series.map(seriesData => 
             seriesData.data.some(p => p.reference) && (
-              <g key={`ref-${seriesData.id}`} className="wello-line-chart__reference-lines">
+              <g key={`ref-${seriesData.id}`} className="welno-line-chart__reference-lines">
                 {/* 최적값 라인 */}
                 {seriesData.data[0]?.reference?.optimal && (
                   <line
@@ -509,19 +509,19 @@ const LineChart: React.FC<LineChartProps> = ({
                     y1={margin.top + (1 - (seriesData.data[0].reference.optimal - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight}
                     x2={margin.left + chartWidth}
                     y2={margin.top + (1 - (seriesData.data[0].reference.optimal - chartData.minValue) / (chartData.maxValue - chartData.minValue)) * chartHeight}
-                    className="wello-line-chart__reference-line wello-line-chart__reference-line--optimal"
+                    className="welno-line-chart__reference-line welno-line-chart__reference-line--optimal"
                   />
                 )}
               </g>
             )
           )}
 
-          {/* 🔧 건강범위 음영을 포인트보다 먼저 렌더링 (포인트가 위에 표시되도록) */}
+          {/* 건강범위 음영을 포인트보다 먼저 렌더링 (포인트가 위에 표시되도록) */}
           {healthRanges && (() => {
             const renderRangeZone = (range: { min: number; max: number } | null, color: string, opacity: number, label: string, strokeOpacity: number = 0.3) => {
               if (!range) return null;
               
-              // 🔧 범위가 실제 데이터 범위를 벗어나는 경우 처리
+              // 범위가 실제 데이터 범위를 벗어나는 경우 처리
               // 예: 정상(A)가 "60이상"이고 max가 600인데, 실제 데이터는 35-55 범위인 경우
               // 정상 범위의 min이 실제 데이터 max보다 크면 차트 상단까지 확장
               let effectiveMin = range.min;
@@ -564,7 +564,7 @@ const LineChart: React.FC<LineChartProps> = ({
                       stroke={`rgba(${color}, ${strokeOpacity})`}
                       strokeWidth="1"
                       strokeDasharray="2,2"
-                      style={{ pointerEvents: 'none' }} // 🔧 마우스 이벤트 차단 방지
+                      style={{ pointerEvents: 'none' }} // 마우스 이벤트 차단 방지
                     />
                   );
                 }
@@ -572,7 +572,7 @@ const LineChart: React.FC<LineChartProps> = ({
               return null;
             };
 
-            // 🔧 영역 간 빈 공간 제거를 위한 범위 조정
+            // 영역 간 빈 공간 제거를 위한 범위 조정
             const adjustRangesForContinuity = () => {
               const adjusted = {
                 normal: healthRanges.normal ? { ...healthRanges.normal } : null,
@@ -628,7 +628,7 @@ const LineChart: React.FC<LineChartProps> = ({
             const adjustedRanges = adjustRangesForContinuity();
 
             return (
-              <g className="wello-line-chart__health-zones" style={{ pointerEvents: 'none' }}>
+              <g className="welno-line-chart__health-zones" style={{ pointerEvents: 'none' }}>
                 {/* 정상 범위 (초록색) - ItemReferences의 Name 사용 */}
                 {renderRangeZone(adjustedRanges.normal, '34, 197, 94', 0.15, adjustedRanges.normal?.name || '정상')}
                 
@@ -650,7 +650,7 @@ const LineChart: React.FC<LineChartProps> = ({
                       <text
                         x={margin.left + 8}
                         y={clampedMinY + 4}
-                        className="wello-line-chart__range-label"
+                        className="welno-line-chart__range-label"
                         textAnchor="start"
                         dominantBaseline="hanging"
                         fill="rgba(34, 197, 94, 0.9)"
@@ -676,7 +676,7 @@ const LineChart: React.FC<LineChartProps> = ({
                       <text
                         x={margin.left + 8}
                         y={clampedMinY + 4}
-                        className="wello-line-chart__range-label"
+                        className="welno-line-chart__range-label"
                         textAnchor="start"
                         dominantBaseline="hanging"
                         fill="rgba(251, 146, 60, 0.9)"
@@ -702,7 +702,7 @@ const LineChart: React.FC<LineChartProps> = ({
                       <text
                         x={margin.left + 8}
                         y={clampedMinY + 4}
-                        className="wello-line-chart__range-label"
+                        className="welno-line-chart__range-label"
                         textAnchor="start"
                         dominantBaseline="hanging"
                         fill="rgba(220, 38, 127, 0.9)"
@@ -732,7 +732,7 @@ const LineChart: React.FC<LineChartProps> = ({
               
               if (rectHeight > 0) {
                 return (
-                  <g className="wello-line-chart__normal-zone" style={{ pointerEvents: 'none' }}>
+                  <g className="welno-line-chart__normal-zone" style={{ pointerEvents: 'none' }}>
                     <rect
                       x={margin.left}
                       y={clampedMinY}
@@ -747,7 +747,7 @@ const LineChart: React.FC<LineChartProps> = ({
                     <text
                       x={margin.left + chartWidth - 5}
                       y={clampedMinY + rectHeight / 2}
-                      className="wello-line-chart__normal-zone-label"
+                      className="welno-line-chart__normal-zone-label"
                       textAnchor="end"
                       dominantBaseline="middle"
                       fill="rgba(34, 197, 94, 0.8)"
@@ -766,12 +766,12 @@ const LineChart: React.FC<LineChartProps> = ({
 
           {/* 데이터 시리즈 */}
           {series.map((seriesData, seriesIndex) => (
-            <g key={seriesData.id} className="wello-line-chart__series">
+            <g key={seriesData.id} className="welno-line-chart__series">
               {/* 영역 (showArea가 true인 경우) */}
               {seriesData.showArea && (
                 <path
                   d={createAreaPath(seriesData, dimensions)}
-                  className="wello-line-chart__area"
+                  className="welno-line-chart__area"
                   style={{
                     fill: seriesData.color || (seriesIndex === 0 ? '#7c746a' : '#9ca3af'), // 브랜드 브라운 색상
                     fillOpacity: 0.1
@@ -785,15 +785,15 @@ const LineChart: React.FC<LineChartProps> = ({
               {(seriesData.showPoints !== false) && seriesData.data.map((point, pointIndex) => {
                 const { x, y } = getCoordinates(point, dimensions);
                 
-                // 🔧 선택된 포인트 확인: 클릭된 포인트 또는 초기 상태에서 최신 날짜(첫 번째 포인트)
+                // 선택된 포인트 확인: 클릭된 포인트 또는 초기 상태에서 최신 날짜(첫 번째 포인트)
                 // 데이터는 최신 년도 순으로 정렬되어 있으므로 첫 번째 포인트가 최신 데이터
                 const isFirstPoint = pointIndex === 0;
                 const selectedPointKey = selectedPoints[seriesData.id];
                 const isSelected = selectedPointKey 
                   ? selectedPointKey === `${point.date}-${pointIndex}` 
-                  : isFirstPoint; // 🔧 초기 상태에서는 첫 번째 포인트(최신 날짜)가 선택된 것처럼
+                  : isFirstPoint; // 초기 상태에서는 첫 번째 포인트(최신 날짜)가 선택된 것처럼
                 
-                // 🔧 원 크기 고정: 선택된 포인트 22px (radius 11), 비선택 11px (radius 5.5)
+                // 원 크기 고정: 선택된 포인트 22px (radius 11), 비선택 11px (radius 5.5)
                 const radius = isSelected ? 11 : 5.5; // 선택된 포인트: 22*22 (radius 11), 비선택: 11*11 (radius 5.5)
                 const strokeWidth = 2; // 테두리 두께 고정
                 const innerRadius = isSelected ? 4.4 : 2.2; // 중앙 흰색 원 크기 - 선택/비선택에 비례 (선택: 8.8*8.8, 비선택: 4.4*4.4)
@@ -801,7 +801,7 @@ const LineChart: React.FC<LineChartProps> = ({
                 // 상태에 따른 원 색상 결정 (뱃지 색상과 동일)
                 // 문제 발생 시에만 로그 출력
                 if (!point.status) {
-                  console.warn(`⚠️ [포인트 상태 없음] ${seriesData.name}, 날짜: ${point.date}, 값: ${point.value}`);
+                  console.warn(`[포인트 상태 없음] ${seriesData.name}, 날짜: ${point.date}, 값: ${point.value}`);
                 }
                 
                 let circleColor = '#A16A51'; // 기본값: 측정 (갈색)
@@ -824,15 +824,15 @@ const LineChart: React.FC<LineChartProps> = ({
                     <circle
                       cx={x}
                       cy={y}
-                      r={radius} // 🔧 SVG 속성으로 직접 설정 - CSS 오버라이딩 방지
-                      className={`wello-line-chart__point ${point.status ? `wello-line-chart__point--${point.status}` : 'wello-line-chart__point--neutral'} ${isSelected ? 'wello-line-chart__point--selected' : ''}`}
+                      r={radius} // SVG 속성으로 직접 설정 - CSS 오버라이딩 방지
+                      className={`welno-line-chart__point ${point.status ? `welno-line-chart__point--${point.status}` : 'welno-line-chart__point--neutral'} ${isSelected ? 'welno-line-chart__point--selected' : ''}`}
                       style={{
-                        fill: circleColor, // 🔧 fill로 색상 채워서 원 크기가 명확하게 보이도록
+                        fill: circleColor, // fill로 색상 채워서 원 크기가 명확하게 보이도록
                         stroke: circleColor, // 외곽선도 동일한 색상
                         strokeWidth: strokeWidth,
                         cursor: 'pointer',
                         pointerEvents: 'all',
-                        // 🔧 SVG의 r 속성은 transition으로 제어할 수 없으므로 제거
+                        // SVG의 r 속성은 transition으로 제어할 수 없으므로 제거
                         transition: 'stroke-width 0.2s ease, fill-opacity 0.2s ease'
                       }}
                       onMouseEnter={(e) => {
@@ -868,13 +868,13 @@ const LineChart: React.FC<LineChartProps> = ({
           ))}
 
           {/* X축 */}
-          <g className="wello-line-chart__x-axis">
+          <g className="welno-line-chart__x-axis">
             <line
               x1={margin.left}
               y1={margin.top + chartHeight}
               x2={margin.left + chartWidth}
               y2={margin.top + chartHeight}
-              className="wello-line-chart__axis-line"
+              className="welno-line-chart__axis-line"
             />
             
               {/* X축 레이블 - 데이터가 있는 년도와 빈 슬롯에 파비콘 표시 */}
@@ -915,7 +915,7 @@ const LineChart: React.FC<LineChartProps> = ({
                         <text
                           x={x}
                           y={margin.top + chartHeight + 20}
-                          className="wello-line-chart__axis-label"
+                          className="welno-line-chart__axis-label"
                           textAnchor="middle"
                           dominantBaseline="middle"
                           style={{ fontSize: '10px' }}
@@ -933,7 +933,7 @@ const LineChart: React.FC<LineChartProps> = ({
                           y={margin.top + chartHeight + 10}
                           width="16"
                           height="16"
-                          href={WELLO_LOGO_IMAGE || "/wello/wello-icon.png"}
+                          href={WELNO_LOGO_IMAGE}
                           opacity="0.3"
                         />
                       </g>
@@ -946,7 +946,7 @@ const LineChart: React.FC<LineChartProps> = ({
               <text
                 x={margin.left + chartWidth / 2}
                 y={height - 5}
-                className="wello-line-chart__axis-title"
+                className="welno-line-chart__axis-title"
                 textAnchor="middle"
               >
                 {xAxisLabel}
@@ -955,13 +955,13 @@ const LineChart: React.FC<LineChartProps> = ({
           </g>
 
           {/* Y축 */}
-          <g className="wello-line-chart__y-axis">
+          <g className="welno-line-chart__y-axis">
             <line
               x1={margin.left}
               y1={margin.top}
               x2={margin.left}
               y2={margin.top + chartHeight}
-              className="wello-line-chart__axis-line"
+              className="welno-line-chart__axis-line"
             />
             
             {/* Y축 레이블 - 4개로 증가 (기존 3개에서 변경) */}
@@ -985,7 +985,7 @@ const LineChart: React.FC<LineChartProps> = ({
                   <text
                     x={margin.left - 35}
                     y={y + 4}
-                    className="wello-line-chart__axis-label"
+                    className="welno-line-chart__axis-label"
                     textAnchor="middle"
                     dominantBaseline="middle"
                   >
@@ -999,7 +999,7 @@ const LineChart: React.FC<LineChartProps> = ({
               <text
                 x={15}
                 y={margin.top + chartHeight / 2}
-                className="wello-line-chart__axis-title"
+                className="welno-line-chart__axis-title"
                 textAnchor="middle"
                 transform={`rotate(-90, 15, ${margin.top + chartHeight / 2})`}
               >
@@ -1013,7 +1013,7 @@ const LineChart: React.FC<LineChartProps> = ({
         {/* 툴팁 */}
         {tooltip.visible && (
           <div
-            className="wello-chart-tooltip wello-chart-tooltip--visible"
+            className="welno-chart-tooltip welno-chart-tooltip--visible"
             style={{
               left: tooltip.x + 10,
               top: tooltip.y - 10

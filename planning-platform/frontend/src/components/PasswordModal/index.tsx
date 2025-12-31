@@ -5,6 +5,7 @@ import PasswordKeypad from './PasswordKeypad';
 import PasswordDots from './PasswordDots';
 import { STORAGE_KEYS } from '../../constants/storage';
 import { PASSWORD_MESSAGES, PasswordValidator } from '../../constants/passwordMessages';
+import { WELNO_LOGO_IMAGE } from '../../constants/images';
 import './styles.scss';
 
 const PasswordModal: React.FC<PasswordModalProps> = ({
@@ -243,9 +244,9 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
         {/* 웰노 로고 (상단, 깜박이는 효과) */}
         <div className="password-modal-icon">
           <img 
-            src={require('../../assets/images/welno_logo 2.png')}
+            src={WELNO_LOGO_IMAGE}
             alt="웰노 로고" 
-            className="wello-icon-blink"
+            className="welno-icon-blink"
           />
           {/* 닫기 버튼을 아이콘 영역으로 이동 */}
           <button className="password-modal-close" onClick={onClose}>
