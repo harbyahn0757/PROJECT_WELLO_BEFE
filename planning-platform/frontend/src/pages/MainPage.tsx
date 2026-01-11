@@ -80,7 +80,7 @@ const MainPage: React.FC = () => {
     if (!patient || !uuid || !hospitalId) {
       console.warn('[MDX 검색] 환자 정보 부족');
       setShowMdxSearchModal(false);
-      navigate(`/welno/health-questionnaire${location.search}`);
+      navigate(`/health-questionnaire${location.search}`);
       return;
     }
     
@@ -124,7 +124,7 @@ const MainPage: React.FC = () => {
     } finally {
       setShowMdxSearchModal(false);
       // MDX 데이터가 없으면 Tilko 인증으로 이동
-      navigate(`/welno/health-questionnaire${location.search}`);
+      navigate(`/health-questionnaire${location.search}`);
     }
   };
   
@@ -576,7 +576,7 @@ const MainPage: React.FC = () => {
           } else {
             // 데이터 없음 - 인증 페이지로 이동
             console.log('[검진결과추이] 데이터 없음 - Tilko 인증으로 이동');
-            const authPath = `/welno/login${queryString}`;
+            const authPath = `/login${queryString}`;
             setIsPageTransitioning(false);
             setTimeout(() => {
               navigate(authPath);
@@ -608,7 +608,7 @@ const MainPage: React.FC = () => {
                     // 권유해야 하는 경우 - 바로 설정 모드로 진입
                     console.log('[비밀번호] 설정 권유 필요 - 바로 설정 모드');
                     setIsPageTransitioning(false); // 로딩 스피너 숨김
-                    setPendingNavigation(`/welno/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                    setPendingNavigation(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
                     setPasswordModalType('setup');
                     setShowPasswordModal(true);
                     return;
@@ -617,7 +617,7 @@ const MainPage: React.FC = () => {
                     console.log('[비밀번호] 권유 생략 - 바로 이동');
                     // 로딩이 보이도록 충분한 시간 후 navigate (더 길게)
                     setTimeout(() => {
-                      navigate(`/welno/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                      navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
                     }, 300);
                     return;
                   }
@@ -629,7 +629,7 @@ const MainPage: React.FC = () => {
                   console.log('[비밀번호] 인증 유효 - 바로 이동');
                   // 로딩이 보이도록 충분한 시간 후 navigate (더 길게)
                   setTimeout(() => {
-                    navigate(`/welno/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                    navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
                   }, 300);
                   return;
                 }
@@ -671,7 +671,7 @@ const MainPage: React.FC = () => {
               console.log('[메인페이지] 데이터 없음 - Tilko 인증으로 이동:', authPath);
               setIsPageTransitioning(false); // 로딩 스피너 숨김
               setTimeout(() => {
-                navigate(`/welno${authPath}`);
+                navigate(authPath);
               }, 300);
               return;
             }
@@ -688,7 +688,10 @@ const MainPage: React.FC = () => {
         // 하지만 에러가 발생한 경우에는 여기까지 오지 않음
         const authPath = `/login${queryString}`;
         console.log('[메인페이지] 데이터 없음 - Tilko 인증으로 이동 (fallback):', authPath);
-        setIsPageTransitioning(false); // 로딩 스피너 숨김
+        setIsPageTransitioning(false);
+        setTimeout(() => {
+          navigate(authPath);
+        }, 300); // 로딩 스피너 숨김
         setTimeout(() => {
           navigate(`/welno${authPath}`);
         }, 300);
@@ -707,7 +710,7 @@ const MainPage: React.FC = () => {
               console.log('[검진설계] 웰노 데이터 발견! - 바로 이동');
               // 데이터가 있으면 바로 설계 페이지로 이동
               setTimeout(() => {
-                navigate(`/welno/survey/checkup-design${queryString}`);
+                navigate(`/survey/checkup-design${queryString}`);
               }, 300);
               return;
             } else {
@@ -722,7 +725,7 @@ const MainPage: React.FC = () => {
               setTimeout(() => {
                 setIsPageTransitioning(false); // 로딩 스피너 숨김
                 setTransitionMessage(undefined); // 메시지 제거
-                const authPath = `/welno/login${queryString}`;
+                const authPath = `/login${queryString}`;
                 console.log('[검진설계] 데이터 없음 - Tilko 인증으로 이동:', authPath);
                 setTimeout(() => {
                   navigate(authPath);
@@ -736,7 +739,7 @@ const MainPage: React.FC = () => {
             // 에러 발생 시에도 Tilko 인증으로 이동
             setIsPageTransitioning(false);
             setTimeout(() => {
-              navigate(`/welno/login${queryString}`);
+              navigate(`/login${queryString}`);
             }, 300);
             return;
           }
@@ -744,7 +747,7 @@ const MainPage: React.FC = () => {
         
         // UUID나 hospitalId가 없으면 바로 설계 페이지로 이동 (fallback)
         setTimeout(() => {
-          navigate(`/welno/survey/checkup-design${queryString}`);
+                navigate(`/survey/checkup-design${queryString}`);
         }, 300);
         break;
         

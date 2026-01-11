@@ -81,7 +81,7 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
     sessionStorage.clear();
     
     // 메인으로 리다이렉트 후 새로고침
-    window.location.href = '/welno';
+    window.location.href = '/welno/';
   }, []);
 
   useEffect(() => {
@@ -319,25 +319,25 @@ const AppContent: React.FC = () => {
   return (
     <div className="app-container">
       <Routes>
-        <Route path="/welno" element={<MainPage />} />
-        <Route path="/welno/login" element={<AuthPage />} />
-        <Route path="/welno/collecting" element={<CollectingDataPage />} />
-        <Route path="/welno/checkup-design" element={<CheckupDesignPage />} />
-        <Route path="/welno/recommendations" element={<CheckupRecommendationsPage />} />
-        <Route path="/welno/habits" element={<HealthHabitsPage />} />
-        <Route path="/welno/habits/complete" element={<HealthQuestionnaireComplete />} />
-        <Route path="/welno/questionnaire" element={<HealthQuestionnairePage />} />
-        <Route path="/welno/survey" element={<SurveyPage />} />
-        <Route path="/welno/dashboard" element={<HealthDashboard />} />
-        <Route path="/welno/results-trend" element={<ResultsTrendPage />} />
-        {/* 이전 호환성: /results → /welno/results-trend 리다이렉트 */}
-        <Route path="/results" element={<Navigate to="/welno/results-trend" replace />} />
-        <Route path="/welno/prescription-history" element={<PrescriptionHistory />} />
-        <Route path="/welno/comparison" element={<HealthComparison />} />
-        <Route path="/welno/appointment" element={<AppointmentPage />} />
-        {/* <Route path="/welno/kindhait" element={<RagTestPage />} /> */}
-        <Route path="/welno/health-comparison" element={<HealthComparison />} />
-        <Route path="*" element={<Navigate to="/welno" replace />} />
+        <Route path="/" element={<MainPage />} />
+        <Route path="/login" element={<AuthPage />} />
+        <Route path="/collecting" element={<CollectingDataPage />} />
+        <Route path="/checkup-design" element={<CheckupDesignPage />} />
+        <Route path="/recommendations" element={<CheckupRecommendationsPage />} />
+        <Route path="/habits" element={<HealthHabitsPage />} />
+        <Route path="/habits/complete" element={<HealthQuestionnaireComplete />} />
+        <Route path="/questionnaire" element={<HealthQuestionnairePage />} />
+        <Route path="/survey" element={<SurveyPage />} />
+        <Route path="/dashboard" element={<HealthDashboard />} />
+        <Route path="/results-trend" element={<ResultsTrendPage />} />
+        {/* 이전 호환성: /results → /results-trend 리다이렉트 */}
+        <Route path="/results" element={<Navigate to="/results-trend" replace />} />
+        <Route path="/prescription-history" element={<PrescriptionHistory />} />
+        <Route path="/comparison" element={<HealthComparison />} />
+        <Route path="/appointment" element={<AppointmentPage />} />
+        {/* <Route path="/kindhait" element={<RagTestPage />} /> */}
+        <Route path="/health-comparison" element={<HealthComparison />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       
       <FloatingButton onOpenAppointmentModal={handleOpenAppointmentModal} />
@@ -355,7 +355,7 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <WelnoDataProvider>
-      <Router>
+      <Router basename="/welno">
         <AppContent />
       </Router>
     </WelnoDataProvider>
