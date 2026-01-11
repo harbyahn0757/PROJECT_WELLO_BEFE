@@ -691,9 +691,6 @@ const MainPage: React.FC = () => {
         setIsPageTransitioning(false);
         setTimeout(() => {
           navigate(authPath);
-        }, 300); // 로딩 스피너 숨김
-        setTimeout(() => {
-          navigate(`/welno${authPath}`);
         }, 300);
         break;
         
