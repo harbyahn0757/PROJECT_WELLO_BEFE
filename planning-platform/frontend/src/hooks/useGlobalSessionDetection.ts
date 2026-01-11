@@ -115,6 +115,18 @@ export const useGlobalSessionDetection = (options: SessionDetectionOptions = {})
       const uuid = urlParams.get('uuid');
       const hospital = urlParams.get('hospital');
 
+      // 파라미터가 없으면 리다이렉트하지 않음 (랜딩 페이지 표시)
+      if (!uuid || !hospital) {
+        return {
+          sessionId: savedSessionId,
+          status,
+          isActive: false,
+          isCollecting: false,
+          shouldRedirect: false,
+          redirectPath: null
+        };
+      }
+
       if (isActive && uuid && hospital) {
         // 인증 관련 상태
         if (['auth_pending', 'auth_completed', 'authenticated', 'auth_waiting'].includes(status)) {

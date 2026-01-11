@@ -307,7 +307,8 @@ const AppContent: React.FC = () => {
       StorageManager.setItem('welno_query_params', location.search);
     } else {
       const savedParams = StorageManager.getItem<string>('welno_query_params');
-      if (savedParams && location.pathname === '/welno') {
+      // basename이 /welno이므로 실제 pathname은 / 또는 /welno
+      if (savedParams && (location.pathname === '/' || location.pathname === '/welno')) {
         navigate({
           pathname: location.pathname,
           search: savedParams
