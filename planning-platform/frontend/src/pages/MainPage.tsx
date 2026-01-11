@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Card from '../components/Card';
-import { useWelloData } from '../contexts/WelloDataContext';
+import { useWelnoData } from '../contexts/WelnoDataContext';
 import { API_ENDPOINTS } from '../config/api';
 import apiConfig from '../config/api';
 import PasswordModal from '../components/PasswordModal';
 import SessionStatusModal from '../components/SessionStatusModal';
 import MdxDataSearchModal from '../components/MdxDataSearchModal';
 import PartnerAuthConfirmModal from '../components/PartnerAuthConfirmModal';
+// import ComingSoonModal from '../components/common/ComingSoonModal';
 import PageTransitionLoader from '../components/PageTransitionLoader';
 import { PasswordModalType } from '../components/PasswordModal/types';
 import { PASSWORD_POLICY } from '../constants/passwordMessages';
@@ -15,9 +16,11 @@ import { PasswordService } from '../components/PasswordModal/PasswordService';
 import { PasswordSessionService } from '../services/PasswordSessionService';
 import useGlobalSessionDetection from '../hooks/useGlobalSessionDetection';
 import { getHospitalLogoUrl } from '../utils/hospitalLogoUtils';
-import { WelloIndexedDB } from '../services/WelloIndexedDB';
+import { WelnoIndexedDB } from '../services/WelnoIndexedDB';
 import IntroTeaser from '../components/intro/IntroTeaser';
 import { STORAGE_KEYS, StorageManager } from '../constants/storage';
+import { WELNO_LOGO_IMAGE } from '../constants/images';
+import { WelnoRagChatButton } from '../components/welno-rag-chat';
 // 카드 이미지 import
 import trendsChartImage from '../assets/images/main/chart.png';
 import healthHabitImage from '../assets/images/main/check_1 1.png';
@@ -26,7 +29,7 @@ import reportImage from '../assets/images/main/rpt.png';
 import './MainPage.scss';
 
 const MainPage: React.FC = () => {
-  const { state } = useWelloData();
+  const { state, actions } = useWelnoData();
   const { layoutConfig, patient, hospital } = state;
   const navigate = useNavigate();
   const location = useLocation();
@@ -61,6 +64,9 @@ const MainPage: React.FC = () => {
   // 인트로 티저 state
   const [showIntroTeaser, setShowIntroTeaser] = useState(false);
   
+  // 준비중 모달 state
+  const [showComingSoonModal, setShowComingSoonModal] = useState(false);
+  
   // 오른쪽 상단 3번 클릭 기능
   const topRightClickCount = useRef(0);
   const topRightClickTimer = useRef<NodeJS.Timeout | null>(null);
@@ -72,14 +78,14 @@ const MainPage: React.FC = () => {
     const hospitalId = urlParams.get('hospital');
     
     if (!patient || !uuid || !hospitalId) {
-      console.warn('⚠️ [MDX 검색] 환자 정보 부족');
+      console.warn('[MDX 검색] 환자 정보 부족');
       setShowMdxSearchModal(false);
-      navigate(`/health-questionnaire${location.search}`);
+      navigate(`/welno/health-questionnaire${location.search}`);
       return;
     }
     
     try {
-      console.log('🔍 [MDX 검색] 시작:', {
+      console.log('[MDX 검색] 시작:', {
         phoneno: patient.phone,
         birthday: patient.birthday,
         name: patient.name
@@ -97,36 +103,36 @@ const MainPage: React.FC = () => {
       
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ [MDX 검색] 결과:', result);
+        console.log('[MDX 검색] 결과:', result);
         
         if (result.data && result.data.length > 0) {
           // MDX 데이터 발견 → 동기화 처리 (추후 구현)
-          console.log('📊 [MDX 검색] 데이터 발견:', result.data.length, '건');
-          // TODO: MDX 데이터를 wello로 동기화하는 로직 추가
+          console.log('[MDX 검색] 데이터 발견:', result.data.length, '건');
+          // TODO: MDX 데이터를 welno로 동기화하는 로직 추가
           alert(`MDX 데이터 ${result.data.length}건을 찾았습니다. 동기화 기능은 추후 구현 예정입니다.`);
         } else {
-          console.log('📭 [MDX 검색] 데이터 없음');
+          console.log('[MDX 검색] 데이터 없음');
           alert('MDX 데이터베이스에서도 검진 정보를 찾을 수 없습니다.');
         }
       } else {
-        console.warn('⚠️ [MDX 검색] API 오류:', response.status);
+        console.warn('[MDX 검색] API 오류:', response.status);
         alert('MDX 데이터 검색 중 오류가 발생했습니다.');
       }
     } catch (error) {
-      console.error('❌ [MDX 검색] 실패:', error);
+      console.error('[MDX 검색] 실패:', error);
       alert('MDX 데이터 검색 중 오류가 발생했습니다.');
     } finally {
       setShowMdxSearchModal(false);
       // MDX 데이터가 없으면 Tilko 인증으로 이동
-      navigate(`/health-questionnaire${location.search}`);
+      navigate(`/welno/health-questionnaire${location.search}`);
     }
   };
   
   const handleMdxSearchCancel = () => {
-    console.log('❌ [MDX 검색] 취소');
+    console.log('[MDX 검색] 취소');
     setShowMdxSearchModal(false);
     // Tilko 인증으로 이동
-    navigate(`/health-questionnaire${location.search}`);
+    navigate(`/welno/health-questionnaire${location.search}`);
   };
   
   // 파트너 인증 확인 모달 핸들러
@@ -141,7 +147,7 @@ const MainPage: React.FC = () => {
   }, endpoint: string) => {
     try {
       // 파트너 인증 API 호출
-      console.log('🔐 [질병예측리포트] 파트너 인증 API 호출:', payload);
+      console.log('[질병예측리포트] 파트너 인증 API 호출:', payload);
       
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -155,15 +161,15 @@ const MainPage: React.FC = () => {
       // JSON 응답 처리 (서버가 JSON으로 변경됨)
       if (response.ok) {
         const result = await response.json();
-        console.log('📥 [질병예측리포트] 서버 응답:', result);
+        console.log('[질병예측리포트] 서버 응답:', result);
         
         if (result.redirect_url) {
-          console.log('✅ [질병예측리포트] 파트너 인증 성공');
-          console.log('🔗 [질병예측리포트] 리다이렉트 URL:', result.redirect_url);
-          console.log('🚀 [질병예측리포트] 리다이렉트 실행 중...');
+          console.log('[질병예측리포트] 파트너 인증 성공');
+          console.log('[질병예측리포트] 리다이렉트 URL:', result.redirect_url);
+          console.log('[질병예측리포트] 리다이렉트 실행 중...');
           window.location.href = result.redirect_url;
         } else {
-          console.warn('⚠️ [질병예측리포트] 리다이렉트 URL 없음, 전체 응답:', result);
+          console.warn('[질병예측리포트] 리다이렉트 URL 없음, 전체 응답:', result);
           alert('질병예측 리포트 접속에 실패했습니다. 리다이렉트 URL을 받지 못했습니다.');
         }
       } else {
@@ -182,18 +188,18 @@ const MainPage: React.FC = () => {
             errorMessage = '파트너 계정을 찾을 수 없습니다. 시스템 관리자에게 문의하세요.';
           }
         }
-        console.error(`❌ [질병예측리포트] 파트너 인증 실패 (${response.status}):`, errorMessage);
+        console.error(`[질병예측리포트] 파트너 인증 실패 (${response.status}):`, errorMessage);
         alert(errorMessage);
       }
     } catch (error) {
-      console.error('❌ [질병예측리포트] 파트너 인증 오류:', error);
+      console.error('[질병예측리포트] 파트너 인증 오류:', error);
       alert('질병예측 리포트 접속 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
     }
   };
 
   const handlePartnerAuthConfirm = async () => {
     if (!pendingPartnerAuthPayload || !pendingPartnerAuthEndpoint) {
-      console.warn('⚠️ [파트너인증] 페이로드 또는 엔드포인트 없음');
+      console.warn('[파트너인증] 페이로드 또는 엔드포인트 없음');
       setShowPartnerAuthModal(false);
       return;
     }
@@ -211,7 +217,7 @@ const MainPage: React.FC = () => {
   };
   
   const handlePartnerAuthCancel = () => {
-    console.log('❌ [파트너인증] 취소');
+    console.log('[파트너인증] 취소');
     setShowPartnerAuthModal(false);
     setPendingPartnerAuthPayload(null);
     setPendingPartnerAuthEndpoint('');
@@ -232,7 +238,7 @@ const MainPage: React.FC = () => {
     localStorage.removeItem('password_modal_open');
     window.dispatchEvent(new CustomEvent('password-modal-change'));
     
-    console.log('🧹 [메인페이지] 비밀번호 세션 및 모달 상태 정리 완료');
+    console.log('[메인페이지] 비밀번호 세션 및 모달 상태 정리 완료');
   }, []); // 빈 배열로 한 번만 실행
 
   // 인트로 티저 표시 여부 확인 (처음 접근 유저만)
@@ -241,18 +247,18 @@ const MainPage: React.FC = () => {
     const introTeaserShown = StorageManager.getItem<string>(STORAGE_KEYS.INTRO_TEASER_SHOWN);
     
     // 로컬스토리지가 전혀 없는 유저인지 확인
-    // (tilko_session_id, wello_terms_agreed 등 핵심 키가 모두 없는 경우)
+    // (tilko_session_id, welno_terms_agreed 등 핵심 키가 모두 없는 경우)
     const hasAnyStorage = 
       localStorage.getItem(STORAGE_KEYS.TILKO_SESSION_ID) ||
-      localStorage.getItem('wello_terms_agreed') ||
-      localStorage.getItem('wello_health_data');
+      localStorage.getItem('welno_terms_agreed') ||
+      localStorage.getItem('welno_health_data');
     
     // 인트로 티저를 본 적이 없고, 로컬스토리지도 없는 경우에만 표시
     if (!introTeaserShown && !hasAnyStorage) {
-      console.log('👋 [인트로티저] 처음 접근 유저 - 티저 표시');
+      console.log('[인트로티저] 처음 접근 유저 - 티저 표시');
       setShowIntroTeaser(true);
     } else {
-      console.log('✅ [인트로티저] 이미 본 유저 또는 기존 유저 - 티저 표시 안 함');
+      console.log('[인트로티저] 이미 본 유저 또는 기존 유저 - 티저 표시 안 함');
     }
   }, []); // 컴포넌트 마운트 시 한 번만 실행
 
@@ -264,7 +270,7 @@ const MainPage: React.FC = () => {
   // 인트로 티저 다시보지 않기 핸들러
   const handleIntroTeaserDontShowAgain = () => {
     StorageManager.setItem(STORAGE_KEYS.INTRO_TEASER_SHOWN, 'true');
-    console.log('✅ [인트로티저] 다시보지 않기 설정 완료');
+    console.log('[인트로티저] 다시보지 않기 설정 완료');
   };
 
   // 페이지 처음 로드 시 상단으로 스크롤
@@ -332,7 +338,7 @@ const MainPage: React.FC = () => {
     try {
       // 필수 파라미터 검증
       if (!uuid || !hospitalId) {
-        console.warn('⚠️ [메인] UUID 또는 hospitalId 누락 - 인증 실패');
+        console.warn('[메인] UUID 또는 hospitalId 누락 - 인증 실패');
         return false;
       }
       
@@ -346,19 +352,19 @@ const MainPage: React.FC = () => {
           setSessionExpiresAt(sessionResult.expiresAt);
         }
         
-        console.log('✅ [메인] 세션 유효 - 세션 상태 모달 표시');
+        console.log('[메인] 세션 유효 - 세션 상태 모달 표시');
         return true;
       }
       
       // 세션 무효 시 모달 즉시 닫기
       setShowSessionStatusModal(false);
-      console.log('❌ [메인] 세션 무효 - 재인증 필요');
+      console.log('[메인] 세션 무효 - 재인증 필요');
       return false;
       
     } catch (error) {
       // 에러 시 모달 즉시 닫기
       setShowSessionStatusModal(false);
-      console.error('❌ [메인] 세션 확인 오류:', error);
+      console.error('[메인] 세션 확인 오류:', error);
       return false;
     }
   };
@@ -371,19 +377,19 @@ const MainPage: React.FC = () => {
     const hospitalId = urlParams.get('hospital');
     
     if (!uuid || !hospitalId) {
-      console.error('❌ [메인] UUID 또는 hospitalId 누락 - 세션 생성 불가');
+      console.error('[메인] UUID 또는 hospitalId 누락 - 세션 생성 불가');
       return;
     }
     
     try {
       const success = await PasswordSessionService.createSession(uuid, hospitalId);
       if (success) {
-        console.log('✅ [메인] 세션 생성 완료');
+        console.log('[메인] 세션 생성 완료');
       } else {
-        console.error('❌ [메인] 세션 생성 실패');
+        console.error('[메인] 세션 생성 실패');
       }
     } catch (error) {
-      console.error('❌ [메인] 세션 생성 오류:', error);
+      console.error('[메인] 세션 생성 오류:', error);
     }
   };
 
@@ -397,21 +403,21 @@ const MainPage: React.FC = () => {
         return result.data && result.data.exists && result.data.health_data_count > 0;
       }
     } catch (error) {
-      console.warn('⚠️ [데이터확인] 실패:', error);
+      console.warn('[데이터확인] 실패:', error);
     }
     return false;
   };
 
   // 비밀번호 확인 후 네비게이션 처리
   const handlePasswordSuccess = async (type: PasswordModalType) => {
-    console.log('✅ [비밀번호] 인증 성공:', type);
+    console.log('[비밀번호] 인증 성공:', type);
     
     // 비밀번호 설정/확인 완료 시
     await setPasswordAuthTime();
     setShowPasswordModal(false);
     
     if (pendingNavigation) {
-      console.log('🚀 [네비게이션] 대기 중인 페이지로 이동:', pendingNavigation);
+      console.log('[네비게이션] 대기 중인 페이지로 이동:', pendingNavigation);
       navigate(pendingNavigation);
       setPendingNavigation(null);
     }
@@ -419,7 +425,7 @@ const MainPage: React.FC = () => {
 
   // 비밀번호 모달 취소 처리
   const handlePasswordCancel = () => {
-    console.log('❌ [비밀번호] 인증 취소');
+    console.log('[비밀번호] 인증 취소');
     
     // 설정 모달에서 "나중에 하기" 선택 시 → 바로 페이지 이동
     if (passwordModalType === 'setup' && pendingNavigation) {
@@ -440,39 +446,74 @@ const MainPage: React.FC = () => {
 
   // 세션 상태 모달 완료 핸들러
   const handleSessionStatusComplete = () => {
-    console.log('✅ [세션상태] 모달 완료 - 페이지 이동 진행');
+    console.log('[세션상태] 모달 완료 - 페이지 이동 진행');
     setShowSessionStatusModal(false);
     
     // 대기 중인 네비게이션이 있으면 실행
     if (pendingNavigation) {
-      console.log('🚀 [네비게이션] 세션 확인 완료 후 이동:', pendingNavigation);
+      console.log('[네비게이션] 세션 확인 완료 후 이동:', pendingNavigation);
       navigate(pendingNavigation);
       setPendingNavigation(null);
     }
   };
 
-  // 데이터가 없는 경우 로딩 표시
-  if (!layoutConfig || !patient || !hospital) {
-    return (
-      <div className="main-page-loading">
-        <div className="loading-spinner">
-          <div className="spinner"></div>
-          <p>페이지를 준비하는 중...</p>
-        </div>
-      </div>
-    );
-  }
+  // 기본 레이아웃 및 병원 정보 설정 (파라미터 없을 때도 기본 페이지 표시)
+  const defaultLayoutConfig = layoutConfig || {
+    layoutType: 'vertical' as const,
+    showAIButton: false,
+    showFloatingButton: true,
+    title: 'WELNO 건강검진 플랫폼',
+    subtitle: '건강한 내일을 위한 첫걸음을 시작하세요.',
+    headerMainTitle: '',
+    headerImage: "/welno/doctor-image.png",
+    headerImageAlt: "의사가 정면으로 청진기를 들고 있는 전문적인 의료 배경 이미지",
+    headerSlogan: "행복한 건강생활의 평생 동반자",
+    headerLogoTitle: "WELNO",
+    headerLogoSubtitle: "",
+    hospitalName: 'WELNO',
+    brandColor: '#4b5563',
+    logoPosition: 'center',
+  };
+
+  const defaultHospital: typeof hospital = hospital || {
+    hospital_id: '',
+    name: '건강검진센터',
+    phone: '',
+    address: '',
+    supported_checkup_types: [],
+    layout_type: 'vertical',
+    brand_color: '#4b5563',
+    logo_position: 'center',
+    is_active: true,
+  };
+
+  const defaultPatient: typeof patient = patient || {
+    uuid: '',
+    name: '고객',
+    age: 0,
+    phone: '',
+    birthday: '',
+    hospital_id: '',
+    last_checkup_count: 0,
+    created_at: '',
+    gender: 'male' as const,
+  };
+
+  // 파라미터가 없을 때는 기본 정보로 페이지 표시 (로딩 화면 대신)
+  const displayLayoutConfig = layoutConfig || defaultLayoutConfig;
+  const displayHospital = hospital || defaultHospital;
+  const displayPatient = patient || defaultPatient;
 
   const handleCardClick = async (cardType: string) => {
     // URL 파라미터에서 환자 정보 추출
     const urlParams = new URLSearchParams(location.search);
-    const uuid = urlParams.get('uuid');
-    const hospitalId = urlParams.get('hospital');
+    let uuid = urlParams.get('uuid');
+    let hospitalId = urlParams.get('hospital');
     const queryString = location.search; // 함수 전체에서 사용할 queryString
 
     // 페이지 전환 로딩 시작
     setIsPageTransitioning(true);
-    console.log('🔄 [페이지전환] 로딩 시작');
+    console.log('[페이지전환] 로딩 시작');
     
     // 로딩이 화면에 확실히 표시되도록 충분한 시간 대기 (더 길게)
     await new Promise(resolve => setTimeout(resolve, 800));
@@ -480,15 +521,56 @@ const MainPage: React.FC = () => {
     try {
       switch (cardType) {
       case 'chart':
+        // Context에서 환자 데이터 확인 (Context가 IndexedDB를 자동으로 조회)
+        if (patient && patient.uuid && patient.hospital_id) {
+          uuid = patient.uuid;
+          hospitalId = patient.hospital_id;
+          console.log('[검진결과추이] Context에서 데이터 발견:', { uuid, hospitalId });
+        } else if (uuid && hospitalId) {
+          // URL 파라미터가 있으면 Context 로드 시도
+          console.log('[검진결과추이] URL 파라미터로 데이터 로드 시도:', { uuid, hospitalId });
+          try {
+            await actions.loadPatientData(uuid, hospitalId);
+          } catch (loadError) {
+            console.warn('[검진결과추이] 데이터 로드 실패:', loadError);
+          }
+        } else {
+          // localStorage에서 확인 (재접속 시)
+          const savedUuid = localStorage.getItem('tilko_patient_uuid');
+          const savedHospitalId = localStorage.getItem('tilko_hospital_id');
+          
+          if (savedUuid && savedHospitalId) {
+            console.log('[검진결과추이] localStorage에서 데이터 발견:', { uuid: savedUuid, hospitalId: savedHospitalId });
+            uuid = savedUuid;
+            hospitalId = savedHospitalId;
+            
+            // Context 로드 시도
+            try {
+              await actions.loadPatientData(uuid, hospitalId);
+            } catch (loadError) {
+              console.warn('[검진결과추이] localStorage 데이터 로드 실패:', loadError);
+            }
+          } else {
+            // 데이터 없음 - 인증 페이지로 이동
+            console.log('[검진결과추이] 데이터 없음 - Tilko 인증으로 이동');
+            const authPath = `/welno/login${queryString}`;
+            setIsPageTransitioning(false);
+            setTimeout(() => {
+              navigate(authPath);
+            }, 300);
+            return;
+          }
+        }
+        
         if (uuid && hospitalId) {
           try {
-            console.log('🔍 [메인페이지] 기존 데이터 확인 중...', { uuid, hospitalId });
+            console.log('[메인페이지] 기존 데이터 확인 중...', { uuid, hospitalId });
             
             // 기존 데이터 확인
             const hasData = await checkHasData(uuid, hospitalId);
             
             if (hasData) {
-              console.log('📊 [메인페이지] 웰로 데이터 발견!');
+              console.log('[메인페이지] 웰노 데이터 발견!');
               
               // 먼저 비밀번호 설정 여부 확인
               try {
@@ -496,23 +578,23 @@ const MainPage: React.FC = () => {
                 
                 if (!passwordStatus.has_password) {
                   // 비밀번호가 없으면 설정 권유 여부 확인
-                  console.log('❓ [비밀번호] 설정되지 않음 - 권유 여부 확인');
+                  console.log('[비밀번호] 설정되지 않음 - 권유 여부 확인');
                   const promptResponse = await PasswordService.checkPromptPasswordSetup(uuid, hospitalId);
                   
                   if (promptResponse.should_prompt) {
                     // 권유해야 하는 경우 - 바로 설정 모드로 진입
-                    console.log('💡 [비밀번호] 설정 권유 필요 - 바로 설정 모드');
+                    console.log('[비밀번호] 설정 권유 필요 - 바로 설정 모드');
                     setIsPageTransitioning(false); // 로딩 스피너 숨김
-                    setPendingNavigation(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                    setPendingNavigation(`/welno/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
                     setPasswordModalType('setup');
                     setShowPasswordModal(true);
                     return;
                   } else {
                     // 권유하지 않는 경우 (이미 거부했거나 최근에 물어봄)
-                    console.log('⏭️ [비밀번호] 권유 생략 - 바로 이동');
+                    console.log('[비밀번호] 권유 생략 - 바로 이동');
                     // 로딩이 보이도록 충분한 시간 후 navigate (더 길게)
                     setTimeout(() => {
-                      navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                      navigate(`/welno/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
                     }, 300);
                     return;
                   }
@@ -521,41 +603,41 @@ const MainPage: React.FC = () => {
                 // 비밀번호가 있으면 세션 기반 인증 상태 확인
                 const isValid = await isPasswordAuthValid(uuid, hospitalId);
                 if (isValid) {
-                  console.log('✅ [비밀번호] 인증 유효 - 바로 이동');
+                  console.log('[비밀번호] 인증 유효 - 바로 이동');
                   // 로딩이 보이도록 충분한 시간 후 navigate (더 길게)
                   setTimeout(() => {
-                    navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                    navigate(`/welno/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
                   }, 300);
                   return;
                 }
                 
                 // 비밀번호 확인 필요 - 모달 표시하므로 로딩 숨김
-                console.log('🔐 [비밀번호] 인증 필요');
+                console.log('[비밀번호] 인증 필요');
                 setIsPageTransitioning(false);
-                setPendingNavigation(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                setPendingNavigation(`/results?uuid=${uuid}&hospital_id=${hospitalId}`);
                 setPasswordModalType('confirm');
                 setShowPasswordModal(true);
                 return;
                 
               } catch (error) {
-                console.warn('⚠️ [비밀번호확인] 실패:', error);
+                console.warn('[비밀번호확인] 실패:', error);
                 // 🔒 보안 강화: API 오류 시에도 비밀번호 모달 표시
-                console.log('🔐 [비밀번호] API 오류로 인한 비밀번호 확인 필요');
-                setPendingNavigation(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                console.log('[비밀번호] API 오류로 인한 비밀번호 확인 필요');
+                setPendingNavigation(`/results?uuid=${uuid}&hospital_id=${hospitalId}`);
                 setPasswordModalType('confirm');
                 setShowPasswordModal(true);
                 return;
               }
             } else {
-              // 웰로 데이터 없음 → Tilko 인증으로 이동
-              console.log('📊 [메인페이지] 웰로 데이터 없음 - Tilko 인증으로 이동');
+              // 웰노 데이터 없음 → Tilko 인증으로 이동
+              console.log('[메인페이지] 웰노 데이터 없음 - Tilko 인증으로 이동');
               
               // MDX 데이터 검색 모달은 나중에 사용할 예정이므로 주석처리
               // const IS_DEVELOPMENT = window.location.hostname !== 'xogxog.com';
               // 
               // if (IS_DEVELOPMENT && patient) {
               //   // 개발 모드에서만 MDX 검색 다이얼로그 표시
-              //   console.log('🔍 [메인페이지] 개발 모드 - MDX 검색 다이얼로그 표시');
+              //   console.log('[메인페이지] 개발 모드 - MDX 검색 다이얼로그 표시');
               //   setIsPageTransitioning(false);
               //   setShowMdxSearchModal(true);
               //   return;
@@ -563,15 +645,15 @@ const MainPage: React.FC = () => {
               
               // 데이터 없을 때 바로 Tilko 인증으로 이동 (/login 경로 사용)
               const authPath = `/login${queryString}`;
-              console.log('📋 [메인페이지] 데이터 없음 - Tilko 인증으로 이동:', authPath);
+              console.log('[메인페이지] 데이터 없음 - Tilko 인증으로 이동:', authPath);
               setIsPageTransitioning(false); // 로딩 스피너 숨김
               setTimeout(() => {
-                navigate(authPath);
+                navigate(`/welno${authPath}`);
               }, 300);
               return;
             }
           } catch (error) {
-            console.warn('⚠️ [메인페이지] 기존 데이터 확인 실패:', error);
+            console.warn('[메인페이지] 기존 데이터 확인 실패:', error);
             // 에러 발생 시에도 리다이렉트하지 않고 현재 페이지에 유지
             setIsPageTransitioning(false); // 로딩 스피너만 숨김
             // 사용자에게 에러 메시지 표시하지 않고 조용히 실패 처리
@@ -579,13 +661,13 @@ const MainPage: React.FC = () => {
           }
         }
         
-        // 웰로 데이터 없을 때 Tilko 인증으로 이동 (fallback - 위에서 이미 처리되지만 안전장치)
+        // 웰노 데이터 없을 때 Tilko 인증으로 이동 (fallback - 위에서 이미 처리되지만 안전장치)
         // 하지만 에러가 발생한 경우에는 여기까지 오지 않음
         const authPath = `/login${queryString}`;
-        console.log('📋 [메인페이지] 데이터 없음 - Tilko 인증으로 이동 (fallback):', authPath);
+        console.log('[메인페이지] 데이터 없음 - Tilko 인증으로 이동 (fallback):', authPath);
         setIsPageTransitioning(false); // 로딩 스피너 숨김
         setTimeout(() => {
-          navigate(authPath);
+          navigate(`/welno${authPath}`);
         }, 300);
         break;
         
@@ -593,21 +675,21 @@ const MainPage: React.FC = () => {
         // 검진항목 설계하기는 건강 데이터 확인 후 처리
         if (uuid && hospitalId) {
           try {
-            console.log('🔍 [검진설계] 기존 데이터 확인 중...', { uuid, hospitalId });
+            console.log('[검진설계] 기존 데이터 확인 중...', { uuid, hospitalId });
             
             // 기존 데이터 확인
             const hasData = await checkHasData(uuid, hospitalId);
             
             if (hasData) {
-              console.log('📊 [검진설계] 웰로 데이터 발견! - 바로 이동');
+              console.log('[검진설계] 웰노 데이터 발견! - 바로 이동');
               // 데이터가 있으면 바로 설계 페이지로 이동
               setTimeout(() => {
-                navigate(`/survey/checkup-design${queryString}`);
+                navigate(`/welno/survey/checkup-design${queryString}`);
               }, 300);
               return;
             } else {
-              // 웰로 데이터 없음 → 메시지 표시 후 Tilko 인증으로 이동
-              console.log('📊 [검진설계] 웰로 데이터 없음 - 메시지 표시 후 Tilko 인증으로 이동');
+              // 웰노 데이터 없음 → 메시지 표시 후 Tilko 인증으로 이동
+              console.log('[검진설계] 웰노 데이터 없음 - 메시지 표시 후 Tilko 인증으로 이동');
               
               // 메시지와 함께 스피너 표시 (3초간)
               const message = '건강검진 데이터 기반의 검진설계를 위하여\n공단에서 데이터를 수집하는 화면으로 이동합니다';
@@ -617,8 +699,8 @@ const MainPage: React.FC = () => {
               setTimeout(() => {
                 setIsPageTransitioning(false); // 로딩 스피너 숨김
                 setTransitionMessage(undefined); // 메시지 제거
-                const authPath = `/login${queryString}`;
-                console.log('📋 [검진설계] 데이터 없음 - Tilko 인증으로 이동:', authPath);
+                const authPath = `/welno/login${queryString}`;
+                console.log('[검진설계] 데이터 없음 - Tilko 인증으로 이동:', authPath);
                 setTimeout(() => {
                   navigate(authPath);
                 }, 300);
@@ -627,11 +709,11 @@ const MainPage: React.FC = () => {
               return; // 여기서 종료 (메시지 표시 중)
             }
           } catch (error) {
-            console.warn('⚠️ [검진설계] 기존 데이터 확인 실패:', error);
+            console.warn('[검진설계] 기존 데이터 확인 실패:', error);
             // 에러 발생 시에도 Tilko 인증으로 이동
             setIsPageTransitioning(false);
             setTimeout(() => {
-              navigate(`/login${queryString}`);
+              navigate(`/welno/login${queryString}`);
             }, 300);
             return;
           }
@@ -639,7 +721,7 @@ const MainPage: React.FC = () => {
         
         // UUID나 hospitalId가 없으면 바로 설계 페이지로 이동 (fallback)
         setTimeout(() => {
-          navigate(`/survey/checkup-design${queryString}`);
+          navigate(`/welno/survey/checkup-design${queryString}`);
         }, 300);
         break;
         
@@ -697,87 +779,34 @@ const MainPage: React.FC = () => {
           // 개발 환경: 모달 띄우고 확인 후 호출
           // 프로덕션 환경: 모달 없이 바로 호출
           if (IS_DEVELOPMENT) {
-            console.log('🔧 [질병예측리포트] 개발 모드 - 모달 표시');
+            console.log('[질병예측리포트] 개발 모드 - 모달 표시');
             setIsPageTransitioning(false);
             setPendingPartnerAuthPayload(requestPayload);
             setPendingPartnerAuthEndpoint(API_ENDPOINTS.PARTNER_AUTH);
             setShowPartnerAuthModal(true);
           } else {
-            console.log('🚀 [질병예측리포트] 프로덕션 모드 - 바로 호출');
+            console.log('[질병예측리포트] 프로덕션 모드 - 바로 호출');
             await callPartnerAuthAPI(requestPayload, API_ENDPOINTS.PARTNER_AUTH);
           }
         } catch (error) {
-          console.error('❌ [질병예측리포트] 파트너 인증 오류:', error);
+          console.error('[질병예측리포트] 파트너 인증 오류:', error);
           setIsPageTransitioning(false);
           alert('질병예측 리포트 접속 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
         }
         break;
         
       case 'habit':
-        // 데이터가 있는 사용자는 모든 버튼에서 비밀번호 확인
-        if (uuid && hospitalId) {
-          try {
-            const hasData = await checkHasData(uuid, hospitalId);
-            
-            if (hasData) {
-              // 먼저 비밀번호 설정 여부 확인
-              try {
-                const passwordStatus = await PasswordService.checkPasswordStatus(uuid, hospitalId);
-                
-                if (!passwordStatus.has_password) {
-                  // 비밀번호가 없으면 설정 권유
-                  console.log('❓ [비밀번호] 설정되지 않음 - 설정 권유');
-                  setIsPageTransitioning(false);
-                  setPendingNavigation(`/survey/health-habits${queryString}`);
-                  setPasswordModalType('prompt');
-                  setShowPasswordModal(true);
-                  return;
-                }
-                
-                // 비밀번호가 있으면 세션 기반 인증 상태 확인
-                const isValid = await isPasswordAuthValid(uuid, hospitalId);
-                if (isValid) {
-                  console.log('✅ [비밀번호] 인증 유효 - 바로 이동');
-                  setTimeout(() => {
-                    navigate(`/survey/health-habits${queryString}`);
-                  }, 300);
-                  return;
-                }
-                
-                // 비밀번호 확인 필요
-                console.log('🔐 [비밀번호] 인증 필요');
-                setIsPageTransitioning(false);
-                setPendingNavigation(`/survey/health-habits${queryString}`);
-                setPasswordModalType('confirm');
-                setShowPasswordModal(true);
-                return;
-                
-              } catch (error) {
-                console.warn('⚠️ [비밀번호확인] 실패:', error);
-                // 에러 시에는 기존 로직대로 진행
-                setIsPageTransitioning(false);
-                setPendingNavigation(`/survey/health-habits${queryString}`);
-                setPasswordModalType('confirm');
-                setShowPasswordModal(true);
-                return;
-              }
-            }
-          } catch (error) {
-            console.warn('⚠️ [데이터확인] 실패:', error);
-          }
-        }
-        
-        // 데이터가 없으면 바로 이동 (URL 파라미터 유지)
-        setTimeout(() => {
-          navigate(`/survey/health-habits${queryString}`);
-        }, 300);
+        // 준비중 모달 표시
+        console.log('[건강습관만들기] 준비중 모달 표시');
+        setIsPageTransitioning(false);
+        setShowComingSoonModal(true);
         break;
         
       default:
         break;
       }
     } catch (error) {
-      console.error('❌ [카드클릭] 오류:', error);
+      console.error('[카드클릭] 오류:', error);
       setIsPageTransitioning(false);
     }
   };
@@ -785,7 +814,7 @@ const MainPage: React.FC = () => {
   // 최신 검진 일자 가져오기
   const getLatestCheckupDate = (): string => {
     try {
-      const storedData = localStorage.getItem('wello_health_data');
+      const storedData = localStorage.getItem('welno_health_data');
       if (storedData) {
         const parsedData = JSON.parse(storedData);
         const healthCheckups = parsedData.health_data?.ResultList || [];
@@ -851,16 +880,16 @@ const MainPage: React.FC = () => {
             }
 
             const deleteResult = await deleteResponse.json();
-            console.log('✅ [데이터삭제] 백엔드 삭제 완료:', deleteResult);
+            console.log('[데이터삭제] 백엔드 삭제 완료:', deleteResult);
           }
 
           // IndexedDB 데이터 삭제
-          await WelloIndexedDB.clearAllData();
+          await WelnoIndexedDB.clearAllData();
           
           // localStorage의 건강데이터 관련 항목 삭제
           const keysToRemove = [
-            'wello_health_data',
-            'wello_view_mode',
+            'welno_health_data',
+            'welno_view_mode',
             'tilko_session_id',
             'tilko_session_data'
           ];
@@ -870,24 +899,24 @@ const MainPage: React.FC = () => {
           
           // UUID별로 구분된 약관 동의 키 삭제
           if (patient?.uuid) {
-            const termsKey = `wello_terms_agreed_${patient.uuid}`;
-            const termsAtKey = `wello_terms_agreed_at_${patient.uuid}`;
-            const termsListKey = `wello_terms_agreed_list_${patient.uuid}`;
-            const termsAgreementKey = `wello_terms_agreement_${patient.uuid}`;
+            const termsKey = `welno_terms_agreed_${patient.uuid}`;
+            const termsAtKey = `welno_terms_agreed_at_${patient.uuid}`;
+            const termsListKey = `welno_terms_agreed_list_${patient.uuid}`;
+            const termsAgreementKey = `welno_terms_agreement_${patient.uuid}`;
             
             localStorage.removeItem(termsKey);
             localStorage.removeItem(termsAtKey);
             localStorage.removeItem(termsListKey);
             localStorage.removeItem(termsAgreementKey);
             
-            console.log('✅ [데이터삭제] UUID별 약관 동의 키 삭제 완료:', patient.uuid);
+            console.log('[데이터삭제] UUID별 약관 동의 키 삭제 완료:', patient.uuid);
           }
           
           // 기존 전역 약관 동의 키도 삭제 (하위 호환성)
-          localStorage.removeItem('wello_terms_agreed');
-          localStorage.removeItem('wello_terms_agreed_at');
-          localStorage.removeItem('wello_terms_agreed_list');
-          localStorage.removeItem('wello_terms_agreement');
+          localStorage.removeItem('welno_terms_agreed');
+          localStorage.removeItem('welno_terms_agreed_at');
+          localStorage.removeItem('welno_terms_agreed_list');
+          localStorage.removeItem('welno_terms_agreement');
 
           // 세션 데이터 삭제
           if (patient?.uuid && hospital?.hospital_id) {
@@ -925,20 +954,38 @@ const MainPage: React.FC = () => {
         {/* 헤더 (로고만 표시) */}
         <div className="main-page__header">
           <div className="main-page__header-logo">
-            <img 
-              src={getHospitalLogoUrl(hospital)} 
-              alt={`${hospital.name} 로고`}
-              className="main-page__header-logo-image"
-              onError={(e) => {
-                // 이미지 로드 실패 시 기본 W 아이콘으로 대체
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-                const iconElement = target.nextElementSibling as HTMLElement;
-                if (iconElement) {
-                  iconElement.style.display = 'flex';
-                }
-              }}
-            />
+            {/* 병원 ID가 없으면 웰노 아이콘 표시 (WelnoModal과 동일) */}
+            {!displayHospital.hospital_id ? (
+              <img 
+                src={WELNO_LOGO_IMAGE}
+                alt="웰노 로고"
+                className="main-page__header-logo-image"
+                onError={(e) => {
+                  // 이미지 로드 실패 시 기본 W 아이콘으로 대체
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const iconElement = target.nextElementSibling as HTMLElement;
+                  if (iconElement) {
+                    iconElement.style.display = 'flex';
+                  }
+                }}
+              />
+            ) : (
+              <img 
+                src={getHospitalLogoUrl(displayHospital)} 
+                alt={`${displayHospital.name} 로고`}
+                className="main-page__header-logo-image"
+                onError={(e) => {
+                  // 이미지 로드 실패 시 기본 W 아이콘으로 대체
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const iconElement = target.nextElementSibling as HTMLElement;
+                  if (iconElement) {
+                    iconElement.style.display = 'flex';
+                  }
+                }}
+              />
+            )}
             <div className="main-page__header-logo-icon" style={{ display: 'none' }}>W</div>
           </div>
         </div>
@@ -946,13 +993,13 @@ const MainPage: React.FC = () => {
         {/* 환자 인사말 (왼쪽 정렬, 정확한 줄바꿈) */}
         <div className="main-page__greeting">
           <h1 className="main-page__greeting-title">
-            <span className="greeting-text">안녕하세요</span> <span className="patient-name">{patient.name}</span><span className="greeting-text">님,</span>
+            <span className="greeting-text">안녕하세요</span> <span className="patient-name">{displayPatient.name}</span><span className="greeting-text">님,</span>
           </h1>
           <p className="main-page__greeting-subtitle">
-            <span className="hospital-name">{hospital.name}</span> <span className="hospital-suffix">입니다.</span>
+            <span className="hospital-name">{displayHospital.name}</span> <span className="hospital-suffix">입니다.</span>
           </p>
           <p className="main-page__greeting-message">
-            <span className="hospital-name">{hospital.name}</span><span className="greeting-text">에서</span><br />
+            <span className="hospital-name">{displayHospital.name}</span><span className="greeting-text">에서</span><br />
             <span className="greeting-text-thin">더 의미있는 내원이 되시길 바라며</span><br />
             <span className="greeting-text-thin">준비한 건강관리 서비스를 확인해보세요!</span>
           </p>
@@ -1091,6 +1138,18 @@ const MainPage: React.FC = () => {
           onDontShowAgain={handleIntroTeaserDontShowAgain}
         />
       )}
+      
+      {/* 준비중 모달 */}
+      {/* <ComingSoonModal
+        isOpen={showComingSoonModal}
+        onClose={() => setShowComingSoonModal(false)}
+        title="준비중입니다"
+        message={`14일 건강관리 서비스를 준비하고 있습니다.
+곧 만나뵐 수 있도록 노력하겠습니다.`}
+      /> */}
+      
+      {/* RAG 채팅 버튼 */}
+      <WelnoRagChatButton />
     </div>
   );
 };

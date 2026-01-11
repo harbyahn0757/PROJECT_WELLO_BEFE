@@ -155,6 +155,50 @@ class GeminiService:
             logger.error(f"❌ [Gemini Service] API 호출 실패: {str(e)}")
             return GeminiResponse(success=False, error=str(e))
 
+    async def stream_api(self, request: GeminiRequest):
+        """Gemini API 스트리밍 호출"""
+        if not self._initialized:
+            await self.initialize()
+            
+        if not self._initialized:
+            yield "Gemini 서비스가 초기화되지 않았습니다."
+            return
+
+        try:
+            generation_config = {
+                "temperature": request.temperature,
+                "max_output_tokens": request.max_tokens,
+            }
+            
+            model = genai.GenerativeModel(
+                model_name=request.model,
+                generation_config=generation_config
+            )
+
+            safety_settings = {
+                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+            }
+
+            logger.info(f"📡 [Gemini Service] 스트리밍 호출 중... (Model: {request.model})")
+            
+            # 스트리밍 호출 (생성기 반환)
+            response = model.generate_content(
+                request.prompt,
+                safety_settings=safety_settings,
+                stream=True
+            )
+            
+            for chunk in response:
+                if chunk.text:
+                    yield chunk.text
+
+        except Exception as e:
+            logger.error(f"❌ [Gemini Service] 스트리밍 호출 실패: {str(e)}")
+            yield f"오류 발생: {str(e)}"
+
 # 전역 인스턴스 생성
 gemini_service = GeminiService()
 

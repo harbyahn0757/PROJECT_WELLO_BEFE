@@ -1,6 +1,10 @@
 """
 RAG (Retrieval-Augmented Generation) 서비스 모듈
 LlamaIndex 및 Gemini LLM 기반 의료 지식 검색 엔진
+
+**로컬 FAISS 벡터 DB 지원 추가**
+- LlamaCloud API (기본값)
+- 로컬 FAISS 벡터 DB (비용 절감, 빠른 응답)
 """
 import os
 import json
@@ -10,12 +14,22 @@ from app.core.config import settings
 
 # LlamaIndex RAG 관련 임포트
 try:
-    from llama_index.core import Settings
+    from llama_index.core import Settings, VectorStoreIndex, StorageContext, load_index_from_storage
     from llama_index.core.llms import CustomLLM
     from llama_index.core.llms.llm import LLM
     from llama_index.core.llms import ChatMessage, MessageRole, CompletionResponse, LLMMetadata
     from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
     from llama_index.llms.openai import OpenAI
+    from llama_index.embeddings.openai import OpenAIEmbedding
+    # FAISS 벡터 스토어 임포트
+    try:
+        import faiss
+        import pickle
+        from pathlib import Path as PathLib
+        from llama_index.vector_stores.faiss import FaissVectorStore
+        FAISS_AVAILABLE = True
+    except ImportError:
+        FAISS_AVAILABLE = False
     # Google Gemini는 google-generativeai 직접 사용하여 CustomLLM으로 래핑
     try:
         import google.generativeai as genai
@@ -27,6 +41,7 @@ try:
 except ImportError as e:
     LLAMAINDEX_AVAILABLE = False
     GEMINI_AVAILABLE = False
+    FAISS_AVAILABLE = False
     genai = None
     # 개발 환경에서 라이브러리가 없을 경우를 대비한 더미 클래스
     class LlamaCloudIndex:
@@ -47,18 +62,27 @@ except ImportError as e:
 # 상수 정의
 LLAMACLOUD_INDEX_NAME = "Dr.Welno"
 LLAMACLOUD_PROJECT_NAME = "Default"
-LLAMACLOUD_INDEX_ID = "cb77bf6b-02a9-486f-9718-4ffac0d30e73"
+LLAMACLOUD_INDEX_ID = "1bcef115-bb95-4d14-9c29-d38bb097a39c"
 LLAMACLOUD_PROJECT_ID = "45c4d9d4-ce6b-4f62-ad88-9107fe6de8cc"
 LLAMACLOUD_ORGANIZATION_ID = "e4024539-3d26-48b5-8051-9092380c84d2"
 
-# 전역 RAG 엔진 캐시
+# 로컬 FAISS 벡터 DB 경로
+LOCAL_FAISS_DIR = "/data/vector_db/welno/faiss_db"
+LOCAL_FAISS_INDEX_PATH = f"{LOCAL_FAISS_DIR}/faiss.index"
+LOCAL_FAISS_METADATA_PATH = f"{LOCAL_FAISS_DIR}/metadata.pkl"
+
+# 전역 RAG 엔진 캐시 (기존 플로우용)
 _rag_engine_cache: Optional[Any] = None
+# 테스트용 RAG 엔진 캐시 (엘라마 클라우드 스타일)
+_rag_engine_test_cache: Optional[Any] = None
+# 로컬 FAISS 엔진 캐시
+_rag_engine_local_cache: Optional[Any] = None
 
 # Gemini CustomLLM 클래스
 class GeminiLLM(CustomLLM):
     """Google Gemini를 LlamaIndex CustomLLM으로 구현 (RAG 검색용)"""
     
-    def __init__(self, api_key: str, model: str = "gemini-2.0-flash", **kwargs):
+    def __init__(self, api_key: str, model: str = "gemini-3-flash-preview", **kwargs):
         if not GEMINI_AVAILABLE or not genai:
             raise ImportError("google-generativeai가 설치되지 않았습니다.")
         
@@ -101,81 +125,229 @@ class GeminiLLM(CustomLLM):
         except Exception as e:
             raise Exception(f"Gemini API 호출 실패: {str(e)}")
 
-async def init_rag_engine():
-    """LlamaCloud 기반 RAG Query Engine 초기화"""
-    global _rag_engine_cache
+# 프롬프트 템플릿 정의
+from llama_index.core import PromptTemplate
+
+CHAT_SYSTEM_PROMPT = (
+    "당신은 전문적이고 간결한 건강 상담가 'Dr. Welno'입니다.\n"
+    "다음 지침을 반드시 지켜 답변하세요.\n"
+    "1. **직설적 답변**: '지침서에 따르면', '제공된 정보에 의하면'과 같은 부연 설명은 절대 하지 마세요. 당신이 이미 알고 있는 지식인 것처럼 자연스럽고 단호하게 전문가로서 답변하세요.\n"
+    "2. **질문 집중**: 사용자가 현재 묻고 있는 구체적인 질문(예: 혈당)에만 집중하세요. 질문하지 않은 다른 질환(고혈압, 비만 등)에 대한 정보는 언급하지 마세요.\n"
+    "3. **간결성**: 답변은 3~5문장 내외로 핵심만 요약하고, 구체적인 실천 방법은 불렛 포인트로 짧게 정리하세요.\n"
+    "4. **에비던스 제외**: 근거 문서나 출처에 대한 언급은 답변 텍스트에 포함하지 마세요. (시스템이 하단에 별도로 표시함)\n"
+    "5. **전문적 어조**: 정중하면서도 군더더기 없는 전문적인 말투를 유지하세요.\n"
+    "\n"
+    "[Context]\n"
+    "{context_str}\n"
+    "\n"
+    "사용자 질문: {query_str}\n"
+    "전문가 답변:"
+)
+
+async def init_rag_engine(use_elama_model: bool = False, use_local_vector_db: bool = True):
+    """
+    RAG Query Engine 초기화
     
-    if _rag_engine_cache is not None:
-        return _rag_engine_cache
+    Args:
+        use_elama_model: True면 엘라마 클라우드의 모델 설정 사용 (테스트용)
+                        False면 GeminiLLM 사용 (기존 검진 설계 플로우용)
+        use_local_vector_db: True면 로컬 FAISS 벡터 DB 사용 (비용 절감, 빠른 응답, 기본값)
+                            False면 LlamaCloud API 사용
+    """
+    global _rag_engine_cache, _rag_engine_test_cache, _rag_engine_local_cache
+    
+    # 캐시 확인
+    if use_local_vector_db:
+        if _rag_engine_local_cache is not None:
+            print("[INFO] 로컬 FAISS 엔진 캐시 사용")
+            return _rag_engine_local_cache
+    elif use_elama_model:
+        if _rag_engine_test_cache is not None:
+            return _rag_engine_test_cache
+    else:
+        if _rag_engine_cache is not None:
+            return _rag_engine_cache
     
     if not LLAMAINDEX_AVAILABLE:
         print("[WARN] LlamaIndex 라이브러리가 설치되지 않았습니다.")
         return None
     
     try:
-        llamaindex_api_key = os.environ.get("LLAMAINDEX_API_KEY") or settings.llamaindex_api_key
-        gemini_api_key = os.environ.get("GOOGLE_GEMINI_API_KEY") or settings.google_gemini_api_key
+        # ===== 로컬 FAISS 벡터 DB 사용 =====
+        if use_local_vector_db:
+            if not FAISS_AVAILABLE:
+                print("[WARN] FAISS 라이브러리가 설치되지 않았습니다. LlamaCloud로 fallback합니다.")
+                use_local_vector_db = False  # Fallback to cloud
+            else:
+                print("[INFO] 로컬 FAISS 벡터 DB 초기화 중...")
+                
+                # FAISS 인덱스 로드
+                if not PathLib(LOCAL_FAISS_INDEX_PATH).exists():
+                    print(f"[WARN] FAISS 인덱스 파일을 찾을 수 없습니다: {LOCAL_FAISS_INDEX_PATH}")
+                    print("[INFO] LlamaCloud로 fallback합니다.")
+                    use_local_vector_db = False
+                else:
+                    faiss_index = faiss.read_index(LOCAL_FAISS_INDEX_PATH)
+                    print(f"[INFO] FAISS 인덱스 로드 완료: {faiss_index.ntotal}개 벡터")
+                    
+                    # 메타데이터 로드
+                    if not PathLib(LOCAL_FAISS_METADATA_PATH).exists():
+                        print(f"[WARN] 메타데이터 파일을 찾을 수 없습니다: {LOCAL_FAISS_METADATA_PATH}")
+                        print("[INFO] LlamaCloud로 fallback합니다.")
+                        use_local_vector_db = False
+                    else:
+                        with open(LOCAL_FAISS_METADATA_PATH, 'rb') as f:
+                            metadata = pickle.load(f)
+                        
+                        print(f"[INFO] 메타데이터 로드 완료: {metadata['total_documents']}개 문서")
+                        
+                        # OpenAI 임베딩 모델 설정 (검색용)
+                        openai_api_key = os.environ.get("OPENAI_API_KEY") or settings.openai_api_key
+                        if not openai_api_key or openai_api_key == "dev-openai-key":
+                            print("[WARN] OPENAI_API_KEY가 설정되지 않았습니다.")
+                            print("[INFO] LlamaCloud로 fallback합니다.")
+                            use_local_vector_db = False
+                        else:
+                            embed_model = OpenAIEmbedding(
+                                model="text-embedding-ada-002",
+                                api_key=openai_api_key
+                            )
+                            Settings.embed_model = embed_model
+                            
+                            # Gemini LLM 설정 (답변 생성용)
+                            gemini_api_key = os.environ.get("GOOGLE_GEMINI_API_KEY") or settings.google_gemini_api_key
+                            if not gemini_api_key or gemini_api_key == "dev-gemini-key":
+                                print("[WARN] Google Gemini API 키가 설정되지 않았습니다.")
+                                print("[INFO] LlamaCloud로 fallback합니다.")
+                                use_local_vector_db = False
+                            elif not GEMINI_AVAILABLE or not genai:
+                                print("[WARN] Google Gemini가 사용 불가능합니다.")
+                                print("[INFO] LlamaCloud로 fallback합니다.")
+                                use_local_vector_db = False
+                            else:
+                                llm = GeminiLLM(api_key=gemini_api_key, model="gemini-3-flash-preview")
+                                Settings.llm = llm
+                                
+                                # FAISS 벡터 스토어 생성
+                                vector_store = FaissVectorStore.from_persist_dir(str(PathLib(LOCAL_FAISS_DIR)))
+                                
+                                # Storage Context 생성 (docstore와 index_store만 로드)
+                                print(f"[INFO] Storage Context 로드 중...")
+                                from llama_index.core.storage.docstore import SimpleDocumentStore
+                                from llama_index.core.storage.index_store import SimpleIndexStore
+                                
+                                docstore = SimpleDocumentStore.from_persist_dir(str(PathLib(LOCAL_FAISS_DIR)))
+                                index_store = SimpleIndexStore.from_persist_dir(str(PathLib(LOCAL_FAISS_DIR)))
+                                
+                                storage_context = StorageContext.from_defaults(
+                                    vector_store=vector_store,
+                                    docstore=docstore,
+                                    index_store=index_store
+                                )
+                                
+                                # 인덱스 로드 (index_id 명시)
+                                try:
+                                    # 먼저 index_id 없이 시도
+                                    index = load_index_from_storage(storage_context)
+                                except ValueError as e:
+                                    if "Please specify index_id" in str(e):
+                                        # index_store에서 index_id 목록 가져오기
+                                        from llama_index.core.storage.index_store import SimpleIndexStore
+                                        index_structs = storage_context.index_store.index_structs()
+                                        
+                                        if isinstance(index_structs, dict):
+                                            index_ids = list(index_structs.keys())
+                                        elif isinstance(index_structs, list):
+                                            # list인 경우 첫 번째 항목의 index_id 사용
+                                            index_ids = [struct.index_id for struct in index_structs if hasattr(struct, 'index_id')]
+                                        else:
+                                            raise ValueError(f"Unexpected index_structs type: {type(index_structs)}")
+                                        
+                                        if index_ids:
+                                            print(f"[INFO] 여러 인덱스 발견, 첫 번째 사용: {index_ids[0]}")
+                                            index = load_index_from_storage(storage_context, index_id=index_ids[0])
+                                        else:
+                                            raise ValueError("No index found in storage")
+                                    else:
+                                        raise
+                                
+                                # 쿼리 엔진 생성 (성능 최적화 및 커스텀 프롬프트 적용)
+                                query_engine = index.as_query_engine(
+                                    similarity_top_k=5,
+                                    response_mode="compact",
+                                    text_qa_template=PromptTemplate(CHAT_SYSTEM_PROMPT)
+                                )
+                                
+                                _rag_engine_local_cache = query_engine
+                                print(f"[INFO] ✅ 로컬 FAISS RAG 엔진 초기화 완료 (벡터: {faiss_index.ntotal}개, 문서: {metadata['total_documents']}개)")
+                                
+                                return query_engine
         
-        if not llamaindex_api_key or not gemini_api_key:
-            print("[WARN] API 키가 설정되지 않았습니다.")
-            return None
-        
-        if not GEMINI_AVAILABLE or not genai:
-            return None
-        
-        llm = GeminiLLM(api_key=gemini_api_key, model="gemini-2.0-flash")
-        Settings.llm = llm
-        
-        index = LlamaCloudIndex(
-            index_id=LLAMACLOUD_INDEX_ID,
-            api_key=llamaindex_api_key
-        )
-        
-        query_engine = index.as_query_engine(
-            similarity_top_k=5,
-            response_mode="tree_summarize"
-        )
-        
-        _rag_engine_cache = query_engine
-        print(f"[INFO] RAG 엔진 초기화 완료 (Index ID: {LLAMACLOUD_INDEX_ID})")
-        return query_engine
+        # ===== LlamaCloud API 사용 (기존 로직 또는 Fallback) =====
+        if not use_local_vector_db:
+            llamaindex_api_key = os.environ.get("LLAMAINDEX_API_KEY") or settings.llamaindex_api_key
+            
+            if not llamaindex_api_key:
+                print("[WARN] LlamaIndex API 키가 설정되지 않았습니다.")
+                return None
+            
+            index = LlamaCloudIndex(
+                index_id=LLAMACLOUD_INDEX_ID,
+                api_key=llamaindex_api_key
+            )
+            
+            # GeminiLLM은 항상 필요 (LlamaCloudIndex가 기본적으로 OpenAI를 찾으려고 함)
+            gemini_api_key = os.environ.get("GOOGLE_GEMINI_API_KEY") or settings.google_gemini_api_key
+            
+            if not gemini_api_key:
+                print("[WARN] Google Gemini API 키가 설정되지 않았습니다.")
+                return None
+            
+            if not GEMINI_AVAILABLE or not genai:
+                return None
+            
+            llm = GeminiLLM(api_key=gemini_api_key, model="gemini-3-flash-preview")
+            
+            if use_elama_model:
+                # 테스트용: GeminiLLM 사용
+                query_engine = index.as_query_engine(
+                    llm=llm,
+                    similarity_top_k=5,
+                    response_mode="tree_summarize"
+                )
+                _rag_engine_test_cache = query_engine
+                print(f"[INFO] RAG 엔진 초기화 완료 (테스트용 - GeminiLLM, LlamaCloud Index ID: {LLAMACLOUD_INDEX_ID})")
+            else:
+                # 기존 플로우: GeminiLLM 사용 + Settings.llm 설정
+                Settings.llm = llm
+                
+                query_engine = index.as_query_engine(
+                    similarity_top_k=5,
+                    response_mode="tree_summarize"
+                )
+                
+                _rag_engine_cache = query_engine
+                print(f"[INFO] RAG 엔진 초기화 완료 (LlamaCloud Index ID: {LLAMACLOUD_INDEX_ID})")
+            
+            return query_engine
         
     except Exception as e:
         print(f"[ERROR] RAG 엔진 초기화 중 오류: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def clean_html_content(text: str) -> str:
     """
-    RAG 검색 결과(PDF 파싱 텍스트)에 포함된 HTML 태그를 제거하고 
-    가독성 있는 텍스트로 정제합니다.
+    HTML 태그를 제거하고 텍스트를 정리합니다.
     """
-    if not text:
-        return ""
-    
-    try:
-        # 1. HTML Table 태그를 구조적 텍스트로 변환 시도
-        # </tr> -> 줄바꿈
-        text = re.sub(r'</tr>', '\n', text, flags=re.IGNORECASE)
-        # </td>, </th> -> 구분자 ( | )
-        text = re.sub(r'</td>', ' | ', text, flags=re.IGNORECASE)
-        text = re.sub(r'</th>', ' | ', text, flags=re.IGNORECASE)
-        # <br> -> 줄바꿈
-        text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
-        
-        # 2. 나머지 HTML 태그 제거
-        text = re.sub(r'<[^>]+>', '', text)
-        
-        # 3. 마크다운 테이블 문법 보정 (파이프가 연속될 경우 정리)
-        text = re.sub(r'\|\s*\|', '|', text)
-        
-        # 4. 다중 공백/줄바꿈 정리
-        text = re.sub(r'\n\s*\n', '\n', text) # 과도한 줄바꿈 제거
-        text = re.sub(r' +', ' ', text) # 과도한 공백 제거
-        
-        return text.strip()
-    except Exception as e:
-        print(f"[WARN] HTML 정제 중 오류: {str(e)}")
-        return text
+    # HTML 태그 제거
+    text = re.sub(r'<[^>]+>', '', text)
+    # 연속된 공백 제거
+    text = re.sub(r'\s+', ' ', text)
+    # 앞뒤 공백 제거
+    text = text.strip()
+    return text
 
 def extract_evidence_from_source_nodes(response) -> List[Dict[str, Any]]:
     """LlamaIndex 응답에서 소스 노드 메타데이터 추출"""
@@ -185,16 +357,16 @@ def extract_evidence_from_source_nodes(response) -> List[Dict[str, Any]]:
             metadata = node.metadata if hasattr(node, 'metadata') else {}
             text = node.text if hasattr(node, 'text') else ""
             
-            # [CRITICAL] HTML 태그 정제 (Table Cleaning)
+            # HTML 태그 정제
             text = clean_html_content(text)
             
             score = node.score if hasattr(node, 'score') else 0.0
             
-            # 메타데이터 추출 (파일명, 페이지 등)
+            # 메타데이터 추출
             file_name = metadata.get('file_name', 'Unknown')
             page_label = metadata.get('page_label', 'Unknown')
             
-            # 인용구 추출 (간단히 첫 문장 등)
+            # 인용구 추출
             citation = text[:100] + "..." if len(text) > 100 else text
             
             evidences.append({
@@ -203,10 +375,11 @@ def extract_evidence_from_source_nodes(response) -> List[Dict[str, Any]]:
                 "citation": citation,
                 "full_text": text,
                 "confidence_score": score,
-                "organization": "의학회", # 메타데이터 없을 시 기본값
-                "year": "2024" # 메타데이터 없을 시 기본값
+                "organization": "의학회",
+                "year": "2024"
             })
     return evidences
+
 
 async def get_medical_evidence_from_rag(query_engine, patient_context: Dict, concerns: List[Dict]) -> Dict[str, Any]:
     """
@@ -216,10 +389,10 @@ async def get_medical_evidence_from_rag(query_engine, patient_context: Dict, con
         return {"context_text": "", "structured_evidences": []}
     
     try:
-        # 검색 쿼리 구성 (임상적 맥락 포함)
+        # 검색 쿼리 구성
         query_parts = []
         
-        # 1. 나이/성별 기반 가이드라인
+        # 1. 나이/성별 기반
         age = patient_context.get('age', 40)
         gender = patient_context.get('gender', 'unknown')
         query_parts.append(f"{age}세 {gender}에게 권장되는 필수 건강검진 항목과 암 선별검사 기준")
@@ -268,4 +441,53 @@ async def get_medical_evidence_from_rag(query_engine, patient_context: Dict, con
         return {"context_text": "", "structured_evidences": []}
 
 
-
+async def search_checkup_knowledge(query: str, use_local_vector_db: bool = True) -> Dict[str, Any]:
+    """
+    검진 지식 검색 (RAG)
+    
+    Args:
+        query: 검색 쿼리
+        use_local_vector_db: True면 로컬 FAISS 사용, False면 LlamaCloud 사용
+    """
+    query_engine = await init_rag_engine(use_local_vector_db=use_local_vector_db)
+    
+    if not query_engine:
+        return {
+            "success": False,
+            "error": "RAG 엔진 초기화 실패",
+            "answer": None,
+            "sources": []
+        }
+    
+    try:
+        # 비동기 검색으로 변경
+        response = await query_engine.aquery(query)
+        
+        # 소스 추출
+        sources = []
+        if hasattr(response, 'source_nodes'):
+            for node in response.source_nodes:
+                source_info = {
+                    "text": clean_html_content(node.text)[:500],
+                    "score": float(node.score) if hasattr(node, 'score') else None,
+                    "metadata": node.metadata if hasattr(node, 'metadata') else {}
+                }
+                sources.append(source_info)
+        
+        return {
+            "success": True,
+            "answer": str(response),
+            "sources": sources,
+            "query": query
+        }
+    
+    except Exception as e:
+        print(f"[ERROR] RAG 검색 중 오류: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            "error": str(e),
+            "answer": None,
+            "sources": []
+        }

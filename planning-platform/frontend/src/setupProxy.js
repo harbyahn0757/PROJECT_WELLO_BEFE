@@ -1,22 +1,8 @@
-const { createProxyMiddleware } = require('http-proxy-middleware');
-
+/**
+ * setupProxy.js - DEPRECATED
+ * 프록시 설정은 craco.config.js의 devServer.proxy 섹션으로 통합되었습니다.
+ * 이 파일은 충돌 방지를 위해 비워둡니다.
+ */
 module.exports = function(app) {
-  console.log('🔧 WELLO 프록시 설정 시작');
-  
-  app.use('/wello-api', createProxyMiddleware({
-    target: 'http://localhost:8082/api',
-    changeOrigin: true,
-    pathRewrite: {
-      '^/wello-api': ''
-    },
-    logLevel: 'debug',
-    onProxyReq: (proxyReq, req, res) => {
-      console.log(`🚀 프록시: ${req.url} → ${proxyReq.path}`);
-    },
-    onError: (err, req, res) => {
-      console.error('❌ 프록시 에러:', err.message);
-    }
-  }));
-  
-  console.log('✅ WELLO 프록시 설정 완료');
+  // craco.config.js에서 설정을 처리합니다.
 };
