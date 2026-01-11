@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 개선된 통합 배포 스크립트
-echo "🚀 WELLO 서비스 배포 시작..."
+echo "🚀 WELNO 서비스 배포 시작..."
 
 # 현재 디렉토리 저장
 SCRIPT_DIR=$(pwd)
@@ -54,6 +54,6 @@ fi
 
 echo ""
 echo "🎉 배포 완료!"
-echo "🌐 서비스 접속: https://xogxog.com/wello/"
+echo "🌐 서비스 접속: https://xogxog.com/welno/"
 echo "📊 서버 상태: pm2 status"
 echo "📋 로그 확인: pm2 logs WELLO_BE"
