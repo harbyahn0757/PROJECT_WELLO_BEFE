@@ -214,7 +214,7 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       if (uuid && hospitalId) {
         navigate(`/results-trend?uuid=${uuid}&hospitalId=${hospitalId}`);
       } else {
-        navigate('/welno/login');
+        navigate('/login');
       }
     }
   }, [navigate]);
@@ -308,7 +308,7 @@ const AppContent: React.FC = () => {
     } else {
       const savedParams = StorageManager.getItem<string>('welno_query_params');
       // basename이 /welno이므로 실제 pathname은 / 또는 /welno
-      if (savedParams && (location.pathname === '/' || location.pathname === '/welno')) {
+      if (savedParams && location.pathname === '/') {
         navigate({
           pathname: location.pathname,
           search: savedParams
