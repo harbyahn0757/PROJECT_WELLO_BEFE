@@ -12,7 +12,8 @@ def determine_persona(
     patient_age: int,
     health_history: Optional[List[Dict[str, Any]]] = None,
     selected_concerns: Optional[List[Dict[str, Any]]] = None,
-    prescription_data: Optional[List[Dict[str, Any]]] = None
+    prescription_data: Optional[List[Dict[str, Any]]] = None,
+    chat_data: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     3차원 통합 페르소나 판정 알고리즘

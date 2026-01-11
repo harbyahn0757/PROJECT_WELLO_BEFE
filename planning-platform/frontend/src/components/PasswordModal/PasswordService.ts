@@ -38,10 +38,23 @@ export class PasswordService {
     };
   }
 
-  static async setPassword(uuid: string, hospitalId: string, password: string): Promise<PasswordServiceResponse> {
+  static async setPassword(
+    uuid: string, 
+    hospitalId: string, 
+    password: string,
+    userInfo?: {
+      name?: string;
+      phone_number?: string;
+      birth_date?: string;
+      gender?: string;
+    }
+  ): Promise<PasswordServiceResponse> {
     const url = API_ENDPOINTS.PASSWORD.SET_PASSWORD(uuid, hospitalId);
     try {
-      const result = await this.request<any>('POST', url, { password });
+      const result = await this.request<any>('POST', url, { 
+        password,
+        ...userInfo 
+      });
       return {
         success: result.success || true,
         message: result.message || '비밀번호가 성공적으로 설정되었습니다.'

@@ -13,6 +13,12 @@ export interface PasswordModalProps {
   uuid: string;
   hospitalId: string;
   initialMessage?: string;
+  patientInfo?: {
+    name?: string;
+    phone?: string;
+    birthday?: string;
+    gender?: string;
+  };
 }
 
 export interface PasswordKeypadProps {

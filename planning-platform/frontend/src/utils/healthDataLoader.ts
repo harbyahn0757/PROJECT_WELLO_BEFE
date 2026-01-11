@@ -4,7 +4,7 @@
  * API 우선, IndexedDB 폴백 방식으로 데이터 로드
  */
 import { API_ENDPOINTS } from '../config/api';
-import { WelloIndexedDB } from '../services/WelloIndexedDB';
+import { WelnoIndexedDB } from '../services/WelnoIndexedDB';
 import { simplifyDataForLog } from './debugUtils';
 
 export interface HealthDataLoadResult {
@@ -114,7 +114,7 @@ export const loadHealthData = async (
             dataSource: 'api' as const
           };
 
-          const saveSuccess = await WelloIndexedDB.saveHealthData(healthRecord);
+          const saveSuccess = await WelnoIndexedDB.saveHealthData(healthRecord);
           
           if (saveSuccess) {
             console.log('✅ [IndexedDB] 건강 데이터 저장 성공:', {
@@ -144,7 +144,7 @@ export const loadHealthData = async (
   // 2. API 실패 시 IndexedDB에서 폴백
   console.log('📊 [데이터로더] IndexedDB에서 데이터 조회 시도:', { uuid });
   try {
-    const indexedDBRecord = await WelloIndexedDB.getHealthData(uuid);
+    const indexedDBRecord = await WelnoIndexedDB.getHealthData(uuid);
     
     if (indexedDBRecord && indexedDBRecord.healthData && indexedDBRecord.prescriptionData) {
       console.log('✅ [데이터로더] IndexedDB 데이터 사용:', {

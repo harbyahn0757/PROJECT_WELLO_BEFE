@@ -1210,10 +1210,10 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
       margin-bottom: $spacing-md; // 그래프와 측정일 사이 간격 추가
       
       // LineChart 스타일 통일 (의료기록타임라인과 동일)
-      .wello-line-chart {
+      .welno-line-chart {
         &__x-axis,
         &__y-axis {
-          .wello-line-chart__axis-label {
+          .welno-line-chart__axis-label {
             fill: #626262 !important; // 회색 계열 (의료기록타임라인과 동일)
             font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
             font-size: 12px !important;
@@ -1222,10 +1222,10 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
       }
       
       // BarChart 스타일 통일 (의료기록타임라인과 동일)
-      .wello-bar-chart {
+      .welno-bar-chart {
         &__x-axis,
         &__y-axis {
-          .wello-bar-chart__axis-label {
+          .welno-bar-chart__axis-label {
             fill: #626262 !important; // 회색 계열 (의료기록타임라인과 동일)
             font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
             font-size: 12px !important;
@@ -1594,9 +1594,9 @@ $shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
   
   // 건강검진 결과 추이 그래프 X축 폰트 스타일 (Poppins Regular 8px)
   .health-metric-card {
-    .wello-bar-chart {
+    .welno-bar-chart {
       &__x-axis {
-        .wello-bar-chart__axis-text {
+        .welno-bar-chart__axis-text {
           font-family: 'Poppins', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
           font-size: 8px !important;
           font-weight: 400 !important; // Regular

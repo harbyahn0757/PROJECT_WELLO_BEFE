@@ -699,7 +699,7 @@
         // 초기에는 transition 없음 (덜컥거림 방지)
         transition: none;
         
-        // 약품 리스트 로딩 스피너 (WELLO 로고 아이콘 작고 투명하게)
+        // 약품 리스트 로딩 스피너 (WELNO 로고 아이콘 작고 투명하게)
         .medication-loading {
           display: flex;
           justify-content: center;
@@ -710,7 +710,7 @@
           z-index: 1; // 스피너가 위에 보이도록
           
           .loading-spinner-small {
-            .wello-icon-blink-small {
+            .welno-icon-blink-small {
               width: 24px;
               height: 24px;
               object-fit: contain;

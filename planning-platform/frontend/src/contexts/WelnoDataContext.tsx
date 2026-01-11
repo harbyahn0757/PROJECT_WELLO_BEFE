@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, ReactNode, use
 import { LayoutConfig as BaseLayoutConfig } from '../utils/layoutMapper';
 import { PatientData as CommonPatientData, HospitalData as CommonHospitalData } from '../types/patient';
 import { API_ENDPOINTS } from '../config/api';
+import { StorageManager, STORAGE_KEYS } from '../constants/storage';
 
 // 확장된 레이아웃 설정 (Context용)
 export interface ExtendedLayoutConfig extends BaseLayoutConfig {
@@ -269,6 +270,106 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
     }));
   }, []);
 
+  // IndexedDB ↔ 서버 DB 동기화 함수
+  const syncIndexedDBWithServer = useCallback(async (uuid: string, hospitalId: string) => {
+    try {
+      console.log('[동기화] 시작:', { uuid, hospitalId });
+      
+      // 1. IndexedDB 데이터 확인
+      const { WelnoIndexedDB } = await import('../services/WelnoIndexedDB');
+      const indexedData = await WelnoIndexedDB.getHealthData(uuid);
+      const indexedHealthCount = indexedData?.healthData?.length || 0;
+      const indexedPrescriptionCount = indexedData?.prescriptionData?.length || 0;
+      
+      // 2. 서버 DB 데이터 확인
+      const response = await fetch(API_ENDPOINTS.HEALTH_DATA(uuid, hospitalId));
+      if (!response.ok) {
+        console.warn('[동기화] 서버 데이터 조회 실패:', response.status);
+        return;
+      }
+      
+      const result = await response.json();
+      if (!result.success || !result.data) {
+        console.warn('[동기화] 서버 응답 형식 오류');
+        return;
+      }
+      
+      const serverHealthCount = result.data.health_data?.length || 0;
+      const serverPrescriptionCount = result.data.prescription_data?.length || 0;
+      
+      // 3. 차이 확인 및 동기화 (서버에 데이터가 있을 때만 동기화)
+      const needsSync = 
+        (indexedHealthCount !== serverHealthCount || 
+         indexedPrescriptionCount !== serverPrescriptionCount) &&
+        (serverHealthCount > 0 || serverPrescriptionCount > 0); // 서버에 데이터가 있을 때만 동기화
+      
+      if (needsSync) {
+        console.log('[동기화] 데이터 차이 발견, 서버 데이터로 IndexedDB 업데이트:', {
+          indexed: { health: indexedHealthCount, prescription: indexedPrescriptionCount },
+          server: { health: serverHealthCount, prescription: serverPrescriptionCount }
+        });
+        
+        // 서버 데이터를 서버와 동일한 구조로 변환하여 IndexedDB 저장
+        const healthDataFormatted = result.data.health_data?.map((item: any) => ({
+          ...item.raw_data,
+          raw_data: item.raw_data,
+          year: item.year,
+          checkup_date: item.checkup_date,
+          location: item.location,
+          code: item.code,
+          height: item.height,
+          weight: item.weight,
+          bmi: item.bmi,
+          waist_circumference: item.waist_circumference,
+          blood_pressure_high: item.blood_pressure_high,
+          blood_pressure_low: item.blood_pressure_low,
+          blood_sugar: item.blood_sugar,
+          cholesterol: item.cholesterol,
+          hdl_cholesterol: item.hdl_cholesterol,
+          ldl_cholesterol: item.ldl_cholesterol,
+          triglyceride: item.triglyceride,
+          hemoglobin: item.hemoglobin
+        })) || [];
+        
+        const prescriptionDataFormatted = result.data.prescription_data?.map((item: any) => ({
+          ...item.raw_data,
+          raw_data: item.raw_data,
+          hospital_name: item.hospital_name,
+          address: item.address,
+          treatment_date: item.treatment_date,
+          treatment_type: item.treatment_type,
+          visit_count: item.visit_count,
+          medication_count: item.medication_count,
+          prescription_count: item.prescription_count,
+          detail_records_count: item.detail_records_count
+        })) || [];
+        
+        await WelnoIndexedDB.saveHealthData({
+          uuid,
+          patientName: result.data.patient?.name || indexedData?.patientName || '사용자',
+          hospitalId,
+          healthData: healthDataFormatted,
+          prescriptionData: prescriptionDataFormatted,
+          createdAt: indexedData?.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          dataSource: 'api'
+        });
+        
+        console.log('[동기화] IndexedDB 업데이트 완료');
+      } else if (indexedHealthCount > 0 || indexedPrescriptionCount > 0) {
+        // IndexedDB에 데이터가 있고 서버에는 없으면 IndexedDB 유지
+        console.log('[동기화] IndexedDB에 데이터 있음, 서버 데이터 없음 - IndexedDB 유지:', {
+          indexed: { health: indexedHealthCount, prescription: indexedPrescriptionCount },
+          server: { health: serverHealthCount, prescription: serverPrescriptionCount }
+        });
+      } else {
+        console.log('[동기화] 데이터 일치 또는 양쪽 모두 없음, 동기화 불필요');
+      }
+    } catch (error) {
+      console.error('[동기화] 오류:', error);
+    }
+  }, []);
+
   // 환자 데이터 로딩
   const loadPatientData = useCallback(async (
     uuid: string, 
@@ -301,12 +402,31 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
           const { WelnoIndexedDB } = await import('../services/WelnoIndexedDB');
           const indexedData = await WelnoIndexedDB.getHealthData(uuid);
           
-          if (indexedData && indexedData.healthData && indexedData.healthData.length > 0) {
+          // 데이터가 비어있어도 레코드가 있으면 로그 출력
+          if (indexedData) {
+            console.log(`📂 [IndexedDB] 레코드 발견:`, {
+              uuid: indexedData.uuid,
+              patientName: indexedData.patientName,
+              hospitalId: indexedData.hospitalId,
+              healthDataCount: indexedData.healthData?.length || 0,
+              prescriptionDataCount: indexedData.prescriptionData?.length || 0,
+              healthData타입: Array.isArray(indexedData.healthData) ? 'array' : typeof indexedData.healthData,
+              prescriptionData타입: Array.isArray(indexedData.prescriptionData) ? 'array' : typeof indexedData.prescriptionData,
+              dataSource: indexedData.dataSource,
+              updatedAt: indexedData.updatedAt
+            });
+          }
+          
+          // 데이터가 비어있어도 처방전 데이터가 있으면 사용
+          const hasHealthData = indexedData?.healthData && indexedData.healthData.length > 0;
+          const hasPrescriptionData = indexedData?.prescriptionData && indexedData.prescriptionData.length > 0;
+          
+          if (indexedData && (hasHealthData || hasPrescriptionData)) {
             console.log(`✅ [IndexedDB] 데이터 발견:`, {
               uuid: indexedData.uuid,
               patientName: indexedData.patientName,
               hospitalId: indexedData.hospitalId,
-              healthDataCount: indexedData.healthData.length,
+              healthDataCount: indexedData.healthData?.length || 0,
               prescriptionDataCount: indexedData.prescriptionData?.length || 0
             });
 
@@ -319,29 +439,53 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
               birthday: '',
               gender: 'male' as const,
               hospital_id: indexedData.hospitalId,
-              last_checkup_count: indexedData.healthData.length,
+              last_checkup_count: indexedData.healthData?.length || 0,
               created_at: indexedData.createdAt
             };
 
             // 병원 정보는 API에서 가져와야 함 (캐시 확인)
             const cached = WelnoCacheManager.getCache(uuid);
-            if (cached && cached.hospital) {
-              setState(prev => ({
-                ...prev,
-                patient: patientData,
-                hospital: cached.hospital,
-                layoutConfig: cached.layoutConfig,
-                lastUpdated: new Date(indexedData.updatedAt).getTime(),
-                isCacheExpired: false,
-                cacheExpiresAt: null,
-                isLoading: false,
-                error: null,
-              }));
+            const hospitalData = cached?.hospital || {
+              hospital_id: hospital,
+              name: '상담 병원',
+              brand_color: '#ff6b6b',
+              layout_type: 'vertical',
+              logo_position: 'center'
+            };
 
-              // IndexedDB에서 로드 완료 - 로딩 리셋
-              loadingRef.current = null;
-              return;
+            setState(prev => ({
+              ...prev,
+              patient: patientData,
+              hospital: hospitalData as any,
+              layoutConfig: cached?.layoutConfig || null,
+              lastUpdated: new Date(indexedData.updatedAt).getTime(),
+              isCacheExpired: false,
+              cacheExpiresAt: null,
+              isLoading: false,
+              error: null,
+            }));
+
+            // 만약 병원 정보가 없었다면 백그라운드에서 API 호출 시도 (업데이트용)
+            if (!cached?.hospital) {
+              console.log('🔄 [WelnoContext] 병원 정보 로드 시도 (백그라운드)');
+              fetch(API_ENDPOINTS.HOSPITAL(hospital))
+                .then(res => res.ok ? res.json() : null)
+                .then(hData => {
+                  if (hData) {
+                    setState(prev => ({ ...prev, hospital: hData }));
+                    WelnoCacheManager.setCache(uuid, { hospital: hData });
+                  }
+                }).catch(() => {});
             }
+
+            // 🔄 IndexedDB ↔ 서버 DB 동기화 체크 (백그라운드)
+            syncIndexedDBWithServer(uuid, hospital).catch((syncError) => {
+              console.warn('[동기화] 백그라운드 동기화 실패 (무시):', syncError);
+            });
+
+            // IndexedDB에서 로드 완료 - 로딩 리셋
+            loadingRef.current = null;
+            return;
           } else {
             console.log(`📂 [IndexedDB] 데이터 없음: ${uuid}`);
           }
@@ -558,8 +702,8 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
       try {
         const { WelnoIndexedDB } = await import('../services/WelnoIndexedDB');
         
-        // 건강 데이터 조회 (API에서)
-        const healthDataUrl = `/welno-api/v1/welno/health-data/${cleanUuid}/${cleanHospital}`;
+        // 건강 데이터 조회 (API에서) - 동기화를 위해 사용
+        const healthDataUrl = API_ENDPOINTS.HEALTH_DATA(cleanUuid, cleanHospital);
         let healthData: any[] = [];
         let prescriptionData: any[] = [];
         
@@ -567,25 +711,79 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
           const healthResponse = await fetch(healthDataUrl);
           if (healthResponse.ok) {
             const healthResult = await healthResponse.json();
-            healthData = healthResult.health_data || [];
-            prescriptionData = healthResult.prescription_data || [];
-            console.log(`✅ [API] 건강 데이터 조회 완료: 건강검진 ${healthData.length}건, 처방전 ${prescriptionData.length}건`);
+            console.log('🔍 [API] 건강 데이터 응답 상세:', {
+              success: healthResult.success,
+              hasData: !!healthResult.data,
+              health_data_count: healthResult.data?.health_data?.length || 0,
+              prescription_data_count: healthResult.data?.prescription_data?.length || 0,
+              patient_exists: !!healthResult.data?.patient
+            });
+            
+            if (healthResult.success && healthResult.data) {
+              healthData = healthResult.data.health_data || [];
+              prescriptionData = healthResult.data.prescription_data || [];
+              console.log(`✅ [API] 건강 데이터 조회 완료: 건강검진 ${healthData.length}건, 처방전 ${prescriptionData.length}건`);
+              
+              // 데이터가 있는데 빈 배열이면 상세 로그
+              if (healthData.length === 0 && prescriptionData.length === 0) {
+                console.warn('⚠️ [API] 서버 DB에는 데이터가 있지만 API 응답이 빈 배열입니다.');
+                console.warn('⚠️ [API] 응답 구조:', JSON.stringify(healthResult, null, 2).substring(0, 500));
+              }
+            } else {
+              console.warn(`⚠️ [API] 건강 데이터 응답 형식 오류:`, healthResult);
+            }
           } else {
-            console.warn(`⚠️ [API] 건강 데이터 조회 실패 (${healthResponse.status}) - IndexedDB 저장 건너뜀`);
+            const errorText = await healthResponse.text();
+            console.warn(`⚠️ [API] 건강 데이터 조회 실패 (${healthResponse.status}):`, errorText.substring(0, 200));
           }
         } catch (healthError) {
           console.warn(`⚠️ [API] 건강 데이터 조회 오류:`, healthError);
         }
 
-        // IndexedDB에 저장
+        // IndexedDB에 저장 (서버 데이터를 서버와 동일한 구조로 변환)
         if (healthData.length > 0 || prescriptionData.length > 0) {
+          // 서버 데이터를 서버와 동일한 구조로 변환
+          const healthDataFormatted = healthData.map((item: any) => ({
+            ...item.raw_data,
+            raw_data: item.raw_data,
+            year: item.year,
+            checkup_date: item.checkup_date,
+            location: item.location,
+            code: item.code,
+            height: item.height,
+            weight: item.weight,
+            bmi: item.bmi,
+            waist_circumference: item.waist_circumference,
+            blood_pressure_high: item.blood_pressure_high,
+            blood_pressure_low: item.blood_pressure_low,
+            blood_sugar: item.blood_sugar,
+            cholesterol: item.cholesterol,
+            hdl_cholesterol: item.hdl_cholesterol,
+            ldl_cholesterol: item.ldl_cholesterol,
+            triglyceride: item.triglyceride,
+            hemoglobin: item.hemoglobin
+          }));
+          
+          const prescriptionDataFormatted = prescriptionData.map((item: any) => ({
+            ...item.raw_data,
+            raw_data: item.raw_data,
+            hospital_name: item.hospital_name,
+            address: item.address,
+            treatment_date: item.treatment_date,
+            treatment_type: item.treatment_type,
+            visit_count: item.visit_count,
+            medication_count: item.medication_count,
+            prescription_count: item.prescription_count,
+            detail_records_count: item.detail_records_count
+          }));
+          
           const now = new Date().toISOString();
           const savedId = await WelnoIndexedDB.saveHealthData({
             uuid: cleanUuid,
             patientName: patientData.name,
             hospitalId: cleanHospital,
-            healthData,
-            prescriptionData,
+            healthData: healthDataFormatted,
+            prescriptionData: prescriptionDataFormatted,
             dataSource: 'api',
             createdAt: now,
             updatedAt: now
@@ -732,10 +930,63 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
     let uuid = urlParams.get('uuid');
     let hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
 
-    // 2순위: localStorage에서 확인 (재접속 시)
+    // 2순위: IndexedDB에서 가장 최신 데이터의 UUID 사용
     if (!uuid || !hospital) {
-      uuid = localStorage.getItem('tilko_patient_uuid');
-      hospital = localStorage.getItem('tilko_hospital_id');
+      try {
+        const { WelnoIndexedDB } = await import('../services/WelnoIndexedDB');
+        const allHealthData = await WelnoIndexedDB.getAllHealthData();
+        console.log('[WelnoContext] IndexedDB 전체 조회 결과:', {
+          전체건수: allHealthData.length,
+          UUID목록: allHealthData.map(d => ({ 
+            uuid: d.uuid, 
+            hospitalId: d.hospitalId, 
+            updatedAt: d.updatedAt,
+            healthDataCount: d.healthData?.length || 0,
+            prescriptionDataCount: d.prescriptionData?.length || 0
+          }))
+        });
+        
+        if (allHealthData.length > 0) {
+          // 데이터가 있는 레코드 우선 선택
+          const dataWithContent = allHealthData.filter(d => 
+            (d.healthData && d.healthData.length > 0) || 
+            (d.prescriptionData && d.prescriptionData.length > 0)
+          );
+          
+          const targetData = dataWithContent.length > 0 
+            ? dataWithContent.sort((a, b) => 
+                new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+              )[0]
+            : allHealthData.sort((a, b) => 
+                new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+              )[0];
+          
+          uuid = uuid || targetData.uuid;
+          hospital = hospital || targetData.hospitalId;
+          console.log('[WelnoContext] IndexedDB에서 UUID 발견:', { 
+            uuid, 
+            hospital,
+            선택된데이터: {
+              uuid: targetData.uuid,
+              hospitalId: targetData.hospitalId,
+              healthDataCount: targetData.healthData?.length || 0,
+              prescriptionDataCount: targetData.prescriptionData?.length || 0,
+              updatedAt: targetData.updatedAt
+            },
+            데이터있는레코드수: dataWithContent.length
+          });
+        }
+      } catch (indexedError) {
+        console.warn('[WelnoContext] IndexedDB 조회 실패:', indexedError);
+      }
+    }
+
+    // 3순위: localStorage에서 확인 (재접속 시)
+    if (!uuid || !hospital) {
+      uuid = uuid || StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID) || 
+                    localStorage.getItem('tilko_patient_uuid');
+      hospital = hospital || StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID) || 
+                        localStorage.getItem('tilko_hospital_id');
       
       if (uuid && hospital) {
         console.log('[WelnoContext] localStorage에서 세션 복구:', { uuid, hospital });

@@ -45,7 +45,7 @@ const HealthDashboard: React.FC = () => {
     const loadHealthData = () => {
       try {
         // localStorage에서 건강 데이터 로드
-        const storedData = localStorage.getItem('wello_health_data');
+        const storedData = localStorage.getItem('welno_health_data');
         if (storedData) {
           const parsedData = JSON.parse(storedData);
           const healthCheckups = parsedData.health_data?.ResultList || [];
@@ -108,8 +108,8 @@ const HealthDashboard: React.FC = () => {
           <h2>건강 데이터가 없습니다</h2>
           <p>먼저 건강검진 데이터를 연동해주세요.</p>
           <button 
-            className="wello-button wello-button-primary"
-            onClick={() => navigate('/wello/login')}
+            className="welno-button welno-button-primary"
+            onClick={() => navigate('/welno/login')}
           >
             건강정보 연동하기
           </button>
@@ -128,8 +128,8 @@ const HealthDashboard: React.FC = () => {
         </div>
         <div className="health-dashboard__actions">
           <button 
-            className="wello-button wello-button-secondary"
-            onClick={() => navigate('/wello/results')}
+            className="welno-button welno-button-secondary"
+            onClick={() => navigate('/welno/results')}
           >
             상세 보기
           </button>
@@ -246,7 +246,7 @@ const HealthDashboard: React.FC = () => {
         <div className="action-grid">
           <button 
             className="action-card"
-            onClick={() => navigate('/wello/results-trend')}
+            onClick={() => navigate('/welno/results-trend')}
           >
             <div className="action-card__icon action-card__icon--trends"></div>
             <div className="action-card__content">
@@ -257,7 +257,7 @@ const HealthDashboard: React.FC = () => {
 
           <button 
             className="action-card"
-            onClick={() => navigate('/wello/results')}
+            onClick={() => navigate('/welno/results')}
           >
             <div className="action-card__icon action-card__icon--history"></div>
             <div className="action-card__content">

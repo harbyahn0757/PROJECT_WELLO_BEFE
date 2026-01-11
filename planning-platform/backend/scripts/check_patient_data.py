@@ -52,7 +52,7 @@ async def check_patient_data():
                 SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
                        has_health_data, has_prescription_data, last_data_update,
                        created_at, updated_at
-                FROM wello.wello_patients
+                FROM welno.welno_patients
                 WHERE uuid = $1 AND hospital_id = $2
             """
             patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
@@ -81,7 +81,7 @@ async def check_patient_data():
                        MAX(year) as max_year,
                        MIN(checkup_date) as min_date,
                        MAX(checkup_date) as max_date
-                FROM wello.wello_checkup_data
+                FROM welno.welno_checkup_data
                 WHERE patient_uuid = $1 AND hospital_id = $2
             """
             health_row = await conn.fetchrow(health_query, uuid, hospital_id)
@@ -97,7 +97,7 @@ async def check_patient_data():
                 SELECT COUNT(*) as count,
                        MIN(treatment_date) as min_date,
                        MAX(treatment_date) as max_date
-                FROM wello.wello_prescription_data
+                FROM welno.welno_prescription_data
                 WHERE patient_uuid = $1 AND hospital_id = $2
             """
             prescription_row = await conn.fetchrow(prescription_query, uuid, hospital_id)
@@ -114,7 +114,7 @@ async def check_patient_data():
                 history_query = """
                     SELECT COUNT(*) as count,
                            MAX(created_at) as last_collection
-                    FROM wello.wello_collection_history
+                    FROM welno.welno_collection_history
                     WHERE patient_id = $1
                 """
                 history_row = await conn.fetchrow(history_query, patient_id)
@@ -152,8 +152,8 @@ async def check_patient_data():
             hospital_id = patient["hospital_id"]
             
             print(f"-- {name}님 데이터 삭제 (patient_uuid, hospital_id 기준)")
-            print(f"DELETE FROM wello.wello_checkup_data WHERE patient_uuid = '{uuid}' AND hospital_id = '{hospital_id}';")
-            print(f"DELETE FROM wello.wello_prescription_data WHERE patient_uuid = '{uuid}' AND hospital_id = '{hospital_id}';")
+            print(f"DELETE FROM welno.welno_checkup_data WHERE patient_uuid = '{uuid}' AND hospital_id = '{hospital_id}';")
+            print(f"DELETE FROM welno.welno_prescription_data WHERE patient_uuid = '{uuid}' AND hospital_id = '{hospital_id}';")
             print()
         
         print("-- 환자 정보 플래그 업데이트")
@@ -161,7 +161,7 @@ async def check_patient_data():
             name = patient["name"]
             uuid = patient["uuid"]
             hospital_id = patient["hospital_id"]
-            print(f"UPDATE wello.wello_patients SET has_health_data = FALSE, has_prescription_data = FALSE, last_data_update = NULL WHERE uuid = '{uuid}' AND hospital_id = '{hospital_id}';")
+            print(f"UPDATE welno.welno_patients SET has_health_data = FALSE, has_prescription_data = FALSE, last_data_update = NULL WHERE uuid = '{uuid}' AND hospital_id = '{hospital_id}';")
         
         print("\n-- 데이터 수집 이력 삭제 (선택사항)")
         print("-- 주의: 이력 데이터도 삭제하려면 아래 SQL 실행")
@@ -170,7 +170,7 @@ async def check_patient_data():
             uuid = patient["uuid"]
             hospital_id = patient["hospital_id"]
             print(f"-- {name}님의 데이터 수집 이력 삭제")
-            print(f"DELETE FROM wello.wello_collection_history WHERE patient_id = (SELECT id FROM wello.wello_patients WHERE uuid = '{uuid}' AND hospital_id = '{hospital_id}');")
+            print(f"DELETE FROM welno.welno_collection_history WHERE patient_id = (SELECT id FROM welno.welno_patients WHERE uuid = '{uuid}' AND hospital_id = '{hospital_id}');")
         
     except Exception as e:
         print(f"❌ [오류] {e}")

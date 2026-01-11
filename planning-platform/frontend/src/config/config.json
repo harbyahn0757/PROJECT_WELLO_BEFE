@@ -12,7 +12,7 @@
   "api": {
     "baseUrl": "https://xogxog.com",
     "endpoints": {
-      "healthAnalysis": "/wello-api/v1/health-analysis/analyze"
+      "healthAnalysis": "/welno-api/v1/health-analysis/analyze"
     }
   },
   "features": {

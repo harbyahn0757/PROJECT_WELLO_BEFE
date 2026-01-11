@@ -38,7 +38,7 @@ async def list_database_checkup_items():
                 difficulty_level, target_trigger, gap_description,
                 solution_narrative, description, manufacturer, target,
                 input_sample, algorithm_class
-            FROM wello.wello_external_checkup_items
+            FROM welno.welno_external_checkup_items
             WHERE is_active = true
             ORDER BY category, difficulty_level, item_name
         """)
@@ -103,7 +103,7 @@ async def list_database_checkup_items():
         
         hospitals = await conn.fetch("""
             SELECT hospital_id, hospital_name, recommended_items
-            FROM wello.wello_hospitals
+            FROM welno.welno_hospitals
             WHERE recommended_items IS NOT NULL 
               AND recommended_items != 'null'::jsonb
               AND recommended_items != '[]'::jsonb
@@ -190,7 +190,7 @@ async def list_database_checkup_items():
                     COUNT(*) FILTER (WHERE difficulty_level = 'Low') as low_count,
                     COUNT(*) FILTER (WHERE difficulty_level = 'Mid') as mid_count,
                     COUNT(*) FILTER (WHERE difficulty_level = 'High') as high_count
-                FROM wello.wello_external_checkup_items
+                FROM welno.welno_external_checkup_items
                 WHERE is_active = true
             """)
             

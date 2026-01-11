@@ -32,7 +32,7 @@ async def check_existing_patients():
         # 기존 환자 조회
         query = """
             SELECT uuid, hospital_id, name, phone_number, birth_date, gender
-            FROM wello.wello_patients
+            FROM welno.welno_patients
             ORDER BY created_at DESC
             LIMIT 10
         """
@@ -70,7 +70,7 @@ async def check_phone_availability(phone_number: str):
         
         query = """
             SELECT COUNT(*) as count
-            FROM wello.wello_patients
+            FROM welno.welno_patients
             WHERE phone_number = $1
         """
         
@@ -170,7 +170,7 @@ async def generate_test_users_plan():
         print("\n### SQL 생성 예시")
         print("```sql")
         print("-- 테스트1 생성 예시")
-        print(f"INSERT INTO wello.wello_patients (uuid, hospital_id, name, phone_number, birth_date, gender)")
+        print(f"INSERT INTO welno.welno_patients (uuid, hospital_id, name, phone_number, birth_date, gender)")
         print(f"VALUES (")
         print(f"    gen_random_uuid()::text,  -- UUID 자동 생성")
         print(f"    '{base_hospital}',")

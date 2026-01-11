@@ -1,0 +1,145 @@
+.auth-form-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  background-color: #ffffff;
+  
+  .auth-form-content {
+    max-width: 500px;
+    width: 100%;
+    text-align: center;
+    
+    .auth-form-title {
+      font-size: 28px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 40px;
+      line-height: 1.5;
+    }
+    
+    .auth-start-button {
+      width: 100%;
+      max-width: 300px;
+      padding: 16px 32px;
+      font-size: 18px;
+      font-weight: bold;
+      color: #ffffff;
+      background: linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%);
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+      
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(255, 107, 107, 0.4);
+      }
+      
+      &:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
+      }
+    }
+  }
+  
+  .auth-form-navigation {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 24px;
+    
+    .auth-nav-button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      
+      &.back {
+        background-color: #f0f0f0;
+        color: #666;
+        
+        &:hover {
+          background-color: #e0e0e0;
+        }
+      }
+      
+      &.next {
+        background: linear-gradient(135deg, #ff9a56 0%, #ff6b6b 100%);
+        color: #ffffff;
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+        }
+      }
+    }
+  }
+  
+  .auth-error-container {
+    text-align: center;
+    padding: 40px 20px;
+    
+    h2 {
+      font-size: 24px;
+      color: #e74c3c;
+      margin-bottom: 16px;
+    }
+    
+    p {
+      font-size: 16px;
+      color: #666;
+      margin-bottom: 24px;
+    }
+    
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #ffffff;
+      background-color: #3498db;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        background-color: #2980b9;
+        transform: translateY(-2px);
+      }
+    }
+  }
+}
+
+// 반응형 디자인
+@media (max-width: 768px) {
+  .auth-form-container {
+    padding: 16px;
+    
+    .auth-form-content {
+      .auth-form-title {
+        font-size: 24px;
+        margin-bottom: 32px;
+      }
+      
+      .auth-start-button {
+        font-size: 16px;
+        padding: 14px 28px;
+      }
+    }
+    
+    .auth-form-navigation {
+      flex-direction: column;
+      
+      .auth-nav-button {
+        width: 100%;
+      }
+    }
+  }
+}

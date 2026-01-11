@@ -225,6 +225,40 @@ async def notify_data_extracting(session_id: str, data_type: str):
 
 async def notify_completion(session_id: str, collected_data: dict):
     """데이터 수집 완료"""
+    # 🔍 전달되는 데이터 상태 로깅
+    print(f"🔍 [WebSocket-notify_completion] 전달 데이터 확인:")
+    print(f"   - collected_data 키: {list(collected_data.keys())}")
+    health_data = collected_data.get("health_data")
+    prescription_data = collected_data.get("prescription_data")
+    
+    if health_data:
+        if isinstance(health_data, dict):
+            result_list = health_data.get("ResultList")
+            if result_list is None:
+                print(f"   - ⚠️ health_data.ResultList가 None입니다!")
+            elif isinstance(result_list, list):
+                print(f"   - health_data.ResultList 길이: {len(result_list)}건")
+            else:
+                print(f"   - ⚠️ health_data.ResultList 타입: {type(result_list)}")
+        else:
+            print(f"   - ⚠️ health_data가 딕셔너리가 아님: {type(health_data)}")
+    else:
+        print(f"   - ⚠️ health_data가 None이거나 비어있습니다!")
+    
+    if prescription_data:
+        if isinstance(prescription_data, dict):
+            result_list = prescription_data.get("ResultList")
+            if result_list is None:
+                print(f"   - ⚠️ prescription_data.ResultList가 None입니다!")
+            elif isinstance(result_list, list):
+                print(f"   - prescription_data.ResultList 길이: {len(result_list)}건")
+            else:
+                print(f"   - ⚠️ prescription_data.ResultList 타입: {type(result_list)}")
+        else:
+            print(f"   - ⚠️ prescription_data가 딕셔너리가 아님: {type(prescription_data)}")
+    else:
+        print(f"   - ⚠️ prescription_data가 None이거나 비어있습니다!")
+    
     await notify_streaming_status(
         session_id,
         "completed",

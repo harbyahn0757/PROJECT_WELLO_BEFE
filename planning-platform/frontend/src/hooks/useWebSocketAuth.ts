@@ -79,7 +79,7 @@ export const useWebSocketAuth = ({
       // 개발환경: React 프록시를 통한 WebSocket 연결 (올바른 경로로 수정)
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.host; // localhost:9282
-      wsUrl = `${protocol}//${host}/wello-api/v1/tilko/ws/${sessionId}`;
+      wsUrl = `${protocol}//${host}/welno-api/v1/tilko/ws/${sessionId}`;
       console.log(`🔌 [WebSocket] 연결 시도 (개발-프록시): ${wsUrl}`);
     } else {
       // 운영환경: WebSocket 대신 HTTP 폴링 사용 (nginx WebSocket 설정 필요시까지 임시)

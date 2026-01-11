@@ -256,7 +256,7 @@ async def generate_elama_cloud_dataset():
                 is_active,
                 created_at,
                 updated_at
-            FROM wello.wello_external_checkup_items
+            FROM welno.welno_external_checkup_items
             WHERE is_active = true
             ORDER BY id
         """)

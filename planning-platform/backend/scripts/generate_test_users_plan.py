@@ -24,7 +24,7 @@ async def get_existing_patients():
         
         query = """
             SELECT uuid, hospital_id, name, phone_number, birth_date, gender
-            FROM wello.wello_patients
+            FROM welno.welno_patients
             WHERE phone_number IS NOT NULL
             ORDER BY created_at DESC
             LIMIT 5
@@ -44,7 +44,7 @@ async def check_phone_availability(phone: str):
     try:
         conn = await asyncpg.connect(**DB_CONFIG)
         count = await conn.fetchval(
-            "SELECT COUNT(*) FROM wello.wello_patients WHERE phone_number = $1",
+            "SELECT COUNT(*) FROM welno.welno_patients WHERE phone_number = $1",
             phone
         )
         await conn.close()
@@ -152,7 +152,7 @@ async def generate_plan():
     print("-- 테스트 인원 생성 SQL")
     for i, user in enumerate(test_users, 1):
         print(f"\n-- {user['name']} 생성")
-        print(f"INSERT INTO wello.wello_patients (uuid, hospital_id, name, phone_number, birth_date, gender)")
+        print(f"INSERT INTO welno.welno_patients (uuid, hospital_id, name, phone_number, birth_date, gender)")
         print(f"VALUES (")
         print(f"    '{user['uuid']}',")
         print(f"    '{user['hospital']}',")

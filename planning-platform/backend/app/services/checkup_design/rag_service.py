@@ -190,18 +190,17 @@ async def init_rag_engine(use_elama_model: bool = False, use_local_vector_db: bo
                     faiss_index = faiss.read_index(LOCAL_FAISS_INDEX_PATH)
                     print(f"[INFO] FAISS 인덱스 로드 완료: {faiss_index.ntotal}개 벡터")
                     
-                    # 메타데이터 로드
-                    if not PathLib(LOCAL_FAISS_METADATA_PATH).exists():
-                        print(f"[WARN] 메타데이터 파일을 찾을 수 없습니다: {LOCAL_FAISS_METADATA_PATH}")
-                        print("[INFO] LlamaCloud로 fallback합니다.")
-                        use_local_vector_db = False
-                    else:
+                    # 메타데이터 로드 (선택 사항으로 변경)
+                    if PathLib(LOCAL_FAISS_METADATA_PATH).exists():
                         with open(LOCAL_FAISS_METADATA_PATH, 'rb') as f:
                             metadata = pickle.load(f)
-                        
-                        print(f"[INFO] 메타데이터 로드 완료: {metadata['total_documents']}개 문서")
-                        
-                        # OpenAI 임베딩 모델 설정 (검색용)
+                        total_docs = metadata.get('total_documents', metadata.get('total_nodes', faiss_index.ntotal))
+                        print(f"[INFO] 메타데이터 로드 완료: {total_docs}개 문서")
+                    else:
+                        print(f"[INFO] 메타데이터 파일이 없으므로 기본 정보만 사용합니다.")
+                        total_docs = faiss_index.ntotal
+                    
+                    # OpenAI 임베딩 모델 설정 (검색용)
                         openai_api_key = os.environ.get("OPENAI_API_KEY") or settings.openai_api_key
                         if not openai_api_key or openai_api_key == "dev-openai-key":
                             print("[WARN] OPENAI_API_KEY가 설정되지 않았습니다.")
@@ -279,7 +278,7 @@ async def init_rag_engine(use_elama_model: bool = False, use_local_vector_db: bo
                                 )
                                 
                                 _rag_engine_local_cache = query_engine
-                                print(f"[INFO] ✅ 로컬 FAISS RAG 엔진 초기화 완료 (벡터: {faiss_index.ntotal}개, 문서: {metadata['total_documents']}개)")
+                                print(f"[INFO] ✅ 로컬 FAISS RAG 엔진 초기화 완료 (벡터: {faiss_index.ntotal}개, 문서: {total_docs}개)")
                                 
                                 return query_engine
         

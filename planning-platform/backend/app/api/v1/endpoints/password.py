@@ -23,6 +23,10 @@ def get_session_service() -> PasswordSessionService:
 # 요청 모델
 class PasswordSetRequest(BaseModel):
     password: str = Field(..., description="6자리 숫자 비밀번호", min_length=6, max_length=6)
+    name: Optional[str] = Field(None, description="환자 이름")
+    phone_number: Optional[str] = Field(None, description="전화번호")
+    birth_date: Optional[str] = Field(None, description="생년월일 (YYYY-MM-DD)")
+    gender: Optional[str] = Field(None, description="성별 (M/F)")
     
     class Config:
         json_schema_extra = {
@@ -133,7 +137,15 @@ async def set_password(
                 detail="비밀번호는 정확히 6자리 숫자여야 합니다."
             )
         
-        success = await password_service.set_password(patient_uuid, hospital_id, request.password)
+        success = await password_service.set_password(
+            patient_uuid, 
+            hospital_id, 
+            request.password,
+            name=request.name,
+            phone_number=request.phone_number,
+            birth_date=request.birth_date,
+            gender=request.gender
+        )
         
         if success:
             return PasswordResponse(

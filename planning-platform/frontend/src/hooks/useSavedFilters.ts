@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { FilterState } from '../types/health';
 import { SavedFilter } from '../components/search/AdvancedSearch';
 
-const STORAGE_KEY = 'wello_saved_filters';
+const STORAGE_KEY = 'welno_saved_filters';
 
 export const useSavedFilters = () => {
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);

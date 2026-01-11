@@ -25,6 +25,7 @@ from .api.v1.endpoints import (
     surveys,
     debug,
     rag_test,
+    welno_rag_chat,
 )
 from .core.config import settings
 from .data.redis_session_manager import redis_session_manager as session_manager
@@ -68,6 +69,7 @@ app.include_router(sync.router, prefix="/api/v1", tags=["sync"])
 app.include_router(surveys.router, prefix="/api/v1", tags=["surveys"])
 app.include_router(debug.router, prefix="/api/v1/debug", tags=["debug"])
 app.include_router(rag_test.router, prefix="/api/v1", tags=["rag-test"])
+app.include_router(welno_rag_chat.router, prefix="/api/v1/welno-rag-chat", tags=["welno-rag-chat"])
 
 # 배포환경을 위한 welno-api 경로 추가 (프록시 없이 직접 접근)
 app.include_router(health.router, prefix="/welno-api/v1/health", tags=["health-welno"])
@@ -83,6 +85,7 @@ app.include_router(password.router, prefix="/welno-api/v1", tags=["password-weln
 app.include_router(health_analysis.router, prefix="/welno-api/v1/health-analysis", tags=["health-analysis-welno"])
 app.include_router(sync.router, prefix="/welno-api/v1", tags=["sync-welno"])
 app.include_router(surveys.router, prefix="/welno-api/v1", tags=["surveys-welno"])
+app.include_router(welno_rag_chat.router, prefix="/welno-api/v1/welno-rag-chat", tags=["welno-rag-chat-welno"])
 app.include_router(debug.router, prefix="/welno-api/v1/debug", tags=["debug-welno"])
 app.include_router(rag_test.router, prefix="/welno-api/v1", tags=["rag-test-welno"])
 

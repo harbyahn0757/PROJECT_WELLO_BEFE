@@ -256,12 +256,12 @@ const BarChart: React.FC<BarChartProps> = ({
     if (!rect) return;
 
     const tooltipContent = `
-      <div class="wello-chart-tooltip__title">${seriesName}</div>
-      <div class="wello-chart-tooltip__label">${point.label}</div>
-      <div class="wello-chart-tooltip__value">${valueFormat(point.value, unit)}</div>
-      ${point.status ? `<div class="wello-chart-tooltip__status status-${point.status}">${point.status}</div>` : ''}
-      ${point.metadata?.date ? `<div class="wello-chart-tooltip__date">${point.metadata.date}</div>` : ''}
-      ${point.metadata?.location ? `<div class="wello-chart-tooltip__location">${point.metadata.location}</div>` : ''}
+      <div class="welno-chart-tooltip__title">${seriesName}</div>
+      <div class="welno-chart-tooltip__label">${point.label}</div>
+      <div class="welno-chart-tooltip__value">${valueFormat(point.value, unit)}</div>
+      ${point.status ? `<div class="welno-chart-tooltip__status status-${point.status}">${point.status}</div>` : ''}
+      ${point.metadata?.date ? `<div class="welno-chart-tooltip__date">${point.metadata.date}</div>` : ''}
+      ${point.metadata?.location ? `<div class="welno-chart-tooltip__location">${point.metadata.location}</div>` : ''}
     `;
 
     setTooltip({
@@ -280,7 +280,7 @@ const BarChart: React.FC<BarChartProps> = ({
   const renderChart = (dimensions: ChartDimensions) => {
     if (!chartData || !chartData.groups.length) {
       return (
-        <div className="wello-bar-chart__empty">
+        <div className="welno-bar-chart__empty">
           <p>표시할 데이터가 없습니다</p>
         </div>
       );
@@ -306,18 +306,18 @@ const BarChart: React.FC<BarChartProps> = ({
     const valueLabelPadding = 15;
 
     return (
-      <div className="wello-bar-chart">
+      <div className="welno-bar-chart">
         <svg
           ref={svgRef}
           width={width}
           height={height + valueLabelPadding}
           viewBox={`0 ${-valueLabelPadding} ${width} ${height + valueLabelPadding}`}
-          className="wello-bar-chart__svg"
+          className="welno-bar-chart__svg"
           role="img"
           aria-label={`${baseProps.title || '바 차트'} - ${chartData.groups.length}개 그룹, ${series.length}개 시리즈`}
         >
           {/* 배경 그리드 */}
-          <g className="wello-bar-chart__grid">
+          <g className="welno-bar-chart__grid">
             {orientation === 'vertical' ? (
               // 세로 차트 - 가로 그리드 라인
               gridLines.map((i) => {
@@ -329,7 +329,7 @@ const BarChart: React.FC<BarChartProps> = ({
                     y1={y}
                     x2={margin.left + chartWidth}
                     y2={y}
-                    className="wello-bar-chart__grid-line"
+                    className="welno-bar-chart__grid-line"
                   />
                 );
               })
@@ -344,7 +344,7 @@ const BarChart: React.FC<BarChartProps> = ({
                     y1={margin.top}
                     x2={x}
                     y2={margin.top + chartHeight}
-                    className="wello-bar-chart__grid-line"
+                    className="welno-bar-chart__grid-line"
                   />
                 );
               })
@@ -353,7 +353,7 @@ const BarChart: React.FC<BarChartProps> = ({
 
           {/* Y축 값 기준 참조선 (얇은 점선) */}
           {orientation === 'vertical' && (
-            <g className="wello-bar-chart__reference-lines">
+            <g className="welno-bar-chart__reference-lines">
               {yAxisLabels.map((i) => {
                 const ratio = i / 3;
                 const minY = 0;
@@ -368,7 +368,7 @@ const BarChart: React.FC<BarChartProps> = ({
                     y1={y}
                     x2={margin.left + chartWidth}
                     y2={y}
-                    className="wello-bar-chart__reference-line"
+                    className="welno-bar-chart__reference-line"
                   />
                 );
               })}
@@ -377,7 +377,7 @@ const BarChart: React.FC<BarChartProps> = ({
 
           {/* 데이터 기반 참조선 (기존 기능) */}
           {showReferenceLines && series.some(s => s.data.some(p => p.reference)) && (
-            <g className="wello-bar-chart__reference-lines">
+            <g className="welno-bar-chart__reference-lines">
               {series.map(s => 
                 s.data.find(p => p.reference)?.reference && (
                   <g key={`ref-${s.id}`}>
@@ -388,7 +388,7 @@ const BarChart: React.FC<BarChartProps> = ({
                         y1={orientation === 'vertical' ? margin.top + (1 - (s.data.find(p => p.reference?.normal)!.reference!.normal! - 0) / Math.max(chartData.maxValue, 2)) * chartHeight : margin.top}
                         x2={orientation === 'vertical' ? margin.left + chartWidth : margin.left + (s.data.find(p => p.reference?.normal)!.reference!.normal! - 0) / Math.max(chartData.maxValue, 2) * chartWidth}
                         y2={orientation === 'vertical' ? margin.top + (1 - (s.data.find(p => p.reference?.normal)!.reference!.normal! - 0) / Math.max(chartData.maxValue, 2)) * chartHeight : margin.top + chartHeight}
-                        className="wello-bar-chart__reference-line wello-bar-chart__reference-line--normal"
+                        className="welno-bar-chart__reference-line welno-bar-chart__reference-line--normal"
                       />
                     )}
                   </g>
@@ -399,7 +399,7 @@ const BarChart: React.FC<BarChartProps> = ({
 
           {/* 바 그룹 및 값 레이블 (같은 그룹에 배치하여 구조 단순화) */}
           {chartData.groups.map((group, groupIndex) => (
-            <g key={`group-${groupIndex}`} className="wello-bar-chart__group">
+            <g key={`group-${groupIndex}`} className="welno-bar-chart__group">
               {group.bars.map((bar, barIndex) => {
                 const barDimensions = getBarDimensions(groupIndex, barIndex, bar.value, adjustedDimensions);
                 const barColor = getBarColor(bar.seriesId, bar.status);
@@ -421,7 +421,7 @@ const BarChart: React.FC<BarChartProps> = ({
                       y={barDimensions.y}
                       width={barDimensions.width}
                       height={barDimensions.height}
-                      className={`wello-bar-chart__bar ${bar.status ? `wello-bar-chart__bar--${bar.status}` : ''}`}
+                      className={`welno-bar-chart__bar ${bar.status ? `welno-bar-chart__bar--${bar.status}` : ''}`}
                       fill={barColor}
                       data-series-id={bar.seriesId}
                       onMouseEnter={(e) => handleBarHover(e, bar.point, bar.seriesName, bar.unit)}
@@ -434,7 +434,7 @@ const BarChart: React.FC<BarChartProps> = ({
                       <text
                         x={labelX}
                         y={labelY}
-                        className="wello-bar-chart__value-label"
+                        className="welno-bar-chart__value-label"
                         textAnchor={orientation === 'vertical' ? 'middle' : 'start'}
                         dominantBaseline={orientation === 'vertical' ? 'hanging' : 'middle'}
                         data-series-id={bar.seriesId}
@@ -449,13 +449,13 @@ const BarChart: React.FC<BarChartProps> = ({
           ))}
 
           {/* X축 */}
-          <g className="wello-bar-chart__x-axis">
+          <g className="welno-bar-chart__x-axis">
             <line
               x1={margin.left}
               y1={margin.top + chartHeight}
               x2={margin.left + chartWidth}
               y2={margin.top + chartHeight}
-              className="wello-bar-chart__axis-line"
+              className="welno-bar-chart__axis-line"
             />
             
             {/* X축 레이블 */}
@@ -469,7 +469,7 @@ const BarChart: React.FC<BarChartProps> = ({
                   key={`x-label-${index}`}
                   x={x}
                   y={margin.top + chartHeight + 20}
-                  className="wello-bar-chart__axis-label"
+                  className="welno-bar-chart__axis-label"
                   textAnchor="middle"
                   dominantBaseline="middle"
                 >
@@ -482,7 +482,7 @@ const BarChart: React.FC<BarChartProps> = ({
               <text
                 x={margin.left + chartWidth / 2}
                 y={height - 5}
-                className="wello-bar-chart__axis-title"
+                className="welno-bar-chart__axis-title"
                 textAnchor="middle"
               >
                 {xAxisLabel}
@@ -491,13 +491,13 @@ const BarChart: React.FC<BarChartProps> = ({
           </g>
 
           {/* Y축 */}
-          <g className="wello-bar-chart__y-axis">
+          <g className="welno-bar-chart__y-axis">
             <line
               x1={margin.left}
               y1={margin.top}
               x2={margin.left}
               y2={margin.top + chartHeight}
-              className="wello-bar-chart__axis-line"
+              className="welno-bar-chart__axis-line"
             />
             
             {/* Y축 레이블 */}
@@ -513,7 +513,7 @@ const BarChart: React.FC<BarChartProps> = ({
                   key={`y-label-${i}`}
                   x={margin.left - 2}
                   y={y + 4}
-                  className="wello-bar-chart__axis-label"
+                  className="welno-bar-chart__axis-label"
                   textAnchor="end"
                   dominantBaseline="middle"
                 >
@@ -526,7 +526,7 @@ const BarChart: React.FC<BarChartProps> = ({
               <text
                 x={15}
                 y={margin.top + chartHeight / 2}
-                className="wello-bar-chart__axis-title"
+                className="welno-bar-chart__axis-title"
                 textAnchor="middle"
                 transform={`rotate(-90, 15, ${margin.top + chartHeight / 2})`}
               >
@@ -539,7 +539,7 @@ const BarChart: React.FC<BarChartProps> = ({
         {/* 툴팁 */}
         {tooltip.visible && (
           <div
-            className="wello-chart-tooltip wello-chart-tooltip--visible"
+            className="welno-chart-tooltip welno-chart-tooltip--visible"
             style={{
               left: tooltip.x + 10,
               top: tooltip.y - 10

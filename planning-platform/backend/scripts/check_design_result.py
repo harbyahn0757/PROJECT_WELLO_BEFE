@@ -53,7 +53,7 @@ async def check_design_result():
                 additional_concerns,
                 design_result,
                 created_at
-            FROM wello.wello_checkup_design_requests
+            FROM welno.welno_checkup_design_requests
             ORDER BY created_at DESC
             LIMIT 5
         """

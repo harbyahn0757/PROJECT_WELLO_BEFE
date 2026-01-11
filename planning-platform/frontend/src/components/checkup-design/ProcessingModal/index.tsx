@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { WELLO_LOGO_IMAGE } from '../../../constants/images';
+import { WELNO_LOGO_IMAGE } from '../../../constants/images';
 import './styles.scss';
 
 export type ProcessingStage = 
@@ -464,9 +464,9 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
           <div className="processing-modal__spinner-container">
             <div className="processing-modal__spinner">
               <img
-                src={WELLO_LOGO_IMAGE}
+                src={WELNO_LOGO_IMAGE}
                 alt="로딩 중"
-                className="processing-modal__wello-icon wello-icon-blink"
+                className="processing-modal__welno-icon welno-icon-blink"
               />
             </div>
             {thinkingText && !typingText && (

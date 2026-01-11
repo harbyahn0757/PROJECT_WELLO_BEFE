@@ -3,13 +3,13 @@
  * ComprehensiveAnalysisPage에서 AI 분석 관련 섹션만 추출
  */
 import React, { useState, useEffect, useCallback } from 'react';
-import { WelloIndexedDB } from '../../../services/WelloIndexedDB';
-import { WELLO_API } from '../../../constants/api';
+import { WelnoIndexedDB } from '../../../services/WelnoIndexedDB';
+import { WELNO_API } from '../../../constants/api';
 import HealthJourneyChartSlider from './HealthJourneyChartSlider';
 import LineChart from '../../charts/LineChart';
 import { TilkoHealthCheckupRaw, TilkoPrescriptionRaw } from '../../../types/health';
 import chatgptIcon from '../../../assets/images/icons8-chatgpt-50.png';
-import { WELLO_LOGO_IMAGE } from '../../../constants/images';
+import { WELNO_LOGO_IMAGE } from '../../../constants/images';
 import './styles.scss';
 
 interface HealthInsight {
@@ -861,9 +861,9 @@ const TrendAnalysisSection: React.FC<{
       // 실제 API 호출
       const apiData = convertHealthDataForAPI(healthData, prescriptionData);
       console.log('🔍 [AI분석] API 호출 데이터:', apiData);
-      console.log('🔍 [AI분석] API URL:', WELLO_API.HEALTH_ANALYSIS());
+      console.log('🔍 [AI분석] API URL:', WELNO_API.HEALTH_ANALYSIS());
       
-      const response = await fetch(WELLO_API.HEALTH_ANALYSIS(), {
+      const response = await fetch(WELNO_API.HEALTH_ANALYSIS(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -991,9 +991,9 @@ AI 분석 시작
           <div className="progress-content">
             <div className="loading-spinner">
               <img 
-                src={WELLO_LOGO_IMAGE}
+                src={WELNO_LOGO_IMAGE}
                 alt="분석 중" 
-                className="wello-icon-blink"
+                className="welno-icon-blink"
               />
             </div>
             <div className="progress-info">

@@ -54,8 +54,8 @@ async def get_patient_info(conn, uuid: str, hospital_id: str) -> Optional[Dict[s
         SELECT 
             p.id, p.uuid, p.hospital_id, p.name, p.birth_date, p.gender,
             h.hospital_name
-        FROM wello.wello_patients p
-        LEFT JOIN wello.wello_hospitals h ON p.hospital_id = h.hospital_id
+        FROM welno.welno_patients p
+        LEFT JOIN welno.welno_hospitals h ON p.hospital_id = h.hospital_id
         WHERE p.uuid = $1 AND p.hospital_id = $2
     """
     row = await conn.fetchrow(query, uuid, hospital_id)
@@ -84,7 +84,7 @@ async def get_latest_design_request(conn, patient_id: int) -> Optional[Dict[str,
             additional_concerns,
             design_result,
             created_at
-        FROM wello.wello_checkup_design_requests
+        FROM welno.welno_checkup_design_requests
         WHERE patient_id = $1
         ORDER BY created_at DESC
         LIMIT 1
@@ -113,9 +113,9 @@ async def get_health_data(conn, uuid: str, hospital_id: str) -> List[Dict[str, A
             year,
             checkup_date,
             location
-        FROM wello.wello_checkup_data
+        FROM welno.welno_checkup_data
         WHERE patient_id = (
-            SELECT id FROM wello.wello_patients 
+            SELECT id FROM welno.welno_patients 
             WHERE uuid = $1 AND hospital_id = $2
         )
         ORDER BY year DESC, checkup_date DESC
@@ -133,9 +133,9 @@ async def get_prescription_data(conn, uuid: str, hospital_id: str) -> List[Dict[
             raw_data,
             prescription_date,
             hospital_name
-        FROM wello.wello_prescription_data
+        FROM welno.welno_prescription_data
         WHERE patient_id = (
-            SELECT id FROM wello.wello_patients 
+            SELECT id FROM welno.welno_patients 
             WHERE uuid = $1 AND hospital_id = $2
         )
         ORDER BY prescription_date DESC

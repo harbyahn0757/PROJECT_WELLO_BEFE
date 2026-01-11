@@ -46,7 +46,7 @@ async def list_optional_checkup_items():
                 is_active,
                 created_at,
                 updated_at
-            FROM wello.wello_external_checkup_items
+            FROM welno.welno_external_checkup_items
             WHERE category = 'optional' AND is_active = true
             ORDER BY sub_category, difficulty_level, item_name
         """)

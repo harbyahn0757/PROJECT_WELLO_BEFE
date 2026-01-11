@@ -31,7 +31,7 @@ async def check_patient_data(uuid: str, hospital_id: str):
             SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
                    has_health_data, has_prescription_data, last_data_update, last_auth_at,
                    created_at, updated_at
-            FROM wello.wello_patients 
+            FROM welno.welno_patients 
             WHERE uuid = $1 AND hospital_id = $2
         """
         patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
@@ -55,7 +55,7 @@ async def check_patient_data(uuid: str, hospital_id: str):
         # 2. 건강검진 데이터 개수 확인
         health_count_query = """
             SELECT COUNT(*) 
-            FROM wello.wello_checkup_data 
+            FROM welno.welno_checkup_data 
             WHERE patient_uuid = $1 AND hospital_id = $2
         """
         health_count = await conn.fetchval(health_count_query, uuid, hospital_id)
@@ -67,7 +67,7 @@ async def check_patient_data(uuid: str, hospital_id: str):
             # 최신 건강검진 데이터 샘플
             health_sample_query = """
                 SELECT year, checkup_date, location, code, description, collected_at
-                FROM wello.wello_checkup_data 
+                FROM welno.welno_checkup_data 
                 WHERE patient_uuid = $1 AND hospital_id = $2
                 ORDER BY collected_at DESC
                 LIMIT 3
@@ -81,7 +81,7 @@ async def check_patient_data(uuid: str, hospital_id: str):
         # 3. 처방전 데이터 개수 확인
         prescription_count_query = """
             SELECT COUNT(*) 
-            FROM wello.wello_prescription_data 
+            FROM welno.welno_prescription_data 
             WHERE patient_uuid = $1 AND hospital_id = $2
         """
         prescription_count = await conn.fetchval(prescription_count_query, uuid, hospital_id)
@@ -93,7 +93,7 @@ async def check_patient_data(uuid: str, hospital_id: str):
             # 최신 처방전 데이터 샘플
             prescription_sample_query = """
                 SELECT hospital_name, treatment_date, treatment_type, collected_at
-                FROM wello.wello_prescription_data 
+                FROM welno.welno_prescription_data 
                 WHERE patient_uuid = $1 AND hospital_id = $2
                 ORDER BY collected_at DESC
                 LIMIT 3
@@ -110,7 +110,7 @@ async def check_patient_data(uuid: str, hospital_id: str):
         try:
             history_count_query = """
                 SELECT COUNT(*) 
-                FROM wello.wello_collection_history 
+                FROM welno.welno_collection_history 
                 WHERE patient_id = $1
             """
             history_count = await conn.fetchval(history_count_query, patient_id)

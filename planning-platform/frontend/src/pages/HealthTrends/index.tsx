@@ -3,7 +3,7 @@
  * 시계열 데이터 기반 건강 상태 변화 추적
  */
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import useGlobalSessionDetection from '../../hooks/useGlobalSessionDetection';
 import LineChart from '../../components/charts/LineChart';
 import BarChart from '../../components/charts/BarChart';
@@ -14,6 +14,8 @@ import {
   extractNumericValue
 } from '../../utils/healthDataTransformers';
 import { TilkoHealthCheckupRaw, FilterState } from '../../types/health';
+import { API_ENDPOINTS } from '../../config/api';
+import { syncHealthData } from '../../utils/dataSync';
 import './styles.scss';
 
 interface TrendAnalysis {
@@ -25,6 +27,7 @@ interface TrendAnalysis {
 
 const HealthTrends: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
 
   // 전역 세션 감지
@@ -32,7 +35,7 @@ const HealthTrends: React.FC = () => {
   const [healthData, setHealthData] = useState<TilkoHealthCheckupRaw[]>([]);
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['공복혈당', '총콜레스테롤', '혈압(최고/최저)']);
   const [filters, setFilters] = useState<FilterState>({
-    year: new Date().getFullYear(),
+    year: 0, // 전체 연도 표시
     category: 'all',
     searchTerm: '',
     hospitalName: ''
@@ -46,25 +49,120 @@ const HealthTrends: React.FC = () => {
     '중성지방', '혈색소', '혈청크레아티닌'
   ];
 
-  // 데이터 로드
+  // 데이터 로드 (동기화 포함)
   useEffect(() => {
-    const loadHealthData = () => {
+    const loadHealthData = async () => {
       try {
-        const storedData = localStorage.getItem('wello_health_data');
-        if (storedData) {
-          const parsedData = JSON.parse(storedData);
-          const healthCheckups = parsedData.health_data?.ResultList || [];
-          setHealthData(healthCheckups);
+        // URL 파라미터에서 환자 정보 추출
+        const urlParams = new URLSearchParams(location.search);
+        const uuid = urlParams.get('uuid');
+        const hospitalId = urlParams.get('hospital_id') || urlParams.get('hospitalId') || urlParams.get('hospital');
+        
+        console.log('[HealthTrends] 데이터 동기화 시작:', { uuid, hospitalId });
+        
+        // 1. URL 파라미터가 있으면 동기화 유틸리티 사용
+        if (uuid && hospitalId) {
+          try {
+            const syncResult = await syncHealthData(uuid, hospitalId, {
+              cacheExpiry: 5 * 60 * 1000, // 5분 캐시
+              forceRefresh: false, // 조건부 요청 사용
+            });
+            
+            console.log('[HealthTrends] 동기화 결과:', {
+              method: syncResult.syncMethod,
+              updated: syncResult.updated,
+              hasData: !!(syncResult.data?.health_data && syncResult.data.health_data.length > 0)
+            });
+            
+            if (syncResult.data?.health_data && syncResult.data.health_data.length > 0) {
+              // API 응답 형식에 맞게 변환
+              const healthCheckups = syncResult.data.health_data.map((item: any) => {
+                const rawData = item.raw_data || item;
+                return {
+                  Code: rawData.Code,
+                  Year: rawData.Year,
+                  Location: rawData.Location,
+                  CheckUpDate: rawData.CheckUpDate,
+                  Description: rawData.Description,
+                  Inspections: rawData.Inspections || []
+                };
+              });
+              
+              setHealthData(healthCheckups);
+              
+              // 기존 localStorage 키도 업데이트 (호환성)
+              const dataToStore = {
+                health_data: { ResultList: healthCheckups },
+                prescription_data: syncResult.data.prescription_data || [],
+                patient: syncResult.data.patient
+              };
+              localStorage.setItem('welno_health_data', JSON.stringify(dataToStore));
+              
+              setLoading(false);
+              return;
+            }
+            console.log('[HealthTrends] 서버 데이터가 비어있음 - 로컬 DB 확인 시도');
+          } catch (syncError) {
+            console.error('[HealthTrends] 동기화 에러:', syncError);
+          }
         }
+        
+        // 2. 동기화 실패 시 로컬 DB(IndexedDB)에서 로드 (폴백)
+        try {
+          const { WelnoIndexedDB } = await import('../../services/WelnoIndexedDB');
+          const indexedData = await WelnoIndexedDB.getHealthData(uuid || 'default');
+          
+          if (indexedData && indexedData.healthData && indexedData.healthData.length > 0) {
+            console.log('[HealthTrends] IndexedDB에서 데이터 로드 (폴백):', indexedData.healthData.length, '건');
+            
+            const healthCheckups = indexedData.healthData.map((item: any) => {
+              const rawData = item.raw_data || item;
+              return {
+                Code: rawData.Code,
+                Year: rawData.Year,
+                Location: rawData.Location,
+                CheckUpDate: rawData.CheckUpDate,
+                Description: rawData.Description,
+                Inspections: rawData.Inspections || []
+              };
+            });
+            
+            setHealthData(healthCheckups);
+            setLoading(false);
+            return;
+          }
+        } catch (dbError) {
+          console.warn('[HealthTrends] IndexedDB 조회 실패:', dbError);
+        }
+
+        // 3. 마지막 수단으로 localStorage 확인
+        const storedData = localStorage.getItem('welno_health_data');
+        if (storedData) {
+          try {
+            const parsedData = JSON.parse(storedData);
+            const healthCheckups = parsedData.health_data?.ResultList || [];
+            if (healthCheckups.length > 0) {
+              console.log('[HealthTrends] localStorage에서 데이터 로드 (최후 폴백):', healthCheckups.length, '건');
+              setHealthData(healthCheckups);
+              setLoading(false);
+              return;
+            }
+          } catch (e) {}
+        }
+        
+        // 4. 정말 데이터 없음
+        console.log('[HealthTrends] 최종적으로 데이터 없음');
+        setHealthData([]);
       } catch (error) {
-        console.error('건강 데이터 로드 실패:', error);
+        console.error('[HealthTrends] 데이터 로드 실패:', error);
+        setHealthData([]);
       } finally {
         setLoading(false);
       }
     };
 
     loadHealthData();
-  }, []);
+  }, [location.search]);
 
   // 필터링된 데이터
   const filteredData = useMemo(() => {
@@ -198,8 +296,8 @@ const HealthTrends: React.FC = () => {
           <h2>건강 데이터가 없습니다</h2>
           <p>추이 분석을 위해서는 최소 2회 이상의 검진 데이터가 필요합니다.</p>
           <button 
-            className="wello-button wello-button-primary"
-            onClick={() => navigate('/wello/login')}
+            className="welno-button welno-button-primary"
+            onClick={() => navigate('/welno/login')}
           >
             건강정보 연동하기
           </button>

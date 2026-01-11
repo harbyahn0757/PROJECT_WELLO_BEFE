@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useWelloData } from '../../../contexts/WelloDataContext';
+import { useWelnoData } from '../../../contexts/WelnoDataContext';
 import { analyzePrescriptionPatterns, formatEffectPatternMessage, MedicationEffectPattern } from '../../../utils/prescriptionPatternAnalyzer';
 import { ChatMessage, ChatOption, ChatStep, ChatInterfaceState } from './types';
 import ChatMessageComponent from './ChatMessage';
@@ -14,7 +14,7 @@ import CheckupCard from './CheckupCard';
 import HealthTrendsHeader from '../../health/HealthTrendsHeader';
 import CheckupDesignSurveyPanel, { SurveyResponses } from '../CheckupDesignSurveyPanel';
 import { InteractionEvent } from '../CheckupDesignSurveyPanel/useSurveyTracker';
-import { WELLO_LOGO_IMAGE } from '../../../constants/images';
+import { WELNO_LOGO_IMAGE } from '../../../constants/images';
 import './styles.scss';
 
 // 메시지 딜레이 상수 (모든 버블이 동일한 템포로 표시)
@@ -41,8 +41,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state: welloState } = useWelloData();
-  const patientName = welloState.patient?.name || '';
+  const { state: welnoState } = useWelnoData();
+  const patientName = welnoState.patient?.name || '';
   const [state, setState] = useState<ChatInterfaceState>({
     currentStep: 'prescription_analysis',
     messages: [],
@@ -936,9 +936,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <div className={`chat-interface__thinking chat-interface__thinking--left ${isSpinnerFadingOut ? 'fade-out' : ''}`}>
               <div className="chat-interface__thinking-spinner">
                 <img
-                  src={WELLO_LOGO_IMAGE}
+                  src={WELNO_LOGO_IMAGE}
                   alt="로딩 중"
-                  className="chat-interface__thinking-wello-icon wello-icon-blink"
+                  className="chat-interface__thinking-welno-icon welno-icon-blink"
                 />
               </div>
               {thinkingText && (
@@ -952,9 +952,9 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             <div className="chat-interface__thinking chat-interface__thinking--right">
               <div className="chat-interface__thinking-spinner">
                 <img
-                  src={WELLO_LOGO_IMAGE}
+                  src={WELNO_LOGO_IMAGE}
                   alt="로딩 중"
-                  className="chat-interface__thinking-wello-icon wello-icon-blink"
+                  className="chat-interface__thinking-welno-icon welno-icon-blink"
                 />
               </div>
               {thinkingText && (

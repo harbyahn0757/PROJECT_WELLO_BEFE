@@ -44,7 +44,7 @@ async def list_all_external_checkup():
                 is_active,
                 created_at,
                 updated_at
-            FROM wello.wello_external_checkup_items
+            FROM welno.welno_external_checkup_items
             WHERE is_active = true
             ORDER BY category, sub_category, difficulty_level, item_name
         """)

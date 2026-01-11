@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useWelloData } from '../contexts/WelloDataContext';
+import { useWelnoData } from '../contexts/WelnoDataContext';
 import ConcernSelection from '../components/checkup-design/ConcernSelection';
 import ChatInterface from '../components/checkup-design/ChatInterface';
 import checkupDesignService, { Step1Result, CheckupDesignStep2Request } from '../services/checkupDesignService';
@@ -12,7 +12,7 @@ import './CheckupDesignPage.scss';
 const CheckupDesignPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { state } = useWelloData();
+  const { state } = useWelnoData();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState('건강 데이터를 불러오는 중...');

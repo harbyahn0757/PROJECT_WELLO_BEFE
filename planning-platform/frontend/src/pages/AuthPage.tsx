@@ -19,7 +19,7 @@ const AuthPage: React.FC = () => {
     
     if (from) {
       console.log('↩️ [인증페이지] 이전 페이지로 이동:', from);
-      const targetUrl = `${window.location.origin}/wello${from}`;
+      const targetUrl = `${window.location.origin}/welno${from}`;
       window.location.href = targetUrl;
     } else if (uuid && hospital) {
       console.log('↩️ [인증페이지] UUID와 hospital로 메인 페이지로 이동');

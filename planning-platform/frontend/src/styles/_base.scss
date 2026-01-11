@@ -290,10 +290,10 @@ img {
 }
 
 // 페이지 전환 간 스피너 이미지 통일 스타일
-.wello-icon-blink,
-.spinner-icon.wello-icon-blink,
-.loading-spinner .wello-icon-blink,
-.loading-spinner img[src*="wello-icon"] {
+.welno-icon-blink,
+.spinner-icon.welno-icon-blink,
+.loading-spinner .welno-icon-blink,
+.loading-spinner img[src*="welno-icon"] {
   width: 48px;
   height: 48px;
   object-fit: contain;

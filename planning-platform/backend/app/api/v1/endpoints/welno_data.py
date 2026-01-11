@@ -39,40 +39,89 @@ async def get_patient_health_data(
     try:
         result = await welno_data_service.get_patient_health_data(uuid, hospital_id)
         
+        # 🔍 [API 로그] 서비스 함수 결과 확인
+        print(f"🔍 [API /patient-health-data] 서비스 함수 결과:")
+        print(f"  - health_data 개수: {len(result.get('health_data', []))}")
+        print(f"  - prescription_data 개수: {len(result.get('prescription_data', []))}")
+        print(f"  - error 존재: {'error' in result}")
+        
         if "error" in result:
             raise HTTPException(status_code=404, detail=result["error"])
         
-        # 데이터 해시 생성 (ETag용)
-        data_str = json.dumps(result, sort_keys=True, ensure_ascii=False)
-        data_hash = hashlib.sha256(data_str.encode('utf-8')).hexdigest()
-        etag = f'"{data_hash}"'
-        
-        # Last-Modified 헤더 (마지막 업데이트 시간)
-        last_update = result.get('last_update')
+        # Last-Modified 헤더 (마지막 업데이트 시간) - result에서 가져오기
+        last_update = result.get('patient', {}).get('last_data_update') or result.get('last_update')
         if last_update:
             if isinstance(last_update, str):
-                last_modified = datetime.fromisoformat(last_update.replace('Z', '+00:00'))
-            else:
+                try:
+                    last_modified = datetime.fromisoformat(last_update.replace('Z', '+00:00'))
+                except:
+                    last_modified = datetime.now()
+            elif isinstance(last_update, datetime):
                 last_modified = last_update
+            else:
+                last_modified = datetime.now()
         else:
             last_modified = datetime.now()
         
-        # 조건부 요청 처리
+        # 데이터 해시 생성 (ETag용) - last_update 이후에 생성
+        def json_serializer(obj):
+            if isinstance(obj, (datetime, date)):
+                return obj.isoformat()
+            elif hasattr(obj, '__dict__'):
+                return obj.__dict__
+            else:
+                return str(obj)
+        
+        try:
+            data_str = json.dumps(result, sort_keys=True, ensure_ascii=False, default=json_serializer)
+            data_hash = hashlib.sha256(data_str.encode('utf-8')).hexdigest()
+            etag = f'"{data_hash}"'
+            print(f"✅ [API /patient-health-data] JSON 직렬화 성공, 데이터 길이: {len(data_str)} 문자")
+        except Exception as json_err:
+            print(f"❌ [API /patient-health-data] JSON 직렬화 실패: {json_err}")
+            import traceback
+            traceback.print_exc()
+            # JSON 직렬화 실패 시 기본 응답 반환
+            return {
+                "success": True,
+                "data": {
+                    "patient": result.get("patient", {}),
+                    "health_data": result.get("health_data", []),  # 빈 배열이 아닌 실제 데이터
+                    "prescription_data": result.get("prescription_data", [])
+                }
+            }
+        
+        # 조건부 요청 처리 (데이터가 변경되었을 때만 304 반환)
         if_none_match = request.headers.get('If-None-Match')
         if_modified_since = request.headers.get('If-Modified-Since')
         
-        # ETag 비교 (304 Not Modified)
-        if if_none_match and if_none_match == etag:
-            return Response(status_code=304)
+        # ETag 비교 (304 Not Modified) - 정확한 ETag 비교만 수행
+        if if_none_match and if_none_match.strip('"') == etag.strip('"'):
+            print(f"⚠️ [API /patient-health-data] 304 Not Modified (ETag 일치)")
+            return Response(status_code=304, headers={
+                "ETag": etag,
+                "Cache-Control": "private, max-age=300"
+            })
         
-        # Last-Modified 비교 (304 Not Modified)
+        # Last-Modified 비교 (304 Not Modified) - 정확한 비교만 수행
         if if_modified_since and last_update:
             try:
                 if_modified_dt = datetime.strptime(if_modified_since, '%a, %d %b %Y %H:%M:%S %Z')
                 if last_modified <= if_modified_dt:
-                    return Response(status_code=304)
-            except:
+                    print(f"⚠️ [API /patient-health-data] 304 Not Modified (Last-Modified)")
+                    return Response(status_code=304, headers={
+                        "ETag": etag,
+                        "Last-Modified": last_modified.strftime('%a, %d %b %Y %H:%M:%S GMT'),
+                        "Cache-Control": "private, max-age=300"
+                    })
+            except Exception as date_parse_err:
+                print(f"⚠️ [API /patient-health-data] Last-Modified 파싱 실패, 무시: {date_parse_err}")
                 pass  # 파싱 실패 시 무시하고 전체 데이터 반환
+        
+        # 🔍 [API 로그] 응답 데이터 확인
+        print(f"🔍 [API /patient-health-data] 응답 데이터 구조:")
+        print(f"  - result.health_data 개수: {len(result.get('health_data', []))}")
+        print(f"  - result.prescription_data 개수: {len(result.get('prescription_data', []))}")
         
         # 응답 생성 (헤더 포함)
         response_data = {
@@ -80,17 +129,60 @@ async def get_patient_health_data(
             "data": result
         }
         
-        response = Response(
-            content=json.dumps(response_data, ensure_ascii=False),
-            media_type="application/json",
-            headers={
-                "ETag": etag,
-                "Last-Modified": last_modified.strftime('%a, %d %b %Y %H:%M:%S GMT'),
-                "Cache-Control": "private, max-age=300",  # 5분 캐시
-            }
-        )
+        print(f"🔍 [API /patient-health-data] response_data 생성 후:")
+        print(f"  - response_data.data.health_data 개수: {len(response_data['data'].get('health_data', []))}")
+        print(f"  - response_data.data.prescription_data 개수: {len(response_data['data'].get('prescription_data', []))}")
         
-        return response
+        try:
+            # JSON 직렬화 전에 데이터 확인
+            health_data_list = response_data['data'].get('health_data', [])
+            print(f"🔍 [API /patient-health-data] JSON 직렬화 전 health_data_list 타입: {type(health_data_list)}, 길이: {len(health_data_list)}")
+            if health_data_list:
+                print(f"  - 첫 번째 항목 타입: {type(health_data_list[0])}")
+                print(f"  - 첫 번째 항목 키: {list(health_data_list[0].keys())[:10] if isinstance(health_data_list[0], dict) else 'N/A'}")
+            
+            # JSON 직렬화를 위한 커스텀 default 함수
+            def json_serializer(obj):
+                if isinstance(obj, (datetime, date)):
+                    return obj.isoformat()
+                elif hasattr(obj, '__dict__'):
+                    return obj.__dict__
+                else:
+                    return str(obj)
+            
+            response_content = json.dumps(response_data, ensure_ascii=False, default=json_serializer)
+            print(f"✅ [API /patient-health-data] 응답 JSON 직렬화 성공, 길이: {len(response_content)} 문자")
+            
+            # 직렬화된 JSON을 다시 파싱해서 확인
+            parsed_back = json.loads(response_content)
+            print(f"🔍 [API /patient-health-data] JSON 파싱 후 확인:")
+            print(f"  - parsed_back.data.health_data 개수: {len(parsed_back.get('data', {}).get('health_data', []))}")
+            print(f"  - parsed_back.data.prescription_data 개수: {len(parsed_back.get('data', {}).get('prescription_data', []))}")
+            
+            response = Response(
+                content=response_content,
+                media_type="application/json",
+                headers={
+                    "ETag": etag,
+                    "Last-Modified": last_modified.strftime('%a, %d %b %Y %H:%M:%S GMT'),
+                    "Cache-Control": "private, max-age=300",  # 5분 캐시
+                }
+            )
+            
+            return response
+        except Exception as json_err:
+            print(f"❌ [API /patient-health-data] 응답 JSON 직렬화 실패: {json_err}")
+            import traceback
+            traceback.print_exc()
+            # JSON 직렬화 실패 시 기본 응답 반환
+            return {
+                "success": True,
+                "data": {
+                    "patient": result.get("patient", {}),
+                    "health_data": result.get("health_data", []),  # 빈 배열이 아닌 실제 데이터
+                    "prescription_data": result.get("prescription_data", [])
+                }
+            }
     except HTTPException:
         raise
     except Exception as e:
@@ -172,25 +264,58 @@ async def login_patient(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"로그인 실패: {str(e)}")
 
-@router.post("/tilko/session/{session_id}/collect-data")
-async def collect_tilko_data(
-    session_id: str
+@router.post("/upload-health-data")
+async def upload_health_data(
+    uuid: str = Query(..., description="환자 UUID"),
+    hospital_id: str = Query(..., description="병원 ID"),
+    health_record: Dict[str, Any] = Body(..., description="건강 데이터 레코드")
 ) -> Dict[str, Any]:
-    """Tilko 세션으로부터 건강 데이터 수집"""
+    """IndexedDB의 데이터를 서버로 업로드"""
     try:
-        result = await welno_data_service.collect_tilko_data(session_id)
+        # 1. 환자 정보 업데이트/확인
+        user_info = {
+            "name": health_record.get("patientName"),
+            "phone_number": health_record.get("phone"),
+            "birth_date": health_record.get("birthday"),
+            "gender": health_record.get("gender")
+        }
+        await welno_data_service.save_patient_data(uuid, hospital_id, user_info, "")
         
-        if "error" in result:
-            raise HTTPException(status_code=400, detail=result["error"])
-        
+        # 2. 건강검진 데이터 저장
+        health_saved = False
+        health_count = 0
+        if health_record.get("healthData"):
+            health_data_list = health_record["healthData"]
+            if isinstance(health_data_list, list) and len(health_data_list) > 0:
+                health_saved = await welno_data_service.save_health_data(uuid, hospital_id, {"ResultList": health_data_list}, "")
+                health_count = len(health_data_list)
+                print(f"📊 [데이터업로드] 건강검진 데이터 저장: {health_count}건, 성공: {health_saved}")
+            else:
+                print(f"⚠️ [데이터업로드] 건강검진 데이터가 비어있거나 형식 오류: {type(health_data_list)}")
+            
+        # 3. 처방전 데이터 저장
+        prescription_saved = False
+        prescription_count = 0
+        if health_record.get("prescriptionData"):
+            prescription_data_list = health_record["prescriptionData"]
+            if isinstance(prescription_data_list, list) and len(prescription_data_list) > 0:
+                prescription_saved = await welno_data_service.save_prescription_data(uuid, hospital_id, {"ResultList": prescription_data_list}, "")
+                prescription_count = len(prescription_data_list)
+                print(f"📊 [데이터업로드] 처방전 데이터 저장: {prescription_count}건, 성공: {prescription_saved}")
+            else:
+                print(f"⚠️ [데이터업로드] 처방전 데이터가 비어있거나 형식 오류: {type(prescription_data_list)}")
+            
         return {
             "success": True,
-            "data": result
+            "message": "데이터가 성공적으로 업로드되었습니다.",
+            "health_data_saved": health_saved,
+            "health_data_count": health_count,
+            "prescription_data_saved": prescription_saved,
+            "prescription_data_count": prescription_count
         }
-    except HTTPException:
-        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"데이터 수집 실패: {str(e)}")
+        print(f"❌ [데이터업로드] 실패: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/health-trends")
 async def get_health_trends(

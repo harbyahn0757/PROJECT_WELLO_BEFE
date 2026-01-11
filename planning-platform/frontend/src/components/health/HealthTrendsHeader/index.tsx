@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useRef } from 'react';
 import BackButton from '../../shared/BackButton';
-import WelloModal from '../../common/WelloModal';
+import WelnoModal from '../../common/WelnoModal';
 import './styles.scss';
 import './refresh-modal.scss';
 
@@ -174,13 +174,13 @@ const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
       </div>
 
       {/* 새로고침 확인 다이얼로그 */}
-      <WelloModal
+      <WelnoModal
         isOpen={showRefreshModal}
         onClose={handleRefreshCancel}
         showCloseButton={true}
-        showWelloIcon={false}
+        showWelnoIcon={false}
         size="medium"
-        className="wello-modal--white"
+        className="welno-modal--white"
       >
         <div className="health-trends-refresh-modal">
           <h2 className="health-trends-refresh-modal__title">
@@ -218,7 +218,7 @@ const HealthTrendsHeader: React.FC<HealthTrendsHeaderProps> = ({
             </button>
           </div>
         </div>
-      </WelloModal>
+      </WelnoModal>
     </>
   );
 };

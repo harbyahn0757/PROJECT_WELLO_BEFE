@@ -163,8 +163,18 @@ async def get_health_screening_data(
             print(f"   - ErrMsg: {result.get('ErrMsg', 'Unknown')}")
             print(f"   - 전체 응답: {result}")
         
-        if result.get("ResultList"):
-            print(f"🏥 [건강검진API] 검진 기록 수: {len(result['ResultList'])}")
+        # ResultList 상태 상세 로깅 (빈 배열도 포함)
+        result_list = result.get("ResultList")
+        if result_list is None:
+            print(f"⚠️ [건강검진API] ResultList가 없음 (None)")
+        elif isinstance(result_list, list):
+            print(f"🏥 [건강검진API] 검진 기록 수: {len(result_list)}건")
+            if len(result_list) == 0:
+                print(f"⚠️ [건강검진API] ResultList가 빈 배열입니다!")
+                print(f"   - 전체 응답 키: {list(result.keys())}")
+                print(f"   - Status: {result.get('Status')}")
+        else:
+            print(f"⚠️ [건강검진API] ResultList가 리스트가 아님: {type(result_list)}")
         
         return result
 
@@ -300,8 +310,18 @@ async def get_prescription_data(
             print(f"   - ErrMsg: {result.get('ErrMsg', 'Unknown')}")
             print(f"   - 전체 응답: {result}")
         
-        if result.get("ResultList"):
-            print(f"💊 [처방전API] 처방전 기록 수: {len(result['ResultList'])}")
+        # ResultList 상태 상세 로깅 (빈 배열도 포함)
+        result_list = result.get("ResultList")
+        if result_list is None:
+            print(f"⚠️ [처방전API] ResultList가 없음 (None)")
+        elif isinstance(result_list, list):
+            print(f"💊 [처방전API] 처방전 기록 수: {len(result_list)}건")
+            if len(result_list) == 0:
+                print(f"⚠️ [처방전API] ResultList가 빈 배열입니다!")
+                print(f"   - 전체 응답 키: {list(result.keys())}")
+                print(f"   - Status: {result.get('Status')}")
+        else:
+            print(f"⚠️ [처방전API] ResultList가 리스트가 아님: {type(result_list)}")
         
         return result
 

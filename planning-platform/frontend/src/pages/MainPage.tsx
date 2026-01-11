@@ -396,11 +396,34 @@ const MainPage: React.FC = () => {
   // 데이터 존재 여부 확인 (건강검진 데이터만 체크 - 검진결과추이용)
   const checkHasData = async (uuid: string, hospitalId: string): Promise<boolean> => {
     try {
+      // 1순위: IndexedDB 확인 (로컬 데이터 우선)
+      try {
+        const { WelnoIndexedDB } = await import('../services/WelnoIndexedDB');
+        const indexedData = await WelnoIndexedDB.getHealthData(uuid);
+        if (indexedData && indexedData.healthData && indexedData.healthData.length > 0) {
+          console.log('[데이터확인] IndexedDB에서 데이터 발견:', {
+            healthDataCount: indexedData.healthData.length,
+            prescriptionDataCount: indexedData.prescriptionData?.length || 0
+          });
+          return true;
+        }
+      } catch (indexedError) {
+        console.warn('[데이터확인] IndexedDB 확인 실패:', indexedError);
+      }
+      
+      // 2순위: 서버 DB 확인
       const response = await fetch(API_ENDPOINTS.CHECK_EXISTING_DATA(uuid, hospitalId));
       if (response.ok) {
         const result = await response.json();
         // 검진결과추이는 건강검진 데이터만 체크 (처방전 데이터는 제외)
-        return result.data && result.data.exists && result.data.health_data_count > 0;
+        const hasServerData = result.data && result.data.exists && result.data.health_data_count > 0;
+        if (hasServerData) {
+          console.log('[데이터확인] 서버 DB에서 데이터 발견:', {
+            healthDataCount: result.data.health_data_count,
+            prescriptionDataCount: result.data.prescription_data_count || 0
+          });
+        }
+        return hasServerData;
       }
     } catch (error) {
       console.warn('[데이터확인] 실패:', error);

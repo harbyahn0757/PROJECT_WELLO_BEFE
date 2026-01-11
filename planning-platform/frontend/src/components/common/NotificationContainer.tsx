@@ -1,9 +1,9 @@
 import React from 'react';
-import { useWelloData } from '../../contexts/WelloDataContext';
+import { useWelnoData } from '../../contexts/WelnoDataContext';
 import NotificationToast from './NotificationToast';
 
 const NotificationContainer: React.FC = () => {
-  const { state, actions } = useWelloData();
+  const { state, actions } = useWelnoData();
   const { notifications } = state;
   const { removeNotification } = actions;
 

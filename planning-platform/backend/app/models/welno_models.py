@@ -15,7 +15,7 @@ Base = declarative_base()
 
 class WelnoPatient(Base):
     """환자 기본정보 테이블"""
-    __tablename__ = "wello_patients"  # DB 스키마는 유지
+    __tablename__ = "welno_patients"
     
     # 기본 식별자
     id = Column(Integer, primary_key=True, index=True)
@@ -45,25 +45,28 @@ class WelnoPatient(Base):
     password_locked_until = Column(DateTime(timezone=True), nullable=True)  # 잠금 해제 시간
     last_access_at = Column(DateTime(timezone=True), nullable=True)  # 마지막 접근 시간
     
+    # 🧠 페르소나 및 채팅 분석 데이터
+    chat_persona_data = Column(JSON, nullable=True)  # 채팅 기반 페르소나 분석 결과
+    
     # 메타데이터
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # 관계
-    checkup_data = relationship("WelloCheckupData", back_populates="patient", cascade="all, delete-orphan")
-    prescription_data = relationship("WelloPrescriptionData", back_populates="patient", cascade="all, delete-orphan")
-    collection_history = relationship("WelloCollectionHistory", back_populates="patient", cascade="all, delete-orphan")
+    checkup_data = relationship("WelnoCheckupData", back_populates="patient", cascade="all, delete-orphan")
+    prescription_data = relationship("WelnoPrescriptionData", back_populates="patient", cascade="all, delete-orphan")
+    collection_history = relationship("WelnoCollectionHistory", back_populates="patient", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<WelnoPatient(uuid={self.uuid}, name={self.name}, hospital={self.hospital_id})>"
 
-class WelloCheckupData(Base):
+class WelnoCheckupData(Base):
     """건강검진 데이터 테이블"""
-    __tablename__ = "wello_checkup_data"
+    __tablename__ = "welno_checkup_data"
     
     # 기본 식별자
     id = Column(Integer, primary_key=True, index=True)
-    patient_id = Column(Integer, ForeignKey("wello_patients.id"), nullable=False)
+    patient_id = Column(Integer, ForeignKey("welno_patients.id"), nullable=False)
     
     # Tilko API 응답 필드 매핑
     year = Column(String(10), nullable=True)  # "2021년"
@@ -92,15 +95,15 @@ class WelloCheckupData(Base):
     patient = relationship("WelnoPatient", back_populates="checkup_data")
     
     def __repr__(self):
-        return f"<WelloCheckupData(patient_id={self.patient_id}, year={self.year}, date={self.checkup_date})>"
+        return f"<WelnoCheckupData(patient_id={self.patient_id}, year={self.year}, date={self.checkup_date})>"
 
-class WelloPrescriptionData(Base):
+class WelnoPrescriptionData(Base):
     """처방전 데이터 테이블"""
-    __tablename__ = "wello_prescription_data"
+    __tablename__ = "welno_prescription_data"
     
     # 기본 식별자
     id = Column(Integer, primary_key=True, index=True)
-    patient_id = Column(Integer, ForeignKey("wello_patients.id"), nullable=False)
+    patient_id = Column(Integer, ForeignKey("welno_patients.id"), nullable=False)
     
     # Tilko API 응답 필드 매핑
     idx = Column(String(10), nullable=True)  # "1"
@@ -127,17 +130,17 @@ class WelloPrescriptionData(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
     # 관계
-    patient = relationship("WelloPatient", back_populates="prescription_data")
+    patient = relationship("WelnoPatient", back_populates="prescription_data")
     
     def __repr__(self):
-        return f"<WelloPrescriptionData(patient_id={self.patient_id}, hospital={self.hospital_name}, date={self.treatment_date})>"
+        return f"<WelnoPrescriptionData(patient_id={self.patient_id}, hospital={self.hospital_name}, date={self.treatment_date})>"
 
-class WelloCollectionHistory(Base):
+class WelnoCollectionHistory(Base):
     """데이터 수집 이력 테이블"""
-    __tablename__ = "wello_collection_history"
+    __tablename__ = "welno_collection_history"
     
     id = Column(Integer, primary_key=True, index=True)
-    patient_id = Column(Integer, ForeignKey("wello_patients.id"), nullable=False)
+    patient_id = Column(Integer, ForeignKey("welno_patients.id"), nullable=False)
     
     # 수집 정보
     collection_type = Column(String(20), nullable=False)  # 'health', 'prescription', 'both'
@@ -154,10 +157,10 @@ class WelloCollectionHistory(Base):
     completed_at = Column(DateTime(timezone=True), nullable=True)
     
     # 관계
-    patient = relationship("WelloPatient", back_populates="collection_history")
+    patient = relationship("WelnoPatient", back_populates="collection_history")
     
     def __repr__(self):
-        return f"<WelloCollectionHistory(patient_id={self.patient_id}, type={self.collection_type}, success={self.success})>"
+        return f"<WelnoCollectionHistory(patient_id={self.patient_id}, type={self.collection_type}, success={self.success})>"
 
 # Pydantic 모델 (API 응답용)
 class WelnoPatientResponse(BaseModel):
@@ -177,7 +180,7 @@ class WelnoPatientResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class WelloCheckupDataResponse(BaseModel):
+class WelnoCheckupDataResponse(BaseModel):
     """건강검진 데이터 응답 모델"""
     id: int
     year: Optional[str]
@@ -196,7 +199,7 @@ class WelloCheckupDataResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class WelloPrescriptionDataResponse(BaseModel):
+class WelnoPrescriptionDataResponse(BaseModel):
     """처방전 데이터 응답 모델"""
     id: int
     hospital_name: Optional[str]
@@ -212,11 +215,11 @@ class WelloPrescriptionDataResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class WelloHealthDataSummary(BaseModel):
+class WelnoHealthDataSummary(BaseModel):
     """건강정보 요약 응답 모델"""
     patient: WelnoPatientResponse
-    checkup_data: List[WelloCheckupDataResponse]
-    prescription_data: List[WelloPrescriptionDataResponse]
+    checkup_data: List[WelnoCheckupDataResponse]
+    prescription_data: List[WelnoPrescriptionDataResponse]
     total_checkups: int
     total_prescriptions: int
     last_update: Optional[datetime]

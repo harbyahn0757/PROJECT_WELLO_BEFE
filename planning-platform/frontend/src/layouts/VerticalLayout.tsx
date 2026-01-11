@@ -24,7 +24,7 @@ interface VerticalLayoutProps {
  */
 const VerticalLayout: React.FC<VerticalLayoutProps> = ({
   children,
-  headerImage = "/wello/doctor-image.png",
+  headerImage = "/welno/doctor-image.png",
   headerImageAlt = "의사가 정면으로 청진기를 들고 있는 전문적인 의료 배경 이미지",
   headerSlogan = "행복한 건강생활의 평생 동반자",
   headerLogoTitle = "김현우내과의원",

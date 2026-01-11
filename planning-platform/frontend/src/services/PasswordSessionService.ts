@@ -319,7 +319,7 @@ export class PasswordSessionService {
       keys.forEach(key => {
         if (key === STORAGE_KEYS.PASSWORD_AUTH_TIME_LEGACY || 
             key.startsWith('password_auth_time_') ||
-            key === 'wello_password_session') {
+            key === 'welno_password_session') {
           localStorage.removeItem(key);
           console.log(`🧹 [세션] 레거시 키 제거: ${key}`);
         }

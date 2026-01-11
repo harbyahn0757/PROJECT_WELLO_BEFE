@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useWelloData } from '../contexts/WelloDataContext';
+import { useWelnoData } from '../contexts/WelnoDataContext';
 import { getHospitalLogoUrl } from '../utils/hospitalLogoUtils';
-import { WELLO_LOGO_IMAGE } from '../constants/images';
+import { WELNO_LOGO_IMAGE } from '../constants/images';
 import checkPlannerImage from '../assets/images/check_planner.png';
 import { renderTextWithFootnotes } from '../utils/footnoteParser';
 import checkupDesignService from '../services/checkupDesignService';
@@ -178,7 +178,7 @@ const mockRecommendationData: RecommendationData = {
 };
 
 const CheckupRecommendationsPage: React.FC = () => {
-  const { state } = useWelloData();
+  const { state } = useWelnoData();
   const { patient, hospital } = state;
   const navigate = useNavigate();
   const location = useLocation();
@@ -562,9 +562,9 @@ const CheckupRecommendationsPage: React.FC = () => {
           <div className="checkup-recommendations__loading-content">
             <div className="checkup-recommendations__loading-spinner">
               <img
-                src={WELLO_LOGO_IMAGE}
+                src={WELNO_LOGO_IMAGE}
                 alt="로딩 중"
-                className="wello-icon-blink"
+                className="welno-icon-blink"
               />
             </div>
             <p className="checkup-recommendations__loading-message">

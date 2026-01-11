@@ -1,5 +1,5 @@
 /**
- * WELLO 건강정보 시스템 TypeScript 타입 정의
+ * WELNO 건강정보 시스템 TypeScript 타입 정의
  * 백엔드 API 응답 구조 기반
  */
 

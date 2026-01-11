@@ -1,9 +1,9 @@
 /**
  * MDX 데이터 검색 모달 (개발 모드 전용)
- * wello 데이터가 없을 때 mdx_agr_list에서 데이터를 찾을지 물어보는 다이얼로그
+ * welno 데이터가 없을 때 mdx_agr_list에서 데이터를 찾을지 물어보는 다이얼로그
  */
 import React from 'react';
-import WelloModal from '../common/WelloModal';
+import WelnoModal from '../common/WelnoModal';
 import './styles.scss';
 
 interface MdxDataSearchModalProps {
@@ -18,11 +18,11 @@ const MdxDataSearchModal: React.FC<MdxDataSearchModalProps> = ({
   onCancel
 }) => {
   return (
-    <WelloModal
+    <WelnoModal
       isOpen={isOpen}
       onClose={onCancel}
       showCloseButton={true}
-      showWelloIcon={true}
+      showWelnoIcon={true}
       size="medium"
     >
       <div className="mdx-data-search-modal">
@@ -49,7 +49,7 @@ const MdxDataSearchModal: React.FC<MdxDataSearchModalProps> = ({
           </button>
         </div>
       </div>
-    </WelloModal>
+    </WelnoModal>
   );
 };
 

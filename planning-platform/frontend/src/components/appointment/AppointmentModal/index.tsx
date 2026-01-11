@@ -4,7 +4,7 @@
  * 아래에서 올라오는 애니메이션과 웰로 효과 적용
  */
 import React, { useState, useEffect } from 'react';
-import { WELLO_LOGO_IMAGE } from '../../../constants/images';
+import { WELNO_LOGO_IMAGE } from '../../../constants/images';
 import DateSelector from '../DateSelector';
 import Legend from '../Legend';
 import './styles.scss';
@@ -128,9 +128,9 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
             {isLoading ? (
               <span className="appointment-modal__button-loading">
                 <img 
-                  src={WELLO_LOGO_IMAGE}
+                  src={WELNO_LOGO_IMAGE}
                   alt="로딩 중" 
-                  className="wello-icon-blink"
+                  className="welno-icon-blink"
                 />
                 <span>처리 중...</span>
               </span>

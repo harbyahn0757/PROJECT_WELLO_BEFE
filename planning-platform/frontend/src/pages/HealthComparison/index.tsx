@@ -53,7 +53,7 @@ const HealthComparison: React.FC = () => {
   useEffect(() => {
     const loadHealthData = () => {
       try {
-        const storedData = localStorage.getItem('wello_health_data');
+        const storedData = localStorage.getItem('welno_health_data');
         if (storedData) {
           const parsedData = JSON.parse(storedData);
           const healthList = parsedData.health_data?.ResultList || [];
@@ -301,8 +301,8 @@ const HealthComparison: React.FC = () => {
           <h2>건강 데이터가 없습니다</h2>
           <p>먼저 건강정보를 연동하여 데이터를 가져와주세요.</p>
           <button 
-            className="wello-button wello-button-primary"
-            onClick={() => navigate('/wello/login')}
+            className="welno-button welno-button-primary"
+            onClick={() => navigate('/welno/login')}
           >
             건강정보 연동하기
           </button>

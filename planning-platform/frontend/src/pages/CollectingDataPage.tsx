@@ -54,19 +54,19 @@ const CollectingDataPage: React.FC = () => {
   // 세션 상태 모니터링
   const checkCollectionStatus = useCallback(async () => {
     if (!sessionId) {
-      console.error('❌ [수집페이지] 세션 ID 없음');
+      console.error('[수집페이지] 세션 ID 없음');
       return;
     }
 
     try {
-      const response = await fetch(`/wello-api/v1/tilko/session/status/${sessionId}`);
+      const response = await fetch(`/welno-api/v1/tilko/session/status/${sessionId}`);
       
       if (!response.ok) {
         throw new Error(`API 호출 실패: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('📊 [수집페이지] 세션 상태:', result);
+      console.log('[수집페이지] 세션 상태:', result);
 
       if (!result.success) {
         throw new Error(result.message || '세션 상태 확인 실패');
@@ -128,7 +128,7 @@ const CollectingDataPage: React.FC = () => {
           }
           // 정보 확인 페이지로 리다이렉트
           setTimeout(() => {
-            console.log('⚠️ [수집페이지] 정보 확인 필요 - 로그인 페이지로 이동');
+            console.log('[수집페이지] 정보 확인 필요 - 로그인 페이지로 이동');
             navigate(`/login?uuid=${uuid}&hospital=${hospital}&info_required=true`);
           }, 3000);
           break;
@@ -149,14 +149,14 @@ const CollectingDataPage: React.FC = () => {
             if (typeof lastErr.message === 'object' && lastErr.message.requires_info_recheck) {
               newProgress.errorMessage = errMsg;
               setTimeout(() => {
-                console.log('⚠️ [수집페이지] 사용자 정보 오류 - 로그인 페이지로 이동');
+                console.log('[수집페이지] 사용자 정보 오류 - 로그인 페이지로 이동');
                 navigate(`/login?uuid=${uuid}&hospital=${hospital}&info_required=true`);
               }, 3000);
             } else {
               newProgress.errorMessage = errMsg;
               // 처방전 타임아웃 등 일반 에러인 경우 5초 후 랜딩 페이지로 이동
               setTimeout(() => {
-                console.log('🔄 [수집페이지] 에러 발생 - 랜딩 페이지로 이동');
+                console.log('[수집페이지] 에러 발생 - 랜딩 페이지로 이동');
                 navigate('/');
               }, 5000);
             }
@@ -164,7 +164,7 @@ const CollectingDataPage: React.FC = () => {
             newProgress.errorMessage = result.error_message || '알 수 없는 오류';
             // 에러 메시지가 없는 경우에도 5초 후 랜딩 페이지로 이동
             setTimeout(() => {
-              console.log('🔄 [수집페이지] 에러 발생 - 랜딩 페이지로 이동');
+              console.log('[수집페이지] 에러 발생 - 랜딩 페이지로 이동');
               navigate('/');
             }, 5000);
           }
@@ -178,16 +178,62 @@ const CollectingDataPage: React.FC = () => {
 
       setProgress(newProgress);
 
-      // 완료되면 결과 페이지로 이동
-      if (newProgress.isCompleted && uuid && hospital) {
-        setTimeout(() => {
-          console.log('✅ [수집페이지] 수집 완료 - 결과 페이지로 이동');
-          navigate(`/results-trend?uuid=${uuid}&hospital=${hospital}`);
+      // 완료되면 결과 페이지로 이동 - 세션에서 uuid와 hospital 가져오기
+      if (newProgress.isCompleted) {
+        setTimeout(async () => {
+          console.log('[수집페이지] 수집 완료 - 결과 페이지로 이동');
+          
+          // URL 파라미터에서 가져오기
+          let finalUuid = uuid;
+          let finalHospital = hospital;
+          
+          // URL 파라미터가 없으면 세션에서 가져오기
+          if (!finalUuid || !finalHospital) {
+            try {
+              const savedSessionId = localStorage.getItem('tilko_session_id');
+              if (savedSessionId) {
+                // 세션 상태 API 호출하여 patient_uuid와 hospital_id 가져오기
+                const response = await fetch(`/welno-api/v1/tilko/session/status/${savedSessionId}`);
+                if (response.ok) {
+                  const result = await response.json();
+                  if (result.success && result.patient_uuid && result.hospital_id) {
+                    finalUuid = result.patient_uuid;
+                    finalHospital = result.hospital_id;
+                    console.log('[수집페이지] 세션에서 UUID/Hospital 가져옴:', { uuid: finalUuid, hospital: finalHospital });
+                  }
+                }
+              }
+              
+              // 세션 API 실패 시 localStorage의 세션 데이터에서 가져오기
+              if (!finalUuid || !finalHospital) {
+                const savedSessionData = localStorage.getItem('tilko_session_data');
+                if (savedSessionData) {
+                  try {
+                    const sessionData = JSON.parse(savedSessionData);
+                    finalUuid = finalUuid || sessionData?.patient_uuid || sessionData?.user_info?.patient_uuid;
+                    finalHospital = finalHospital || sessionData?.hospital_id || sessionData?.user_info?.hospital_id;
+                    console.log('[수집페이지] localStorage 세션 데이터에서 UUID/Hospital 가져옴:', { uuid: finalUuid, hospital: finalHospital });
+                  } catch (e) {
+                    console.warn('[수집페이지] 세션 데이터 파싱 실패:', e);
+                  }
+                }
+              }
+            } catch (error) {
+              console.warn('[수집페이지] 세션에서 UUID/Hospital 가져오기 실패:', error);
+            }
+          }
+          
+          if (finalUuid && finalHospital) {
+            navigate(`/results-trend?uuid=${finalUuid}&hospital=${finalHospital}`);
+          } else {
+            console.warn('[수집페이지] UUID/Hospital 없음 - 결과 페이지로 이동 (파라미터 없음)');
+            navigate('/results-trend');
+          }
         }, 2000);
       }
 
     } catch (error) {
-      console.error('❌ [수집페이지] 상태 확인 실패:', error);
+      console.error('[수집페이지] 상태 확인 실패:', error);
       setProgress(prev => ({
         ...prev,
         hasError: true,
@@ -198,7 +244,7 @@ const CollectingDataPage: React.FC = () => {
       
       // 에러 발생 시 5초 후 랜딩 페이지로 이동
       setTimeout(() => {
-        console.log('🔄 [수집페이지] 연결 오류 - 랜딩 페이지로 이동');
+        console.log('[수집페이지] 연결 오류 - 랜딩 페이지로 이동');
         navigate('/');
       }, 5000);
     }
@@ -207,7 +253,7 @@ const CollectingDataPage: React.FC = () => {
   // 초기 상태 확인 및 주기적 업데이트
   useEffect(() => {
     if (!sessionId) {
-      console.error('❌ [수집페이지] 세션 ID 누락');
+      console.error('[수집페이지] 세션 ID 누락');
       navigate('/');
       return;
     }
@@ -222,7 +268,7 @@ const CollectingDataPage: React.FC = () => {
   }, [sessionId, checkCollectionStatus, navigate]);
 
   const handleRetry = () => {
-    console.log('🔄 [수집페이지] 재시도');
+    console.log('[수집페이지] 재시도');
     setProgress(prev => ({
       ...prev,
       hasError: false,
@@ -331,7 +377,7 @@ const CollectingDataPage: React.FC = () => {
         {/* 안내 메시지 */}
         <div className="info-message">
           <p>🛡️ 개인정보는 안전하게 암호화되어 처리됩니다.</p>
-          <p>📊 수집된 데이터는 건강 분석에만 사용됩니다.</p>
+          <p>수집된 데이터는 건강 분석에만 사용됩니다.</p>
           <p>⏱️ 일반적으로 1-2분 정도 소요됩니다.</p>
         </div>
       </div>

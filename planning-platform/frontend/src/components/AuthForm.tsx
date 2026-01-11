@@ -44,16 +44,71 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const [currentStatus, setCurrentStatus] = useState('initial');
   const [statusMessage, setStatusMessage] = useState('');
   const [wsError, setWsError] = useState<string | null>(null);
+  const [lastCollectedRecord, setLastCollectedRecord] = useState<any | null>(null);
   
   // 비밀번호 설정 모달 상태
   const [showPasswordSetupModal, setShowPasswordSetupModal] = useState(false);
   const [passwordSetupData, setPasswordSetupData] = useState<{uuid: string, hospital: string} | null>(null);
 
   // 비밀번호 설정 모달 핸들러
-  const handlePasswordSetupSuccess = (type: PasswordModalType) => {
-    console.log('✅ [비밀번호] 설정 완료 - 결과 페이지로 이동');
+  const handlePasswordSetupSuccess = async (type: PasswordModalType) => {
+    console.log('✅ [비밀번호] 설정 완료 - 데이터 업로드 시도');
     setShowPasswordSetupModal(false);
     
+    // 1. 수집된 데이터가 있으면 서버로 업로드
+    if (lastCollectedRecord && passwordSetupData?.uuid && passwordSetupData?.hospital) {
+      const hasHealthData = lastCollectedRecord.healthData?.length > 0;
+      const hasPrescriptionData = lastCollectedRecord.prescriptionData?.length > 0;
+      
+      if (hasHealthData || hasPrescriptionData) {
+        try {
+          // 환자 정보 추가 (비밀번호 저장 실패 방지)
+          const uploadData = {
+            ...lastCollectedRecord,
+            // authFlow에서 사용자 정보 가져오기
+            phone: authFlow.state.userInfo.phone,
+            birthday: authFlow.state.userInfo.birthday,
+            gender: 'M' // 기본값 (authMethod에서 추론 가능하지만 일단 기본값 사용)
+          };
+          
+          console.log('📤 [데이터업로드] 서버로 수집 데이터 전송 시작...', {
+            건강검진: uploadData.healthData?.length || 0,
+            처방전: uploadData.prescriptionData?.length || 0,
+            환자정보포함: !!uploadData.phone && !!uploadData.birthday
+          });
+          
+          const response = await fetch(`/welno-api/v1/welno/upload-health-data?uuid=${passwordSetupData.uuid}&hospital_id=${passwordSetupData.hospital}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(uploadData)
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            console.log('✅ [데이터업로드] 서버 저장 완료:', result);
+            
+            // 업로드 완료 후 잠시 대기 (DB 커밋 대기)
+            await new Promise(resolve => setTimeout(resolve, 500));
+          } else {
+            const errorText = await response.text();
+            console.error('❌ [데이터업로드] 서버 저장 실패:', {
+              status: response.status,
+              statusText: response.statusText,
+              error: errorText
+            });
+          }
+        } catch (e) {
+          console.error('❌ [데이터업로드] 통신 오류:', e);
+        }
+      } else {
+        console.warn('⚠️ [데이터업로드] 저장할 데이터가 없음 - 업로드 건너뜀', {
+          healthData_길이: lastCollectedRecord.healthData?.length || 0,
+          prescriptionData_길이: lastCollectedRecord.prescriptionData?.length || 0
+        });
+      }
+    }
+
+    // 2. 결과 페이지로 이동
     if (passwordSetupData?.uuid && passwordSetupData?.hospital) {
       const targetUrl = `/welno/results-trend?uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
       console.log('🚀 [비밀번호설정완료] 트렌드 페이지로 이동:', targetUrl);
@@ -94,7 +149,45 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         StorageManager.setItem(STORAGE_KEYS.HOSPITAL_ID, data.hospital_id);
         
         // ✅ IndexedDB에 건강 데이터 저장
-        if (data.health_data || data.prescription_data) {
+        // 🔍 데이터 구조 상세 로깅
+        console.log('🔍 [IndexedDB 저장 전] 데이터 구조 확인:', {
+          전체데이터키: Object.keys(data),
+          health_data_존재: !!data.health_data,
+          health_data_타입: typeof data.health_data,
+          health_data_값: data.health_data,
+          health_data_Status: data.health_data?.Status,
+          ResultList_존재: !!data.health_data?.ResultList,
+          ResultList_타입: Array.isArray(data.health_data?.ResultList) ? 'array' : typeof data.health_data?.ResultList,
+          ResultList_길이: data.health_data?.ResultList?.length || 0,
+          prescription_data_존재: !!data.prescription_data,
+          prescription_data_타입: typeof data.prescription_data,
+          prescription_data_값: data.prescription_data,
+          prescription_data_Status: data.prescription_data?.Status,
+          prescription_ResultList_길이: data.prescription_data?.ResultList?.length || 0,
+          patient_uuid: data.patient_uuid,
+          hospital_id: data.hospital_id
+        });
+        
+        // ⚠️ 데이터가 null인 경우 명확히 체크
+        const hasHealthData = data.health_data !== null && data.health_data !== undefined;
+        const hasPrescriptionData = data.prescription_data !== null && data.prescription_data !== undefined;
+        
+        if (!hasHealthData && !hasPrescriptionData) {
+          console.error('❌ [WS] 건강 데이터가 없습니다!', {
+            health_data: data.health_data,
+            prescription_data: data.prescription_data,
+            메시지: '건강검진 데이터와 처방전 데이터가 모두 수집되지 않았습니다. 인증을 다시 시도해주세요.'
+          });
+          setWsError('건강검진 데이터와 처방전 데이터가 모두 수집되지 않았습니다. 인증을 다시 시도해주세요.');
+          setIsCollecting(false);
+          setCurrentStatus('error');
+          return; // 데이터가 없으면 여기서 종료
+        }
+        
+        const healthDataList = hasHealthData && data.health_data?.ResultList ? data.health_data.ResultList : [];
+        const prescriptionDataList = hasPrescriptionData && data.prescription_data?.ResultList ? data.prescription_data.ResultList : [];
+        
+        if (healthDataList.length > 0 || prescriptionDataList.length > 0) {
           try {
             const { WelnoIndexedDB } = await import('../services/WelnoIndexedDB');
             
@@ -102,14 +195,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               uuid: data.patient_uuid,
               patientName: authFlow.state.userInfo.name || '사용자',
               hospitalId: data.hospital_id,
-              healthData: data.health_data?.ResultList || [],
-              prescriptionData: data.prescription_data?.ResultList || [],
+              healthData: healthDataList,
+              prescriptionData: prescriptionDataList,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
               dataSource: 'tilko' as const
             };
             
             await WelnoIndexedDB.saveHealthData(healthRecord, 'merge');
+            setLastCollectedRecord(healthRecord); // 업로드 대기용 저장
             console.log('📂 [IndexedDB] 데이터 수집 완료 후 저장 성공:', {
               건강검진: healthRecord.healthData.length,
               처방전: healthRecord.prescriptionData.length
@@ -117,6 +211,16 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           } catch (indexedDBError) {
             console.error('❌ [IndexedDB] 저장 실패:', indexedDBError);
           }
+        } else {
+          console.error('❌ [IndexedDB] Tilko 데이터가 비어있음 - 저장할 데이터 없음', {
+            health_data_null: data.health_data === null,
+            prescription_data_null: data.prescription_data === null,
+            healthDataList_길이: healthDataList.length,
+            prescriptionDataList_길이: prescriptionDataList.length
+          });
+          setWsError('건강검진 데이터와 처방전 데이터가 모두 비어있습니다. 인증을 다시 시도해주세요.');
+          setIsCollecting(false);
+          setCurrentStatus('error');
         }
       }
       
@@ -133,6 +237,24 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       setCurrentStatus(status);
       if (status === 'completed' || status === 'data_completed') {
         console.log('✅ [onStatusUpdate] 데이터 수집 완료 감지!');
+        
+        // ⚠️ 데이터가 실제로 있는지 확인
+        const hasData = lastCollectedRecord && (
+          (lastCollectedRecord.healthData && lastCollectedRecord.healthData.length > 0) ||
+          (lastCollectedRecord.prescriptionData && lastCollectedRecord.prescriptionData.length > 0)
+        );
+        
+        if (!hasData) {
+          console.error('❌ [onStatusUpdate] 데이터 수집 완료되었지만 저장된 데이터가 없음!', {
+            lastCollectedRecord: lastCollectedRecord,
+            메시지: '건강검진 데이터와 처방전 데이터가 모두 수집되지 않았습니다.'
+          });
+          setWsError('건강검진 데이터와 처방전 데이터가 모두 수집되지 않았습니다. 인증을 다시 시도해주세요.');
+          setIsCollecting(false);
+          setCurrentStatus('error');
+          return; // 데이터가 없으면 비밀번호 모달 표시하지 않음
+        }
+        
         setIsDataCompleted(true);
         setIsCollecting(false);
         
@@ -171,8 +293,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         
         if (data.status === 'completed') {
           console.log('✅ [폴링] 데이터 수집 완료 감지!');
-          setIsDataCompleted(true);
-          setIsCollecting(false);
           clearInterval(pollInterval);
           
           // ✅ 폴링에서 감지했을 때도 바로 비밀번호 모달 표시
@@ -189,7 +309,43 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             }
             
             // ✅ IndexedDB에 건강 데이터 저장 (폴링에서도)
-            if (data.health_data || data.prescription_data) {
+            // 🔍 데이터 구조 상세 로깅
+            console.log('🔍 [폴링→IndexedDB 저장 전] 데이터 구조 확인:', {
+              전체데이터키: Object.keys(data),
+              health_data_존재: !!data.health_data,
+              health_data_타입: typeof data.health_data,
+              health_data_값: data.health_data,
+              health_data_Status: data.health_data?.Status,
+              ResultList_존재: !!data.health_data?.ResultList,
+              ResultList_타입: Array.isArray(data.health_data?.ResultList) ? 'array' : typeof data.health_data?.ResultList,
+              ResultList_길이: data.health_data?.ResultList?.length || 0,
+              prescription_data_존재: !!data.prescription_data,
+              prescription_data_타입: typeof data.prescription_data,
+              prescription_data_값: data.prescription_data,
+              prescription_data_Status: data.prescription_data?.Status,
+              prescription_ResultList_길이: data.prescription_data?.ResultList?.length || 0
+            });
+            
+            // ⚠️ 데이터가 null인 경우 명확히 체크
+            const hasHealthData = data.health_data !== null && data.health_data !== undefined;
+            const hasPrescriptionData = data.prescription_data !== null && data.prescription_data !== undefined;
+            
+            if (!hasHealthData && !hasPrescriptionData) {
+              console.error('❌ [폴링] 건강 데이터가 없습니다!', {
+                health_data: data.health_data,
+                prescription_data: data.prescription_data,
+                메시지: '건강검진 데이터와 처방전 데이터가 모두 수집되지 않았습니다. 인증을 다시 시도해주세요.'
+              });
+              setWsError('건강검진 데이터와 처방전 데이터가 모두 수집되지 않았습니다. 인증을 다시 시도해주세요.');
+              setIsCollecting(false);
+              setCurrentStatus('error');
+              return; // 데이터가 없으면 여기서 종료
+            }
+            
+            const healthDataList = hasHealthData && data.health_data?.ResultList ? data.health_data.ResultList : [];
+            const prescriptionDataList = hasPrescriptionData && data.prescription_data?.ResultList ? data.prescription_data.ResultList : [];
+            
+            if (healthDataList.length > 0 || prescriptionDataList.length > 0) {
               try {
                 const { WelnoIndexedDB } = await import('../services/WelnoIndexedDB');
                 
@@ -197,28 +353,47 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                   uuid: uuid,
                   patientName: data.user_name || authFlow.state.userInfo.name || '사용자',
                   hospitalId: hospital,
-                  healthData: data.health_data?.ResultList || [],
-                  prescriptionData: data.prescription_data?.ResultList || [],
+                  healthData: healthDataList,
+                  prescriptionData: prescriptionDataList,
                   createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString(),
                   dataSource: 'tilko' as const
                 };
                 
                 await WelnoIndexedDB.saveHealthData(healthRecord, 'merge');
+                setLastCollectedRecord(healthRecord); // 업로드 대기용 저장
                 console.log('📂 [폴링→IndexedDB] 데이터 저장 성공:', {
                   건강검진: healthRecord.healthData.length,
                   처방전: healthRecord.prescriptionData.length
                 });
+                
+                setIsDataCompleted(true);
+                setIsCollecting(false);
+                
+                console.log('🔐 [폴링→비밀번호] 바로 비밀번호 모달 표시');
+                setPasswordSetupData({ uuid, hospital });
+                setShowPasswordSetupModal(true);
               } catch (indexedDBError) {
                 console.error('❌ [폴링→IndexedDB] 저장 실패:', indexedDBError);
+                setWsError('데이터 저장 중 오류가 발생했습니다.');
+                setIsCollecting(false);
+                setCurrentStatus('error');
               }
+            } else {
+              console.error('❌ [폴링→IndexedDB] Tilko 데이터가 비어있음 - 저장할 데이터 없음', {
+                health_data_null: data.health_data === null,
+                prescription_data_null: data.prescription_data === null,
+                healthDataList_길이: healthDataList.length,
+                prescriptionDataList_길이: prescriptionDataList.length
+              });
+              setWsError('건강검진 데이터와 처방전 데이터가 모두 비어있습니다. 인증을 다시 시도해주세요.');
+              setIsCollecting(false);
+              setCurrentStatus('error');
             }
-            
-            console.log('🔐 [폴링→비밀번호] 바로 비밀번호 모달 표시');
-            setPasswordSetupData({ uuid, hospital });
-            setShowPasswordSetupModal(true);
             } else {
             console.warn('⚠️ [폴링] UUID/병원 정보 없음');
+            setIsCollecting(false);
+            setCurrentStatus('error');
           }
         } else if (data.status === 'error') {
           console.error('❌ [폴링] 에러 상태 감지');
@@ -486,6 +661,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           type="setup"
           uuid={passwordSetupData.uuid}
           hospitalId={passwordSetupData.hospital}
+          patientInfo={authFlow.state.userInfo}
           initialMessage="안전한 이용을 위해 비밀번호를 설정해주세요"
         />
       </div>
@@ -662,12 +838,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           <p>{wsError || '알 수 없는 오류가 발생했습니다.'}</p>
           <button onClick={() => {
             authFlow.actions.reset();
-          setShowTermsModal(false);
+            setShowTermsModal(false);
             setShowConfirmation(false);
             setAuthRequested(false);
+            setLastCollectedRecord(null);
           }}>
             처음부터 다시 시작
-              </button>
+          </button>
           </div>
           </div>
   );

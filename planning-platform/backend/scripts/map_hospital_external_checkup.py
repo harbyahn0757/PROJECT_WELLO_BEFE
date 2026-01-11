@@ -34,7 +34,7 @@ async def map_hospital_external_checkup(hospital_id: str, item_names: list, disp
         
         # 병원 존재 확인
         hospital = await conn.fetchrow(
-            "SELECT hospital_id, hospital_name FROM wello.wello_hospitals WHERE hospital_id = $1",
+            "SELECT hospital_id, hospital_name FROM welno.welno_hospitals WHERE hospital_id = $1",
             hospital_id
         )
         
@@ -51,7 +51,7 @@ async def map_hospital_external_checkup(hospital_id: str, item_names: list, disp
             try:
                 # 검사 항목 ID 조회
                 item = await conn.fetchrow(
-                    "SELECT id FROM wello.wello_external_checkup_items WHERE item_name = $1 AND is_active = true",
+                    "SELECT id FROM welno.welno_external_checkup_items WHERE item_name = $1 AND is_active = true",
                     item_name
                 )
                 
@@ -64,7 +64,7 @@ async def map_hospital_external_checkup(hospital_id: str, item_names: list, disp
                 
                 # 중복 체크
                 existing = await conn.fetchrow(
-                    "SELECT id FROM wello.wello_hospital_external_checkup_mapping WHERE hospital_id = $1 AND external_checkup_item_id = $2",
+                    "SELECT id FROM welno.welno_hospital_external_checkup_mapping WHERE hospital_id = $1 AND external_checkup_item_id = $2",
                     hospital_id, item_id
                 )
                 
@@ -75,7 +75,7 @@ async def map_hospital_external_checkup(hospital_id: str, item_names: list, disp
                 
                 # 매핑 생성
                 await conn.execute("""
-                    INSERT INTO wello.wello_hospital_external_checkup_mapping 
+                    INSERT INTO welno.welno_hospital_external_checkup_mapping 
                     (hospital_id, external_checkup_item_id, is_active, display_order)
                     VALUES ($1, $2, $3, $4)
                 """,
@@ -104,8 +104,8 @@ async def map_hospital_external_checkup(hospital_id: str, item_names: list, disp
                 e.category,
                 e.sub_category,
                 e.difficulty_level
-            FROM wello.wello_hospital_external_checkup_mapping m
-            JOIN wello.wello_external_checkup_items e ON m.external_checkup_item_id = e.id
+            FROM welno.welno_hospital_external_checkup_mapping m
+            JOIN welno.welno_external_checkup_items e ON m.external_checkup_item_id = e.id
             WHERE m.hospital_id = $1 AND m.is_active = true
             ORDER BY m.display_order
         """, hospital_id)
@@ -136,7 +136,7 @@ async def list_all_external_checkup_items():
         
         items = await conn.fetch("""
             SELECT id, category, sub_category, item_name, difficulty_level
-            FROM wello.wello_external_checkup_items
+            FROM welno.welno_external_checkup_items
             WHERE is_active = true
             ORDER BY category, sub_category, item_name
         """)

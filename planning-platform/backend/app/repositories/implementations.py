@@ -25,7 +25,7 @@ class HospitalRepository:
             SELECT hospital_id, hospital_name, phone, address, 
                    supported_checkup_types, layout_type, 
                    brand_color, logo_position, is_active
-            FROM wello.wello_hospitals 
+            FROM welno.welno_hospitals 
             WHERE hospital_id = %s AND is_active = true
         """
         
@@ -56,7 +56,7 @@ class HospitalRepository:
             SELECT hospital_id, hospital_name, phone, address, 
                    supported_checkup_types, layout_type, 
                    brand_color, logo_position, is_active
-            FROM wello.wello_hospitals 
+            FROM welno.welno_hospitals 
             WHERE hospital_name = %s AND is_active = true
         """
         
@@ -87,7 +87,7 @@ class HospitalRepository:
             SELECT hospital_id, hospital_name, phone, address, 
                    supported_checkup_types, layout_type, 
                    brand_color, logo_position, is_active
-            FROM wello.wello_hospitals 
+            FROM welno.welno_hospitals 
             WHERE is_active = true
             ORDER BY hospital_name
         """
@@ -123,7 +123,7 @@ class PatientRepository:
     """환자 레포지토리"""
     
     async def get_by_uuid(self, uuid: UUID) -> Optional[Patient]:
-        """UUID로 환자 조회 (wello.wello_patients 테이블만 조회)"""
+        """UUID로 환자 조회 (welno.welno_patients 테이블만 조회)"""
         try:
             db_config = {
                 "host": "10.0.1.10",
@@ -136,7 +136,7 @@ class PatientRepository:
             
             wello_query = """
                 SELECT uuid, hospital_id, name, phone_number, birth_date, gender, created_at
-                FROM wello.wello_patients 
+                FROM welno.welno_patients 
                 WHERE uuid = $1
                 LIMIT 1
             """

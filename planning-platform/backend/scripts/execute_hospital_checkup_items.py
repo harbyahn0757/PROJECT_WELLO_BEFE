@@ -29,7 +29,7 @@ async def execute_sql():
         
         # 컬럼 추가
         await conn.execute("""
-            ALTER TABLE wello.wello_hospitals 
+            ALTER TABLE welno.welno_hospitals 
             ADD COLUMN IF NOT EXISTS checkup_items JSONB,
             ADD COLUMN IF NOT EXISTS national_checkup_items JSONB,
             ADD COLUMN IF NOT EXISTS recommended_items JSONB
@@ -39,13 +39,13 @@ async def execute_sql():
         # 인덱스 추가
         await conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_hospitals_checkup_items 
-            ON wello.wello_hospitals USING GIN (checkup_items);
+            ON welno.welno_hospitals USING GIN (checkup_items);
             
             CREATE INDEX IF NOT EXISTS idx_hospitals_national_checkup 
-            ON wello.wello_hospitals USING GIN (national_checkup_items);
+            ON welno.welno_hospitals USING GIN (national_checkup_items);
             
             CREATE INDEX IF NOT EXISTS idx_hospitals_recommended_items 
-            ON wello.wello_hospitals USING GIN (recommended_items);
+            ON welno.welno_hospitals USING GIN (recommended_items);
         """)
         print("✅ 인덱스 추가 완료")
         
@@ -116,7 +116,7 @@ async def execute_sql():
         
         # UPDATE 실행
         await conn.execute("""
-            UPDATE wello.wello_hospitals 
+            UPDATE welno.welno_hospitals 
             SET 
                 national_checkup_items = $1::jsonb,
                 recommended_items = $2::jsonb
@@ -133,7 +133,7 @@ async def execute_sql():
         result = await conn.fetchrow("""
             SELECT hospital_id, hospital_name, 
                    national_checkup_items, recommended_items
-            FROM wello.wello_hospitals 
+            FROM welno.welno_hospitals 
             WHERE hospital_id = 'KIM_HW_CLINIC'
         """)
         

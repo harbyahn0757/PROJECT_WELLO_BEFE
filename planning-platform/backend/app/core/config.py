@@ -118,8 +118,20 @@ class Settings(BaseSettings):
     
     # Google Gemini 설정 (RAG용)
     google_gemini_api_key: str = Field(default="dev-gemini-key", env="GOOGLE_GEMINI_API_KEY")
-    google_gemini_fast_model: str = Field(default="gemini-2.0-flash", env="GOOGLE_GEMINI_FAST_MODEL") # STEP 1용 빠른 모델
-    google_gemini_model: str = Field(default="gemini-2.0-flash", env="GOOGLE_GEMINI_MODEL") # STEP 2용 강력한 모델
+    google_gemini_fast_model: str = Field(default="gemini-3-flash-preview", env="GOOGLE_GEMINI_FAST_MODEL")  # STEP 1용 빠른 모델
+    google_gemini_model: str = Field(default="gemini-3-flash-preview", env="GOOGLE_GEMINI_MODEL")  # STEP 2용 강력한 모델
+    
+    # Perplexity 설정
+    perplexity_api_key: str = Field(default="dev-perplexity-key", env="PERPLEXITY_API_KEY")
+
+    # WELNO 기본 설정
+    welno_default_hospital_id: str = Field(default="PEERNINE", env="WELNO_DEFAULT_HOSPITAL_ID")  # 직접 접속 유저용 기본 병원 ID
+
+    # Slack 설정
+    slack_webhook_url: Optional[str] = Field(None, env="SLACK_WEBHOOK_URL")
+    slack_bot_token: Optional[str] = Field(None, env="SLACK_BOT_TOKEN")
+    slack_channel: str = Field(default="#p9-api-alerts", env="SLACK_CHANNEL")
+    slack_alert_channel: str = Field(default="#p9-api-alerts", env="SLACK_ALERT_CHANNEL")
     
     model_config = {
         "env_file": [".env.local", "config.env", ".env"],

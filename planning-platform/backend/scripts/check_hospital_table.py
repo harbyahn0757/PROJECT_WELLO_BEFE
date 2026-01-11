@@ -40,7 +40,7 @@ async def check_hospital_table():
         print("KIM_HW_CLINIC 병원 데이터")
         print("=" * 80)
         hospital = await conn.fetchrow(
-            "SELECT * FROM wello.wello_hospitals WHERE hospital_id = $1",
+            "SELECT * FROM welno.welno_hospitals WHERE hospital_id = $1",
             'KIM_HW_CLINIC'
         )
         
@@ -55,7 +55,7 @@ async def check_hospital_table():
         print("모든 병원 목록")
         print("=" * 80)
         hospitals = await conn.fetch(
-            "SELECT hospital_id, hospital_name, supported_checkup_types FROM wello.wello_hospitals WHERE is_active = true"
+            "SELECT hospital_id, hospital_name, supported_checkup_types FROM welno.welno_hospitals WHERE is_active = true"
         )
         for h in hospitals:
             print(f"  {h['hospital_id']}: {h['hospital_name']} - {h['supported_checkup_types']}")

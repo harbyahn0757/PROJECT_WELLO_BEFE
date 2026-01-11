@@ -2,7 +2,7 @@
  * LineChart 스타일 - 단조로운 색상 팔레트 사용
  */
 
-.wello-line-chart {
+.welno-line-chart {
   width: 100%;
   height: 100%;
   position: relative;
@@ -33,7 +33,7 @@
 
   // 참조선
   &__reference-lines {
-    .wello-line-chart__reference-line {
+    .welno-line-chart__reference-line {
       stroke-width: 1;
       stroke-dasharray: 4,4;
       opacity: 0.7;
@@ -54,11 +54,11 @@
 
   // 데이터 시리즈
   &__series {
-    .wello-line-chart__area {
+    .welno-line-chart__area {
       transition: fill-opacity 0.2s ease;
     }
 
-    .wello-line-chart__line {
+    .welno-line-chart__line {
       transition: stroke-width 0.2s ease;
       
       &:hover {
@@ -66,7 +66,7 @@
       }
     }
 
-    .wello-line-chart__point {
+    .welno-line-chart__point {
       // 🔧 SVG의 r 속성은 CSS로 제어할 수 없으므로 제거
       // 크기는 인라인 스타일과 SVG 속성으로 직접 제어
       transition: stroke-width 0.2s ease, fill-opacity 0.2s ease;
@@ -106,18 +106,18 @@
   // 축
   &__x-axis,
   &__y-axis {
-    .wello-line-chart__axis-line {
+    .welno-line-chart__axis-line {
       stroke: var(--border-medium);
       stroke-width: 1;
     }
 
-    .wello-line-chart__axis-label {
+    .welno-line-chart__axis-label {
       fill: var(--text-secondary);
       font-size: 12px;
       font-family: var(--font-family-primary);
     }
 
-    .wello-line-chart__axis-title {
+    .welno-line-chart__axis-title {
       fill: var(--text-primary);
       font-size: var(--font-size-sm);
       font-weight: var(--font-weight-medium);
@@ -127,7 +127,7 @@
 }
 
 // 툴팁 내용 스타일 (더 작은 베이지톤 버전)
-.wello-chart-tooltip {
+.welno-chart-tooltip {
   &__header {
     font-size: 10px;
     font-weight: var(--font-weight-medium);
@@ -146,16 +146,16 @@
 
 // 반응형 조정
 @media (max-width: 480px) {
-  .wello-line-chart {
+  .welno-line-chart {
     &__x-axis,
     &__y-axis {
-      .wello-line-chart__axis-label {
+      .welno-line-chart__axis-label {
         font-size: 12px;
       }
     }
 
     &__series {
-      .wello-line-chart__point {
+      .welno-line-chart__point {
         // 🔧 SVG의 r 속성은 CSS로 제어할 수 없으므로 제거
         // 크기는 인라인 스타일과 SVG 속성으로 직접 제어
 
@@ -169,11 +169,11 @@
 
 // 접근성 개선
 @media (prefers-reduced-motion: reduce) {
-  .wello-line-chart {
+  .welno-line-chart {
     &__series {
-      .wello-line-chart__area,
-      .wello-line-chart__line,
-      .wello-line-chart__point {
+      .welno-line-chart__area,
+      .welno-line-chart__line,
+      .welno-line-chart__point {
         transition: none;
       }
     }

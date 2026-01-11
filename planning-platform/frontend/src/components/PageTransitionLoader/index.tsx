@@ -3,7 +3,7 @@
  * 페이지 이동 시 화면을 뿌옇게 하고 웰로 스피너를 표시
  */
 import React, { useEffect } from 'react';
-import { WELLO_LOGO_IMAGE } from '../../constants/images';
+import { WELNO_LOGO_IMAGE } from '../../constants/images';
 import './styles.scss';
 
 interface PageTransitionLoaderProps {
@@ -46,9 +46,9 @@ const PageTransitionLoader: React.FC<PageTransitionLoaderProps> = ({ isVisible, 
         <div className="page-transition-content">
           <div className="page-transition-spinner">
             <img 
-              src={WELLO_LOGO_IMAGE}
+              src={WELNO_LOGO_IMAGE}
               alt="로딩 중" 
-              className="wello-icon-blink"
+              className="welno-icon-blink"
             />
           </div>
           {message && (

@@ -32,7 +32,7 @@ async def verify_hospital_checkup_items(hospital_id: str = "KIM_HW_CLINIC"):
         hospital_row = await conn.fetchrow("""
             SELECT hospital_id, hospital_name, 
                    national_checkup_items, recommended_items
-            FROM wello.wello_hospitals 
+            FROM welno.welno_hospitals 
             WHERE hospital_id = $1 AND is_active = true
         """, hospital_id)
         
@@ -185,8 +185,8 @@ async def verify_hospital_checkup_items(hospital_id: str = "KIM_HW_CLINIC"):
                     e.input_sample,
                     e.algorithm_class,
                     m.display_order
-                FROM wello.wello_hospital_external_checkup_mapping m
-                JOIN wello.wello_external_checkup_items e ON m.external_checkup_item_id = e.id
+                FROM welno.welno_hospital_external_checkup_mapping m
+                JOIN welno.welno_external_checkup_items e ON m.external_checkup_item_id = e.id
                 WHERE m.hospital_id = $1 AND m.is_active = true AND e.is_active = true
                 ORDER BY m.display_order
             """, hospital_id)

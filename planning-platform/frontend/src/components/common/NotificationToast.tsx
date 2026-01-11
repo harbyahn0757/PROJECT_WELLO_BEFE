@@ -1,5 +1,5 @@
 import React from 'react';
-import { NotificationMessage } from '../../contexts/WelloDataContext';
+import { NotificationMessage } from '../../contexts/WelnoDataContext';
 import './NotificationToast.scss';
 
 interface NotificationToastProps {

@@ -153,9 +153,9 @@ const PieChart: React.FC<PieChartProps> = ({
     setHoveredSlice(slice.label);
     
     const tooltipContent = `
-      <div class="wello-chart-tooltip__title">${slice.label}</div>
-      <div class="wello-chart-tooltip__value">${slice.value}건</div>
-      <div class="wello-chart-tooltip__percentage">${slice.percentage?.toFixed(1)}%</div>
+      <div class="welno-chart-tooltip__title">${slice.label}</div>
+      <div class="welno-chart-tooltip__value">${slice.value}건</div>
+      <div class="welno-chart-tooltip__percentage">${slice.percentage?.toFixed(1)}%</div>
     `;
 
     setTooltip({
@@ -178,7 +178,7 @@ const PieChart: React.FC<PieChartProps> = ({
   const renderChart = (dimensions: ChartDimensions) => {
     if (!chartData || !chartData.data.length) {
       return (
-        <div className="wello-pie-chart__empty">
+        <div className="welno-pie-chart__empty">
           <p>표시할 데이터가 없습니다</p>
         </div>
       );
@@ -194,17 +194,17 @@ const PieChart: React.FC<PieChartProps> = ({
     const innerRadiusValue = outerRadius * innerRadius;
 
     return (
-      <div className="wello-pie-chart">
+      <div className="welno-pie-chart">
         <svg
           ref={svgRef}
           width={width}
           height={height}
-          className="wello-pie-chart__svg"
+          className="welno-pie-chart__svg"
           role="img"
           aria-label={`${baseProps.title || '파이 차트'} - ${chartData.data.length}개 항목`}
         >
           {/* 파이 슬라이스 */}
-          <g className="wello-pie-chart__slices">
+          <g className="welno-pie-chart__slices">
             {chartData.data.map((slice, index) => {
               const isHovered = hoveredSlice === slice.label;
               const hoverRadius = isHovered ? outerRadius + 5 : outerRadius;
@@ -220,7 +220,7 @@ const PieChart: React.FC<PieChartProps> = ({
                       slice.startAngle,
                       slice.endAngle
                     )}
-                    className={`wello-pie-chart__slice ${isHovered ? 'wello-pie-chart__slice--hovered' : ''}`}
+                    className={`welno-pie-chart__slice ${isHovered ? 'welno-pie-chart__slice--hovered' : ''}`}
                     style={{ 
                       fill: slice.color,
                       transition: `all ${animationDuration}ms ease`
@@ -246,7 +246,7 @@ const PieChart: React.FC<PieChartProps> = ({
                           <text
                             x={labelPos.x}
                             y={labelPos.y}
-                            className="wello-pie-chart__label"
+                            className="welno-pie-chart__label"
                             textAnchor="middle"
                             dominantBaseline="middle"
                           >
@@ -263,11 +263,11 @@ const PieChart: React.FC<PieChartProps> = ({
 
           {/* 중앙 텍스트 (도넛 차트인 경우) */}
           {innerRadius > 0 && (
-            <g className="wello-pie-chart__center">
+            <g className="welno-pie-chart__center">
               <text
                 x={centerX}
                 y={centerY - 8}
-                className="wello-pie-chart__center-value"
+                className="welno-pie-chart__center-value"
                 textAnchor="middle"
                 dominantBaseline="middle"
               >
@@ -276,7 +276,7 @@ const PieChart: React.FC<PieChartProps> = ({
               <text
                 x={centerX}
                 y={centerY + 12}
-                className="wello-pie-chart__center-label"
+                className="welno-pie-chart__center-label"
                 textAnchor="middle"
                 dominantBaseline="middle"
               >
@@ -288,23 +288,23 @@ const PieChart: React.FC<PieChartProps> = ({
 
         {/* 범례 */}
         {showLegend && (
-          <div className="wello-pie-chart__legend">
+          <div className="welno-pie-chart__legend">
             {chartData.data.map((slice, index) => (
               <div
                 key={`legend-${index}`}
-                className={`wello-pie-chart__legend-item ${hoveredSlice === slice.label ? 'wello-pie-chart__legend-item--active' : ''}`}
+                className={`welno-pie-chart__legend-item ${hoveredSlice === slice.label ? 'welno-pie-chart__legend-item--active' : ''}`}
                 onMouseEnter={(e) => handleSliceHover(e, slice)}
                 onMouseLeave={handleMouseLeave}
                 onClick={() => onSliceClick?.(slice)}
               >
                 <div
-                  className="wello-pie-chart__legend-color"
+                  className="welno-pie-chart__legend-color"
                   style={{ backgroundColor: slice.color }}
                 />
-                <span className="wello-pie-chart__legend-label">
+                <span className="welno-pie-chart__legend-label">
                   {slice.label}
                 </span>
-                <span className="wello-pie-chart__legend-value">
+                <span className="welno-pie-chart__legend-value">
                   {slice.value}건 ({slice.percentage!.toFixed(1)}%)
                 </span>
               </div>
@@ -315,7 +315,7 @@ const PieChart: React.FC<PieChartProps> = ({
         {/* 툴팁 */}
         {tooltip.visible && (
           <div
-            className="wello-chart-tooltip wello-chart-tooltip--visible"
+            className="welno-chart-tooltip welno-chart-tooltip--visible"
             style={{
               left: tooltip.x + 10,
               top: tooltip.y - 10

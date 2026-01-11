@@ -16,7 +16,8 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
   type,
   uuid,
   hospitalId,
-  initialMessage
+  initialMessage,
+  patientInfo
 }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -145,13 +146,17 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
     if (loading) return;
 
     const currentPassword = directPassword || getCurrentPassword();
+    console.log(`🔐 [PasswordModal] handleConfirm - Type: ${type}, Step: ${step}, PasswordLen: ${currentPassword.length}`);
+    
     const validation = PasswordValidator.validate(currentPassword);
     if (!validation.isValid) {
+      console.warn('❌ [PasswordModal] 검증 실패:', validation.message);
       setError(validation.message || PASSWORD_MESSAGES.VALIDATION.REQUIRED);
       return;
     }
 
     if (isSetupMode && step === 'first') {
+      console.log('📝 [PasswordModal] 1차 입력 완료, 확인 단계로 이동');
       // 설정 모드의 첫 번째 단계 - 비밀번호 저장하고 확인 단계로 이동
       setPassword(currentPassword);
       setStep('confirm');
@@ -161,23 +166,33 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
     }
 
     if (isSetupMode && step === 'confirm') {
+      console.log('📝 [PasswordModal] 2차 확인 입력 중...');
       // 설정 모드의 확인 단계 - 두 비밀번호가 일치하는지 확인
       const matchValidation = PasswordValidator.validateMatch(password, currentPassword);
       if (!matchValidation.isValid) {
+        console.warn('❌ [PasswordModal] 비밀번호 불일치');
         setError(matchValidation.message || PASSWORD_MESSAGES.VALIDATION.MISMATCH);
         setConfirmPassword('');
         return;
       }
+      console.log('✅ [PasswordModal] 비밀번호 일치 확인됨');
     }
 
     // API 호출
     setLoading(true);
+    console.log(`🚀 [PasswordModal] API 호출 시작 (${type})`);
     try {
       let result;
       
       switch (type) {
         case 'setup':
-          result = await PasswordService.setPassword(uuid, hospitalId, currentPassword);
+          console.log('📤 [PasswordModal] setPassword 호출:', { uuid, hospitalId });
+          result = await PasswordService.setPassword(uuid, hospitalId, currentPassword, {
+            name: patientInfo?.name,
+            phone_number: patientInfo?.phone,
+            birth_date: patientInfo?.birthday,
+            gender: patientInfo?.gender
+          });
           break;
         case 'confirm':
           result = await PasswordService.verifyPassword(uuid, hospitalId, currentPassword);

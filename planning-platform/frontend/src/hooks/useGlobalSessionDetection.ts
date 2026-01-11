@@ -7,7 +7,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 // API 엔드포인트 (기존 config에서 가져오기)
 const TILKO_API = {
-  SESSION_STATUS: (sessionId: string) => `/wello-api/v1/tilko/session/status/${sessionId}`
+  SESSION_STATUS: (sessionId: string) => `/welno-api/v1/tilko/session/status/${sessionId}`
 };
 
 interface SessionDetectionOptions {
@@ -51,7 +51,7 @@ export const useGlobalSessionDetection = (options: SessionDetectionOptions = {})
       const savedSessionData = localStorage.getItem('tilko_session_data');
 
       if (!savedSessionId || !savedSessionData) {
-        console.log('📭 [전역세션] 저장된 세션 없음');
+        console.log('[전역세션] 저장된 세션 없음');
         return defaultStatus;
       }
 
@@ -67,21 +67,26 @@ export const useGlobalSessionDetection = (options: SessionDetectionOptions = {})
         return defaultStatus;
       }
 
-      console.log('🔍 [전역세션] 서버 세션 상태 확인:', savedSessionId);
+      console.log('[전역세션] 서버 세션 상태 확인:', savedSessionId);
 
       // 서버에서 실제 세션 상태 확인
       const response = await fetch(TILKO_API.SESSION_STATUS(savedSessionId));
       
       if (!response.ok) {
-        console.error('❌ [전역세션] 세션 상태 API 호출 실패:', response.status);
+        console.error('[전역세션] 세션 상태 API 호출 실패:', response.status);
+        if (response.status === 404) {
+          console.log('🧹 [전역세션] 존재하지 않는 세션 정보 삭제');
+          localStorage.removeItem('tilko_session_id');
+          localStorage.removeItem('tilko_session_data');
+        }
         return defaultStatus;
       }
 
       const result = await response.json();
-      console.log('📊 [전역세션] 서버 응답:', result);
+      console.log('[전역세션] 서버 응답:', result);
 
       if (!result.success || !result.status) {
-        console.log('⚠️ [전역세션] 세션 상태 응답 오류');
+        console.log('[전역세션] 세션 상태 응답 오류');
         return defaultStatus;
       }
 
@@ -147,7 +152,7 @@ export const useGlobalSessionDetection = (options: SessionDetectionOptions = {})
       };
 
     } catch (error) {
-      console.error('❌ [전역세션] 세션 상태 확인 실패:', error);
+      console.error('[전역세션] 세션 상태 확인 실패:', error);
       return defaultStatus;
     }
   }, [location, maxSessionAge]);
@@ -158,7 +163,7 @@ export const useGlobalSessionDetection = (options: SessionDetectionOptions = {})
     const sessionStatus = await checkSessionStatus();
 
     if (sessionStatus.shouldRedirect && sessionStatus.redirectPath) {
-      console.log('🔄 [전역세션] 리다이렉트:', sessionStatus.redirectPath);
+      console.log('[전역세션] 리다이렉트:', sessionStatus.redirectPath);
       navigate(sessionStatus.redirectPath);
     }
   }, [enabled, checkSessionStatus, navigate]);
@@ -185,7 +190,7 @@ export const useGlobalSessionDetection = (options: SessionDetectionOptions = {})
 
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'tilko_session_id' || e.key === 'tilko_session_data') {
-        console.log('🔄 [전역세션] 스토리지 변경 감지');
+        console.log('[전역세션] 스토리지 변경 감지');
         handleSessionRedirect();
       }
     };

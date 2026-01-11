@@ -7,7 +7,7 @@
 export const ROUTES = {
   HOME: '/',
   LOGIN: '/login',
-  WELLO: '/wello',
+  WELNO: '/welno',
   RESULTS_TREND: '/results-trend',
   HEALTH_DATA: '/health-data',
   DASHBOARD: '/dashboard'
@@ -151,9 +151,9 @@ export class URLHelper {
   }
 
   /**
-   * Wello 앱의 표준 파라미터 추출 (uuid, hospital, layout)
+   * Welno 앱의 표준 파라미터 추출 (uuid, hospital, layout)
    */
-  static extractWelloParams(location?: any): { uuid: string | null; hospital: string | null; layout: string | null } {
+  static extractWelnoParams(location?: any): { uuid: string | null; hospital: string | null; layout: string | null } {
     const params = location ? this.getQueryParamsFromLocation(location) : this.getQueryParams();
     return {
       uuid: params.get('uuid'),

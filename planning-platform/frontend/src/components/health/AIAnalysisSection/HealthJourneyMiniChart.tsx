@@ -199,7 +199,7 @@ const HealthJourneyMiniChart: React.FC<HealthJourneyMiniChartProps> = ({
       id: `metric-${metric}`,
       name: title,
       data: chartData,
-      color: '#7c746a', // WELLO 브랜드 컬러
+      color: '#7c746a', // WELNO 브랜드 컬러
       showPoints: true,
       showArea: false,
       unit

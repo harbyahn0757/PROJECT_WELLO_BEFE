@@ -380,7 +380,7 @@ class ErrorHandlingService {
       actions.push({
         label: '로그인',
         action: () => {
-          window.location.href = '/wello/login';
+          window.location.href = '/welno/login';
         }
       });
     }

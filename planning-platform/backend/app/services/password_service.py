@@ -29,7 +29,7 @@ class PasswordService:
             
             query = """
                 SELECT password_hash, password_attempts, password_locked_until, last_access_at
-                FROM wello.wello_patients 
+                FROM welno.welno_patients 
                 WHERE uuid = $1 AND hospital_id = $2
             """
             
@@ -65,7 +65,16 @@ class PasswordService:
             print(f"❌ [비밀번호] 확인 오류: {e}")
             return {"has_password": False, "attempts": 0, "is_locked": False}
     
-    async def set_password(self, uuid: str, hospital_id: str, password: str) -> bool:
+    async def set_password(
+        self, 
+        uuid: str, 
+        hospital_id: str, 
+        password: str,
+        name: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        birth_date: Optional[str] = None,
+        gender: Optional[str] = None
+    ) -> bool:
         """비밀번호 설정 (레코드 존재 확인 후 처리)"""
         try:
             # 6자리 숫자 검증
@@ -80,37 +89,59 @@ class PasswordService:
             
             # 1. 먼저 레코드 존재 여부 확인
             check_query = """
-                SELECT COUNT(*) FROM wello.wello_patients 
+                SELECT id FROM welno.welno_patients 
                 WHERE uuid = $1 AND hospital_id = $2
             """
-            count = await conn.fetchval(check_query, uuid, hospital_id)
+            row = await conn.fetchrow(check_query, uuid, hospital_id)
             
-            if count > 0:
+            if row:
                 # 2-1. 레코드가 있으면 UPDATE
                 update_query = """
-                    UPDATE wello.wello_patients 
+                    UPDATE welno.welno_patients 
                     SET password_hash = $1, 
                         password_set_at = NOW(),
                         password_attempts = 0,
                         password_locked_until = NULL,
                         updated_at = NOW()
-                    WHERE uuid = $2 AND hospital_id = $3
+                    WHERE id = $2
                 """
-                result = await conn.execute(update_query, password_hash.decode('utf-8'), uuid, hospital_id)
-                print(f"✅ [비밀번호] 기존 레코드 업데이트 - UUID: {uuid}, 결과: {result}")
+                result = await conn.execute(update_query, password_hash.decode('utf-8'), row['id'])
+                print(f"✅ [비밀번호] 기존 레코드 업데이트 - ID: {row['id']}, 결과: {result}")
             else:
-                # 2-2. 레코드가 없으면 INSERT
+                # 2-2. 레코드가 없으면 INSERT (필수값 확인)
+                if not name or not phone_number or not birth_date:
+                    print(f"❌ [비밀번호] 신규 환자 등록 실패 - 필수 정보 부족 (이름/번호/생일)")
+                    await conn.close()
+                    return False
+
+                # 생년월일 형식 변환 (YYYY-MM-DD)
+                try:
+                    b_date = datetime.strptime(birth_date, "%Y-%m-%d").date()
+                except:
+                    try:
+                        # 8자리 숫자(YYYYMMDD) 형식인 경우 대응
+                        b_date = datetime.strptime(birth_date, "%Y%m%d").date()
+                    except:
+                        print(f"❌ [비밀번호] 생년월일 형식 오류: {birth_date}")
+                        await conn.close()
+                        return False
+
                 insert_query = """
-                    INSERT INTO wello.wello_patients (
-                        uuid, hospital_id, password_hash, password_set_at, 
+                    INSERT INTO welno.welno_patients (
+                        uuid, hospital_id, name, phone_number, birth_date, gender,
+                        password_hash, password_set_at, 
                         password_attempts, password_locked_until, 
                         created_at, updated_at
                     ) VALUES (
-                        $1, $2, $3, NOW(), 0, NULL, NOW(), NOW()
+                        $1, $2, $3, $4, $5, $6, $7, NOW(), 0, NULL, NOW(), NOW()
                     )
                 """
-                result = await conn.execute(insert_query, uuid, hospital_id, password_hash.decode('utf-8'))
-                print(f"✅ [비밀번호] 새 레코드 생성 - UUID: {uuid}, 결과: {result}")
+                result = await conn.execute(
+                    insert_query, 
+                    uuid, hospital_id, name, phone_number, b_date, gender,
+                    password_hash.decode('utf-8')
+                )
+                print(f"✅ [비밀번호] 새 레코드 생성 및 비밀번호 설정 - UUID: {uuid}, 결과: {result}")
             
             await conn.close()
             return True
@@ -126,7 +157,7 @@ class PasswordService:
             
             # 비밀번호 관련 필드를 NULL로 설정
             query = """
-                UPDATE wello.wello_patients 
+                UPDATE welno.welno_patients 
                 SET password_hash = NULL, 
                     password_set_at = NULL,
                     password_attempts = 0,
@@ -158,7 +189,7 @@ class PasswordService:
             # 현재 상태 확인
             check_query = """
                 SELECT password_hash, password_attempts, password_locked_until
-                FROM wello.wello_patients 
+                FROM welno.welno_patients 
                 WHERE uuid = $1 AND hospital_id = $2
             """
             
@@ -315,7 +346,7 @@ class PasswordService:
                     password_locked_until,
                     last_access_at,
                     EXTRACT(EPOCH FROM (NOW() - last_access_at))/86400 as days_since_access
-                FROM wello.wello_patients 
+                FROM welno.welno_patients 
                 WHERE uuid = $1 AND hospital_id = $2
             """
             

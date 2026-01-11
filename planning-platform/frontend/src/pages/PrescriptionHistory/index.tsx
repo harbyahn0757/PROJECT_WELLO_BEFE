@@ -52,34 +52,36 @@ const PrescriptionHistory: React.FC = () => {
 
   // 데이터 로드
   useEffect(() => {
-    const loadPrescriptionData = () => {
+    const loadPrescriptionData = async () => {
       try {
-        const storedData = localStorage.getItem('wello_health_data');
+        // 1. IndexedDB 우선 확인
+        try {
+          const { WelnoIndexedDB } = await import('../../services/WelnoIndexedDB');
+          const urlParams = new URLSearchParams(location.search);
+          const uuid = urlParams.get('uuid') || 'default';
+          const indexedData = await WelnoIndexedDB.getHealthData(uuid);
+          
+          if (indexedData && indexedData.prescriptionData && indexedData.prescriptionData.length > 0) {
+            console.log('[PrescriptionHistory] IndexedDB에서 데이터 로드:', indexedData.prescriptionData.length, '건');
+            processPrescriptions(indexedData.prescriptionData);
+            setLoading(false);
+            return;
+          }
+        } catch (dbError) {
+          console.warn('[PrescriptionHistory] IndexedDB 조회 실패:', dbError);
+        }
+
+        // 2. 폴백으로 localStorage 확인
+        const storedData = localStorage.getItem('welno_health_data');
         if (storedData) {
           const parsedData = JSON.parse(storedData);
           const prescriptions = parsedData.prescription_data?.ResultList || [];
-          
-          setPrescriptionData(prescriptions);
-          
-          // 통계 계산
-          const totalPrescriptions = prescriptions.length;
-          const uniqueHospitals = new Set(prescriptions.map((p: TilkoPrescriptionRaw) => p.ByungEuiwonYakGukMyung)).size;
-          const totalMedications = prescriptions.reduce((sum: number, p: TilkoPrescriptionRaw) => {
-            return sum + (p.RetrieveTreatmentInjectionInformationPersonDetailList?.length || 0);
-          }, 0);
-
-          const recentPrescription = prescriptions.length > 0 ? {
-            date: prescriptions[0].JinRyoGaesiIl,
-            hospital: prescriptions[0].ByungEuiwonYakGukMyung,
-            medicationCount: prescriptions[0].RetrieveTreatmentInjectionInformationPersonDetailList?.length || 0
-          } : undefined;
-
-          setStats({
-            totalPrescriptions,
-            uniqueHospitals,
-            totalMedications,
-            recentPrescription
-          });
+          if (prescriptions.length > 0) {
+            console.log('[PrescriptionHistory] localStorage에서 데이터 로드 (폴백):', prescriptions.length, '건');
+            processPrescriptions(prescriptions);
+            setLoading(false);
+            return;
+          }
         }
       } catch (error) {
         console.error('처방전 데이터 로드 실패:', error);
@@ -88,8 +90,32 @@ const PrescriptionHistory: React.FC = () => {
       }
     };
 
+    const processPrescriptions = (prescriptions: TilkoPrescriptionRaw[]) => {
+      setPrescriptionData(prescriptions);
+      
+      // 통계 계산
+      const totalPrescriptions = prescriptions.length;
+      const uniqueHospitals = new Set(prescriptions.map((p: TilkoPrescriptionRaw) => p.ByungEuiwonYakGukMyung)).size;
+      const totalMedications = prescriptions.reduce((sum: number, p: TilkoPrescriptionRaw) => {
+        return sum + (p.RetrieveTreatmentInjectionInformationPersonDetailList?.length || 0);
+      }, 0);
+
+      const recentPrescription = prescriptions.length > 0 ? {
+        date: prescriptions[0].JinRyoGaesiIl,
+        hospital: prescriptions[0].ByungEuiwonYakGukMyung,
+        medicationCount: prescriptions[0].RetrieveTreatmentInjectionInformationPersonDetailList?.length || 0
+      } : undefined;
+
+      setStats({
+        totalPrescriptions,
+        uniqueHospitals,
+        totalMedications,
+        recentPrescription
+      });
+    };
+
     loadPrescriptionData();
-  }, []);
+  }, [location.search]);
 
   // 필터링된 데이터
   const filteredData = useMemo(() => {
@@ -195,8 +221,8 @@ const PrescriptionHistory: React.FC = () => {
           <h2>처방전 데이터가 없습니다</h2>
           <p>먼저 건강정보를 연동하여 처방전 데이터를 가져와주세요.</p>
           <button 
-            className="wello-button wello-button-primary"
-            onClick={() => navigate('/wello/login')}
+            className="welno-button welno-button-primary"
+            onClick={() => navigate('/welno/login')}
           >
             건강정보 연동하기
           </button>

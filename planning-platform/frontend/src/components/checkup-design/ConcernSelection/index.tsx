@@ -5,7 +5,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import HealthTrendsHeader from '../../health/HealthTrendsHeader';
-import WelloModal from '../../common/WelloModal';
+import WelnoModal from '../../common/WelnoModal';
 import CheckupDesignSurveyPanel, { SurveyResponses } from '../CheckupDesignSurveyPanel';
 import { InteractionEvent } from '../CheckupDesignSurveyPanel/useSurveyTracker';
 import {
@@ -1273,11 +1273,11 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
       )}
       
       {/* 장바구니 아이템 상세 모달 */}
-      <WelloModal
+      <WelnoModal
         isOpen={isCartModalOpen}
         onClose={() => setIsCartModalOpen(false)}
         showCloseButton={true}
-        showWelloIcon={false}
+        showWelnoIcon={false}
         size="large"
       >
         {selectedCartItem && selectedCartItem.record && (
@@ -1351,7 +1351,7 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
             </div>
           </div>
         )}
-      </WelloModal>
+      </WelnoModal>
 
       {/* 하단 버튼 (고정) */}
       <button

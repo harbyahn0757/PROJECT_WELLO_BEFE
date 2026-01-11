@@ -403,8 +403,8 @@ async def session_simple_auth(
             
             session_manager.update_session_status(
                 session_id,
-                "auth_completed",  # CX, TX 받으면 즉시 완료 처리
-                f"인증이 완료되었습니다!\n아래 버튼을 눌러 데이터를 수집해주세요."
+                "auth_request_sent",  # 'auth_completed'에서 'auth_request_sent'로 변경
+                f"인증 요청이 성공했습니다.\n폰에서 인증을 완료하고 아래 버튼을 눌러주세요."
             )
             
             # 세션 연장 (활동 감지) - 5분 연장
@@ -742,8 +742,8 @@ async def confirm_auth_and_fetch_data_sync(session_id: str) -> Dict[str, Any]:
         
         if patient_uuid and hospital_id and user_info:
             try:
-                from ....services.wello_data_service import WelloDataService
-                wello_service = WelloDataService()
+                from ....services.welno_data_service import WelnoDataService
+                welno_service = WelnoDataService()
                 
                 # user_info 키 이름 변환 (phone_no → phone_number, birthdate → birth_date)
                 user_info_for_save = {
@@ -759,7 +759,7 @@ async def confirm_auth_and_fetch_data_sync(session_id: str) -> Dict[str, Any]:
                 print(f"   - 생년월일: {user_info_for_save['birth_date']}")
                 print(f"   - 성별: {user_info_for_save['gender']}")
                 
-                patient_id = await wello_service.save_patient_data(
+                patient_id = await welno_service.save_patient_data(
                     uuid=patient_uuid,
                     hospital_id=hospital_id,
                     user_info=user_info_for_save,
@@ -874,8 +874,8 @@ async def fetch_health_data_after_auth(session_id: str):
         
         if patient_uuid and hospital_id and user_info:
             try:
-                from ....services.wello_data_service import WelloDataService
-                wello_service = WelloDataService()
+                from ....services.welno_data_service import WelnoDataService
+                welno_service = WelnoDataService()
                 
                 # user_info 키 이름 변환 (phone_no → phone_number, birthdate → birth_date)
                 user_info_for_save = {
@@ -891,7 +891,7 @@ async def fetch_health_data_after_auth(session_id: str):
                 print(f"   - 생년월일: {user_info_for_save['birth_date']}")
                 print(f"   - 성별: {user_info_for_save['gender']}")
                 
-                patient_id = await wello_service.save_patient_data(
+                patient_id = await welno_service.save_patient_data(
                     uuid=patient_uuid,
                     hospital_id=hospital_id,
                     user_info=user_info_for_save,
@@ -1086,6 +1086,9 @@ async def get_session_status_for_polling(session_id: str):
     if not session_data:
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
     
+    # 활동 감지 - 세션 자동 연장 (5분씩)
+    session_manager.extend_session(session_id, extend_seconds=300)
+    
     response_data = {
         "success": True,
         "session_id": session_id,
@@ -1176,10 +1179,6 @@ async def manual_auth_complete(session_id: str) -> Dict[str, Any]:
         
         print(f"🔧 [수동인증완료] 세션 {session_id}를 인증 완료 상태로 변경")
         
-        # 세션 상태를 인증 완료로 변경
-        session_manager.update_session_status(session_id, "auth_completed", "수동으로 인증 완료 처리되었습니다.")
-        session_manager.add_error_message(session_id, "인증이 완료되었습니다. 건강검진 데이터를 수집할 수 있습니다.")
-        
         # temp_auth_data를 실제 auth_data로 변환
         temp_auth_data = session_data.get("temp_auth_data", {})
         if temp_auth_data:
@@ -1191,7 +1190,19 @@ async def manual_auth_complete(session_id: str) -> Dict[str, Any]:
                 "TxId": temp_auth_data.get("txId")
             }
             session_data["auth_data"] = auth_data
-            session_manager._save_session(session_id, session_data)
+        
+        # 세션 상태를 인증 완료로 변경 (메시지 포함)
+        session_data["status"] = "auth_completed"
+        session_data["updated_at"] = datetime.now().isoformat()
+        session_data["messages"].append({
+            "timestamp": datetime.now().isoformat(),
+            "type": "success",
+            "message": "인증이 완료되었습니다. 건강검진 데이터를 수집할 수 있습니다."
+        })
+        session_data["progress"]["auth_completed"] = True
+        
+        # 한 번에 저장
+        session_manager._save_session(session_id, session_data)
         
         return {
             "success": True,
@@ -1251,12 +1262,11 @@ async def collect_health_data_background_task(session_id: str):
             print(f"❌ [백그라운드] 세션 {session_id} 없음 - 작업 중단")
             return
         
-        # 🚨 중복 실행 방지: 이미 수집이 진행 중이거나 완료된 경우 중단
-        current_status = session_data.get("status", "")
+        # 🚨 중복 실행 방지: collection_started 플래그만 체크
         collection_started = session_data.get("collection_started", False)
         
-        if current_status in ["fetching_health_data", "fetching_prescription_data", "completed"] or collection_started:
-            print(f"⚠️ [백그라운드중복방지] 세션 {session_id}는 이미 수집 중/완료 (상태: {current_status}, 플래그: {collection_started}) - 작업 중단")
+        if collection_started:
+            print(f"⚠️ [백그라운드중복방지] 세션 {session_id}는 이미 수집 중 (플래그: {collection_started}) - 작업 중단")
             return
         
         # 🔒 수집 시작 플래그 설정 (다른 백그라운드 작업 차단)
@@ -1377,13 +1387,28 @@ async def collect_health_data_background_task(session_id: str):
                         print(f"⚠️ [백그라운드] 건강검진 실패 알림 실패: {e}")
                     
                     print(f"❌ [백그라운드] 건강검진 데이터 오류: {error_msg}")
+                    # ⚠️ 건강검진 실패 시에도 에러 응답을 세션에 저장 (나중에 확인용)
+                    session_manager.update_health_data(session_id, health_data)
                     # 기타 오류는 처방전 수집 계속 진행
             else:
-                session_manager.update_health_data(session_id, health_data)
+                # ResultList 상태 상세 확인
+                result_list = health_data.get("ResultList")
+                if result_list is None:
+                    print(f"⚠️ [백그라운드] 건강검진 ResultList가 None입니다!")
+                    print(f"   - health_data 키: {list(health_data.keys())}")
+                    print(f"   - Status: {health_data.get('Status')}")
+                    health_count = 0
+                elif isinstance(result_list, list):
+                    health_count = len(result_list)
+                    if health_count == 0:
+                        print(f"⚠️ [백그라운드] 건강검진 ResultList가 빈 배열입니다!")
+                        print(f"   - Status: {health_data.get('Status')}")
+                        print(f"   - 전체 응답: {health_data}")
+                else:
+                    print(f"⚠️ [백그라운드] 건강검진 ResultList가 리스트가 아님: {type(result_list)}")
+                    health_count = 0
                 
-                # 건강검진 기록 수 확인
-                result_list = health_data.get("ResultList", [])
-                health_count = len(result_list) if isinstance(result_list, list) else 0
+                session_manager.update_health_data(session_id, health_data)
                 
                 # 건강검진 수집 완료 메시지 전송
                 health_success_message = f"건강검진 데이터 {health_count}건 수집했습니다."
@@ -1493,8 +1518,25 @@ async def collect_health_data_background_task(session_id: str):
                     if technical_detail:
                         print(f"   기술적 상세: {technical_detail}")
             else:
+                # ResultList 상태 상세 확인
+                result_list = prescription_data.get("ResultList")
+                if result_list is None:
+                    print(f"⚠️ [백그라운드] 처방전 ResultList가 None입니다!")
+                    print(f"   - prescription_data 키: {list(prescription_data.keys())}")
+                    print(f"   - Status: {prescription_data.get('Status')}")
+                    prescription_count = 0
+                elif isinstance(result_list, list):
+                    prescription_count = len(result_list)
+                    if prescription_count == 0:
+                        print(f"⚠️ [백그라운드] 처방전 ResultList가 빈 배열입니다!")
+                        print(f"   - Status: {prescription_data.get('Status')}")
+                        print(f"   - 전체 응답: {prescription_data}")
+                else:
+                    print(f"⚠️ [백그라운드] 처방전 ResultList가 리스트가 아님: {type(result_list)}")
+                    prescription_count = 0
+                
                 session_manager.update_prescription_data(session_id, prescription_data)
-                print(f"✅ [백그라운드] 처방전 데이터 수집 성공")
+                print(f"✅ [백그라운드] 처방전 데이터 수집 성공 - {prescription_count}건")
                 print(f"✅ [백그라운드] JSON 파일 저장 완료")
                 
         except Exception as e:
@@ -1524,9 +1566,45 @@ async def collect_health_data_background_task(session_id: str):
             
             print(f"❌ [백그라운드] 처방전 데이터 수집 실패: {str(e)}")
         
-        # 모든 데이터 수집 완료
-        session_manager.complete_session(session_id)
-        print(f"✅ [백그라운드] 모든 건강정보 수집 완료 - 세션: {session_id}")
+        # ⚠️ 실제로 데이터가 수집되었는지 확인 후 완료 처리
+        final_check_session = session_manager.get_session(session_id)
+        health_data_final = final_check_session.get("health_data") if final_check_session else None
+        prescription_data_final = final_check_session.get("prescription_data") if final_check_session else None
+        
+        # 데이터 존재 여부 확인
+        has_health_data = False
+        has_prescription_data = False
+        
+        if health_data_final:
+            if isinstance(health_data_final, dict):
+                if health_data_final.get("Status") == "OK":
+                    result_list = health_data_final.get("ResultList")
+                    has_health_data = result_list and isinstance(result_list, list) and len(result_list) > 0
+        
+        if prescription_data_final:
+            if isinstance(prescription_data_final, dict):
+                if prescription_data_final.get("Status") == "OK":
+                    result_list = prescription_data_final.get("ResultList")
+                    has_prescription_data = result_list and isinstance(result_list, list) and len(result_list) > 0
+        
+        print(f"🔍 [백그라운드] 최종 데이터 수집 상태 확인:")
+        print(f"   - 건강검진 데이터 수집 성공: {has_health_data}")
+        print(f"   - 처방전 데이터 수집 성공: {has_prescription_data}")
+        print(f"   - health_data Status: {health_data_final.get('Status') if health_data_final and isinstance(health_data_final, dict) else 'N/A'}")
+        print(f"   - prescription_data Status: {prescription_data_final.get('Status') if prescription_data_final and isinstance(prescription_data_final, dict) else 'N/A'}")
+        
+        # 데이터가 하나라도 있으면 완료 처리
+        if has_health_data or has_prescription_data:
+            session_manager.complete_session(session_id)
+            print(f"✅ [백그라운드] 모든 건강정보 수집 완료 - 세션: {session_id}")
+        else:
+            # 데이터가 하나도 없으면 에러 상태로 처리
+            error_msg = "건강검진 데이터와 처방전 데이터가 모두 수집되지 않았습니다."
+            session_manager.update_session_status(session_id, "error", error_msg)
+            session_manager.add_error_message(session_id, error_msg)
+            print(f"❌ [백그라운드] 데이터 수집 실패 - 건강검진과 처방전 모두 수집되지 않음")
+            # 에러 상태에서는 notify_completion을 호출하지 않음
+            return
         
         # 🔓 수집 완료 플래그 설정 및 정리
         session_data = session_manager.get_session(session_id)
@@ -1537,76 +1615,241 @@ async def collect_health_data_background_task(session_id: str):
             session_manager._save_session(session_id, session_data)
             print(f"🔓 [백그라운드] 수집 완료 플래그 설정 - 세션: {session_id}")
         
-        # 🚀 파일 우선 저장 후 DB 입력 전략 적용
+        # 🚀 데이터 저장 및 환자 식별 로직 통합
         try:
             from app.services.file_first_data_service import FileFirstDataService
-            file_first_service = FileFirstDataService()
+            from app.services.welno_data_service import WelnoDataService
+            from app.core.config import settings
+            import uuid as uuid_lib
             
-            # 세션에서 환자 정보 가져오기 (최신 세션 데이터 사용)
+            file_first_service = FileFirstDataService()
+            welno_service = WelnoDataService()
+            
+            # 최신 세션 데이터 다시 가져오기
             final_session_data = session_manager.get_session(session_id)
+            if not final_session_data:
+                print(f"❌ [백그라운드-저장] 세션 {session_id}을 찾을 수 없음")
+                return
+
             patient_uuid = final_session_data.get("patient_uuid")
             hospital_id = final_session_data.get("hospital_id")
             
-            print(f"🔍 [백그라운드] 환자 정보 확인 - patient_uuid: {patient_uuid}, hospital_id: {hospital_id}")
-            
-            if patient_uuid and hospital_id:
-                # 1단계: 모든 데이터를 파일로 먼저 저장
-                print(f"📁 [파일우선] 1단계 - 데이터 파일 저장 시작")
+            # 1. 환자 식별 (없는 경우 조회 또는 생성)
+            if not patient_uuid or not hospital_id:
+                print(f"🆕 [백그라운드-식별] 환자 정보 없음 - 조회/생성 시작")
                 
-                # 환자 정보 파일 저장
-                await file_first_service.save_data_to_file_first(
-                    session_id, "patient_data", user_info, patient_uuid, hospital_id
-                )
+                phone_no = user_info.get("phone_no")
+                birthdate = user_info.get("birthdate")
+                name = user_info.get("name")
                 
-                # 건강검진 데이터 파일 저장
-                health_data = final_session_data.get("health_data")
-                if health_data:
-                    await file_first_service.save_data_to_file_first(
-                        session_id, "health_data", health_data, patient_uuid, hospital_id
-                    )
+                if not phone_no or not birthdate or not name:
+                    print(f"❌ [백그라운드-식별] 필수 사용자 정보 누락")
+                    raise Exception("필수 사용자 정보(이름, 생년월일, 전화번호)가 누락되어 환자를 식별할 수 없습니다.")
                 
-                # 처방전 데이터 파일 저장
-                prescription_data = final_session_data.get("prescription_data")
-                if prescription_data:
-                    await file_first_service.save_data_to_file_first(
-                        session_id, "prescription_data", prescription_data, patient_uuid, hospital_id
-                    )
+                # 기존 환자 조회
+                existing_patient = await welno_service.get_patient_by_combo(phone_no, birthdate, name)
                 
-                print(f"✅ [파일우선] 1단계 완료 - 모든 데이터 파일 저장 완료")
-                
-                # 2단계: 파일에서 DB로 저장 (즉시 처리)
-                print(f"🗄️ [파일우선] 2단계 - DB 저장 시작")
-                db_results = await file_first_service.process_pending_files_to_db(max_files=10)
-                
-                if db_results["success"] > 0:
-                    print(f"✅ [백그라운드] 파일 우선 저장 완료 - 성공: {db_results['success']}건")
+                if existing_patient:
+                    patient_uuid = existing_patient["uuid"]
+                    hospital_id = existing_patient["hospital_id"]
+                    print(f"✅ [백그라운드-식별] 기존 환자 발견 - UUID: {patient_uuid}")
                 else:
-                    print(f"⚠️ [백그라운드] DB 저장 실패 - 파일은 안전하게 보관됨")
+                    # 새 환자 생성
+                    new_uuid = str(uuid_lib.uuid4())
                     
-                print(f"✅ [백그라운드] 모든 데이터 처리 완료 - 환자: {patient_uuid}")
-            else:
-                print(f"⚠️ [백그라운드] 환자 UUID 또는 병원 ID가 없어서 저장 생략")
+                    # 병원 ID Fallback 로직 강화
+                    default_hosp = settings.welno_default_hospital_id
+                    
+                    # DB에 실제 존재하는 병원인지 확인
+                    try:
+                        import asyncpg
+                        conn = await asyncpg.connect(
+                            host=settings.DB_HOST if hasattr(settings, 'DB_HOST') else '10.0.1.10',
+                            port=settings.DB_PORT if hasattr(settings, 'DB_PORT') else 5432,
+                            database=settings.DB_NAME if hasattr(settings, 'DB_NAME') else 'p9_mkt_biz',
+                            user=settings.DB_USER if hasattr(settings, 'DB_USER') else 'peernine',
+                            password=settings.DB_PASSWORD if hasattr(settings, 'DB_PASSWORD') else 'autumn3334!'
+                        )
+                        hosp_exists = await conn.fetchval("SELECT COUNT(*) FROM welno.welno_hospitals WHERE hospital_id = $1", default_hosp)
+                        
+                        if hosp_exists == 0:
+                            print(f"⚠️ [백그라운드-식별] 설정된 기본 병원 ID '{default_hosp}'가 DB에 없습니다. 대체 ID 조회.")
+                            # 'PEERNINE' 시도
+                            peernine_exists = await conn.fetchval("SELECT COUNT(*) FROM welno.welno_hospitals WHERE hospital_id = 'PEERNINE'")
+                            if peernine_exists > 0:
+                                default_hosp = 'PEERNINE'
+                            else:
+                                # DB에 있는 아무 병원 ID나 가져옴
+                                first_hosp = await conn.fetchval("SELECT hospital_id FROM welno.welno_hospitals LIMIT 1")
+                                if first_hosp:
+                                    default_hosp = first_hosp
+                        
+                        await conn.close()
+                    except Exception as hosp_check_error:
+                        print(f"⚠️ [백그라운드-식별] 병원 유효성 체크 실패 (계속 진행): {hosp_check_error}")
+                        if not default_hosp:
+                            default_hosp = "PEERNINE"
+
+                    print(f"🆕 [백그라운드-식별] 새 환자 생성 시도 - UUID: {new_uuid}, Hospital: {default_hosp}")
+                    
+                    user_info_for_save = {
+                        "name": name,
+                        "phone_number": phone_no,
+                        "birth_date": birthdate,
+                        "gender": user_info.get("gender", "M")
+                    }
+                    
+                    patient_id = await welno_service.save_patient_data(
+                        uuid=new_uuid,
+                        hospital_id=default_hosp,
+                        user_info=user_info_for_save,
+                        session_id=session_id
+                    )
+                    
+                    if not patient_id:
+                        raise Exception("DB에 새 환자 정보를 저장하는 데 실패했습니다.")
+                    
+                    patient_uuid = new_uuid
+                    hospital_id = default_hosp
+                    print(f"✅ [백그라운드-식별] 새 환자 생성 완료 - UUID: {patient_uuid}")
                 
+                # 2. 세션에 즉시 반영 (중요!)
+                final_session_data["patient_uuid"] = patient_uuid
+                final_session_data["hospital_id"] = hospital_id
+                session_manager._save_session(session_id, final_session_data)
+                print(f"💾 [백그라운드-세션] 환자 정보 세션 저장 완료")
+
+            # 3. 데이터 저장 (파일 우선 저장 후 DB 입력)
+            print(f"📁 [백그라운드-저장] 1단계: 파일 저장 시작 (환자: {patient_uuid})")
+            
+            # 환자 정보 파일 저장
+            await file_first_service.save_data_to_file_first(
+                session_id, "patient_data", user_info, patient_uuid, hospital_id
+            )
+            
+            # 건강검진 데이터 파일 저장
+            health_data = final_session_data.get("health_data")
+            if health_data:
+                await file_first_service.save_data_to_file_first(
+                    session_id, "health_data", health_data, patient_uuid, hospital_id
+                )
+            
+            # 처방전 데이터 파일 저장
+            prescription_data = final_session_data.get("prescription_data")
+            if prescription_data:
+                await file_first_service.save_data_to_file_first(
+                    session_id, "prescription_data", prescription_data, patient_uuid, hospital_id
+                )
+            
+            print(f"✅ [백그라운드-저장] 1단계: 모든 파일 저장 완료")
+            
+            # 4. 파일에서 DB로 저장 (즉시 처리 시도)
+            print(f"🗄️ [백그라운드-저장] 2단계: DB 저장 시작")
+            db_results = await file_first_service.process_pending_files_to_db(max_files=10)
+            
+            if db_results.get("success", 0) > 0:
+                print(f"✅ [백그라운드-저장] DB 저장 완료 - 성공: {db_results['success']}건")
+            else:
+                print(f"⚠️ [백그라운드-저장] DB 저장 실패 - 파일은 안전하게 보관됨 (나중에 재시도 가능)")
+            
+            print(f"✅ [백그라운드-완료] 모든 데이터 처리 프로세스 종료 - 환자: {patient_uuid}")
+
         except Exception as e:
-            print(f"❌ [백그라운드] DB 저장 실패: {str(e)}")
-            # DB 저장 실패해도 알림은 계속 진행
+            print(f"❌ [백그라운드-치명적오류] 데이터 처리 중 예외 발생: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            # 세션에 에러 메시지 추가
+            session_manager.add_error_message(session_id, f"데이터 저장 중 오류가 발생했습니다: {str(e)}")
         
-        # 완료 알림 전송
+        # 완료 알림 전송 (항상 시도)
         try:
             from app.api.v1.endpoints.websocket_auth import notify_completion
             
-            # 수집된 데이터 가져오기
-            final_session_data = session_manager.get_session(session_id)
+            # 수집된 최신 데이터 가져오기
+            updated_session = session_manager.get_session(session_id)
+            
+            # 🔍 데이터 상태 상세 로깅
+            health_data_from_session = updated_session.get("health_data")
+            prescription_data_from_session = updated_session.get("prescription_data")
+            
+            print(f"🔍 [백그라운드-알림] 세션에서 데이터 조회:")
+            print(f"   - health_data 존재: {health_data_from_session is not None}")
+            if health_data_from_session:
+                print(f"   - health_data 타입: {type(health_data_from_session)}")
+                print(f"   - health_data 키: {list(health_data_from_session.keys()) if isinstance(health_data_from_session, dict) else 'N/A'}")
+                if isinstance(health_data_from_session, dict):
+                    result_list = health_data_from_session.get("ResultList")
+                    if result_list is None:
+                        print(f"   - ⚠️ health_data.ResultList가 None입니다!")
+                    elif isinstance(result_list, list):
+                        print(f"   - health_data.ResultList 길이: {len(result_list)}건")
+                        if len(result_list) == 0:
+                            print(f"   - ⚠️ health_data.ResultList가 빈 배열입니다!")
+                    else:
+                        print(f"   - ⚠️ health_data.ResultList가 리스트가 아님: {type(result_list)}")
+            else:
+                print(f"   - ⚠️ health_data가 None이거나 비어있습니다!")
+            
+            print(f"   - prescription_data 존재: {prescription_data_from_session is not None}")
+            if prescription_data_from_session:
+                print(f"   - prescription_data 타입: {type(prescription_data_from_session)}")
+                if isinstance(prescription_data_from_session, dict):
+                    result_list = prescription_data_from_session.get("ResultList")
+                    if result_list is None:
+                        print(f"   - ⚠️ prescription_data.ResultList가 None입니다!")
+                    elif isinstance(result_list, list):
+                        print(f"   - prescription_data.ResultList 길이: {len(result_list)}건")
+                    else:
+                        print(f"   - ⚠️ prescription_data.ResultList가 리스트가 아님: {type(result_list)}")
+            
             collected_data = {
-                "health_data": final_session_data.get("health_data"),
-                "prescription_data": final_session_data.get("prescription_data")
+                "health_data": health_data_from_session,
+                "prescription_data": prescription_data_from_session,
+                "patient_uuid": patient_uuid,
+                "hospital_id": hospital_id
             }
             
-            await notify_completion(session_id, collected_data)
-            print(f"✅ [백그라운드] 완료 알림 전송 완료 - 세션: {session_id}")
+            print(f"🔍 [백그라운드-알림] collected_data 구조:")
+            print(f"   - collected_data 키: {list(collected_data.keys())}")
+            print(f"   - collected_data.health_data 존재: {collected_data.get('health_data') is not None}")
+            print(f"   - collected_data.prescription_data 존재: {collected_data.get('prescription_data') is not None}")
+            
+            # ⚠️ 실제로 데이터가 있는지 최종 확인
+            has_valid_health_data = False
+            has_valid_prescription_data = False
+            
+            if health_data_from_session and isinstance(health_data_from_session, dict):
+                if health_data_from_session.get("Status") == "OK":
+                    result_list = health_data_from_session.get("ResultList")
+                    has_valid_health_data = result_list and isinstance(result_list, list) and len(result_list) > 0
+            
+            if prescription_data_from_session and isinstance(prescription_data_from_session, dict):
+                if prescription_data_from_session.get("Status") == "OK":
+                    result_list = prescription_data_from_session.get("ResultList")
+                    has_valid_prescription_data = result_list and isinstance(result_list, list) and len(result_list) > 0
+            
+            print(f"🔍 [백그라운드-알림] 최종 데이터 유효성 확인:")
+            print(f"   - 건강검진 데이터 유효: {has_valid_health_data}")
+            print(f"   - 처방전 데이터 유효: {has_valid_prescription_data}")
+            
+            if has_valid_health_data or has_valid_prescription_data:
+                await notify_completion(session_id, collected_data)
+                print(f"✅ [백그라운드-알림] 완료 알림 전송 완료 - 세션: {session_id}")
+            else:
+                print(f"⚠️ [백그라운드-알림] 데이터가 없어서 완료 알림을 전송하지 않음")
+                # 에러 메시지 전송
+                try:
+                    await notify_streaming_status(
+                        session_id,
+                        "data_collection_failed",
+                        "건강검진 데이터와 처방전 데이터가 모두 수집되지 않았습니다. 인증을 다시 시도해주세요.",
+                        {"has_data": False}
+                    )
+                except Exception as e2:
+                    print(f"⚠️ [백그라운드-알림] 에러 알림 전송 실패: {e2}")
             
         except Exception as e:
-            print(f"⚠️ [백그라운드] 완료 알림 전송 실패: {e}")
+            print(f"⚠️ [백그라운드-알림] 완료 알림 전송 실패: {e}")
         
     except Exception as e:
         error_msg = f"건강정보 수집 백그라운드 작업 실패: {str(e)}"

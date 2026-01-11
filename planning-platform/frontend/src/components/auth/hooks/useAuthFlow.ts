@@ -305,7 +305,13 @@ export function useAuthFlow() {
           StorageManager.removeItem('tilko_auth_waiting');
           StorageManager.removeItem('tilko_auth_method_selection');
           StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
+          StorageManager.removeItem('tilko_auth_requested');
+          StorageManager.removeItem('tilko_manual_collect');
+          StorageManager.removeItem('tilko_collecting_status');
+          StorageManager.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
           window.dispatchEvent(new CustomEvent('tilko-status-change'));
+          window.dispatchEvent(new Event('localStorageChange'));
+          window.dispatchEvent(new CustomEvent('password-modal-change'));
           return false;
         }
         
@@ -349,7 +355,13 @@ export function useAuthFlow() {
         StorageManager.removeItem('tilko_auth_waiting');
         StorageManager.removeItem('tilko_auth_method_selection');
         StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
+        StorageManager.removeItem('tilko_auth_requested');
+        StorageManager.removeItem('tilko_manual_collect');
+        StorageManager.removeItem('tilko_collecting_status');
+        StorageManager.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
         window.dispatchEvent(new CustomEvent('tilko-status-change'));
+        window.dispatchEvent(new Event('localStorageChange'));
+        window.dispatchEvent(new CustomEvent('password-modal-change'));
         // 세션 검증 실패해도 입력 데이터는 복구 시도
       }
     }
@@ -364,7 +376,12 @@ export function useAuthFlow() {
       StorageManager.removeItem('tilko_auth_waiting');
       StorageManager.removeItem('tilko_auth_method_selection');
       StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
+      StorageManager.removeItem('tilko_manual_collect');
+      StorageManager.removeItem('tilko_collecting_status');
+      StorageManager.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
       window.dispatchEvent(new CustomEvent('tilko-status-change'));
+      window.dispatchEvent(new Event('localStorageChange'));
+      window.dispatchEvent(new CustomEvent('password-modal-change'));
       
       setState(prev => ({
         ...prev,
@@ -498,6 +515,16 @@ export function useAuthFlow() {
     StorageManager.removeItem(STORAGE_KEYS.LOGIN_INPUT_DATA);
     StorageManager.removeItem(STORAGE_KEYS.TILKO_TERMS_AGREED);
     StorageManager.removeItem(STORAGE_KEYS.TILKO_SESSION_ID);
+    StorageManager.removeItem('tilko_auth_waiting');
+    StorageManager.removeItem('tilko_auth_method_selection');
+    StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
+    StorageManager.removeItem('tilko_auth_requested');
+    StorageManager.removeItem('tilko_manual_collect');
+    StorageManager.removeItem('tilko_collecting_status');
+    StorageManager.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
+    window.dispatchEvent(new CustomEvent('tilko-status-change'));
+    window.dispatchEvent(new Event('localStorageChange'));
+    window.dispatchEvent(new CustomEvent('password-modal-change'));
     
     // 상태 초기화
     setState({

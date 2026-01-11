@@ -5,7 +5,8 @@ GPT 기반 검진 설계 생성
 
 from typing import List, Optional, Dict, Any
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, Query, Path, Depends
+from fastapi import APIRouter, HTTPException, Query, Path, Depends, Request
+from starlette.requests import Request
 from pydantic import BaseModel, Field
 import logging
 from datetime import datetime
@@ -25,7 +26,7 @@ from ....services.checkup_design import (
     create_checkup_design_prompt_step2_upselling,
     CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2
 )
-from ....services.wello_data_service import WelloDataService
+from ....services.welno_data_service import WelnoDataService
 from ....services.session_logger import get_session_logger
 from ....services.worry_service import worry_service # 추가
 from ....services.checkup_design import rag_service
@@ -33,7 +34,7 @@ from ....services.checkup_design import rag_service
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-wello_data_service = WelloDataService()
+welno_data_service = WelnoDataService()
 gpt_service = GPTService()
 
 # 의존성 주입 (추후 DI 컨테이너로 대체)
@@ -146,7 +147,7 @@ async def create_checkup_design(
         
         # 1. 환자 정보 조회
         logger.info(f"🔍 [검진설계] 환자 정보 조회 시작...")
-        patient_info = await wello_data_service.get_patient_by_uuid(request.uuid)
+        patient_info = await welno_data_service.get_patient_by_uuid(request.uuid)
         logger.info(f"🔍 [검진설계] patient_info 타입: {type(patient_info)}")
         
         if not isinstance(patient_info, dict):
@@ -167,7 +168,7 @@ async def create_checkup_design(
         
         # 1-1. 병원 정보 조회 (검진 항목 포함)
         logger.info(f"🏥 [검진설계] 병원 정보 조회 시작 - hospital_id: {request.hospital_id}")
-        hospital_info = await wello_data_service.get_hospital_by_id(request.hospital_id)
+        hospital_info = await welno_data_service.get_hospital_by_id(request.hospital_id)
         logger.info(f"🔍 [검진설계] hospital_info 타입: {type(hospital_info)}")
         
         if not isinstance(hospital_info, dict):
@@ -207,7 +208,7 @@ async def create_checkup_design(
         
         # 2. 건강 데이터 조회
         logger.info(f"🔍 [검진설계] 건강 데이터 조회 시작...")
-        health_data_result = await wello_data_service.get_patient_health_data(request.uuid, request.hospital_id)
+        health_data_result = await welno_data_service.get_patient_health_data(request.uuid, request.hospital_id)
         logger.info(f"🔍 [검진설계] health_data_result 타입: {type(health_data_result)}")
         
         if not isinstance(health_data_result, dict):
@@ -226,7 +227,7 @@ async def create_checkup_design(
         if not request.prescription_analysis_text:
             # 분석 결과 텍스트가 없을 때만 원본 데이터 조회 (하위 호환성)
             logger.info(f"🔍 [검진설계] 처방전 데이터 조회 시작...")
-            prescription_data_result = await wello_data_service.get_patient_prescription_data(request.uuid, request.hospital_id)
+            prescription_data_result = await welno_data_service.get_patient_prescription_data(request.uuid, request.hospital_id)
             logger.info(f"🔍 [검진설계] prescription_data_result 타입: {type(prescription_data_result)}")
             
             if not isinstance(prescription_data_result, dict):
@@ -352,7 +353,12 @@ async def create_checkup_design(
                 
                 # STEP 1과 STEP 2 결과 병합
                 logger.info(f"🔗 [검진설계] STEP 1과 STEP 2 결과 병합 중...")
-                ai_response = merge_checkup_design_responses(step1_result, step2_result)
+                ai_response = merge_checkup_design_responses(
+                    step1_result, 
+                    step2_result, 
+                    hospital_recommended=hospital_recommended,
+                    hospital_external_checkup=hospital_external_checkup
+                )
                 logger.info(f"✅ [검진설계] 병합 완료 - 최종 결과 키: {list(ai_response.keys())}")
                 
                 # priority_1 검증: hospital_national_checkup의 일반 카테고리만 포함되는지 확인
@@ -431,7 +437,7 @@ async def create_checkup_design(
         
         # 7. 검진 설계 요청 저장 (업셀링용)
         try:
-            save_result = await wello_data_service.save_checkup_design_request(
+            save_result = await welno_data_service.save_checkup_design_request(
                 uuid=request.uuid,
                 hospital_id=request.hospital_id,
                 selected_concerns=selected_concerns,
@@ -616,7 +622,7 @@ async def create_checkup_design_step1(
         logger.info(f"🎬 [SessionLogger] 세션 시작: {session_id}")
         
         # 1. 환자 정보 조회
-        patient_info = await wello_data_service.get_patient_by_uuid(request.uuid)
+        patient_info = await welno_data_service.get_patient_by_uuid(request.uuid)
         if "error" in patient_info:
             raise HTTPException(status_code=404, detail=patient_info["error"])
         
@@ -632,7 +638,7 @@ async def create_checkup_design_step1(
         
         # 2. 병원 정보 조회 (검진 항목 포함)
         logger.info(f"🏥 [STEP1-분석] 병원 정보 조회 시작 - hospital_id: {request.hospital_id}")
-        hospital_info = await wello_data_service.get_hospital_by_id(request.hospital_id)
+        hospital_info = await welno_data_service.get_hospital_by_id(request.hospital_id)
         if "error" in hospital_info:
             logger.error(f"❌ [STEP1-분석] 병원 정보 조회 실패: {hospital_info['error']}")
             raise HTTPException(status_code=404, detail=hospital_info["error"])
@@ -642,7 +648,7 @@ async def create_checkup_design_step1(
         logger.info(f"📊 [STEP1-분석] 기본 검진 항목: {len(hospital_national_checkup) if hospital_national_checkup else 0}개")
         
         # 3. 건강 데이터 조회 (기존 방식과 동일)
-        health_data_result = await wello_data_service.get_patient_health_data(request.uuid, request.hospital_id)
+        health_data_result = await welno_data_service.get_patient_health_data(request.uuid, request.hospital_id)
         if "error" in health_data_result:
             logger.warning(f"⚠️ [STEP1-분석] 건강 데이터 조회 실패: {health_data_result['error']}")
             health_data = []
@@ -653,7 +659,7 @@ async def create_checkup_design_step1(
         # 4. 처방전 데이터 조회 (기존 방식과 동일)
         prescription_data = []
         if not request.prescription_analysis_text:
-            prescription_data_result = await wello_data_service.get_patient_prescription_data(request.uuid, request.hospital_id)
+            prescription_data_result = await welno_data_service.get_patient_prescription_data(request.uuid, request.hospital_id)
             if "error" in prescription_data_result:
                 logger.warning(f"⚠️ [STEP1-분석] 처방전 데이터 조회 실패: {prescription_data_result['error']}")
                 prescription_data = []
@@ -715,7 +721,8 @@ async def create_checkup_design_step1(
             survey_responses=survey_responses_clean,
             hospital_national_checkup=hospital_national_checkup,
             prescription_analysis_text=prescription_analysis_text,
-            selected_medication_texts=selected_medication_texts
+            selected_medication_texts=selected_medication_texts,
+            events=request.events
         )
         
         # 프롬프트와 페르소나 결과 분리
@@ -729,7 +736,7 @@ async def create_checkup_design_step1(
         
         # 8. 빠른 모델 선택 (STEP 1은 분석만 하므로 토큰 수 제한)
         # gpt-4o-mini 대신 Gemini Flash 사용 (빠르고 저렴한 모델)
-        fast_model = getattr(settings, 'google_gemini_fast_model', 'gemini-2.0-flash')
+        fast_model = getattr(settings, 'google_gemini_fast_model', 'gemini-3-flash-preview')
         max_tokens = 4096  # STEP 1은 분석만 하므로 토큰 수 제한
         
         logger.info(f"🤖 [STEP1-분석] Gemini API 호출 시작... (모델: {fast_model}, max_tokens: {max_tokens})")
@@ -881,17 +888,23 @@ async def create_checkup_design_step1(
 
 @router.get("/latest/{patient_uuid}")
 async def get_latest_checkup_design(
+    request: Request,
     patient_uuid: str = Path(..., description="환자 UUID"),
     hospital_id: str = Query(..., description="병원 ID")
 ):
     """
-    최신 검진 설계 결과 조회
+    최신 검진 설계 결과 조회 (조건부 요청 지원)
     설계가 완료된 경우 결과를 반환하고, 없으면 null 반환
     """
+    from fastapi import Response
+    import hashlib
+    import json
+    from datetime import datetime
+    
     try:
         logger.info(f"🔍 [검진설계조회] 최신 설계 조회 - UUID: {patient_uuid}, hospital_id: {hospital_id}")
         
-        design_result = await wello_data_service.get_latest_checkup_design(
+        design_result = await welno_data_service.get_latest_checkup_design(
             uuid=patient_uuid,
             hospital_id=hospital_id
         )
@@ -904,13 +917,62 @@ async def get_latest_checkup_design(
                 "message": "설계 결과가 없습니다."
             }
         
+        # 데이터 해시 생성 (ETag용)
+        data_str = json.dumps(design_result, sort_keys=True, ensure_ascii=False)
+        data_hash = hashlib.sha256(data_str.encode('utf-8')).hexdigest()
+        etag = f'"{data_hash}"'
+        
+        # Last-Modified 헤더 (updated_at 사용)
+        updated_at = design_result.get('updated_at')
+        if updated_at:
+            if isinstance(updated_at, str):
+                last_modified = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
+            else:
+                last_modified = updated_at
+        else:
+            last_modified = datetime.now()
+        
+        # 조건부 요청 처리
+        if request:
+            if_none_match = request.headers.get('If-None-Match')
+            if_modified_since = request.headers.get('If-Modified-Since')
+            
+            # ETag 비교 (304 Not Modified)
+            if if_none_match and if_none_match == etag:
+                return Response(status_code=304)
+            
+            # Last-Modified 비교 (304 Not Modified)
+            if if_modified_since and updated_at:
+                try:
+                    if_modified_dt = datetime.strptime(if_modified_since, '%a, %d %b %Y %H:%M:%S %Z')
+                    if last_modified <= if_modified_dt:
+                        return Response(status_code=304)
+                except:
+                    pass  # 파싱 실패 시 무시하고 전체 데이터 반환
+        
         logger.info(f"✅ [검진설계조회] 설계 결과 조회 완료 - ID: {design_result.get('id')}")
         
-        return {
+        # 응답 생성 (헤더 포함)
+        response_data = {
             "success": True,
-            "data": design_result.get("design_result", {}),
+            "data": {
+                **design_result.get("design_result", {}),
+                "last_update": updated_at,  # ✅ 업데이트 시간 포함
+            },
             "message": "최신 설계 결과를 조회했습니다."
         }
+        
+        response = Response(
+            content=json.dumps(response_data, ensure_ascii=False),
+            media_type="application/json",
+            headers={
+                "ETag": etag,
+                "Last-Modified": last_modified.strftime('%a, %d %b %Y %H:%M:%S GMT'),
+                "Cache-Control": "private, max-age=3600",  # 1시간 캐시
+            }
+        )
+        
+        return response
         
     except Exception as e:
         logger.error(f"❌ [검진설계조회] 오류 발생: {str(e)}", exc_info=True)
@@ -927,7 +989,7 @@ async def delete_checkup_design(
     """
     try:
         logger.info(f"🗑️ [검진설계] 삭제 요청 - UUID: {patient_uuid}, Hospital: {hospital_id}")
-        delete_result = await wello_data_service.delete_checkup_design_requests(patient_uuid, hospital_id)
+        delete_result = await welno_data_service.delete_checkup_design_requests(patient_uuid, hospital_id)
         
         if delete_result.get("success"):
             deleted_count = delete_result.get("deleted_count", 0)
@@ -965,7 +1027,7 @@ async def create_checkup_design_step2(
         logger.info(f"📊 [STEP2-설계] STEP 1 결과 키: {list(step1_result_dict.keys())}")
         
         # 1. 환자 정보 조회
-        patient_info = await wello_data_service.get_patient_by_uuid(request.uuid)
+        patient_info = await welno_data_service.get_patient_by_uuid(request.uuid)
         if "error" in patient_info:
             raise HTTPException(status_code=404, detail=patient_info["error"])
         
@@ -983,15 +1045,15 @@ async def create_checkup_design_step2(
         if not step1_result_dict.get("persona"):
             logger.warning("⚠️ [STEP2-설계] STEP 1 결과에 페르소나 정보 누락됨. 백엔드에서 재계산 시도...")
             try:
-                from ....services.checkup_design.persona import determine_persona
+                from ....services.checkup_design.persona_engine import determine_persona_engine
                 
                 # 설문 응답 정리
                 survey_res = normalize_survey_responses(request.survey_responses)
                 
-                persona_result = determine_persona(
+                persona_result = determine_persona_engine(
+                    hospital_id=request.hospital_id,
                     survey_responses=survey_res,
-                    age=patient_age,
-                    gender=patient_gender
+                    patient_age=patient_age,
                 )
                 step1_result_dict["persona"] = persona_result
                 logger.info(f"✅ [STEP2-설계] 페르소나 재계산 완료: {persona_result.get('primary_persona')}")
@@ -1008,7 +1070,7 @@ async def create_checkup_design_step2(
 
         # 2. 병원 정보 조회 (검진 항목 포함) - 기존 방식과 동일
         logger.info(f"🏥 [STEP2-설계] 병원 정보 조회 시작 - hospital_id: {request.hospital_id}")
-        hospital_info = await wello_data_service.get_hospital_by_id(request.hospital_id)
+        hospital_info = await welno_data_service.get_hospital_by_id(request.hospital_id)
         if "error" in hospital_info:
             logger.error(f"❌ [STEP2-설계] 병원 정보 조회 실패: {hospital_info['error']}")
             raise HTTPException(status_code=404, detail=hospital_info["error"])
@@ -1023,7 +1085,7 @@ async def create_checkup_design_step2(
         logger.info(f"  - 외부 검사 항목: {len(hospital_external_checkup)}개")
         
         # 3. 건강 데이터 조회 (기존 방식과 동일)
-        health_data_result = await wello_data_service.get_patient_health_data(request.uuid, request.hospital_id)
+        health_data_result = await welno_data_service.get_patient_health_data(request.uuid, request.hospital_id)
         if "error" in health_data_result:
             logger.warning(f"⚠️ [STEP2-설계] 건강 데이터 조회 실패: {health_data_result['error']}")
             health_data = []
@@ -1034,7 +1096,7 @@ async def create_checkup_design_step2(
         # 4. 처방전 데이터 조회 (기존 방식과 동일)
         prescription_data = []
         if not request.prescription_analysis_text:
-            prescription_data_result = await wello_data_service.get_patient_prescription_data(request.uuid, request.hospital_id)
+            prescription_data_result = await welno_data_service.get_patient_prescription_data(request.uuid, request.hospital_id)
             if "error" in prescription_data_result:
                 logger.warning(f"⚠️ [STEP2-설계] 처방전 데이터 조회 실패: {prescription_data_result['error']}")
                 prescription_data = []
@@ -1083,7 +1145,7 @@ async def create_checkup_design_step2(
         logger.info(f"✅ [STEP2-설계] Gemini 서비스 초기화 완료")
         
         # 강력한 모델 선택 (GPT-4o -> Gemini Pro)
-        powerful_model = getattr(settings, 'google_gemini_model', 'gemini-2.0-flash')
+        powerful_model = getattr(settings, 'google_gemini_model', 'gemini-3-flash-preview')
         
         # ====================================================================
         # STEP 2-1: Priority 1 (일반검진 주의 항목)
@@ -1390,7 +1452,8 @@ async def create_checkup_design_step2(
         merged_result = merge_checkup_design_responses(
             step1_result_dict, 
             ai_response,
-            hospital_recommended=hospital_recommended  # [추가] 설명 보완용 데이터 전달
+            hospital_recommended=hospital_recommended,  # [추가] 설명 보완용 데이터 전달
+            hospital_external_checkup=hospital_external_checkup  # [추가] 프리미엄 항목 데이터 전달
         )
         
         # 구조화된 RAG 에비던스 추가 (TODO-16, TODO-18)
@@ -1401,7 +1464,7 @@ async def create_checkup_design_step2(
         
         # 검진 설계 요청 저장 (업셀링용) - 병합된 결과 저장
         try:
-            save_result = await wello_data_service.save_checkup_design_request(
+            save_result = await welno_data_service.save_checkup_design_request(
                 uuid=request.uuid,
                 hospital_id=request.hospital_id,
                 selected_concerns=selected_concerns,
@@ -1444,7 +1507,8 @@ async def create_checkup_design_step2(
 def merge_checkup_design_responses(
     step1_result: Dict[str, Any], 
     step2_result: Dict[str, Any],
-    hospital_recommended: Optional[List[Dict[str, Any]]] = None
+    hospital_recommended: Optional[List[Dict[str, Any]]] = None,
+    hospital_external_checkup: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """
     STEP 1 결과와 STEP 2 결과를 병합하여 기존 형식과 동일한 최종 JSON 생성
@@ -1453,6 +1517,7 @@ def merge_checkup_design_responses(
         step1_result: STEP 1 분석 결과
         step2_result: STEP 2 설계 결과
         hospital_recommended: 병원 추천 항목 리스트 (설명 보완용 Fallback 데이터)
+        hospital_external_checkup: 병원 외부/프리미엄 항목 리스트 (설명 보완용 Fallback 데이터)
     
     Returns:
         병합된 최종 결과
@@ -1539,7 +1604,11 @@ def merge_checkup_design_responses(
     merged_result = validate_and_fix_priority1(merged_result)
     
     # 🔄 Priority 구조 → recommended_items 변환 (프론트엔드 호환성)
-    merged_result = convert_priorities_to_recommended_items(merged_result, hospital_recommended)
+    merged_result = convert_priorities_to_recommended_items(
+        merged_result, 
+        hospital_recommended, 
+        hospital_external_checkup
+    )
     
     logger.info(f"✅ [병합] 병합 완료 - 최종 결과 키: {list(merged_result.keys())}")
     
@@ -1548,7 +1617,8 @@ def merge_checkup_design_responses(
 
 def convert_priorities_to_recommended_items(
     result: Dict[str, Any], 
-    hospital_recommended: Optional[List[Dict[str, Any]]] = None
+    hospital_recommended: Optional[List[Dict[str, Any]]] = None,
+    hospital_external_checkup: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """
     Priority 구조(priority_1, priority_2, priority_3)를 recommended_items 형식으로 변환
@@ -1557,6 +1627,7 @@ def convert_priorities_to_recommended_items(
     Args:
         result: 변환할 결과 딕셔너리
         hospital_recommended: 설명 보완을 위한 병원 추천 항목 데이터 (Fallback)
+        hospital_external_checkup: 설명 보완을 위한 병원 외부/프리미엄 항목 데이터 (Fallback)
     """
     logger.info("🔄 [변환] Priority → recommended_items 변환 시작...")
     
@@ -1564,6 +1635,8 @@ def convert_priorities_to_recommended_items(
     
     # [Fallback 준비] DB 항목 매핑 생성
     db_item_map = {}
+    
+    # 1. 병원 추천 항목 매핑
     if hospital_recommended:
         try:
             for item in hospital_recommended:
@@ -1572,10 +1645,20 @@ def convert_priorities_to_recommended_items(
                     if name:
                         db_item_map[name] = item
                 elif isinstance(item, str):
-                    # 문자열인 경우 이름만 매핑 (설명 없음)
                     db_item_map[item] = {"name": item}
         except Exception as e:
-            logger.warning(f"⚠️ [변환] DB 항목 매핑 중 오류: {str(e)}")
+            logger.warning(f"⚠️ [변환] DB 항목 매핑 중 오류 (Recommended): {str(e)}")
+
+    # 2. 병원 외부/프리미엄 항목 매핑 (추가)
+    if hospital_external_checkup:
+        try:
+            for item in hospital_external_checkup:
+                if isinstance(item, dict):
+                    name = item.get('item_name') or item.get('name')
+                    if name:
+                        db_item_map[name] = item
+        except Exception as e:
+            logger.warning(f"⚠️ [변환] DB 항목 매핑 중 오류 (External): {str(e)}")
 
     # 헬퍼 함수: 설명 및 이유 가져오기 (Strategy -> DB Fallback -> Default)
     def get_item_details(item_name, strategy_map):

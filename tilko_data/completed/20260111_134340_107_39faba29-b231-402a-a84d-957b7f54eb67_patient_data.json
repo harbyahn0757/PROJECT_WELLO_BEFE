@@ -1,0 +1,23 @@
+{
+  "metadata": {
+    "session_id": "39faba29-b231-402a-a84d-957b7f54eb67",
+    "data_type": "patient_data",
+    "patient_uuid": "dbac63fa-3b0c-44fc-86ed-de6ee6aacf2c",
+    "hospital_id": "PEERNINE",
+    "created_at": "2026-01-11T13:43:40.107207",
+    "file_version": "1.0",
+    "status": "completed",
+    "failed_at": "2026-01-11T13:43:40.122243",
+    "retry_count": 2,
+    "last_retry_at": "2026-01-11T13:43:54.048850",
+    "completed_at": "2026-01-11T13:48:38.501218"
+  },
+  "raw_data": {
+    "name": "안광수",
+    "birthdate": "19810927",
+    "phone_no": "01056180757",
+    "gender": "M",
+    "private_auth_type": "4"
+  },
+  "checksum": "168030a07975e1a6a2edcbfa7bcf3c3625215c6b7d539365b4088871a7659539"
+}

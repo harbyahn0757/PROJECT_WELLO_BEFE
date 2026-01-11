@@ -167,15 +167,21 @@ class WelnoDataService:
     ) -> Optional[Dict[str, Any]]:
         """전화번호, 생년월일, 이름으로 기존 환자 조회"""
         try:
+            from datetime import datetime, date
             conn = await asyncpg.connect(**self.db_config)
             
-            # 생년월일 형식 정규화
-            if len(birth_date) == 8:  # YYYYMMDD
-                birth_date_formatted = f"{birth_date[:4]}-{birth_date[4:6]}-{birth_date[6:8]}"
-            elif len(birth_date) == 10:  # YYYY-MM-DD
-                birth_date_formatted = birth_date
-            else:
-                print(f"⚠️ [환자조회] 생년월일 형식 오류: {birth_date}")
+            # 생년월일 형식 정규화 및 date 객체 변환
+            try:
+                if len(birth_date) == 8:  # YYYYMMDD
+                    birth_date_obj = datetime.strptime(birth_date, "%Y%m%d").date()
+                elif len(birth_date) == 10:  # YYYY-MM-DD
+                    birth_date_obj = datetime.strptime(birth_date, "%Y-%m-%d").date()
+                else:
+                    print(f"⚠️ [환자조회] 생년월일 형식 오류: {birth_date}")
+                    await conn.close()
+                    return None
+            except ValueError:
+                print(f"⚠️ [환자조회] 잘못된 날짜 형식: {birth_date}")
                 await conn.close()
                 return None
             
@@ -192,7 +198,7 @@ class WelnoDataService:
                 LIMIT 1
             """
             
-            row = await conn.fetchrow(query, phone_number, birth_date_formatted, name)
+            row = await conn.fetchrow(query, phone_number, birth_date_obj, name)
             await conn.close()
             
             if row:
@@ -579,6 +585,11 @@ class WelnoDataService:
             
             await conn.close()
             
+            # 🔍 [DB 로그] 조회된 데이터 개수 확인
+            print(f"🔍 [get_patient_health_data] 조회 결과:")
+            print(f"  - 건강검진 데이터: {len(health_rows)}건")
+            print(f"  - 처방전 데이터: {len(prescription_rows)}건")
+            
             # Decimal 변환 헬퍼
             def convert(obj):
                 if isinstance(obj, Decimal): return float(obj)
@@ -587,14 +598,82 @@ class WelnoDataService:
                 if isinstance(obj, list): return [convert(i) for i in obj]
                 return obj
 
+            # raw_data JSON 파싱 (에러 처리 추가)
+            health_data_formatted = []
+            for idx, r in enumerate(health_rows):
+                try:
+                    # asyncpg Record를 dict로 변환
+                    row_dict = dict(r)
+                    
+                    raw_data = None
+                    if row_dict.get('raw_data'):
+                        if isinstance(row_dict['raw_data'], str):
+                            try:
+                                raw_data = json.loads(row_dict['raw_data'])
+                                print(f"✅ [건강검진데이터 JSON 파싱 성공] ID: {row_dict.get('id')}, raw_data 키 수: {len(raw_data) if isinstance(raw_data, dict) else 'N/A'}")
+                            except json.JSONDecodeError as json_err:
+                                print(f"⚠️ [건강검진데이터 JSON 파싱 오류] ID: {row_dict.get('id')}, 오류: {json_err}")
+                                print(f"   raw_data 타입: {type(row_dict['raw_data'])}, 길이: {len(row_dict['raw_data']) if isinstance(row_dict['raw_data'], str) else 'N/A'}")
+                                raw_data = None
+                        elif isinstance(row_dict['raw_data'], dict):
+                            raw_data = row_dict['raw_data']
+                    
+                    # raw_data를 포함한 dict 생성
+                    formatted_dict = {**row_dict, "raw_data": raw_data}
+                    formatted_item = convert(formatted_dict)
+                    health_data_formatted.append(formatted_item)
+                    print(f"✅ [건강검진데이터 파싱 성공] ID: {row_dict.get('id')}, year: {row_dict.get('year')}, checkup_date: {row_dict.get('checkup_date')}, 배열크기: {len(health_data_formatted)}")
+                except Exception as e:
+                    print(f"❌ [건강검진데이터 파싱 오류] ID: {r.get('id') if hasattr(r, 'get') else 'unknown'}, 인덱스: {idx}, 오류: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    # 파싱 실패해도 기본 데이터는 포함
+                    try:
+                        row_dict = dict(r) if hasattr(r, 'keys') else {}
+                        health_data_formatted.append(convert({**row_dict, "raw_data": None}))
+                    except Exception as convert_err:
+                        print(f"❌ [건강검진데이터 변환 실패] 인덱스: {idx}, 오류: {convert_err}")
+            
+            prescription_data_formatted = []
+            for idx, r in enumerate(prescription_rows):
+                try:
+                    raw_data = None
+                    if r.get('raw_data'):
+                        if isinstance(r['raw_data'], str):
+                            try:
+                                raw_data = json.loads(r['raw_data'])
+                            except json.JSONDecodeError as json_err:
+                                print(f"⚠️ [처방전데이터 JSON 파싱 오류] ID: {r.get('id')}, 오류: {json_err}")
+                                raw_data = None
+                        elif isinstance(r['raw_data'], dict):
+                            raw_data = r['raw_data']
+                    
+                    formatted_item = convert({**dict(r), "raw_data": raw_data})
+                    prescription_data_formatted.append(formatted_item)
+                except Exception as e:
+                    print(f"❌ [처방전데이터 파싱 오류] ID: {r.get('id')}, 인덱스: {idx}, 오류: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    # 파싱 실패해도 기본 데이터는 포함
+                    try:
+                        prescription_data_formatted.append(convert({**dict(r), "raw_data": None}))
+                    except Exception as convert_err:
+                        print(f"❌ [처방전데이터 변환 실패] ID: {r.get('id')}, 오류: {convert_err}")
+
+            print(f"🔍 [get_patient_health_data] 변환 완료:")
+            print(f"  - 건강검진 데이터: {len(health_data_formatted)}건")
+            print(f"  - 처방전 데이터: {len(prescription_data_formatted)}건")
+
             return {
                 "patient": convert(dict(patient_row)),
-                "health_data": [convert({**dict(r), "raw_data": json.loads(r['raw_data']) if r['raw_data'] else None}) for r in health_rows],
-                "prescription_data": [convert({**dict(r), "raw_data": json.loads(r['raw_data']) if r['raw_data'] else None}) for r in prescription_rows]
+                "health_data": health_data_formatted,
+                "prescription_data": prescription_data_formatted
             }
             
         except Exception as e:
             print(f"❌ [데이터조회] 오류: {e}")
+            import traceback
+            traceback.print_exc()
             return {"error": str(e)}
 
     async def get_latest_checkup_design(self, uuid: str, hospital_id: str) -> Optional[Dict[str, Any]]:

@@ -92,12 +92,12 @@ const BaseChart: React.FC<BaseChartWithChildrenProps> = ({
     return (
       <div 
         ref={containerRef}
-        className={`wello-chart wello-chart--loading ${className}`}
+        className={`welno-chart welno-chart--loading ${className}`}
         style={{ height }}
         {...props}
       >
-        <div className="wello-chart__loading">
-          <div className="wello-chart__spinner" />
+        <div className="welno-chart__loading">
+          <div className="welno-chart__spinner" />
           <p>차트를 불러오는 중...</p>
         </div>
       </div>
@@ -108,12 +108,12 @@ const BaseChart: React.FC<BaseChartWithChildrenProps> = ({
     return (
       <div 
         ref={containerRef}
-        className={`wello-chart wello-chart--error ${className}`}
+        className={`welno-chart welno-chart--error ${className}`}
         style={{ height }}
         {...props}
       >
-        <div className="wello-chart__error">
-          <div className="wello-chart__error-icon"></div>
+        <div className="welno-chart__error">
+          <div className="welno-chart__error-icon"></div>
           <h4>차트를 불러올 수 없습니다</h4>
           <p>{error}</p>
         </div>
@@ -124,30 +124,30 @@ const BaseChart: React.FC<BaseChartWithChildrenProps> = ({
   return (
     <div 
       ref={containerRef}
-      className={`wello-chart wello-chart--${theme} ${className}`}
+      className={`welno-chart welno-chart--${theme} ${className}`}
       style={{ height }}
       {...props}
     >
       {/* 차트 헤더 */}
       {(title || subtitle) && (
-        <div className="wello-chart__header">
+        <div className="welno-chart__header">
           {title && (
-            <h3 className="wello-chart__title">{title}</h3>
+            <h3 className="welno-chart__title">{title}</h3>
           )}
           {subtitle && (
-            <p className="wello-chart__subtitle">{subtitle}</p>
+            <p className="welno-chart__subtitle">{subtitle}</p>
           )}
         </div>
       )}
 
       {/* 차트 컨텐츠 */}
-      <div className="wello-chart__content">
+      <div className="welno-chart__content">
         {children(dimensions)}
       </div>
 
       {/* 범례 (필요시) */}
       {showLegend && (
-        <div className="wello-chart__legend" role="img" aria-label="차트 범례">
+        <div className="welno-chart__legend" role="img" aria-label="차트 범례">
           {/* 각 차트에서 구현 */}
         </div>
       )}

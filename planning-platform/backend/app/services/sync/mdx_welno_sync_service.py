@@ -78,7 +78,7 @@ class MdxWelnoSyncService:
                     id, uuid, hospital_id, name, phone_number, birth_date, gender,
                     has_health_data, has_prescription_data, last_data_update, last_auth_at,
                     created_at, updated_at
-                FROM wello.wello_patients 
+                FROM welno.welno_patients 
                 WHERE phone_number = $1 
                   AND birth_date = $2 
                   AND name = $3
@@ -116,7 +116,7 @@ class MdxWelnoSyncService:
                     blood_sugar, cholesterol, hdl_cholesterol,
                     ldl_cholesterol, triglyceride, hemoglobin,
                     collected_at, created_at, updated_at
-                FROM wello.wello_checkup_data 
+                FROM welno.welno_checkup_data 
                 WHERE patient_uuid = $1 AND hospital_id = $2
                 ORDER BY year DESC, checkup_date DESC
             """

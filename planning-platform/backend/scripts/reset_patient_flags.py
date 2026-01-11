@@ -42,7 +42,7 @@ async def reset_patient_flags():
             
             # 현재 플래그 상태 확인
             patient_info = await conn.fetchrow(
-                "SELECT has_health_data, has_prescription_data FROM wello.wello_patients WHERE uuid = $1 AND hospital_id = $2",
+                "SELECT has_health_data, has_prescription_data FROM welno.welno_patients WHERE uuid = $1 AND hospital_id = $2",
                 uuid, hospital_id
             )
             
@@ -57,11 +57,11 @@ async def reset_patient_flags():
             
             # 실제 데이터 건수 확인
             health_count = await conn.fetchval(
-                "SELECT COUNT(*) FROM wello.wello_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                "SELECT COUNT(*) FROM welno.welno_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
                 uuid, hospital_id
             )
             prescription_count = await conn.fetchval(
-                "SELECT COUNT(*) FROM wello.wello_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                "SELECT COUNT(*) FROM welno.welno_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2",
                 uuid, hospital_id
             )
             
@@ -71,7 +71,7 @@ async def reset_patient_flags():
             
             # 플래그 둘 다 FALSE로 리셋
             await conn.execute(
-                """UPDATE wello.wello_patients 
+                """UPDATE welno.welno_patients 
                    SET has_health_data = FALSE, 
                        has_prescription_data = FALSE,
                        last_data_update = NULL 
@@ -86,7 +86,7 @@ async def reset_patient_flags():
         
         # 리셋 후 확인
         patient_info_after = await conn.fetchrow(
-            "SELECT has_health_data, has_prescription_data FROM wello.wello_patients WHERE uuid = $1 AND hospital_id = $2",
+            "SELECT has_health_data, has_prescription_data FROM welno.welno_patients WHERE uuid = $1 AND hospital_id = $2",
             uuid, hospital_id
         )
         

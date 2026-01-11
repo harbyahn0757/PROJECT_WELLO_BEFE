@@ -42,7 +42,7 @@ async def update_patient_data():
         # 1. 최근 검진 데이터 조회 (2025년)
         query = """
             SELECT id, year, checkup_date, height, weight, bmi, raw_data
-            FROM wello.wello_checkup_data 
+            FROM welno.welno_checkup_data 
             WHERE patient_uuid = $1 AND hospital_id = $2
             ORDER BY year DESC, checkup_date DESC
             LIMIT 1
@@ -110,7 +110,7 @@ async def update_patient_data():
         
         # 3. 데이터베이스 업데이트
         update_query = """
-            UPDATE wello.wello_checkup_data
+            UPDATE welno.welno_checkup_data
             SET 
                 height = $1,
                 weight = $2,

@@ -3,7 +3,7 @@ API v1 패키지
 """
 
 from fastapi import APIRouter
-from .endpoints import patients, hospitals, checkup_design, health, auth, surveys, kakao_auth, checkup_records, tilko_auth, websocket_auth, health_analysis
+from .endpoints import patients, hospitals, checkup_design, health, auth, surveys, kakao_auth, checkup_records, tilko_auth, websocket_auth, health_analysis, welno_rag_chat
 
 api_router = APIRouter()
 
@@ -78,4 +78,11 @@ api_router.include_router(
     health_analysis.router,
     prefix="/health-analysis",
     tags=["health-analysis"]
+)
+
+# 웰노 RAG 채팅 라우터 등록
+api_router.include_router(
+    welno_rag_chat.router,
+    prefix="/welno-rag-chat",
+    tags=["welno-rag-chat"]
 )

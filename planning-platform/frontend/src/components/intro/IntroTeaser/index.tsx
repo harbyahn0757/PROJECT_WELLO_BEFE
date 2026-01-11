@@ -12,19 +12,19 @@ interface IntroSlide {
 }
 
 // 이미지 경로 (public 폴더 기준)
-// public/wello/intro/ 폴더의 이미지를 사용
+// public/welno/intro/ 폴더의 이미지를 사용
 // 개발 환경과 프로덕션 환경 모두 지원
 const getImagePath = (filename: string) => {
   // 개발 환경에서는 webpack-dev-server가 public 폴더를 서빙
   // 프로덕션에서는 FastAPI가 static 폴더를 서빙
-  // 둘 다 /wello/intro/ 경로로 접근 가능
+  // 둘 다 /welno/intro/ 경로로 접근 가능
   const publicUrl = process.env.PUBLIC_URL || '';
   // PUBLIC_URL이 설정되어 있으면 사용, 없으면 절대 경로 사용
   if (publicUrl) {
-    return `${publicUrl}/wello/intro/${filename}`;
+    return `${publicUrl}/welno/intro/${filename}`;
   }
   // 개발 환경에서는 절대 경로 사용 (webpack-dev-server가 처리)
-  return `/wello/intro/${filename}`;
+  return `/welno/intro/${filename}`;
 };
 
 const INTRO_SLIDES: IntroSlide[] = [

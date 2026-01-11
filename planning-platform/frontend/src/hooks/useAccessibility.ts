@@ -27,7 +27,7 @@ const defaultSettings: AccessibilitySettings = {
   keyboardNavigation: false
 };
 
-const STORAGE_KEY = 'wello_accessibility_settings';
+const STORAGE_KEY = 'welno_accessibility_settings';
 
 export const useAccessibility = (options: AccessibilityOptions = {}) => {
   const {

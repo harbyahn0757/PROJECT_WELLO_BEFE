@@ -4,7 +4,7 @@
  * AppointmentModal과 같은 패널 형태로 아래에서 올라오는 애니메이션
  */
 import React, { useState, useEffect } from 'react';
-import { WELLO_LOGO_IMAGE } from '../../../constants/images';
+import { WELNO_LOGO_IMAGE } from '../../../constants/images';
 import './styles.scss';
 
 interface TermsAgreement {
@@ -76,9 +76,9 @@ const TermsAgreementModal: React.FC<TermsAgreementModalProps> = ({
           try {
             // 정적 파일 경로 시도 (프론트엔드 public 폴더 또는 백엔드 static 폴더)
             const paths = [
-              `/wello/docs/html/${filename}`,
+              `/welno/docs/html/${filename}`,
               `/docs/html/${filename}`,
-              `/wello/static/docs/html/${filename}`
+              `/welno/static/docs/html/${filename}`
             ];
             
             for (const path of paths) {
@@ -130,16 +130,21 @@ const TermsAgreementModal: React.FC<TermsAgreementModalProps> = ({
 
   // 모달 열기/닫기 애니메이션 처리
   useEffect(() => {
+    console.log('[TermsAgreementModal] isOpen 상태:', isOpen);
     if (isOpen) {
+      console.log('[TermsAgreementModal] 모달 열기 시작');
       // 패널이 열릴 때 배경 스크롤 방지
       document.body.style.overflow = 'hidden';
       setShouldRender(true);
+      console.log('[TermsAgreementModal] shouldRender = true 설정 완료');
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           setIsAnimating(true);
+          console.log('[TermsAgreementModal] isAnimating = true 설정 완료');
         });
       });
     } else {
+      console.log('[TermsAgreementModal] 모달 닫기');
       setIsAnimating(false);
       const timer = setTimeout(() => {
         setShouldRender(false);
@@ -341,9 +346,9 @@ const TermsAgreementModal: React.FC<TermsAgreementModalProps> = ({
             {isLoading ? (
               <span className="terms-modal__button-loading">
                 <img 
-                  src={WELLO_LOGO_IMAGE}
+                  src={WELNO_LOGO_IMAGE}
                   alt="로딩 중" 
-                  className="wello-icon-blink"
+                  className="welno-icon-blink"
                 />
                 <span>처리 중...</span>
               </span>

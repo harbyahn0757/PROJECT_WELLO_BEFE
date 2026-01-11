@@ -27,7 +27,7 @@ async def check_categories():
         # 모든 카테고리 조회
         categories = await conn.fetch("""
             SELECT DISTINCT category, COUNT(*) as count
-            FROM wello.wello_external_checkup_items
+            FROM welno.welno_external_checkup_items
             WHERE is_active = true
             GROUP BY category
             ORDER BY category
@@ -54,7 +54,7 @@ async def check_categories():
                 sub_category,
                 item_name,
                 difficulty_level
-            FROM wello.wello_external_checkup_items
+            FROM welno.welno_external_checkup_items
             WHERE is_active = true
             ORDER BY category, sub_category, item_name
         """)

@@ -16,7 +16,7 @@ export const usePasswordSessionGuard = (options: PasswordSessionGuardOptions = {
   const {
     enabled = true,
     checkInterval = 30000, // 30초마다 체크
-    excludePaths = ['/'] // 메인 페이지는 제외 (basename="/wello"이므로 내부적으로는 "/"가 메인)
+    excludePaths = ['/'] // 메인 페이지는 제외 (basename="/welno"이므로 내부적으로는 "/"가 메인)
   } = options;
 
   const navigate = useNavigate();
@@ -93,7 +93,7 @@ export const usePasswordSessionGuard = (options: PasswordSessionGuardOptions = {
       const hospital = urlParams.get('hospital');
       
       if (uuid && hospital) {
-        localStorage.setItem('wello_last_page', JSON.stringify({
+        localStorage.setItem('welno_last_page', JSON.stringify({
           path: location.pathname,
           search: location.search,
           uuid,
@@ -112,7 +112,7 @@ export const usePasswordSessionGuard = (options: PasswordSessionGuardOptions = {
     if (!enabled) return;
 
     const handlePageRestore = async () => {
-      const lastPageData = localStorage.getItem('wello_last_page');
+      const lastPageData = localStorage.getItem('welno_last_page');
       if (!lastPageData) return;
 
       try {
@@ -121,7 +121,7 @@ export const usePasswordSessionGuard = (options: PasswordSessionGuardOptions = {
 
         // 5분 이내의 데이터만 유효
         if (Date.now() - timestamp > 5 * 60 * 1000) {
-          localStorage.removeItem('wello_last_page');
+          localStorage.removeItem('welno_last_page');
           return;
         }
 
@@ -141,11 +141,11 @@ export const usePasswordSessionGuard = (options: PasswordSessionGuardOptions = {
         }
 
         // 복구 시도 후 데이터 삭제
-        localStorage.removeItem('wello_last_page');
+        localStorage.removeItem('welno_last_page');
 
       } catch (error) {
         console.error('❌ [세션가드] 페이지 복구 실패:', error);
-        localStorage.removeItem('wello_last_page');
+        localStorage.removeItem('welno_last_page');
       }
     };
 

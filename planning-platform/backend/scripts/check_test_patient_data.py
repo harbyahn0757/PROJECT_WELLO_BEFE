@@ -31,7 +31,7 @@ async def check_patient_data():
         patient_query = """
             SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
                    has_health_data, has_prescription_data, last_data_update
-            FROM wello.wello_patients 
+            FROM welno.welno_patients 
             WHERE uuid = $1 AND hospital_id = $2
         """
         patient = await conn.fetchrow(patient_query, TEST_UUID, TEST_HOSPITAL_ID)
@@ -52,7 +52,7 @@ async def check_patient_data():
         # 건강 데이터 개수 (uuid 기준)
         health_count_query = """
             SELECT COUNT(*) 
-            FROM wello.wello_checkup_data 
+            FROM welno.welno_checkup_data 
             WHERE patient_uuid = $1 AND hospital_id = $2
         """
         health_count = await conn.fetchval(health_count_query, TEST_UUID, TEST_HOSPITAL_ID)
@@ -61,7 +61,7 @@ async def check_patient_data():
         # 처방전 데이터 개수 (uuid 기준)
         prescription_count_query = """
             SELECT COUNT(*) 
-            FROM wello.wello_prescription_data 
+            FROM welno.welno_prescription_data 
             WHERE patient_uuid = $1 AND hospital_id = $2
         """
         prescription_count = await conn.fetchval(prescription_count_query, TEST_UUID, TEST_HOSPITAL_ID)
@@ -72,7 +72,7 @@ async def check_patient_data():
         if health_count > 0:
             sample_query = """
                 SELECT year, checkup_date, location, code
-                FROM wello.wello_checkup_data 
+                FROM welno.welno_checkup_data 
                 WHERE patient_uuid = $1 AND hospital_id = $2
                 ORDER BY year DESC, checkup_date DESC
                 LIMIT 3

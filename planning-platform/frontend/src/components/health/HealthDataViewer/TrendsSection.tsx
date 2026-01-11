@@ -6,7 +6,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import LineChart from '../../charts/LineChart';
 import BarChart from '../../charts/BarChart';
 import { TilkoHealthCheckupRaw, TilkoPrescriptionRaw } from '../../../types/health';
-import { WELLO_LOGO_IMAGE } from '../../../constants/images';
+import { WELNO_LOGO_IMAGE } from '../../../constants/images';
 import '../../../pages/ComprehensiveAnalysisPage/styles.scss';
 // 이미지 import
 import healthyPotatoImage from '../../../assets/images/gamgam/healthy_potato_nobg.png';
@@ -43,8 +43,9 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
   const allYears = useMemo(() => {
     const yearsSet = new Set<number>();
     healthData.forEach((item: any) => {
-      if (item.year) {
-        const year = parseInt(item.year.replace('년', ''), 10);
+      const yearRaw = item.year || item.Year || '';
+      if (yearRaw) {
+        const year = parseInt(yearRaw.toString().replace('년', ''), 10);
         if (!isNaN(year)) {
           yearsSet.add(year);
         }
@@ -696,9 +697,9 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
       <div className="trends-loading">
         <div className="loading-spinner">
           <img 
-            src={WELLO_LOGO_IMAGE}
+            src={WELNO_LOGO_IMAGE}
             alt="로딩 중" 
-            className="wello-icon-blink"
+            className="welno-icon-blink"
           />
         </div>
         <p className="loading-text">건강 추이를 분석하는 중...</p>
@@ -793,8 +794,10 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
         
         // 년도 기준 정렬 (최신 먼저)
         const sortedData = [...dataWithMetric].sort((a, b) => {
-          const yearA = parseInt((a.Year || '1900').replace('년', ''));
-          const yearB = parseInt((b.Year || '1900').replace('년', ''));
+          const yearARaw = a.year || a.Year || '1900';
+          const yearBRaw = b.year || b.Year || '1900';
+          const yearA = parseInt(yearARaw.toString().replace('년', ''));
+          const yearB = parseInt(yearBRaw.toString().replace('년', ''));
           return yearB - yearA; // 최신 년도 먼저 (내림차순)
         });
         
@@ -806,8 +809,11 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                 const getValueFromHealthData = (healthDataItem: any, metric: string): number => {
                   if (!healthDataItem) return 0;
                   
-                  if (healthDataItem.raw_data?.Inspections) {
-                    for (const inspection of healthDataItem.raw_data.Inspections) {
+                  // raw_data가 있는 경우 (서버 데이터) 또는 Inspections가 직접 있는 경우 (IndexedDB 데이터)
+                  const inspections = healthDataItem.raw_data?.Inspections || healthDataItem.Inspections;
+                  
+                  if (inspections && Array.isArray(inspections)) {
+                    for (const inspection of inspections) {
                       if (inspection.Illnesses) {
                         for (const illness of inspection.Illnesses) {
                           if (illness.Items) {
@@ -862,16 +868,21 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                     const yearlyData: { [year: string]: any } = {};
                     
                     healthData.forEach((item: any) => {
-                      // year 필드는 "YYYY년" 형식이므로 "년" 제거
-                      const year = item.year ? item.year.replace('년', '') : '2024';
-                      let value = 0;
+                      // year 필드는 "YYYY년" 형식이므로 "년" 제거 (양쪽 필드명 지원)
+                      const yearRaw = item.year || item.Year || '';
+                      const year = yearRaw ? yearRaw.toString().replace('년', '') : '2024';
                       
-                      // 필드 타입에 따른 값 추출
-                      const rawValue = (item as any)[fieldName];
-                      if (typeof rawValue === 'string') {
-                        value = parseFloat(rawValue) || 0;
-                      } else if (typeof rawValue === 'number') {
-                        value = rawValue;
+                      // getValueFromHealthData 함수를 사용하여 값 추출 (raw_data도 확인)
+                      let value = getValueFromHealthData(item, metric);
+                      
+                      // 직접 필드에서도 확인 (파싱된 필드가 있는 경우)
+                      if (value === 0) {
+                        const rawValue = (item as any)[fieldName];
+                        if (typeof rawValue === 'string') {
+                          value = parseFloat(rawValue) || 0;
+                        } else if (typeof rawValue === 'number') {
+                          value = rawValue;
+                        }
                       }
                       
                       if (value > 0 && !isNaN(value) && isFinite(value)) {
@@ -879,8 +890,8 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                         yearlyData[year] = {
                           year,
                           value,
-                          checkup_date: item.checkup_date,
-                          location: item.location || item.Location || "병원", // 🔧 실제 location 필드 추가
+                          checkup_date: item.checkup_date || item.CheckUpDate,
+                          location: item.location || item.Location || "병원",
                           item
                         };
                       }
@@ -892,8 +903,8 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                       .map((data: any) => {
                       let dateString;
                       try {
-                        // checkup_date는 "MM/DD" 형식
-                        const checkupDate = data.checkup_date || '01/01';
+                        // checkup_date는 "MM/DD" 형식 (양쪽 필드명 지원)
+                        const checkupDate = data.checkup_date || data.CheckUpDate || '01/01';
                         const [month, day] = checkupDate.split('/');
                         dateString = `${data.year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
                         
@@ -1214,7 +1225,8 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                     
                     {/* 측정일 표시 (카드 하단) */}
                     {healthStatus.date && latestHealthData && (() => {
-                      const year = latestHealthData?.Year?.replace('년', '').slice(-2) || '25';
+                      const yearRaw = latestHealthData?.Year || latestHealthData?.year || '';
+                      const year = yearRaw ? yearRaw.toString().replace('년', '').slice(-2) : '25';
                       const dateStr = healthStatus.date;
                       // 날짜 포맷팅 (예: "25년 08월 13일")
                       let formattedDate = '';
@@ -1353,8 +1365,10 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
           });
           if (dataWithMetric.length === 0) return null;
           const sortedData = [...dataWithMetric].sort((a, b) => {
-            const yearA = parseInt((a.Year || '1900').replace('년', ''));
-            const yearB = parseInt((b.Year || '1900').replace('년', ''));
+            const yearARaw = a.year || a.Year || '1900';
+            const yearBRaw = b.year || b.Year || '1900';
+            const yearA = parseInt(yearARaw.toString().replace('년', ''));
+            const yearB = parseInt(yearBRaw.toString().replace('년', ''));
             return yearB - yearA;
           });
           return sortedData[0];

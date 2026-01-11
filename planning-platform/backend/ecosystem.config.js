@@ -3,7 +3,7 @@ module.exports = {
     {
       name: 'WELLO_BE',
       script: 'python',
-      args: ['-u', '-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8082', '--reload'],
+      args: ['-u', '-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8082'],
       cwd: '/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend',
       instances: 1,
       exec_mode: 'fork',

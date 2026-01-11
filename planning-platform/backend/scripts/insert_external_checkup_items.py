@@ -377,7 +377,7 @@ async def insert_external_checkup_items():
             try:
                 # 중복 체크
                 existing = await conn.fetchrow(
-                    "SELECT id FROM wello.wello_external_checkup_items WHERE item_name = $1",
+                    "SELECT id FROM welno.welno_external_checkup_items WHERE item_name = $1",
                     item["item_name"]
                 )
                 
@@ -388,7 +388,7 @@ async def insert_external_checkup_items():
                 
                 # 데이터 입력
                 await conn.execute("""
-                    INSERT INTO wello.wello_external_checkup_items 
+                    INSERT INTO welno.welno_external_checkup_items 
                     (category, sub_category, item_name, difficulty_level, target_trigger, gap_description, solution_narrative, is_active)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 """,
@@ -419,7 +419,7 @@ async def insert_external_checkup_items():
                 COUNT(*) FILTER (WHERE difficulty_level = 'Low') as low_count,
                 COUNT(*) FILTER (WHERE difficulty_level = 'Mid') as mid_count,
                 COUNT(*) FILTER (WHERE difficulty_level = 'High') as high_count
-            FROM wello.wello_external_checkup_items
+            FROM welno.welno_external_checkup_items
             WHERE is_active = true
         """)
         

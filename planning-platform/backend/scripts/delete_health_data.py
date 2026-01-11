@@ -42,7 +42,7 @@ async def delete_health_data():
             
             # 삭제 전 데이터 건수 확인
             health_count = await conn.fetchval(
-                "SELECT COUNT(*) FROM wello.wello_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                "SELECT COUNT(*) FROM welno.welno_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
                 uuid, hospital_id
             )
             
@@ -53,14 +53,14 @@ async def delete_health_data():
             else:
                 # 건강검진 데이터 삭제
                 await conn.execute(
-                    "DELETE FROM wello.wello_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                    "DELETE FROM welno.welno_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
                     uuid, hospital_id
                 )
                 print(f"  ✅ 건강검진 데이터 삭제 완료: {health_count}건")
             
             # 환자 정보 플래그 업데이트 (건강검진 데이터만 FALSE로)
             await conn.execute(
-                """UPDATE wello.wello_patients 
+                """UPDATE welno.welno_patients 
                    SET has_health_data = FALSE,
                        last_data_update = NULL 
                    WHERE uuid = $1 AND hospital_id = $2""",
@@ -74,17 +74,17 @@ async def delete_health_data():
         
         # 삭제 후 확인
         health_count_after = await conn.fetchval(
-            "SELECT COUNT(*) FROM wello.wello_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
+            "SELECT COUNT(*) FROM welno.welno_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
             uuid, hospital_id
         )
         
         prescription_count = await conn.fetchval(
-            "SELECT COUNT(*) FROM wello.wello_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2",
+            "SELECT COUNT(*) FROM welno.welno_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2",
             uuid, hospital_id
         )
         
         patient_info = await conn.fetchrow(
-            "SELECT has_health_data, has_prescription_data FROM wello.wello_patients WHERE uuid = $1 AND hospital_id = $2",
+            "SELECT has_health_data, has_prescription_data FROM welno.welno_patients WHERE uuid = $1 AND hospital_id = $2",
             uuid, hospital_id
         )
         

@@ -2,7 +2,7 @@
  * 파트너 인증 API 호출 전 전문 확인 모달
  */
 import React from 'react';
-import WelloModal from '../common/WelloModal';
+import WelnoModal from '../common/WelnoModal';
 import './styles.scss';
 
 interface PartnerAuthConfirmModalProps {
@@ -27,11 +27,11 @@ const PartnerAuthConfirmModal: React.FC<PartnerAuthConfirmModalProps> = ({
   apiEndpoint
 }) => {
   return (
-    <WelloModal
+    <WelnoModal
       isOpen={isOpen}
       onClose={onCancel}
       showCloseButton={true}
-      showWelloIcon={true}
+      showWelnoIcon={true}
       size="large"
     >
       <div className="partner-auth-confirm-modal">
@@ -71,7 +71,7 @@ const PartnerAuthConfirmModal: React.FC<PartnerAuthConfirmModalProps> = ({
           </button>
         </div>
       </div>
-    </WelloModal>
+    </WelnoModal>
   );
 };
 

@@ -12,13 +12,18 @@ export const STORAGE_KEYS = {
   TILKO_AUTH_REQUESTED: 'tilko_auth_requested',
   TILKO_COLLECTED_DATA: 'tilko_collected_data',
   TILKO_SELECTED_AUTH_TYPE: 'tilko_selected_auth_type',
+  TILKO_TERMS_AGREED: 'tilko_terms_agreed',
   
   // UI 상태 관리
   TILKO_INFO_CONFIRMING: 'tilko_info_confirming',
   START_INFO_CONFIRMATION: 'start_info_confirmation',
   
-  // 데이터 캐시 (WelloDataContext)
-  CACHE_PREFIX: 'wello_cache_',
+  // 환자 정보
+  PATIENT_UUID: 'welno_patient_uuid',
+  HOSPITAL_ID: 'welno_hospital_id',
+  
+  // 데이터 캐시 (WelnoDataContext)
+  CACHE_PREFIX: 'welno_cache_',
   
   // 사용자 설정
   USER_PREFERENCES: 'user_preferences',
@@ -26,11 +31,15 @@ export const STORAGE_KEYS = {
   
   // 비밀번호 시스템
   PASSWORD_MODAL_OPEN: 'password_modal_open',
-  PASSWORD_SESSION_PREFIX: 'wello_password_session_',
+  PASSWORD_SESSION_PREFIX: 'welno_password_session_',
   PASSWORD_AUTH_TIME_LEGACY: 'password_auth_time', // 제거 예정
   
   // 인트로 티저
-  INTRO_TEASER_SHOWN: 'wello_intro_teaser_shown' // 인트로 티저 표시 여부
+  INTRO_TEASER_SHOWN: 'welno_intro_teaser_shown', // 인트로 티저 표시 여부
+  
+  // 로그인 입력 데이터 (이탈 복구용)
+  LOGIN_INPUT_DATA: 'welno_login_input_data',
+  LOGIN_INPUT_LAST_UPDATED: 'welno_login_input_last_updated',
 } as const;
 
 // 스토리지 데이터 타입 정의
@@ -52,6 +61,16 @@ export interface UserPreferences {
   autoSave: boolean;
 }
 
+// 로그인 입력 데이터 인터페이스
+export interface LoginInputData {
+  name: string;
+  phone: string;
+  birthday: string;
+  gender?: string;
+  currentStep: 'name' | 'phone' | 'birthday' | 'auth_method' | 'completed';
+  lastUpdated: string;
+}
+
 // 메모리 fallback 저장소 (localStorage 실패 시 사용)
 const memoryStorage: Map<string, string> = new Map();
 let localStorageAvailable: boolean | null = null;
@@ -70,7 +89,7 @@ function checkLocalStorageAvailable(): boolean {
     return true;
   } catch (error) {
     localStorageAvailable = false;
-    console.warn('⚠️ [StorageManager] localStorage 사용 불가 - 메모리 모드로 전환');
+    console.warn('[StorageManager] localStorage 사용 불가 - 메모리 모드로 전환');
     return false;
   }
 }
@@ -143,16 +162,16 @@ export class StorageManager {
           return true;
         } else {
           // 저장 실패 - 메모리로 fallback
-          console.warn(`⚠️ [StorageManager] localStorage 저장 실패 (${key}) - 메모리로 저장`);
+          console.warn(`[StorageManager] localStorage 저장 실패 (${key}) - 메모리로 저장`);
           memoryStorage.set(key, stringValue);
           return true; // 메모리 저장은 성공으로 간주
         }
       } catch (error: any) {
         // QuotaExceededError 또는 기타 에러
         if (error.name === 'QuotaExceededError') {
-          console.warn(`⚠️ [StorageManager] localStorage 용량 초과 (${key}) - 메모리로 저장`);
+          console.warn(`[StorageManager] localStorage 용량 초과 (${key}) - 메모리로 저장`);
         } else {
-          console.warn(`⚠️ [StorageManager] localStorage 저장 실패 (${key}):`, error);
+          console.warn(`[StorageManager] localStorage 저장 실패 (${key}):`, error);
         }
         // 메모리로 fallback
         memoryStorage.set(key, stringValue);
@@ -267,7 +286,7 @@ export class StorageManager {
    * 인증 페이지 진입 시 초기화 (인증 방식 선택 리셋)
    */
   static resetAuthPage(): void {
-    console.log('🔄 [StorageManager] 인증 페이지 초기화 - 인증 방식 선택 리셋');
+    console.log('[StorageManager] 인증 페이지 초기화 - 인증 방식 선택 리셋');
     this.removeItem(STORAGE_KEYS.TILKO_SELECTED_AUTH_TYPE);
     // 메모리에서도 제거
     memoryStorage.delete(STORAGE_KEYS.TILKO_SELECTED_AUTH_TYPE);
@@ -370,7 +389,7 @@ export class StorageDebugger {
    * Tilko 관련 키만 출력
    */
   static logTilkoKeys(): void {
-    console.group('🔑 [Tilko스토리지] Tilko 관련 키들');
+    console.group('[Tilko스토리지] Tilko 관련 키들');
     Object.values(STORAGE_KEYS).forEach(key => {
       if (key.startsWith('tilko_') || key.startsWith('start_')) {
         const value = localStorage.getItem(key);

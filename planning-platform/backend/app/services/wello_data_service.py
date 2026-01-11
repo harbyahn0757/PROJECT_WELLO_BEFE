@@ -28,7 +28,7 @@ class WelloDataService:
             patient_query = """
                 SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
                        has_health_data, has_prescription_data, last_data_update, last_auth_at
-                FROM wello.wello_patients 
+                FROM welno.welno_patients 
                 WHERE uuid = $1 AND hospital_id = $2
             """
             patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
@@ -44,11 +44,11 @@ class WelloDataService:
                 }
             
             # 건강검진 데이터 개수 조회 (patient_uuid 기준)
-            health_count_query = "SELECT COUNT(*) FROM wello.wello_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2"
+            health_count_query = "SELECT COUNT(*) FROM welno.welno_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2"
             health_count = await conn.fetchval(health_count_query, uuid, hospital_id)
             
             # 처방전 데이터 개수 조회 (patient_uuid 기준)
-            prescription_count_query = "SELECT COUNT(*) FROM wello.wello_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2"
+            prescription_count_query = "SELECT COUNT(*) FROM welno.welno_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2"
             prescription_count = await conn.fetchval(prescription_count_query, uuid, hospital_id)
             
             await conn.close()
@@ -118,7 +118,7 @@ class WelloDataService:
             return {"error": f"로그인 처리 중 오류가 발생했습니다: {str(e)}"}
 
     async def get_patient_by_uuid(self, uuid: str) -> Dict[str, Any]:
-        """UUID로 환자 정보 조회 (wello.wello_patients 테이블만 조회)"""
+        """UUID로 환자 정보 조회 (welno.welno_patients 테이블만 조회)"""
         try:
             conn = await asyncpg.connect(**self.db_config)
             
@@ -127,7 +127,7 @@ class WelloDataService:
                 SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
                        has_health_data, has_prescription_data, last_data_update, last_auth_at,
                        created_at, updated_at
-                FROM wello.wello_patients 
+                FROM welno.welno_patients 
                 WHERE uuid = $1
             """
             patient_row = await conn.fetchrow(patient_query, uuid)
@@ -171,7 +171,7 @@ class WelloDataService:
                        supported_checkup_types, layout_type, brand_color, logo_position, 
                        checkup_items, national_checkup_items, recommended_items,
                        is_active, created_at
-                FROM wello.wello_hospitals 
+                FROM welno.welno_hospitals 
                 WHERE hospital_id = $1 AND is_active = true
             """
             hospital_row = await conn.fetchrow(hospital_query, hospital_id)
@@ -219,8 +219,8 @@ class WelloDataService:
                         e.input_sample,
                         e.algorithm_class,
                         m.display_order
-                    FROM wello.wello_hospital_external_checkup_mapping m
-                    JOIN wello.wello_external_checkup_items e ON m.external_checkup_item_id = e.id
+                    FROM welno.welno_hospital_external_checkup_mapping m
+                    JOIN welno.welno_external_checkup_items e ON m.external_checkup_item_id = e.id
                     WHERE m.hospital_id = $1 AND m.is_active = true AND e.is_active = true
                     ORDER BY m.display_order
                 """, hospital_id)
@@ -359,7 +359,7 @@ class WelloDataService:
             
             # UPSERT 쿼리
             upsert_query = """
-                INSERT INTO wello.wello_patients (uuid, hospital_id, name, phone_number, birth_date, gender, 
+                INSERT INTO welno.welno_patients (uuid, hospital_id, name, phone_number, birth_date, gender, 
                                           last_auth_at, tilko_session_id, updated_at)
                 VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, NOW())
                 ON CONFLICT (uuid, hospital_id) 
@@ -395,7 +395,7 @@ class WelloDataService:
             conn = await asyncpg.connect(**self.db_config)
             
             # 기존 데이터 삭제 (새로운 데이터로 교체)
-            await conn.execute("DELETE FROM wello.wello_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2", 
+            await conn.execute("DELETE FROM welno.welno_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2", 
                              patient_uuid, hospital_id)
             
             result_list = health_data.get('ResultList', [])
@@ -473,7 +473,7 @@ class WelloDataService:
                 
                 # 데이터 저장 (모든 필드 포함)
                 insert_query = """
-                    INSERT INTO wello.wello_checkup_data 
+                    INSERT INTO welno.welno_checkup_data 
                     (patient_uuid, hospital_id, raw_data, year, checkup_date, location, code, description,
                      height, weight, bmi, waist_circumference, blood_pressure_high, blood_pressure_low,
                      blood_sugar, cholesterol, hdl_cholesterol, ldl_cholesterol, triglyceride, hemoglobin)
@@ -491,7 +491,7 @@ class WelloDataService:
             
             # 환자 테이블 업데이트 (patient_uuid 기준)
             await conn.execute(
-                "UPDATE wello.wello_patients SET has_health_data = TRUE, last_data_update = NOW() WHERE uuid = $1 AND hospital_id = $2",
+                "UPDATE welno.welno_patients SET has_health_data = TRUE, last_data_update = NOW() WHERE uuid = $1 AND hospital_id = $2",
                 patient_uuid, hospital_id
             )
             
@@ -510,7 +510,7 @@ class WelloDataService:
             conn = await asyncpg.connect(**self.db_config)
             
             # 기존 데이터 삭제 (새로운 데이터로 교체)
-            await conn.execute("DELETE FROM wello.wello_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2", 
+            await conn.execute("DELETE FROM welno.welno_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2", 
                              patient_uuid, hospital_id)
             
             result_list = prescription_data.get('ResultList', [])
@@ -564,7 +564,7 @@ class WelloDataService:
                 
                 # 🚨 중복 체크: 동일한 처방전이 이미 존재하는지 확인
                 duplicate_check_query = """
-                    SELECT COUNT(*) FROM wello.wello_prescription_data 
+                    SELECT COUNT(*) FROM welno.welno_prescription_data 
                     WHERE patient_uuid = $1 AND hospital_id = $2 
                     AND hospital_name = $3 AND treatment_date = $4 AND treatment_type = $5
                 """
@@ -580,7 +580,7 @@ class WelloDataService:
                 
                 # 데이터 저장 (중복이 없는 경우만)
                 insert_query = """
-                    INSERT INTO wello.wello_prescription_data 
+                    INSERT INTO welno.welno_prescription_data 
                     (patient_uuid, hospital_id, raw_data, idx, page, hospital_name, address, treatment_date, treatment_type,
                      visit_count, prescription_count, medication_count, detail_records_count)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
@@ -606,7 +606,7 @@ class WelloDataService:
             
             # 환자 테이블 업데이트 (patient_uuid 기준)
             await conn.execute(
-                "UPDATE wello.wello_patients SET has_prescription_data = TRUE, last_data_update = NOW() WHERE uuid = $1 AND hospital_id = $2",
+                "UPDATE welno.welno_patients SET has_prescription_data = TRUE, last_data_update = NOW() WHERE uuid = $1 AND hospital_id = $2",
                 patient_uuid, hospital_id
             )
             
@@ -661,7 +661,7 @@ class WelloDataService:
             
             # 환자 정보 조회
             patient_query = """
-                SELECT * FROM wello.wello_patients 
+                SELECT * FROM welno.welno_patients 
                 WHERE uuid = $1 AND hospital_id = $2
             """
             patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
@@ -683,7 +683,7 @@ class WelloDataService:
                        height, weight, bmi, waist_circumference, blood_pressure_high, blood_pressure_low,
                        blood_sugar, cholesterol, hdl_cholesterol, ldl_cholesterol, triglyceride, hemoglobin,
                        collected_at, created_at
-                FROM wello.wello_checkup_data 
+                FROM welno.welno_checkup_data 
                 WHERE patient_uuid = $1 AND hospital_id = $2
                 ORDER BY year DESC, checkup_date DESC
             """
@@ -815,7 +815,7 @@ class WelloDataService:
                 SELECT raw_data, idx, page, hospital_name, address, treatment_date, treatment_type,
                        visit_count, prescription_count, medication_count, detail_records_count,
                        collected_at, created_at
-                FROM wello.wello_prescription_data 
+                FROM welno.welno_prescription_data 
                 WHERE patient_uuid = $1 AND hospital_id = $2
                 ORDER BY treatment_date DESC
             """
@@ -907,7 +907,7 @@ class WelloDataService:
                 SELECT raw_data, idx, page, hospital_name, address, treatment_date, treatment_type,
                        visit_count, prescription_count, medication_count, detail_records_count,
                        collected_at, created_at
-                FROM wello.wello_prescription_data 
+                FROM welno.welno_prescription_data 
                 WHERE patient_uuid = $1 AND hospital_id = $2
                 ORDER BY treatment_date DESC
             """
@@ -953,7 +953,7 @@ class WelloDataService:
             query = """
                 SELECT DISTINCT 
                     raw_data->'RetrieveTreatmentInjectionInformationPersonDetailList' as medication_list
-                FROM wello.wello_prescription_data 
+                FROM welno.welno_prescription_data 
                 WHERE raw_data ? 'RetrieveTreatmentInjectionInformationPersonDetailList'
                   AND jsonb_typeof(raw_data->'RetrieveTreatmentInjectionInformationPersonDetailList') = 'array'
                   AND jsonb_array_length(raw_data->'RetrieveTreatmentInjectionInformationPersonDetailList') > 0
@@ -1003,11 +1003,11 @@ class WelloDataService:
             
             # 삭제 전 데이터 확인
             health_count_before = await conn.fetchval(
-                "SELECT COUNT(*) FROM wello.wello_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                "SELECT COUNT(*) FROM welno.welno_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
                 uuid, hospital_id
             )
             prescription_count_before = await conn.fetchval(
-                "SELECT COUNT(*) FROM wello.wello_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                "SELECT COUNT(*) FROM welno.welno_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2",
                 uuid, hospital_id
             )
             
@@ -1016,7 +1016,7 @@ class WelloDataService:
                 # 건강검진 데이터 삭제
                 if health_count_before > 0:
                     await conn.execute(
-                        "DELETE FROM wello.wello_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                        "DELETE FROM welno.welno_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
                         uuid, hospital_id
                     )
                     print(f"✅ [데이터삭제] 건강검진 데이터 삭제: {health_count_before}건")
@@ -1024,7 +1024,7 @@ class WelloDataService:
                 # 처방전 데이터 삭제
                 if prescription_count_before > 0:
                     await conn.execute(
-                        "DELETE FROM wello.wello_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                        "DELETE FROM welno.welno_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2",
                         uuid, hospital_id
                     )
                     print(f"✅ [데이터삭제] 처방전 데이터 삭제: {prescription_count_before}건")
@@ -1046,7 +1046,7 @@ class WelloDataService:
                     if column_exists:
                         # 약관 동의 컬럼이 있으면 함께 삭제
                         await conn.execute(
-                            """UPDATE wello.wello_patients 
+                            """UPDATE welno.welno_patients 
                                SET has_health_data = FALSE,
                                    has_prescription_data = FALSE,
                                    last_data_update = NULL,
@@ -1059,7 +1059,7 @@ class WelloDataService:
                     else:
                         # 약관 동의 컬럼이 없으면 플래그만 업데이트
                         await conn.execute(
-                            """UPDATE wello.wello_patients 
+                            """UPDATE welno.welno_patients 
                                SET has_health_data = FALSE,
                                    has_prescription_data = FALSE,
                                    last_data_update = NULL
@@ -1071,7 +1071,7 @@ class WelloDataService:
                     # 컬럼 확인 실패 시 기본 업데이트만 수행
                     print(f"⚠️ [데이터삭제] 약관 동의 컬럼 확인 실패, 기본 업데이트만 수행: {e}")
                     await conn.execute(
-                        """UPDATE wello.wello_patients 
+                        """UPDATE welno.welno_patients 
                            SET has_health_data = FALSE,
                                has_prescription_data = FALSE,
                                last_data_update = NULL
@@ -1082,11 +1082,11 @@ class WelloDataService:
             
             # 삭제 후 확인
             health_count_after = await conn.fetchval(
-                "SELECT COUNT(*) FROM wello.wello_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                "SELECT COUNT(*) FROM welno.welno_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
                 uuid, hospital_id
             )
             prescription_count_after = await conn.fetchval(
-                "SELECT COUNT(*) FROM wello.wello_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2",
+                "SELECT COUNT(*) FROM welno.welno_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2",
                 uuid, hospital_id
             )
             
@@ -1122,7 +1122,7 @@ class WelloDataService:
             
             # 먼저 환자 존재 확인
             patient_check = await conn.fetchrow(
-                "SELECT id FROM wello.wello_patients WHERE uuid = $1 AND hospital_id = $2",
+                "SELECT id FROM welno.welno_patients WHERE uuid = $1 AND hospital_id = $2",
                 uuid, hospital_id
             )
             
@@ -1137,7 +1137,7 @@ class WelloDataService:
             # terms_agreement 필드가 없으면 추가해야 함
             try:
                 update_query = """
-                    UPDATE wello.wello_patients 
+                    UPDATE welno.welno_patients 
                     SET terms_agreement = $1,
                         terms_agreed_at = NOW(),
                         updated_at = NOW()
@@ -1151,14 +1151,14 @@ class WelloDataService:
             except asyncpg.exceptions.UndefinedColumnError:
                 # terms_agreement 컬럼이 없으면 추가
                 await conn.execute(
-                    "ALTER TABLE wello.wello_patients ADD COLUMN IF NOT EXISTS terms_agreement JSONB"
+                    "ALTER TABLE welno.welno_patients ADD COLUMN IF NOT EXISTS terms_agreement JSONB"
                 )
                 await conn.execute(
-                    "ALTER TABLE wello.wello_patients ADD COLUMN IF NOT EXISTS terms_agreed_at TIMESTAMPTZ"
+                    "ALTER TABLE welno.welno_patients ADD COLUMN IF NOT EXISTS terms_agreed_at TIMESTAMPTZ"
                 )
                 # 다시 업데이트
                 update_query = """
-                    UPDATE wello.wello_patients 
+                    UPDATE welno.welno_patients 
                     SET terms_agreement = $1,
                         terms_agreed_at = NOW(),
                         updated_at = NOW()
@@ -1204,7 +1204,7 @@ class WelloDataService:
             
             # 환자 ID 조회
             patient_query = """
-                SELECT id FROM wello.wello_patients 
+                SELECT id FROM welno.welno_patients 
                 WHERE uuid = $1 AND hospital_id = $2
             """
             patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
@@ -1225,7 +1225,7 @@ class WelloDataService:
             
             # 검진 설계 요청 저장
             insert_query = """
-                INSERT INTO wello.wello_checkup_design_requests 
+                INSERT INTO welno.welno_checkup_design_requests 
                 (patient_id, selected_concerns, survey_responses, additional_concerns, design_result, created_at, updated_at)
                 VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
                 RETURNING id
@@ -1269,7 +1269,7 @@ class WelloDataService:
             
             # 환자 ID 조회
             patient_query = """
-                SELECT id FROM wello.wello_patients 
+                SELECT id FROM welno.welno_patients 
                 WHERE uuid = $1 AND hospital_id = $2
             """
             patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
@@ -1285,7 +1285,7 @@ class WelloDataService:
             
             # 해당 환자의 모든 검진 설계 요청 삭제
             delete_query = """
-                DELETE FROM wello.wello_checkup_design_requests 
+                DELETE FROM welno.welno_checkup_design_requests 
                 WHERE patient_id = $1
                 RETURNING id
             """
@@ -1320,7 +1320,7 @@ class WelloDataService:
             
             # 환자 ID 조회
             patient_query = """
-                SELECT id FROM wello.wello_patients 
+                SELECT id FROM welno.welno_patients 
                 WHERE uuid = $1 AND hospital_id = $2
             """
             patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
@@ -1341,7 +1341,7 @@ class WelloDataService:
                     design_result,
                     created_at,
                     updated_at
-                FROM wello.wello_checkup_design_requests
+                FROM welno.welno_checkup_design_requests
                 WHERE patient_id = $1 
                   AND design_result IS NOT NULL
                   AND design_result != 'null'::jsonb

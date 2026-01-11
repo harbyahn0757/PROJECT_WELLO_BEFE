@@ -75,7 +75,7 @@ class ErrorBoundary extends Component<Props, State> {
   };
 
   handleGoHome = () => {
-    window.location.href = '/wello/dashboard';
+    window.location.href = '/welno/dashboard';
   };
 
   render() {
@@ -143,7 +143,7 @@ class ErrorBoundary extends Component<Props, State> {
               <p>
                 문제가 계속 발생하면{' '}
                 <a 
-                  href="mailto:support@wello.co.kr"
+                  href="mailto:support@welno.co.kr"
                   className="error-boundary__link"
                 >
                   고객지원팀

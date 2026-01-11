@@ -7,14 +7,14 @@ import { HealthDataViewerProps } from '../../../types/health';
 import UnifiedHealthTimeline from '../UnifiedHealthTimeline/index';
 import TrendsSection from './TrendsSection';
 import VisitTrendsChart from '../VisitTrendsChart';
-import { useWelloData } from '../../../contexts/WelloDataContext';
+import { useWelnoData } from '../../../contexts/WelnoDataContext';
 import { API_ENDPOINTS } from '../../../config/api';
 import { useNavigate } from 'react-router-dom';
-import { WelloIndexedDB, HealthDataRecord } from '../../../services/WelloIndexedDB';
+import { WelnoIndexedDB, HealthDataRecord } from '../../../services/WelnoIndexedDB';
 import usePasswordSessionGuard from '../../../hooks/usePasswordSessionGuard';
 import { STORAGE_KEYS } from '../../../constants/storage';
-import { WELLO_LOGO_IMAGE } from '../../../constants/images';
-import AIAnalysisSection from '../AIAnalysisSection'; // 🔧 AI 분석 섹션 컴포넌트
+import { WELNO_LOGO_IMAGE } from '../../../constants/images';
+import AIAnalysisSection from '../AIAnalysisSection'; // AI 분석 섹션 컴포넌트
 import ContentLayoutWithHeader from '../../../layouts/ContentLayoutWithHeader'; // 컨텐츠 레이아웃 (헤더 있음)
 import './styles.scss';
 
@@ -26,7 +26,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   onBack,
   onError
 }) => {
-  const { state, actions } = useWelloData(); // 환자 데이터 가져오기
+  const { state, actions } = useWelnoData(); // 환자 데이터 가져오기
   const navigate = useNavigate();
   
   // 이 페이지는 트렌드 상태만 처리 (질문 상태 없음)
@@ -36,15 +36,15 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   const [prescriptionData, setPrescriptionData] = useState<any>(null);
   const [filterMode, setFilterMode] = useState<'all' | 'checkup' | 'pharmacy' | 'treatment'>('all');
   
-  // 🔧 뷰 모드 상태 추가 (trends: 추이분석, timeline: 타임라인)
+  // 뷰 모드 상태 추가 (trends: 추이분석, timeline: 타임라인)
   const [viewMode, setViewMode] = useState<'trends' | 'timeline'>(() => {
     // localStorage에서 저장된 viewMode 복원 (기본값: trends)
-    const savedViewMode = localStorage.getItem('wello_view_mode') as 'trends' | 'timeline';
+    const savedViewMode = localStorage.getItem('welno_view_mode') as 'trends' | 'timeline';
     return savedViewMode || 'trends';
   });
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isLoadingTrends] = useState(false);
-  const [showAIAnalysis, setShowAIAnalysis] = useState(false); // 🔧 AI 분석 섹션 표시 상태
+  const [showAIAnalysis, setShowAIAnalysis] = useState(false); // AI 분석 섹션 표시 상태
   
   // Pull-to-refresh 관련 상태
   const [isPulling, setIsPulling] = useState(false);
@@ -64,7 +64,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   // 환자 이름 추출 (기본값: "사용자")
   const patientName = state.patient?.name || '사용자';
 
-  // 🔧 페이지 타이틀 동적 변경 로직
+  // 페이지 타이틀 동적 변경 로직
   const getPageTitle = () => {
     if (viewMode === 'trends') {
       return `${patientName}님의 건강 추이 분석`;
@@ -85,25 +85,25 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
 
   // 비밀번호 세션 가드 - 직접 접속 시에는 체크하지 않음
   usePasswordSessionGuard({
-    enabled: false, // 🔧 직접 접속 허용을 위해 비활성화
+    enabled: false, // 직접 접속 허용을 위해 비활성화
     checkInterval: 30000 // 30초마다 체크
   });
 
-  // 🔧 플로팅 버튼 표시를 위한 비밀번호 모달 상태 정리
+  // 플로팅 버튼 표시를 위한 비밀번호 모달 상태 정리
   useEffect(() => {
     // 결과 페이지 로드 시 비밀번호 모달 상태 정리
     localStorage.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
     window.dispatchEvent(new CustomEvent('password-modal-change'));
-    console.log('🧹 [결과페이지] 비밀번호 모달 상태 정리 완료');
+    console.log('[결과페이지] 비밀번호 모달 상태 정리 완료');
   }, []); // 컴포넌트 마운트 시 한 번만 실행
 
-  // 🔧 AI 분석 섹션 표시 이벤트 리스너
+  // AI 분석 섹션 표시 이벤트 리스너
   useEffect(() => {
     const handleShowAIAnalysis = () => {
-      console.log('🧠 [결과페이지] AI 분석 섹션 표시 요청 받음');
+      console.log('[결과페이지] AI 분석 섹션 표시 요청 받음');
       setShowAIAnalysis(true);
       
-      // 🔧 바로 AI 분석 시작 이벤트 발생
+      // 바로 AI 분석 시작 이벤트 발생
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('start-ai-analysis'));
         
@@ -125,12 +125,12 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
     };
   }, []);
 
-  // 🔧 토글 버튼 핸들러 (분석 = 뷰 토글, 검진/약국/진료 = 필터)
+  // 토글 버튼 핸들러 (분석 = 뷰 토글, 검진/약국/진료 = 필터)
   const handleToggleClick = async (mode: string) => {
     if (isTransitioning) return; // 전환 중이면 무시
     
     setIsTransitioning(true);
-    console.log(`🔄 [토글] ${mode} 버튼 클릭 - 전환 시작`);
+    console.log(`[토글] ${mode} 버튼 클릭 - 전환 시작`);
     
     // 짧은 로딩 애니메이션
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -141,29 +141,29 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
       setViewMode(newViewMode);
       setFilterMode('all');
       
-      // 🔧 localStorage에 viewMode 저장
-      localStorage.setItem('wello_view_mode', newViewMode);
+      // localStorage에 viewMode 저장
+      localStorage.setItem('welno_view_mode', newViewMode);
       
-      // 🔧 플로팅 버튼 업데이트를 위한 커스텀 이벤트 발생
-      window.dispatchEvent(new CustomEvent('wello-view-mode-change', {
+      // 플로팅 버튼 업데이트를 위한 커스텀 이벤트 발생
+      window.dispatchEvent(new CustomEvent('welno-view-mode-change', {
         detail: { viewMode: newViewMode, filterMode: 'all' }
       }));
       
-      console.log(`🔄 [토글] 뷰 모드 변경: ${viewMode} → ${newViewMode}`);
+      console.log(`[토글] 뷰 모드 변경: ${viewMode} → ${newViewMode}`);
     } else {
       // [검진/약국/진료] 버튼 - 타임라인 + 필터
       setViewMode('timeline');
       setFilterMode(mode as 'checkup' | 'pharmacy' | 'treatment');
       
-      // 🔧 localStorage에 viewMode 저장
-      localStorage.setItem('wello_view_mode', 'timeline');
+      // localStorage에 viewMode 저장
+      localStorage.setItem('welno_view_mode', 'timeline');
       
-      // 🔧 플로팅 버튼 업데이트를 위한 커스텀 이벤트 발생
-      window.dispatchEvent(new CustomEvent('wello-view-mode-change', {
+      // 플로팅 버튼 업데이트를 위한 커스텀 이벤트 발생
+      window.dispatchEvent(new CustomEvent('welno-view-mode-change', {
         detail: { viewMode: 'timeline', filterMode: mode }
       }));
       
-      console.log(`🔄 [토글] 필터 모드: ${mode}, 뷰: timeline`);
+      console.log(`[토글] 필터 모드: ${mode}, 뷰: timeline`);
     }
     
     setIsTransitioning(false);
@@ -176,30 +176,39 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
         // URL 파라미터에서 환자 정보 추출
         const urlParams = new URLSearchParams(window.location.search);
         const uuid = urlParams.get('uuid');
-        const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
+        const hospital = urlParams.get('hospital') || urlParams.get('hospitalId') || urlParams.get('hospital_id');
 
         if (uuid && hospital) {
-          console.log('📊 [결과페이지] DB에서 저장된 데이터 로드 시도:', { uuid, hospital });
+          console.log('[결과페이지] DB에서 저장된 데이터 로드 시도:', { uuid, hospital });
           
           // DB에서 저장된 데이터 조회
           const response = await fetch(API_ENDPOINTS.HEALTH_DATA(uuid, hospital));
           
           if (response.ok) {
             const result = await response.json();
-            // 🔧 디버깅용 간소화된 데이터 로그 (이미지 데이터는 키만 표시)
+            // 디버깅용 간소화된 데이터 로그 (이미지 데이터는 키만 표시)
             const simplifiedResult = simplifyDataForLog(result);
-            console.log('✅ [결과페이지] DB 데이터 로드 성공:', simplifiedResult);
+            console.log('[결과페이지] DB 데이터 로드 성공:', simplifiedResult);
             
             if (result.success && result.data) {
               const { health_data, prescription_data } = result.data;
               
-              // 🔍 [프론트엔드 로그] API 응답 데이터 구조 확인
-              console.log('🔍 [프론트엔드] API 응답 데이터 구조:');
+              // [프론트엔드 로그] API 응답 데이터 구조 확인
+              console.log('[프론트엔드] API 응답 데이터 구조:');
+              console.log(`  - result.data 타입: ${typeof result.data}`);
+              console.log(`  - result.data 키: ${Object.keys(result.data || {})}`);
+              console.log(`  - health_data 타입: ${typeof health_data}, 배열여부: ${Array.isArray(health_data)}`);
               console.log(`  - health_data 개수: ${health_data?.length || 0}`);
+              console.log(`  - prescription_data 타입: ${typeof prescription_data}, 배열여부: ${Array.isArray(prescription_data)}`);
               console.log(`  - prescription_data 개수: ${prescription_data?.length || 0}`);
               
+              // health_data가 배열이 아닌 경우 처리
+              if (health_data && !Array.isArray(health_data)) {
+                console.warn('⚠️ [프론트엔드] health_data가 배열이 아닙니다:', typeof health_data, health_data);
+              }
+              
               if (health_data && health_data.length > 0) {
-                console.log('🔍 [프론트엔드] 첫 번째 health_data 샘플:');
+                console.log('[프론트엔드] 첫 번째 health_data 샘플:');
                 const firstItem = health_data[0];
                 console.log(`  - year: ${firstItem.year}`);
                 console.log(`  - checkup_date: ${firstItem.checkup_date}`);
@@ -253,13 +262,13 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
               
               // DB 데이터를 Tilko 형식으로 변환 (파싱된 필드들도 포함)
               if (health_data && health_data.length > 0) {
-                // 🔍 [프론트엔드 로그] 변환 전 데이터 확인
-                console.log('🔍 [프론트엔드] DB→Tilko 형식 변환 시작');
+                // [프론트엔드 로그] 변환 전 데이터 확인
+                console.log('[프론트엔드] DB→Tilko 형식 변환 시작');
                 console.log(`  - 변환할 health_data 개수: ${health_data.length}`);
                 
                 healthDataFormatted = {
                   ResultList: health_data.map((item: any, index: number) => {
-                    // 🔍 [프론트엔드 로그] 각 항목 변환 과정
+                    // [프론트엔드 로그] 각 항목 변환 과정
                     if (index === 0) {
                       console.log(`  - 첫 번째 항목 변환:`);
                       console.log(`    - 원본 year: ${item.year}`);
@@ -269,7 +278,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
                     
                     const transformed = {
                       ...item.raw_data,
-                      // 🔧 raw_data 필드 보존 (상태 판정에 필요)
+                      // raw_data 필드 보존 (상태 판정에 필요)
                       raw_data: item.raw_data,
                       // DB에서 파싱된 필드들 추가
                       height: item.height,
@@ -302,8 +311,8 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
                   })
                 };
                 
-                // 🔍 [프론트엔드 로그] 변환 완료 확인
-                console.log(`🔍 [프론트엔드] 변환 완료: ${healthDataFormatted.ResultList.length}개 항목`);
+                // [프론트엔드 로그] 변환 완료 확인
+                console.log(`[프론트엔드] 변환 완료: ${healthDataFormatted.ResultList.length}개 항목`);
                 if (healthDataFormatted.ResultList.length > 0) {
                   const firstItem = healthDataFormatted.ResultList[0] as any;
                   console.log(`  - 첫 번째 변환된 항목의 year: ${firstItem?.year}`);
@@ -312,9 +321,9 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
                 }
                 
                 setHealthData(healthDataFormatted);
-                // 🔧 디버깅용 간소화된 데이터 로그
+                // 디버깅용 간소화된 데이터 로그
                 const simplifiedHealthData = simplifyDataForLog(healthDataFormatted);
-                console.log('🏥 [결과페이지] 건강검진 데이터 설정 완료:', simplifiedHealthData);
+                console.log('[결과페이지] 건강검진 데이터 설정 완료:', simplifiedHealthData);
               }
               
               if (prescription_data && prescription_data.length > 0) {
@@ -333,111 +342,180 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
                   }))
                 };
                 setPrescriptionData(prescriptionDataFormatted);
-                // 🔧 디버깅용 간소화된 데이터 로그
+                // 디버깅용 간소화된 데이터 로그
                 const simplifiedPrescriptionData = simplifyDataForLog(prescriptionDataFormatted);
-                console.log('💊 [결과페이지] 처방전 데이터 설정 완료:', simplifiedPrescriptionData);
+                console.log('[결과페이지] 처방전 데이터 설정 완료:', simplifiedPrescriptionData);
               }
               
-              // 마지막 업데이트 시간 설정
-              if (result.data.last_update) {
-                setLastUpdateTime(result.data.last_update);
-                // 토스트 메시지 표시
-                setShowToast(true);
-                setTimeout(() => setShowToast(false), 3000); // 3초 후 자동 숨김
-              }
+              // API에 데이터가 있는 경우에만 저장 및 종료
+              const hasHealthData = healthDataFormatted?.ResultList?.length > 0;
+              const hasPrescriptionData = prescriptionDataFormatted?.ResultList?.length > 0;
               
-              // 🔄 [IndexedDB] 건강 데이터 저장 (AI 종합 분석용)
-              try {
-                const healthRecord: HealthDataRecord = {
-                  uuid: uuid!,
-                  patientName: state.patient?.name || '사용자',
-                  hospitalId: hospital!,
-                  healthData: healthDataFormatted?.ResultList || [],
-                  prescriptionData: prescriptionDataFormatted?.ResultList || [],
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                  dataSource: 'api'
-                };
-
-                const saveSuccess = await WelloIndexedDB.saveHealthData(healthRecord);
-                
-                if (saveSuccess) {
-                  console.log('✅ [IndexedDB] 건강 데이터 저장 성공:', {
-                    uuid: uuid,
-                    건강검진개수: healthDataFormatted?.ResultList?.length || 0,
-                    처방전개수: prescriptionDataFormatted?.ResultList?.length || 0,
-                    데이터크기: `${(JSON.stringify(healthRecord).length/1024).toFixed(1)}KB`
-                  });
-
-                  // localStorage에는 최소 플래그만 저장 (기존 호환성)
-                  localStorage.setItem('tilko_collected_data', JSON.stringify({
-                    health_data: { ResultList: [] }, // 빈 배열로 플래그만
-                    prescription_data: { ResultList: [] }, // 빈 배열로 플래그만
-                    collected_at: new Date().toISOString(),
-                    source: 'indexeddb',
-                    uuid: uuid,
-                    dataSize: `${(JSON.stringify(healthRecord).length/1024).toFixed(1)}KB`
-                  }));
-                } else {
-                  throw new Error('IndexedDB 저장 실패');
-                }
-                
-              } catch (error: any) {
-                console.error('❌ [IndexedDB 저장 오류]', {
-                  오류타입: error.name,
-                  오류메시지: error.message,
-                  건강검진개수: healthDataFormatted?.ResultList?.length || 0,
-                  처방전개수: prescriptionDataFormatted?.ResultList?.length || 0
-                });
-                
-                // IndexedDB 실패 시 localStorage 폴백
-                try {
-                  console.log('🔄 [폴백] localStorage로 최소 데이터 저장');
-                  const minimalData = {
-                    health_data: healthDataFormatted,
-                    prescription_data: { ResultList: prescriptionDataFormatted?.ResultList?.slice(0, 10) || [] }, // 처방전 10개만
-                    collected_at: new Date().toISOString(),
-                    source: 'localStorage_fallback'
-                  };
-                  localStorage.setItem('tilko_collected_data', JSON.stringify(minimalData));
-                  console.log('✅ [폴백] localStorage 저장 완료');
-                  
-                } catch (fallbackError: any) {
-                  console.error('❌ [폴백 실패]', fallbackError.message);
-                  // 사용자에게 알림
+              if (hasHealthData || hasPrescriptionData) {
+                // 마지막 업데이트 시간 설정
+                if (result.data.last_update) {
+                  setLastUpdateTime(result.data.last_update);
+                  // 토스트 메시지 표시
                   setShowToast(true);
-                  setLastUpdateTime('저장공간 부족으로 일부 기능 제한');
-                  setTimeout(() => setShowToast(false), 5000);
+                  setTimeout(() => setShowToast(false), 3000); // 3초 후 자동 숨김
                 }
+                
+                // [IndexedDB] 건강 데이터 저장 (AI 종합 분석용)
+                try {
+                  const healthRecord: HealthDataRecord = {
+                    uuid: uuid!,
+                    patientName: state.patient?.name || '사용자',
+                    hospitalId: hospital!,
+                    healthData: healthDataFormatted?.ResultList || [],
+                    prescriptionData: prescriptionDataFormatted?.ResultList || [],
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    dataSource: 'api'
+                  };
+
+                  const saveSuccess = await WelnoIndexedDB.saveHealthData(healthRecord);
+                  
+                  if (saveSuccess) {
+                    console.log('[IndexedDB] 건강 데이터 저장 성공:', {
+                      uuid: uuid,
+                      건강검진개수: healthDataFormatted?.ResultList?.length || 0,
+                      처방전개수: prescriptionDataFormatted?.ResultList?.length || 0,
+                      데이터크기: `${(JSON.stringify(healthRecord).length/1024).toFixed(1)}KB`
+                    });
+
+                    // localStorage에는 최소 플래그만 저장 (기존 호환성)
+                    localStorage.setItem('tilko_collected_data', JSON.stringify({
+                      health_data: { ResultList: [] }, // 빈 배열로 플래그만
+                      prescription_data: { ResultList: [] }, // 빈 배열로 플래그만
+                      collected_at: new Date().toISOString(),
+                      source: 'indexeddb',
+                      uuid: uuid,
+                      dataSize: `${(JSON.stringify(healthRecord).length/1024).toFixed(1)}KB`
+                    }));
+                  } else {
+                    throw new Error('IndexedDB 저장 실패');
+                  }
+                  
+                } catch (error: any) {
+                  console.error('[IndexedDB 저장 오류]', {
+                    오류타입: error.name,
+                    오류메시지: error.message,
+                    건강검진개수: healthDataFormatted?.ResultList?.length || 0,
+                    처방전개수: prescriptionDataFormatted?.ResultList?.length || 0
+                  });
+                  
+                  // IndexedDB 실패 시 localStorage 폴백
+                  try {
+                    console.log('[폴백] localStorage로 최소 데이터 저장');
+                    const minimalData = {
+                      health_data: healthDataFormatted,
+                      prescription_data: { ResultList: prescriptionDataFormatted?.ResultList?.slice(0, 10) || [] }, // 처방전 10개만
+                      collected_at: new Date().toISOString(),
+                      source: 'localStorage_fallback'
+                    };
+                    localStorage.setItem('tilko_collected_data', JSON.stringify(minimalData));
+                    console.log('[폴백] localStorage 저장 완료');
+                    
+                  } catch (fallbackError: any) {
+                    console.error('[폴백 실패]', fallbackError.message);
+                    // 사용자에게 알림
+                    setShowToast(true);
+                    setLastUpdateTime('저장공간 부족으로 일부 기능 제한');
+                    setTimeout(() => setShowToast(false), 5000);
+                  }
+                }
+                
+                // 플로팅 버튼 업데이트를 위한 이벤트 발생
+                window.dispatchEvent(new Event('localStorageChange'));
+                
+                setLoading(false);
+                return;
+              } else {
+                // API 응답은 성공했지만 데이터가 비어있는 경우 → IndexedDB 폴백
+                console.log('[결과페이지] API 응답 성공 but 데이터 없음, IndexedDB 폴백');
               }
-              
-              // 플로팅 버튼 업데이트를 위한 이벤트 발생
-              window.dispatchEvent(new Event('localStorageChange'));
-              
-              setLoading(false);
-              return;
+            } else {
+              // result.success가 false이거나 result.data가 없는 경우
+              console.warn('[결과페이지] API 응답 구조 오류, IndexedDB 폴백');
             }
           } else {
-            console.warn('⚠️ [결과페이지] DB 데이터 조회 실패, localStorage 확인');
+            // API 응답 실패
+            console.warn('[결과페이지] DB 데이터 조회 실패, IndexedDB 폴백');
           }
         }
 
         // DB에서 데이터를 가져올 수 없는 경우 IndexedDB에서 로드
         if (uuid) {
-          console.log('📊 [결과페이지] IndexedDB에서 데이터 로드 시도:', uuid);
+          console.log('[결과페이지] IndexedDB에서 데이터 로드 시도:', uuid);
           
           try {
-            const indexedDBRecord = await WelloIndexedDB.getHealthData(uuid);
+            const indexedDBRecord = await WelnoIndexedDB.getHealthData(uuid);
             
             if (indexedDBRecord) {
-              console.log('✅ [IndexedDB] 데이터 로드 성공:', indexedDBRecord);
+              console.log('[IndexedDB] 데이터 로드 성공:', indexedDBRecord);
               
-              // IndexedDB 데이터를 Tilko 형식으로 변환
+              // IndexedDB 데이터를 서버 데이터와 동일한 구조로 변환
               const healthDataFormatted = {
-                ResultList: indexedDBRecord.healthData
+                ResultList: indexedDBRecord.healthData.map((item: any) => {
+                  // IndexedDB 데이터는 이미 양쪽 필드명이 모두 있지만,
+                  // 서버 데이터와 동일한 구조로 변환 (일관성 유지)
+                  const hasRawData = item.raw_data !== undefined;
+                  const rawData = hasRawData ? item.raw_data : {
+                    // raw_data가 없으면 원본에서 Tilko 형식 재구성
+                    Year: item.Year || item.year,
+                    CheckUpDate: item.CheckUpDate || item.checkup_date,
+                    Location: item.Location || item.location,
+                    Code: item.Code || item.code,
+                    Description: item.Description || item.description || '',
+                    Inspections: item.Inspections || []
+                  };
+                  
+                  return {
+                    ...rawData,  // Tilko 원본 필드들 스프레드 (Year, CheckUpDate 등)
+                    // raw_data 필드 보존 (서버 데이터와 동일한 구조)
+                    raw_data: rawData,
+                    // 파싱된 필드들 추가 (서버 데이터와 동일)
+                    height: item.height,
+                    weight: item.weight,
+                    bmi: item.bmi,
+                    waist_circumference: item.waist_circumference,
+                    blood_pressure_high: item.blood_pressure_high,
+                    blood_pressure_low: item.blood_pressure_low,
+                    blood_sugar: item.blood_sugar,
+                    cholesterol: item.cholesterol,
+                    hdl_cholesterol: item.hdl_cholesterol,
+                    ldl_cholesterol: item.ldl_cholesterol,
+                    triglyceride: item.triglyceride,
+                    hemoglobin: item.hemoglobin,
+                    // 필드명 통일 (양쪽 모두 지원 - 이미 있지만 명시적으로 보장)
+                    year: item.year || item.Year,
+                    checkup_date: item.checkup_date || item.CheckUpDate,
+                    location: item.location || item.Location,
+                    code: item.code || item.Code
+                  };
+                })
               };
+              
               const prescriptionDataFormatted = {
-                ResultList: indexedDBRecord.prescriptionData
+                ResultList: indexedDBRecord.prescriptionData.map((item: any) => {
+                  // 처방전 데이터도 서버 데이터와 동일한 구조로 변환
+                  const hasRawData = item.raw_data !== undefined;
+                  const rawData = hasRawData ? item.raw_data : item;
+                  
+                  return {
+                    ...rawData,
+                    raw_data: rawData,
+                    // 파싱된 필드들 추가 (서버 데이터와 동일)
+                    hospital_name: item.hospital_name || item.ByungEuiwonYakGukMyung,
+                    address: item.address || item.Address,
+                    treatment_date: item.treatment_date || item.TreatDate || item.JinRyoGaesiIl,
+                    treatment_type: item.treatment_type || item.JinRyoHyungTae,
+                    visit_count: item.visit_count || item.BangMoonIpWonIlsoo,
+                    medication_count: item.medication_count || item.TuYakYoYangHoiSoo,
+                    prescription_count: item.prescription_count || item.CheoBangHoiSoo,
+                    detail_records_count: item.detail_records_count || 0
+                  };
+                })
               };
               
               setHealthData(healthDataFormatted);
@@ -450,12 +528,12 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
               
             } else {
               // IndexedDB에 데이터가 없으면 localStorage 확인 (폴백)
-              console.log('📭 [IndexedDB] 데이터 없음, localStorage 확인');
+              console.log('[IndexedDB] 데이터 없음, localStorage 확인');
               
               const collectedDataStr = localStorage.getItem('tilko_collected_data');
               if (collectedDataStr) {
                 const collectedData = JSON.parse(collectedDataStr);
-                console.log('📊 [폴백] localStorage에서 데이터 로드:', collectedData);
+                console.log('[폴백] localStorage에서 데이터 로드:', collectedData);
                 
                 setHealthData(collectedData.health_data);
                 setPrescriptionData(collectedData.prescription_data);
@@ -471,18 +549,18 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
                   setTimeout(() => setShowToast(false), 3000);
                 }
               } else {
-                console.warn('⚠️ [결과페이지] IndexedDB와 localStorage 모두에 저장된 데이터가 없습니다');
+                console.warn('[결과페이지] IndexedDB와 localStorage 모두에 저장된 데이터가 없습니다');
               }
             }
             
           } catch (error) {
-            console.error('❌ [IndexedDB] 데이터 로드 실패:', error);
+            console.error('[IndexedDB] 데이터 로드 실패:', error);
             
             // IndexedDB 실패 시 localStorage 폴백
             const collectedDataStr = localStorage.getItem('tilko_collected_data');
             if (collectedDataStr) {
               const collectedData = JSON.parse(collectedDataStr);
-              console.log('📊 [폴백] localStorage에서 데이터 로드:', collectedData);
+              console.log('[폴백] localStorage에서 데이터 로드:', collectedData);
               
               setHealthData(collectedData.health_data);
               setPrescriptionData(collectedData.prescription_data);
@@ -492,11 +570,11 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
             }
           }
         } else {
-          console.warn('⚠️ [결과페이지] UUID가 없어 데이터를 로드할 수 없습니다');
+          console.warn('[결과페이지] UUID가 없어 데이터를 로드할 수 없습니다');
         }
         
       } catch (err) {
-        console.error('❌ [결과페이지] 데이터 로드 실패:', err);
+        console.error('[결과페이지] 데이터 로드 실패:', err);
       } finally {
         setLoading(false);
       }
@@ -540,7 +618,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
         setShowRefreshModal(true);
         setPullCount(0); // 리셋
       } else {
-        console.log(`🔄 [Pull-to-refresh] ${newCount}/3회 - ${3 - newCount}번 더 당기면 새로고침`);
+        console.log(`[Pull-to-refresh] ${newCount}/3회 - ${3 - newCount}번 더 당기면 새로고침`);
       }
     }
 
@@ -558,7 +636,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
     const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
     
     if (!uuid || !hospital) {
-      console.error('❌ [새로고침] UUID 또는 병원 ID가 없습니다.');
+      console.error('[새로고침] UUID 또는 병원 ID가 없습니다.');
       return;
     }
     
@@ -567,14 +645,14 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
       localStorage.removeItem('tilko_collected_data');
       localStorage.removeItem('tilko_session_id');
       localStorage.removeItem('tilko_session_data');
-      localStorage.removeItem('wello_health_data');
-      localStorage.removeItem('wello_view_mode');
+      localStorage.removeItem('welno_health_data');
+      localStorage.removeItem('welno_view_mode');
       
       // 2. 약관 동의 데이터 삭제 (UUID별로 구분된 키)
-      const termsKey = `wello_terms_agreed_${uuid}`;
-      const termsAtKey = `wello_terms_agreed_at_${uuid}`;
-      const termsListKey = `wello_terms_agreed_list_${uuid}`;
-      const termsAgreementKey = `wello_terms_agreement_${uuid}`;
+      const termsKey = `welno_terms_agreed_${uuid}`;
+      const termsAtKey = `welno_terms_agreed_at_${uuid}`;
+      const termsListKey = `welno_terms_agreed_list_${uuid}`;
+      const termsAgreementKey = `welno_terms_agreement_${uuid}`;
       
       localStorage.removeItem(termsKey);
       localStorage.removeItem(termsAtKey);
@@ -582,18 +660,18 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
       localStorage.removeItem(termsAgreementKey);
       
       // 기존 전역 약관 동의 키도 삭제 (하위 호환성)
-      localStorage.removeItem('wello_terms_agreed');
-      localStorage.removeItem('wello_terms_agreed_at');
-      localStorage.removeItem('wello_terms_agreed_list');
-      localStorage.removeItem('wello_terms_agreement');
+      localStorage.removeItem('welno_terms_agreed');
+      localStorage.removeItem('welno_terms_agreed_at');
+      localStorage.removeItem('welno_terms_agreed_list');
+      localStorage.removeItem('welno_terms_agreement');
       
-      console.log('🗑️ [새로고침] 약관 동의 데이터 삭제 완료:', uuid);
+      console.log('[새로고침] 약관 동의 데이터 삭제 완료:', uuid);
       
       // 3. IndexedDB 데이터 삭제
-      await WelloIndexedDB.clearAllData();
-      console.log('🗑️ [새로고침] IndexedDB 삭제 완료');
+      await WelnoIndexedDB.clearAllData();
+      console.log('[새로고침] IndexedDB 삭제 완료');
       
-      // 4. WelloDataContext 캐시 클리어
+      // 4. WelnoDataContext 캐시 클리어
       if (actions.clearCache) {
         actions.clearCache();
       }
@@ -601,7 +679,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
       // 5. 데이터베이스에서 건강정보 삭제
       if (withdraw) {
         // 탈퇴하기: 약관 동의 + 건강정보 모두 삭제 후 첫 화면으로
-        console.log('🗑️ [탈퇴하기] 데이터베이스에서 건강정보 삭제 시작');
+        console.log('[탈퇴하기] 데이터베이스에서 건강정보 삭제 시작');
         
         // 백엔드 API 호출하여 건강정보 삭제
         const deleteResponse = await fetch(
@@ -616,22 +694,22 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
         
         if (deleteResponse.ok) {
           const deleteResult = await deleteResponse.json();
-          console.log('✅ [탈퇴하기] 데이터베이스 건강정보 삭제 완료:', deleteResult);
+          console.log('[탈퇴하기] 데이터베이스 건강정보 삭제 완료:', deleteResult);
         } else {
-          console.error('❌ [탈퇴하기] 데이터베이스 건강정보 삭제 실패:', deleteResponse.status);
+          console.error('[탈퇴하기] 데이터베이스 건강정보 삭제 실패:', deleteResponse.status);
         }
         
         // 약관 동의도 서버에서 삭제 (API가 있다면)
         // 현재는 로컬 스토리지만 삭제
         
-        console.log('🗑️ [탈퇴하기] 모든 데이터 삭제 완료 - 처음 랜딩 페이지로 이동');
+        console.log('[탈퇴하기] 모든 데이터 삭제 완료 - 처음 랜딩 페이지로 이동');
         
         // 처음 랜딩 페이지로 이동 (URL 파라미터 완전 제거)
         // window.location.href를 사용하여 완전히 새로운 페이지 로드
-        window.location.href = '/wello';
+        window.location.href = '/welno';
       } else {
         // 새로고침만: 건강정보만 삭제 후 재인증
-        console.log('🔄 [새로고침] 데이터베이스에서 건강정보만 삭제 시작');
+        console.log('[새로고침] 데이터베이스에서 건강정보만 삭제 시작');
         
         // 백엔드 API 호출하여 건강정보 삭제
         const deleteResponse = await fetch(
@@ -646,22 +724,22 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
         
         if (deleteResponse.ok) {
           const deleteResult = await deleteResponse.json();
-          console.log('✅ [새로고침] 데이터베이스 건강정보 삭제 완료:', deleteResult);
+          console.log('[새로고침] 데이터베이스 건강정보 삭제 완료:', deleteResult);
         } else {
-          console.error('❌ [새로고침] 데이터베이스 건강정보 삭제 실패:', deleteResponse.status);
+          console.error('[새로고침] 데이터베이스 건강정보 삭제 실패:', deleteResponse.status);
         }
         
-        console.log('🔄 [새로고침] 로컬 데이터 삭제 완료 - 재인증 페이지로 이동');
+        console.log('[새로고침] 로컬 데이터 삭제 완료 - 재인증 페이지로 이동');
         
         // 재인증 페이지로 이동 (환자 정보 유지)
         navigate(`/login?uuid=${uuid}&hospital=${hospital}`);
       }
     } catch (error) {
-      console.error('❌ [새로고침] 오류 발생:', error);
+      console.error('[새로고침] 오류 발생:', error);
       // 오류 발생해도 이동은 진행
       if (withdraw) {
         // 탈퇴하기: 처음 랜딩 페이지로 이동 (URL 파라미터 완전 제거)
-        window.location.href = '/wello';
+        window.location.href = '/welno';
       } else {
         navigate(`/login?uuid=${uuid}&hospital=${hospital}`);
       }
@@ -730,9 +808,9 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
           <div className="health-data-viewer__loading">
             <div className="loading-spinner">
               <img 
-                src={WELLO_LOGO_IMAGE}
+                src={WELNO_LOGO_IMAGE}
                 alt="로딩 중" 
-                className="wello-icon-blink"
+                className="welno-icon-blink"
               />
               <p className="loading-spinner__message">{patientName}님의 건강 데이터를 불러오는 중...</p>
             </div>
@@ -820,14 +898,14 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
         transition={isPulling ? 'none' : 'transform 0.3s ease-out'}
         pullToRefreshIndicator={pullToRefreshIndicator}
       >
-        {/* 🔧 조건부 렌더링: viewMode에 따라 TrendsSection 또는 UnifiedHealthTimeline 표시 */}
+        {/* 조건부 렌더링: viewMode에 따라 TrendsSection 또는 UnifiedHealthTimeline 표시 */}
         {isTransitioning ? (
           <div className="view-transition-loading">
             <div className="loading-spinner">
               <img 
-                src={WELLO_LOGO_IMAGE}
+                src={WELNO_LOGO_IMAGE}
                 alt="전환 중" 
-                className="wello-icon-blink"
+                className="welno-icon-blink"
               />
             </div>
             <p className="loading-text">화면을 전환하는 중...</p>
@@ -855,7 +933,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
           </>
         )}
 
-        {/* 🔧 AI 종합 분석 섹션 (조건부 표시) */}
+        {/* AI 종합 분석 섹션 (조건부 표시) */}
         {showAIAnalysis && (
           <AIAnalysisSection 
             healthData={healthData?.ResultList || []}
