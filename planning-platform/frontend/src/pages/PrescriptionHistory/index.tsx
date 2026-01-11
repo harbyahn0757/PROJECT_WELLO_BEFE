@@ -3,7 +3,7 @@
  * 병원별, 기간별 처방전 이력 관리 및 검색
  */
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import useGlobalSessionDetection from '../../hooks/useGlobalSessionDetection';
 import AdvancedSearch from '../../components/search/AdvancedSearch';
 import BarChart from '../../components/charts/BarChart';
@@ -27,6 +27,7 @@ interface PrescriptionStats {
 
 const PrescriptionHistory: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
 
   // 전역 세션 감지

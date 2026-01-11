@@ -29,7 +29,7 @@
     "start": "PORT=9282 DANGEROUSLY_DISABLE_HOST_CHECK=true FAST_REFRESH=true GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true TSC_COMPILE_ON_ERROR=true SKIP_PREFLIGHT_CHECK=true NODE_OPTIONS=\"--max-old-space-size=512\" craco start",
     "kill-port": "for pid in $(lsof -ti:9282 2>/dev/null); do ps -p $pid -o comm= | grep -q node && kill $pid 2>/dev/null || true; done",
     "dev": "PORT=9282 DANGEROUSLY_DISABLE_HOST_CHECK=true FAST_REFRESH=true GENERATE_SOURCEMAP=false DISABLE_ESLINT_PLUGIN=true TSC_COMPILE_ON_ERROR=true NODE_OPTIONS=\"--max-old-space-size=512\" craco start",
-    "build": "NODE_OPTIONS=\"--max-old-space-size=1024\" react-scripts build",
+    "build": "CI=false DISABLE_ESLINT_PLUGIN=false TSC_COMPILE_ON_ERROR=true NODE_OPTIONS=\"--max-old-space-size=1024\" react-scripts build",
     "build-craco": "NODE_OPTIONS=\"--max-old-space-size=1024\" craco build",
     "deploy": "../deploy.sh",
     "deploy:simple": "npm run build && rm -rf ../backend/static/* && cp -r build/* ../backend/static/",
