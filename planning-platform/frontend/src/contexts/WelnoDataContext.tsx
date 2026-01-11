@@ -436,7 +436,7 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
               name: indexedData.patientName,
               age: 0, // IndexedDB에서 가져올 수 없는 정보는 기본값
               phone: '',
-              birthday: '',
+              birthday: indexedData.birthday || '',
               gender: 'male' as const,
               hospital_id: indexedData.hospitalId,
               last_checkup_count: indexedData.healthData?.length || 0,
@@ -782,6 +782,7 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
             uuid: cleanUuid,
             patientName: patientData.name,
             hospitalId: cleanHospital,
+            birthday: patientData.birthday,
             healthData: healthDataFormatted,
             prescriptionData: prescriptionDataFormatted,
             dataSource: 'api',

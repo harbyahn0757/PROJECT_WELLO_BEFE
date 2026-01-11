@@ -637,7 +637,7 @@ const MainPage: React.FC = () => {
                 // 비밀번호 확인 필요 - 모달 표시하므로 로딩 숨김
                 console.log('[비밀번호] 인증 필요');
                 setIsPageTransitioning(false);
-                setPendingNavigation(`/results?uuid=${uuid}&hospital_id=${hospitalId}`);
+                setPendingNavigation(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
                 setPasswordModalType('confirm');
                 setShowPasswordModal(true);
                 return;
@@ -646,7 +646,7 @@ const MainPage: React.FC = () => {
                 console.warn('[비밀번호확인] 실패:', error);
                 // 🔒 보안 강화: API 오류 시에도 비밀번호 모달 표시
                 console.log('[비밀번호] API 오류로 인한 비밀번호 확인 필요');
-                setPendingNavigation(`/results?uuid=${uuid}&hospital_id=${hospitalId}`);
+                setPendingNavigation(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
                 setPasswordModalType('confirm');
                 setShowPasswordModal(true);
                 return;
@@ -707,7 +707,7 @@ const MainPage: React.FC = () => {
               console.log('[검진설계] 웰노 데이터 발견! - 바로 이동');
               // 데이터가 있으면 바로 설계 페이지로 이동
               setTimeout(() => {
-                navigate(`/survey/checkup-design${queryString}`);
+                navigate(`/checkup-design${queryString}`);
               }, 300);
               return;
             } else {
@@ -744,7 +744,7 @@ const MainPage: React.FC = () => {
         
         // UUID나 hospitalId가 없으면 바로 설계 페이지로 이동 (fallback)
         setTimeout(() => {
-                navigate(`/survey/checkup-design${queryString}`);
+                navigate(`/checkup-design${queryString}`);
         }, 300);
         break;
         
@@ -759,7 +759,11 @@ const MainPage: React.FC = () => {
           
           // 환자 정보 가져오기
           const patientName = patient?.name || urlParams.get('name') || '';
-          const patientBirthdayRaw = patient?.birthday || urlParams.get('birthday') || '';
+          const patientBirthdayRaw = 
+            patient?.birthday || 
+            state.patient?.birthday ||
+            urlParams.get('birthday') || 
+            '';
           
           // 생년월일을 YYYYMMDD 형식으로 변환 (YYYY-MM-DD -> YYYYMMDD)
           let patientBirthday = '';
@@ -1112,6 +1116,14 @@ const MainPage: React.FC = () => {
       {/* 비밀번호 모달 */}
       {showPasswordModal && (() => {
         const urlParams = new URLSearchParams(location.search);
+        const uuidValue = urlParams.get('uuid') || patient?.uuid || '';
+        const hospitalIdValue = 
+          patient?.hospital_id || 
+          hospital?.hospital_id || 
+          urlParams.get('hospital') || 
+          urlParams.get('hospital_id') || 
+          urlParams.get('hospitalId') || 
+          '';
         return (
           <PasswordModal
             isOpen={showPasswordModal}
@@ -1119,9 +1131,15 @@ const MainPage: React.FC = () => {
             onSuccess={handlePasswordSuccess}
             onCancel={handlePasswordCancel}
             type={passwordModalType}
-            uuid={urlParams.get('uuid') || ''}
-            hospitalId={urlParams.get('hospital') || ''}
+            uuid={uuidValue}
+            hospitalId={hospitalIdValue}
             initialMessage="데이터 접근을 위해 비밀번호를 입력해주세요."
+            patientInfo={{
+              name: patient?.name,
+              phone: patient?.phone,
+              birthday: patient?.birthday || state.patient?.birthday,
+              gender: patient?.gender === 'male' ? 'M' : patient?.gender === 'female' ? 'F' : 'M'
+            }}
           />
         );
       })()}

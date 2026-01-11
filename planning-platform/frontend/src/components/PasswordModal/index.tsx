@@ -195,6 +195,11 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
           });
           break;
         case 'confirm':
+          if (!uuid || !hospitalId) {
+            setError('환자 정보가 없습니다.');
+            setLoading(false);
+            return;
+          }
           result = await PasswordService.verifyPassword(uuid, hospitalId, currentPassword);
           break;
         case 'change':

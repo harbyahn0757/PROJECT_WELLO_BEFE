@@ -878,13 +878,13 @@ const CheckupRecommendationsPage: React.FC = () => {
                   
                   // 채팅 화면으로 이동 (refresh=true 파라미터 포함)
                   urlParams.set('refresh', 'true');
-                  navigate(`/survey/checkup-design?${urlParams.toString()}`);
+                  navigate(`/checkup-design?${urlParams.toString()}`);
                 } catch (error) {
                   console.error('❌ [검진설계] 새로고침 중 오류:', error);
                   // 오류가 발생해도 채팅 화면으로 이동
                   const urlParams = new URLSearchParams(window.location.search);
                   urlParams.set('refresh', 'true');
-                  navigate(`/survey/checkup-design?${urlParams.toString()}`);
+                  navigate(`/checkup-design?${urlParams.toString()}`);
                 }
               }}
               aria-label="새로 설계하기"

@@ -7,6 +7,7 @@ export interface HealthDataRecord {
   uuid: string;           // 환자 UUID (Primary Key)
   patientName: string;    // 환자명
   hospitalId: string;     // 병원 ID
+  birthday?: string;       // 생년월일 (YYYY-MM-DD 형식)
   healthData: any[];      // 건강검진 데이터 배열
   prescriptionData: any[]; // 처방전 데이터 배열
   createdAt: string;      // 생성 시간
