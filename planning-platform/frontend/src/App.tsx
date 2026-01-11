@@ -114,8 +114,8 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       const authMethodSelection = localStorage.getItem('tilko_auth_method_selection') === 'true';
       const infoConfirming = localStorage.getItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING) === 'true';
       
-      // 메인 페이지에서는 플로팅 버튼 숨김
-      const isMainPage = location.pathname === '/welno' || location.pathname === '/welno/';
+      // 메인 페이지에서는 플로팅 버튼 숨김 (basename이 /welno이므로 실제 pathname은 /)
+      const isMainPage = location.pathname === '/' || location.pathname === '';
       
       // 데이터 수집 중이거나 비밀번호 모달이 열려있거나 메인 페이지이면 숨김
       const shouldHide = isManualCollecting || isCollectingPath || passwordModalOpen || isMainPage;
@@ -164,7 +164,7 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
   
   // 인증 페이지에서 환자 데이터가 로드되면 플로팅 버튼 표시 보장
   useEffect(() => {
-    if (location.pathname === '/welno/login') {
+    if (location.pathname === '/login') {
       if (patient) {
         removeLocalStorageWithEvent('tilko_info_confirming');
       } else {
@@ -185,7 +185,7 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
   const handleAuthClick = async () => {
     console.log('[플로팅버튼] 클릭 - 인증 시작');
     
-    if (location.pathname === '/welno/login') {
+    if (location.pathname === '/login') {
       // AuthForm에 이벤트 전달
       console.log('🚀 [플로팅버튼] welno-start-auth 이벤트 발생');
       window.dispatchEvent(new CustomEvent('welno-start-auth'));
@@ -194,12 +194,12 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
     
     if (!patient) {
       console.log('[인증페이지] 환자 데이터 없음 - 인증 페이지로 이동');
-      navigate('/welno/login');
+      navigate('/login');
       return;
     }
     
     // 다른 페이지에서는 로그인 페이지로 이동
-    navigate('/welno/login');
+    navigate('/login');
   };
 
   const handleResultsTrend = useCallback(() => {
@@ -227,12 +227,12 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
     if (isInfoConfirming) return '확인 완료';
     if (isPasswordModalOpen) return null;
     
-    if (location.pathname === '/welno/login') {
+    if (location.pathname === '/login') {
       return '인증하고 내 검진추이 확인하기';
     }
-    if (location.pathname === '/welno/health-comparison' || 
-        location.pathname === '/welno/results-trend' || 
-        location.pathname === '/welno/prescription-history') {
+    if (location.pathname === '/health-comparison' || 
+        location.pathname === '/results-trend' || 
+        location.pathname === '/prescription-history') {
       return '상담예약 신청';
     }
     return '인증하고 내 검진추이 확인하기';
@@ -258,11 +258,11 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       return;
     }
     
-    if (location.pathname === '/welno/login') {
+    if (location.pathname === '/login') {
       handleAuthClick();
-    } else if (location.pathname === '/welno/health-comparison' || 
-               location.pathname === '/welno/results-trend' || 
-               location.pathname === '/welno/prescription-history') {
+    } else if (location.pathname === '/health-comparison' || 
+               location.pathname === '/results-trend' || 
+               location.pathname === '/prescription-history') {
       if (onOpenAppointmentModal) {
         onOpenAppointmentModal();
       }
