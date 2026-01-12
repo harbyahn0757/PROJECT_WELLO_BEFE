@@ -491,7 +491,7 @@ button.floating-button:not(.questionnaire-container .floating-button),
   min-height: $floating-button-height !important; // 버튼 높이 (상수 사용)
   height: auto !important; // 높이 자동 조정
   max-height: none !important; // 최대 높이 제한 제거
-  background-color: #55433B !important; // 버튼 색상 (#55433B)
+  background-color: $warning !important; // 버튼 색상 (주황색 토큰)
   color: #FFFFFF !important; // 흰색 폰트
   border: none !important; // 테두리 제거
   border-bottom: none !important; // 하단 테두리 완전 제거
@@ -500,7 +500,7 @@ button.floating-button:not(.questionnaire-container .floating-button),
   border-left-color: transparent !important;
   border-right-color: transparent !important;
   outline: none !important; // 아웃라인 제거
-  box-shadow: 0 -4px 12px rgba(124, 116, 106, 0.3) !important; // 상단에만 그림자 (하단 그림자 제거)
+  box-shadow: 0 -4px 12px rgba(237, 137, 54, 0.3) !important; // 상단에만 그림자 (주황색 기반)
   padding: $floating-button-padding-vertical $floating-button-padding-horizontal 0 !important; // 상수 사용
   padding-bottom: 0 !important; // 하단 패딩 명시적 제거
   overflow: hidden !important; // 오버플로우 숨김

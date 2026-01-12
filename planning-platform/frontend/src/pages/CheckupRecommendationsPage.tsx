@@ -44,9 +44,57 @@ const EvidenceModal: React.FC<EvidenceModalProps> = ({ isOpen, onClose, evidence
   // evidenceData가 배열인지 단일 객체인지 확인하여 처리
   const evidences = Array.isArray(evidenceData) ? evidenceData : (evidenceData ? [evidenceData] : []);
 
+  // 아코디언 상태 관리
+  const [expandedEvidences, setExpandedEvidences] = useState<Set<string>>(new Set());
+
+  // 아코디언 토글 함수
+  const toggleEvidence = (evidenceId: string) => {
+    setExpandedEvidences((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(evidenceId)) {
+        newSet.delete(evidenceId);
+      } else {
+        newSet.add(evidenceId);
+      }
+      return newSet;
+    });
+  };
+
   return (
-    <div className="processing-modal-overlay" style={{ zIndex: 9999 }}>
-      <div className="processing-modal-content" style={{ maxWidth: '600px', width: '90%', maxHeight: '80vh', overflowY: 'auto', padding: '0' }}>
+    <div 
+      className="processing-modal-overlay" 
+      style={{ 
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+        paddingTop: '8vh',
+        paddingBottom: '5vh',
+        background: 'rgba(0, 0, 0, 0.7)',
+        backdropFilter: 'blur(4px)',
+        overflowY: 'auto'
+      }}
+    >
+      <div 
+        className="processing-modal-content" 
+        style={{ 
+          position: 'relative',
+          maxWidth: '600px', 
+          width: '90%', 
+          maxHeight: '87vh',
+          marginTop: 0,
+          overflowY: 'auto', 
+          padding: '0',
+          background: '#ffffff',
+          borderRadius: '12px',
+          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)'
+        }}
+      >
         <div style={{ padding: '20px', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'white', zIndex: 10 }}>
           <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 'bold', color: '#111827' }}>
              🩺 의학적 근거 자료
@@ -64,40 +112,83 @@ const EvidenceModal: React.FC<EvidenceModalProps> = ({ isOpen, onClose, evidence
           {evidences.length === 0 ? (
             <p style={{ textAlign: 'center', color: '#6b7280', padding: '20px' }}>관련된 근거 자료를 찾을 수 없습니다.</p>
           ) : (
-            evidences.map((ev, idx) => (
-              <div key={idx} style={{ marginBottom: '24px', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
-                <div style={{ backgroundColor: '#f9fafb', padding: '12px 16px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontWeight: 'bold', color: '#4b5563', fontSize: '14px' }}>
-                    {ev.organization || '출처 미상'} {ev.year ? `(${ev.year})` : ''}
-                  </span>
-                  <span style={{ fontSize: '12px', color: '#6b7280', backgroundColor: '#e5e7eb', padding: '2px 6px', borderRadius: '4px' }}>
-                    신뢰도: {ev.confidence_score ? Math.round(ev.confidence_score * 100) + '%' : 'N/A'}
-                  </span>
-                </div>
-                
-                <div style={{ padding: '16px' }}>
-                  <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>
-                    {ev.source_document || '문서명 없음'}
-                  </h4>
-                  
-                  {ev.page && (
-                     <div style={{ display: 'inline-block', marginBottom: '12px', fontSize: '12px', color: '#059669', backgroundColor: '#d1fae5', padding: '2px 8px', borderRadius: '9999px' }}>
-                       Page: {ev.page}
-                     </div>
-                  )}
+            evidences.map((ev, idx) => {
+              const evidenceId = `evidence-${idx}-${ev.organization || 'unknown'}-${ev.year || 'no-year'}`;
+              const isExpanded = expandedEvidences.has(evidenceId);
 
-                  <div style={{ fontSize: '14px', lineHeight: '1.6', color: '#374151', backgroundColor: '#fff', padding: '12px', borderRadius: '6px', border: '1px dashed #d1d5db' }}>
-                    {ev.full_text || ev.citation || '내용 없음'}
+              return (
+                <div key={idx} style={{ marginBottom: '24px', border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
+                  {/* 아코디언 헤더 */}
+                  <div 
+                    onClick={() => toggleEvidence(evidenceId)}
+                    style={{ 
+                      backgroundColor: '#f9fafb', 
+                      padding: '12px 16px', 
+                      borderBottom: '1px solid #e5e7eb', 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f9fafb'}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+                      <span style={{ fontWeight: 'bold', color: '#4b5563', fontSize: '14px' }}>
+                        {ev.organization || '출처 미상'} {ev.year ? `(${ev.year})` : ''}
+                      </span>
+                      <span style={{ fontSize: '12px', color: '#6b7280', backgroundColor: '#e5e7eb', padding: '2px 6px', borderRadius: '4px' }}>
+                        신뢰도: {ev.confidence_score ? Math.round(ev.confidence_score * 100) + '%' : 'N/A'}
+                      </span>
+                    </div>
+                    {/* 화살표 아이콘 */}
+                    <div style={{ marginLeft: '12px', display: 'flex', alignItems: 'center' }}>
+                      <svg 
+                        style={{ 
+                          width: '20px', 
+                          height: '20px', 
+                          transition: 'transform 0.3s ease',
+                          transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                          color: '#6b7280'
+                        }} 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2"
+                      >
+                        <polyline points="6,9 12,15 18,9"></polyline>
+                      </svg>
+                    </div>
                   </div>
                   
-                  {ev.query && (
-                    <div style={{ marginTop: '12px', fontSize: '12px', color: '#9ca3af' }}>
-                      검색 키워드: {ev.query}
+                  {/* 아코디언 내용 (조건부 렌더링) */}
+                  {isExpanded && (
+                    <div style={{ padding: '16px', backgroundColor: '#fff' }}>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600', color: '#1f2937' }}>
+                        {ev.source_document || '문서명 없음'}
+                      </h4>
+                      
+                      {ev.page && (
+                         <div style={{ display: 'inline-block', marginBottom: '12px', fontSize: '12px', color: '#059669', backgroundColor: '#d1fae5', padding: '2px 8px', borderRadius: '9999px' }}>
+                           Page: {ev.page}
+                         </div>
+                      )}
+
+                      <div style={{ fontSize: '14px', lineHeight: '1.6', color: '#374151', backgroundColor: '#fff', padding: '12px', borderRadius: '6px', border: '1px dashed #d1d5db' }}>
+                        {ev.full_text || ev.citation || '내용 없음'}
+                      </div>
+                      
+                      {ev.query && (
+                        <div style={{ marginTop: '12px', fontSize: '12px', color: '#9ca3af' }}>
+                          검색 키워드: {ev.query}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
         
