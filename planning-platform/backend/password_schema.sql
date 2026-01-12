@@ -1,9 +1,9 @@
--- 비밀번호 시스템을 위한 wello_patients 테이블 확장
+-- 비밀번호 시스템을 위한 welno_patients 테이블 확장
 -- 생성일: 2025-01-25
 -- 목적: 8자리 비밀번호 보안 시스템 구현
 
--- wello_patients 테이블에 비밀번호 관련 필드 추가
-ALTER TABLE wello_patients 
+-- welno_patients 테이블에 비밀번호 관련 필드 추가
+ALTER TABLE welno.welno_patients 
 ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255),           -- bcrypt 해시 (8자리 숫자)
 ADD COLUMN IF NOT EXISTS password_set_at TIMESTAMPTZ,          -- 비밀번호 설정 시간
 ADD COLUMN IF NOT EXISTS last_password_prompt TIMESTAMPTZ,     -- 마지막 비밀번호 설정 권유 시간
@@ -12,9 +12,9 @@ ADD COLUMN IF NOT EXISTS password_locked_until TIMESTAMPTZ,    -- 잠금 해제 
 ADD COLUMN IF NOT EXISTS last_access_at TIMESTAMPTZ;           -- 마지막 접근 시간 (30일 체크용)
 
 -- 비밀번호 관련 인덱스 추가
-CREATE INDEX IF NOT EXISTS idx_patients_password_set ON wello_patients(password_set_at) WHERE password_hash IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_patients_last_access ON wello_patients(last_access_at);
-CREATE INDEX IF NOT EXISTS idx_patients_locked ON wello_patients(password_locked_until) WHERE password_locked_until IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_patients_password_set ON welno.welno_patients(password_set_at) WHERE password_hash IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_patients_last_access ON welno.welno_patients(last_access_at);
+CREATE INDEX IF NOT EXISTS idx_patients_locked ON welno.welno_patients(password_locked_until) WHERE password_locked_until IS NOT NULL;
 
 -- 비밀번호 정책 상수 (애플리케이션에서 사용)
 -- PASSWORD_LENGTH: 8 (정확히 8자리)
@@ -24,7 +24,7 @@ CREATE INDEX IF NOT EXISTS idx_patients_locked ON wello_patients(password_locked
 -- HASH_ROUNDS: 12 (bcrypt 라운드)
 
 -- 샘플 데이터 업데이트 (테스트용)
-UPDATE wello_patients 
+UPDATE welno.welno_patients 
 SET last_access_at = NOW() - INTERVAL '35 days'  -- 35일 전 접근으로 설정 (권유 테스트용)
 WHERE uuid = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
@@ -35,7 +35,7 @@ CREATE OR REPLACE FUNCTION check_password_exists(p_uuid VARCHAR(36), p_hospital_
 RETURNS BOOLEAN AS $$
 BEGIN
     RETURN EXISTS (
-        SELECT 1 FROM wello_patients 
+        SELECT 1 FROM welno.welno_patients 
         WHERE uuid = p_uuid 
         AND hospital_id = p_hospital_id 
         AND password_hash IS NOT NULL
@@ -52,7 +52,7 @@ DECLARE
     days_since_prompt INTEGER;
 BEGIN
     SELECT * INTO patient_record 
-    FROM wello_patients 
+    FROM welno.welno_patients 
     WHERE uuid = p_uuid AND hospital_id = p_hospital_id;
     
     -- 환자 정보가 없으면 false
@@ -91,7 +91,7 @@ RETURNS INTEGER AS $$
 DECLARE
     new_attempts INTEGER;
 BEGIN
-    UPDATE wello_patients 
+    UPDATE welno.welno_patients 
     SET password_attempts = password_attempts + 1,
         password_locked_until = CASE 
             WHEN password_attempts + 1 >= 5 THEN NOW() + INTERVAL '30 minutes'
@@ -109,7 +109,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION reset_password_attempts(p_uuid VARCHAR(36), p_hospital_id VARCHAR(20))
 RETURNS VOID AS $$
 BEGIN
-    UPDATE wello_patients 
+    UPDATE welno.welno_patients 
     SET password_attempts = 0,
         password_locked_until = NULL,
         updated_at = NOW()
@@ -121,7 +121,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION update_last_access(p_uuid VARCHAR(36), p_hospital_id VARCHAR(20))
 RETURNS VOID AS $$
 BEGIN
-    UPDATE wello_patients 
+    UPDATE welno.welno_patients 
     SET last_access_at = NOW(),
         updated_at = NOW()
     WHERE uuid = p_uuid AND hospital_id = p_hospital_id;
@@ -132,7 +132,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION update_password_prompt(p_uuid VARCHAR(36), p_hospital_id VARCHAR(20))
 RETURNS VOID AS $$
 BEGIN
-    UPDATE wello_patients 
+    UPDATE welno.welno_patients 
     SET last_password_prompt = NOW(),
         updated_at = NOW()
     WHERE uuid = p_uuid AND hospital_id = p_hospital_id;

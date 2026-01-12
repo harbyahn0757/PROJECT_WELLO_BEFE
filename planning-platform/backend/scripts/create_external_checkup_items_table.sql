@@ -1,5 +1,5 @@
 -- 외부 검사 종류 기준 테이블 생성
-CREATE TABLE IF NOT EXISTS wello.wello_external_checkup_items (
+CREATE TABLE IF NOT EXISTS welno.welno_external_checkup_items (
     id SERIAL PRIMARY KEY,
     category VARCHAR(50) NOT NULL, -- 카테고리 (암 정밀, 뇌/신경, 심혈관 등)
     sub_category VARCHAR(100), -- 세부 분류 (소화기암, 다중암, 여성암 등)
@@ -18,10 +18,10 @@ CREATE TABLE IF NOT EXISTS wello.wello_external_checkup_items (
 );
 
 -- 병원별 외부 검사 매핑 테이블
-CREATE TABLE IF NOT EXISTS wello.wello_hospital_external_checkup_mapping (
+CREATE TABLE IF NOT EXISTS welno.welno_hospital_external_checkup_mapping (
     id SERIAL PRIMARY KEY,
-    hospital_id VARCHAR(50) NOT NULL REFERENCES wello.wello_hospitals(hospital_id) ON DELETE CASCADE,
-    external_checkup_item_id INTEGER NOT NULL REFERENCES wello.wello_external_checkup_items(id) ON DELETE CASCADE,
+    hospital_id VARCHAR(50) NOT NULL REFERENCES welno.welno_hospitals(hospital_id) ON DELETE CASCADE,
+    external_checkup_item_id INTEGER NOT NULL REFERENCES welno.welno_external_checkup_items(id) ON DELETE CASCADE,
     is_active BOOLEAN DEFAULT true,
     display_order INTEGER DEFAULT 0, -- 표시 순서
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -31,17 +31,17 @@ CREATE TABLE IF NOT EXISTS wello.wello_hospital_external_checkup_mapping (
 );
 
 -- 인덱스 생성
-CREATE INDEX IF NOT EXISTS idx_external_checkup_category ON wello.wello_external_checkup_items(category);
-CREATE INDEX IF NOT EXISTS idx_external_checkup_sub_category ON wello.wello_external_checkup_items(sub_category);
-CREATE INDEX IF NOT EXISTS idx_external_checkup_difficulty ON wello.wello_external_checkup_items(difficulty_level);
-CREATE INDEX IF NOT EXISTS idx_external_checkup_active ON wello.wello_external_checkup_items(is_active);
+CREATE INDEX IF NOT EXISTS idx_external_checkup_category ON welno.welno_external_checkup_items(category);
+CREATE INDEX IF NOT EXISTS idx_external_checkup_sub_category ON welno.welno_external_checkup_items(sub_category);
+CREATE INDEX IF NOT EXISTS idx_external_checkup_difficulty ON welno.welno_external_checkup_items(difficulty_level);
+CREATE INDEX IF NOT EXISTS idx_external_checkup_active ON welno.welno_external_checkup_items(is_active);
 
-CREATE INDEX IF NOT EXISTS idx_hospital_mapping_hospital ON wello.wello_hospital_external_checkup_mapping(hospital_id);
-CREATE INDEX IF NOT EXISTS idx_hospital_mapping_item ON wello.wello_hospital_external_checkup_mapping(external_checkup_item_id);
-CREATE INDEX IF NOT EXISTS idx_hospital_mapping_active ON wello.wello_hospital_external_checkup_mapping(is_active);
+CREATE INDEX IF NOT EXISTS idx_hospital_mapping_hospital ON welno.welno_hospital_external_checkup_mapping(hospital_id);
+CREATE INDEX IF NOT EXISTS idx_hospital_mapping_item ON welno.welno_hospital_external_checkup_mapping(external_checkup_item_id);
+CREATE INDEX IF NOT EXISTS idx_hospital_mapping_active ON welno.welno_hospital_external_checkup_mapping(is_active);
 
 -- 코멘트 추가
-COMMENT ON TABLE wello.wello_external_checkup_items IS '외부 검사 종류 기준 테이블';
-COMMENT ON TABLE wello.wello_hospital_external_checkup_mapping IS '병원별 외부 검사 매핑 테이블';
-COMMENT ON COLUMN wello.wello_external_checkup_items.difficulty_level IS '난이도/비용: Low(부담없는), Mid(추천), High(프리미엄)';
+COMMENT ON TABLE welno.welno_external_checkup_items IS '외부 검사 종류 기준 테이블';
+COMMENT ON TABLE welno.welno_hospital_external_checkup_mapping IS '병원별 외부 검사 매핑 테이블';
+COMMENT ON COLUMN welno.welno_external_checkup_items.difficulty_level IS '난이도/비용: Low(부담없는), Mid(추천), High(프리미엄)';
 

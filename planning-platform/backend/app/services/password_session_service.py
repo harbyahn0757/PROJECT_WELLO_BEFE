@@ -37,7 +37,7 @@ class PasswordSessionService:
                 expires_at = datetime.now() + timedelta(minutes=self.session_duration_minutes)
                 
                 insert_query = text("""
-                    INSERT INTO wello_password_sessions 
+                    INSERT INTO welno.welno_password_sessions 
                     (patient_uuid, hospital_id, session_token, device_fingerprint, expires_at)
                     VALUES (:patient_uuid, :hospital_id, :session_token, :device_fingerprint, :expires_at)
                 """)
@@ -73,7 +73,7 @@ class PasswordSessionService:
                 
                 query = text("""
                     SELECT patient_uuid, hospital_id, expires_at, last_used_at
-                    FROM wello_password_sessions 
+                    FROM welno.welno_password_sessions 
                     WHERE session_token = :session_token AND device_fingerprint = :device_fingerprint
                 """)
                 
@@ -102,14 +102,14 @@ class PasswordSessionService:
                 
                 if now > expires_at:
                     # 만료된 세션 삭제
-                    delete_query = text("DELETE FROM wello_password_sessions WHERE session_token = :session_token")
+                    delete_query = text("DELETE FROM welno.welno_password_sessions WHERE session_token = :session_token")
                     session.execute(delete_query, {"session_token": session_token})
                     session.commit()
                     print(f"⏰ [세션] 만료됨: {session_token[:8]}...")
                     return {"success": False, "message": "세션이 만료되었습니다."}
                 
                 # 마지막 사용 시간 업데이트
-                update_query = text("UPDATE wello_password_sessions SET last_used_at = NOW() WHERE session_token = :session_token")
+                update_query = text("UPDATE welno.welno_password_sessions SET last_used_at = NOW() WHERE session_token = :session_token")
                 session.execute(update_query, {"session_token": session_token})
                 session.commit()
                 
@@ -130,7 +130,7 @@ class PasswordSessionService:
         """세션 무효화"""
         try:
             with self.session_maker() as session:
-                delete_query = text("DELETE FROM wello_password_sessions WHERE session_token = :session_token")
+                delete_query = text("DELETE FROM welno.welno_password_sessions WHERE session_token = :session_token")
                 result = session.execute(delete_query, {"session_token": session_token})
                 session.commit()
                 
@@ -150,7 +150,7 @@ class PasswordSessionService:
         """만료된 세션 정리"""
         try:
             with self.session_maker() as session:
-                delete_query = text("DELETE FROM wello_password_sessions WHERE expires_at < NOW()")
+                delete_query = text("DELETE FROM welno.welno_password_sessions WHERE expires_at < NOW()")
                 result = session.execute(delete_query)
                 session.commit()
                 
@@ -169,7 +169,7 @@ class PasswordSessionService:
         """특정 디바이스의 기존 세션 정리"""
         hashed_fingerprint = self.hash_device_fingerprint(device_fingerprint)
         
-        delete_query = text("""DELETE FROM wello_password_sessions 
+        delete_query = text("""DELETE FROM welno.welno_password_sessions 
            WHERE patient_uuid = :patient_uuid AND hospital_id = :hospital_id AND device_fingerprint = :device_fingerprint""")
         
         result = session.execute(delete_query, {
@@ -187,7 +187,7 @@ class PasswordSessionService:
             with self.session_maker() as session:
                 query = text("""
                     SELECT session_token, device_fingerprint, created_at, last_used_at, expires_at
-                    FROM wello_password_sessions 
+                    FROM welno.welno_password_sessions 
                     WHERE patient_uuid = :patient_uuid AND hospital_id = :hospital_id AND expires_at > NOW()
                     ORDER BY last_used_at DESC
                 """)

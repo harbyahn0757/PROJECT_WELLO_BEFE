@@ -1,11 +1,11 @@
 -- 병원 테이블에 검진 항목 필드 추가
-ALTER TABLE wello.wello_hospitals 
+ALTER TABLE welno.welno_hospitals 
 ADD COLUMN IF NOT EXISTS checkup_items JSONB, -- 병원별 검진 항목 상세 정보
 ADD COLUMN IF NOT EXISTS national_checkup_items JSONB, -- 일반검진(의무검진) 항목
 ADD COLUMN IF NOT EXISTS recommended_items JSONB; -- 병원 추천(업셀링) 항목
 
 -- 김현우 내과 검진 항목 세팅
-UPDATE wello.wello_hospitals 
+UPDATE welno.welno_hospitals 
 SET 
   national_checkup_items = '[
     {
@@ -68,8 +68,8 @@ SET
 WHERE hospital_id = 'KIM_HW_CLINIC';
 
 -- 인덱스 추가
-CREATE INDEX IF NOT EXISTS idx_hospitals_checkup_items ON wello.wello_hospitals USING GIN (checkup_items);
-CREATE INDEX IF NOT EXISTS idx_hospitals_national_checkup ON wello.wello_hospitals USING GIN (national_checkup_items);
-CREATE INDEX IF NOT EXISTS idx_hospitals_recommended_items ON wello.wello_hospitals USING GIN (recommended_items);
+CREATE INDEX IF NOT EXISTS idx_hospitals_checkup_items ON welno.welno_hospitals USING GIN (checkup_items);
+CREATE INDEX IF NOT EXISTS idx_hospitals_national_checkup ON welno.welno_hospitals USING GIN (national_checkup_items);
+CREATE INDEX IF NOT EXISTS idx_hospitals_recommended_items ON welno.welno_hospitals USING GIN (recommended_items);
 
 

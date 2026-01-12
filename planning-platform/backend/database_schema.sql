@@ -1,9 +1,9 @@
--- WELLO 건강정보 데이터베이스 스키마
+-- WELNO 건강정보 데이터베이스 스키마
 -- 생성일: 2025-10-18
 -- 목적: Tilko API로 수집한 건강정보 저장 및 관리
 
 -- 1. 환자 기본정보 테이블
-CREATE TABLE IF NOT EXISTS wello_patients (
+CREATE TABLE IF NOT EXISTS welno.welno_patients (
     -- 기본 식별자
     id SERIAL PRIMARY KEY,
     uuid VARCHAR(36) UNIQUE NOT NULL,  -- URL 파라미터의 UUID
@@ -33,10 +33,10 @@ CREATE TABLE IF NOT EXISTS wello_patients (
 );
 
 -- 2. 건강검진 데이터 테이블 (모든 필드 저장)
-CREATE TABLE IF NOT EXISTS wello_checkup_data (
+CREATE TABLE IF NOT EXISTS welno.welno_checkup_data (
     -- 기본 식별자
     id SERIAL PRIMARY KEY,
-    patient_id INTEGER REFERENCES wello_patients(id) ON DELETE CASCADE,
+    patient_id INTEGER REFERENCES welno.welno_patients(id) ON DELETE CASCADE,
     
     -- 원본 데이터 전체 저장 (JSON) - 메인 저장소
     raw_data JSONB NOT NULL,  -- Tilko API 원본 응답 전체 (Year, CheckUpDate, Code, Location, Description, Inspections 등 모든 필드)
@@ -69,17 +69,17 @@ CREATE TABLE IF NOT EXISTS wello_checkup_data (
 );
 
 -- 건강검진 데이터 인덱스
-CREATE INDEX IF NOT EXISTS idx_checkup_patient_date ON wello_checkup_data(patient_id, year, checkup_date);
-CREATE INDEX IF NOT EXISTS idx_checkup_location ON wello_checkup_data(location);
-CREATE INDEX IF NOT EXISTS idx_checkup_code ON wello_checkup_data(code);
-CREATE INDEX IF NOT EXISTS idx_checkup_raw_data ON wello_checkup_data USING GIN (raw_data);
-CREATE INDEX IF NOT EXISTS idx_checkup_vital_signs ON wello_checkup_data(height, weight, bmi, blood_pressure_high, blood_pressure_low);
+CREATE INDEX IF NOT EXISTS idx_checkup_patient_date ON welno.welno_checkup_data(patient_id, year, checkup_date);
+CREATE INDEX IF NOT EXISTS idx_checkup_location ON welno.welno_checkup_data(location);
+CREATE INDEX IF NOT EXISTS idx_checkup_code ON welno.welno_checkup_data(code);
+CREATE INDEX IF NOT EXISTS idx_checkup_raw_data ON welno.welno_checkup_data USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_checkup_vital_signs ON welno.welno_checkup_data(height, weight, bmi, blood_pressure_high, blood_pressure_low);
 
 -- 3. 처방전 데이터 테이블 (모든 필드 저장)
-CREATE TABLE IF NOT EXISTS wello_prescription_data (
+CREATE TABLE IF NOT EXISTS welno.welno_prescription_data (
     -- 기본 식별자
     id SERIAL PRIMARY KEY,
-    patient_id INTEGER REFERENCES wello_patients(id) ON DELETE CASCADE,
+    patient_id INTEGER REFERENCES welno.welno_patients(id) ON DELETE CASCADE,
     
     -- 원본 데이터 전체 저장 (JSON) - 메인 저장소
     raw_data JSONB NOT NULL,  -- Tilko API 원본 응답 전체 (Idx, Page, ByungEuiwonYakGukMyung, Address, JinRyoGaesiIl, JinRyoHyungTae, BangMoonIpWonIlsoo, CheoBangHoiSoo, TuYakYoYangHoiSoo, RetrieveTreatmentInjectionInformationPersonDetailList 등 모든 필드)
@@ -105,16 +105,16 @@ CREATE TABLE IF NOT EXISTS wello_prescription_data (
 );
 
 -- 처방전 데이터 인덱스
-CREATE INDEX IF NOT EXISTS idx_prescription_patient_date ON wello_prescription_data(patient_id, treatment_date);
-CREATE INDEX IF NOT EXISTS idx_prescription_hospital ON wello_prescription_data(hospital_name);
-CREATE INDEX IF NOT EXISTS idx_prescription_type ON wello_prescription_data(treatment_type);
-CREATE INDEX IF NOT EXISTS idx_prescription_raw_data ON wello_prescription_data USING GIN (raw_data);
-CREATE INDEX IF NOT EXISTS idx_prescription_counts ON wello_prescription_data(visit_count, prescription_count, medication_count);
+CREATE INDEX IF NOT EXISTS idx_prescription_patient_date ON welno.welno_prescription_data(patient_id, treatment_date);
+CREATE INDEX IF NOT EXISTS idx_prescription_hospital ON welno.welno_prescription_data(hospital_name);
+CREATE INDEX IF NOT EXISTS idx_prescription_type ON welno.welno_prescription_data(treatment_type);
+CREATE INDEX IF NOT EXISTS idx_prescription_raw_data ON welno.welno_prescription_data USING GIN (raw_data);
+CREATE INDEX IF NOT EXISTS idx_prescription_counts ON welno.welno_prescription_data(visit_count, prescription_count, medication_count);
 
 -- 4. 데이터 수집 이력 테이블 (선택사항)
-CREATE TABLE IF NOT EXISTS wello_collection_history (
+CREATE TABLE IF NOT EXISTS welno.welno_collection_history (
     id SERIAL PRIMARY KEY,
-    patient_id INTEGER REFERENCES wello_patients(id) ON DELETE CASCADE,
+    patient_id INTEGER REFERENCES welno.welno_patients(id) ON DELETE CASCADE,
     
     -- 수집 정보
     collection_type VARCHAR(20) CHECK (collection_type IN ('health', 'prescription', 'both')),
@@ -136,9 +136,9 @@ CREATE TABLE IF NOT EXISTS wello_collection_history (
 );
 
 -- 인덱스 생성
-CREATE INDEX IF NOT EXISTS idx_patients_uuid_hospital ON wello_patients(uuid, hospital_id);
-CREATE INDEX IF NOT EXISTS idx_patients_phone ON wello_patients(phone_number);
-CREATE INDEX IF NOT EXISTS idx_patients_last_auth ON wello_patients(last_auth_at);
+CREATE INDEX IF NOT EXISTS idx_patients_uuid_hospital ON welno.welno_patients(uuid, hospital_id);
+CREATE INDEX IF NOT EXISTS idx_patients_phone ON welno.welno_patients(phone_number);
+CREATE INDEX IF NOT EXISTS idx_patients_last_auth ON welno.welno_patients(last_auth_at);
 
 -- 트리거: updated_at 자동 업데이트
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -149,22 +149,22 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER update_wello_patients_updated_at 
-    BEFORE UPDATE ON wello_patients 
+CREATE TRIGGER update_welno_patients_updated_at 
+    BEFORE UPDATE ON welno.welno_patients 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_wello_checkup_data_updated_at 
-    BEFORE UPDATE ON wello_checkup_data 
+CREATE TRIGGER update_welno_checkup_data_updated_at 
+    BEFORE UPDATE ON welno.welno_checkup_data 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_wello_prescription_data_updated_at 
-    BEFORE UPDATE ON wello_prescription_data 
+CREATE TRIGGER update_welno_prescription_data_updated_at 
+    BEFORE UPDATE ON welno.welno_prescription_data 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- 5. 검진 설계 요청 테이블 (업셀링용 데이터 저장)
-CREATE TABLE IF NOT EXISTS wello.wello_checkup_design_requests (
+CREATE TABLE IF NOT EXISTS welno.welno_checkup_design_requests (
     id SERIAL PRIMARY KEY,
-    patient_id INTEGER REFERENCES wello.wello_patients(id) ON DELETE CASCADE,
+    patient_id INTEGER REFERENCES welno.welno_patients(id) ON DELETE CASCADE,
     
     -- 선택한 염려 항목 (JSONB)
     selected_concerns JSONB NOT NULL,
@@ -184,18 +184,18 @@ CREATE TABLE IF NOT EXISTS wello.wello_checkup_design_requests (
 );
 
 -- 검진 설계 요청 인덱스
-CREATE INDEX IF NOT EXISTS idx_design_requests_patient ON wello.wello_checkup_design_requests(patient_id);
-CREATE INDEX IF NOT EXISTS idx_design_requests_created ON wello.wello_checkup_design_requests(created_at);
-CREATE INDEX IF NOT EXISTS idx_design_requests_concerns ON wello.wello_checkup_design_requests USING GIN (selected_concerns);
-CREATE INDEX IF NOT EXISTS idx_design_requests_survey ON wello.wello_checkup_design_requests USING GIN (survey_responses);
+CREATE INDEX IF NOT EXISTS idx_design_requests_patient ON welno.welno_checkup_design_requests(patient_id);
+CREATE INDEX IF NOT EXISTS idx_design_requests_created ON welno.welno_checkup_design_requests(created_at);
+CREATE INDEX IF NOT EXISTS idx_design_requests_concerns ON welno.welno_checkup_design_requests USING GIN (selected_concerns);
+CREATE INDEX IF NOT EXISTS idx_design_requests_survey ON welno.welno_checkup_design_requests USING GIN (survey_responses);
 
 -- 트리거: updated_at 자동 업데이트
-CREATE TRIGGER update_wello_checkup_design_requests_updated_at 
-    BEFORE UPDATE ON wello.wello_checkup_design_requests 
+CREATE TRIGGER update_welno_checkup_design_requests_updated_at 
+    BEFORE UPDATE ON welno.welno_checkup_design_requests 
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- 샘플 데이터 (테스트용)
-INSERT INTO wello_patients (uuid, hospital_id, name, phone_number, birth_date, gender) 
+INSERT INTO welno.welno_patients (uuid, hospital_id, name, phone_number, birth_date, gender) 
 VALUES 
     ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'KHW001', '테스트환자', '01012345678', '1990-01-01', 'M')
 ON CONFLICT (uuid, hospital_id) DO NOTHING;

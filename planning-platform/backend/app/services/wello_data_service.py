@@ -77,7 +77,7 @@ class WelloDataService:
             patient_query = """
                 SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
                        has_health_data, has_prescription_data, last_data_update, last_auth_at
-                FROM wello_patients 
+                FROM welno.welno_patients 
                 WHERE uuid = $1 AND hospital_id = $2
             """
             patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
@@ -88,7 +88,7 @@ class WelloDataService:
             
             # 마지막 로그인 시간 업데이트
             update_query = """
-                UPDATE wello_patients 
+                UPDATE welno.welno_patients 
                 SET last_auth_at = NOW()
                 WHERE uuid = $1 AND hospital_id = $2
             """
@@ -627,7 +627,7 @@ class WelloDataService:
             conn = await asyncpg.connect(**self.db_config)
             
             insert_query = """
-                INSERT INTO wello_collection_history 
+                INSERT INTO welno.welno_collection_history 
                 (patient_id, collection_type, tilko_session_id, success, 
                  health_records_count, prescription_records_count, error_message, completed_at)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())

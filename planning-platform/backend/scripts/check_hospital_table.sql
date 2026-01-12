@@ -5,11 +5,11 @@ SELECT
     is_nullable,
     column_default
 FROM information_schema.columns 
-WHERE table_schema = 'wello' 
-  AND table_name = 'wello_hospitals' 
+WHERE table_schema = 'welno' 
+  AND table_name = 'welno_hospitals' 
 ORDER BY ordinal_position;
 
 -- KIM_HW_CLINIC 데이터 확인
-SELECT * FROM wello.wello_hospitals WHERE hospital_id = 'KIM_HW_CLINIC';
+SELECT * FROM welno.welno_hospitals WHERE hospital_id = 'KIM_HW_CLINIC';
 
 
