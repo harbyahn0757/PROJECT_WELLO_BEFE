@@ -109,7 +109,7 @@ const HealthDashboard: React.FC = () => {
           <p>먼저 건강검진 데이터를 연동해주세요.</p>
           <button 
             className="welno-button welno-button-primary"
-            onClick={() => navigate('/welno/login')}
+            onClick={() => navigate('/login')}
           >
             건강정보 연동하기
           </button>
@@ -129,7 +129,7 @@ const HealthDashboard: React.FC = () => {
         <div className="health-dashboard__actions">
           <button 
             className="welno-button welno-button-secondary"
-            onClick={() => navigate('/welno/results')}
+            onClick={() => navigate('/results-trend')}
           >
             상세 보기
           </button>
@@ -246,7 +246,7 @@ const HealthDashboard: React.FC = () => {
         <div className="action-grid">
           <button 
             className="action-card"
-            onClick={() => navigate('/welno/results-trend')}
+            onClick={() => navigate('/results-trend')}
           >
             <div className="action-card__icon action-card__icon--trends"></div>
             <div className="action-card__content">
@@ -257,7 +257,7 @@ const HealthDashboard: React.FC = () => {
 
           <button 
             className="action-card"
-            onClick={() => navigate('/welno/results')}
+            onClick={() => navigate('/results-trend')}
           >
             <div className="action-card__icon action-card__icon--history"></div>
             <div className="action-card__content">

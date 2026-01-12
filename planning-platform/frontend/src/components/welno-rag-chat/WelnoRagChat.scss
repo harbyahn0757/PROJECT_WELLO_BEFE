@@ -25,6 +25,11 @@
   &.active {
     background: #5D4037;
   }
+
+  // 데이터 수집 중 등 특정 상태에서 숨김 처리
+  &.hidden {
+    display: none;
+  }
 }
 
 .welno-rag-chat-window-container {
@@ -294,10 +299,46 @@
 // 모바일 대응
 @media (max-width: 480px) {
   .welno-rag-chat-window-container {
-    width: calc(100% - 40px);
-    right: 20px;
-    left: 20px;
-    bottom: 85px;
-    height: 70vh;
+    width: 100%;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    top: 0;
+    height: 100%;
+    height: -webkit-fill-available; // iOS 대응
+    z-index: 2000;
+    animation: slideInBottom 0.3s ease-out;
+  }
+
+  .welno-rag-chat-window {
+    border-radius: 0;
+    border: none;
+
+    .chat-header {
+      padding: 14px 20px;
+      // 노치 영역 대응 (safe-area)
+      padding-top: max(14px, env(safe-area-inset-top));
+    }
+
+    .chat-messages {
+      padding: 16px;
+    }
+
+    .chat-input-container {
+      // 키보드 위로 올리기 위한 패딩 및 safe-area 대응
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+      background: white;
+    }
+  }
+}
+
+@keyframes slideInBottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }

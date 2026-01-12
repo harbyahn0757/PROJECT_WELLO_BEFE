@@ -297,7 +297,7 @@ const HealthTrends: React.FC = () => {
           <p>추이 분석을 위해서는 최소 2회 이상의 검진 데이터가 필요합니다.</p>
           <button 
             className="welno-button welno-button-primary"
-            onClick={() => navigate('/welno/login')}
+            onClick={() => navigate('/login')}
           >
             건강정보 연동하기
           </button>

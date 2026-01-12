@@ -38,16 +38,30 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
 
   useEffect(() => {
     // 세션 ID 생성
-    const sid = `rag_chat_${uuid}_${hospitalId}_${Date.now()}`;
-    setSessionId(sid);
+    if (!sessionId) {
+      const sid = `rag_chat_${uuid}_${hospitalId}_${Date.now()}`;
+      setSessionId(sid);
+      
+      // 환영 메시지 (이미 메시지가 없는 경우만)
+      if (messages.length === 0) {
+        setMessages([{
+          role: 'assistant',
+          content: '안녕하세요! 건강과 영양에 대해 궁금한 점을 물어보세요. 😊',
+          timestamp: new Date().toISOString()
+        }]);
+      }
+    }
+  }, [uuid, hospitalId, sessionId, messages.length]);
 
-    // 환영 메시지
-    setMessages([{
-      role: 'assistant',
-      content: '안녕하세요! 건강과 영양에 대해 궁금한 점을 물어보세요. 😊',
-      timestamp: new Date().toISOString()
-    }]);
-  }, [uuid, hospitalId]);
+  useEffect(() => {
+    // 모바일에서 스크롤 방지
+    if (window.innerWidth <= 480) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, []);
 
   useEffect(() => {
     // 메시지 스크롤

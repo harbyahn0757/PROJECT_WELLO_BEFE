@@ -302,7 +302,7 @@ const HealthComparison: React.FC = () => {
           <p>먼저 건강정보를 연동하여 데이터를 가져와주세요.</p>
           <button 
             className="welno-button welno-button-primary"
-            onClick={() => navigate('/welno/login')}
+            onClick={() => navigate('/login')}
           >
             건강정보 연동하기
           </button>

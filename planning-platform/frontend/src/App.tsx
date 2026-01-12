@@ -22,6 +22,7 @@ import AppointmentModal from './components/appointment/AppointmentModal';
 import { LayoutType } from './constants/layoutTypes';
 import { WelnoDataProvider, useWelnoData } from './contexts/WelnoDataContext';
 import { STORAGE_KEYS, StorageManager } from './constants/storage';
+import { WelnoRagChatButton } from './components/welno-rag-chat';
 import NotificationContainer from './components/common/NotificationContainer';
 import './App.scss';
 
@@ -349,6 +350,7 @@ const AppContent: React.FC = () => {
       />
       
       <NotificationContainer />
+      <WelnoRagChatButton />
     </div>
   );
 };

@@ -24,6 +24,33 @@ async def check_existing_data(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"데이터 확인 실패: {str(e)}")
 
+@router.post("/find-patient")
+async def find_patient(
+    body: Dict[str, str] = Body(..., description="검색 정보 (name, phone_number, birth_date)")
+) -> Dict[str, Any]:
+    """이름, 전화번호, 생년월일로 기존 환자 조회"""
+    try:
+        name = body.get("name")
+        phone_number = body.get("phone_number")
+        birth_date = body.get("birth_date")
+        
+        if not all([name, phone_number, birth_date]):
+            raise HTTPException(status_code=400, detail="필수 정보가 누락되었습니다 (name, phone_number, birth_date)")
+            
+        result = await welno_data_service.get_patient_by_combo(
+            phone_number=phone_number,
+            birth_date=birth_date,
+            name=name
+        )
+        
+        return {
+            "success": True,
+            "data": result
+        }
+    except Exception as e:
+        print(f"❌ [환자검색] 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"환자 조회 실패: {str(e)}")
+
 @router.get("/patient-health-data")
 async def get_patient_health_data(
     request: Request,

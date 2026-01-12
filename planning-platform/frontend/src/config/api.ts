@@ -10,10 +10,10 @@ const IS_PRODUCTION = !IS_DEVELOPMENT;
 const API_BASE_URL = IS_PRODUCTION ? 'https://xogxog.com' : '';
 
 // 파트너 마케팅 API 설정
-// 개발 환경: 절대 경로 사용 (서버에서 CORS 허용되어 있음)
+// 개발 환경: 프록시 사용 (상대 경로)
 // 프로덕션: 절대 경로 사용
 const PARTNER_MARKETING_API_BASE = IS_DEVELOPMENT 
-  ? 'http://localhost:8000' 
+  ? '' // 개발 모드: 프록시 사용 (craco.config.js의 /api/partner-marketing 프록시)
   : 'https://xogxog.com';
 
 // 캠페인 리다이렉트 URL 설정
@@ -49,9 +49,11 @@ export const API_ENDPOINTS = {
   HEALTH_DATA: (uuid: string, hospitalId: string) => 
     createApiUrl(`/welno-api/v1/welno/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`),
   
-  // 기존 데이터 확인
+  // 기존 데이터 확인 및 검색
   CHECK_EXISTING_DATA: (uuid: string, hospitalId: string) => 
     createApiUrl(`/welno-api/v1/welno/check-existing-data?uuid=${uuid}&hospital_id=${hospitalId}`),
+  
+  FIND_PATIENT: createApiUrl('/welno-api/v1/welno/find-patient'),
   
   // 건강데이터 삭제
   DELETE_HEALTH_DATA: (uuid: string, hospitalId: string) => 

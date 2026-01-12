@@ -22,6 +22,9 @@
     position: relative !important; // z-index 적용을 위한 position 설정
     z-index: 10 !important; // 상단 섹션이 앞에 나오도록 z-index 설정
     overflow: hidden !important; // 내부 요소가 border-radius를 넘지 않도록
+    // 모바일 레이아웃 고정
+    width: 100%;
+    box-sizing: border-box;
   }
   
   // 헤더 (로고 + 병원명)

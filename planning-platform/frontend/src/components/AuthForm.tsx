@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthInput, AuthMethodSelect } from './auth/components';
 import { AuthWaiting, DataCollecting } from './auth/screens';
 import { useAuthFlow } from './auth/hooks';
@@ -8,6 +8,9 @@ import TermsAgreementModal from './terms/TermsAgreementModal';
 import PasswordModal from './PasswordModal';
 import { PasswordModalType } from './PasswordModal/types';
 import { STORAGE_KEYS, StorageManager } from '../constants/storage';
+import { useWelnoData } from '../contexts/WelnoDataContext';
+import { API_ENDPOINTS } from '../config/api';
+import { PasswordService } from './PasswordModal/PasswordService';
 import kakaoIcon from '../assets/images/kakao.png';
 import naverIcon from '../assets/images/naver.png';
 import passIcon from '../assets/images/pass.png';
@@ -31,7 +34,9 @@ interface AuthFormProps {
  */
 const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const authFlow = useAuthFlow();
+  const { actions } = useWelnoData();
   
   // 추가 UI 상태
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -40,6 +45,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const [authRequested, setAuthRequested] = useState(false);
   const [descriptionMessage, setDescriptionMessage] = useState('');
   const [isCollecting, setIsCollecting] = useState(false);
+  const [isCheckingPatient, setIsCheckingPatient] = useState(false);
   const [isDataCompleted, setIsDataCompleted] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('initial');
   const [statusMessage, setStatusMessage] = useState('');
@@ -108,14 +114,23 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       }
     }
 
-    // 2. 결과 페이지로 이동
+    // 2. 결과 페이지로 이동 (replace로 히스토리 교체 - 뒤로가기 시 메인으로)
     if (passwordSetupData?.uuid && passwordSetupData?.hospital) {
-      const targetUrl = `/welno/results-trend?uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
-      console.log('🚀 [비밀번호설정완료] 트렌드 페이지로 이동:', targetUrl);
-      navigate(targetUrl);
+      // 원래 가려던 페이지 정보 확인
+      const from = (location.state as any)?.from;
+      let targetUrl = from || `/results-trend?uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
+      
+      // targetUrl에 uuid/hospital이 없으면 추가
+      if (targetUrl.startsWith('/') && !targetUrl.includes('uuid=')) {
+        const separator = targetUrl.includes('?') ? '&' : '?';
+        targetUrl = `${targetUrl}${separator}uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
+      }
+      
+      console.log('🚀 [비밀번호설정완료] 대상 페이지로 이동:', targetUrl);
+      navigate(targetUrl, { replace: true });
     } else {
       console.warn('⚠️ [비밀번호설정완료] UUID/병원 정보 부족');
-      navigate('/welno/results-trend');
+      navigate('/results-trend', { replace: true });
     }
   };
 
@@ -124,12 +139,21 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     setShowPasswordSetupModal(false);
     
     if (passwordSetupData?.uuid && passwordSetupData?.hospital) {
-      const targetUrl = `/welno/results-trend?uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
-      console.log('🚀 [비밀번호건너뛰기] 트렌드 페이지로 이동:', targetUrl);
-      navigate(targetUrl);
+      // 원래 가려던 페이지 정보 확인
+      const from = (location.state as any)?.from;
+      let targetUrl = from || `/results-trend?uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
+      
+      // targetUrl에 uuid/hospital이 없으면 추가
+      if (targetUrl.startsWith('/') && !targetUrl.includes('uuid=')) {
+        const separator = targetUrl.includes('?') ? '&' : '?';
+        targetUrl = `${targetUrl}${separator}uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
+      }
+      
+      console.log('🚀 [비밀번호건너뛰기] 대상 페이지로 이동:', targetUrl);
+      navigate(targetUrl, { replace: true });
     } else {
       console.warn('⚠️ [비밀번호건너뛰기] UUID/병원 정보 부족');
-      navigate('/welno/results-trend');
+      navigate('/results-trend', { replace: true });
     }
   };
   
@@ -165,7 +189,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           prescription_data_Status: data.prescription_data?.Status,
           prescription_ResultList_길이: data.prescription_data?.ResultList?.length || 0,
           patient_uuid: data.patient_uuid,
-          hospital_id: data.hospital_id
+          hospital_id: data.hospital_id,
+          user_name: data.user_name,
+          authFlow_userInfo_name: authFlow.state.userInfo.name
         });
         
         // ⚠️ 데이터가 null인 경우 명확히 체크
@@ -193,7 +219,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             
             const healthRecord = {
               uuid: data.patient_uuid,
-              patientName: authFlow.state.userInfo.name || '사용자',
+              patientName: data.user_name || authFlow.state.userInfo.name || '사용자',
               hospitalId: data.hospital_id,
               birthday: authFlow.state.userInfo.birthday,
               healthData: healthDataList,
@@ -268,8 +294,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           setPasswordSetupData({ uuid, hospital });
           setShowPasswordSetupModal(true);
         } else {
-          console.warn('⚠️ [데이터수집완료] UUID/병원 정보 없음 - 바로 결과 페이지로 이동');
-          navigate('/welno/results-trend');
+          console.warn('⚠️ [데이터수집완료] UUID/병원 정보 없음 - 대상 페이지로 이동');
+          const from = (location.state as any)?.from;
+          navigate(from || '/results-trend', { replace: true });
         }
       }
     },
@@ -430,7 +457,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   }, []);
   
   // 단계 이동 핸들러
-  const handleNextStep = () => {
+  const handleNextStep = async () => {
     console.log('🔘 [단계진행] handleNextStep 호출:', currentConfirmationStep);
     console.log('🔘 [단계진행] 현재 입력 값:', authFlow.state.userInfo);
     
@@ -452,6 +479,64 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         alert('생년월일을 입력해주세요.');
         return;
       }
+
+      // ✅ 기존 환자 사전 체크
+      try {
+        setIsCheckingPatient(true);
+        console.log('🔍 [사전체크] 기존 환자 여부 확인 시작...');
+        
+        const response = await fetch(API_ENDPOINTS.FIND_PATIENT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: authFlow.state.userInfo.name,
+            phone_number: authFlow.state.userInfo.phone,
+            birth_date: authFlow.state.userInfo.birthday.replace(/-/g, '')
+          })
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.data) {
+            const foundPatient = result.data;
+            console.log('✅ [사전체크] 기존 환자 발견:', foundPatient.uuid);
+            
+            // 데이터가 있는 경우에만 로드 제안
+            if (foundPatient.has_health_data || foundPatient.has_prescription_data) {
+              const useExisting = window.confirm(
+                `${foundPatient.name}님의 이전 건강검진 기록이 발견되었습니다.\n\n새로 인증하지 않고 기존 데이터를 불러오시겠습니까?`
+              );
+              
+              if (useExisting) {
+                console.log('📥 [기본정보로드] 기존 데이터 동기화 시작');
+                
+                // 1. UUID & Hospital ID 저장
+                StorageManager.setItem(STORAGE_KEYS.PATIENT_UUID, foundPatient.uuid);
+                StorageManager.setItem(STORAGE_KEYS.HOSPITAL_ID, foundPatient.hospital_id);
+                
+                // 2. 서버 데이터 로드 (IndexedDB 저장 포함)
+                await actions.loadPatientData(foundPatient.uuid, foundPatient.hospital_id);
+                
+                // 3. 비밀번호 모달 표시를 위해 데이터 설정
+                setPasswordSetupData({ 
+                  uuid: foundPatient.uuid, 
+                  hospital: foundPatient.hospital_id 
+                });
+                
+                // 4. 비밀번호 모달 오픈
+                setShowPasswordSetupModal(true);
+                setIsCheckingPatient(false);
+                return; // 인증수단 선택 단계로 가지 않고 종료
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('⚠️ [사전체크] 기존 환자 조회 실패 (일반 인증으로 속행):', error);
+      } finally {
+        setIsCheckingPatient(false);
+      }
+
       setCurrentConfirmationStep('auth_method');
     } else if (currentConfirmationStep === 'auth_method') {
       if (!authFlow.state.userInfo.authMethod) {
@@ -520,7 +605,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   
   // 플로팅 버튼 "확인 완료" 클릭 이벤트 리스너
   useEffect(() => {
-    const handleInfoConfirmClick = () => {
+    const handleInfoConfirmClick = async () => {
       console.log('[AuthForm] 플로팅 버튼 "확인 완료" 클릭 - 현재 단계:', currentConfirmationStep);
       
       // 단계별 처리
@@ -541,6 +626,51 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           alert('생년월일을 입력해주세요.');
         return;
         }
+
+        // ✅ 기존 환자 사전 체크 (플로팅 버튼 클릭 시에도 동일하게 적용)
+        try {
+          setIsCheckingPatient(true);
+          console.log('🔍 [사전체크] 기존 환자 여부 확인 시작...');
+          
+          const response = await fetch(API_ENDPOINTS.FIND_PATIENT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: authFlow.state.userInfo.name,
+              phone_number: authFlow.state.userInfo.phone,
+              birth_date: authFlow.state.userInfo.birthday.replace(/-/g, '')
+            })
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.data) {
+              const foundPatient = result.data;
+              console.log('✅ [사전체크] 기존 환자 발견:', foundPatient.uuid);
+              
+              if (foundPatient.has_health_data || foundPatient.has_prescription_data) {
+                const useExisting = window.confirm(
+                  `${foundPatient.name}님의 이전 건강검진 기록이 발견되었습니다.\n\n새로 인증하지 않고 기존 데이터를 불러오시겠습니까?`
+                );
+                
+                if (useExisting) {
+                  StorageManager.setItem(STORAGE_KEYS.PATIENT_UUID, foundPatient.uuid);
+                  StorageManager.setItem(STORAGE_KEYS.HOSPITAL_ID, foundPatient.hospital_id);
+                  await actions.loadPatientData(foundPatient.uuid, foundPatient.hospital_id);
+                  setPasswordSetupData({ uuid: foundPatient.uuid, hospital: foundPatient.hospital_id });
+                  setShowPasswordSetupModal(true);
+                  setIsCheckingPatient(false);
+                  return;
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ [사전체크] 기존 환자 조회 실패:', error);
+        } finally {
+          setIsCheckingPatient(false);
+        }
+
         setCurrentConfirmationStep('auth_method');
     } else if (currentConfirmationStep === 'auth_method') {
         if (!authFlow.state.userInfo.authMethod) {
@@ -645,8 +775,17 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       const hospital = StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID);
       
       if (uuid && hospital) {
-        // 이미 완료된 세션은 바로 트렌드 페이지로 이동 (비밀번호는 이미 설정되었을 것)
-        navigate(`/welno/results-trend?uuid=${uuid}&hospital=${hospital}`);
+        // 이미 완료된 세션은 바로 대상 페이지로 이동 (비밀번호는 이미 설정되었을 것)
+        const from = (location.state as any)?.from;
+        let targetUrl = from || `/results-trend?uuid=${uuid}&hospital=${hospital}`;
+        
+        // targetUrl에 uuid/hospital이 없으면 추가
+        if (targetUrl.startsWith('/') && !targetUrl.includes('uuid=')) {
+          const separator = targetUrl.includes('?') ? '&' : '?';
+          targetUrl = `${targetUrl}${separator}uuid=${uuid}&hospital=${hospital}`;
+        }
+        
+        navigate(targetUrl, { replace: true });
       }
     }
   }, [authFlow.state.currentStep, authFlow.state.isCompleted, navigate]);

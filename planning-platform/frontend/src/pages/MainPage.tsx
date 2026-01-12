@@ -147,7 +147,7 @@ const MainPage: React.FC = () => {
   }, endpoint: string) => {
     try {
       // 파트너 인증 API 호출
-      console.log('[질병예측리포트] 파트너 인증 API 호출:', payload);
+      console.log('[질병예측리포트] 파트너 인증 API 호출 시작:', { endpoint, payload: { ...payload, api_key: '***' } });
       
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -158,42 +158,82 @@ const MainPage: React.FC = () => {
         redirect: 'follow' // 리다이렉트 자동 따라가기
       });
       
+      console.log('[질병예측리포트] API 응답 상태:', response.status, response.statusText);
+      console.log('[질병예측리포트] 응답 헤더:', Object.fromEntries(response.headers.entries()));
+      
       // JSON 응답 처리 (서버가 JSON으로 변경됨)
       if (response.ok) {
-        const result = await response.json();
-        console.log('[질병예측리포트] 서버 응답:', result);
+        let result;
+        try {
+          result = await response.json();
+          console.log('[질병예측리포트] 서버 응답 (JSON):', result);
+        } catch (jsonError) {
+          const textResponse = await response.text();
+          console.error('[질병예측리포트] JSON 파싱 실패, 텍스트 응답:', textResponse.substring(0, 500));
+          alert('서버 응답 형식 오류가 발생했습니다. 관리자에게 문의해주세요.');
+          return;
+        }
         
         if (result.redirect_url) {
           console.log('[질병예측리포트] 파트너 인증 성공');
           console.log('[질병예측리포트] 리다이렉트 URL:', result.redirect_url);
           console.log('[질병예측리포트] 리다이렉트 실행 중...');
-          window.location.href = result.redirect_url;
+          
+          // 페이지 이동
+          try {
+            window.location.href = result.redirect_url;
+          } catch (redirectError) {
+            console.error('[질병예측리포트] 리다이렉트 실행 오류:', redirectError);
+            // 폴백: 새 창으로 열기
+            window.open(result.redirect_url, '_blank');
+          }
         } else {
           console.warn('[질병예측리포트] 리다이렉트 URL 없음, 전체 응답:', result);
-          alert('질병예측 리포트 접속에 실패했습니다. 리다이렉트 URL을 받지 못했습니다.');
+          alert('질병예측 리포트 접속에 실패했습니다. 리다이렉트 URL을 받지 못했습니다.\n응답: ' + JSON.stringify(result).substring(0, 200));
         }
       } else {
         // 에러 응답 처리
         let errorMessage = '질병예측 리포트 접속에 실패했습니다.';
+        let errorDetails = '';
+        
         try {
           const errorData = await response.json();
           errorMessage = errorData.detail || errorData.message || errorData.error || errorMessage;
+          errorDetails = JSON.stringify(errorData);
+          console.error('[질병예측리포트] 서버 에러 응답:', errorData);
         } catch (e) {
-          // JSON 파싱 실패 시 상태 코드에 따른 메시지
+          // JSON 파싱 실패 시 텍스트로 읽기
+          try {
+            const errorText = await response.text();
+            errorDetails = errorText.substring(0, 500);
+            console.error('[질병예측리포트] 서버 에러 텍스트:', errorText);
+          } catch (textError) {
+            console.error('[질병예측리포트] 에러 응답 읽기 실패:', textError);
+          }
+          
+          // 상태 코드에 따른 메시지
           if (response.status === 400) {
             errorMessage = '필수 파라미터가 누락되었습니다. (api_key 필수)';
           } else if (response.status === 401) {
             errorMessage = '유효하지 않은 API Key입니다.';
           } else if (response.status === 404) {
             errorMessage = '파트너 계정을 찾을 수 없습니다. 시스템 관리자에게 문의하세요.';
+          } else if (response.status === 500) {
+            errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
           }
         }
-        console.error(`[질병예측리포트] 파트너 인증 실패 (${response.status}):`, errorMessage);
-        alert(errorMessage);
+        
+        console.error(`[질병예측리포트] 파트너 인증 실패 (${response.status}):`, errorMessage, errorDetails);
+        alert(`${errorMessage}\n\n상세: ${errorDetails || '없음'}`);
       }
     } catch (error) {
       console.error('[질병예측리포트] 파트너 인증 오류:', error);
-      alert('질병예측 리포트 접속 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
+      console.error('[질병예측리포트] 에러 상세:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : undefined
+      });
+      alert(`질병예측 리포트 접속 중 오류가 발생했습니다.\n\n에러: ${error instanceof Error ? error.message : String(error)}\n\n네트워크 연결을 확인해주세요.`);
     }
   };
 
@@ -286,6 +326,40 @@ const MainPage: React.FC = () => {
     return () => clearTimeout(timer);
   }, [location.search]); // URL 파라미터 변경 시에도 실행
 
+  // URL 파라미터 기반 초기 데이터 로드 (이름과 병원명 표시를 위해)
+  useEffect(() => {
+    const loadInitialData = async () => {
+      const urlParams = new URLSearchParams(location.search);
+      const uuid = urlParams.get('uuid');
+      const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
+      
+      // URL 파라미터가 있고, 현재 Context에 데이터가 없으면 로드
+      if (uuid && hospital && (!patient || !patient.uuid || patient.uuid !== uuid)) {
+        console.log('[메인페이지] URL 파라미터 기반 초기 데이터 로드:', { uuid, hospital });
+        try {
+          await actions.loadPatientData(uuid, hospital);
+        } catch (error) {
+          console.warn('[메인페이지] 초기 데이터 로드 실패:', error);
+        }
+      } else if (!uuid && !hospital) {
+        // URL 파라미터가 없으면 localStorage에서 확인
+        const savedUuid = localStorage.getItem('tilko_patient_uuid');
+        const savedHospitalId = localStorage.getItem('tilko_hospital_id');
+        
+        if (savedUuid && savedHospitalId && (!patient || !patient.uuid || patient.uuid !== savedUuid)) {
+          console.log('[메인페이지] localStorage 기반 초기 데이터 로드:', { uuid: savedUuid, hospital: savedHospitalId });
+          try {
+            await actions.loadPatientData(savedUuid, savedHospitalId);
+          } catch (error) {
+            console.warn('[메인페이지] localStorage 기반 초기 데이터 로드 실패:', error);
+          }
+        }
+      }
+    };
+    
+    loadInitialData();
+  }, [location.search, patient?.uuid, actions]); // URL 파라미터와 patient 상태 변경 시 실행
+
   // 스크롤 이벤트 처리: 하단 스크롤 시 버튼과 카드 겹침 방지
   useEffect(() => {
     const handleScroll = () => {
@@ -325,7 +399,7 @@ const MainPage: React.FC = () => {
       }
     };
 
-    window.addEventListener('scroll', throttledHandleScroll, { passive: true });
+    window.addEventListener('scroll', throttledHandleScroll, { passive: true, capture: false });
     
     return () => {
       window.removeEventListener('scroll', throttledHandleScroll);
@@ -543,7 +617,7 @@ const MainPage: React.FC = () => {
 
     try {
       switch (cardType) {
-      case 'chart':
+      case 'chart': {
         // Context에서 환자 데이터 확인 (Context가 IndexedDB를 자동으로 조회)
         if (patient && patient.uuid && patient.hospital_id) {
           uuid = patient.uuid;
@@ -693,9 +767,42 @@ const MainPage: React.FC = () => {
           navigate(authPath);
         }, 300);
         break;
+      }
         
-      case 'design':
+      case 'design': {
         // 검진항목 설계하기는 건강 데이터 확인 후 처리
+        // Context에서 환자 데이터 확인 (검진결과추이와 동일한 로직)
+        if (patient && patient.uuid && patient.hospital_id) {
+          uuid = patient.uuid;
+          hospitalId = patient.hospital_id;
+          console.log('[검진설계] Context에서 데이터 발견:', { uuid, hospitalId });
+        } else if (uuid && hospitalId) {
+          // URL 파라미터가 있으면 Context 로드 시도
+          console.log('[검진설계] URL 파라미터로 데이터 로드 시도:', { uuid, hospitalId });
+          try {
+            await actions.loadPatientData(uuid, hospitalId);
+          } catch (loadError) {
+            console.warn('[검진설계] 데이터 로드 실패:', loadError);
+          }
+        } else {
+          // localStorage에서 확인 (재접속 시)
+          const savedUuid = localStorage.getItem('tilko_patient_uuid');
+          const savedHospitalId = localStorage.getItem('tilko_hospital_id');
+          
+          if (savedUuid && savedHospitalId) {
+            console.log('[검진설계] localStorage에서 데이터 발견:', { uuid: savedUuid, hospitalId: savedHospitalId });
+            uuid = savedUuid;
+            hospitalId = savedHospitalId;
+            
+            // Context 로드 시도
+            try {
+              await actions.loadPatientData(uuid, hospitalId);
+            } catch (loadError) {
+              console.warn('[검진설계] localStorage 데이터 로드 실패:', loadError);
+            }
+          }
+        }
+        
         if (uuid && hospitalId) {
           try {
             console.log('[검진설계] 기존 데이터 확인 중...', { uuid, hospitalId });
@@ -705,9 +812,10 @@ const MainPage: React.FC = () => {
             
             if (hasData) {
               console.log('[검진설계] 웰노 데이터 발견! - 바로 이동');
-              // 데이터가 있으면 바로 설계 페이지로 이동
+              // 데이터가 있으면 바로 설계 페이지로 이동 (queryString에 uuid와 hospital 포함)
+              const designQueryString = `?uuid=${uuid}&hospital=${hospitalId}`;
               setTimeout(() => {
-                navigate(`/checkup-design${queryString}`);
+                navigate(`/checkup-design${designQueryString}`);
               }, 300);
               return;
             } else {
@@ -742,13 +850,17 @@ const MainPage: React.FC = () => {
           }
         }
         
-        // UUID나 hospitalId가 없으면 바로 설계 페이지로 이동 (fallback)
+        // UUID나 hospitalId가 없으면 Tilko 인증으로 이동
+        console.log('[검진설계] 환자 정보 없음 - Tilko 인증으로 이동');
+        const authPath = `/login${queryString || ''}`;
+        setIsPageTransitioning(false);
         setTimeout(() => {
-                navigate(`/checkup-design${queryString}`);
+          navigate(authPath);
         }, 300);
         break;
+      }
         
-      case 'prediction':
+      case 'prediction': {
         // 질병예측 리포트 보기는 파트너 인증 API를 거쳐 캠페인 페이지로 이동
         // mkt_uuid는 선택사항 (없으면 새 사용자로 등록)
         try {
@@ -803,34 +915,29 @@ const MainPage: React.FC = () => {
           const currentUrl = window.location.href;
           requestPayload.return_url = currentUrl;
           
-          // 개발 환경: 모달 띄우고 확인 후 호출
-          // 프로덕션 환경: 모달 없이 바로 호출
-          if (IS_DEVELOPMENT) {
-            console.log('[질병예측리포트] 개발 모드 - 모달 표시');
-            setIsPageTransitioning(false);
-            setPendingPartnerAuthPayload(requestPayload);
-            setPendingPartnerAuthEndpoint(API_ENDPOINTS.PARTNER_AUTH);
-            setShowPartnerAuthModal(true);
-          } else {
-            console.log('[질병예측리포트] 프로덕션 모드 - 바로 호출');
-            await callPartnerAuthAPI(requestPayload, API_ENDPOINTS.PARTNER_AUTH);
-          }
+          // 개발/프로덕션 모두 모달 없이 바로 호출 (페이지 변경)
+          console.log('[질병예측리포트] 파트너 인증 API 호출 시작');
+          setIsPageTransitioning(false); // 로딩 스피너 숨김
+          await callPartnerAuthAPI(requestPayload, API_ENDPOINTS.PARTNER_AUTH);
         } catch (error) {
           console.error('[질병예측리포트] 파트너 인증 오류:', error);
           setIsPageTransitioning(false);
           alert('질병예측 리포트 접속 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
         }
         break;
+      }
         
-      case 'habit':
+      case 'habit': {
         // 준비중 모달 표시
         console.log('[건강습관만들기] 준비중 모달 표시');
         setIsPageTransitioning(false);
         setShowComingSoonModal(true);
         break;
+      }
         
-      default:
+      default: {
         break;
+      }
       }
     } catch (error) {
       console.error('[카드클릭] 오류:', error);
@@ -1189,8 +1296,6 @@ const MainPage: React.FC = () => {
 곧 만나뵐 수 있도록 노력하겠습니다.`}
       /> */}
       
-      {/* RAG 채팅 버튼 */}
-      <WelnoRagChatButton />
     </div>
   );
 };

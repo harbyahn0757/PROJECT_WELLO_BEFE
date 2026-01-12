@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import WelnoRagChatWindow from './WelnoRagChatWindow';
+import { STORAGE_KEYS } from '../../constants/storage';
 import './WelnoRagChat.scss';
 
 interface WelnoRagChatButtonProps {
@@ -8,12 +9,38 @@ interface WelnoRagChatButtonProps {
 
 const WelnoRagChatButton: React.FC<WelnoRagChatButtonProps> = ({ onToggle }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [shouldHide, setShouldHide] = useState(false);
+
+  useEffect(() => {
+    const checkHideStatus = () => {
+      const manualCollect = localStorage.getItem('tilko_manual_collect') === 'true';
+      const collectingStatus = localStorage.getItem('tilko_collecting_status') === 'true';
+      const passwordModalOpen = localStorage.getItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN) === 'true';
+      
+      setShouldHide(manualCollect || collectingStatus || passwordModalOpen);
+    };
+
+    checkHideStatus();
+
+    const handleEvents = () => checkHideStatus();
+    window.addEventListener('storage', handleEvents);
+    window.addEventListener('tilko-status-change', handleEvents);
+    window.addEventListener('password-modal-change', handleEvents);
+
+    return () => {
+      window.removeEventListener('storage', handleEvents);
+      window.removeEventListener('tilko-status-change', handleEvents);
+      window.removeEventListener('password-modal-change', handleEvents);
+    };
+  }, []);
 
   const handleClick = () => {
     const newState = !isOpen;
     setIsOpen(newState);
     onToggle?.(newState);
   };
+
+  if (shouldHide) return null;
 
   return (
     <>

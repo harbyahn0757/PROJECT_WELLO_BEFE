@@ -1,3 +1,5 @@
+@use '../../styles/variables' as *;
+
 .notification-toast {
   display: flex;
   align-items: flex-start;
@@ -13,30 +15,30 @@
   animation: slideInRight 0.3s ease-out;
 
   &--info {
-    border-left-color: #3b82f6;
+    border-left-color: $brand-brown-dark;
     .notification-toast__icon {
-      color: #3b82f6;
+      color: $brand-brown-dark;
     }
   }
 
   &--success {
-    border-left-color: #10b981;
+    border-left-color: $success;
     .notification-toast__icon {
-      color: #10b981;
+      color: $success;
     }
   }
 
   &--warning {
-    border-left-color: #f59e0b;
+    border-left-color: $warning;
     .notification-toast__icon {
-      color: #f59e0b;
+      color: $warning;
     }
   }
 
   &--error {
-    border-left-color: #ef4444;
+    border-left-color: $error;
     .notification-toast__icon {
-      color: #ef4444;
+      color: $error;
     }
   }
 
@@ -56,14 +58,14 @@
   &__title {
     font-size: 14px;
     font-weight: 600;
-    color: #1f2937;
+    color: $gray-900;
     margin-bottom: 4px;
     line-height: 1.4;
   }
 
   &__message {
     font-size: 13px;
-    color: #6b7280;
+    color: $gray-600;
     line-height: 1.5;
     margin-bottom: 8px;
   }
@@ -73,7 +75,7 @@
   }
 
   &__action-button {
-    background: #3b82f6;
+    background: $brand-brown-dark;
     color: white;
     border: none;
     padding: 6px 12px;
@@ -84,11 +86,11 @@
     transition: background-color 0.2s;
 
     &:hover {
-      background: #2563eb;
+      background: $brand-brown-hover-dark;
     }
 
     &:active {
-      background: #1d4ed8;
+      background: $brand-brown-darker;
     }
   }
 

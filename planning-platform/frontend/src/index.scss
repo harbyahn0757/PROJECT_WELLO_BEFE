@@ -17,3 +17,12 @@
 
 // 폰트 토큰 임포트
 @import './styles/font-tokens.css';
+
+// 모바일 줌 방지 및 터치 동작 최적화
+html, body {
+  touch-action: pan-x pan-y;
+  -webkit-text-size-adjust: none;
+  overflow-x: hidden;
+  width: 100%;
+  position: relative;
+}

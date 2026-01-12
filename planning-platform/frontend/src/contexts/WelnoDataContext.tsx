@@ -290,12 +290,18 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
       
       const result = await response.json();
       if (!result.success || !result.data) {
-        console.warn('[동기화] 서버 응답 형식 오류');
+        console.warn('[동기화] 서버 응답 형식 오류:', result);
         return;
       }
       
       const serverHealthCount = result.data.health_data?.length || 0;
       const serverPrescriptionCount = result.data.prescription_data?.length || 0;
+      
+      // 디버깅: 데이터 개수 로그
+      console.log('[동기화] 데이터 개수 비교:', {
+        indexed: { health: indexedHealthCount, prescription: indexedPrescriptionCount },
+        server: { health: serverHealthCount, prescription: serverPrescriptionCount }
+      });
       
       // 3. 차이 확인 및 동기화 (서버에 데이터가 있을 때만 동기화)
       const needsSync = 
@@ -356,14 +362,59 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
         });
         
         console.log('[동기화] IndexedDB 업데이트 완료');
-      } else if (indexedHealthCount > 0 || indexedPrescriptionCount > 0) {
-        // IndexedDB에 데이터가 있고 서버에는 없으면 IndexedDB 유지
-        console.log('[동기화] IndexedDB에 데이터 있음, 서버 데이터 없음 - IndexedDB 유지:', {
+      } else if ((indexedHealthCount > 0 || indexedPrescriptionCount > 0) && 
+                 (serverHealthCount === 0 && serverPrescriptionCount === 0) &&
+                 indexedData) {
+        // IndexedDB에 데이터가 있고 서버에는 없으면 서버로 업로드
+        console.log('[동기화] IndexedDB에 데이터 있음, 서버 데이터 없음 - 서버로 업로드 시도:', {
           indexed: { health: indexedHealthCount, prescription: indexedPrescriptionCount },
           server: { health: serverHealthCount, prescription: serverPrescriptionCount }
         });
+        
+        try {
+          // IndexedDB 데이터를 서버 형식으로 변환
+          const uploadData = {
+            uuid: indexedData.uuid,
+            patientName: indexedData.patientName || '',
+            hospitalId: indexedData.hospitalId || hospitalId,
+            healthData: indexedData.healthData || [],
+            prescriptionData: indexedData.prescriptionData || [],
+            birthday: indexedData.birthday || '',
+            createdAt: indexedData.createdAt || new Date().toISOString(),
+            updatedAt: indexedData.updatedAt || new Date().toISOString(),
+            dataSource: indexedData.dataSource || 'indexeddb'
+          };
+          
+          // 서버로 업로드
+          const uploadResponse = await fetch(
+            `/welno-api/v1/welno/upload-health-data?uuid=${uuid}&hospital_id=${hospitalId}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(uploadData)
+            }
+          );
+          
+          if (uploadResponse.ok) {
+            const uploadResult = await uploadResponse.json();
+            console.log('[동기화] 서버 업로드 성공:', uploadResult);
+          } else {
+            const errorText = await uploadResponse.text();
+            console.warn('[동기화] 서버 업로드 실패:', {
+              status: uploadResponse.status,
+              error: errorText.substring(0, 200)
+            });
+          }
+        } catch (uploadError) {
+          console.error('[동기화] 서버 업로드 오류:', uploadError);
+        }
       } else {
-        console.log('[동기화] 데이터 일치 또는 양쪽 모두 없음, 동기화 불필요');
+        // 데이터 일치 또는 양쪽 모두 없음
+        console.log('[동기화] 데이터 일치 또는 양쪽 모두 없음, 동기화 불필요:', {
+          indexed: { health: indexedHealthCount, prescription: indexedPrescriptionCount },
+          server: { health: serverHealthCount, prescription: serverPrescriptionCount },
+          일치여부: indexedHealthCount === serverHealthCount && indexedPrescriptionCount === serverPrescriptionCount
+        });
       }
     } catch (error) {
       console.error('[동기화] 오류:', error);

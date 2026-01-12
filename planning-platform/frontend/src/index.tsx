@@ -5,15 +5,21 @@ import App from './App';
 
 // 개발 환경에서 HMR 관련 불필요한 로그 억제
 if (process.env.NODE_ENV === 'development') {
-  // React Router 경고 필터링
+  // React Router 경고 및 passive event listener 경고 필터링
   const originalWarn = console.warn;
   console.warn = (...args: any[]) => {
     const message = args[0];
+    const fullMessage = args.map(arg => String(arg)).join(' ');
+    
     if (
-      typeof message === 'string' &&
-      (message.includes('sockjs-node') || 
-       message.includes('is not able to match the URL') ||
-       message.includes('does not start with the basename'))
+      (typeof message === 'string' &&
+       (message.includes('sockjs-node') || 
+        message.includes('is not able to match the URL') ||
+        message.includes('does not start with the basename'))) ||
+      fullMessage.includes('passive event listener') ||
+      fullMessage.includes('Unable to preventDefault') ||
+      fullMessage.includes('blockPointerEvent') ||
+      fullMessage.includes('Intervention')
     ) {
       return; // 경고 무시
     }
@@ -54,6 +60,8 @@ if (process.env.NODE_ENV === 'development') {
       message.includes('jsonp') ||
       message.includes('WebSocket') ||
       message.includes('eventsource') ||
+      message.includes('passive event listener') ||
+      message.includes('blockPointerEvent') ||
       filename.includes('sockjs-node') ||
       filename.includes('jsonp')
     ) {

@@ -36,8 +36,19 @@ const CheckupDesignPage: React.FC = () => {
       try {
         setLoading(true);
         const urlParams = new URLSearchParams(window.location.search);
-        const uuid = urlParams.get('uuid');
-        const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
+        let uuid = urlParams.get('uuid');
+        let hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
+
+        // URL 파라미터가 없으면 Context에서 가져오기
+        if (!uuid && state.patient?.uuid) {
+          uuid = state.patient.uuid;
+        }
+        if (!hospital && state.patient?.hospital_id) {
+          hospital = state.patient.hospital_id;
+        }
+        if (!hospital && state.hospital?.hospital_id) {
+          hospital = state.hospital.hospital_id;
+        }
 
         if (!uuid || !hospital) {
           setError('환자 정보가 없습니다.');
@@ -88,7 +99,7 @@ const CheckupDesignPage: React.FC = () => {
     };
 
     loadData();
-  }, [state.patient?.name, location.search, navigate]);
+  }, [state.patient?.name, state.patient?.uuid, state.patient?.hospital_id, state.hospital?.hospital_id, location.search, navigate]);
 
   // 선택 항목 변경 핸들러
   const handleSelectionChange = (items: Set<string>) => {
@@ -112,8 +123,19 @@ const CheckupDesignPage: React.FC = () => {
       setCurrentSelectedConcerns(selectedConcerns);
       
       const urlParams = new URLSearchParams(window.location.search);
-      const uuid = urlParams.get('uuid');
-      const hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
+      let uuid = urlParams.get('uuid');
+      let hospital = urlParams.get('hospital') || urlParams.get('hospitalId');
+      
+      // URL 파라미터가 없으면 Context에서 가져오기
+      if (!uuid && state.patient?.uuid) {
+        uuid = state.patient.uuid;
+      }
+      if (!hospital && state.patient?.hospital_id) {
+        hospital = state.patient.hospital_id;
+      }
+      if (!hospital && state.hospital?.hospital_id) {
+        hospital = state.hospital.hospital_id;
+      }
       
       if (!uuid || !hospital) {
         setError('환자 정보가 없습니다.');

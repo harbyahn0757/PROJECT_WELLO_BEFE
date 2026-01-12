@@ -63,6 +63,10 @@ const DataCollecting: React.FC<DataCollectingProps> = ({
    */
   const getTitle = () => {
     switch (currentStatus) {
+      case 'fetching_health_data':
+        return '건강검진 데이터를 수집하고 있습니다';
+      case 'fetching_prescription_data':
+        return '처방전 데이터를 수집하고 있습니다';
       case 'manual_collecting':
       case 'data_collecting':
       case 'collecting':
@@ -75,23 +79,44 @@ const DataCollecting: React.FC<DataCollectingProps> = ({
         return '건강정보를 수집하고 있습니다';
     }
   };
+
+  /**
+   * 상태별 안내 메시지 가져오기
+   */
+  const getInfoMessage = () => {
+    switch (currentStatus) {
+      case 'fetching_health_data':
+        return '국민건강보험공단에서 건강검진 데이터를 가져오고 있어요';
+      case 'fetching_prescription_data':
+        return '국민건강보험공단에서 처방전 데이터를 가져오고 있어요';
+      default:
+        return '국민건강보험공단에서 건강검진 데이터를 가져오고 있어요';
+    }
+  };
+
+  /**
+   * 블링킹 효과가 필요한 상태인지 확인
+   */
+  const isBlinking = currentStatus === 'fetching_health_data' || currentStatus === 'fetching_prescription_data';
   
   return (
     <div className="data-collecting-container">
       <div className="data-collecting-content">
         {/* 제목 */}
-        <h2 className="data-collecting-title">{getTitle()}</h2>
+        <h2 className={`data-collecting-title ${isBlinking ? 'blinking-title' : ''}`}>
+          {getTitle()}
+        </h2>
         
         {/* 스피너 */}
         <div className="data-collecting-spinner-container">
           <div className="data-collecting-spinner">
-            <div className="spinner-circle"></div>
+            <div className={`spinner-circle ${isBlinking ? 'blinking-spinner' : ''}`}></div>
           </div>
         </div>
         
         {/* 현재 작업 메시지 (롤링) */}
         <div className="data-collecting-message">
-          <p className="rolling-message">
+          <p className={`rolling-message ${isBlinking ? 'blinking-message' : ''}`}>
             {getCurrentMessage()}
           </p>
         </div>
@@ -110,9 +135,9 @@ const DataCollecting: React.FC<DataCollectingProps> = ({
         )}
         
         {/* 안내 메시지 */}
-        <div className="data-collecting-info">
-          <p className="info-main">
-            국민건강보험공단에서 건강검진 데이터를 가져오고 있어요
+        <div className={`data-collecting-info ${isBlinking ? 'blinking-info' : ''}`}>
+          <p className={`info-main ${isBlinking ? 'blinking-text' : ''}`}>
+            {getInfoMessage()}
           </p>
           <p className="info-sub">
             예상 소요 시간: 30초 ~ 1분

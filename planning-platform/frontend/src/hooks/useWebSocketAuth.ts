@@ -76,16 +76,17 @@ export const useWebSocketAuth = ({
     let wsUrl;
     
     if (isDev) {
-      // 개발환경: React 프록시를 통한 WebSocket 연결 (올바른 경로로 수정)
+      // 개발환경: React 프록시를 통한 WebSocket 연결
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.host; // localhost:9282
       wsUrl = `${protocol}//${host}/welno-api/v1/tilko/ws/${sessionId}`;
       console.log(`🔌 [WebSocket] 연결 시도 (개발-프록시): ${wsUrl}`);
     } else {
-      // 운영환경: WebSocket 대신 HTTP 폴링 사용 (nginx WebSocket 설정 필요시까지 임시)
-      console.log(`🔌 [WebSocket] 운영환경에서는 HTTP 폴링만 사용: ${sessionId}`);
-      setIsConnected(false);
-      return; // WebSocket 연결하지 않고 폴링만 사용
+      // 운영환경: Nginx를 통한 WebSocket 연결 (wss:// 사용)
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host; // xogxog.com
+      wsUrl = `${protocol}//${host}/welno-api/v1/tilko/ws/${sessionId}`;
+      console.log(`🔌 [WebSocket] 연결 시도 (프로덕션): ${wsUrl}`);
     }
       
       wsRef.current = new WebSocket(wsUrl);
