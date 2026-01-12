@@ -15,7 +15,6 @@ export interface SurveyResponses {
   drinking: string;
   sleep_hours: string;
   family_history: string[];
-  personal_history: string[]; // 과거력 추가
   colonoscopy_experience?: string; // 35세 이상 조건부
   additional_concerns: string;
 }
@@ -54,7 +53,6 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
     drinking: '',
     sleep_hours: '',
     family_history: [],
-    personal_history: [],
     additional_concerns: ''
   });
 
@@ -82,7 +80,6 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
         drinking: '',
         sleep_hours: '',
         family_history: [],
-        personal_history: [],
         additional_concerns: ''
       });
       setErrors({});
@@ -177,23 +174,6 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
       ]
     },
     {
-      key: 'personal_history',
-      label: '본인이 현재 치료받고 있거나 과거에 앓았던 질환이 있나요? (복수 선택 가능)',
-      type: 'checkbox',
-      options: [
-        { value: 'diabetes', label: '당뇨' },
-        { value: 'hypertension', label: '고혈압' },
-        { value: 'hyperlipidemia', label: '고지혈증' },
-        { value: 'thyroid', label: '갑상선 질환' },
-        { value: 'liver', label: '간 질환' },
-        { value: 'kidney', label: '신장 질환' },
-        { value: 'heart', label: '심장 질환' },
-        { value: 'gastrointestinal', label: '위장 질환' },
-        { value: 'respiratory', label: '호흡기 질환' },
-        { value: 'none', label: '없음' }
-      ]
-    },
-    {
       key: 'additional_concerns',
       label: '특별히 걱정되거나 확인하고 싶은 부분이 있으신가요?',
       type: 'textarea',
@@ -212,7 +192,7 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
       options: [
         { value: 'yes_comfortable', label: '예, 불편함 없이 받았습니다' },
         { value: 'yes_uncomfortable', label: '예, 불편했습니다' },
-        { value: 'no_afraid', label: '과정이 무서워(겁나서) 아직 못 받았습니다' },
+        { value: 'no_afraid', label: '아니오, 두려워서 받지 않았습니다' },
         { value: 'no_never', label: '아니오, 받아본 적이 없습니다' }
       ]
     });
@@ -252,24 +232,6 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
     });
   };
 
-  // 과거력 다중 선택 핸들러
-  const handlePersonalHistoryChange = (value: string) => {
-    trackOptionClick('personal_history', value); // 클릭 추적
-    setResponses(prev => {
-      const current = [...prev.personal_history];
-      if (value === 'none') {
-        return { ...prev, personal_history: ['none'] };
-      } else {
-        const filtered = current.filter(v => v !== 'none');
-        if (filtered.includes(value)) {
-          return { ...prev, personal_history: filtered.filter(v => v !== value) };
-        } else {
-          return { ...prev, personal_history: [...filtered, value] };
-        }
-      }
-    });
-  };
-
   // daily_routine 다중 선택 핸들러
   const handleDailyRoutineChange = (value: string) => {
     trackOptionClick('daily_routine', value); // 클릭 추적
@@ -298,13 +260,11 @@ const CheckupDesignSurveyPanel: React.FC<CheckupDesignSurveyPanelProps> = ({
     }
   };
 
-  // 체크박스 변경 핸들러 (family_history, personal_history, daily_routine)
+  // 체크박스 변경 핸들러 (family_history, daily_routine)
   const handleCheckboxChange = (value: string) => {
     // family_history는 특별 처리 ('none' 선택 시 단독 선택)
     if (currentQuestion.key === 'family_history') {
       handleFamilyHistoryChange(value);
-    } else if (currentQuestion.key === 'personal_history') {
-      handlePersonalHistoryChange(value);
     } else if (currentQuestion.key === 'daily_routine') {
       handleDailyRoutineChange(value);
     }
