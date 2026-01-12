@@ -166,12 +166,16 @@ class WelnoRagChatService:
         start_total = time.time()
         full_answer = ""
         sources = []
+        suggestions = []
+        
         try:
             # 1. 사용자 메시지 저장
             self.chat_manager.add_message(uuid, hospital_id, "user", message)
             
             # 2. 히스토리 및 키워드 추출
             history = self.chat_manager.get_history(uuid, hospital_id)
+            is_first_message = len([m for m in history if m.get("role") == "user"]) <= 1
+            
             meta_key = f"welno:rag_chat:metadata:{uuid}:{hospital_id}:{session_id}"
             metadata_json = self.redis_client.get(meta_key) if self.redis_client else None
             metadata = json.loads(metadata_json) if metadata_json else {"detected_keywords": []}
@@ -179,13 +183,31 @@ class WelnoRagChatService:
             current_keywords = self._detect_health_keywords(message)
             all_keywords = list(set(metadata.get("detected_keywords", []) + current_keywords))
             
-            # 3. 특수 명령 감지 (3주 플랜 등)
+            # 3. 환자 건강 데이터 브리핑 준비 (첫 질문인 경우)
+            briefing_context = ""
+            if is_first_message:
+                try:
+                    health_info = await self.welno_data_service.get_patient_health_data(uuid, hospital_id)
+                    if "error" not in health_info:
+                        patient_name = health_info.get("patient", {}).get("name", "고객")
+                        health_data = health_info.get("health_data", [])
+                        if health_data:
+                            latest = health_data[0]
+                            year = latest.get("year", "최근")
+                            # 주요 지표 요약
+                            stats = self._extract_health_stats(health_data)
+                            chronic = ", ".join(stats.get("chronic_diseases", []))
+                            briefing_context = f"\n[환자 최근 건강 상태 ({year})]\n- 이름: {patient_name}\n"
+                            if stats.get("bmi"): briefing_context += f"- BMI: {stats['bmi']}\n"
+                            if chronic: briefing_context += f"- 주의 필요 질환: {chronic}\n"
+                            briefing_context += "이 정보를 바탕으로 첫 응답 시 가볍게 언급하며 상담을 시작하세요."
+                except Exception as e:
+                    logger.warning(f"⚠️ [브리핑] 데이터 로드 실패: {e}")
+
+            # 4. 응답 생성 분기 (특수 명령 vs 일반 RAG)
             if any(kw in message for kw in ["3주", "생활습관 개선", "플랜", "계획"]):
-                # ... (생략 - 기존 로직 유지하되 타이밍 로그 추가 가능)
                 yield json.dumps({"answer": "맞춤형 3주 플랜을 생성 중입니다...", "done": False}, ensure_ascii=False) + "\n"
-                # (기존 로직 수행...)
                 full_data = await self.welno_data_service.get_patient_health_data(uuid, hospital_id)
-                # ... 3주 플랜 생성 부분 (기존과 동일하되 answer 변수 사용)
                 patient_info = full_data.get("patient", {})
                 health_data_list = full_data.get("health_data", [])
                 if patient_info and "error" not in patient_info:
@@ -201,7 +223,6 @@ class WelnoRagChatService:
                     )
                     plan = await lifestyle_rag_service.generate_3week_plan(request)
                     full_answer = f"### [Dr. Welno의 3주 맞춤 플랜]\n\n{plan.summary}\n\n"
-                    # ... 상세 내용 구성
                     full_answer += f"📅 **1주차 ({plan.week1.get('title', '인식')})**\n"
                     for act in plan.week1.get('actions', []): full_answer += f"- {act}\n"
                     full_answer += f"\n📅 **2주차 ({plan.week2.get('title', '집중')})**\n"
@@ -214,22 +235,16 @@ class WelnoRagChatService:
                     full_answer = "죄송합니다. 정보를 찾을 수 없어 플랜 생성이 어렵습니다."
                     yield json.dumps({"answer": full_answer, "done": False}, ensure_ascii=False) + "\n"
             else:
-                # 일반 RAG 스트리밍 최적화
-                # 현재 질문과 관련된 키워드만 검색어로 사용 (과거 맥락은 LLM에게 맡김)
+                # 일반 RAG 스트리밍
                 search_query = message
                 if current_keywords:
                     search_query = f"{', '.join(current_keywords)} 관련: {message}"
                 
-                # [성능 측정] RAG Retrieval
-                start_rag = time.time()
                 from .checkup_design.rag_service import init_rag_engine, CHAT_SYSTEM_PROMPT
                 query_engine = await init_rag_engine(use_local_vector_db=True)
                 
                 if query_engine:
                     nodes = await query_engine.aretrieve(search_query)
-                    end_rag = time.time()
-                    logger.info(f"⏱️ [RAG 채팅] 검색 소요 시간: {end_rag - start_rag:.2f}s")
-                    
                     context_str = "\n".join([n.node.get_content() for n in nodes])
                     sources = [{
                         "text": clean_html_content(n.node.get_content())[:500],
@@ -237,35 +252,52 @@ class WelnoRagChatService:
                         "metadata": n.node.metadata
                     } for n in nodes]
                     
-                    # [성능 측정] LLM Streaming 시작
-                    start_llm = time.time()
-                    prompt = CHAT_SYSTEM_PROMPT.format(context_str=context_str, query_str=message)
+                    # 프롬프트 고도화 (브리핑 주입 + 예상 질문 요청)
+                    enhanced_prompt = CHAT_SYSTEM_PROMPT
+                    if briefing_context:
+                        enhanced_prompt = enhanced_prompt.replace("[Context]", f"[Context]{briefing_context}")
+                    
+                    # 예상 질문 지침 추가
+                    enhanced_prompt += "\n\n**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요."
+                    
+                    prompt = enhanced_prompt.format(context_str=context_str, query_str=message)
                     gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview")
                     
-                    first_chunk = True
                     async for chunk in gemini_service.stream_api(gemini_req):
-                        if first_chunk:
-                            logger.info(f"⏱️ [RAG 채팅] 첫 조각 도착까지: {time.time() - start_llm:.2f}s")
-                            first_chunk = False
                         full_answer += chunk
-                        yield json.dumps({"answer": chunk, "done": False}, ensure_ascii=False) + "\n"
+                        # SUGGESTIONS 태그는 화면에 직접 보여주지 않도록 필터링 (완료 시점에 파싱)
+                        display_chunk = chunk
+                        if "[SUGGESTIONS]" in full_answer and "[SUGGESTIONS]" in chunk:
+                            display_chunk = chunk.split("[SUGGESTIONS]")[0]
+                        elif "[SUGGESTIONS]" in full_answer:
+                            display_chunk = "" # 제안 부분은 스트리밍에서 제외
+                            
+                        if display_chunk:
+                            yield json.dumps({"answer": display_chunk, "done": False}, ensure_ascii=False) + "\n"
                     
-                    logger.info(f"⏱️ [RAG 채팅] 전체 생성 소요 시간: {time.time() - start_llm:.2f}s")
+                    # 예상 질문 파싱
+                    if "[SUGGESTIONS]" in full_answer:
+                        try:
+                            sug_part = full_answer.split("[SUGGESTIONS]")[1].split("[/SUGGESTIONS]")[0]
+                            suggestions = [s.strip() for s in sug_part.split(",") if s.strip()][:3]
+                            # 원본 답변에서 제안 부분 제거
+                            full_answer = full_answer.split("[SUGGESTIONS]")[0].strip()
+                        except:
+                            pass
                 else:
                     yield json.dumps({"answer": "죄송합니다. 엔진 초기화에 실패했습니다.", "done": False}, ensure_ascii=False) + "\n"
 
-            # 4. 마무리 및 메타데이터 업데이트
+            # 5. 마무리 및 메타데이터 업데이트
             self.chat_manager.add_message(uuid, hospital_id, "assistant", full_answer)
-            message_count = len([m for m in history if m.get("role") == "user"]) + 1
+            message_count = len([m for m in history if m.get("role") == "user"])
             await self._update_chat_metadata(uuid, hospital_id, session_id, current_keywords, message_count)
             trigger_check = await self.should_trigger_survey(uuid, hospital_id, session_id)
-            
-            logger.info(f"⏱️ [RAG 채팅] 총 처리 시간: {time.time() - start_total:.2f}s")
             
             yield json.dumps({
                 "answer": "",
                 "done": True,
                 "sources": sources,
+                "suggestions": suggestions,
                 "session_id": session_id,
                 "message_count": message_count,
                 "trigger_survey": trigger_check["should_trigger"]
@@ -273,7 +305,15 @@ class WelnoRagChatService:
 
         except Exception as e:
             logger.error(f"❌ [RAG 채팅 서비스] 스트리밍 실패: {str(e)}")
-            yield json.dumps({"answer": f"\n\n오류 발생: {str(e)}", "done": True, "error": str(e)}, ensure_ascii=False) + "\n"
+            import traceback
+            traceback.print_exc()
+            # ERR_EMPTY_RESPONSE 방지를 위해 최소한의 에러 메시지 전송
+            error_data = {
+                "answer": f"\n\n상담 서비스 연결에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요. (오류: {str(e)[:50]})", 
+                "done": True, 
+                "error": str(e)
+            }
+            yield json.dumps(error_data, ensure_ascii=False) + "\n"
 
     def _calculate_age(self, birth_date_str: Optional[str]) -> int:
         if not birth_date_str: return 40

@@ -27,6 +27,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showSurveyPrompt, setShowSurveyPrompt] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -79,6 +80,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
     };
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
+    setSuggestions([]); // 새 질문 시작 시 이전 제안 삭제
 
     try {
       // API 호출
@@ -97,7 +99,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('API 응답 오류:', response.status, errorText);
-        throw new Error(`서버 오류 (${response.status}): ${errorText}`);
+        throw new Error(`상담 서버 응답 오류 (${response.status}). 잠시 후 다시 시도해주세요.`);
       }
 
       // 스트리밍 응답 처리
@@ -108,9 +110,9 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
       let assistantContent = '';
       let finalSources: Source[] = [];
       let finalTriggerSurvey = false;
+      let finalSuggestions: string[] = [];
 
       // 초기 어시스턴트 메시지 추가 (비어있음)
-      const assistantMessageId = Date.now() + 1;
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: '',
@@ -148,6 +150,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
             if (data.done) {
               finalSources = data.sources || [];
               finalTriggerSurvey = !!data.trigger_survey;
+              finalSuggestions = data.suggestions || [];
               
               // 최종 메타데이터 업데이트
               setMessages(prev => {
@@ -162,6 +165,10 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
                 return newMessages;
               });
 
+              if (finalSuggestions.length > 0) {
+                setSuggestions(finalSuggestions);
+              }
+
               if (finalTriggerSurvey && !showSurveyPrompt) {
                 setShowSurveyPrompt(true);
               }
@@ -173,10 +180,16 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
       }
     } catch (error) {
       console.error('메시지 전송 실패:', error);
-      const errorMsg = error instanceof Error ? error.message : String(error);
+      let errorMsg = error instanceof Error ? error.message : String(error);
+      
+      // TypeError: Failed to fetch는 보통 네트워크 단절이나 ERR_EMPTY_RESPONSE임
+      if (errorMsg.includes('Failed to fetch')) {
+        errorMsg = "서버와의 연결이 끊어졌거나 응답이 없습니다. 네트워크 상태를 확인하고 잠시 후 다시 메시지를 보내주세요.";
+      }
+
       const errorMessage: Message = {
         role: 'assistant',
-        content: `죄송합니다. 오류가 발생했습니다: ${errorMsg}. 다시 시도해주세요.`,
+        content: `죄송합니다. 오류가 발생했습니다: ${errorMsg}`,
         timestamp: new Date().toISOString()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -235,6 +248,24 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
           onStart={handleStartSurvey}
           onLater={() => setShowSurveyPrompt(false)}
         />
+      )}
+
+      {/* 예상 질문 제안 (Perplexity 스타일) */}
+      {!isLoading && suggestions.length > 0 && (
+        <div className="chat-suggestions">
+          <div className="suggestions-title">💡 더 궁금하신 내용이 있나요?</div>
+          <div className="suggestions-list">
+            {suggestions.map((sug, idx) => (
+              <button 
+                key={idx} 
+                className="suggestion-item"
+                onClick={() => handleSendMessage(sug)}
+              >
+                {sug}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {/* 입력 영역 */}
