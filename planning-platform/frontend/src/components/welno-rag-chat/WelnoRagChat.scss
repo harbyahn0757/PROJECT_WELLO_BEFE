@@ -584,7 +584,9 @@
     left: 0;
     bottom: 0;
     top: 0;
-    height: 100%;
+    // 동적 뷰포트 높이 사용 (키보드 대응)
+    height: 100dvh; // Dynamic Viewport Height
+    height: 100vh; // fallback
     height: -webkit-fill-available; // iOS 대응
     z-index: 2000;
     animation: slideInBottom 0.3s ease-out;
@@ -593,22 +595,32 @@
   .welno-rag-chat-window {
     border-radius: 0;
     border: none;
+    display: flex;
+    flex-direction: column;
+    height: 100%; // 부모 높이에 맞춤
 
     .chat-header {
       padding: 14px 20px;
       // 노치 영역 대응 (safe-area)
       padding-top: max(14px, env(safe-area-inset-top));
+      flex-shrink: 0; // 헤더 크기 고정
     }
 
     .chat-messages {
       padding: 16px;
-      min-height: 0; // 스크롤을 위해 필요
+      min-height: 0; // flexbox 스크롤을 위해 필요
+      flex: 1; // 남은 공간 차지
+      overflow-y: auto;
     }
 
     .chat-input-container {
       // 키보드 위로 올리기 위한 패딩 및 safe-area 대응
       padding-bottom: max(16px, env(safe-area-inset-bottom));
       background: white;
+      position: sticky;
+      bottom: 0;
+      z-index: 10;
+      flex-shrink: 0; // 입력창 크기 고정
     }
   }
 }

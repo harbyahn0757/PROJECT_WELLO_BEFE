@@ -8,6 +8,7 @@ import PasswordModal from '../components/PasswordModal';
 import SessionStatusModal from '../components/SessionStatusModal';
 import MdxDataSearchModal from '../components/MdxDataSearchModal';
 import PartnerAuthConfirmModal from '../components/PartnerAuthConfirmModal';
+import IndexedDBClearModal from '../components/common/IndexedDBClearModal';
 // import ComingSoonModal from '../components/common/ComingSoonModal';
 import PageTransitionLoader from '../components/PageTransitionLoader';
 import { PasswordModalType } from '../components/PasswordModal/types';
@@ -68,9 +69,16 @@ const MainPage: React.FC = () => {
   // 준비중 모달 state
   const [showComingSoonModal, setShowComingSoonModal] = useState(false);
   
+  // IndexedDB 삭제 모달 state
+  const [showIndexedDBClearModal, setShowIndexedDBClearModal] = useState(false);
+  
   // 오른쪽 상단 3번 클릭 기능
   const topRightClickCount = useRef(0);
   const topRightClickTimer = useRef<NodeJS.Timeout | null>(null);
+  
+  // 로고 5번 클릭 기능
+  const logoClickCount = useRef(0);
+  const logoClickTimer = useRef<NodeJS.Timeout | null>(null);
   
   // MDX 데이터 검색 핸들러
   const handleMdxSearchConfirm = async () => {
@@ -1099,6 +1107,86 @@ const MainPage: React.FC = () => {
     }
   };
 
+  // 로고 5번 클릭 핸들러
+  const handleLogoClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation(); // 헤더 클릭 이벤트와 분리
+    
+    // 기존 타이머 초기화
+    if (logoClickTimer.current) {
+      clearTimeout(logoClickTimer.current);
+    }
+    
+    logoClickCount.current += 1;
+    
+    // 2초 내에 5번 클릭했는지 확인
+    if (logoClickCount.current >= 5) {
+      logoClickCount.current = 0;
+      setShowIndexedDBClearModal(true);
+    } else {
+      // 2초 후 카운터 리셋
+      logoClickTimer.current = setTimeout(() => {
+        logoClickCount.current = 0;
+      }, 2000);
+    }
+  };
+
+  // IndexedDB 삭제 확인 핸들러
+  const handleIndexedDBClearConfirm = async () => {
+    try {
+      // IndexedDB 데이터 삭제
+      await WelnoIndexedDB.clearAllData();
+      console.log('[IndexedDB 삭제] 완료');
+      
+      // localStorage의 건강데이터 관련 항목 삭제
+      const keysToRemove = [
+        'welno_health_data',
+        'welno_view_mode',
+        'tilko_session_id',
+        'tilko_session_data'
+      ];
+      keysToRemove.forEach(key => {
+        localStorage.removeItem(key);
+      });
+      
+      // UUID별로 구분된 약관 동의 키 삭제
+      if (patient?.uuid) {
+        const termsKey = `welno_terms_agreed_${patient.uuid}`;
+        const termsAtKey = `welno_terms_agreed_at_${patient.uuid}`;
+        const termsListKey = `welno_terms_agreed_list_${patient.uuid}`;
+        const termsAgreementKey = `welno_terms_agreement_${patient.uuid}`;
+        
+        localStorage.removeItem(termsKey);
+        localStorage.removeItem(termsAtKey);
+        localStorage.removeItem(termsListKey);
+        localStorage.removeItem(termsAgreementKey);
+        
+        console.log('[IndexedDB 삭제] UUID별 약관 동의 키 삭제 완료:', patient.uuid);
+      }
+      
+      // 기존 전역 약관 동의 키도 삭제 (하위 호환성)
+      localStorage.removeItem('welno_terms_agreed');
+      localStorage.removeItem('welno_terms_agreed_at');
+      localStorage.removeItem('welno_terms_agreed_list');
+      localStorage.removeItem('welno_terms_agreement');
+      
+      setShowIndexedDBClearModal(false);
+      alert('IndexedDB 데이터가 삭제되었습니다.');
+      
+      // 페이지 새로고침
+      window.location.reload();
+    } catch (error) {
+      console.error('IndexedDB 삭제 실패:', error);
+      alert('IndexedDB 삭제 중 오류가 발생했습니다.');
+      setShowIndexedDBClearModal(false);
+    }
+  };
+
+  // IndexedDB 삭제 취소 핸들러
+  const handleIndexedDBClearCancel = () => {
+    setShowIndexedDBClearModal(false);
+    logoClickCount.current = 0;
+  };
+
   // 통합 레이아웃 컨텐츠 (이미지 디자인 반영)
   const renderUnifiedContent = () => (
     <>
@@ -1110,7 +1198,7 @@ const MainPage: React.FC = () => {
       >
         {/* 헤더 (로고만 표시) */}
         <div className="main-page__header">
-          <div className="main-page__header-logo">
+          <div className="main-page__header-logo" onClick={handleLogoClick} style={{ cursor: 'pointer' }}>
             {/* 병원 ID가 없으면 웰노 아이콘 표시 (WelnoModal과 동일) */}
             {!displayHospital.hospital_id ? (
               <img 
@@ -1286,6 +1374,13 @@ const MainPage: React.FC = () => {
         isOpen={showMdxSearchModal}
         onConfirm={handleMdxSearchConfirm}
         onCancel={handleMdxSearchCancel}
+      />
+      
+      {/* IndexedDB 삭제 확인 모달 */}
+      <IndexedDBClearModal
+        isOpen={showIndexedDBClearModal}
+        onConfirm={handleIndexedDBClearConfirm}
+        onCancel={handleIndexedDBClearCancel}
       />
       
       {/* 파트너 인증 확인 모달 */}

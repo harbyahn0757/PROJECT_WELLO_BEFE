@@ -237,7 +237,8 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
     if (location.pathname === '/login') {
       return '인증하고 내 검진추이 확인하기';
     }
-    if (location.pathname === '/health-comparison' || 
+    if (location.pathname === '/recommendations' ||
+        location.pathname === '/health-comparison' || 
         location.pathname === '/results-trend' || 
         location.pathname === '/prescription-history') {
       return '상담예약 신청';
@@ -267,7 +268,8 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
     
     if (location.pathname === '/login') {
       handleAuthClick();
-    } else if (location.pathname === '/health-comparison' || 
+    } else if (location.pathname === '/recommendations' ||
+               location.pathname === '/health-comparison' || 
                location.pathname === '/results-trend' || 
                location.pathname === '/prescription-history') {
       if (onOpenAppointmentModal) {

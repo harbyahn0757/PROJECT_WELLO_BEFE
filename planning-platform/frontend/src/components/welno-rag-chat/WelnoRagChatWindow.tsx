@@ -91,6 +91,33 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
   }, []);
 
   useEffect(() => {
+    // 모바일 키보드 대응: Visual Viewport API로 키보드 높이 감지
+    if (window.innerWidth <= 480 && window.visualViewport) {
+      const container = document.querySelector('.welno-rag-chat-window-container') as HTMLElement;
+      if (!container) return;
+
+      const handleViewportResize = () => {
+        const viewportHeight = window.visualViewport?.height || window.innerHeight;
+        const windowHeight = window.innerHeight;
+        const keyboardHeight = windowHeight - viewportHeight;
+        
+        // 키보드가 나타났을 때 컨테이너 높이 조정
+        if (keyboardHeight > 0) {
+          container.style.height = `${viewportHeight}px`;
+        } else {
+          // 키보드가 사라졌을 때 원래 높이로 복원
+          container.style.height = '';
+        }
+      };
+      
+      window.visualViewport.addEventListener('resize', handleViewportResize);
+      return () => {
+        window.visualViewport?.removeEventListener('resize', handleViewportResize);
+      };
+    }
+  }, []);
+
+  useEffect(() => {
     // 메시지 스크롤 (모바일 포커스 시에는 즉시 스크롤, 그 외에는 부드럽게)
     if (messagesEndRef.current) {
       const behavior = isInputFocused ? 'auto' : 'smooth';

@@ -1,0 +1,59 @@
+@use '../../../styles/variables' as *;
+@use '../../../styles/mixins' as *;
+
+.indexed-db-clear-modal {
+  text-align: center;
+  color: white;
+
+  &__title {
+    font-size: $font-xl;
+    font-weight: 700;
+    margin: 0 0 $spacing-md 0;
+    color: white;
+  }
+
+  &__description {
+    font-size: $font-base;
+    line-height: 1.6;
+    margin: 0 0 $spacing-xl 0;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  &__actions {
+    display: flex;
+    gap: $spacing-md;
+    justify-content: center;
+    margin-top: $spacing-xl;
+  }
+
+  &__btn {
+    padding: $spacing-md $spacing-xl;
+    border-radius: $border-radius-lg;
+    font-size: $font-base;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 100px;
+
+    &--cancel {
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+    }
+
+    &--confirm {
+      background: #ef4444;
+      color: white;
+
+      &:hover {
+        background: #dc2626;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+      }
+    }
+  }
+}

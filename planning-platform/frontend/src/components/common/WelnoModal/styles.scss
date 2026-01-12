@@ -22,9 +22,9 @@
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important; // 중앙 정렬 강제
   z-index: 9999;
   backdrop-filter: blur(4px);
 }
@@ -147,7 +147,29 @@
 
 // 반응형 디자인
 @media (max-width: 480px) {
+  .welno-modal-overlay {
+    align-items: center !important; // 모바일에서도 중앙 정렬 강제
+    justify-content: center !important;
+    padding: 20px !important; // 여백 추가로 하단 고정 방지
+    // 하단 고정 방지를 위한 추가 스타일
+    top: 0 !important;
+    bottom: 0 !important;
+    // flex-end를 완전히 무시하고 중앙 정렬 강제
+    align-items: center !important;
+  }
+
   .welno-modal {
+    margin: 0 auto !important; // 중앙 정렬 보장
+    max-height: 85vh !important; // 화면 높이의 85%로 제한
+    position: absolute !important; // absolute로 변경하여 하단 고정 방지
+    // transform을 사용한 완전한 중앙 정렬
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    // 하단 정렬을 완전히 무시
+    bottom: auto !important;
+    align-self: center !important;
+
     &--small {
       width: 260px;
       padding: 20px 16px;

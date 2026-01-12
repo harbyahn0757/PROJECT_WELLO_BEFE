@@ -33,28 +33,28 @@ const WelnoModal: React.FC<WelnoModalProps> = ({
   const displayIcon = showWelloIcon !== undefined ? showWelloIcon : showWelnoIcon;
 
   return (
-    <div className="wello-modal-overlay">
-      <div className={`wello-modal wello-modal--${size} ${className}`}>
+    <div className="welno-modal-overlay">
+      <div className={`welno-modal welno-modal--${size} ${className}`}>
         {/* 웰로 아이콘 (선택적) */}
         {displayIcon && (
-          <div className="wello-modal-icon">
+          <div className="welno-modal-icon">
             <img 
               src={WELNO_LOGO_IMAGE}
               alt="웰로 아이콘" 
-              className="wello-icon-blink"
+              className="welno-icon-blink"
             />
           </div>
         )}
 
         {/* 닫기 버튼 (선택적) */}
         {showCloseButton && onClose && (
-          <button className="wello-modal-close" onClick={onClose}>
+          <button className="welno-modal-close" onClick={onClose}>
             ×
           </button>
         )}
 
         {/* 모달 컨텐츠 */}
-        <div className="wello-modal-content">
+        <div className="welno-modal-content">
           {children}
         </div>
       </div>
