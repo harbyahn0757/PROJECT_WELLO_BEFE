@@ -21,6 +21,7 @@ import IntroTeaser from '../components/intro/IntroTeaser';
 import { STORAGE_KEYS, StorageManager } from '../constants/storage';
 import { WELNO_LOGO_IMAGE } from '../constants/images';
 import { WelnoRagChatButton } from '../components/welno-rag-chat';
+import checkupDesignService from '../services/checkupDesignService';
 // 카드 이미지 import
 import trendsChartImage from '../assets/images/main/chart.png';
 import healthHabitImage from '../assets/images/main/check_1 1.png';
@@ -807,12 +808,34 @@ const MainPage: React.FC = () => {
           try {
             console.log('[검진설계] 기존 데이터 확인 중...', { uuid, hospitalId });
             
-            // 기존 데이터 확인
+            // 1. 먼저 기존 설계 결과가 있는지 확인
+            try {
+              const designResult = await checkupDesignService.getLatestCheckupDesign(uuid, hospitalId);
+              if (designResult.success && designResult.data) {
+                console.log('[검진설계] 기존 설계 결과 발견 - 결과 페이지로 바로 이동');
+                const designQueryString = `?uuid=${uuid}&hospital=${hospitalId}`;
+                setTimeout(() => {
+                  navigate(`/recommendations${designQueryString}`, {
+                    state: {
+                      checkupDesign: designResult.data,
+                      fromExisting: true
+                    }
+                  });
+                }, 300);
+                setIsPageTransitioning(false);
+                return;
+              }
+            } catch (designError) {
+              console.log('[검진설계] 기존 설계 결과 확인 실패 (계속 진행):', designError);
+              // 설계 결과 확인 실패해도 계속 진행 (처음 설계하는 경우일 수 있음)
+            }
+            
+            // 2. 기존 설계 결과가 없으면 건강 데이터 확인
             const hasData = await checkHasData(uuid, hospitalId);
             
             if (hasData) {
-              console.log('[검진설계] 웰노 데이터 발견! - 바로 이동');
-              // 데이터가 있으면 바로 설계 페이지로 이동 (queryString에 uuid와 hospital 포함)
+              console.log('[검진설계] 웰노 데이터 발견! - 설계 페이지로 이동');
+              // 데이터가 있으면 설계 페이지로 이동 (queryString에 uuid와 hospital 포함)
               const designQueryString = `?uuid=${uuid}&hospital=${hospitalId}`;
               setTimeout(() => {
                 navigate(`/checkup-design${designQueryString}`);

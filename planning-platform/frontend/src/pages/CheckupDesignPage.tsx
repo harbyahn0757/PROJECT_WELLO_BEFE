@@ -65,7 +65,7 @@ const CheckupDesignPage: React.FC = () => {
               console.log('✅ [검진설계] 기존 설계 결과 발견 - 결과 페이지로 이동');
               // 기존 설계 결과가 있으면 결과 페이지로 바로 이동
               const queryString = location.search.replace(/[?&]refresh=true/, ''); // refresh 파라미터 제거
-              navigate(`/checkup-recommendations${queryString}`, {
+              navigate(`/recommendations${queryString}`, {
                 state: {
                   checkupDesign: designResult.data,
                   fromExisting: true // 기존 설계 결과임을 표시
@@ -276,7 +276,7 @@ const CheckupDesignPage: React.FC = () => {
       
       // 결과 페이지로 이동 (병합된 데이터 사용)
       const queryString = location.search;
-      navigate(`/checkup-recommendations${queryString}`, { 
+      navigate(`/recommendations${queryString}`, { 
         state: { 
           checkupDesign: mergedData,
           selectedConcerns: selectedConcerns,

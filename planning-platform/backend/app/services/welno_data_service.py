@@ -780,5 +780,77 @@ class WelnoDataService:
             print(f"❌ [페르소나] 업데이트 오류: {e}")
             return False
 
+    async def save_checkup_design_request(
+        self,
+        uuid: str,
+        hospital_id: str,
+        selected_concerns: List[Dict[str, Any]],
+        survey_responses: Optional[Dict[str, Any]] = None,
+        design_result: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """검진 설계 요청 및 결과 저장"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            # 환자 ID 조회
+            patient_query = """
+                SELECT id FROM welno.welno_patients 
+                WHERE uuid = $1 AND hospital_id = $2
+            """
+            patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
+            
+            if not patient_row:
+                await conn.close()
+                return {
+                    "success": False,
+                    "error": "환자 정보를 찾을 수 없습니다."
+                }
+            
+            patient_id = patient_row['id']
+            
+            # 설문 응답에서 추가 고민사항 추출
+            additional_concerns = None
+            if survey_responses and survey_responses.get("additional_concerns"):
+                additional_concerns = survey_responses.get("additional_concerns")
+            
+            # 검진 설계 요청 저장
+            insert_query = """
+                INSERT INTO welno.welno_checkup_design_requests 
+                (patient_id, selected_concerns, survey_responses, additional_concerns, design_result, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+                RETURNING id
+            """
+            
+            request_id = await conn.fetchval(
+                insert_query,
+                patient_id,
+                json.dumps(selected_concerns, ensure_ascii=False),
+                json.dumps(survey_responses, ensure_ascii=False) if survey_responses else None,
+                additional_concerns,
+                json.dumps(design_result, ensure_ascii=False) if design_result else None
+            )
+            
+            await conn.close()
+            
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"✅ [검진설계요청] 저장 완료 - ID: {request_id}, 환자: {uuid} @ {hospital_id}")
+            logger.info(f"   - 선택 항목: {len(selected_concerns)}개")
+            logger.info(f"   - 설문 응답: {'있음' if survey_responses else '없음'}")
+            logger.info(f"   - 설계 결과: {'있음' if design_result else '없음'}")
+            
+            return {
+                "success": True,
+                "request_id": request_id
+            }
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"❌ [검진설계요청] 저장 오류: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+
 # 싱글톤 인스턴스
 welno_data_service = WelnoDataService()

@@ -37,6 +37,86 @@ router = APIRouter()
 welno_data_service = WelnoDataService()
 gpt_service = GPTService()
 
+# JSON 파싱 복구 함수
+def parse_json_with_recovery(content: str, step_name: str = "STEP") -> Dict[str, Any]:
+    """
+    JSON 문자열을 안전하게 파싱하고, 실패 시 복구 시도
+    
+    Args:
+        content: 파싱할 JSON 문자열
+        step_name: 단계 이름 (로깅용)
+    
+    Returns:
+        파싱된 딕셔너리
+    """
+    import re
+    
+    # 1. 코드블록 제거 (정규식으로 개선)
+    cleaned = content.strip()
+    
+    # ```json ... ``` 제거
+    cleaned = re.sub(r'^```json\s*\n?', '', cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(r'^```\s*\n?', '', cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(r'\n?```\s*$', '', cleaned, flags=re.MULTILINE | re.DOTALL)
+    cleaned = cleaned.strip()
+    
+    # 2. 첫 번째 JSON 파싱 시도
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        logger.warning(f"⚠️ [{step_name}] JSON 파싱 실패, 복구 시도 중...")
+        logger.warning(f"⚠️ [{step_name}] 에러 위치: line {e.lineno}, column {e.colno}, pos {getattr(e, 'pos', 'unknown')}")
+        
+        # 3. JSON 복구 시도
+        error_pos = getattr(e, 'pos', None)
+        if not error_pos or error_pos >= len(cleaned):
+            error_pos = len(cleaned)
+        
+        # 에러 위치 이전까지의 텍스트 추출
+        fixed = cleaned[:error_pos]
+        
+        # 불완전한 문자열 찾기 및 닫기
+        last_quote_pos = fixed.rfind('"')
+        if last_quote_pos != -1:
+            # 따옴표 개수 확인 (이스케이프된 따옴표 제외)
+            # 간단한 방법: 마지막 따옴표 이전의 백슬래시 개수 확인
+            backslash_count = 0
+            for i in range(last_quote_pos - 1, -1, -1):
+                if fixed[i] == '\\':
+                    backslash_count += 1
+                else:
+                    break
+            
+            # 홀수 개의 백슬래시면 이스케이프된 따옴표, 짝수면 시작 따옴표
+            if backslash_count % 2 == 0:
+                # 시작 따옴표인 경우, 닫는 따옴표 추가
+                fixed += '"'
+        
+        # 중괄호/대괄호 닫기
+        open_braces = fixed.count('{') - fixed.count('}')
+        if open_braces > 0:
+            fixed += '}' * open_braces
+        
+        open_brackets = fixed.count('[') - fixed.count(']')
+        if open_brackets > 0:
+            fixed += ']' * open_brackets
+        
+        # 4. 복구된 JSON 파싱 시도
+        try:
+            logger.info(f"🔧 [{step_name}] JSON 복구 시도: {len(fixed)} 문자 (원본: {len(cleaned)} 문자)")
+            parsed = json.loads(fixed)
+            if not isinstance(parsed, dict):
+                raise ValueError(f"JSON 파싱 결과가 딕셔너리가 아닙니다: {type(parsed)}")
+            return parsed
+        except json.JSONDecodeError as e2:
+            logger.error(f"❌ [{step_name}] JSON 복구 실패: {str(e2)}")
+            logger.error(f"❌ [{step_name}] 원본 응답 (처음 2000자): {content[:2000]}")
+            logger.error(f"❌ [{step_name}] 복구 시도 내용 (처음 2000자): {fixed[:2000]}")
+            raise ValueError(f"{step_name} JSON 파싱 실패: {str(e2)}")
+        except Exception as e2:
+            logger.error(f"❌ [{step_name}] JSON 복구 중 예외 발생: {str(e2)}")
+            raise ValueError(f"{step_name} JSON 파싱 실패: {str(e2)}")
+
 # 의존성 주입 (추후 DI 컨테이너로 대체)
 def get_repositories():
     return PatientRepository(), CheckupDesignRepository()
@@ -779,30 +859,17 @@ async def create_checkup_design_step1(
         # JSON 파싱 (GPTService의 유틸리티 재사용 또는 직접 파싱)
         logger.info(f"🔍 [STEP1-분석] JSON 파싱 시작...")
         try:
-            # Gemini는 마크다운 코드블록(```json ... ```)을 포함할 수 있으므로 제거 필요
-            content = gemini_api_response.content.strip()
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.startswith("```"):
-                content = content[3:]
-            if content.endswith("```"):
-                content = content[:-3]
-            content = content.strip()
-            
-            import json
-            ai_response = json.loads(content)
-            
-            # ai_response가 딕셔너리인지 확인
-            if not isinstance(ai_response, dict):
-                logger.error(f"❌ [STEP1-분석] 파싱된 응답이 딕셔너리가 아님: {type(ai_response)}")
-                logger.error(f"❌ [STEP1-분석] 파싱된 응답 내용: {ai_response}")
-                raise ValueError(f"JSON 파싱 결과가 딕셔너리가 아닙니다: {type(ai_response)}")
+            # JSON 파싱 (복구 로직 포함)
+            ai_response = parse_json_with_recovery(
+                gemini_api_response.content,
+                step_name="STEP1-분석"
+            )
             
             logger.info(f"✅ [STEP1-분석] JSON 파싱 성공")
             logger.info(f"📊 [STEP1-분석] 파싱된 응답 키: {list(ai_response.keys())}")
         except Exception as parse_error:
             logger.error(f"❌ [STEP1-분석] JSON 파싱 실패: {str(parse_error)}")
-            logger.error(f"❌ [STEP1-분석] 원본 응답: {gemini_api_response.content}")
+            logger.error(f"❌ [STEP1-분석] 원본 응답 (처음 500자): {gemini_api_response.content[:500] if gemini_api_response.content else 'None'}")
             raise ValueError(f"JSON 파싱 실패: {str(parse_error)}")
         
         # STEP 1 응답 반환 (분석 결과만)
@@ -1231,7 +1298,7 @@ async def create_checkup_design_step2(
             prompt=full_prompt_p1,
             model=powerful_model,
             temperature=0.5,
-            max_tokens=2000,  # Priority 1은 짧은 응답
+            max_tokens=3000,  # Priority 1 응답 (2000에서 증가하여 잘림 방지)
             response_format={"type": "json_object"}
         )
         
@@ -1250,51 +1317,61 @@ async def create_checkup_design_step2(
             logger.error(f"❌ [STEP2-1] Gemini 호출 실패: {gemini_response_p1.error}")
             raise ValueError(f"STEP 2-1 실패: {gemini_response_p1.error}")
         
-        # JSON 파싱
+        # JSON 파싱 (복구 로직 포함)
         try:
-            content = gemini_response_p1.content.strip()
-            if content.startswith("```json"):
-                content = content[7:]
-            if content.startswith("```"):
-                content = content[3:]
-            if content.endswith("```"):
-                content = content[:-3]
-            content = content.strip()
-            
-            import json
-            step2_1_result = json.loads(content)
+            step2_1_result = parse_json_with_recovery(
+                gemini_response_p1.content,
+                step_name="STEP2-1"
+            )
             logger.info(f"✅ [STEP2-1] JSON 파싱 성공 - 키: {list(step2_1_result.keys())}")
-            
-            # 📝 [LOGGING] STEP 2-1 결과 JSON 파일 저장 제거 (txt만 사용)
-            
-            # 📝 [LOGGING] STEP 2-1 응답 txt 파일 저장
+        except Exception as e:
+            # 파싱 실패해도 원본 응답 파일 저장 (디버깅용)
             try:
                 response_txt_file = os.path.join(session_dir, "step2_1_result.txt")
                 with open(response_txt_file, "w", encoding="utf-8") as f:
                     f.write("=" * 80 + "\n")
-                    f.write("STEP 2-1 RESPONSE (원본)\n")
+                    f.write("STEP 2-1 RESPONSE (원본 - 파싱 실패)\n")
                     f.write("=" * 80 + "\n\n")
                     f.write(gemini_response_p1.content)
                     f.write("\n\n")
                     f.write("=" * 80 + "\n")
-                    f.write("STEP 2-1 RESPONSE (파싱된 JSON)\n")
-                    f.write("=" * 80 + "\n\n")
-                    f.write(json.dumps(step2_1_result, ensure_ascii=False, indent=2))
-                    f.write("\n\n")
+                    f.write("ERROR INFO\n")
                     f.write("=" * 80 + "\n")
-                    f.write("METADATA\n")
-                    f.write("=" * 80 + "\n")
+                    f.write(f"Error: {str(e)}\n")
                     f.write(f"Response Length: {len(gemini_response_p1.content) if gemini_response_p1.content else 0}\n")
                     f.write(f"Timestamp: {datetime.now().isoformat()}\n")
                 
-                logger.info(f"💾 [STEP2-1] 응답 txt 저장 완료: {response_txt_file}")
-            except Exception as e:
-                logger.warning(f"⚠️ [STEP2-1] 응답 txt 저장 실패: {str(e)}")
-
-        except Exception as e:
+                logger.info(f"💾 [STEP2-1] 에러 응답 txt 저장 완료: {response_txt_file}")
+            except Exception as save_error:
+                logger.warning(f"⚠️ [STEP2-1] 에러 응답 txt 저장 실패: {str(save_error)}")
+            
             logger.error(f"❌ [STEP2-1] JSON 파싱 실패: {str(e)}")
-            logger.error(f"❌ [STEP2-1] 원본 응답: {gemini_response_p1.content}")
+            logger.error(f"❌ [STEP2-1] 원본 응답 (처음 500자): {gemini_response_p1.content[:500] if gemini_response_p1.content else 'None'}")
             raise ValueError(f"STEP 2-1 JSON 파싱 실패: {str(e)}")
+        
+        # 📝 [LOGGING] STEP 2-1 응답 txt 파일 저장 (성공 시)
+        try:
+            response_txt_file = os.path.join(session_dir, "step2_1_result.txt")
+            with open(response_txt_file, "w", encoding="utf-8") as f:
+                f.write("=" * 80 + "\n")
+                f.write("STEP 2-1 RESPONSE (원본)\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(gemini_response_p1.content)
+                f.write("\n\n")
+                f.write("=" * 80 + "\n")
+                f.write("STEP 2-1 RESPONSE (파싱된 JSON)\n")
+                f.write("=" * 80 + "\n\n")
+                f.write(json.dumps(step2_1_result, ensure_ascii=False, indent=2))
+                f.write("\n\n")
+                f.write("=" * 80 + "\n")
+                f.write("METADATA\n")
+                f.write("=" * 80 + "\n")
+                f.write(f"Response Length: {len(gemini_response_p1.content) if gemini_response_p1.content else 0}\n")
+                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+            
+            logger.info(f"💾 [STEP2-1] 응답 txt 저장 완료: {response_txt_file}")
+        except Exception as e:
+            logger.warning(f"⚠️ [STEP2-1] 응답 txt 저장 실패: {str(e)}")
         
         # ====================================================================
         # STEP 2-2: Priority 2,3 + Strategies (업셀링)
@@ -1388,9 +1465,12 @@ async def create_checkup_design_step2(
             ai_response = step2_1_result
             structured_evidences = evidences_p1
         else:
-            # JSON 파싱
+            # JSON 파싱 (복구 로직 포함)
             try:
-                step2_2_result = gpt_service.parse_json_response(gpt_response_p2.content)
+                step2_2_result = parse_json_with_recovery(
+                    gpt_response_p2.content,
+                    step_name="STEP2-2"
+                )
                 logger.info(f"✅ [STEP2-2] JSON 파싱 성공 - 키: {list(step2_2_result.keys())}")
                 
                 # 📝 [LOGGING] STEP 2-2 결과 JSON 파일 저장 제거 (txt만 사용)

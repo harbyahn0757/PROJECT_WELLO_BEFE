@@ -48,7 +48,8 @@ def create_step1_prompt(
     survey_responses: Optional[Dict[str, Any]] = None,
     hospital_national_checkup: Optional[List[Dict[str, Any]]] = None,
     prescription_analysis_text: Optional[str] = None,
-    selected_medication_texts: Optional[List[str]] = None
+    selected_medication_texts: Optional[List[str]] = None,
+    events: Optional[List[Dict[str, Any]]] = None
 ) -> Dict[str, Any]:
     """
     STEP 1: 빠른 분석 전용 프롬프트 생성 (페르소나 판정 포함)
@@ -65,6 +66,7 @@ def create_step1_prompt(
         hospital_national_checkup: 병원 기본 검진 항목
         prescription_analysis_text: 약품 분석 결과 텍스트
         selected_medication_texts: 선택된 약품 텍스트
+        events: 사용자 행동 로그 (체류 시간, 클릭 등) - 향후 사용 예정
     
     Returns:
         {
