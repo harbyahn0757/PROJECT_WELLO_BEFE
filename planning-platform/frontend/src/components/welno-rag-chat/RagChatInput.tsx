@@ -4,12 +4,16 @@ interface RagChatInputProps {
   onSend: (message: string) => void;
   disabled?: boolean;
   placeholder?: string;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 const RagChatInput: React.FC<RagChatInputProps> = ({
   onSend,
   disabled = false,
-  placeholder = '메시지를 입력하세요...'
+  placeholder = '메시지를 입력하세요...',
+  onFocus,
+  onBlur
 }) => {
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -43,6 +47,8 @@ const RagChatInput: React.FC<RagChatInputProps> = ({
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         onKeyDown={handleKeyDown}
+        onFocus={onFocus}
+        onBlur={onBlur}
         placeholder={placeholder}
         disabled={disabled}
         rows={1}

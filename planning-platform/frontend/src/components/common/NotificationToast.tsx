@@ -25,10 +25,6 @@ const NotificationToast: React.FC<NotificationToastProps> = ({ notification, onC
 
   return (
     <div className={`notification-toast notification-toast--${type}`}>
-      <div className="notification-toast__icon">
-        {getIcon()}
-      </div>
-      
       <div className="notification-toast__content">
         <div className="notification-toast__title">
           {title}

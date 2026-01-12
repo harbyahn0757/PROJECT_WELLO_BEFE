@@ -29,7 +29,9 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
   const [sessionId, setSessionId] = useState<string>('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSuggestionsExpanded, setIsSuggestionsExpanded] = useState(true);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -66,9 +68,12 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
   }, []);
 
   useEffect(() => {
-    // 메시지 스크롤
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    // 메시지 스크롤 (모바일 포커스 시에는 즉시 스크롤, 그 외에는 부드럽게)
+    if (messagesEndRef.current) {
+      const behavior = isInputFocused ? 'auto' : 'smooth';
+      messagesEndRef.current.scrollIntoView({ behavior });
+    }
+  }, [messages, isInputFocused]);
 
   const handleSendMessage = async (message: string) => {
     if (!message.trim() || isLoading) return;
@@ -283,6 +288,8 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
         onSend={handleSendMessage}
         disabled={isLoading}
         placeholder="궁금한 점을 물어보세요..."
+        onFocus={() => setIsInputFocused(true)}
+        onBlur={() => setIsInputFocused(false)}
       />
     </div>
   );
