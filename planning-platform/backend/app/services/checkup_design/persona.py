@@ -149,6 +149,24 @@ def _calculate_survey_score(survey: Dict[str, Any], scores: Dict[str, int], risk
     if weight_change == "decrease_bad":
         risk_flags.append("unintended_weight_loss") # 체중 급감
 
+    # 5. PNT 정밀 문항 (신규)
+    # 피로도 (Symptom Solver)
+    pnt_fatigue = survey.get("pnt_fatigue", "")
+    if pnt_fatigue == "daily": scores["Symptom Solver"] += 40
+    elif pnt_fatigue == "often": scores["Symptom Solver"] += 20
+    
+    # 소화 문제 (Symptom Solver)
+    pnt_digestive = survey.get("pnt_digestive_issue", "")
+    if pnt_digestive == "always": scores["Symptom Solver"] += 40
+    elif pnt_digestive == "after_meal": scores["Symptom Solver"] += 20
+    
+    # 화학물질 민감도 (Manager - 해독 능력)
+    pnt_chem = survey.get("pnt_chemical_sensitivity", "")
+    if pnt_chem == "very_sensitive": scores["Manager"] += 30
+    
+    # 피부 상태
+    if survey.get("pnt_skin_condition") == "severe": scores["Symptom Solver"] += 20
+
     # 3. Worrier Factors (가족력 - 0점 시작)
     family_history = survey.get("family_history", [])
     if family_history and "none" not in family_history:

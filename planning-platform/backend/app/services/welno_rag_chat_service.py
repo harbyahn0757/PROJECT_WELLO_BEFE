@@ -191,11 +191,25 @@ class WelnoRagChatService:
             current_keywords = self._detect_health_keywords(message)
             all_keywords = list(set(metadata.get("detected_keywords", []) + current_keywords))
             
-            # 3. 환자 건강 데이터 브리핑 준비 및 신선도 체크
+            # 3. 환자 건강 데이터 및 기존 문진(페르소나) 데이터 로드
             briefing_context = ""
             is_stale_data = metadata.get("is_stale_data", False)
             stale_year = metadata.get("stale_year")
             
+            # 기존 문진 정보 로드 (Context 보강용)
+            past_survey_info = ""
+            if self.redis_client:
+                survey_key = f"welno:survey:{uuid}:{hospital_id}"
+                past_survey_json = self.redis_client.get(survey_key)
+                if past_survey_json:
+                    try:
+                        past_survey = json.loads(past_survey_json)
+                        responses = past_survey.get("survey_responses", {})
+                        if responses:
+                            from .checkup_design.survey_mapping import generate_survey_section
+                            past_survey_info = f"\n[기본 문진 정보 (페르소나)]\n{generate_survey_section(responses)}\n"
+                    except: pass
+
             if is_first_message:
                 try:
                     health_info = await self.welno_data_service.get_patient_health_data(uuid, hospital_id)
@@ -256,8 +270,9 @@ class WelnoRagChatService:
                 
                 # 프롬프트 구성
                 enhanced_prompt = CHAT_SYSTEM_PROMPT
-                if briefing_context:
-                    enhanced_prompt = enhanced_prompt.replace("[Context]", f"[Context]{briefing_context}")
+                combined_context = briefing_context + past_survey_info
+                if combined_context:
+                    enhanced_prompt = enhanced_prompt.replace("[Context]", f"[Context]{combined_context}")
                 
                 # 단계별 지침 추가
                 stage_instruction = ""
@@ -265,8 +280,17 @@ class WelnoRagChatService:
                     stage_instruction = "\n\n**상담 단계 (Stage 1)**: 과거 데이터임을 언급하며 간략히 조언하고, 반드시 '최근 1~2년 내에 특별히 걱정되거나 불편하신 곳이 있는지' 질문하며 답변을 맺으세요."
                 elif chat_stage == "awaiting_current_concerns" and not is_first_message:
                     # 사용자가 현재 고민을 말한 경우
-                    stage_instruction = "\n\n**상담 단계 (Stage 2)**: 사용자의 현재 고민과 과거 데이터를 연결하여 깊이 있게 분석하세요. 답변 끝에 '더 정밀한 분석을 원하시면 문진을 진행해 보시는 것이 좋다'는 취지로 언급하세요."
-                    chat_stage = "pnt_ready" # 다음 단계는 PNT 유도
+                    stage_instruction = "\n\n**상담 단계 (Stage 2)**: 사용자의 현재 고민과 과거 데이터를 연결하여 깊이 있게 분석하세요."
+                    # 건기식 질문인 경우 PNT 유도 멘트 추가
+                    if any(kw in message for kw in ["영양제", "건기식", "비타민", "추천", "상담"]):
+                        stage_instruction += " 답변 끝에 '더 정밀한 영양 치료(PNT) 설계를 원하시면 정밀 문진을 진행해 보시는 것이 좋다'고 제안하세요."
+                        chat_stage = "pnt_ready"
+                    else:
+                        chat_stage = "normal"
+                elif any(kw in message for kw in ["영양제", "건기식", "비타민", "추천", "상담"]):
+                    # 일반 대화 중 건기식 질문 시
+                    stage_instruction = "\n\n**상담 지침**: 사용자가 건강기능식품이나 영양제에 대해 물었습니다. 답변 마지막에 개인 맞춤형 영양 설계를 위한 '정밀 문진(PNT)'을 추천해 보세요."
+                    chat_stage = "pnt_ready"
                 
                 enhanced_prompt += stage_instruction
                 enhanced_prompt += "\n\n**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요."
@@ -299,19 +323,21 @@ class WelnoRagChatService:
             # 5. 마무리 및 메타데이터 업데이트
             self.chat_manager.add_message(uuid, hospital_id, "assistant", full_answer)
             
+            # PNT 문진 트리거 조건: pnt_ready 단계이거나 영양 관련 키워드가 포함된 3회 이상 대화 시
+            has_nutrition_kw = any(kw in all_keywords for kw in ["영양", "건기식", "비타민"])
+            trigger_pnt = (chat_stage == "pnt_ready") or (message_count >= 3 and has_nutrition_kw)
+            
             # 메타데이터 업데이트
             metadata.update({
                 "detected_keywords": all_keywords,
                 "chat_stage": chat_stage,
                 "is_stale_data": is_stale_data,
                 "stale_year": stale_year,
-                "message_count": message_count
+                "message_count": message_count,
+                "survey_triggered": metadata.get("survey_triggered", False) or trigger_pnt
             })
             if self.redis_client:
                 self.redis_client.setex(meta_key, 86400, json.dumps(metadata, ensure_ascii=False))
-            
-            # PNT 문진 트리거 조건: pnt_ready 단계이거나 3회 이상 대화 시
-            trigger_pnt = chat_stage == "pnt_ready" or message_count >= 3
             
             yield json.dumps({
                 "answer": "",

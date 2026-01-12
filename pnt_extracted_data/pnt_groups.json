@@ -1,0 +1,115 @@
+[
+  {
+    "group_id": "G1",
+    "group_name": "일반/기초",
+    "target_symptoms": [
+      "전체 스크리닝"
+    ],
+    "display_order": 1
+  },
+  {
+    "group_id": "G2",
+    "group_name": "부신 기능",
+    "target_symptoms": [
+      "만성 피로",
+      "번아웃",
+      "스트레스"
+    ],
+    "display_order": 2
+  },
+  {
+    "group_id": "G3",
+    "group_name": "독성/해독",
+    "target_symptoms": [
+      "간 해독",
+      "독소 축적",
+      "화학물질 민감성"
+    ],
+    "display_order": 3
+  },
+  {
+    "group_id": "G4",
+    "group_name": "갑상샘 기능",
+    "target_symptoms": [
+      "대사 저하",
+      "체중 변화",
+      "에너지 부족"
+    ],
+    "display_order": 4
+  },
+  {
+    "group_id": "G5",
+    "group_name": "영양 균형",
+    "target_symptoms": [
+      "식습관 불량",
+      "영양 결핍",
+      "인지 저하"
+    ],
+    "display_order": 5
+  },
+  {
+    "group_id": "G6",
+    "group_name": "통증/염증",
+    "target_symptoms": [
+      "원인 모를 통증",
+      "만성 염증"
+    ],
+    "display_order": 6
+  },
+  {
+    "group_id": "G7",
+    "group_name": "삶의 질",
+    "target_symptoms": [
+      "중증도 관리",
+      "136문항 심화"
+    ],
+    "display_order": 7
+  },
+  {
+    "group_id": "G8",
+    "group_name": "장 건강",
+    "target_symptoms": [
+      "소화불량",
+      "복부 팽만",
+      "장 누수"
+    ],
+    "display_order": 8
+  },
+  {
+    "group_id": "G9",
+    "group_name": "미토콘드리아/산화",
+    "target_symptoms": [
+      "세포 에너지 저하",
+      "노화"
+    ],
+    "display_order": 9
+  },
+  {
+    "group_id": "G10",
+    "group_name": "호르몬 균형",
+    "target_symptoms": [
+      "갱년기",
+      "호르몬 불균형"
+    ],
+    "display_order": 10
+  },
+  {
+    "group_id": "G11",
+    "group_name": "대사 종합",
+    "target_symptoms": [
+      "체중 증가/감소",
+      "대사 증후군"
+    ],
+    "display_order": 11
+  },
+  {
+    "group_id": "G12",
+    "group_name": "면역/알레르기",
+    "target_symptoms": [
+      "피부염",
+      "알레르기",
+      "자가면역"
+    ],
+    "display_order": 12
+  }
+]

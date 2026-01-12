@@ -1,0 +1,16 @@
+[
+  {
+    "question_id": "pnt_adrenal_fatigue",
+    "group_id": "G2",
+    "question_text": "충분히 쉬어도 풀리지 않는 만성 피로가 있나요?",
+    "question_type": "single",
+    "display_order": 1
+  },
+  {
+    "question_id": "pnt_adrenal_stress",
+    "group_id": "G2",
+    "question_text": "아침에 일어나기 힘들거나 하루 종일 무기력함을 느끼나요?",
+    "question_type": "single",
+    "display_order": 2
+  }
+]

@@ -1,0 +1,18 @@
+[
+  {
+    "test_code": "CORTISOL_SALIVA",
+    "test_name_ko": "타액 코티솔 일주기 검사",
+    "test_category": "호르몬",
+    "specimen_type": "타액",
+    "brief_reason": "하루 4회 측정하여 부신 피로 단계 평가",
+    "is_advanced": true
+  },
+  {
+    "test_code": "DHEA",
+    "test_name_ko": "DHEA 검사",
+    "test_category": "호르몬",
+    "specimen_type": "혈액",
+    "brief_reason": "스트레스 호르몬 균형 확인",
+    "is_advanced": false
+  }
+]

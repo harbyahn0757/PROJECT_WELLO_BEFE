@@ -676,6 +676,63 @@ class WelnoDataService:
             traceback.print_exc()
             return {"error": str(e)}
 
+    async def search_patients(self, name: str) -> List[Dict[str, Any]]:
+        """이름으로 환자 목록 조회"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            query = "SELECT * FROM welno.welno_patients WHERE name LIKE $1"
+            rows = await conn.fetch(query, f"%{name}%")
+            await conn.close()
+            
+            results = []
+            for r in rows:
+                d = dict(r)
+                if d.get('birth_date'): d['birth_date'] = d['birth_date'].isoformat()
+                results.append(d)
+            return results
+        except Exception as e:
+            print(f"❌ [환자검색] 오류: {e}")
+            return []
+
+    async def get_patient_prescription_data(self, uuid: str, hospital_id: str) -> Dict[str, Any]:
+        """환자의 처방전 데이터 조회"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            # 처방전 데이터 조회
+            prescription_query = """
+                SELECT raw_data, idx, page, hospital_name, address, treatment_date, treatment_type,
+                       collected_at, created_at
+                FROM welno.welno_prescription_data 
+                WHERE patient_uuid = $1 AND hospital_id = $2
+                ORDER BY treatment_date DESC
+            """
+            prescription_rows = await conn.fetch(prescription_query, uuid, hospital_id)
+            
+            prescription_data_list = []
+            for row in prescription_rows:
+                raw_data = row.get('raw_data')
+                raw_data_parsed = json.loads(raw_data) if isinstance(raw_data, str) else raw_data
+                
+                prescription_data_list.append({
+                    "raw_data": raw_data_parsed,
+                    "prescription_date": row.get('treatment_date').isoformat() if row.get('treatment_date') else "",
+                    "location": row.get('hospital_name', ''),
+                    "idx": row.get('idx'),
+                    "page": row.get('page'),
+                    "address": row.get('address'),
+                    "treatment_type": row.get('treatment_type'),
+                    "collected_at": row.get('collected_at').isoformat() if row.get('collected_at') else None,
+                    "created_at": row.get('created_at').isoformat() if row.get('created_at') else None
+                })
+            
+            await conn.close()
+            return {"prescription_data": prescription_data_list}
+            
+        except Exception as e:
+            print(f"❌ [처방전 데이터 조회] 오류: {e}")
+            return {"error": f"처방전 데이터 조회 중 오류가 발생했습니다: {str(e)}"}
+
     async def get_latest_checkup_design(self, uuid: str, hospital_id: str) -> Optional[Dict[str, Any]]:
         """최신 검진 설계 결과 조회"""
         try:

@@ -118,8 +118,14 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       // 메인 페이지에서는 플로팅 버튼 숨김 (basename이 /welno이므로 실제 pathname은 /)
       const isMainPage = location.pathname === '/' || location.pathname === '';
       
-      // 데이터 수집 중이거나 비밀번호 모달이 열려있거나 메인 페이지이면 숨김
-      const shouldHide = isManualCollecting || isCollectingPath || passwordModalOpen || isMainPage;
+      // 검진 설계 및 문진 페이지에서도 숨김
+      const isSpecialPage = location.pathname === '/checkup-design' || 
+                           location.pathname === '/questionnaire' ||
+                           location.pathname === '/survey' ||
+                           location.pathname === '/habits';
+      
+      // 데이터 수집 중이거나 비밀번호 모달이 열려있거나 메인 페이지 또는 특수 페이지이면 숨김
+      const shouldHide = isManualCollecting || isCollectingPath || passwordModalOpen || isMainPage || isSpecialPage;
       setHideFloatingButton(shouldHide);
       setIsAuthWaiting(authWaiting);
       setIsAuthMethodSelection(authMethodSelection);

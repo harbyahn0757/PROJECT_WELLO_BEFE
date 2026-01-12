@@ -1,0 +1,12 @@
+[
+  {
+    "food_code": "AVOCADO",
+    "food_name_ko": "아보카도",
+    "food_category": "과일",
+    "key_nutrients": {
+      "칼륨": "485mg",
+      "비타민B5": "1.4mg"
+    },
+    "brief_reason": "부신 건강 지원, 스트레스 완화"
+  }
+]

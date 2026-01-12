@@ -15,7 +15,11 @@ const HealthQuestionnairePage: React.FC = () => {
     const loadSurvey = async () => {
       try {
         setLoading(true);
-        const surveyData = await surveyService.getSurvey('health-questionnaire');
+        // URL 파라미터에서 surveyId 추출 (기본값: health-questionnaire)
+        const params = new URLSearchParams(location.search);
+        const surveyId = params.get('survey_id') || params.get('surveyId') || 'health-questionnaire';
+        
+        const surveyData = await surveyService.getSurvey(surveyId);
         setSurvey(surveyData);
       } catch (err) {
         setError('설문조사를 불러오는데 실패했습니다.');
@@ -26,15 +30,21 @@ const HealthQuestionnairePage: React.FC = () => {
     };
 
     loadSurvey();
-  }, []);
+  }, [location.search]);
 
   const handleSave = async (response: SurveyResponse) => {
     try {
-      const request: SurveySubmitRequest = {
+      const params = new URLSearchParams(location.search);
+      const uuid = params.get('uuid');
+      const hospitalId = params.get('hospital') || params.get('hospital_id') || params.get('hospitalId');
+
+      const request: any = {
         surveyId: response.surveyId,
         sessionId: response.sessionId,
         answers: response.answers,
-        pageId: response.currentPageId
+        pageId: response.currentPageId,
+        uuid: uuid,
+        hospital_id: hospitalId
       };
       
       await surveyService.saveSurveyResponse(request);
@@ -45,12 +55,18 @@ const HealthQuestionnairePage: React.FC = () => {
 
   const handleComplete = async (response: SurveyResponse) => {
     try {
-      const request: SurveySubmitRequest = {
+      const params = new URLSearchParams(location.search);
+      const uuid = params.get('uuid');
+      const hospitalId = params.get('hospital') || params.get('hospital_id') || params.get('hospitalId');
+
+      const request: any = {
         surveyId: response.surveyId,
         sessionId: response.sessionId,
         answers: response.answers,
         pageId: response.currentPageId,
-        isComplete: true
+        isComplete: true,
+        uuid: uuid,
+        hospital_id: hospitalId
       };
       
       await surveyService.submitSurvey(request);

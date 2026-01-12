@@ -17,7 +17,14 @@ const WelnoRagChatButton: React.FC<WelnoRagChatButtonProps> = ({ onToggle }) => 
       const collectingStatus = localStorage.getItem('tilko_collecting_status') === 'true';
       const passwordModalOpen = localStorage.getItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN) === 'true';
       
-      setShouldHide(manualCollect || collectingStatus || passwordModalOpen);
+      // 특정 페이지에서 숨김
+      const path = window.location.pathname;
+      const isSpecialPage = path.includes('/questionnaire') || 
+                           path.includes('/checkup-design') || 
+                           path.includes('/survey') ||
+                           path.includes('/habits');
+      
+      setShouldHide(manualCollect || collectingStatus || passwordModalOpen || isSpecialPage);
     };
 
     checkHideStatus();

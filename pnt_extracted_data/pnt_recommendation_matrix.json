@@ -1,0 +1,20 @@
+[
+  {
+    "group_id": "G2",
+    "question_id": "pnt_adrenal_fatigue",
+    "option_value": "daily",
+    "score_threshold": 7,
+    "recommended_tests": [
+      1,
+      2
+    ],
+    "recommended_supplements": [
+      1
+    ],
+    "recommended_foods": [
+      1
+    ],
+    "recommendation_priority": 9,
+    "brief_rationale": "매일 만성 피로 느낌 → 부신 기능 정밀 평가 필수"
+  }
+]

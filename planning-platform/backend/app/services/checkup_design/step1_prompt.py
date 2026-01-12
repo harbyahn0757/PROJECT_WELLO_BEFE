@@ -48,7 +48,8 @@ def create_step1_prompt(
     survey_responses: Optional[Dict[str, Any]] = None,
     hospital_national_checkup: Optional[List[Dict[str, Any]]] = None,
     prescription_analysis_text: Optional[str] = None,
-    selected_medication_texts: Optional[List[str]] = None
+    selected_medication_texts: Optional[List[str]] = None,
+    pnt_recommendations: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     STEP 1: 빠른 분석 전용 프롬프트 생성 (페르소나 판정 포함)
@@ -97,6 +98,38 @@ def create_step1_prompt(
 - **Communication Tone**: {persona_result.get('tone', 'Casual & Smart')}
 - **Bridge Strategy**: {persona_result.get('bridge_strategy', '공감과 현실적 대안 제시')}
 """
+    
+    # ==========================================
+    # 1-1. PNT 추천 섹션 (하이브리드 시스템)
+    # ==========================================
+    pnt_section = ""
+    if pnt_recommendations:
+        group_scores = pnt_recommendations.get('group_scores', {})
+        recommended_tests = pnt_recommendations.get('recommended_tests', [])
+        
+        # 그룹 점수 표시 (상위 5개)
+        if group_scores:
+            sorted_groups = sorted(group_scores.items(), key=lambda x: x[1], reverse=True)[:5]
+            pnt_section = "\n# PNT 정밀 문진 결과 (맞춤 영양 치료 기반)\n\n"
+            pnt_section += "## 그룹별 점수 (높을수록 관리 필요)\n"
+            for group_id, score in sorted_groups:
+                pnt_section += f"- {group_id}: {score}점\n"
+            pnt_section += "\n"
+        
+        # 추천 검사 표시
+        if recommended_tests:
+            pnt_section += "## PNT 기반 우선 권장 검사\n\n"
+            pnt_section += "다음 검사들은 환자의 PNT 문진 결과를 바탕으로 매트릭스에서 자동 선정되었습니다:\n\n"
+            for test in recommended_tests[:10]:  # 최대 10개
+                test_name = test.get('test_name_ko', '')
+                brief_reason = test.get('brief_reason', '')
+                is_advanced = test.get('is_advanced', False)
+                advanced_mark = "⭐ " if is_advanced else ""
+                pnt_section += f"- {advanced_mark}{test_name}: {brief_reason}\n"
+            pnt_section += "\n"
+            pnt_section += "**참고**: 위 검사들은 PNT 문진 점수를 바탕으로 추천되었습니다.\n"
+            pnt_section += "검진 설계 시 이 항목들을 우선 고려하되, 최종 판단은 환자의 전체 맥락을 고려하여 수행하세요.\n"
+            pnt_section += "PostgreSQL 매트릭스 기반 추천이므로 환각 없이 정확합니다.\n"
 
     # ==========================================
     # 2. 기존 로직: 날짜 계산
@@ -390,6 +423,7 @@ def create_step1_prompt(
     # ==========================================
     prompt = f"""
 {persona_section}
+{pnt_section}
 
 # Role
 당신은 '센스 있고 현실적인 건강 멘토'이자, 베테랑 헬스 큐레이터입니다.
