@@ -39,13 +39,13 @@ interface EvidenceModalProps {
 }
 
 const EvidenceModal: React.FC<EvidenceModalProps> = ({ isOpen, onClose, evidenceData, targetItemName }) => {
-  if (!isOpen) return null;
+  // 아코디언 상태 관리 (항상 최상위에서 호출)
+  const [expandedEvidences, setExpandedEvidences] = useState<Set<string>>(new Set());
 
   // evidenceData가 배열인지 단일 객체인지 확인하여 처리
   const evidences = Array.isArray(evidenceData) ? evidenceData : (evidenceData ? [evidenceData] : []);
 
-  // 아코디언 상태 관리
-  const [expandedEvidences, setExpandedEvidences] = useState<Set<string>>(new Set());
+  if (!isOpen) return null;
 
   // 아코디언 토글 함수
   const toggleEvidence = (evidenceId: string) => {
