@@ -421,6 +421,24 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
     }
   }, []);
 
+  // 새 사용자용 환영 메시지 표시 함수 (병원 정보 기반)
+  const showWelcomeMessageForNewUser = useCallback((hospitalData: HospitalData | null) => {
+    let welcomeTitle = '반갑습니다 고객님';
+    let welcomeMessage = '웰노 서비스를 이용해 주셔서 감사합니다.';
+    
+    if (hospitalData && hospitalData.name) {
+      welcomeMessage = `${hospitalData.name}에서 제공하는 웰노 서비스입니다.`;
+    }
+    
+    addNotification({
+      type: 'info',
+      title: welcomeTitle,
+      message: welcomeMessage,
+      autoClose: true,
+      duration: 3000,
+    });
+  }, [addNotification]);
+
   // 환자 데이터 로딩
   const loadPatientData = useCallback(async (
     uuid: string, 
@@ -504,6 +522,9 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
               logo_position: 'center'
             };
 
+            // 웰컴 메시지 표시 여부 확인 (setState 전에 체크)
+            const shouldShowWelcome = !force && !state.patient;
+
             setState(prev => ({
               ...prev,
               patient: patientData,
@@ -536,6 +557,26 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
 
             // IndexedDB에서 로드 완료 - 로딩 리셋
             loadingRef.current = null;
+
+            // 웰컴 메시지 표시 (IndexedDB 경로)
+            if (shouldShowWelcome) {
+              console.log('[WelnoContext] 웰컴 메시지 표시:', { patientName: patientData.name });
+              showWelcomeMessage(patientData, null);
+              
+              // 백그라운드에서 API 호출하여 last_access_at 정보 가져오기 (선택적)
+              fetch(API_ENDPOINTS.PATIENT(uuid))
+                .then(res => res.ok ? res.json() : null)
+                .then(rawData => {
+                  if (rawData && rawData.last_access_at) {
+                    // 토스트는 이미 표시되었으므로 업데이트는 생략
+                    // 필요시 새로운 토스트로 교체 가능
+                  }
+                })
+                .catch(() => {
+                  // API 호출 실패 시 무시 (이미 기본 웰컴 메시지 표시됨)
+                });
+            }
+
             return;
           } else {
             console.log(`📂 [IndexedDB] 데이터 없음: ${uuid}`);
@@ -615,117 +656,204 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
       ]);
       console.log(`[API호출] 완료: ${cleanUuid} @ ${cleanHospital}`);
 
-      // 응답 상태 및 Content-Type 검증
+      // 환자 정보 404 처리
+      let patientData: PatientData | null = null;
+      let rawPatientData: any = null;
+
       if (!patientResponse.ok) {
-        const responseText = await patientResponse.text();
-        console.error('🚨 [환자 API] 응답 실패:', {
-          status: patientResponse.status,
-          statusText: patientResponse.statusText,
-          url: API_ENDPOINTS.PATIENT(uuid),
-          contentType: patientResponse.headers.get('content-type'),
-          responsePreview: responseText.substring(0, 200)
-        });
-        throw new Error(`환자 정보 조회 실패: ${patientResponse.status} - ${responseText.substring(0, 100)}`);
+        if (patientResponse.status === 404) {
+          // 404는 정상 상태 (데이터 없음)
+          console.log('[환자 API] 데이터 없음 (새 사용자):', { uuid: cleanUuid, hospital: cleanHospital });
+          patientData = null;
+          rawPatientData = null;
+        } else {
+          // 404가 아닌 다른 에러는 실제 에러로 처리
+          const responseText = await patientResponse.text();
+          console.error('🚨 [환자 API] 응답 실패:', {
+            status: patientResponse.status,
+            statusText: patientResponse.statusText,
+            url: API_ENDPOINTS.PATIENT(cleanUuid),
+            contentType: patientResponse.headers.get('content-type'),
+            responsePreview: responseText.substring(0, 200)
+          });
+          throw new Error(`환자 정보 조회 실패: ${patientResponse.status} - ${responseText.substring(0, 100)}`);
+        }
+      } else {
+        // 정상 응답인 경우에만 Content-Type 검증
+        const patientContentType = patientResponse.headers.get('content-type');
+        if (!patientContentType?.includes('application/json')) {
+          const responseText = await patientResponse.text();
+          console.error('🚨 [환자 API] JSON이 아닌 응답:', {
+            contentType: patientContentType,
+            url: API_ENDPOINTS.PATIENT(cleanUuid),
+            responsePreview: responseText.substring(0, 200)
+          });
+          throw new Error(`환자 API가 JSON이 아닌 응답을 반환했습니다: ${patientContentType}`);
+        }
       }
+
+      // 병원 정보 처리
+      let hospitalData: HospitalData | null = null;
 
       if (!hospitalResponse.ok) {
-        const responseText = await hospitalResponse.text();
-        console.error('🚨 [병원 API] 응답 실패:', {
-          status: hospitalResponse.status,
-          statusText: hospitalResponse.statusText,
-          url: API_ENDPOINTS.HOSPITAL(hospital),
-          contentType: hospitalResponse.headers.get('content-type'),
-          responsePreview: responseText.substring(0, 200)
-        });
-        throw new Error(`병원 정보 조회 실패: ${hospitalResponse.status} - ${responseText.substring(0, 100)}`);
+        if (hospitalResponse.status === 404) {
+          // 병원 정보도 없으면 기본 정보 사용
+          console.log('[병원 API] 데이터 없음, 기본 정보 사용:', { hospital: cleanHospital });
+          hospitalData = {
+            hospital_id: cleanHospital,
+            name: '웰노',
+            phone: '',
+            address: '',
+            supported_checkup_types: [],
+            brand_color: '#ff6b6b',
+            layout_type: 'vertical',
+            logo_position: 'center',
+            is_active: true
+          };
+        } else {
+          // 404가 아닌 다른 에러는 실제 에러로 처리
+          const responseText = await hospitalResponse.text();
+          console.error('🚨 [병원 API] 응답 실패:', {
+            status: hospitalResponse.status,
+            statusText: hospitalResponse.statusText,
+            url: API_ENDPOINTS.HOSPITAL(cleanHospital),
+            contentType: hospitalResponse.headers.get('content-type'),
+            responsePreview: responseText.substring(0, 200)
+          });
+          throw new Error(`병원 정보 조회 실패: ${hospitalResponse.status} - ${responseText.substring(0, 100)}`);
+        }
+      } else {
+        // 정상 응답인 경우에만 Content-Type 검증
+        const hospitalContentType = hospitalResponse.headers.get('content-type');
+        if (!hospitalContentType?.includes('application/json')) {
+          const responseText = await hospitalResponse.text();
+          console.error('🚨 [병원 API] JSON이 아닌 응답:', {
+            contentType: hospitalContentType,
+            url: API_ENDPOINTS.HOSPITAL(cleanHospital),
+            responsePreview: responseText.substring(0, 200)
+          });
+          throw new Error(`병원 API가 JSON이 아닌 응답을 반환했습니다: ${hospitalContentType}`);
+        }
       }
 
-      // Content-Type 검증
-      const patientContentType = patientResponse.headers.get('content-type');
-      const hospitalContentType = hospitalResponse.headers.get('content-type');
-
-      if (!patientContentType?.includes('application/json')) {
-        const responseText = await patientResponse.text();
-        console.error('🚨 [환자 API] JSON이 아닌 응답:', {
-          contentType: patientContentType,
-          url: API_ENDPOINTS.PATIENT(uuid),
-          responsePreview: responseText.substring(0, 200)
-        });
-        throw new Error(`환자 API가 JSON이 아닌 응답을 반환했습니다: ${patientContentType}`);
+      // JSON 파싱 시도 (정상 응답인 경우에만)
+      if (patientData === null && patientResponse.ok) {
+        // patientData가 null이 아니면 이미 파싱된 상태이므로 건너뛰기
+        try {
+          rawPatientData = await patientResponse.json();
+          console.log('[환자 API] JSON 파싱 성공:', { 
+            uuid: cleanUuid, 
+            name: rawPatientData.name,
+            phone_number: rawPatientData.phone_number,
+            phone: rawPatientData.phone,
+            birth_date: rawPatientData.birth_date,
+            birthday: rawPatientData.birthday
+          });
+          
+          // API 응답을 프론트엔드 형식으로 변환
+          // phone_number -> phone, birth_date -> birthday 변환 및 null 처리
+          const convertedPhone = rawPatientData.phone_number || rawPatientData.phone || '';
+          const convertedBirthday = rawPatientData.birth_date || rawPatientData.birthday || '';
+          
+          patientData = {
+            uuid: rawPatientData.uuid || cleanUuid,
+            name: rawPatientData.name || '',
+            age: rawPatientData.age || 0,
+            phone: convertedPhone,
+            birthday: convertedBirthday,
+            gender: rawPatientData.gender === 'M' ? 'male' : rawPatientData.gender === 'F' ? 'female' : 'male',
+            hospital_id: rawPatientData.hospital_id || cleanHospital,
+            last_checkup_count: rawPatientData.last_checkup_count || 0,
+            created_at: rawPatientData.created_at || new Date().toISOString()
+          };
+          
+          console.log('[환자 API] 데이터 변환 완료:', {
+            uuid: patientData.uuid,
+            name: patientData.name,
+            phone: patientData.phone || '(없음)',
+            birthday: patientData.birthday || '(없음)',
+            gender: patientData.gender,
+            '원본 phone_number': rawPatientData.phone_number,
+            '변환된 phone': patientData.phone
+          });
+        } catch (error) {
+          const responseText = await patientResponse.text();
+          console.error('🚨 [환자 API] JSON 파싱 실패:', {
+            error: error instanceof Error ? error.message : error,
+            url: API_ENDPOINTS.PATIENT(cleanUuid),
+            responsePreview: responseText.substring(0, 200)
+          });
+          throw new Error(`환자 정보 JSON 파싱 실패: ${error instanceof Error ? error.message : error}`);
+        }
       }
 
-      if (!hospitalContentType?.includes('application/json')) {
-        const responseText = await hospitalResponse.text();
-        console.error('🚨 [병원 API] JSON이 아닌 응답:', {
-          contentType: hospitalContentType,
-          url: API_ENDPOINTS.HOSPITAL(hospital),
-          responsePreview: responseText.substring(0, 200)
-        });
-        throw new Error(`병원 API가 JSON이 아닌 응답을 반환했습니다: ${hospitalContentType}`);
+      if (hospitalData === null && hospitalResponse.ok) {
+        // hospitalData가 null이 아니면 이미 파싱된 상태이므로 건너뛰기
+        try {
+          hospitalData = await hospitalResponse.json();
+          console.log('[병원 API] JSON 파싱 성공:', { hospitalId: cleanHospital, name: hospitalData?.name });
+        } catch (error) {
+          const responseText = await hospitalResponse.text();
+          console.error('🚨 [병원 API] JSON 파싱 실패:', {
+            error: error instanceof Error ? error.message : error,
+            url: API_ENDPOINTS.HOSPITAL(cleanHospital),
+            responsePreview: responseText.substring(0, 200)
+          });
+          throw new Error(`병원 정보 JSON 파싱 실패: ${error instanceof Error ? error.message : error}`);
+        }
       }
 
-      // JSON 파싱 시도
-      let patientData: PatientData;
-      let hospitalData: HospitalData;
-
-      try {
-        const rawPatientData = await patientResponse.json();
-        console.log('[환자 API] JSON 파싱 성공:', { 
-          uuid, 
-          name: rawPatientData.name,
-          phone_number: rawPatientData.phone_number,
-          phone: rawPatientData.phone,
-          birth_date: rawPatientData.birth_date,
-          birthday: rawPatientData.birthday
-        });
-        
-        // API 응답을 프론트엔드 형식으로 변환
-        // phone_number -> phone, birth_date -> birthday 변환 및 null 처리
-        const convertedPhone = rawPatientData.phone_number || rawPatientData.phone || '';
-        const convertedBirthday = rawPatientData.birth_date || rawPatientData.birthday || '';
-        
-        patientData = {
-          uuid: rawPatientData.uuid || uuid,
-          name: rawPatientData.name || '',
-          age: rawPatientData.age || 0,
-          phone: convertedPhone,
-          birthday: convertedBirthday,
-          gender: rawPatientData.gender === 'M' ? 'male' : rawPatientData.gender === 'F' ? 'female' : 'male',
-          hospital_id: rawPatientData.hospital_id || hospital,
-          last_checkup_count: rawPatientData.last_checkup_count || 0,
-          created_at: rawPatientData.created_at || new Date().toISOString()
+      // patientData가 null인 경우 (404 처리) - 새 사용자 플로우
+      if (!patientData && hospitalData) {
+        // 병원 정보만으로 상태 설정
+        const layoutConfig: ExtendedLayoutConfig = {
+          layoutType: hospitalData.layout_type as any,
+          showAIButton: false,
+          showFloatingButton: true,
+          title: `반갑습니다,\n${hospitalData.name}입니다`,
+          subtitle: `${hospitalData.name}에서\n더 의미있는 내원이 되시길 바라며\n준비한 건강관리 서비스를 제공해드립니다.`,
+          headerMainTitle: '',
+          headerImage: "/welno/doctor-image.png",
+          headerImageAlt: "의사가 정면으로 청진기를 들고 있는 전문적인 의료 배경 이미지",
+          headerSlogan: "행복한 건강생활의 평생 동반자",
+          headerLogoTitle: hospitalData.name,
+          headerLogoSubtitle: "",
+          hospitalName: hospitalData.name,
+          brandColor: hospitalData.brand_color,
+          logoPosition: hospitalData.logo_position,
         };
-        
-        console.log('[환자 API] 데이터 변환 완료:', {
-          uuid: patientData.uuid,
-          name: patientData.name,
-          phone: patientData.phone || '(없음)',
-          birthday: patientData.birthday || '(없음)',
-          gender: patientData.gender,
-          '원본 phone_number': rawPatientData.phone_number,
-          '변환된 phone': patientData.phone
+
+        // 캐시 저장
+        WelnoCacheManager.setCache(cleanUuid, {
+          patient: null,
+          hospital: hospitalData,
+          layoutConfig,
         });
-      } catch (error) {
-        const responseText = await patientResponse.text();
-        console.error('🚨 [환자 API] JSON 파싱 실패:', {
-          error: error instanceof Error ? error.message : error,
-          url: API_ENDPOINTS.PATIENT(uuid),
-          responsePreview: responseText.substring(0, 200)
-        });
-        throw new Error(`환자 정보 JSON 파싱 실패: ${error instanceof Error ? error.message : error}`);
+
+        setState(prev => ({
+          ...prev,
+          patient: null,
+          hospital: hospitalData,
+          layoutConfig,
+          isLoading: false,
+          error: null,
+          lastUpdated: Date.now(),
+          isCacheExpired: false,
+          cacheExpiresAt: WelnoCacheManager.getCacheExpirationTime(cleanUuid),
+        }));
+
+        // 환영 메시지 표시
+        if (!force && !state.patient) {
+          showWelcomeMessageForNewUser(hospitalData);
+        }
+
+        loadingRef.current = null;
+        return; // 여기서 종료 (기존 로직 건너뛰기)
       }
 
-      try {
-        hospitalData = await hospitalResponse.json();
-        console.log('[병원 API] JSON 파싱 성공:', { hospitalId: hospital, name: hospitalData.name });
-      } catch (error) {
-        const responseText = await hospitalResponse.text();
-        console.error('🚨 [병원 API] JSON 파싱 실패:', {
-          error: error instanceof Error ? error.message : error,
-          url: API_ENDPOINTS.HOSPITAL(hospital),
-          responsePreview: responseText.substring(0, 200)
-        });
-        throw new Error(`병원 정보 JSON 파싱 실패: ${error instanceof Error ? error.message : error}`);
+      // patientData와 hospitalData가 모두 있는 경우에만 기존 로직 진행
+      if (!patientData || !hospitalData) {
+        throw new Error('환자 데이터 또는 병원 데이터가 없습니다.');
       }
 
       // patient 데이터에 hospital_id 추가
@@ -868,6 +996,12 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
         cacheExpiresAt: expiresAt,
       }));
 
+      // 웰컴 메시지 표시 (첫 로드 시에만, recoverSession에서 호출된 경우가 아닐 때)
+      // recoverSession은 이미 loadPatientData를 호출하므로 여기서는 중복 호출 방지
+      if (!force && !state.patient && rawPatientData && patientData) {
+        showWelcomeMessage(patientData, rawPatientData);
+      }
+
       // 성공 알림 (명시적으로 업데이트를 요청한 경우에만)
       if (force && state.patient) { // 기존 환자 데이터가 있을 때만 업데이트 토스트 표시
         addNotification({
@@ -953,7 +1087,7 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
       // 로딩 완료 (에러 발생 시에도 리셋)
       loadingRef.current = null;
     }
-  }, [addNotification]);
+  }, [addNotification, showWelcomeMessageForNewUser, state.patient]);
 
   // 데이터 새로고침
   const refreshData = useCallback(async () => {
@@ -1042,31 +1176,77 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
       
       if (uuid && hospital) {
         console.log('[WelnoContext] localStorage에서 세션 복구:', { uuid, hospital });
-        addNotification({
-          type: 'info',
-          title: '데이터 로딩 중',
-          message: '저장된 건강정보를 불러오고 있습니다...',
-          autoClose: true,
-          duration: 2000,
-        });
+        // loadPatientData 내부에서 웰컴 메시지 표시됨
+        await loadPatientData(uuid, hospital);
       }
     } else {
       console.log('[WelnoContext] URL 파라미터에서 세션 복구:', { uuid, hospital });
-      addNotification({
-        type: 'info',
-        title: '세션 복구 중',
-        message: '이전 세션을 복구하고 있습니다...',
-        autoClose: true,
-        duration: 2000,
-      });
+      // loadPatientData 내부에서 웰컴 메시지 표시됨
+      await loadPatientData(uuid, hospital);
     }
 
-    if (uuid && hospital) {
-      await loadPatientData(uuid, hospital);
-    } else {
+    if (!uuid || !hospital) {
       console.log('[WelnoContext] 복구할 세션 없음');
+      
+      // URL 파라미터에서 hospital만 확인
+      const urlParams = new URLSearchParams(window.location.search);
+      const hospitalFromUrl = urlParams.get('hospital') || urlParams.get('hospitalId');
+      
+      if (hospitalFromUrl) {
+        // 병원 정보만 로드하여 환영 메시지 표시
+        try {
+          const hospitalResponse = await fetch(API_ENDPOINTS.HOSPITAL(hospitalFromUrl));
+          if (hospitalResponse.ok) {
+            const hospitalData = await hospitalResponse.json();
+            showWelcomeMessageForNewUser(hospitalData);
+          } else {
+            showWelcomeMessageForNewUser(null);
+          }
+        } catch (error) {
+          showWelcomeMessageForNewUser(null);
+        }
+      } else {
+        // hospital도 없으면 기본 환영 메시지
+        showWelcomeMessageForNewUser(null);
+      }
     }
-  }, [loadPatientData, addNotification]);
+  }, [loadPatientData, addNotification, showWelcomeMessageForNewUser]);
+
+  // 웰컴 메시지 표시 함수
+  const showWelcomeMessage = useCallback((patientData: PatientData, rawApiData?: any) => {
+    if (!patientData || !patientData.name) return;
+
+    const patientName = patientData.name.trim();
+    let welcomeTitle = `안녕하세요 ${patientName}님`;
+    let welcomeMessage = '건강정보를 불러오고 있습니다...';
+
+    // 접근 시간 계산 (API 응답에서 last_access_at 또는 last_auth_at 사용)
+    if (rawApiData) {
+      const lastAccessAt = rawApiData.last_access_at || rawApiData.last_auth_at;
+      if (lastAccessAt) {
+        try {
+          const lastAccess = new Date(lastAccessAt);
+          const now = new Date();
+          const diffMs = now.getTime() - lastAccess.getTime();
+          const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+          if (diffDays > 0) {
+            welcomeMessage = `${diffDays}일만에 돌아오셨네요!`;
+          }
+        } catch (e) {
+          // 날짜 파싱 실패 시 무시
+        }
+      }
+    }
+
+    addNotification({
+      type: 'info',
+      title: welcomeTitle,
+      message: welcomeMessage,
+      autoClose: true,
+      duration: 3000,
+    });
+  }, [addNotification]);
 
   // Actions 객체 메모화
   const actions: WelnoDataActions = useMemo(() => ({

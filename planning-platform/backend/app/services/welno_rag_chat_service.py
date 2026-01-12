@@ -25,6 +25,12 @@ class WelnoRagChatService:
     def __init__(self):
         self.chat_manager = chat_session_manager
         self.welno_data_service = WelnoDataService()
+        
+        # PNT 서비스 초기화 (WelnoDataService의 DB 설정 재사용)
+        from ..services.pnt_data_service import PNTDataService
+        self.pnt_data_service = PNTDataService(self.welno_data_service.db_config)
+        logger.info("✅ [RAG 채팅] PNT 서비스 초기화 완료")
+        
         # Redis 클라이언트 직접 초기화
         try:
             redis_url = settings.REDIS_URL if hasattr(settings, 'REDIS_URL') else "redis://10.0.1.10:6379/0"
@@ -230,16 +236,37 @@ class WelnoRagChatService:
                                 pass
                                 
                             stats = self._extract_health_stats(health_data)
+                            trends = self._analyze_health_trends(health_data)
                             chronic = ", ".join(stats.get("chronic_diseases", []))
+                            
                             briefing_context = f"\n[환자 최근 건강 상태 ({latest.get('year', '최근')})]\n- 이름: {patient_name}\n"
                             if stats.get("bmi"): briefing_context += f"- BMI: {stats['bmi']}\n"
                             if stats.get("bp"): briefing_context += f"- 혈압: {stats['bp']}\n"
                             if chronic: briefing_context += f"- 주의 필요 질환: {chronic}\n"
                             
+                            # 추이 분석 추가
+                            if trends.get("bmi_trend") and len(trends["bmi_trend"]) >= 2:
+                                bmi_values = [t["value"] for t in trends["bmi_trend"]]
+                                if bmi_values[0] > bmi_values[-1]:
+                                    briefing_context += f"- BMI 추이: {bmi_values[-1]:.1f} → {bmi_values[0]:.1f} (증가 추세)\n"
+                                elif bmi_values[0] < bmi_values[-1]:
+                                    briefing_context += f"- BMI 추이: {bmi_values[-1]:.1f} → {bmi_values[0]:.1f} (감소 추세)\n"
+                            
+                            if trends.get("blood_sugar_trend") and len(trends["blood_sugar_trend"]) >= 2:
+                                sugar_values = [t["value"] for t in trends["blood_sugar_trend"]]
+                                if sugar_values[0] > sugar_values[-1]:
+                                    briefing_context += f"- 공복혈당 추이: {sugar_values[-1]:.0f} → {sugar_values[0]:.0f}mg/dL (증가 추세)\n"
+                                elif sugar_values[0] < sugar_values[-1]:
+                                    briefing_context += f"- 공복혈당 추이: {sugar_values[-1]:.0f} → {sugar_values[0]:.0f}mg/dL (감소 추세)\n"
+                            
+                            if trends.get("risk_assessment"):
+                                risks = ", ".join(trends["risk_assessment"])
+                                briefing_context += f"- 위험도 평가: {risks}\n"
+                            
                             if is_stale_data:
                                 briefing_context += f"\n**주의**: 이 데이터는 {stale_year}년 데이터로 2년 이상 경과되었습니다. 이를 언급하고 현재 상태를 물어보세요."
                             else:
-                                briefing_context += "이 정보를 바탕으로 상담을 시작하세요."
+                                briefing_context += "\n이 정보를 바탕으로 다각도로 분석하여 상담을 시작하세요. 추이, 패턴, 위험도를 종합적으로 언급하세요."
                                 chat_stage = "normal"
                 except Exception as e:
                     logger.warning(f"⚠️ [브리핑] 데이터 로드 실패: {e}")
@@ -257,15 +284,25 @@ class WelnoRagChatService:
                 nodes = await query_engine.aretrieve(search_query)
                 context_str = "\n".join([n.node.get_content() for n in nodes])
                 
-                # 소스 추출 강화 (메타데이터 포함)
+                # 소스 추출 강화 (메타데이터 포함, 중복 제거)
                 sources = []
+                seen_sources = set()  # 중복 제거용 (file_name + page)
                 for n in nodes:
                     meta = n.node.metadata or {}
+                    file_name = meta.get("file_name") or meta.get("title") or "참고 문헌"
+                    page = meta.get("page_label") or meta.get("page") or ""
+                    
+                    # 중복 체크 (file_name + page 조합)
+                    source_key = f"{file_name}|{page}"
+                    if source_key in seen_sources:
+                        continue  # 이미 추가된 소스는 건너뛰기
+                    seen_sources.add(source_key)
+                    
                     sources.append({
                         "text": clean_html_content(n.node.get_content())[:500],
                         "score": float(n.score) if hasattr(n, 'score') else None,
-                        "title": meta.get("file_name") or meta.get("title") or "참고 문헌",
-                        "page": meta.get("page_label") or meta.get("page")
+                        "title": file_name,
+                        "page": page
                     })
                 
                 # 프롬프트 구성
@@ -289,7 +326,7 @@ class WelnoRagChatService:
                         chat_stage = "normal"
                 elif any(kw in message for kw in ["영양제", "건기식", "비타민", "추천", "상담"]):
                     # 일반 대화 중 건기식 질문 시
-                    stage_instruction = "\n\n**상담 지침**: 사용자가 건강기능식품이나 영양제에 대해 물었습니다. 답변 마지막에 개인 맞춤형 영양 설계를 위한 '정밀 문진(PNT)'을 추천해 보세요."
+                    stage_instruction = "\n\n**상담 지침**: 사용자가 건강기능식품이나 영양제에 대해 물었습니다. 답변 마지막에 '더 정밀한 맞춤 영양 치료(PNT)를 위해 간단한 문진을 진행해 보시겠어요?'라고 제안하세요."
                     chat_stage = "pnt_ready"
                 
                 enhanced_prompt += stage_instruction
@@ -327,6 +364,9 @@ class WelnoRagChatService:
             has_nutrition_kw = any(kw in all_keywords for kw in ["영양", "건기식", "비타민"])
             trigger_pnt = (chat_stage == "pnt_ready") or (message_count >= 3 and has_nutrition_kw)
             
+            # PNT 문진 시작 제안 플래그 추가
+            suggest_pnt = (chat_stage == "pnt_ready")
+            
             # 메타데이터 업데이트
             metadata.update({
                 "detected_keywords": all_keywords,
@@ -346,7 +386,8 @@ class WelnoRagChatService:
                 "suggestions": suggestions,
                 "session_id": session_id,
                 "message_count": message_count,
-                "trigger_survey": trigger_pnt
+                "trigger_survey": trigger_pnt,
+                "suggest_pnt": suggest_pnt  # PNT 문진 시작 제안
             }, ensure_ascii=False) + "\n"
 
         except Exception as e:
@@ -426,6 +467,92 @@ class WelnoRagChatService:
             "신장질환": "신장질환",
             "비만": "비만/과체중"
         }
+    
+    def _analyze_health_trends(self, health_data_list: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """건강검진 데이터 추이 분석 (최근 3년)"""
+        trends = {
+            "bmi_trend": [],
+            "bp_trend": [],
+            "blood_sugar_trend": [],
+            "cholesterol_trend": [],
+            "risk_assessment": []
+        }
+        
+        if not health_data_list or len(health_data_list) < 2:
+            return trends
+        
+        # 최근 3개 데이터만 사용 (최대 3년)
+        recent_data = health_data_list[:3]
+        
+        for data in recent_data:
+            year = data.get("year", "").replace("년", "")
+            raw = data.get("raw_data", {})
+            
+            bmi_val = None
+            bp_val = None
+            blood_sugar = None
+            cholesterol = None
+            
+            for inspection in raw.get("Inspections", []):
+                for illness in inspection.get("Illnesses", []):
+                    for item in illness.get("Items", []):
+                        name = item.get("Name", "")
+                        value = str(item.get("Value", ""))
+                        
+                        if "체질량지수" in name or "BMI" in name.upper():
+                            try:
+                                bmi_val = float(value)
+                            except: pass
+                        
+                        if "혈압" in name and "/" in value:
+                            bp_val = value
+                        
+                        if "공복혈당" in name or "혈당" in name:
+                            try:
+                                blood_sugar = float(value.replace("mg/dL", "").strip())
+                            except: pass
+                        
+                        if "총콜레스테롤" in name or "콜레스테롤" in name:
+                            try:
+                                cholesterol = float(value.replace("mg/dL", "").strip())
+                            except: pass
+            
+            if bmi_val:
+                trends["bmi_trend"].append({"year": year, "value": bmi_val})
+            if bp_val:
+                trends["bp_trend"].append({"year": year, "value": bp_val})
+            if blood_sugar:
+                trends["blood_sugar_trend"].append({"year": year, "value": blood_sugar})
+            if cholesterol:
+                trends["cholesterol_trend"].append({"year": year, "value": cholesterol})
+        
+        # 위험도 평가
+        if trends["bmi_trend"]:
+            latest_bmi = trends["bmi_trend"][0]["value"]
+            if latest_bmi >= 30:
+                trends["risk_assessment"].append("고도 비만")
+            elif latest_bmi >= 25:
+                trends["risk_assessment"].append("비만/과체중")
+        
+        if trends["bp_trend"]:
+            latest_bp = trends["bp_trend"][0]["value"]
+            try:
+                parts = latest_bp.split("/")
+                sys = int(parts[0].strip())
+                if sys >= 140:
+                    trends["risk_assessment"].append("고혈압")
+                elif sys >= 130:
+                    trends["risk_assessment"].append("경계 고혈압")
+            except: pass
+        
+        if trends["blood_sugar_trend"]:
+            latest_sugar = trends["blood_sugar_trend"][0]["value"]
+            if latest_sugar >= 126:
+                trends["risk_assessment"].append("당뇨 의심")
+            elif latest_sugar >= 100:
+                trends["risk_assessment"].append("공복혈당장애")
+        
+        return trends
         stats["chronic_diseases"] = list(set([mapping.get(d, d) for d in stats["chronic_diseases"]]))
         return stats
 
@@ -534,3 +661,229 @@ class WelnoRagChatService:
         if message_count >= 3 and keywords:
             return {"should_trigger": True, "reason": "조건 만족"}
         return {"should_trigger": False, "reason": "조건 미충족"}
+    
+    async def start_pnt_survey(
+        self,
+        uuid: str,
+        hospital_id: str,
+        session_id: str
+    ) -> Dict[str, Any]:
+        """
+        PNT 문진 시작 - 첫 질문 반환
+        """
+        try:
+            # 1. PNT 그룹 조회 (영양상태평가만)
+            groups = await self.pnt_data_service.get_all_groups()
+            nutrition_groups = [g for g in groups if 'nutrition' in g.get('group_id', '')]
+            
+            if not nutrition_groups:
+                return {
+                    "success": False,
+                    "error": "PNT 질문을 찾을 수 없습니다.",
+                    "question": None
+                }
+            
+            # 2. 첫 번째 그룹의 첫 번째 질문 조회
+            first_group = nutrition_groups[0]
+            questions = await self.pnt_data_service.get_questions_by_group(first_group['group_id'])
+            
+            if not questions:
+                return {
+                    "success": False,
+                    "error": "질문이 없습니다.",
+                    "question": None
+                }
+            
+            first_question = questions[0]
+            
+            # 3. 진행 상태 저장 (Redis)
+            pnt_state_key = f"welno:pnt_survey:state:{uuid}:{hospital_id}:{session_id}"
+            pnt_state = {
+                "current_group_index": 0,
+                "current_question_index": 0,
+                "group_ids": [g['group_id'] for g in nutrition_groups],
+                "answered_questions": [],
+                "started_at": datetime.now().isoformat()
+            }
+            if self.redis_client:
+                self.redis_client.setex(pnt_state_key, 3600, json.dumps(pnt_state, ensure_ascii=False))
+            
+            return {
+                "success": True,
+                "question": {
+                    "question_id": first_question['question_id'],
+                    "question_text": first_question['question_text'],
+                    "question_type": first_question['question_type'],
+                    "options": first_question.get('options', []),
+                    "group_name": first_group['group_name'],
+                    "question_index": 1,
+                    "total_questions": sum(len(await self.pnt_data_service.get_questions_by_group(gid)) for gid in [g['group_id'] for g in nutrition_groups])
+                }
+            }
+        except Exception as e:
+            logger.error(f"❌ [PNT 문진] 시작 실패: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e),
+                "question": None
+            }
+    
+    async def submit_pnt_answer(
+        self,
+        uuid: str,
+        hospital_id: str,
+        session_id: str,
+        question_id: str,
+        answer_value: str,
+        answer_score: int
+    ) -> Dict[str, Any]:
+        """
+        PNT 답변 제출 - 다음 질문 또는 추천 반환
+        """
+        try:
+            # 1. 답변 저장
+            await self.pnt_data_service.save_user_response(
+                patient_uuid=uuid,
+                hospital_id=hospital_id,
+                session_id=session_id,
+                question_id=question_id,
+                answer_value=answer_value,
+                answer_score=answer_score
+            )
+            
+            # 2. 진행 상태 로드
+            pnt_state_key = f"welno:pnt_survey:state:{uuid}:{hospital_id}:{session_id}"
+            if not self.redis_client:
+                return {"success": False, "error": "Redis 연결 실패"}
+            
+            state_json = self.redis_client.get(pnt_state_key)
+            if not state_json:
+                return {"success": False, "error": "진행 상태를 찾을 수 없습니다."}
+            
+            state = json.loads(state_json)
+            state["answered_questions"].append(question_id)
+            
+            # 3. 다음 질문 조회
+            group_ids = state["group_ids"]
+            current_group_idx = state["current_group_index"]
+            current_q_idx = state["current_question_index"]
+            
+            # 그룹 정보 조회 (group_name을 위해)
+            all_groups = await self.pnt_data_service.get_all_groups()
+            group_map = {g['group_id']: g for g in all_groups}
+            
+            # 현재 그룹의 다음 질문
+            current_group_id = group_ids[current_group_idx]
+            questions = await self.pnt_data_service.get_questions_by_group(current_group_id)
+            current_group = group_map.get(current_group_id, {})
+            
+            next_q_idx = current_q_idx + 1
+            
+            if next_q_idx < len(questions):
+                # 같은 그룹 내 다음 질문
+                next_question = questions[next_q_idx]
+                state["current_question_index"] = next_q_idx
+                
+                if self.redis_client:
+                    self.redis_client.setex(pnt_state_key, 3600, json.dumps(state, ensure_ascii=False))
+                
+                # 총 질문 수 계산
+                total_q = sum(len(await self.pnt_data_service.get_questions_by_group(gid)) for gid in group_ids)
+                
+                return {
+                    "success": True,
+                    "question": {
+                        "question_id": next_question['question_id'],
+                        "question_text": next_question['question_text'],
+                        "question_type": next_question['question_type'],
+                        "options": next_question.get('options', []),
+                        "group_name": current_group.get('group_name', ''),
+                        "question_index": len(state["answered_questions"]) + 1,
+                        "total_questions": total_q
+                    },
+                    "is_complete": False
+                }
+            else:
+                # 다음 그룹으로 이동
+                next_group_idx = current_group_idx + 1
+                if next_group_idx < len(group_ids):
+                    next_group_id = group_ids[next_group_idx]
+                    next_questions = await self.pnt_data_service.get_questions_by_group(next_group_id)
+                    next_group = group_map.get(next_group_id, {})
+                    
+                    if next_questions:
+                        next_question = next_questions[0]
+                        state["current_group_index"] = next_group_idx
+                        state["current_question_index"] = 0
+                        
+                        if self.redis_client:
+                            self.redis_client.setex(pnt_state_key, 3600, json.dumps(state, ensure_ascii=False))
+                        
+                        # 총 질문 수 계산
+                        total_q = sum(len(await self.pnt_data_service.get_questions_by_group(gid)) for gid in group_ids)
+                        
+                        return {
+                            "success": True,
+                            "question": {
+                                "question_id": next_question['question_id'],
+                                "question_text": next_question['question_text'],
+                                "question_type": next_question['question_type'],
+                                "options": next_question.get('options', []),
+                                "group_name": next_group.get('group_name', ''),
+                                "question_index": len(state["answered_questions"]) + 1,
+                                "total_questions": total_q
+                            },
+                            "is_complete": False
+                        }
+            
+            # 4. 모든 질문 완료 - 추천 생성
+            recommendation_id = await self.pnt_data_service.generate_final_recommendations(
+                patient_uuid=uuid,
+                hospital_id=hospital_id,
+                session_id=session_id
+            )
+            
+            recommendation = await self.pnt_data_service.get_final_recommendation(
+                patient_uuid=uuid,
+                session_id=session_id
+            )
+            
+            # Redis 상태 삭제
+            if self.redis_client:
+                self.redis_client.delete(pnt_state_key)
+            
+            # 추천 데이터를 딕셔너리로 변환 (JSON 문자열인 경우)
+            recommendations_dict = {}
+            if recommendation:
+                import json as json_lib
+                if isinstance(recommendation.get('recommended_tests'), str):
+                    recommendations_dict['recommended_tests'] = json_lib.loads(recommendation['recommended_tests'])
+                else:
+                    recommendations_dict['recommended_tests'] = recommendation.get('recommended_tests', [])
+                
+                if isinstance(recommendation.get('recommended_supplements'), str):
+                    recommendations_dict['recommended_supplements'] = json_lib.loads(recommendation['recommended_supplements'])
+                else:
+                    recommendations_dict['recommended_supplements'] = recommendation.get('recommended_supplements', [])
+                
+                if isinstance(recommendation.get('recommended_foods'), str):
+                    recommendations_dict['recommended_foods'] = json_lib.loads(recommendation['recommended_foods'])
+                else:
+                    recommendations_dict['recommended_foods'] = recommendation.get('recommended_foods', [])
+            
+            return {
+                "success": True,
+                "question": None,
+                "is_complete": True,
+                "recommendations": recommendations_dict
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ [PNT 문진] 답변 제출 실패: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return {
+                "success": False,
+                "error": str(e),
+                "question": None
+            }

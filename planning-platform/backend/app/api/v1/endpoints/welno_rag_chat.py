@@ -105,3 +105,55 @@ async def summarize_chat(request: SummarizeRequest):
     except Exception as e:
         logger.error(f"❌ [RAG 채팅] 요약 실패: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class PNTStartRequest(BaseModel):
+    uuid: str
+    hospital_id: str
+    session_id: str
+
+
+@router.post("/pnt/start")
+async def start_pnt_survey(request: PNTStartRequest):
+    """
+    PNT 문진 시작 - 첫 질문 반환
+    """
+    try:
+        result = await rag_chat_service.start_pnt_survey(
+            uuid=request.uuid,
+            hospital_id=request.hospital_id,
+            session_id=request.session_id
+        )
+        return result
+    except Exception as e:
+        logger.error(f"❌ [PNT 문진] 시작 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class PNTAnswerRequest(BaseModel):
+    uuid: str
+    hospital_id: str
+    session_id: str
+    question_id: str
+    answer_value: str
+    answer_score: int
+
+
+@router.post("/pnt/answer")
+async def submit_pnt_answer(request: PNTAnswerRequest):
+    """
+    PNT 답변 제출 - 다음 질문 또는 추천 반환
+    """
+    try:
+        result = await rag_chat_service.submit_pnt_answer(
+            uuid=request.uuid,
+            hospital_id=request.hospital_id,
+            session_id=request.session_id,
+            question_id=request.question_id,
+            answer_value=request.answer_value,
+            answer_score=request.answer_score
+        )
+        return result
+    except Exception as e:
+        logger.error(f"❌ [PNT 문진] 답변 제출 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -13,18 +13,37 @@ const WelnoRagChatButton: React.FC<WelnoRagChatButtonProps> = ({ onToggle }) => 
 
   useEffect(() => {
     const checkHideStatus = () => {
+      const path = window.location.pathname;
+      
+      // 메인 페이지에서는 항상 버튼 표시
+      const isMainPage = path === '/' || path === '' || path === '/welno';
+      if (isMainPage) {
+        console.log('[WelnoRagChatButton] 메인 페이지 감지 - 버튼 표시:', { path, isMainPage });
+        setShouldHide(false);
+        return;
+      }
+      
       const manualCollect = localStorage.getItem('tilko_manual_collect') === 'true';
       const collectingStatus = localStorage.getItem('tilko_collecting_status') === 'true';
       const passwordModalOpen = localStorage.getItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN) === 'true';
       
       // 특정 페이지에서 숨김
-      const path = window.location.pathname;
       const isSpecialPage = path.includes('/questionnaire') || 
                            path.includes('/checkup-design') || 
                            path.includes('/survey') ||
                            path.includes('/habits');
       
-      setShouldHide(manualCollect || collectingStatus || passwordModalOpen || isSpecialPage);
+      const shouldHide = manualCollect || collectingStatus || passwordModalOpen || isSpecialPage;
+      console.log('[WelnoRagChatButton] 상태 확인:', { 
+        path, 
+        isMainPage, 
+        manualCollect, 
+        collectingStatus, 
+        passwordModalOpen, 
+        isSpecialPage, 
+        shouldHide 
+      });
+      setShouldHide(shouldHide);
     };
 
     checkHideStatus();

@@ -28,7 +28,7 @@ class WelnoDataService:
             # 환자 정보 조회
             patient_query = """
                 SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
-                       has_health_data, has_prescription_data, last_data_update, last_auth_at
+                       has_health_data, has_prescription_data, last_data_update, last_auth_at, last_access_at
                 FROM welno.welno_patients 
                 WHERE uuid = $1 AND hospital_id = $2
             """
@@ -77,7 +77,7 @@ class WelnoDataService:
             # 환자 정보 조회
             patient_query = """
                 SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
-                       has_health_data, has_prescription_data, last_data_update, last_auth_at
+                       has_health_data, has_prescription_data, last_data_update, last_auth_at, last_access_at
                 FROM welno.welno_patients 
                 WHERE uuid = $1 AND hospital_id = $2
             """
@@ -126,7 +126,7 @@ class WelnoDataService:
             # 환자 정보 조회
             patient_query = """
                 SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
-                       has_health_data, has_prescription_data, last_data_update, last_auth_at,
+                       has_health_data, has_prescription_data, last_data_update, last_auth_at, last_access_at,
                        created_at, updated_at
                 FROM welno.welno_patients 
                 WHERE uuid = $1
@@ -148,6 +148,8 @@ class WelnoDataService:
                 patient_dict['last_data_update'] = patient_dict['last_data_update'].isoformat()
             if patient_dict.get('last_auth_at'):
                 patient_dict['last_auth_at'] = patient_dict['last_auth_at'].isoformat()
+            if patient_dict.get('last_access_at'):
+                patient_dict['last_access_at'] = patient_dict['last_access_at'].isoformat()
             if patient_dict.get('created_at'):
                 patient_dict['created_at'] = patient_dict['created_at'].isoformat()
             if patient_dict.get('updated_at'):

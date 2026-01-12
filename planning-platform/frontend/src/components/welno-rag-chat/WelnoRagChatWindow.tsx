@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import RagChatMessage from './RagChatMessage';
 import RagChatInput from './RagChatInput';
 import SurveyTriggerPrompt from './SurveyTriggerPrompt';
+import PNTInlineSurvey from './PNTInlineSurvey';
 import apiConfig from '../../config/api';
 
 interface Source {
@@ -11,11 +12,32 @@ interface Source {
   metadata?: any;
 }
 
+interface PNTQuestion {
+  question_id: string;
+  question_text: string;
+  question_type: 'radio' | 'checkbox' | 'scale';
+  options: Array<{
+    option_id?: string;
+    option_value: string;
+    option_label: string;
+    score: number;
+  }>;
+  group_name: string;
+  question_index: number;
+  total_questions: number;
+}
+
 interface Message {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'pnt_question';
   content: string;
   timestamp: string;
   sources?: Source[];
+  pnt_question?: PNTQuestion;
+  pnt_recommendations?: {
+    recommended_tests?: any[];
+    recommended_supplements?: any[];
+    recommended_foods?: any[];
+  };
 }
 
 interface WelnoRagChatWindowProps {
@@ -26,6 +48,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSurveyPrompt, setShowSurveyPrompt] = useState(false);
+  const [showPNTPrompt, setShowPNTPrompt] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [isSuggestionsExpanded, setIsSuggestionsExpanded] = useState(true);
@@ -158,6 +181,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
               finalSources = data.sources || [];
               finalTriggerSurvey = !!data.trigger_survey;
               finalSuggestions = data.suggestions || [];
+              const suggestPNT = !!data.suggest_pnt;
               
               // 최종 메타데이터 업데이트
               setMessages(prev => {
@@ -176,7 +200,11 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
                 setSuggestions(finalSuggestions);
               }
 
-              if (finalTriggerSurvey && !showSurveyPrompt) {
+              // PNT 문진 시작 제안 (우선순위: PNT > 일반 문진)
+              if (suggestPNT && !showPNTPrompt) {
+                setShowPNTPrompt(true);
+                setShowSurveyPrompt(false); // PNT가 있으면 일반 문진 숨김
+              } else if (finalTriggerSurvey && !showSurveyPrompt && !showPNTPrompt) {
                 setShowSurveyPrompt(true);
               }
             }
@@ -205,10 +233,99 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
     }
   };
 
-  const handleStartSurvey = () => {
-    // 문진 페이지로 이동 (세션 ID 포함)
-    const queryString = location.search;
-    navigate(`/questionnaire${queryString}&source=rag_chat&session_id=${sessionId}`);
+  const handleStartSurvey = async () => {
+    // PNT 문진 시작 (채팅창 내에서)
+    try {
+      setIsLoading(true);
+      setShowPNTPrompt(false); // 프롬프트 숨김
+      setShowSurveyPrompt(false); // 일반 문진 프롬프트도 숨김
+      
+      const baseUrl = apiConfig.IS_DEVELOPMENT ? '' : apiConfig.API_BASE_URL;
+      const response = await fetch(`${baseUrl}/welno-api/v1/welno-rag-chat/pnt/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uuid,
+          hospital_id: hospitalId,
+          session_id: sessionId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('PNT 문진 시작 실패');
+      }
+
+      const result = await response.json();
+      if (result.success && result.question) {
+        // PNT 질문 메시지 추가
+        setMessages(prev => [...prev, {
+          role: 'pnt_question',
+          content: '',
+          timestamp: new Date().toISOString(),
+          pnt_question: result.question
+        }]);
+      } else {
+        console.error('PNT 문진 시작 실패:', result.error);
+      }
+    } catch (error) {
+      console.error('PNT 문진 시작 실패:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePNTAnswer = async (questionId: string, answerValue: string, answerScore: number) => {
+    try {
+      const baseUrl = apiConfig.IS_DEVELOPMENT ? '' : apiConfig.API_BASE_URL;
+      const response = await fetch(`${baseUrl}/welno-api/v1/welno-rag-chat/pnt/answer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uuid,
+          hospital_id: hospitalId,
+          session_id: sessionId,
+          question_id: questionId,
+          answer_value: answerValue,
+          answer_score: answerScore
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('PNT 답변 제출 실패');
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // 이전 질문 메시지 제거
+        setMessages(prev => prev.filter(msg => !(msg.role === 'pnt_question' && msg.pnt_question?.question_id === questionId)));
+        
+        if (result.is_complete && result.recommendations) {
+          // 추천 표시
+          const recs = result.recommendations;
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: 'PNT 문진이 완료되었습니다. 추천 항목을 확인해주세요.',
+            timestamp: new Date().toISOString(),
+            pnt_recommendations: {
+              recommended_tests: Array.isArray(recs.recommended_tests) ? recs.recommended_tests : [],
+              recommended_supplements: Array.isArray(recs.recommended_supplements) ? recs.recommended_supplements : [],
+              recommended_foods: Array.isArray(recs.recommended_foods) ? recs.recommended_foods : []
+            }
+          }]);
+        } else if (result.question) {
+          // 다음 질문 표시
+          setMessages(prev => [...prev, {
+            role: 'pnt_question',
+            content: '',
+            timestamp: new Date().toISOString(),
+            pnt_question: result.question
+          }]);
+        }
+      }
+    } catch (error) {
+      console.error('PNT 답변 제출 실패:', error);
+    }
   };
 
   const handleClose = async () => {
@@ -234,11 +351,23 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
         <button onClick={handleClose} className="close-button">✕</button>
       </div>
 
-      {/* 메시지 영역 */}
+      {/* 메시지 영역 (통합 스크롤) */}
       <div className="chat-messages">
-        {messages.map((msg, idx) => (
-          <RagChatMessage key={idx} message={msg} />
-        ))}
+        {messages.map((msg, idx) => {
+          if (msg.role === 'pnt_question' && msg.pnt_question) {
+            return (
+              <PNTInlineSurvey
+                key={idx}
+                question={msg.pnt_question}
+                onAnswer={handlePNTAnswer}
+                uuid={uuid}
+                hospitalId={hospitalId}
+                sessionId={sessionId}
+              />
+            );
+          }
+          return <RagChatMessage key={idx} message={msg} />;
+        })}
         {isLoading && (
           <div className="loading-indicator">
             <span className="dot"></span>
@@ -246,42 +375,63 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
             <span className="dot"></span>
           </div>
         )}
+
+        {/* 문진 제안 프롬프트 (채팅 영역 내부) */}
+        {showSurveyPrompt && (
+          <SurveyTriggerPrompt
+            onStart={handleStartSurvey}
+            onLater={() => setShowSurveyPrompt(false)}
+          />
+        )}
+
+        {/* PNT 문진 시작 제안 프롬프트 (채팅 영역 내부) */}
+        {showPNTPrompt && (
+          <div className="survey-trigger-prompt">
+            <div className="prompt-content">
+              <p>
+                💡 더 정밀한 맞춤 영양 치료를 위해<br/>
+                간단한 문진을 진행해 보시겠어요?
+              </p>
+              <div className="prompt-buttons">
+                <button className="btn-start" onClick={handleStartSurvey}>
+                  시작하기
+                </button>
+                <button className="btn-later" onClick={() => setShowPNTPrompt(false)}>
+                  나중에
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 예상 질문 제안 (아코디언 스타일, 채팅 영역 내부) */}
+        {!isLoading && suggestions.length > 0 && (
+          <div className={`chat-suggestions-accordion ${isSuggestionsExpanded ? 'expanded' : 'collapsed'}`}>
+            <div 
+              className="suggestions-header" 
+              onClick={() => setIsSuggestionsExpanded(!isSuggestionsExpanded)}
+            >
+              <span className="header-title">💡 이런 질문은 어떠세요?</span>
+              <span className="header-icon">{isSuggestionsExpanded ? '▾' : '▴'}</span>
+            </div>
+            {isSuggestionsExpanded && (
+              <div className="suggestions-list">
+                {suggestions.map((sug, idx) => (
+                  <button 
+                    key={idx} 
+                    className="suggestion-item"
+                    onClick={() => handleSendMessage(sug)}
+                  >
+                    {sug}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
-
-      {/* 문진 제안 프롬프트 */}
-      {showSurveyPrompt && (
-        <SurveyTriggerPrompt
-          onStart={handleStartSurvey}
-          onLater={() => setShowSurveyPrompt(false)}
-        />
-      )}
-
-      {/* 예상 질문 제안 (아코디언 스타일) */}
-      {!isLoading && suggestions.length > 0 && (
-        <div className={`chat-suggestions-accordion ${isSuggestionsExpanded ? 'expanded' : 'collapsed'}`}>
-          <div 
-            className="suggestions-header" 
-            onClick={() => setIsSuggestionsExpanded(!isSuggestionsExpanded)}
-          >
-            <span className="header-title">💡 이런 질문은 어떠세요?</span>
-            <span className="header-icon">{isSuggestionsExpanded ? '▾' : '▴'}</span>
-          </div>
-          {isSuggestionsExpanded && (
-            <div className="suggestions-list">
-              {suggestions.map((sug, idx) => (
-                <button 
-                  key={idx} 
-                  className="suggestion-item"
-                  onClick={() => handleSendMessage(sug)}
-                >
-                  {sug}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* 입력 영역 */}
       <RagChatInput
