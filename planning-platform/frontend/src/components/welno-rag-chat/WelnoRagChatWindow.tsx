@@ -28,6 +28,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
   const [showSurveyPrompt, setShowSurveyPrompt] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [isSuggestionsExpanded, setIsSuggestionsExpanded] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -81,6 +82,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
     setSuggestions([]); // 새 질문 시작 시 이전 제안 삭제
+    setIsSuggestionsExpanded(true); // 새 제안 시 다시 펼치기
 
     try {
       // API 호출
@@ -250,21 +252,29 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
         />
       )}
 
-      {/* 예상 질문 제안 (Perplexity 스타일) */}
+      {/* 예상 질문 제안 (아코디언 스타일) */}
       {!isLoading && suggestions.length > 0 && (
-        <div className="chat-suggestions">
-          <div className="suggestions-title">💡 더 궁금하신 내용이 있나요?</div>
-          <div className="suggestions-list">
-            {suggestions.map((sug, idx) => (
-              <button 
-                key={idx} 
-                className="suggestion-item"
-                onClick={() => handleSendMessage(sug)}
-              >
-                {sug}
-              </button>
-            ))}
+        <div className={`chat-suggestions-accordion ${isSuggestionsExpanded ? 'expanded' : 'collapsed'}`}>
+          <div 
+            className="suggestions-header" 
+            onClick={() => setIsSuggestionsExpanded(!isSuggestionsExpanded)}
+          >
+            <span className="header-title">💡 이런 질문은 어떠세요?</span>
+            <span className="header-icon">{isSuggestionsExpanded ? '▾' : '▴'}</span>
           </div>
+          {isSuggestionsExpanded && (
+            <div className="suggestions-list">
+              {suggestions.map((sug, idx) => (
+                <button 
+                  key={idx} 
+                  className="suggestion-item"
+                  onClick={() => handleSendMessage(sug)}
+                >
+                  {sug}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

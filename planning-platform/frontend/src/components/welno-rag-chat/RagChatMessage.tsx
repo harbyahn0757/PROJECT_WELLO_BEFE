@@ -21,7 +21,14 @@ const RagChatMessage: React.FC<RagChatMessageProps> = ({ message }) => {
       </div>
       {!isUser && message.sources && message.sources.length > 0 && (
         <div className="message-sources">
-          <small>참고: {message.sources.length}개 문서</small>
+          <div className="sources-title">📚 참고 문헌</div>
+          <ul className="sources-list">
+            {message.sources.map((source, idx) => (
+              <li key={idx} className="source-item" title={source.text}>
+                {source.title || `문서 ${idx + 1}`} {source.page && `(p.${source.page})`}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
     </div>
