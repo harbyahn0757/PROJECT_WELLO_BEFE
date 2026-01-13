@@ -1136,7 +1136,38 @@ const MainPage: React.FC = () => {
   // IndexedDB 완전 삭제 확인 핸들러 (자동 복구 방지)
   const handleIndexedDBClearConfirm = async () => {
     try {
-      console.log('🗑️ [완전 삭제] 모든 Welno 데이터 삭제 시작...');
+      console.log('🗑️ [완전 삭제] 모든 Welno 데이터 삭제 시작 (서버 + 로컬)...');
+      
+      // 0. 서버 데이터 삭제 (제일 먼저)
+      const uuid = patient?.uuid;
+      const hospitalId = hospital?.hospital_id;
+      
+      if (uuid && hospitalId) {
+        try {
+          console.log('🌐 [서버 삭제] 서버 데이터 삭제 시작...');
+          const API_BASE_URL = apiConfig.apiBaseUrl;
+          const response = await fetch(
+            `${API_BASE_URL}/welno-data/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`,
+            {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          if (response.ok) {
+            const result = await response.json();
+            console.log('✅ [서버 삭제] 서버 데이터 삭제 완료:', result);
+          } else {
+            console.warn('⚠️ [서버 삭제] 서버 데이터 삭제 실패 (무시하고 계속 진행):', response.status);
+          }
+        } catch (serverError) {
+          console.warn('⚠️ [서버 삭제] 서버 통신 오류 (무시하고 계속 진행):', serverError);
+        }
+      } else {
+        console.log('ℹ️ [서버 삭제] uuid 또는 hospital_id 없음, 서버 삭제 건너뜀');
+      }
       
       // 1. localStorage 완전 정리 (모든 welno/tilko 관련 키)
       const localStorageKeys = Object.keys(localStorage);
@@ -1220,9 +1251,26 @@ const MainPage: React.FC = () => {
         }
       }
       
+      // 6. 쿠키 삭제 (모든 welno 관련 쿠키)
+      try {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+          const cookieName = cookie.split('=')[0].trim();
+          if (cookieName.toLowerCase().includes('welno') || 
+              cookieName.toLowerCase().includes('tilko') ||
+              cookieName.toLowerCase().includes('session')) {
+            document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+            console.log(`✅ 쿠키 삭제: ${cookieName}`);
+          }
+        }
+        console.log('[완전 삭제] 쿠키 삭제 완료');
+      } catch (cookieError) {
+        console.warn('[완전 삭제] 쿠키 삭제 실패 (무시 가능):', cookieError);
+      }
+      
       setShowIndexedDBClearModal(false);
-      console.log('\n✅ [완전 삭제] 모든 데이터 삭제 완료!');
-      alert('모든 로컬 데이터가 완전히 삭제되었습니다.\n페이지를 새로고침합니다.');
+      console.log('\n✅ [완전 삭제] 모든 데이터 삭제 완료 (서버 + 로컬)!');
+      alert('서버와 로컬의 모든 데이터가 완전히 삭제되었습니다.\n페이지를 새로고침합니다.');
       
       // 페이지 새로고침
       setTimeout(() => {

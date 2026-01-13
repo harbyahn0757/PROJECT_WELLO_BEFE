@@ -27,15 +27,20 @@ const IndexedDBClearModal: React.FC<IndexedDBClearModalProps> = ({
     >
       <div className="indexed-db-clear-modal">
         <h2 className="indexed-db-clear-modal__title">
-          모든 로컬 데이터 완전 삭제
+          서버 + 로컬 데이터 완전 삭제
         </h2>
         <p className="indexed-db-clear-modal__description">
-          다음 데이터가 모두 삭제됩니다:<br />
-          • IndexedDB (건강검진, 처방전 데이터)<br />
+          <strong>서버 데이터:</strong><br />
+          • 건강검진 데이터<br />
+          • 처방전 데이터<br />
+          • 검진 설계 요청 이력<br /><br />
+          <strong>로컬 데이터:</strong><br />
+          • IndexedDB (건강검진, 처방전 캐시)<br />
           • localStorage (세션, 캐시, 환자 정보)<br />
           • sessionStorage (임시 세션 데이터)<br />
+          • 쿠키 (세션 쿠키)<br />
           • 비밀번호 세션 정보<br /><br />
-          <strong>이 작업은 되돌릴 수 없으며, 자동 복구되지 않습니다.</strong>
+          <strong>⚠️ 이 작업은 되돌릴 수 없으며, 자동 복구되지 않습니다.</strong>
         </p>
         <div className="indexed-db-clear-modal__actions">
           <button
