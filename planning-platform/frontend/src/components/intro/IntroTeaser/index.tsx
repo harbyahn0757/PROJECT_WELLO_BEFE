@@ -15,15 +15,16 @@ interface IntroSlide {
 // public/welno/intro/ 폴더의 이미지를 사용
 // 개발 환경과 프로덕션 환경 모두 지원
 const getImagePath = (filename: string) => {
-  // 개발 환경에서는 webpack-dev-server가 public 폴더를 서빙
-  // 프로덕션에서는 FastAPI가 static 폴더를 서빙
-  // 둘 다 /welno/intro/ 경로로 접근 가능
   const publicUrl = process.env.PUBLIC_URL || '';
-  // PUBLIC_URL이 설정되어 있으면 사용, 없으면 절대 경로 사용
+  
+  // publicUrl(/welno)이 이미 있는 경우 중복 방지
   if (publicUrl) {
-    return `${publicUrl}/welno/intro/${filename}`;
+    // publicUrl이 /welno 이고 파일 경로가 /welno/intro/ 이면 중복 발생
+    // 가장 안전한 방식: publicUrl + /intro/filename
+    return `${publicUrl}/intro/${filename}`;
   }
-  // 개발 환경에서는 절대 경로 사용 (webpack-dev-server가 처리)
+  
+  // fallback
   return `/welno/intro/${filename}`;
 };
 

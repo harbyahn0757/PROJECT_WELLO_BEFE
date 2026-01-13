@@ -318,6 +318,37 @@ export function useAuthFlow() {
         const sessionData = await response.json();
         console.log('[useAuthFlow] 세션 유효 - 상태:', sessionData.status);
         
+        // ❌ 에러 상태인 세션은 복구하지 않고 정리
+        if (sessionData.status === 'error') {
+          const errorMsg = sessionData.message || '';
+          const isRetryableAuthError = errorMsg.includes('인증') || errorMsg.includes('4115') || errorMsg.includes('승인');
+
+          if (isRetryableAuthError) {
+            console.log('ℹ️ [useAuthFlow] 인증 미완료 상태 세션 - 상태 유지 및 복구');
+            setState(prev => ({ 
+              ...prev, 
+              sessionId, 
+              currentStep: 'auth_pending'
+            }));
+            StorageManager.setItem('tilko_auth_waiting', 'true');
+            window.dispatchEvent(new CustomEvent('tilko-status-change'));
+            return true;
+          }
+
+          console.log('⚠️ [useAuthFlow] 치명적 에러 상태 세션 감지 - 초기화 진행');
+          StorageManager.removeItem(STORAGE_KEYS.TILKO_SESSION_ID);
+          StorageManager.removeItem('tilko_auth_waiting');
+          StorageManager.removeItem('tilko_auth_method_selection');
+          StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
+          StorageManager.removeItem('tilko_auth_requested');
+          StorageManager.removeItem('tilko_manual_collect');
+          StorageManager.removeItem('tilko_collecting_status');
+          StorageManager.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
+          window.dispatchEvent(new CustomEvent('tilko-status-change'));
+          window.dispatchEvent(new Event('localStorageChange'));
+          return false;
+        }
+        
         // completed 상태면 patient_uuid와 hospital_id 확인
         if (sessionData.status === 'completed') {
           const patientUuid = sessionData.patient_uuid;
@@ -340,12 +371,16 @@ export function useAuthFlow() {
         }
         
         // 세션 상태에 따라 적절한 단계로 복구
+        // completed와 auth_completed, fetching_health_data 외에는 기본적으로 대기 상태
+        const recoveredStep: AuthFlowStep = 
+          sessionData.status === 'auth_completed' ? 'auth_completed' : 
+          sessionData.status === 'fetching_health_data' ? 'collecting' :
+          'auth_pending';
+
         setState(prev => ({ 
           ...prev, 
           sessionId, 
-          currentStep: sessionData.status === 'auth_completed' ? 'auth_completed' : 
-                       sessionData.status === 'fetching_health_data' ? 'collecting' :
-                       'auth_pending' 
+          currentStep: recoveredStep
         }));
         return true;
       } catch (error) {

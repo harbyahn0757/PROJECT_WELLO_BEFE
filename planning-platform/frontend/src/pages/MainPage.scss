@@ -29,26 +29,21 @@
   
   // 헤더 (로고 + 병원명)
   &__header {
-    padding: 0 !important; // 모든 패딩 완전 제거
-    padding-top: 0 !important; // 상단 패딩 명시적으로 0
-    margin: 0 !important; // 모든 마진 완전 제거
-    margin-top: -12px !important; // 상단 마진 음수로 설정하여 여백 반으로 줄임
-    margin-bottom: -18px !important; // 음수 마진으로 간격 조정 (이미지 크기 증가에 맞춰 조정)
+    padding: 0 !important;
+    padding-top: 10px !important; // 상단 여백 확보 (잘림 방지)
+    margin: 0 !important;
     background: transparent;
-    line-height: 0 !important; // 라인 높이 0으로 설정
-    font-size: 0 !important; // 폰트 크기 0으로 설정 (인라인 여백 제거)
     
     &-logo {
-      display: block !important; // flex 대신 block으로 변경
-      margin: 0 !important; // 모든 마진 완전 제거
-      margin-bottom: 0 !important; // 하단 마진 완전 제거
-      padding: 0 !important; // 모든 패딩 완전 제거
-      line-height: 0 !important; // 라인 높이 0으로 설정
-      font-size: 0 !important; // 폰트 크기 0으로 설정
+      display: block !important;
+      margin: 0 !important;
+      padding: 0 !important;
       
       &-image {
-        width: 108px !important; // 로고 크기 150% (72px * 1.5)
-        height: 108px !important;
+        width: auto;
+        height: auto;
+        max-width: 108px;
+        max-height: 108px;
         object-fit: contain;
         flex-shrink: 0;
         border-radius: $border-radius-md;
@@ -67,13 +62,12 @@
   }
   
   &__greeting {
-    padding: 0 0 $spacing-md 0 !important; // 상단 패딩 완전 제거 (로고와 인사말 간격 최소화)
-    padding-top: 0 !important; // 상단 패딩 완전 제거
-    padding-left: 0 !important; // 왼쪽 패딩 제거 (왼쪽 정렬)
-    margin: 0 !important; // 모든 마진 완전 제거
-    margin-top: -18px !important; // 음수 마진으로 간격 조정 (이미지 크기 증가에 맞춰 조정)
-    margin-left: 0 !important; // 왼쪽 마진 제거
-    margin-bottom: 0 !important; // 하단 마진 제거
+    padding: 0 0 $spacing-md 0 !important;
+    padding-top: 8px !important; // 로고와 인사말 사이 간격 확보
+    padding-left: 0 !important;
+    margin: 0 !important;
+    margin-left: 0 !important;
+    margin-bottom: 0 !important;
     text-align: left !important; // 왼쪽 정렬 강제
     background: transparent;
     position: relative;
@@ -204,26 +198,48 @@
     gap: 8px !important; // 카드 간격 8px
     background: transparent !important; // 부모의 배경색 사용
     
-    // 하단 카드들 패딩 더 줄이기
     .card {
-      padding: 6px 16px 4px 16px !important; // 상하 패딩 더 줄임 (상: 6px, 하: 4px)
-      min-height: 60px !important; // 높이 10px 더 줄임 (70px -> 60px)
+      padding: 6px 16px 4px 16px !important;
+      min-height: 60px !important;
       height: auto !important;
-      
+
+      // 이미지 영역 기본 스타일 (공통)
+      .card__image-area {
+        width: 74px !important;
+        height: 74px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: relative; // 자식 요소의 absolute 배치를 위한 기준
+
+        // 가로형 아이콘들 (이미지 영역 자체를 확대하여 시원하게 표시)
+        img[alt*="추이"], 
+        img[alt*="착한습관"], 
+        img[alt*="질병예측"] {
+          position: absolute; 
+          width: 95px !important; // 10% 축소 (105px -> 95px)
+          height: 95px !important;
+          max-width: none !important;
+          object-fit: contain !important;
+          right: -2px; // 크기 축소에 따른 우측 여백 미세 조정
+        }
+
+        // 세로형 아이콘 (검진설계 감자 캐릭터 - 안정적인 여백 확보)
+        img[alt*="설계하기"] {
+          width: 65% !important;
+          height: 65% !important;
+          object-fit: contain !important;
+        }
+      }
+
       // 헤더 폰트 크기 -1
       .card__title {
-        font-size: 15px !important; // 폰트 크기 -1 (16px -> 15px)
+        font-size: 15px !important;
       }
       
       // 메인 콘텐츠 높이 조정
       .card__main-content {
-        min-height: 74px !important; // 10px 줄임 (84px -> 74px)
-      }
-      
-      // 이미지 영역 높이 조정
-      .card__image-area {
-        width: 74px !important; // 10px 줄임 (84px -> 74px)
-        height: 74px !important; // 10px 줄임 (84px -> 74px)
+        min-height: 74px !important;
       }
     }
   }

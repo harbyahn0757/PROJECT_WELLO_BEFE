@@ -7,19 +7,19 @@ const IS_DEVELOPMENT = window.location.hostname === 'localhost' || window.locati
 const IS_PRODUCTION = !IS_DEVELOPMENT;
 
 // API 베이스 URL
-const API_BASE_URL = IS_PRODUCTION ? 'https://xogxog.com' : '';
+const API_BASE_URL = IS_PRODUCTION ? window.location.origin : '';
 
 // 파트너 마케팅 API 설정
 // 개발 환경: 프록시 사용 (상대 경로)
 // 프로덕션: 절대 경로 사용
 const PARTNER_MARKETING_API_BASE = IS_DEVELOPMENT 
   ? '' // 개발 모드: 프록시 사용 (craco.config.js의 /api/partner-marketing 프록시)
-  : 'https://xogxog.com';
+  : window.location.origin;
 
 // 캠페인 리다이렉트 URL 설정
 const CAMPAIGN_REDIRECT_URL = IS_DEVELOPMENT
   ? 'http://localhost:3012'
-  : 'https://xogxog.com/campaigns/bnr_planning_XogXAims';
+  : `${window.location.origin}/campaigns/bnr_planning_XogXAims`;
 
 // 웰노 파트너 API 키
 const WELNO_PARTNER_API_KEY = 'welno_5a9bb40b5108ecd8ef864658d5a2d5ab';

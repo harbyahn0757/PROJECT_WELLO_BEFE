@@ -342,8 +342,8 @@ class SurveyService {
       case 'health-habits':
         return {
           id: 'health-habits',
-          title: '건강습관 설문조사',
-          description: '검진 전 건강습관을 분석해보세요',
+          title: '착한습관 설문조사',
+          description: '검진 전 착한습관을 분석해보세요',
           pages: [
             {
               id: 'lifestyle-habits',

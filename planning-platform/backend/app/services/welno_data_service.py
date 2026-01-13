@@ -226,7 +226,7 @@ class WelnoDataService:
                 print(f"✅ [환자조회] 기존 환자 발견: {patient_dict['uuid']} @ {patient_dict['hospital_id']}")
                 return patient_dict
             
-            print(f"📭 [환자조회] 기존 환자 없음: {phone_number}, {birth_date_formatted}, {name}")
+            print(f"📭 [환자조회] 기존 환자 없음: {phone_number}, {birth_date}, {name}")
             return None
             
         except Exception as e:
@@ -416,6 +416,13 @@ class WelnoDataService:
             import datetime
             conn = await asyncpg.connect(**self.db_config)
             
+            # 디버그: user_info 확인
+            print(f"🔍 [환자저장] user_info 확인: {list(user_info.keys())}")
+            print(f"   - name: {user_info.get('name')}")
+            print(f"   - phone_number: {user_info.get('phone_number')}")
+            print(f"   - birth_date: {user_info.get('birth_date')}")
+            print(f"   - gender: {user_info.get('gender')}")
+            
             birth_date = None
             if user_info.get('birth_date'):
                 birth_str = user_info['birth_date']
@@ -425,8 +432,15 @@ class WelnoDataService:
                     elif '-' in birth_str:
                         parts = birth_str.split('-')
                         birth_date = datetime.date(int(parts[0]), int(parts[1]), int(parts[2]))
-                except:
-                    pass
+                    print(f"✅ [환자저장] 생년월일 파싱 성공: {birth_date}")
+                except Exception as e:
+                    print(f"❌ [환자저장] 생년월일 파싱 실패: {e}, 원본: {birth_str}")
+            
+            phone_number = user_info.get('phone_number')
+            name = user_info.get('name')
+            gender = user_info.get('gender')
+            
+            print(f"🔍 [환자저장] 저장할 값: name={name}, phone_number={phone_number}, birth_date={birth_date}, gender={gender}")
             
             upsert_query = """
                 INSERT INTO welno.welno_patients (uuid, hospital_id, name, phone_number, birth_date, gender, 
@@ -446,12 +460,12 @@ class WelnoDataService:
             
             patient_id = await conn.fetchval(
                 upsert_query,
-                uuid, hospital_id, user_info.get('name'), user_info.get('phone_number'),
-                birth_date, user_info.get('gender'), session_id
+                uuid, hospital_id, name, phone_number,
+                birth_date, gender, session_id
             )
             
             await conn.close()
-            print(f"✅ [환자저장] 환자 정보 저장 완료 - ID: {patient_id}")
+            print(f"✅ [환자저장] 환자 정보 저장 완료 - ID: {patient_id}, 이름: {name}, 전화번호: {phone_number}, 생년월일: {birth_date}")
             return patient_id
             
         except Exception as e:

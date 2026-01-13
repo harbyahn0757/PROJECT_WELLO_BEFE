@@ -1371,8 +1371,39 @@ async def collect_health_data_background_task(session_id: str):
                     print(f"   ErrorCode: {error_code}, ErrorLog: {error_log}")
                     # 사용자 정보 오류인 경우 처방전 수집도 중단
                     return
+                elif str(error_code) == "4115" or "인증" in error_msg or "승인" in error_msg:
+                    # 🚨 [인증미완료/재시도] 사용자가 승인 전 버튼을 누르거나 인증 오류 발생 시
+                    print(f"⚠️ [백그라운드] 인증 미완료 또는 재시도 가능 오류 감지: {error_msg}")
+                    
+                    # 중복 실행 방지 플래그 초기화 (다시 버튼을 누를 수 있도록)
+                    session_data["collection_started"] = False
+                    session_manager._save_session(session_id, session_data)
+                    
+                    # 상태 업데이트: 다시 인증 완료 대기 상태로 변경
+                    session_manager.update_session_status(
+                        session_id,
+                        "auth_completed", # 버튼이 보이는 상태로 되돌림
+                        error_msg
+                    )
+                    
+                    # WebSocket을 통해 프론트엔드에 알림
+                    try:
+                        from app.api.v1.endpoints.websocket_auth import notify_streaming_status
+                        await notify_streaming_status(
+                            session_id,
+                            "auth_pending", # 프론트엔드가 '인증 미완료' 모달을 띄울 상태
+                            error_msg,
+                            {"retry_available": True, "error_code": error_code}
+                        )
+                    except Exception as ws_err:
+                        print(f"⚠️ [백그라운드] 상태 알림 실패: {ws_err}")
+                    
+                    return # 처방전 수집으로 넘어가지 않고 재시도 대기
                 else:
-                    # 기타 오류 (일시적 오류 등)
+                    # 기타 치명적 오류
+                    session_data["collection_started"] = False
+                    session_manager._save_session(session_id, session_data)
+                    
                     detailed_error = {
                         "type": "health_data_error",
                         "title": "건강검진 데이터 수집 실패",
@@ -1386,6 +1417,7 @@ async def collect_health_data_background_task(session_id: str):
                     
                     # 건강검진 실패 메시지 전송
                     try:
+                        from app.api.v1.endpoints.websocket_auth import notify_streaming_status
                         await notify_streaming_status(
                             session_id,
                             "health_data_failed",
@@ -1395,10 +1427,11 @@ async def collect_health_data_background_task(session_id: str):
                     except Exception as e:
                         print(f"⚠️ [백그라운드] 건강검진 실패 알림 실패: {e}")
                     
-                    print(f"❌ [백그라운드] 건강검진 데이터 오류: {error_msg}")
+                    print(f"❌ [백그라운드] 건강검진 데이터 치명적 오류: {error_msg}")
                     # ⚠️ 건강검진 실패 시에도 에러 응답을 세션에 저장 (나중에 확인용)
                     session_manager.update_health_data(session_id, health_data)
-                    # 기타 오류는 처방전 수집 계속 진행
+                    session_manager.update_session_status(session_id, "error", f"건강검진 데이터 수집 실패: {error_msg}")
+                    return
             else:
                 # ResultList 상태 상세 확인
                 result_list = health_data.get("ResultList")

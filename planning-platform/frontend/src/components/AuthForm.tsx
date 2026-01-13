@@ -46,16 +46,50 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const [authRequested, setAuthRequested] = useState(false);
   const [descriptionMessage, setDescriptionMessage] = useState('');
   const [isCollecting, setIsCollecting] = useState(false);
+  const [showPendingAuthModal, setShowPendingAuthModal] = useState(false); // 인증 미완료 안내 모달
+  const [pendingAuthMessage, setPendingAuthMessage] = useState('');
   const [isCheckingPatient, setIsCheckingPatient] = useState(false);
   const [isDataCompleted, setIsDataCompleted] = useState(false);
   const [currentStatus, setCurrentStatus] = useState('initial');
   const [statusMessage, setStatusMessage] = useState('');
   const [wsError, setWsError] = useState<string | null>(null);
   const [lastCollectedRecord, setLastCollectedRecord] = useState<any | null>(null);
+  const [collectionStartTime, setCollectionStartTime] = useState<number | null>(null);
+  const [showRetryButton, setShowRetryButton] = useState(false);
+
+  // 수집 타임아웃 체크 (60초 이상 진전이 없으면 다시 시도 버튼 표시)
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    if (isCollecting) {
+      if (!collectionStartTime) setCollectionStartTime(Date.now());
+      
+      timeoutId = setInterval(() => {
+        if (collectionStartTime && (Date.now() - collectionStartTime > 60000)) {
+          setShowRetryButton(true);
+        }
+      }, 5000);
+    } else {
+      setCollectionStartTime(null);
+      setShowRetryButton(false);
+    }
+    return () => clearInterval(timeoutId);
+  }, [isCollecting, collectionStartTime]);
+
+  const handleResetCollection = () => {
+    console.log('🔄 [AuthForm] 수집 강제 초기화');
+    setIsCollecting(false);
+    setCurrentStatus('auth_completed');
+    StorageManager.removeItem('tilko_manual_collect');
+    window.dispatchEvent(new CustomEvent('tilko-status-change'));
+  };
   
   // 비밀번호 설정 모달 상태
   const [showPasswordSetupModal, setShowPasswordSetupModal] = useState(false);
-  const [passwordSetupData, setPasswordSetupData] = useState<{uuid: string, hospital: string} | null>(null);
+  const [passwordSetupData, setPasswordSetupData] = useState<{
+    uuid: string, 
+    hospital: string, 
+    type?: PasswordModalType
+  } | null>(null);
   const [showDataDeletionModal, setShowDataDeletionModal] = useState(false);
 
   // 비밀번호 설정 모달 핸들러
@@ -215,6 +249,50 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     setIsCheckingPatient(false);
   };
   
+  // authFlow 상태와 로컬 UI 상태 동기화
+  useEffect(() => {
+    const step = authFlow.state.currentStep;
+    console.log('🔄 [AuthForm] authFlow.state.currentStep 변경:', step);
+    
+    if (step === 'initial' || step === 'terms') {
+      setAuthRequested(false);
+      setShowConfirmation(false);
+      setIsCollecting(false);
+    } else if (step === 'info_confirming') {
+      setAuthRequested(false);
+      setShowConfirmation(true);
+      setIsCollecting(false);
+    } else if (step === 'auth_pending') {
+      setAuthRequested(true);
+      setShowConfirmation(false);
+      setIsCollecting(false);
+    } else if (step === 'collecting') {
+      setAuthRequested(true);
+      setIsCollecting(true);
+      setShowConfirmation(false);
+    } else if (step === 'auth_completed') {
+      setAuthRequested(true);
+      setIsCollecting(false);
+      setShowConfirmation(false);
+    } else if (step === 'completed') {
+      setIsCollecting(false);
+      setIsDataCompleted(true);
+    }
+  }, [authFlow.state.currentStep]);
+
+  // isCollecting 상태 변화 시 localStorage 연동
+  useEffect(() => {
+    if (isCollecting) {
+      StorageManager.setItem('tilko_manual_collect', 'true');
+      window.dispatchEvent(new CustomEvent('tilko-status-change'));
+    } else {
+      // 수집 중이 아닐 때는 (에러 발생 포함) 플래그 제거하여 버튼 복구
+      StorageManager.removeItem('tilko_manual_collect');
+      StorageManager.removeItem('tilko_collecting_status');
+      window.dispatchEvent(new CustomEvent('tilko-status-change'));
+    }
+  }, [isCollecting]);
+
   // WebSocket 연결 (간단 버전)
   const ws = useWebSocketAuth({
     sessionId: authFlow.state.sessionId,
@@ -308,8 +386,25 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               건강검진: healthRecord.healthData.length,
               처방전: healthRecord.prescriptionData.length
             });
+            
+            // ✅ 데이터 저장 완료 후 상태 업데이트 및 비밀번호 모달 표시
+            setIsDataCompleted(true);
+            setIsCollecting(false);
+            setAuthRequested(false); // 인증 대기 상태 해제
+            setCurrentStatus('completed');
+            StorageManager.removeItem('tilko_auth_waiting'); // 성공 시 인증 대기 플래그 제거
+            
+            console.log('🔐 [WS→비밀번호] 바로 비밀번호 모달 표시 (setup)');
+            setPasswordSetupData({ 
+              uuid: data.patient_uuid, 
+              hospital: data.hospital_id,
+              type: 'setup'  // 틸코 액션 이후 - 비밀번호 새로 설정
+            });
+            setShowPasswordSetupModal(true);
           } catch (indexedDBError) {
             console.error('❌ [IndexedDB] 저장 실패:', indexedDBError);
+            setIsCollecting(false);
+            setCurrentStatus('error');
           }
         } else {
           console.error('❌ [IndexedDB] Tilko 데이터가 비어있음 - 저장할 데이터 없음', {
@@ -322,12 +417,70 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           setIsCollecting(false);
           setCurrentStatus('error');
         }
+      } else {
+        // 데이터가 없지만 patient_uuid와 hospital_id는 있는 경우 (이미 저장된 경우)
+        console.warn('⚠️ [WS] 데이터는 없지만 UUID/병원 정보는 있음 - 비밀번호 모달 표시 (setup)');
+        setIsDataCompleted(true);
+        setIsCollecting(false);
+        setCurrentStatus('completed');
+        setPasswordSetupData({ 
+          uuid: data.patient_uuid, 
+          hospital: data.hospital_id,
+          type: 'setup'  // 틸코 액션 이후 - 비밀번호 새로 설정
+        });
+        setShowPasswordSetupModal(true);
       }
-      
-      setIsCollecting(true);
     },
     onDataCollectionProgress: (type, message) => {
       console.log('📊 [WS] 수집 진행:', type, message);
+      
+      // 인증 미완료 또는 실패 메시지 체크
+      const isAuthError = type === 'auth_pending' || 
+                         type === 'health_data_failed' || 
+                         message.includes('인증을 완료해주세요') || 
+                         message.includes('4115');
+
+      if (isAuthError) {
+        console.warn('⚠️ [AuthForm] 인증 미완료/실패 감지 - 모달 표시');
+        
+        // 텍스트에서 HTML 태그 및 엔티티 제거
+        const cleanMessage = message
+          .replace(/<[^>]*>?/gm, '') // HTML 태그 제거
+          .replace(/&amp;?/g, '&')    // 이중 인코딩 대응
+          .replace(/&nbsp;?/g, ' ')   // 공백 엔티티 변환
+          .replace(/&lsquo;|&rsquo;|‘|’|&ldquo;|&rdquo;|“|”/g, "'") // 모든 종류의 따옴표 처리
+          .replace(/&middot;?/g, '·')
+          .replace(/&lt;?/g, '<')
+          .replace(/&gt;?/g, '>')
+          .replace(/\n\s*\n/g, '\n\n') // 중복 줄바꿈 정리
+          .trim();
+
+        setPendingAuthMessage(cleanMessage);
+        setShowPendingAuthModal(true);
+        setIsCollecting(false); // 로딩 스피너 해제
+        
+        // ✅ 중요: 플로팅 버튼을 다시 보여주기 위해 수집 중 플래그 제거
+        StorageManager.removeItem('tilko_manual_collect');
+        window.dispatchEvent(new CustomEvent('tilko-status-change'));
+        return;
+      }
+      
+      // 완료 상태 처리
+      if (type === 'completed') {
+        setIsCollecting(false);
+        setCurrentStatus('completed');
+        setStatusMessage(message || '모든 데이터 수집이 완료되었습니다!');
+        return;
+      }
+      
+      // 건강검진 데이터 수집 완료 상태 처리
+      if (type === 'health_data_completed') {
+        setCurrentStatus('health_data_completed');
+        setStatusMessage(message || '건강검진 데이터 수집이 완료되었습니다.');
+        // 스피너는 계속 돌아가야 함 (처방전 수집 중)
+        return;
+      }
+      
       setIsCollecting(true);
       setCurrentStatus(type);
       setStatusMessage(message); // ✅ 실제 메시지 저장
@@ -335,42 +488,70 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     onStatusUpdate: (status, authCompleted) => {
       console.log('🔄 [onStatusUpdate] 상태:', status);
       setCurrentStatus(status);
+
+      // 인증 대기 상태로 돌아온 경우 (수집 중 에러 발생 등)
+      if (status === 'auth_completed' || status === 'auth_pending') {
+        setIsCollecting(false);
+        setAuthRequested(true);
+        // localStorage 플래그도 동기화
+        StorageManager.removeItem('tilko_manual_collect');
+        window.dispatchEvent(new CustomEvent('tilko-status-change'));
+      }
+
       if (status === 'completed' || status === 'data_completed') {
         console.log('✅ [onStatusUpdate] 데이터 수집 완료 감지!');
         
-        // ⚠️ 데이터가 실제로 있는지 확인
-        const hasData = lastCollectedRecord && (
-          (lastCollectedRecord.healthData && lastCollectedRecord.healthData.length > 0) ||
-          (lastCollectedRecord.prescriptionData && lastCollectedRecord.prescriptionData.length > 0)
-        );
-        
-        if (!hasData) {
-          console.error('❌ [onStatusUpdate] 데이터 수집 완료되었지만 저장된 데이터가 없음!', {
-            lastCollectedRecord: lastCollectedRecord,
-            메시지: '건강검진 데이터와 처방전 데이터가 모두 수집되지 않았습니다.'
-          });
-          setWsError('건강검진 데이터와 처방전 데이터가 모두 수집되지 않았습니다. 인증을 다시 시도해주세요.');
-          setIsCollecting(false);
-          setCurrentStatus('error');
-          return; // 데이터가 없으면 비밀번호 모달 표시하지 않음
-        }
-        
-        setIsDataCompleted(true);
-        setIsCollecting(false);
-        
-        // ✅ 데이터 수집 완료 시 바로 비밀번호 모달 표시 (수집 완료 모달 스킵)
+        // ⚠️ lastCollectedRecord가 없을 수 있으므로 IndexedDB에서 직접 확인
         const uuid = StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID);
         const hospital = StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID);
         
-        if (uuid && hospital) {
-          console.log('🔐 [데이터수집완료→비밀번호] 바로 비밀번호 모달 표시:', { uuid, hospital });
-          setPasswordSetupData({ uuid, hospital });
-          setShowPasswordSetupModal(true);
-        } else {
-          console.warn('⚠️ [데이터수집완료] UUID/병원 정보 없음 - 대상 페이지로 이동');
-          const from = (location.state as any)?.from;
-          navigate(from || '/results-trend', { replace: true });
+        if (!uuid || !hospital) {
+          console.warn('⚠️ [onStatusUpdate] UUID/병원 정보 없음 - onAuthCompleted나 폴링에서 처리 대기');
+          return; // UUID/병원 정보가 없으면 onAuthCompleted나 폴링에서 처리하도록 함
         }
+        
+        // IndexedDB에서 데이터 확인 (비동기)
+        (async () => {
+          try {
+            const { WelnoIndexedDB } = await import('../services/WelnoIndexedDB');
+            const indexedData = await WelnoIndexedDB.getHealthData(uuid);
+            
+            const hasData = indexedData && (
+              (indexedData.healthData && indexedData.healthData.length > 0) ||
+              (indexedData.prescriptionData && indexedData.prescriptionData.length > 0)
+            );
+            
+            if (!hasData) {
+              console.warn('⚠️ [onStatusUpdate] IndexedDB에 데이터 없음 - onAuthCompleted나 폴링에서 처리 대기');
+              return; // 데이터가 없으면 onAuthCompleted나 폴링에서 처리하도록 함
+            }
+            
+            // lastCollectedRecord 업데이트
+            setLastCollectedRecord({
+              uuid: indexedData.uuid,
+              patientName: indexedData.patientName,
+              hospitalId: indexedData.hospitalId,
+              healthData: indexedData.healthData || [],
+              prescriptionData: indexedData.prescriptionData || []
+            });
+            
+            setIsDataCompleted(true);
+            setIsCollecting(false);
+            setAuthRequested(false); // 인증 대기 상태 해제
+            StorageManager.removeItem('tilko_auth_waiting'); // 성공 시 인증 대기 플래그 제거
+            
+            console.log('🔐 [onStatusUpdate→비밀번호] 바로 비밀번호 모달 표시 (setup):', { uuid, hospital });
+            setPasswordSetupData({ 
+              uuid, 
+              hospital,
+              type: 'setup'  // 틸코 액션 이후 - 비밀번호 새로 설정
+            });
+            setShowPasswordSetupModal(true);
+          } catch (error) {
+            console.error('❌ [onStatusUpdate] IndexedDB 확인 실패:', error);
+            // 에러가 나도 onAuthCompleted나 폴링에서 처리하도록 함
+          }
+        })();
       }
     },
     onError: (error) => {
@@ -475,9 +656,16 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                 
                 setIsDataCompleted(true);
                 setIsCollecting(false);
+                setAuthRequested(false); // 인증 대기 상태 해제
+                setCurrentStatus('completed');
+                StorageManager.removeItem('tilko_auth_waiting'); // 성공 시 인증 대기 플래그 제거
                 
-                console.log('🔐 [폴링→비밀번호] 바로 비밀번호 모달 표시');
-                setPasswordSetupData({ uuid, hospital });
+                console.log('🔐 [폴링→비밀번호] 바로 비밀번호 모달 표시 (setup)');
+                setPasswordSetupData({ 
+                  uuid, 
+                  hospital,
+                  type: 'setup'  // 틸코 액션 이후 - 비밀번호 새로 설정
+                });
                 setShowPasswordSetupModal(true);
               } catch (indexedDBError) {
                 console.error('❌ [폴링→IndexedDB] 저장 실패:', indexedDBError);
@@ -503,6 +691,28 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           }
         } else if (data.status === 'error') {
           console.error('❌ [폴링] 에러 상태 감지');
+          
+          const errorMsg = data.message || '';
+          const cleanMessage = errorMsg
+            .replace(/<[^>]*>?/gm, '')
+            .replace(/&amp;?/g, '&')
+            .replace(/&nbsp;?/g, ' ')
+            .replace(/&lsquo;|&rsquo;|‘|’|&ldquo;|&rdquo;|“|”/g, "'")
+            .replace(/&middot;?/g, '·')
+            .replace(/&lt;?/g, '<')
+            .replace(/&gt;?/g, '>')
+            .trim();
+
+          if (errorMsg.includes('인증') || errorMsg.includes('4115')) {
+            setPendingAuthMessage(cleanMessage);
+            setShowPendingAuthModal(true);
+            // ✅ 중요: 플로팅 버튼을 다시 보여주기 위해 수집 중 플래그 제거
+            StorageManager.removeItem('tilko_manual_collect');
+            window.dispatchEvent(new CustomEvent('tilko-status-change'));
+          } else {
+            setWsError(cleanMessage || '데이터 수집 중 오류가 발생했습니다.');
+            setCurrentStatus('error');
+          }
           setIsCollecting(false);
           clearInterval(pollInterval);
         }
@@ -572,8 +782,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           })
         });
         
+        console.log('📡 [사전체크] API 응답 상태:', response.status, response.statusText);
+        
         if (response.ok) {
           const result = await response.json();
+          console.log('📡 [사전체크] API 응답 데이터:', { success: result.success, hasData: !!result.data });
+          
           if (result.success && result.data) {
             const foundPatient = result.data;
             console.log('✅ [사전체크] 기존 환자 발견:', foundPatient.uuid);
@@ -596,7 +810,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                     // 비밀번호가 있으면 PasswordModal로 비밀번호 입력받기
                     setPasswordSetupData({ 
                       uuid: foundPatient.uuid, 
-                      hospital: foundPatient.hospital_id 
+                      hospital: foundPatient.hospital_id,
+                      type: 'confirm'  // 기존 환자 - 비밀번호 확인
                     });
                     setShowPasswordSetupModal(true);
                     setIsCheckingPatient(false);
@@ -605,7 +820,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                     // 비밀번호가 없으면 데이터 삭제 안내 모달 표시
                     setPasswordSetupData({ 
                       uuid: foundPatient.uuid, 
-                      hospital: foundPatient.hospital_id 
+                      hospital: foundPatient.hospital_id,
+                      type: 'setup'  // 데이터 삭제 후 새로 설정할 경우를 대비
                     });
                     setShowDataDeletionModal(true);
                     setIsCheckingPatient(false);
@@ -617,7 +833,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                 // 비밀번호 확인 실패 시 기본 플로우 진행
               }
             }
+          } else {
+            console.log('📭 [사전체크] 서버에 기존 환자 데이터 없음 - 일반 인증 플로우 진행');
           }
+        } else {
+          console.warn('⚠️ [사전체크] API 응답 오류:', response.status, response.statusText);
         }
       } catch (error) {
         console.warn('⚠️ [사전체크] 기존 환자 조회 실패 (일반 인증으로 속행):', error);
@@ -730,8 +950,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             })
           });
           
+          console.log('📡 [사전체크] API 응답 상태:', response.status, response.statusText);
+          
           if (response.ok) {
             const result = await response.json();
+            console.log('📡 [사전체크] API 응답 데이터:', { success: result.success, hasData: !!result.data });
+            
             if (result.success && result.data) {
               const foundPatient = result.data;
               console.log('✅ [사전체크] 기존 환자 발견:', foundPatient.uuid);
@@ -756,7 +980,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                       await actions.loadPatientData(foundPatient.uuid, foundPatient.hospital_id);
                       setPasswordSetupData({ 
                         uuid: foundPatient.uuid, 
-                        hospital: foundPatient.hospital_id 
+                        hospital: foundPatient.hospital_id,
+                        type: 'confirm'  // 기존 환자 - 비밀번호 확인
                       });
                       setShowPasswordSetupModal(true);
                       setIsCheckingPatient(false);
@@ -765,7 +990,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                       // 비밀번호가 없으면 데이터 삭제 안내 모달 표시
                       setPasswordSetupData({ 
                         uuid: foundPatient.uuid, 
-                        hospital: foundPatient.hospital_id 
+                        hospital: foundPatient.hospital_id,
+                        type: 'setup'  // 데이터 삭제 후 새로 설정할 경우를 대비
                       });
                       setShowDataDeletionModal(true);
                       setIsCheckingPatient(false);
@@ -777,7 +1003,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                   // 비밀번호 확인 실패 시 기본 플로우 진행
                 }
               }
+            } else {
+              console.log('📭 [사전체크] 서버에 기존 환자 데이터 없음 - 일반 인증 플로우 진행');
             }
+          } else {
+            console.warn('⚠️ [사전체크] API 응답 오류:', response.status, response.statusText);
           }
         } catch (error) {
           console.warn('⚠️ [사전체크] 기존 환자 조회 실패:', error);
@@ -860,16 +1090,25 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         if (collectResponse.ok) {
           console.log('✅ [AuthForm] 데이터 수집 시작 성공:', collectResult);
           // 플로팅 버튼 상태 업데이트 및 수집 화면 표시
-          StorageManager.removeItem('tilko_auth_waiting');
+          // StorageManager.removeItem('tilko_auth_waiting'); // ⚠️ 에러 발생 시 버튼 복구를 위해 성공 확정 전까지 유지
           StorageManager.setItem('tilko_manual_collect', 'true');
           setIsCollecting(true);
+          authFlow.actions.goToStep('collecting'); // 전역 상태 업데이트
           window.dispatchEvent(new CustomEvent('tilko-status-change'));
               } else {
           throw new Error(collectResult.detail || '데이터 수집 시작 실패');
       }
     } catch (error) {
         console.error('🚨 [AuthForm] 처리 실패:', error);
-        alert(`처리에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`);
+        const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
+        
+        // 인증 미완료 관련 에러인 경우 모달 표시
+        if (errorMessage.includes('인증') || errorMessage.includes('승인') || errorMessage.includes('미완료')) {
+          setPendingAuthMessage(errorMessage);
+          setShowPendingAuthModal(true);
+        } else {
+          alert(`처리에 실패했습니다: ${errorMessage}`);
+        }
       }
     };
     
@@ -904,23 +1143,35 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     }
   }, [authFlow.state.currentStep, authFlow.state.isCompleted, navigate]);
   
-  // 비밀번호 설정 모달 (최우선)
+  // -------------------------------------------------------------------------
+  // UI 렌더링 결정
+  // -------------------------------------------------------------------------
+  
+  // 메인 콘텐츠 결정
+  let mainContent;
+  
   if (showPasswordSetupModal && passwordSetupData) {
-    return (
-      <div className="auth-form-container">
+    // 1. 비밀번호 설정 모달 (최우선)
+    mainContent = (
+      <>
         <PasswordModal
           isOpen={showPasswordSetupModal}
           onClose={handlePasswordSetupCancel}
           onSuccess={async (type) => {
-            // 비밀번호 확인 성공 시 데이터 다운로드
             if (passwordSetupData?.uuid && passwordSetupData?.hospital) {
-              console.log('✅ [비밀번호확인] 비밀번호 일치 - 데이터 다운로드 시작');
-              await actions.loadPatientData(passwordSetupData.uuid, passwordSetupData.hospital);
+              if (type === 'confirm') {
+                // confirm 타입: 기존 환자 - 서버에서 데이터 다운로드
+                console.log('✅ [비밀번호확인] 비밀번호 일치 - 데이터 다운로드 시작');
+                await actions.loadPatientData(passwordSetupData.uuid, passwordSetupData.hospital);
+              } else {
+                // setup 타입: 새 환자 - 수집한 데이터 업로드만 수행 (handlePasswordSetupSuccess에서 처리)
+                console.log('✅ [비밀번호설정] 비밀번호 설정 완료');
+              }
             }
             handlePasswordSetupSuccess(type);
           }}
           onCancel={handlePasswordSetupCancel}
-          type="confirm"
+          type={passwordSetupData.type || 'setup'}
           uuid={passwordSetupData.uuid}
           hospitalId={passwordSetupData.hospital}
           patientInfo={{
@@ -929,7 +1180,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             birthday: authFlow.state.userInfo.birthday,
             gender: 'M'
           }}
-          initialMessage="데이터 접근을 위해 비밀번호를 입력해주세요."
+          initialMessage={
+            passwordSetupData.type === 'confirm' 
+              ? "데이터 접근을 위해 비밀번호를 입력해주세요."
+              : "데이터 보호를 위해 비밀번호를 설정해주세요."
+          }
         />
         {/* 데이터 삭제 안내 모달 */}
         {showDataDeletionModal && (
@@ -939,219 +1194,216 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             onCancel={handleDataDeletionCancel}
           />
         )}
-      </div>
+      </>
     );
-  }
-  
-  // 약관 동의 단계
-  if (showTermsModal) {
-    console.log('[AuthForm] 약관 동의 모달 렌더링 시작');
-    return (
-      <div className="auth-form-container">
-        <TermsAgreementModal
-          isOpen={showTermsModal}
-          onClose={() => {
-            console.log('[AuthForm] 약관 동의 모달 닫기');
-            setShowTermsModal(false);
-          }}
-          onConfirm={(agreedTerms) => {
-            console.log('✅ 약관 동의:', agreedTerms);
-            // 약관 동의 저장 (localStorage에 기록)
-            authFlow.actions.agreeToTerms(agreedTerms);
-            setShowTermsModal(false);
-            setShowConfirmation(true);
-            setCurrentConfirmationStep('name');
-            setDescriptionMessage('정보를 확인해주세요');
-          }}
-        />
-      </div>
+  } else if (showTermsModal) {
+    // 2. 약관 동의 단계
+    console.log('[AuthForm] 약관 동의 모달 렌더링');
+    mainContent = (
+      <TermsAgreementModal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        onConfirm={(agreedTerms) => {
+          console.log('✅ 약관 동의 완료 -> 정보 확인 단계로 이동');
+          authFlow.actions.agreeToTerms(agreedTerms);
+          setShowTermsModal(false);
+          setShowConfirmation(true);
+          setAuthRequested(false); // 중요: 인증 요청 상태 초기화
+          setCurrentConfirmationStep('name');
+          setDescriptionMessage('정보를 확인해주세요');
+        }}
+      />
     );
-  }
-  
-  // 초기 화면 (플로팅 버튼 대기)
-  if (!showConfirmation && !authRequested && !isCollecting) {
-    return (
-      <div className="auth-form-container">
-        <div className="auth-form-content">
-          <h2 className="auth-form-title">
-            건강검진 데이터를 안전하게 불러와<br/>
-            검진 추이를 안내하겠습니다.
-          </h2>
-          <p style={{ 
-            fontSize: '14px', 
-            color: '#666', 
-            marginTop: '20px',
-            textAlign: 'center'
-          }}>
-            하단의 버튼을 클릭하여 시작하세요
+  } else if (isCollecting) {
+    // 3. 데이터 수집 단계
+    mainContent = (
+      <DataCollecting
+        progress={0}
+        currentStatus={currentStatus}
+        statusMessage={statusMessage || '건강정보를 수집하고 있습니다...'}
+        onCancel={showRetryButton ? handleResetCollection : undefined}
+      />
+    );
+  } else if (showConfirmation && !authRequested) {
+    // 4. 정보 확인 단계 (인증 요청 전)
+    mainContent = (
+      <div className="auth-form-content">
+        <h2 className="auth-form-title">
+          {descriptionMessage || '정보를 확인해주세요'}
+        </h2>
+        
+        {currentConfirmationStep === 'name' && (
+          <AuthInput
+            type="name"
+            value={authFlow.state.userInfo.name}
+            onChange={(value) => authFlow.actions.setName(value)}
+            onComplete={handleNextStep}
+            autoFocus={true}
+          />
+        )}
+        
+        {currentConfirmationStep === 'phone' && (
+          <AuthInput
+            type="phone"
+            value={authFlow.state.userInfo.phone}
+            onChange={(value) => authFlow.actions.setPhone(value)}
+            onComplete={handleNextStep}
+            autoFocus={true}
+          />
+        )}
+        
+        {currentConfirmationStep === 'birthday' && (
+          <AuthInput
+            type="birthday"
+            value={authFlow.state.userInfo.birthday}
+            onChange={(value) => authFlow.actions.setBirthday(value)}
+            onComplete={handleNextStep}
+            autoFocus={true}
+          />
+        )}
+        
+        {currentConfirmationStep === 'auth_method' && (
+          <AuthMethodSelect
+            methods={AUTH_TYPES}
+            selectedMethod={authFlow.state.userInfo.authMethod}
+            onChange={(method: string) => {
+              authFlow.actions.setAuthMethod(method);
+            }}
+          />
+        )}
+        
+        <div style={{ marginTop: '30px', textAlign: 'center' }}>
+          {currentConfirmationStep !== 'name' && (
+            <button
+              onClick={handlePrevStep}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#ff6b6b',
+                cursor: 'pointer',
+                fontSize: '14px',
+                marginBottom: '15px',
+                textDecoration: 'underline'
+              }}
+            >
+              ← 이전으로
+            </button>
+          )}
+          <p style={{ fontSize: '14px', color: '#666', margin: 0 }}>
+            하단의 "확인 완료" 버튼을 눌러주세요
           </p>
         </div>
       </div>
     );
-  }
-
-  // 정보 확인 단계
-  if (showConfirmation && !authRequested) {
-    return (
-      <div className="auth-form-container">
-        <div className="auth-form-content">
-          {/* 타이틀 */}
-          <h2 className="auth-form-title">
-            {descriptionMessage || '정보를 확인해주세요'}
-          </h2>
-          
-          {/* 이름 입력 */}
-                {currentConfirmationStep === 'name' && (
-            <AuthInput
-              type="name"
-              value={authFlow.state.userInfo.name}
-              onChange={(value) => authFlow.actions.setName(value)}
-              onComplete={handleNextStep}
-              autoFocus={true}
-            />
-          )}
-          
-          {/* 전화번호 입력 */}
-                {currentConfirmationStep === 'phone' && (
-            <AuthInput
-              type="phone"
-              value={authFlow.state.userInfo.phone}
-              onChange={(value) => authFlow.actions.setPhone(value)}
-              onComplete={handleNextStep}
-              autoFocus={true}
-            />
-          )}
-          
-          {/* 생년월일 입력 */}
-                {currentConfirmationStep === 'birthday' && (
-            <AuthInput
-              type="birthday"
-              value={authFlow.state.userInfo.birthday}
-              onChange={(value) => authFlow.actions.setBirthday(value)}
-              onComplete={handleNextStep}
-              autoFocus={true}
-            />
-          )}
-          
-          {/* 인증 방식 선택 */}
-                {currentConfirmationStep === 'auth_method' && (
-            <AuthMethodSelect
-              methods={AUTH_TYPES}
-              selectedMethod={authFlow.state.userInfo.authMethod}
-              onChange={(method: string) => {
-                authFlow.actions.setAuthMethod(method);
-              }}
-            />
-          )}
-          
-          {/* 하단 안내 메시지 (플로팅 버튼 사용 안내) */}
-            <div style={{ 
-            marginTop: '30px',
-            textAlign: 'center'
-          }}>
-            {currentConfirmationStep !== 'name' && (
-            <button
-                onClick={handlePrevStep}
-              style={{
-                  background: 'none',
-                border: 'none',
-                  color: '#ff6b6b',
-                cursor: 'pointer',
-                  fontSize: '14px',
-                  marginBottom: '15px',
-                  textDecoration: 'underline'
-              }}
-            >
-                ← 이전으로
-            </button>
-            )}
-            <p style={{ 
-              fontSize: '14px',
-              color: '#666',
-              margin: 0
-            }}>
-              하단의 "확인 완료" 버튼을 눌러주세요
-            </p>
-          </div>
-        </div>
+  } else if (authRequested && !isCollecting && !isDataCompleted) {
+    // 5. 인증 대기 단계 (인증 요청 후, 데이터 수집 완료 전)
+    mainContent = (
+      <AuthWaiting
+        authMethod={authFlow.state.userInfo.authMethod || '4'}
+        userName={authFlow.state.userInfo.name}
+        currentStatus={currentStatus}
+      />
+    );
+  } else if (currentStatus === 'error' && wsError) {
+    // 6. 에러 발생
+    mainContent = (
+      <div className="auth-error-container">
+        <h2>오류가 발생했습니다</h2>
+        <p>{wsError || '알 수 없는 오류가 발생했습니다.'}</p>
+        <button onClick={() => {
+          authFlow.actions.reset();
+          setShowTermsModal(false);
+          setShowConfirmation(false);
+          setAuthRequested(false);
+          setLastCollectedRecord(null);
+          setIsCollecting(false);
+          setCurrentStatus('initial');
+        }}>
+          처음부터 다시 시작
+        </button>
       </div>
     );
-  }
-
-  // 인증 대기 단계
-  if (authRequested && !isCollecting) {
-    return (
-      <div className="auth-form-container">
-        <AuthWaiting
-          authMethod={authFlow.state.userInfo.authMethod || '4'}
-          userName={authFlow.state.userInfo.name}
-          currentStatus={currentStatus}
-        />
-      </div>
-    );
-  }
-
-  // 데이터 수집 단계
-  if (isCollecting) {
-  return (
-      <div className="auth-form-container">
-        <DataCollecting
-          progress={0}
-          currentStatus={currentStatus}
-          statusMessage={statusMessage || '건강정보를 수집하고 있습니다...'}
-            />
-          </div>
-    );
-  }
-  
-  // 에러 발생
-  if (currentStatus === 'error' && wsError) {
-    return (
-      <div className="auth-form-container">
-        <div className="auth-error-container">
-          <h2>오류가 발생했습니다</h2>
-          <p>{wsError || '알 수 없는 오류가 발생했습니다.'}</p>
-          <button onClick={() => {
-            authFlow.actions.reset();
-            setShowTermsModal(false);
-            setShowConfirmation(false);
-            setAuthRequested(false);
-            setLastCollectedRecord(null);
-          }}>
-            처음부터 다시 시작
-          </button>
-          </div>
-          </div>
-  );
-  }
-  
-  // 폴백: 모든 조건에 맞지 않으면 초기 화면
-  return (
-    <div className="auth-form-container">
+  } else {
+    // 7. 초기 화면 또는 폴백
+    mainContent = (
       <div className="auth-form-content">
         <h2 className="auth-form-title">
           건강검진 데이터를 안전하게 불러와<br/>
           검진 추이를 안내하겠습니다.
         </h2>
-              <p style={{
-                    fontSize: '14px',
-                    color: '#666',
+        <p style={{ 
+          fontSize: '14px', 
+          color: '#666', 
           marginTop: '20px',
           textAlign: 'center'
         }}>
           하단의 버튼을 클릭하여 시작하세요
         </p>
-            </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="auth-form-container">
+      {mainContent}
       
-      {/* 데이터 삭제 안내 모달 */}
-      {showDataDeletionModal && (
+      {/* 데이터 삭제 안내 모달 (메인 콘텐츠 외에서도 필요할 수 있음) */}
+      {!showPasswordSetupModal && showDataDeletionModal && (
         <DataDeletionWarningModal
           isOpen={showDataDeletionModal}
           onConfirm={handleDataDeletionConfirm}
           onCancel={handleDataDeletionCancel}
         />
       )}
-            </div>
+
+      {/* 🚨 인증 미완료 안내 모달 (전역적으로 표시 가능하도록) */}
+      {showPendingAuthModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+          padding: '20px'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            borderRadius: '16px',
+            padding: '24px',
+            width: '100%',
+            maxWidth: '320px',
+            textAlign: 'center',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+          }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: 'bold' }}>인증 미완료</h3>
+            <p style={{ margin: '0 0 24px 0', fontSize: '15px', color: '#666', lineHeight: '1.5', whiteSpace: 'pre-line' }}>
+              {pendingAuthMessage || "휴대폰 앱에서 인증 승인이\n아직 완료되지 않았습니다.\n\n승인 완료 후 다시 버튼을 눌러주세요."}
+            </p>
+            <button 
+              onClick={() => setShowPendingAuthModal(false)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#FF8A00',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer'
+              }}
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

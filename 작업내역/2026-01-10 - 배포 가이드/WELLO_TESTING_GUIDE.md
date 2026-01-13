@@ -35,7 +35,7 @@ npm start
 
 #### 기본 테스트 환자 정보
 ```
-이름: 안광수-웰로
+이름: [이름 삭제됨]-웰로
 전화번호: 01056180757
 생년월일: 19810927
 성별: 남성
@@ -65,7 +65,7 @@ password: peer00753!
 
 **예상 결과**:
 - 페이지 로딩 시간 < 3초
-- "안녕하세요 안광수-웰로님" 메시지 표시
+- "안녕하세요 [이름 삭제됨]-웰로님" 메시지 표시
 - 타이핑 효과 정상 작동
 - 헤더 이미지 정상 표시
 
@@ -330,7 +330,7 @@ test('카카오 인증 플로우', async ({ page }) => {
   await page.goto('http://localhost:9281/wello/?uuid=a1b2c3d4-e5f6-7890-abcd-ef1234567890&hospital=MEDILINKS001');
   
   // 환자 정보 로딩 확인
-  await expect(page.locator('text=안녕하세요 안광수-웰로님')).toBeVisible();
+  await expect(page.locator('text=안녕하세요 [이름 삭제됨]-웰로님')).toBeVisible();
   
   // 인증 시작
   await page.click('text=내 검진 추이 확인하기');
@@ -362,7 +362,7 @@ describe('Tilko 인증 API', () => {
     const response = await request(app)
       .post('/api/v1/tilko/session/start')
       .send({
-        name: '안광수',
+        name: '[이름 삭제됨]',
         phoneNo: '01056180757',
         birthday: '19810927'
       });

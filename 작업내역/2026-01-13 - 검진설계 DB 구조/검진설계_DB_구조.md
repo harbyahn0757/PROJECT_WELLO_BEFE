@@ -145,7 +145,7 @@ CREATE INDEX idx_design_requests_survey ON welno.welno_checkup_design_requests U
 SELECT * FROM welno.welno_checkup_design_requests
 WHERE patient_id = (
     SELECT id FROM welno.welno_patients 
-    WHERE uuid = 'd0b25dd5-8026-4fdc-94cc-ba8f8ddbac8e' 
+    WHERE uuid = '[UUID 삭제됨]' 
     AND hospital_id = 'PEERNINE'
 )
 AND design_result IS NOT NULL
@@ -162,7 +162,7 @@ SELECT
 FROM welno.welno_checkup_design_requests
 WHERE patient_id = (
     SELECT id FROM welno.welno_patients 
-    WHERE uuid = 'd0b25dd5-8026-4fdc-94cc-ba8f8ddbac8e' 
+    WHERE uuid = '[UUID 삭제됨]' 
     AND hospital_id = 'PEERNINE'
 )
 AND design_result IS NOT NULL
@@ -179,7 +179,7 @@ SELECT
 FROM welno.welno_checkup_design_requests
 WHERE patient_id = (
     SELECT id FROM welno.welno_patients 
-    WHERE uuid = 'd0b25dd5-8026-4fdc-94cc-ba8f8ddbac8e' 
+    WHERE uuid = '[UUID 삭제됨]' 
     AND hospital_id = 'PEERNINE'
 )
 ORDER BY created_at DESC

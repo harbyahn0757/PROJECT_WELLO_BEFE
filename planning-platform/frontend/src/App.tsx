@@ -37,6 +37,19 @@ declare global {
   }
 }
 
+// basename 동적 설정 함수
+const getBasename = () => {
+  const hostname = window.location.hostname;
+  // xogxog.com으로 접속했을 때만 기존처럼 /welno를 사용
+  if (hostname === 'xogxog.com' || hostname === 'www.xogxog.com') {
+    return '/welno';
+  }
+  // 그 외 전용 도메인(welno.xog.co.kr, welno.kindhabit.com 등)은 루트(/) 사용
+  return '/';
+};
+
+const BASENAME = getBasename();
+
 // FloatingButton 컴포넌트 (페이지별 다른 텍스트와 기능)
 const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onOpenAppointmentModal }) => {
   const location = useLocation();
@@ -82,15 +95,20 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
     sessionStorage.clear();
     
     // 메인으로 리다이렉트 후 새로고침
-    window.location.href = '/welno/';
+    window.location.href = BASENAME === '/' ? '/' : `${BASENAME}/`;
   }, []);
 
   useEffect(() => {
-    // URL에 파라미터가 전혀 없고, 현재 /welno 메인이라면 강제 초기화 여부 판단
+    // URL에 파라미터가 전혀 없고, 현재 메인이라면 강제 초기화 여부 판단
     const search = window.location.search;
     const path = window.location.pathname;
     
-    if (!search && (path === '/welno' || path === '/welno/')) {
+    // basename을 제외한 실제 경로가 / 인지 확인
+    const isBasePath = BASENAME === '/' 
+      ? (path === '/' || path === '')
+      : (path === BASENAME || path === `${BASENAME}/`);
+
+    if (!search && isBasePath) {
       const savedInput = localStorage.getItem(STORAGE_KEYS.LOGIN_INPUT_DATA);
       const hasSession = localStorage.getItem('tilko_session_id');
       
@@ -132,7 +150,16 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       setIsInfoConfirming(infoConfirming);
       setIsPasswordModalOpen(passwordModalOpen);
       
-      console.log('[플로팅버튼] 상태 확인:', { isManualCollecting, isCollectingPath, passwordModalOpen, isMainPage, shouldHide });
+      console.log('[플로팅버튼] 상태 확인:', { 
+        isManualCollecting, 
+        isCollectingPath, 
+        passwordModalOpen, 
+        isMainPage, 
+        isAuthWaiting: authWaiting,
+        isAuthMethodSelection: authMethodSelection,
+        isInfoConfirming: infoConfirming,
+        shouldHide 
+      });
     };
     
     // 초기 상태 확인
@@ -326,6 +353,34 @@ const AppContent: React.FC = () => {
     }
   }, [location, navigate]);
 
+  // 도메인별 브라우저 타이틀 및 파비콘 동적 변경
+  useEffect(() => {
+    const hostname = window.location.hostname;
+    if (hostname.includes('kindhabit.com')) {
+      // 카인드해빗 도메인 전용 설정
+      document.title = "착한습관 | 오늘도온- 착한습관 만들기 프로젝트";
+      
+      const favicons = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
+      favicons.forEach(el => {
+        el.setAttribute('href', '/kindhabit_logo.png');
+      });
+      
+      // Apple touch icon도 변경
+      const appleIcon = document.querySelector('link[rel="apple-touch-icon"]');
+      if (appleIcon) {
+        appleIcon.setAttribute('href', '/kindhabit_logo.png');
+      }
+    } else {
+      // 기본 WELNO 설정
+      document.title = "WELNO | 건강검진 플랫폼";
+      
+      const favicons = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
+      favicons.forEach(el => {
+        el.setAttribute('href', '/welno_logo.png');
+      });
+    }
+  }, []);
+
   return (
     <div className="app-container">
       <Routes>
@@ -366,7 +421,7 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <WelnoDataProvider>
-      <Router basename="/welno">
+      <Router basename={BASENAME}>
         <AppContent />
       </Router>
     </WelnoDataProvider>

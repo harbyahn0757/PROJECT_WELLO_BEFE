@@ -187,6 +187,11 @@ export const useWebSocketAuth = ({
                 if (onStatusUpdate) {
                   onStatusUpdate('auth_waiting', false);
                 }
+              } else if (streamingStatus === 'auth_pending') {
+                console.log('⏳ [WebSocket] 인증 아직 완료되지 않음 (재시도 대기)');
+                if (onDataCollectionProgress) {
+                  onDataCollectionProgress('auth_pending', streamingMessage || '인증이 완료되지 않았습니다.');
+                }
               } else if (streamingStatus === 'data_collecting') {
                 console.log('📊 [WebSocket] 데이터 수집 중');
                 if (onDataCollectionProgress) {

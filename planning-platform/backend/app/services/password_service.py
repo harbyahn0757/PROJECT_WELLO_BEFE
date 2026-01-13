@@ -217,7 +217,7 @@ class PasswordService:
             if bcrypt.checkpw(password.encode('utf-8'), stored_hash):
                 # 성공: 시도 횟수 초기화
                 await conn.execute(
-                    "SELECT reset_password_attempts($1, $2)", 
+                    "SELECT welno.reset_password_attempts($1, $2)", 
                     uuid, hospital_id
                 )
                 await conn.close()
@@ -226,7 +226,7 @@ class PasswordService:
             else:
                 # 실패: 시도 횟수 증가
                 new_attempts = await conn.fetchval(
-                    "SELECT increment_password_attempts($1, $2)", 
+                    "SELECT welno.increment_password_attempts($1, $2)", 
                     uuid, hospital_id
                 )
                 await conn.close()
@@ -281,7 +281,7 @@ class PasswordService:
             conn = await asyncpg.connect(**self.db_config)
             
             result = await conn.fetchval(
-                "SELECT should_prompt_password($1, $2)", 
+                "SELECT welno.should_prompt_password($1, $2)", 
                 uuid, hospital_id
             )
             
@@ -302,7 +302,7 @@ class PasswordService:
             conn = await asyncpg.connect(**self.db_config)
             
             await conn.execute(
-                "SELECT update_last_access($1, $2)", 
+                "SELECT welno.update_last_access($1, $2)", 
                 uuid, hospital_id
             )
             
@@ -320,7 +320,7 @@ class PasswordService:
             conn = await asyncpg.connect(**self.db_config)
             
             await conn.execute(
-                "SELECT update_password_prompt($1, $2)", 
+                "SELECT welno.update_password_prompt($1, $2)", 
                 uuid, hospital_id
             )
             

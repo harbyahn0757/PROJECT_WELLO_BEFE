@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "session_id": "f2cc32e6-6494-4e69-82f0-9fe8f3e014e7",
+    "data_type": "patient_data",
+    "patient_uuid": "a7de237d-ceb8-4752-bb57-52c5a0563eb8",
+    "hospital_id": "PEERNINE",
+    "created_at": "2026-01-13T15:09:15.315325",
+    "file_version": "1.0",
+    "status": "completed",
+    "completed_at": "2026-01-13T15:09:15.563494"
+  },
+  "raw_data": {
+    "name": "정일우",
+    "birthdate": "19880915",
+    "phone_no": "01056605106",
+    "gender": "M",
+    "private_auth_type": "6"
+  },
+  "checksum": "92d52116c418bc8bba95b4c79adbc2891d72e17cf0675427c80c73d61f11522f"
+}

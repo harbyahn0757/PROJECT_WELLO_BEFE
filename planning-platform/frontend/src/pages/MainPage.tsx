@@ -610,6 +610,9 @@ const MainPage: React.FC = () => {
   const displayHospital = hospital || defaultHospital;
   const displayPatient = patient || defaultPatient;
 
+  // 카인드해빗 도메인 여부 확인
+  const isKindHabitDomain = window.location.hostname.includes('kindhabit.com');
+
   const handleCardClick = async (cardType: string) => {
     // URL 파라미터에서 환자 정보 추출
     const urlParams = new URLSearchParams(location.search);
@@ -960,7 +963,7 @@ const MainPage: React.FC = () => {
         
       case 'habit': {
         // 준비중 모달 표시
-        console.log('[건강습관만들기] 준비중 모달 표시');
+        console.log('[착한습관만들기] 준비중 모달 표시');
         setIsPageTransitioning(false);
         setShowComingSoonModal(true);
         break;
@@ -1130,53 +1133,104 @@ const MainPage: React.FC = () => {
     }
   };
 
-  // IndexedDB 삭제 확인 핸들러
+  // IndexedDB 완전 삭제 확인 핸들러 (자동 복구 방지)
   const handleIndexedDBClearConfirm = async () => {
     try {
-      // IndexedDB 데이터 삭제
-      await WelnoIndexedDB.clearAllData();
-      console.log('[IndexedDB 삭제] 완료');
+      console.log('🗑️ [완전 삭제] 모든 Welno 데이터 삭제 시작...');
       
-      // localStorage의 건강데이터 관련 항목 삭제
-      const keysToRemove = [
-        'welno_health_data',
-        'welno_view_mode',
-        'tilko_session_id',
-        'tilko_session_data'
-      ];
-      keysToRemove.forEach(key => {
+      // 1. localStorage 완전 정리 (모든 welno/tilko 관련 키)
+      const localStorageKeys = Object.keys(localStorage);
+      const welnoKeys = localStorageKeys.filter(key => 
+        key.toLowerCase().includes('welno') || 
+        key.toLowerCase().includes('tilko') ||
+        key.toLowerCase().includes('patient') ||
+        key.toLowerCase().includes('hospital') ||
+        key.toLowerCase().includes('uuid') ||
+        key.toLowerCase().includes('password') ||
+        key.toLowerCase().includes('session') ||
+        key.toLowerCase().includes('cache')
+      );
+      
+      console.log(`📋 발견된 localStorage 키: ${welnoKeys.length}개`);
+      welnoKeys.forEach(key => {
         localStorage.removeItem(key);
+        console.log(`✅ localStorage 삭제: ${key}`);
       });
       
-      // UUID별로 구분된 약관 동의 키 삭제
-      if (patient?.uuid) {
-        const termsKey = `welno_terms_agreed_${patient.uuid}`;
-        const termsAtKey = `welno_terms_agreed_at_${patient.uuid}`;
-        const termsListKey = `welno_terms_agreed_list_${patient.uuid}`;
-        const termsAgreementKey = `welno_terms_agreement_${patient.uuid}`;
+      // 2. sessionStorage 완전 정리
+      const sessionStorageKeys = Object.keys(sessionStorage);
+      const welnoSessionKeys = sessionStorageKeys.filter(key => 
+        key.toLowerCase().includes('welno') || 
+        key.toLowerCase().includes('tilko') ||
+        key.toLowerCase().includes('patient') ||
+        key.toLowerCase().includes('hospital') ||
+        key.toLowerCase().includes('uuid')
+      );
+      
+      console.log(`📋 발견된 sessionStorage 키: ${welnoSessionKeys.length}개`);
+      welnoSessionKeys.forEach(key => {
+        sessionStorage.removeItem(key);
+        console.log(`✅ sessionStorage 삭제: ${key}`);
+      });
+      
+      // 3. IndexedDB 완전 삭제 (모든 스토어)
+      const DB_NAME = 'WelnoHealthDB';
+      const STORES = ['health_data', 'session_data'];
+      
+      try {
+        // 먼저 clearAllData로 모든 데이터 삭제
+        await WelnoIndexedDB.clearAllData();
+        console.log('[IndexedDB] clearAllData 완료');
         
-        localStorage.removeItem(termsKey);
-        localStorage.removeItem(termsAtKey);
-        localStorage.removeItem(termsListKey);
-        localStorage.removeItem(termsAgreementKey);
-        
-        console.log('[IndexedDB 삭제] UUID별 약관 동의 키 삭제 완료:', patient.uuid);
+        // 데이터베이스 자체 삭제 시도 (완전 제거)
+        await new Promise<void>((resolve, reject) => {
+          const deleteReq = indexedDB.deleteDatabase(DB_NAME);
+          deleteReq.onsuccess = () => {
+            console.log(`✅ IndexedDB 데이터베이스 삭제 완료: ${DB_NAME}`);
+            resolve();
+          };
+          deleteReq.onerror = () => {
+            console.warn(`⚠️ IndexedDB 데이터베이스 삭제 실패 (무시 가능):`, deleteReq.error);
+            // 삭제 실패해도 계속 진행
+            resolve();
+          };
+          deleteReq.onblocked = () => {
+            console.warn(`⚠️ IndexedDB 삭제 차단됨 (다른 탭에서 사용 중일 수 있음)`);
+            // 차단되어도 계속 진행
+            resolve();
+          };
+        });
+      } catch (indexedError) {
+        console.warn('[IndexedDB] 삭제 중 오류 (무시 가능):', indexedError);
       }
       
-      // 기존 전역 약관 동의 키도 삭제 (하위 호환성)
-      localStorage.removeItem('welno_terms_agreed');
-      localStorage.removeItem('welno_terms_agreed_at');
-      localStorage.removeItem('welno_terms_agreed_list');
-      localStorage.removeItem('welno_terms_agreement');
+      // 4. WelnoDataContext 캐시 클리어
+      if (actions.clearCache) {
+        actions.clearCache();
+        console.log('[완전 삭제] WelnoDataContext 캐시 클리어 완료');
+      }
+      
+      // 5. 비밀번호 세션 삭제
+      if (patient?.uuid && hospital?.hospital_id) {
+        try {
+          await PasswordSessionService.clearSession(patient.uuid, hospital.hospital_id);
+          console.log('[완전 삭제] 비밀번호 세션 삭제 완료');
+        } catch (sessionError) {
+          console.warn('[완전 삭제] 비밀번호 세션 삭제 실패 (무시 가능):', sessionError);
+        }
+      }
       
       setShowIndexedDBClearModal(false);
-      alert('IndexedDB 데이터가 삭제되었습니다.');
+      console.log('\n✅ [완전 삭제] 모든 데이터 삭제 완료!');
+      alert('모든 로컬 데이터가 완전히 삭제되었습니다.\n페이지를 새로고침합니다.');
       
       // 페이지 새로고침
-      window.location.reload();
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     } catch (error) {
-      console.error('IndexedDB 삭제 실패:', error);
-      alert('IndexedDB 삭제 중 오류가 발생했습니다.');
+      console.error('❌ [완전 삭제] 오류:', error);
+      alert('데이터 삭제 중 오류가 발생했습니다.');
       setShowIndexedDBClearModal(false);
     }
   };
@@ -1199,8 +1253,19 @@ const MainPage: React.FC = () => {
         {/* 헤더 (로고만 표시) */}
         <div className="main-page__header">
           <div className="main-page__header-logo" onClick={handleLogoClick} style={{ cursor: 'pointer' }}>
-            {/* 병원 ID가 없으면 웰노 아이콘 표시 (WelnoModal과 동일) */}
-            {!displayHospital.hospital_id ? (
+            {/* 카인드해빗 도메인이면 전용 로고 표시, 아니면 기존 로직 유지 */}
+            {isKindHabitDomain ? (
+              <img 
+                src="/kindhabit_logo.png"
+                alt="착한습관 로고"
+                className="main-page__header-logo-image"
+                style={{ width: '38px', height: '38px', objectFit: 'contain' }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = WELNO_LOGO_IMAGE; // 실패 시 웰노 로고로 폴백
+                }}
+              />
+            ) : !displayHospital.hospital_id ? (
               <img 
                 src={WELNO_LOGO_IMAGE}
                 alt="웰노 로고"
@@ -1241,10 +1306,24 @@ const MainPage: React.FC = () => {
             <span className="greeting-text">안녕하세요</span> <span className="patient-name">{displayPatient.name}</span><span className="greeting-text">님,</span>
           </h1>
           <p className="main-page__greeting-subtitle">
-            <span className="hospital-name">{displayHospital.name}</span> <span className="hospital-suffix">입니다.</span>
+            {isKindHabitDomain ? (
+              <span className="hospital-name">오늘도온 - 착한습관 만들기 프로젝트 입니다</span>
+            ) : (
+              <>
+                <span className="hospital-name">{displayHospital.name}</span> <span className="hospital-suffix">입니다.</span>
+              </>
+            )}
           </p>
           <p className="main-page__greeting-message">
-            <span className="hospital-name">{displayHospital.name}</span><span className="greeting-text">에서</span><br />
+            {isKindHabitDomain ? (
+              <>
+                <span className="greeting-text">착한습관</span><span className="greeting-text">에서</span><br />
+              </>
+            ) : (
+              <>
+                <span className="hospital-name">{displayHospital.name}</span><span className="greeting-text">에서</span><br />
+              </>
+            )}
             <span className="greeting-text-thin">더 의미있는 내원이 되시길 바라며</span><br />
             <span className="greeting-text-thin">준비한 건강관리 서비스를 확인해보세요!</span>
           </p>
@@ -1294,12 +1373,12 @@ const MainPage: React.FC = () => {
           <Card
             type="vertical"
             icon="habit"
-            title="건강습관 만들기"
+            title="착한습관 만들기"
             description="건강검진결과로 만드는
 나만의 착한 습관을 만들어보세요"
             onClick={() => handleCardClick('habit')}
             imageUrl={healthHabitImage}
-            imageAlt="건강습관 만들기"
+            imageAlt="착한습관 만들기"
           />
           <Card
             type="vertical"

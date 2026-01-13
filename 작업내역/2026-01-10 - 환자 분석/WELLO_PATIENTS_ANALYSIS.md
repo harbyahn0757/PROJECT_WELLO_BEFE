@@ -10,7 +10,7 @@
 ### 현재 조회 대상 UUID
 ```
 UUID: e3471a9a-2d67-4a23-8599-849963397d1c
-- name: 안광수 ✅
+- name: [이름 삭제됨] ✅
 - phone_number: NULL ❌
 - birth_date: NULL ❌
 - gender: M ✅

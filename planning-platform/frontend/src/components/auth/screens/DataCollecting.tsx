@@ -65,14 +65,17 @@ const DataCollecting: React.FC<DataCollectingProps> = ({
     switch (currentStatus) {
       case 'fetching_health_data':
         return '건강검진 데이터를 수집하고 있습니다';
+      case 'health_data_completed':
+        return '건강검진 데이터 수집 완료';
       case 'fetching_prescription_data':
         return '처방전 데이터를 수집하고 있습니다';
       case 'manual_collecting':
       case 'data_collecting':
       case 'collecting':
         return '건강정보를 연동하고 있습니다';
+      case 'completed':
       case 'data_completed':
-        return '수집이 완료되었습니다';
+        return '모든 데이터 수집이 완료되었습니다';
       case 'error':
         return '오류가 발생했습니다';
       default:
@@ -87,8 +90,13 @@ const DataCollecting: React.FC<DataCollectingProps> = ({
     switch (currentStatus) {
       case 'fetching_health_data':
         return '국민건강보험공단에서 건강검진 데이터를 가져오고 있어요';
+      case 'health_data_completed':
+        return '건강검진 데이터 수집이 완료되었습니다. 처방전 데이터를 수집합니다...';
       case 'fetching_prescription_data':
         return '국민건강보험공단에서 처방전 데이터를 가져오고 있어요';
+      case 'completed':
+      case 'data_completed':
+        return '데이터 수집이 완료되었습니다. 잠시만 기다려주세요...';
       default:
         return '국민건강보험공단에서 건강검진 데이터를 가져오고 있어요';
     }
@@ -99,6 +107,16 @@ const DataCollecting: React.FC<DataCollectingProps> = ({
    */
   const isBlinking = currentStatus === 'fetching_health_data' || currentStatus === 'fetching_prescription_data';
   
+  /**
+   * 완료 상태인지 확인
+   */
+  const isCompleted = currentStatus === 'completed' || currentStatus === 'data_completed';
+  
+  /**
+   * 중간 완료 상태인지 확인 (건강검진 완료 등)
+   */
+  const isIntermediateCompleted = currentStatus === 'health_data_completed';
+  
   return (
     <div className="data-collecting-container">
       <div className="data-collecting-content">
@@ -107,19 +125,37 @@ const DataCollecting: React.FC<DataCollectingProps> = ({
           {getTitle()}
         </h2>
         
-        {/* 스피너 */}
-        <div className="data-collecting-spinner-container">
-          <div className="data-collecting-spinner">
-            <div className={`spinner-circle ${isBlinking ? 'blinking-spinner' : ''}`}></div>
+        {/* 스피너 - 완료 상태일 때는 멈춤 */}
+        {!isCompleted && !isIntermediateCompleted && (
+          <div className="data-collecting-spinner-container">
+            <div className="data-collecting-spinner">
+              <div className={`spinner-circle ${isBlinking ? 'blinking-spinner' : ''}`}></div>
+            </div>
           </div>
-        </div>
+        )}
         
-        {/* 현재 작업 메시지 (롤링) */}
-        <div className="data-collecting-message">
-          <p className={`rolling-message ${isBlinking ? 'blinking-message' : ''}`}>
-            {getCurrentMessage()}
-          </p>
-        </div>
+        {/* 중간 완료 아이콘 - 건강검진 완료 등 */}
+        {isIntermediateCompleted && (
+          <div className="data-collecting-complete-icon">
+            <div className="complete-checkmark intermediate">✓</div>
+          </div>
+        )}
+        
+        {/* 최종 완료 아이콘 - 모든 데이터 수집 완료 */}
+        {isCompleted && (
+          <div className="data-collecting-complete-icon">
+            <div className="complete-checkmark">✓</div>
+          </div>
+        )}
+        
+        {/* 현재 작업 메시지 (롤링) - 완료 상태일 때는 롤링 안 함 */}
+        {!isCompleted && (
+          <div className="data-collecting-message">
+            <p className={`rolling-message ${isBlinking ? 'blinking-message' : ''}`}>
+              {getCurrentMessage()}
+            </p>
+          </div>
+        )}
         
         {/* 진행률 표시 (옵션) */}
         {progress > 0 && progress < 100 && (
@@ -135,16 +171,20 @@ const DataCollecting: React.FC<DataCollectingProps> = ({
         )}
         
         {/* 안내 메시지 */}
-        <div className={`data-collecting-info ${isBlinking ? 'blinking-info' : ''}`}>
-          <p className={`info-main ${isBlinking ? 'blinking-text' : ''}`}>
+        <div className={`data-collecting-info ${isBlinking ? 'blinking-info' : ''} ${isCompleted ? 'completed-info' : ''}`}>
+          <p className={`info-main ${isBlinking ? 'blinking-text' : ''} ${isCompleted ? 'completed-text' : ''}`}>
             {getInfoMessage()}
           </p>
-          <p className="info-sub">
-            예상 소요 시간: 30초 ~ 1분
-          </p>
-          <p className="info-warning">
-            보험 공단 수집 서비스 상태에 따라 최대 3분 까지도 소요 될 수 있습니다
-          </p>
+          {!isCompleted && (
+            <>
+              <p className="info-sub">
+                예상 소요 시간: 30초 ~ 1분
+              </p>
+              <p className="info-warning">
+                보험 공단 수집 서비스 상태에 따라 최대 3분 까지도 소요 될 수 있습니다
+              </p>
+            </>
+          )}
         </div>
         
         {/* 취소 버튼 (옵션) */}

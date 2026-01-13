@@ -91,7 +91,9 @@ async def simple_auth(
             headers={
                 "Content-Type": "application/json",
                 "API-KEY": TILKO_API_KEY,
-                "ENC-KEY": rsa_encrypt(public_key, AES_KEY_FIXED)
+                "ENC-KEY": rsa_encrypt(public_key, AES_KEY_FIXED),
+                "Referer": "https://welno.kindhabit.com",
+                "Origin": "https://welno.kindhabit.com"
             }
         )
         response.raise_for_status()
@@ -132,7 +134,9 @@ async def get_health_screening_data(
             headers={
                 "Content-Type": "application/json",
                 "API-KEY": TILKO_API_KEY,
-                "ENC-KEY": rsa_encrypt(public_key, AES_KEY_FIXED)
+                "ENC-KEY": rsa_encrypt(public_key, AES_KEY_FIXED),
+                "Referer": "https://welno.kindhabit.com",
+                "Origin": "https://welno.kindhabit.com"
             }
         )
         
@@ -218,7 +222,9 @@ async def get_prescription_data(
                 headers={
                     "Content-Type": "application/json",
                     "API-KEY": TILKO_API_KEY,
-                    "ENC-KEY": rsa_encrypt(public_key, AES_KEY_FIXED)
+                    "ENC-KEY": rsa_encrypt(public_key, AES_KEY_FIXED),
+                    "Referer": "https://welno.kindhabit.com",
+                    "Origin": "https://welno.kindhabit.com"
                 }
             )
             

@@ -1,0 +1,16 @@
+{
+  "session_id": "39b27ed7-31f2-4d5d-9b1b-ec63b8cd8196",
+  "data_type": "health_data",
+  "timestamp": "2026-01-13T16:03:23.797508",
+  "raw_data": {
+    "ApiTxKey": "f6485ba9-d707-40e8-8fa9-fde1b8fde3ab",
+    "Status": "Error",
+    "StatusSeq": 1,
+    "ErrorCode": 0,
+    "Message": "간편인증 로그인 요청이 실패했습니다. (<p>인증요청이 정상적으로 완료되지<br>않았습니다.</p><p class=&lsquo;sTxt&rsquo;>ERROR CODE:&nbsp4115</p><p class=&lsquo;cont&rsquo;>앱에서 인증을 완료해주세요.<br>앱에서 요청 알림이 오지 않았다면 인증창을<br>닫고 처음부터 다시 인증 요청해주세요.</p><p class=&lsquo;sTxt bold&rsquo;>PASS&nbsp고객센터:&nbsp1800-4273</p>)",
+    "ErrorLog": null,
+    "TargetCode": null,
+    "TargetMessage": null,
+    "PointBalance": null
+  }
+}
