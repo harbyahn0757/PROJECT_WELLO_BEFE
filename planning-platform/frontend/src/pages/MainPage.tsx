@@ -1145,7 +1145,7 @@ const MainPage: React.FC = () => {
       if (uuid && hospitalId) {
         try {
           console.log('🌐 [서버 삭제] 서버 데이터 삭제 시작...');
-          const API_BASE_URL = apiConfig.apiBaseUrl;
+          const API_BASE_URL = apiConfig.API_BASE_URL;
           const response = await fetch(
             `${API_BASE_URL}/welno-data/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`,
             {
