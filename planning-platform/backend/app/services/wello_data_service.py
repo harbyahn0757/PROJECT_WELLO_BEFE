@@ -374,14 +374,21 @@ class WelloDataService:
                 RETURNING id
             """
             
+            # 이름 검증
+            patient_name = user_info.get('name')
+            if not patient_name or patient_name.strip() == "":
+                print(f"⚠️ [환자저장] 이름이 없거나 빈 문자열입니다 - UUID: {uuid}, Hospital: {hospital_id}")
+                print(f"   - user_info: {user_info}")
+                # 이름이 없어도 저장은 진행하되 경고 로그 출력
+            
             patient_id = await conn.fetchval(
                 upsert_query,
-                uuid, hospital_id, user_info.get('name'), user_info.get('phone_number'),
+                uuid, hospital_id, patient_name or "", user_info.get('phone_number'),
                 birth_date, user_info.get('gender'), session_id
             )
             
             await conn.close()
-            print(f"✅ [환자저장] 환자 정보 저장 완료 - ID: {patient_id}")
+            print(f"✅ [환자저장] 환자 정보 저장 완료 - ID: {patient_id}, 이름: {patient_name or '(없음)'}")
             return patient_id
             
         except Exception as e:

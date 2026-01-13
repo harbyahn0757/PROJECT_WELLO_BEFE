@@ -442,11 +442,20 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
       
       // 질환의심 범위 체크 (우선순위)
       const abnormal = item.ItemReferences.find((ref: any) => ref.Name === '질환의심');
+      // 정상 범위 체크 (우선순위 1) - "정상", "정상(A)", "정상(B)" 모두 포함
+      const normal = item.ItemReferences.find((ref: any) => 
+        ref.Name === '정상' || ref.Name === '정상(A)' || ref.Name === '정상(B)'
+      );
+      if (normal && isInRange(itemValue, normal.Value)) {
+        return 'normal';
+      }
+      
+      // 질환의심 범위 체크 (우선순위 2)
       if (abnormal && isInRange(itemValue, abnormal.Value)) {
         return 'abnormal';
       }
       
-      // 정상(B) 또는 경계 범위 체크
+      // 정상(B) 또는 경계 범위 체크 (우선순위 3)
       const normalB = item.ItemReferences.find((ref: any) => ref.Name === '정상(B)' || ref.Name === '정상(경계)');
       if (normalB && isInRange(itemValue, normalB.Value)) {
         return 'warning';

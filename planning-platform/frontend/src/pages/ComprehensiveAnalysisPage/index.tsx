@@ -327,19 +327,22 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                 const itemValue = parseFloat(item.Value);
                 if (!isNaN(itemValue)) {
                   // 질환의심 범위 체크 (우선순위)
-                  const abnormal = item.ItemReferences.find((ref: any) => ref.Name === '질환의심');
-                  if (abnormal && isInRange(itemValue, abnormal.Value)) {
-                    itemStatus = 'abnormal';
+                  // 정상 범위 체크 (우선순위 1) - "정상", "정상(A)", "정상(B)" 모두 포함
+                  const normal = item.ItemReferences.find((ref: any) => 
+                    ref.Name === '정상' || ref.Name === '정상(A)' || ref.Name === '정상(B)'
+                  );
+                  if (normal && isInRange(itemValue, normal.Value)) {
+                    itemStatus = 'normal';
                   } else {
-                    // 정상(B) 또는 경계 범위 체크
-                    const normalB = item.ItemReferences.find((ref: any) => ref.Name === '정상(B)' || ref.Name === '정상(경계)');
-                    if (normalB && isInRange(itemValue, normalB.Value)) {
-                      itemStatus = 'warning';
+                    // 질환의심 범위 체크 (우선순위 2)
+                    const abnormal = item.ItemReferences.find((ref: any) => ref.Name === '질환의심');
+                    if (abnormal && isInRange(itemValue, abnormal.Value)) {
+                      itemStatus = 'abnormal';
                     } else {
-                      // 정상(A) 범위 체크
-                      const normalA = item.ItemReferences.find((ref: any) => ref.Name === '정상(A)');
-                      if (normalA && isInRange(itemValue, normalA.Value)) {
-                        itemStatus = 'normal';
+                      // 정상(B) 또는 경계 범위 체크 (우선순위 3)
+                      const normalB = item.ItemReferences.find((ref: any) => ref.Name === '정상(B)' || ref.Name === '정상(경계)');
+                      if (normalB && isInRange(itemValue, normalB.Value)) {
+                        itemStatus = 'warning';
                       }
                     }
                   }
@@ -393,8 +396,10 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                   abnormal: null as { min: number; max: number } | null
                 };
                 
-                // 정상(A) 범위
-                const normalRef = item.ItemReferences.find((ref: any) => ref.Name === '정상(A)');
+                // 정상 범위 ("정상", "정상(A)", "정상(B)" 모두 포함)
+                const normalRef = item.ItemReferences.find((ref: any) => 
+                  ref.Name === '정상' || ref.Name === '정상(A)' || ref.Name === '정상(B)'
+                );
                 if (normalRef && normalRef.Value) {
                   ranges.normal = parseNormalRange(normalRef.Value, gender, metric);
                 }
@@ -444,8 +449,10 @@ const ComprehensiveAnalysisPage: React.FC = () => {
               );
               
               if (item && item.ItemReferences && Array.isArray(item.ItemReferences)) {
-                // 정상(A) 범위 우선 사용
-                const normalRef = item.ItemReferences.find((ref: any) => ref.Name === '정상(A)');
+                // 정상 범위 우선 사용 ("정상", "정상(A)", "정상(B)" 모두 포함)
+                const normalRef = item.ItemReferences.find((ref: any) => 
+                  ref.Name === '정상' || ref.Name === '정상(A)' || ref.Name === '정상(B)'
+                );
                 if (normalRef && normalRef.Value) {
                   return parseNormalRange(normalRef.Value, gender, metric);
                 }
@@ -1315,18 +1322,20 @@ const ComprehensiveAnalysisPage: React.FC = () => {
                                         return 'abnormal' as const;
                                       }
                                       
-                                      // 정상(B) 또는 경계 범위 체크
+                                      // 정상 범위 체크 (우선순위 1) - "정상", "정상(A)", "정상(B)" 모두 포함
+                                      const normal = item.ItemReferences.find((ref: any) => 
+                                        ref.Name === '정상' || ref.Name === '정상(A)' || ref.Name === '정상(B)'
+                                      );
+                                      if (normal && isInRange(itemValue, normal.Value)) {
+                                        console.log(`[${metric}] 포인트 상태: normal (정상), 값: ${itemValue}, 범위: ${normal.Value}`);
+                                        return 'normal' as const;
+                                      }
+                                      
+                                      // 정상(B) 또는 경계 범위 체크 (우선순위 2)
                                       const normalB = item.ItemReferences.find((ref: any) => ref.Name === '정상(B)' || ref.Name === '정상(경계)');
                                       if (normalB && isInRange(itemValue, normalB.Value)) {
                                         console.log(`[${metric}] 포인트 상태: warning (정상B), 값: ${itemValue}, 범위: ${normalB.Value}`);
                                         return 'warning' as const;
-                                      }
-                                      
-                                      // 정상(A) 범위 체크
-                                      const normalA = item.ItemReferences.find((ref: any) => ref.Name === '정상(A)');
-                                      if (normalA && isInRange(itemValue, normalA.Value)) {
-                                        console.log(`[${metric}] 포인트 상태: normal (정상A), 값: ${itemValue}, 범위: ${normalA.Value}`);
-                                        return 'normal' as const;
                                       }
                                     }
                                   }

@@ -108,11 +108,25 @@ async def notify_auth_completed(session_id: str, auth_data: dict = None):
     """
     인증 완료 시 WebSocket으로 클라이언트에 알림
     """
+    # 세션에서 user_name 가져오기
+    from ..tilko_auth import session_manager
+    session_data = session_manager.get_session(session_id)
+    user_name = ""
+    if session_data:
+        user_name = session_data.get("user_info", {}).get("name", "")
+    
+    # auth_data에 user_name 추가
+    if auth_data is None:
+        auth_data = {}
+    if "user_name" not in auth_data:
+        auth_data["user_name"] = user_name
+    
     message = {
         "type": "auth_completed",
         "session_id": session_id,
         "message": "인증이 완료되었습니다!",
         "auth_data": auth_data,
+        "user_name": user_name,  # 직접 user_name 필드 추가
         "next_step": "collect_health_data"
     }
     

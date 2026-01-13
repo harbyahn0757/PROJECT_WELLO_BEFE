@@ -97,9 +97,17 @@ const CheckupCard: React.FC<CheckupCardProps> = ({
         return false;
       };
       
+      // 정상 범위 체크 (우선순위 1) - "정상", "정상(A)", "정상(B)" 모두 포함
+      const normal = item.ItemReferences.find((ref: any) => 
+        ref.Name === '정상' || ref.Name === '정상(A)' || ref.Name === '정상(B)'
+      );
+      if (normal && isInRange(numValue, normal.Value)) return 'normal';
+      
+      // 질환의심 범위 체크 (우선순위 2)
       const abnormal = item.ItemReferences.find((ref: any) => ref.Name === '질환의심');
       if (abnormal && isInRange(numValue, abnormal.Value)) return 'abnormal';
       
+      // 정상(B) 또는 경계 범위 체크 (우선순위 3)
       const normalB = item.ItemReferences.find((ref: any) => ref.Name === '정상(B)' || ref.Name === '정상(경계)');
       if (normalB && isInRange(numValue, normalB.Value)) return 'warning';
       

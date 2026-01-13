@@ -187,8 +187,9 @@ async def create_checkup_design_prompt_step2_priority1(
                                         for ref in item["ItemReferences"]:
                                             ref_name = ref.get("Name") or ""
                                             
-                                            # 정상(A) 항목은 제외 (정상이므로 리스트에 추가하지 않음)
-                                            if "정상(A)" in ref_name:
+                                            # 정상 항목은 제외 (정상이므로 리스트에 추가하지 않음)
+                                            # "정상", "정상(A)", "정상(B)" 모두 포함
+                                            if "정상" in ref_name:
                                                 item_status = "normal"
                                                 break
                                             # 이상 항목
@@ -196,7 +197,7 @@ async def create_checkup_design_prompt_step2_priority1(
                                                 item_status = "abnormal"
                                                 break
                                             # 경계 항목
-                                            elif "정상(B)" in ref_name or "경계" in ref_name:
+                                            elif "경계" in ref_name:
                                                 item_status = "warning"
                                                 break
                                         

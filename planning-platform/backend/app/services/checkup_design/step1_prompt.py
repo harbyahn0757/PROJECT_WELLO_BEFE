@@ -222,8 +222,9 @@ def create_step1_prompt(
                                         for ref in item["ItemReferences"]:
                                             ref_name = ref.get("Name") or ""
                                             
-                                            # 정상(A) 항목은 제외 (정상이므로 리스트에 추가하지 않음)
-                                            if "정상(A)" in ref_name:
+                                            # 정상 항목은 제외 (정상이므로 리스트에 추가하지 않음)
+                                            # "정상", "정상(A)", "정상(B)" 모두 포함
+                                            if "정상" in ref_name:
                                                 item_status = "normal"
                                                 break
                                             # 이상 항목
@@ -231,7 +232,7 @@ def create_step1_prompt(
                                                 item_status = "abnormal"
                                                 break
                                             # 경계 항목
-                                            elif "정상(B)" in ref_name or "경계" in ref_name:
+                                            elif "경계" in ref_name:
                                                 item_status = "warning"
                                                 break
                                         
@@ -437,7 +438,24 @@ def create_step1_prompt(
   - eGFR 60 이상, 혈압 120/80 미만 등 정상 범위 데이터에 대해 절대 '위험'이나 '저하' 표현을 쓰지 마십시오.
   - 정상이면 "엔진 상태 아주 좋습니다", "혈관 탄력 훌륭합니다"와 같이 긍정적이고 비유적인 표현으로 칭찬하십시오.
 
-## 3. 데이터 최신성 확인
+## 3. 건강검진 데이터 해석 규칙 (중요)
+**절대 금지: 질환명만 보고 판단하지 말 것**
+- "만성폐쇄성폐질환", "고혈압" 등의 질환명만 보고 이상 소견으로 판단 금지
+- 반드시 Value와 ItemReferences를 확인하여 실제 상태를 판단하세요
+
+**Value가 비어있거나 없을 때:**
+- ItemReferences를 먼저 확인하세요
+- "정상", "정상(A)", "정상(B)" 기준이 있으면 → 정상으로 처리
+- "질환의심" 또는 "이상" 기준만 있을 때만 → 이상으로 처리
+- Value가 비어있어도 ItemReferences에 정상 기준이 있으면 정상입니다
+
+**과거 흡연자(ex_smoker)의 경우:**
+- 건강검진 데이터에 이상 소견이 없으면 "과거 흡연 이력으로 인한 우려"로 표현
+- "이상 소견"이라는 표현 사용 금지
+- 예: "과거 흡연 이력이 있어 폐 건강 관리가 필요합니다" (O)
+- 예: "2021년 폐 건강 이상 소견" (X - 실제로 이상 소견이 없었는데 언급 금지)
+
+## 4. 데이터 최신성 확인
 - 제공된 건강검진 데이터가 최근 2년 이내가 아니라면, "과거 데이터이므로 현재 상태와 다를 수 있음"을 반드시 명시하세요.
 
 # Output Format (JSON)

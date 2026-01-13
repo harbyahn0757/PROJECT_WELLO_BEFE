@@ -222,8 +222,13 @@ class WelnoRagChatService:
                     if "error" not in health_info:
                         patient_name = health_info.get("patient", {}).get("name", "고객")
                         health_data = health_info.get("health_data", [])
-                        if health_data:
-                            latest = health_data[0]
+                        prescription_data = health_info.get("prescription_data", [])
+                        
+                        # 최근 3년간 데이터 필터링
+                        filtered_health, filtered_prescription = self._filter_recent_3years_data(health_data, prescription_data)
+                        
+                        if filtered_health:
+                            latest = filtered_health[0]
                             year_str = latest.get("year", "0").replace("년", "")
                             try:
                                 checkup_year = int(year_str)
@@ -235,11 +240,14 @@ class WelnoRagChatService:
                             except:
                                 pass
                                 
-                            stats = self._extract_health_stats(health_data)
-                            trends = self._analyze_health_trends(health_data)
+                            stats = self._extract_health_stats(filtered_health)
+                            trends = self._analyze_health_trends(filtered_health)
                             chronic = ", ".join(stats.get("chronic_diseases", []))
                             
-                            briefing_context = f"\n[환자 최근 건강 상태 ({latest.get('year', '최근')})]\n- 이름: {patient_name}\n"
+                            # 최근 3년간 주요 요소 정리
+                            briefing_context = f"\n[환자 최근 건강 상태 (최근 3년간 데이터 분석)]\n- 이름: {patient_name}\n"
+                            briefing_context += f"- 분석 기간: 최근 3년간 ({len(filtered_health)}건 검진, {len(filtered_prescription)}건 복약)\n"
+                            
                             if stats.get("bmi"): briefing_context += f"- BMI: {stats['bmi']}\n"
                             if stats.get("bp"): briefing_context += f"- 혈압: {stats['bp']}\n"
                             if chronic: briefing_context += f"- 주의 필요 질환: {chronic}\n"
@@ -263,11 +271,39 @@ class WelnoRagChatService:
                                 risks = ", ".join(trends["risk_assessment"])
                                 briefing_context += f"- 위험도 평가: {risks}\n"
                             
+                            # 복약 데이터 요약
+                            if filtered_prescription:
+                                med_names = set()
+                                for pres in filtered_prescription[:5]:  # 최근 5건만
+                                    raw = pres.get("raw_data", {})
+                                    if isinstance(raw, dict):
+                                        meds = raw.get("medications", [])
+                                        for med in meds:
+                                            name = med.get("name") or med.get("drug_name") or med.get("ChoBangYakPumMyung", "")
+                                            if name:
+                                                med_names.add(name)
+                                
+                                if med_names:
+                                    briefing_context += f"- 최근 복약: {', '.join(list(med_names)[:5])}\n"
+                            
                             if is_stale_data:
                                 briefing_context += f"\n**주의**: 이 데이터는 {stale_year}년 데이터로 2년 이상 경과되었습니다. 이를 언급하고 현재 상태를 물어보세요."
                             else:
                                 briefing_context += "\n이 정보를 바탕으로 다각도로 분석하여 상담을 시작하세요. 추이, 패턴, 위험도를 종합적으로 언급하세요."
                                 chat_stage = "normal"
+                            
+                            # Redis에 검진/복약 데이터 요약 저장 (이후 메시지에서 참조)
+                            if self.redis_client:
+                                summary_key = f"welno:rag_chat:data_summary:{uuid}:{hospital_id}:{session_id}"
+                                summary_data = {
+                                    "patient_name": patient_name,
+                                    "health_summary": briefing_context,
+                                    "filtered_health_count": len(filtered_health),
+                                    "filtered_prescription_count": len(filtered_prescription),
+                                    "is_stale_data": is_stale_data,
+                                    "stale_year": stale_year
+                                }
+                                self.redis_client.setex(summary_key, 86400, json.dumps(summary_data, ensure_ascii=False))
                 except Exception as e:
                     logger.warning(f"⚠️ [브리핑] 데이터 로드 실패: {e}")
 
@@ -305,37 +341,100 @@ class WelnoRagChatService:
                         "page": page
                     })
                 
-                # 프롬프트 구성
-                enhanced_prompt = CHAT_SYSTEM_PROMPT
-                combined_context = briefing_context + past_survey_info
-                if combined_context:
-                    enhanced_prompt = enhanced_prompt.replace("[Context]", f"[Context]{combined_context}")
+                # 세션 히스토리 준비 (첫 메시지가 아닌 경우)
+                chat_history = None
+                if not is_first_message:
+                    # 이전 대화 히스토리 가져오기
+                    history = self.chat_manager.get_history(uuid, hospital_id)
+                    if history and len(history) >= 2:  # 최소 user + assistant 한 쌍
+                        # Gemini Chat 형식으로 변환 (전체 히스토리)
+                        chat_history = gemini_service._format_chat_history(history)
+                        logger.info(f"📜 [세션 히스토리] {len(chat_history)}개 메시지 로드")
                 
-                # 단계별 지침 추가
-                stage_instruction = ""
-                if chat_stage == "awaiting_current_concerns" and is_first_message:
-                    stage_instruction = "\n\n**상담 단계 (Stage 1)**: 과거 데이터임을 언급하며 간략히 조언하고, 반드시 '최근 1~2년 내에 특별히 걱정되거나 불편하신 곳이 있는지' 질문하며 답변을 맺으세요."
-                elif chat_stage == "awaiting_current_concerns" and not is_first_message:
-                    # 사용자가 현재 고민을 말한 경우
-                    stage_instruction = "\n\n**상담 단계 (Stage 2)**: 사용자의 현재 고민과 과거 데이터를 연결하여 깊이 있게 분석하세요."
-                    # 건기식 질문인 경우 PNT 유도 멘트 추가
-                    if any(kw in message for kw in ["영양제", "건기식", "비타민", "추천", "상담"]):
-                        stage_instruction += " 답변 끝에 '더 정밀한 영양 치료(PNT) 설계를 원하시면 정밀 문진을 진행해 보시는 것이 좋다'고 제안하세요."
+                # 프롬프트 구성
+                if is_first_message:
+                    # 첫 메시지: 검진/복약 데이터 포함
+                    enhanced_prompt = CHAT_SYSTEM_PROMPT
+                    combined_context = briefing_context + past_survey_info + f"\n[의학 지식 문서 (참고 문헌)]\n{context_str}"
+                    if combined_context:
+                        enhanced_prompt = enhanced_prompt.replace("[Context]", f"[Context]{combined_context}")
+                    
+                    # 맥락 연결 구조 지침 추가 (첫 메시지에도 적용) - 2단계 구조로 업데이트
+                    context_instruction = "\n**답변 구조 지침**: 먼저 사용자 질문에 대한 직접 답변을 제공하고, 그 다음 [Context]에 있는 과거 검진/복약/문진 내역과의 연관성을 의학 지식 문서에 연관성이 있을 때만 자연스럽게 연결하여 언급하세요. 데이터 출처를 명확히 표시하고(예: '2021년 검진 결과를 보면', '이전 문진에서', '복약 내역을 확인해보니'), 데이터와 사용자 말이 위배될 때는 시스템이 직접 확인 질문을 하세요. 너무 의학적으로 접근하지 말고, 필요시 상담사 연결이나 PNT 문진을 자연스럽게 유도하세요.\n"
+                    enhanced_prompt += context_instruction
+                    
+                    # 단계별 지침 추가
+                    stage_instruction = ""
+                    if chat_stage == "awaiting_current_concerns":
+                        stage_instruction = "\n\n**상담 단계 (Stage 1)**: 과거 데이터임을 언급하며 간략히 조언하고, 반드시 '최근 1~2년 내에 특별히 걱정되거나 불편하신 곳이 있는지' 질문하며 답변을 맺으세요."
+                    else:
+                        stage_instruction = "\n이 정보를 바탕으로 다각도로 분석하여 상담을 시작하세요. 추이, 패턴, 위험도를 종합적으로 언급하되, 너무 의학적으로 접근하지 말고 상담사 연결을 자연스럽게 유도하세요."
+                        chat_stage = "normal"
+                    
+                    enhanced_prompt += stage_instruction
+                    enhanced_prompt += "\n\n**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요."
+                    
+                    prompt = enhanced_prompt.format(context_str=context_str, query_str=message)
+                    gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", chat_history=None)
+                else:
+                    # 이후 메시지: 히스토리 + 검진/복약/문진 데이터 요약 포함
+                    # Redis에서 저장된 검진/복약 데이터 요약 가져오기
+                    data_summary = ""
+                    if self.redis_client:
+                        summary_key = f"welno:rag_chat:data_summary:{uuid}:{hospital_id}:{session_id}"
+                        summary_json = self.redis_client.get(summary_key)
+                        if summary_json:
+                            try:
+                                summary_data = json.loads(summary_json)
+                                data_summary = summary_data.get("health_summary", "")
+                                if data_summary:
+                                    data_summary = f"\n[환자 건강 데이터 요약 (과거 내역 참고용)]\n{data_summary}\n"
+                            except:
+                                pass
+                    
+                    # 문진 내역도 함께 전달 (이후 메시지에서도)
+                    past_survey_info_subsequent = ""
+                    if self.redis_client:
+                        survey_key = f"welno:survey:{uuid}:{hospital_id}"
+                        past_survey_json = self.redis_client.get(survey_key)
+                        if past_survey_json:
+                            try:
+                                past_survey = json.loads(past_survey_json)
+                                responses = past_survey.get("survey_responses", {})
+                                if responses:
+                                    from .checkup_design.survey_mapping import generate_survey_section
+                                    past_survey_info_subsequent = f"\n[기본 문진 정보 (페르소나)]\n{generate_survey_section(responses)}\n"
+                            except: pass
+                    
+                    # 히스토리와 검진/복약/문진 데이터 요약을 함께 전달
+                    # 맥락 연결 구조 지침 추가 - 2단계 구조로 업데이트
+                    context_instruction = "\n**답변 구조 지침**: 먼저 사용자 질문에 대한 직접 답변을 제공하고, 그 다음 위의 [환자 건강 데이터 요약]과 [기본 문진 정보]에 있는 과거 내역과의 연관성을 의학 지식 문서에 연관성이 있을 때만 자연스럽게 연결하여 언급하세요. 데이터 출처를 명확히 표시하고(예: '2021년 검진 결과를 보면', '이전 문진에서', '복약 내역을 확인해보니'), 데이터와 사용자 말이 위배될 때는 시스템이 직접 확인 질문을 하세요. 너무 의학적으로 접근하지 말고, 필요시 상담사 연결이나 PNT 문진을 자연스럽게 유도하세요.\n"
+                    prompt = f"{data_summary}{past_survey_info_subsequent}{context_instruction}[의학 지식 문서 (참고 문헌)]\n{context_str}\n\n사용자 질문: {message}\n전문가 답변:"
+                    
+                    # 단계별 지침 추가
+                    stage_instruction = ""
+                    if chat_stage == "awaiting_current_concerns":
+                        stage_instruction = "\n\n**상담 단계 (Stage 2)**: 사용자의 현재 고민과 과거 데이터를 연결하여 깊이 있게 분석하세요. 너무 의학적으로 접근하지 말고, 상담사 연결을 자연스럽게 유도하세요."
+                        # 건기식 질문인 경우 PNT 유도 멘트 추가
+                        if any(kw in message for kw in ["영양제", "건기식", "비타민", "추천", "상담"]):
+                            stage_instruction += " 답변 끝에 '정확한 상태 파악을 위해 전문 상담사와의 상담을 권장드립니다. 더 정밀한 맞춤 영양 치료(PNT)를 위해 간단한 문진을 진행해 보시는 것도 좋겠습니다.'라고 자연스럽게 제안하세요."
+                            chat_stage = "pnt_ready"
+                        else:
+                            chat_stage = "normal"
+                    elif any(kw in message for kw in ["영양제", "건기식", "비타민", "추천", "상담"]):
+                        stage_instruction = "\n\n**상담 지침**: 사용자가 건강기능식품이나 영양제에 대해 물었습니다. 답변 마지막에 '정확한 맞춤 상담을 위해 전문 상담사와의 상담을 권장드립니다. 더 정밀한 맞춤 영양 치료(PNT)를 위해 간단한 문진을 진행해 보시겠어요?'라고 자연스럽게 제안하세요."
                         chat_stage = "pnt_ready"
                     else:
-                        chat_stage = "normal"
-                elif any(kw in message for kw in ["영양제", "건기식", "비타민", "추천", "상담"]):
-                    # 일반 대화 중 건기식 질문 시
-                    stage_instruction = "\n\n**상담 지침**: 사용자가 건강기능식품이나 영양제에 대해 물었습니다. 답변 마지막에 '더 정밀한 맞춤 영양 치료(PNT)를 위해 간단한 문진을 진행해 보시겠어요?'라고 제안하세요."
-                    chat_stage = "pnt_ready"
+                        # 복잡한 증상이나 의학적 판단이 필요한 경우 상담사 연결 유도
+                        if any(kw in message for kw in ["피로", "통증", "증상", "아픔", "불편", "걱정"]):
+                            stage_instruction = "\n\n**상담 지침**: 이런 증상들은 여러 원인이 있을 수 있어, 전문 상담사와 함께 정확한 원인을 파악하는 것이 중요합니다. 답변 마지막에 '정확한 상태 파악을 위해 전문 상담사와의 상담을 권장드립니다'라고 자연스럽게 제안하세요."
+                    
+                    prompt += stage_instruction
+                    prompt += "\n\n**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요."
+                    
+                    gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", chat_history=chat_history)
                 
-                enhanced_prompt += stage_instruction
-                enhanced_prompt += "\n\n**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요."
-                
-                prompt = enhanced_prompt.format(context_str=context_str, query_str=message)
-                gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview")
-                
-                async for chunk in gemini_service.stream_api(gemini_req):
+                async for chunk in gemini_service.stream_api(gemini_req, session_id=session_id):
                     full_answer += chunk
                     display_chunk = chunk
                     if "[SUGGESTIONS]" in full_answer and "[SUGGESTIONS]" in chunk:
@@ -468,6 +567,51 @@ class WelnoRagChatService:
             "비만": "비만/과체중"
         }
     
+    def _filter_recent_3years_data(self, health_data_list: List[Dict[str, Any]], prescription_data_list: List[Dict[str, Any]]) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """최근 3년간 검진/복약 데이터 필터링"""
+        current_year = datetime.now().year
+        three_years_ago = current_year - 3
+        
+        # 검진 데이터 필터링
+        filtered_health = []
+        for data in health_data_list:
+            year_str = data.get("year", "0").replace("년", "").strip()
+            try:
+                year = int(year_str)
+                if year >= three_years_ago:
+                    filtered_health.append(data)
+            except:
+                # 연도 파싱 실패 시 포함하지 않음
+                continue
+        
+        # 복약 데이터 필터링
+        filtered_prescription = []
+        for data in prescription_data_list:
+            # treatment_date 또는 prescription_date 확인
+            date_str = data.get("treatment_date") or data.get("prescription_date") or data.get("date", "")
+            if not date_str:
+                continue
+            
+            try:
+                # 날짜 파싱 (다양한 형식 지원)
+                if isinstance(date_str, str):
+                    if len(date_str) == 10 and "-" in date_str:  # YYYY-MM-DD
+                        year = int(date_str.split("-")[0])
+                    elif len(date_str) == 8:  # YYYYMMDD
+                        year = int(date_str[:4])
+                    else:
+                        # 다른 형식 시도
+                        year = datetime.fromisoformat(date_str.replace("Z", "+00:00")).year
+                else:
+                    year = date_str.year if hasattr(date_str, 'year') else current_year
+                
+                if year >= three_years_ago:
+                    filtered_prescription.append(data)
+            except:
+                continue
+        
+        return filtered_health, filtered_prescription
+    
     def _analyze_health_trends(self, health_data_list: List[Dict[str, Any]]) -> Dict[str, Any]:
         """건강검진 데이터 추이 분석 (최근 3년)"""
         trends = {
@@ -481,8 +625,13 @@ class WelnoRagChatService:
         if not health_data_list or len(health_data_list) < 2:
             return trends
         
+        # 최근 3년 데이터 필터링
+        filtered_data, _ = self._filter_recent_3years_data(health_data_list, [])
+        if not filtered_data:
+            return trends
+        
         # 최근 3개 데이터만 사용 (최대 3년)
-        recent_data = health_data_list[:3]
+        recent_data = filtered_data[:3]
         
         for data in recent_data:
             year = data.get("year", "").replace("년", "")

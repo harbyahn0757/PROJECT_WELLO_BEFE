@@ -22,6 +22,7 @@ class GeminiRequest:
     temperature: float = 0.3
     max_tokens: int = 4096
     response_format: Optional[Dict[str, Any]] = None  # JSON 응답 요청 시 {"type": "json_object"}
+    chat_history: Optional[List[Dict[str, str]]] = None  # 세션 히스토리 (role, content)
 
 @dataclass
 class GeminiResponse:
@@ -37,6 +38,7 @@ class GeminiService:
     def __init__(self):
         self._api_key: Optional[str] = None
         self._initialized: bool = False
+        self._chat_sessions: Dict[str, Any] = {}  # 세션별 ChatSession 저장
         
     async def initialize(self):
         """Gemini 클라이언트 초기화"""
@@ -155,8 +157,8 @@ class GeminiService:
             logger.error(f"❌ [Gemini Service] API 호출 실패: {str(e)}")
             return GeminiResponse(success=False, error=str(e))
 
-    async def stream_api(self, request: GeminiRequest):
-        """Gemini API 스트리밍 호출"""
+    async def stream_api(self, request: GeminiRequest, session_id: Optional[str] = None):
+        """Gemini API 스트리밍 호출 (세션 히스토리 지원)"""
         if not self._initialized:
             await self.initialize()
             
@@ -182,14 +184,25 @@ class GeminiService:
                 HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
             }
 
-            logger.info(f"📡 [Gemini Service] 스트리밍 호출 중... (Model: {request.model})")
+            logger.info(f"📡 [Gemini Service] 스트리밍 호출 중... (Model: {request.model}, Session: {session_id})")
             
-            # 스트리밍 호출 (생성기 반환)
-            response = model.generate_content(
-                request.prompt,
-                safety_settings=safety_settings,
-                stream=True
-            )
+            # 세션 히스토리가 있으면 ChatSession 사용
+            if session_id and request.chat_history and len(request.chat_history) > 0:
+                # 기존 히스토리로 ChatSession 시작
+                chat_session = model.start_chat(history=request.chat_history)
+                # 새 메시지 전송
+                response = chat_session.send_message(
+                    request.prompt,
+                    safety_settings=safety_settings,
+                    stream=True
+                )
+            else:
+                # 일반 스트리밍 호출 (첫 메시지 또는 히스토리 없음)
+                response = model.generate_content(
+                    request.prompt,
+                    safety_settings=safety_settings,
+                    stream=True
+                )
             
             for chunk in response:
                 if chunk.text:
@@ -198,6 +211,29 @@ class GeminiService:
         except Exception as e:
             logger.error(f"❌ [Gemini Service] 스트리밍 호출 실패: {str(e)}")
             yield f"오류 발생: {str(e)}"
+    
+    def _format_chat_history(self, history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """채팅 히스토리를 Gemini Chat 형식으로 변환"""
+        formatted = []
+        for msg in history:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            
+            if not content:
+                continue
+            
+            # Gemini Chat 형식: "user" 또는 "model"
+            if role == "assistant":
+                role = "model"
+            elif role != "user":
+                continue  # user와 assistant만 지원
+            
+            formatted.append({
+                "role": role,
+                "parts": [content]  # Gemini Chat API 형식: parts는 리스트
+            })
+        
+        return formatted
 
 # 전역 인스턴스 생성
 gemini_service = GeminiService()

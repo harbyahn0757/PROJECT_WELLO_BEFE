@@ -206,13 +206,14 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
         abnormal: null as { min: number; max: number; name?: string } | null
       };
       
-      // 정상(A) 범위 - 다양한 Name 형식 시도
+      // 정상 범위 - 다양한 Name 형식 시도 ("정상", "정상(A)", "정상(B)" 모두 포함)
       const normalRef = item.ItemReferences.find((ref: any) => 
-        ref.Name === '정상(A)' || 
-        ref.Name === '정상A' || 
         ref.Name === '정상' ||
-        ref.Name?.includes('정상(A)') ||
-        ref.Name?.includes('정상A')
+        ref.Name === '정상(A)' || 
+        ref.Name === '정상(B)' ||
+        ref.Name === '정상A' || 
+        ref.Name === '정상B' ||
+        ref.Name?.includes('정상')
       );
       if (normalRef && normalRef.Value) {
         const parsedRange = parseNormalRange(normalRef.Value, gender, metric);
@@ -599,7 +600,21 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                       };
                     }
                     
-                    // 정상(B) 또는 경계 범위 체크
+                    // 정상 범위 체크 (우선순위 1) - "정상", "정상(A)", "정상(B)" 모두 포함
+                    const normal = item.ItemReferences.find((ref: any) => 
+                      ref.Name === '정상' || ref.Name === '정상(A)' || ref.Name === '정상(B)'
+                    );
+                    if (normal && isInRange(itemValue, normal.Value, gender)) {
+                      itemStatus = 'normal';
+                      return {
+                        status: itemStatus,
+                        text: normal.Name, // ItemReferences의 Name 그대로 사용
+                        date: rawData.CheckUpDate || healthDataItem?.CheckUpDate || '',
+                        refName: normal.Name
+                      };
+                    }
+                    
+                    // 정상(B) 또는 경계 범위 체크 (우선순위 2)
                     const normalB = item.ItemReferences.find((ref: any) => ref.Name === '정상(B)' || ref.Name === '정상(경계)');
                     if (normalB && isInRange(itemValue, normalB.Value, gender)) {
                       itemStatus = 'warning';
@@ -608,18 +623,6 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                         text: normalB.Name, // ItemReferences의 Name 그대로 사용
                         date: rawData.CheckUpDate || healthDataItem?.CheckUpDate || '',
                         refName: normalB.Name
-                      };
-                    }
-                    
-                    // 정상(A) 범위 체크
-                    const normalA = item.ItemReferences.find((ref: any) => ref.Name === '정상(A)');
-                    if (normalA && isInRange(itemValue, normalA.Value, gender)) {
-                      itemStatus = 'normal';
-                      return {
-                        status: itemStatus,
-                        text: normalA.Name, // ItemReferences의 Name 그대로 사용
-                        date: rawData.CheckUpDate || healthDataItem?.CheckUpDate || '',
-                        refName: normalA.Name
                       };
                     }
                     
@@ -899,7 +902,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                     
                     // 년도별 데이터를 차트 포인트로 변환 (모든 년도 사용)
                     return Object.values(yearlyData)
-                      .sort((a: any, b: any) => b.year.localeCompare(a.year)) // 최신 년도 순 정렬
+                      .sort((a: any, b: any) => a.year.localeCompare(b.year)) // 오래된 년도부터 (최신이 오른쪽)
                       .map((data: any) => {
                       let dateString;
                       try {
@@ -964,7 +967,20 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                                     if (item && item.ItemReferences && Array.isArray(item.ItemReferences) && item.ItemReferences.length > 0) {
                                       const itemValue = parseFloat(item.Value);
                                       if (!isNaN(itemValue)) {
-                                        // 질환의심 범위 체크 (우선순위)
+                                        // 정상 범위 체크 (우선순위 1) - "정상", "정상(A)", "정상(B)" 모두 포함
+                                        const normal = item.ItemReferences.find((ref: any) => 
+                                          ref.Name === '정상' || 
+                                          ref.Name === '정상(A)' || 
+                                          ref.Name === '정상(B)' ||
+                                          ref.Name === '정상A' || 
+                                          ref.Name === '정상B' ||
+                                          ref.Name?.includes('정상')
+                                        );
+                                        if (normal && normal.Value && isInRange(itemValue, normal.Value, 'M')) {
+                                          return 'normal' as const;
+                                        }
+                                        
+                                        // 질환의심 범위 체크 (우선순위 2)
                                         const abnormal = item.ItemReferences.find((ref: any) => 
                                           ref.Name === '질환의심' || 
                                           ref.Name === '이상' ||
@@ -976,7 +992,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                                           return 'abnormal' as const;
                                         }
                                         
-                                        // 정상(B) 또는 경계 범위 체크
+                                        // 정상(B) 또는 경계 범위 체크 (우선순위 3)
                                         const normalB = item.ItemReferences.find((ref: any) => 
                                           ref.Name === '정상(B)' || 
                                           ref.Name === '정상B' || 
@@ -990,18 +1006,6 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                                           return 'warning' as const;
                                         }
                                         
-                                        // 정상(A) 범위 체크
-                                        const normalA = item.ItemReferences.find((ref: any) => 
-                                          ref.Name === '정상(A)' || 
-                                          ref.Name === '정상A' || 
-                                          ref.Name === '정상' ||
-                                          ref.Name?.includes('정상(A)') ||
-                                          ref.Name?.includes('정상A')
-                                        );
-                                        if (normalA && normalA.Value && isInRange(itemValue, normalA.Value, 'M')) {
-                                          return 'normal' as const;
-                                        }
-                                        
                                         // 🔧 데이터 기준으로만 판단 - ItemReferences에 명시된 범위만 체크
                                         // 범위를 벗어난 경우는 데이터에 명시된 기준이 없으므로 판정하지 않음
                                         // 문제 발생 시에만 로그 출력 (개발 모드에서만)
@@ -1011,7 +1015,7 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                                             itemName: item.Name,
                                             abnormal: abnormal ? { Name: abnormal.Name, Value: abnormal.Value } : '없음',
                                             normalB: normalB ? { Name: normalB.Name, Value: normalB.Value } : '없음',
-                                            normalA: normalA ? { Name: normalA.Name, Value: normalA.Value } : '없음'
+                                            normal: normal ? { Name: normal.Name, Value: normal.Value } : '없음'
                                           });
                                         }
                                       }

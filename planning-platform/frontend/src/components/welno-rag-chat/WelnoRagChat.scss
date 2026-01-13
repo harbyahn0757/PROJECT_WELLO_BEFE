@@ -5,7 +5,7 @@
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: #7B5E4F; // $brand-brown
+  background: #A69B8F; // 연한 브라운색
   color: white;
   border: none;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -19,11 +19,16 @@
   &:hover {
     transform: scale(1.1);
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-    background: #5D4037; // $brand-brown-dark
+    background: #8B7F73; // 연한 브라운 호버 (약간 진하게)
   }
 
   &.active {
-    background: #5D4037;
+    background: #8B7F73; // 연한 브라운 활성 상태
+  }
+
+  // 플로팅 버튼이 있을 때 위치를 위로 올리기
+  body:has(.floating-button:not(.hidden)) & {
+    bottom: 96px; // 플로팅 버튼 높이(72px) + 여백(24px)
   }
 
   // 데이터 수집 중 등 특정 상태에서 숨김 처리
@@ -42,6 +47,11 @@
   display: flex;
   flex-direction: column;
   animation: slideInUp 0.3s ease-out;
+
+  // 플로팅 버튼이 있을 때 위치를 위로 올리기
+  body:has(.floating-button:not(.hidden)) & {
+    bottom: 162px; // 채팅 버튼 위치(96px) + 채팅 버튼 높이(56px) + 여백(10px)
+  }
 }
 
 @keyframes slideInUp {

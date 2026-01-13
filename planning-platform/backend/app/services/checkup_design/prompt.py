@@ -1065,13 +1065,13 @@ def create_checkup_design_prompt_legacy(
                                                 "상태": ref_name
                                             }
                                             
-                                            # 정상(A) - 정상
-                                            if "정상(A)" in ref_name:
+                                            # 정상 - 정상 ("정상", "정상(A)", "정상(B)" 모두 포함)
+                                            if "정상" in ref_name:
                                                 normal_items.append(item_info)
                                                 all_items.append({**item_info, "분류": "정상"})
                                                 break
-                                            # 정상(B) 또는 경계 - 경계
-                                            elif "정상(B)" in ref_name or "경계" in ref_name:
+                                            # 경계 - 경계
+                                            elif "경계" in ref_name:
                                                 warning_items.append(item_info)
                                                 all_items.append({**item_info, "분류": "경계"})
                                                 break
@@ -1665,9 +1665,14 @@ def create_checkup_design_prompt_legacy(
 - 데이터 부재는 '확인 불가'로만 표현하고, 추측이나 가정을 하지 마세요
 
 ### 1-1. 과거 검진 데이터 분석
-- **우선순위**: 이상(질환의심) > 경계(정상(B)) > 정상
+- **우선순위**: 정상 > 경계(정상(B)) > 이상(질환의심) - 정상을 먼저 확인하여 정상인 항목을 이상으로 잘못 판단하지 않도록 주의
 - **분석 방법**: 최근 5년간 추이 분석 (수치 변화, 패턴, 위험도)
 - **예시**: "과거 검진에서 혈압이 경계 범위였고, 최근 3년간 점진적으로 상승 추세입니다 (120/80 → 135/85 → 140/90)"
+
+**중요: 건강검진 데이터 해석 규칙**
+- Value가 비어있거나 없을 때: ItemReferences를 먼저 확인. "정상", "정상(A)", "정상(B)" 기준이 있으면 정상으로 처리
+- 질환명만 보고 판단하지 말 것: "만성폐쇄성폐질환" 등의 이름만으로 이상 소견으로 판단 금지
+- 과거 흡연자(ex_smoker)의 경우: 건강검진 데이터에 이상 소견이 없으면 "과거 흡연 이력으로 인한 우려"로 표현, "이상 소견" 표현 사용 금지
 
 ### 1-2. 문진 데이터 분석
 - **분석 대상**: 체중 변화, 운동 빈도, 가족력, 흡연, 음주, 수면, 스트레스
@@ -2161,8 +2166,9 @@ async def create_checkup_design_prompt_step2(
                                         for ref in item["ItemReferences"]:
                                             ref_name = ref.get("Name") or ""
                                             
-                                            # 정상(A) 항목은 제외 (정상이므로 리스트에 추가하지 않음)
-                                            if "정상(A)" in ref_name:
+                                            # 정상 항목은 제외 (정상이므로 리스트에 추가하지 않음)
+                                            # "정상", "정상(A)", "정상(B)" 모두 포함
+                                            if "정상" in ref_name:
                                                 item_status = "normal"
                                                 break
                                             # 이상 항목
@@ -2170,7 +2176,7 @@ async def create_checkup_design_prompt_step2(
                                                 item_status = "abnormal"
                                                 break
                                             # 경계 항목
-                                            elif "정상(B)" in ref_name or "경계" in ref_name:
+                                            elif "경계" in ref_name:
                                                 item_status = "warning"
                                                 break
                                         
@@ -3054,15 +3060,29 @@ async def create_checkup_design_prompt_step2_priority1(
                                     item_unit = item.get("Unit") or ""
                                     
                                     if item.get("ItemReferences"):
+                                        item_status = None  # None = 정상, "abnormal" = 이상, "warning" = 경계
+                                        
                                         for ref in item["ItemReferences"]:
                                             ref_name = ref.get("Name") or ""
                                             
-                                            if "질환의심" in ref_name or "이상" in ref_name:
-                                                abnormal_items.append(f"- {item_name}: {item_value} {item_unit} (이상)")
+                                            # 정상 체크 (우선순위 1) - "정상", "정상(A)", "정상(B)" 모두 포함
+                                            if "정상" in ref_name:
+                                                item_status = "normal"
                                                 break
-                                            elif "정상(B)" in ref_name or "경계" in ref_name:
-                                                warning_items.append(f"- {item_name}: {item_value} {item_unit} (경계)")
+                                            # 이상 체크 (우선순위 2)
+                                            elif "질환의심" in ref_name or "이상" in ref_name:
+                                                item_status = "abnormal"
                                                 break
+                                            # 경계 체크 (우선순위 3)
+                                            elif "경계" in ref_name:
+                                                item_status = "warning"
+                                                break
+                                        
+                                        # 정상이 아닌 항목만 추가
+                                        if item_status == "abnormal":
+                                            abnormal_items.append(f"- {item_name}: {item_value} {item_unit} (이상)")
+                                        elif item_status == "warning":
+                                            warning_items.append(f"- {item_name}: {item_value} {item_unit} (경계)")
             
             if abnormal_items:
                 health_data_section += "**이상 항목:**\n" + "\n".join(abnormal_items) + "\n\n"

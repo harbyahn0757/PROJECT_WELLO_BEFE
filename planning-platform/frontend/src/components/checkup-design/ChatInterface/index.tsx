@@ -17,16 +17,16 @@ import { InteractionEvent } from '../CheckupDesignSurveyPanel/useSurveyTracker';
 import { WELNO_LOGO_IMAGE } from '../../../constants/images';
 import './styles.scss';
 
-// 메시지 딜레이 상수 (모든 버블이 동일한 템포로 표시)
-const INITIAL_MESSAGE_DELAY = 500; // 처음 메시지 딜레이 (ms)
-const MESSAGE_DELAY = 800; // 메시지 간 기본 딜레이 (ms)
-const THINKING_DELAY = 1200; // 고민하는 시간 (ms)
-const SPINNER_DURATION = 2000; // 스피너가 돌아가는 시간 (ms) - THINKING_DELAY보다 길게
-const OPTIONS_SHOW_DELAY = 2500; // 옵션 카드 표시 딜레이 (ms) - 더 길게 설정
-const USER_RESPONSE_DELAY = 300; // 사용자 응답 후 딜레이 (ms)
-const USER_CARD_DISPLAY_DELAY = 2000; // 사용자 선택 후 카드 표시 딜레이 (ms) - 2초
-const CONFIRMATION_DELAY = 500; // 확인 메시지 딜레이 (ms)
-const THINKING_TEXT_DELAY = 1000; // 중얼중얼 텍스트 변경 딜레이 (ms) - 더 천천히, 부드럽게
+// 메시지 딜레이 상수 (모든 딜레이 제거 - 즉시 실행)
+const INITIAL_MESSAGE_DELAY = 0; // 처음 메시지 딜레이 (ms)
+const MESSAGE_DELAY = 0; // 메시지 간 기본 딜레이 (ms)
+const THINKING_DELAY = 0; // 고민하는 시간 (ms)
+const SPINNER_DURATION = 0; // 스피너가 돌아가는 시간 (ms)
+const OPTIONS_SHOW_DELAY = 0; // 옵션 카드 표시 딜레이 (ms)
+const USER_RESPONSE_DELAY = 0; // 사용자 응답 후 딜레이 (ms)
+const USER_CARD_DISPLAY_DELAY = 0; // 사용자 선택 후 카드 표시 딜레이 (ms)
+const CONFIRMATION_DELAY = 0; // 확인 메시지 딜레이 (ms)
+const THINKING_TEXT_DELAY = 0; // 중얼중얼 텍스트 변경 딜레이 (ms)
 
 interface ChatInterfaceProps {
   healthData: any;
@@ -44,7 +44,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const { state: welnoState } = useWelnoData();
   const patientName = welnoState.patient?.name || '';
   const [state, setState] = useState<ChatInterfaceState>({
-    currentStep: 'prescription_analysis',
+    currentStep: 'checkup_selection',
     messages: [],
     selectedPrescriptionEffects: [],
     selectedCheckupRecords: [],
@@ -82,7 +82,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // 처방 패턴 분석 (초기화 플래그로 중복 방지)
   useEffect(() => {
-    if (prescriptionData && state.currentStep === 'prescription_analysis' && !hasInitialized) {
+    if (prescriptionData && state.currentStep === 'checkup_selection' && !hasInitialized) {
       setShowOptions(false); // 옵션 초기화
       setShowActionButtons(false); // 버튼 초기화
       const prescriptionList = Array.isArray(prescriptionData) 
@@ -163,7 +163,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // 검진 데이터 준비 (초기화 플래그로 중복 방지)
   useEffect(() => {
-    if (state.currentStep === 'checkup_selection' && healthData && !hasInitialized) {
+    if (state.currentStep === 'prescription_analysis' && healthData && !hasInitialized) {
       setShowOptions(false); // 옵션 초기화
       setShowActionButtons(false); // 버튼 초기화
       const healthList = Array.isArray(healthData) 
@@ -455,9 +455,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         return false;
       };
       
+      // 정상 범위 체크 (우선순위 1) - "정상", "정상(A)", "정상(B)" 모두 포함
+      const normal = item.ItemReferences.find((ref: any) => 
+        ref.Name === '정상' || ref.Name === '정상(A)' || ref.Name === '정상(B)'
+      );
+      if (normal && isInRange(numValue, normal.Value)) return 'normal';
+      
+      // 질환의심 범위 체크 (우선순위 2)
       const abnormal = item.ItemReferences.find((ref: any) => ref.Name === '질환의심');
       if (abnormal && isInRange(numValue, abnormal.Value)) return 'abnormal';
       
+      // 정상(B) 또는 경계 범위 체크 (우선순위 3)
       const normalB = item.ItemReferences.find((ref: any) => ref.Name === '정상(B)' || ref.Name === '정상(경계)');
       if (normalB && isInRange(numValue, normalB.Value)) return 'warning';
       
@@ -643,18 +651,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setShowActionButtons(false);
     
     // 선택된 항목 초기화 (건너뛰기 시 선택 무시)
-    if (state.currentStep === 'prescription_analysis') {
-      setState(prev => ({
-        ...prev,
-        selectedPrescriptionEffects: []
-      }));
-      console.log('🔍 [ChatInterface] 건너뛰기 - 처방 이력 선택 초기화');
-    } else if (state.currentStep === 'checkup_selection') {
+    if (state.currentStep === 'checkup_selection') {
       setState(prev => ({
         ...prev,
         selectedCheckupRecords: []
       }));
       console.log('🔍 [ChatInterface] 건너뛰기 - 검진 기록 선택 초기화');
+    } else if (state.currentStep === 'prescription_analysis') {
+      setState(prev => ({
+        ...prev,
+        selectedPrescriptionEffects: []
+      }));
+      console.log('🔍 [ChatInterface] 건너뛰기 - 처방 이력 선택 초기화');
     }
     
     setTimeout(() => {
@@ -672,23 +680,23 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setShowOptions(false); // 옵션 숨김
     setShowActionButtons(false); // 버튼 숨김
     
-    if (state.currentStep === 'prescription_analysis') {
+    if (state.currentStep === 'checkup_selection') {
       // 선택된 항목이 있을 때만 사용자 메시지로 표시
-      const hasSelected = state.selectedPrescriptionEffects.length > 0;
+      const hasSelected = state.selectedCheckupRecords.length > 0;
       if (hasSelected && !skipMode) {
-        addSelectedItemsAsUserMessage('prescription_analysis');
+        addSelectedItemsAsUserMessage('checkup_selection');
       }
       
       // skipMode가 아닐 때만 확인 메시지 추가 (건너뛰기 시 이미 메시지 전송됨)
       if (!skipMode) {
         setTimeout(() => {
-          const count = state.selectedPrescriptionEffects.length;
+          const count = state.selectedCheckupRecords.length;
           addBotMessage('bot_confirmation', count > 0 
-            ? `처방 이력 ${count}개를 선택하셨습니다. 다음 단계로 넘어가겠습니다.`
+            ? `검진 기록 ${count}개를 선택하셨습니다. 다음 단계로 넘어가겠습니다.`
             : '다음 단계로 넘어가겠습니다.'
           );
           setTimeout(() => {
-            setState(prev => ({ ...prev, currentStep: 'checkup_selection' }));
+            setState(prev => ({ ...prev, currentStep: 'prescription_analysis' }));
             setHasInitialized(false); // 다음 단계 초기화 플래그 리셋
             setShowActionButtons(false); // 버튼 초기화
           }, MESSAGE_DELAY + THINKING_DELAY);
@@ -696,12 +704,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       } else {
         // skipMode일 때는 바로 다음 단계로 이동
         setTimeout(() => {
-          setState(prev => ({ ...prev, currentStep: 'checkup_selection' }));
+          setState(prev => ({ ...prev, currentStep: 'prescription_analysis' }));
           setHasInitialized(false); // 다음 단계 초기화 플래그 리셋
           setShowActionButtons(false); // 버튼 초기화
         }, MESSAGE_DELAY + THINKING_DELAY);
       }
-    } else if (state.currentStep === 'checkup_selection') {
+    } else if (state.currentStep === 'prescription_analysis') {
       // 완료 처리
       handleComplete();
     }
@@ -1059,16 +1067,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 <div className="chat-interface__progress-actions chat-interface__progress-actions--visible">
                   <div className="chat-interface__progress-actions-right">
                     {/* 다음 버튼: 선택된 항목이 있을 때만 표시 */}
-                    {(state.currentStep === 'prescription_analysis' && state.selectedPrescriptionEffects.length > 0) ||
-                     (state.currentStep === 'checkup_selection' && state.selectedCheckupRecords.length > 0) ||
-                     (state.currentStep !== 'prescription_analysis' && state.currentStep !== 'checkup_selection') ? (
+                    {(state.currentStep === 'checkup_selection' && state.selectedCheckupRecords.length > 0) ||
+                     (state.currentStep === 'prescription_analysis' && state.selectedPrescriptionEffects.length > 0) ||
+                     (state.currentStep !== 'checkup_selection' && state.currentStep !== 'prescription_analysis') ? (
                       <button
                         className="chat-interface__button chat-interface__button--primary chat-interface__button--small"
                         onClick={() => {
                           // 다음 버튼 클릭 처리
-                          if (state.currentStep === 'prescription_analysis') {
+                          if (state.currentStep === 'checkup_selection') {
                             moveToNextStep();
-                          } else if (state.currentStep === 'checkup_selection') {
+                          } else if (state.currentStep === 'prescription_analysis') {
                             // 완료 처리
                             handleComplete();
                           }
@@ -1123,8 +1131,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       {state.currentStep !== 'complete' && (
         <div className="chat-interface__progress">
           <div className="chat-interface__progress-info">
-            {state.currentStep === 'prescription_analysis' && '1/2 단계: 처방 이력 선택'}
-            {state.currentStep === 'checkup_selection' && '2/2 단계: 검진 기록 선택'}
+            {state.currentStep === 'checkup_selection' && '1/2 단계: 검진 기록 선택'}
+            {state.currentStep === 'prescription_analysis' && '2/2 단계: 처방 이력 선택'}
           </div>
         </div>
       )}

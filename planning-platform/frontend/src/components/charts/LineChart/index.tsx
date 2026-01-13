@@ -269,7 +269,7 @@ const LineChart: React.FC<LineChartProps> = ({
     let sortedYears: number[];
     if (allYears && allYears.length > 0) {
       // 외부에서 전달받은 통합 년도 목록 사용
-      sortedYears = [...allYears].sort((a, b) => b - a); // 최신 년도 순
+      sortedYears = [...allYears].sort((a, b) => a - b); // 오래된 년도부터 (최신이 오른쪽)
     } else {
       // 기존 로직: 모든 시리즈에서 년도 추출
       const allYearsSet = new Set<number>();
@@ -283,7 +283,7 @@ const LineChart: React.FC<LineChartProps> = ({
           }
         });
       });
-      sortedYears = Array.from(allYearsSet).sort((a, b) => b - a); // 최신 년도 순
+      sortedYears = Array.from(allYearsSet).sort((a, b) => a - b); // 오래된 년도부터 (최신이 오른쪽)
     }
     
     // 해당 년도의 인덱스 찾기
@@ -386,6 +386,14 @@ const LineChart: React.FC<LineChartProps> = ({
       return;
     }
 
+    // 포인트의 실제 X 좌표 가져오기
+    const dimensions = {
+      width: rect.width,
+      height: rect.height,
+      margin: { top: 50, right: 20, bottom: 50, left: 50 }
+    };
+    const pointCoords = getCoordinates(point, dimensions);
+
     // 간단한 툴팁 내용 (병원명 | 상태, 수치만)
     const statusText = point.status ? getStatusText(point.status) : '';
     // 실제 데이터에서 병원명 추출
@@ -402,10 +410,11 @@ const LineChart: React.FC<LineChartProps> = ({
       <div class="welno-chart-tooltip__value">${valueFormat(point.value)}${seriesData.unit ? ` ${seriesData.unit}` : ''}</div>
     `;
 
+    // 툴팁을 포인트 왼쪽에 배치 (툴팁 너비 약 120px 고려)
     setTooltip({
       visible: true,
-      x: event.clientX - rect.left,
-      y: event.clientY - rect.top,
+      x: pointCoords.x - 130, // 포인트 왼쪽에 배치
+      y: pointCoords.y - 10,
       content: tooltipContent
     });
 
@@ -447,7 +456,7 @@ const LineChart: React.FC<LineChartProps> = ({
             const yGridLines = Array.from({ length: 5 }, (_, i) => i); // 0, 1, 2, 3, 4 (4개 구간)
             // X축 그리드 라인: 통합 년도 목록에 맞게 동적 생성
             const sortedYears = allYears && allYears.length > 0 
-              ? [...allYears].sort((a, b) => b - a)
+              ? [...allYears].sort((a, b) => a - b)
               : (() => {
                   const allYearsSet = new Set<number>();
                   series.forEach(s => {
@@ -460,7 +469,7 @@ const LineChart: React.FC<LineChartProps> = ({
                       }
                     });
                   });
-                  return Array.from(allYearsSet).sort((a, b) => b - a);
+                  return Array.from(allYearsSet).sort((a, b) => a - b);
                 })();
             const xGridLines = Array.from({ length: sortedYears.length }, (_, i) => i);
             return (
@@ -896,11 +905,11 @@ const LineChart: React.FC<LineChartProps> = ({
                 let sortedYears: number[];
                 if (allYears && allYears.length > 0) {
                   // 외부에서 전달받은 통합 년도 목록 사용
-                  sortedYears = [...allYears].sort((a, b) => b - a); // 최신 년도 순
+                  sortedYears = [...allYears].sort((a, b) => a - b); // 오래된 년도부터 (최신이 오른쪽)
                 } else {
                   // 기존 로직: 모든 시리즈에서 년도 추출
                   sortedYears = Array.from(dataYears)
-                    .sort((a, b) => b - a);
+                    .sort((a, b) => a - b);
                 }
                 
                 // 년도 개수에 맞게 동적 슬롯 생성
@@ -1015,8 +1024,8 @@ const LineChart: React.FC<LineChartProps> = ({
           <div
             className="welno-chart-tooltip welno-chart-tooltip--visible"
             style={{
-              left: tooltip.x + 10,
-              top: tooltip.y - 10
+              left: tooltip.x,
+              top: tooltip.y
             }}
             dangerouslySetInnerHTML={{ __html: tooltip.content }}
           />

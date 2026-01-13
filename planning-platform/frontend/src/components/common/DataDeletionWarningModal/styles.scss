@@ -1,0 +1,52 @@
+.data-deletion-warning-modal {
+  padding: 24px;
+  text-align: center;
+
+  &__title {
+    font-size: 20px;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    margin-bottom: 16px;
+  }
+
+  &__description {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+  }
+
+  &__btn {
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+
+    &--cancel {
+      background-color: var(--color-background-secondary);
+      color: var(--color-text-primary);
+
+      &:hover {
+        background-color: var(--color-background-tertiary);
+      }
+    }
+
+    &--confirm {
+      background-color: var(--color-primary);
+      color: white;
+
+      &:hover {
+        background-color: var(--color-primary-dark);
+      }
+    }
+  }
+}

@@ -252,8 +252,8 @@ def _calculate_body_score(history: List[Dict[str, Any]], prescriptions: List[Dic
                                 if item.get("ItemReferences"):
                                     for ref in item["ItemReferences"]:
                                         ref_name = ref.get("Name", "")
-                                        # 정상 판정
-                                        if "정상(A)" in ref_name:
+                                        # 정상 판정 ("정상", "정상(A)", "정상(B)" 모두 포함)
+                                        if "정상" in ref_name:
                                             is_normal = True
                                         # 질환 판정
                                         elif any(k in ref_name for k in ["질환의심", "유질환", "고혈압", "당뇨", "비만", "고지혈", "이상지질", "간장질환"]):

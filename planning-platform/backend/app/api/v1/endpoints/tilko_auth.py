@@ -878,18 +878,27 @@ async def fetch_health_data_after_auth(session_id: str):
                 welno_service = WelnoDataService()
                 
                 # user_info 키 이름 변환 (phone_no → phone_number, birthdate → birth_date)
+                user_name = user_info.get("name")
+                
+                # 이름 검증: None이거나 빈 문자열인 경우 에러 로그
+                if not user_name or user_name.strip() == "":
+                    print(f"❌ [인증성공-백그라운드] 이름이 없습니다! - UUID: {patient_uuid}, Hospital: {hospital_id}")
+                    print(f"   - user_info: {user_info}")
+                    print(f"   - user_info.get('name'): {user_name}")
+                    # 이름이 없어도 저장은 진행하되 경고 로그 출력
+                
                 user_info_for_save = {
-                    "name": user_info.get("name"),
+                    "name": user_name or "",  # None이면 빈 문자열로 저장
                     "phone_number": user_info.get("phone_no"),  # phone_no → phone_number
                     "birth_date": user_info.get("birthdate"),   # birthdate → birth_date
                     "gender": user_info.get("gender")
                 }
                 
                 print(f"💾 [인증성공-백그라운드] 환자 정보 저장 시작 - UUID: {patient_uuid}, Hospital: {hospital_id}")
-                print(f"   - 이름: {user_info_for_save['name']}")
-                print(f"   - 전화번호: {user_info_for_save['phone_number'][:3]}*** (마스킹)")
-                print(f"   - 생년월일: {user_info_for_save['birth_date']}")
-                print(f"   - 성별: {user_info_for_save['gender']}")
+                print(f"   - 이름: {user_info_for_save['name'] or '(없음)'}")
+                print(f"   - 전화번호: {user_info_for_save['phone_number'][:3] if user_info_for_save['phone_number'] else 'N/A'}*** (마스킹)")
+                print(f"   - 생년월일: {user_info_for_save['birth_date'] or 'N/A'}")
+                print(f"   - 성별: {user_info_for_save['gender'] or 'N/A'}")
                 
                 patient_id = await welno_service.save_patient_data(
                     uuid=patient_uuid,
