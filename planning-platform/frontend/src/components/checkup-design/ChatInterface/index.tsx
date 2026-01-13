@@ -69,6 +69,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [isSpinnerFadingOut, setIsSpinnerFadingOut] = useState(false); // 스피너 페이드아웃 상태
   const [thinkingText, setThinkingText] = useState<string>(''); // 띵킹 모드 중얼중얼 텍스트
   const [showSurveyPanel, setShowSurveyPanel] = useState(false); // 문진 패널 표시 여부
+  
+  // 문진 패널 상태 변경 시 localStorage에 반영하여 채팅 버튼 숨김 제어
+  useEffect(() => {
+    if (showSurveyPanel) {
+      localStorage.setItem('checkup_survey_panel_open', 'true');
+    } else {
+      localStorage.removeItem('checkup_survey_panel_open');
+    }
+    window.dispatchEvent(new Event('storage'));
+  }, [showSurveyPanel]);
   const [showActionButtons, setShowActionButtons] = useState(false); // 다음/건너뛰기 버튼 표시 여부
   const [prescriptionAnalysisText, setPrescriptionAnalysisText] = useState<string>(''); // 약품 분석 결과 텍스트 (프롬프트용)
   const messageIndexRef = useRef(0); // 메시지 순서 추적

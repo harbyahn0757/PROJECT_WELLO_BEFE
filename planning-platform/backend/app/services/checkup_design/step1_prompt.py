@@ -92,12 +92,13 @@ def create_step1_prompt(
     combined_type = persona_result.get('combined_type', primary_persona)
     
     persona_section = f"""
-# Patient Persona Analysis (Hybrid Model)
+# Patient Persona Analysis (INTERNAL USE ONLY - 사용자에게 노출 금지)
 - **Primary Type**: {primary_persona} (본심/감정)
-- **Secondary Type**: {secondary_persona} (행동/습관 - Primary와 충돌 가능성 분석 대상)
-- **Combined Type**: {combined_type} (LLM Analysis Context)
+- **Secondary Type**: {secondary_persona} (행동/습관)
 - **Communication Tone**: {persona_result.get('tone', 'Casual & Smart')}
 - **Bridge Strategy**: {persona_result.get('bridge_strategy', '공감과 현실적 대안 제시')}
+
+**중요**: 위 페르소나 정보는 내부 분석에만 활용하고, 사용자에게 보이는 응답(analysis 필드)에는 페르소나 유형(Worrier, Manager 등)이나 관련 용어를 절대 노출하지 마세요.
 """
 
     # ==========================================
@@ -329,7 +330,7 @@ def create_step1_prompt(
     
     if user_attributes:
         behavior_section = "\n## 3. [Behavioral Signals] 행동 패턴 및 진심도 분석\n"
-        behavior_section += "사용자의 설문 응답 과정에서 수집된 비언어적 행동 데이터입니다. 이 정보를 통해 사용자의 '진심도'와 '숨겨진 니즈'를 파악하세요.\n\n"
+        behavior_section += "사용자의 설문 응답 과정에서 수집된 비언어적 행동 데이터입니다. **이 정보는 내부 분석에만 사용하고, 사용자에게 보이는 응답(analysis 필드)에는 절대 언급하지 마세요.** 행동 패턴(고민 시간, 수정 횟수 등)을 직접 말하지 말고, 이를 바탕으로 더 공감적이고 정확한 분석을 제공하는 데만 활용하세요.\n\n"
         
         # 속성을 그룹화하여 표시
         worry_items = []
@@ -396,7 +397,11 @@ def create_step1_prompt(
 
 # Role
 당신은 '센스 있고 현실적인 건강 멘토'이자, 베테랑 헬스 큐레이터입니다.
-딱딱한 의사가 아닌, "건강을 챙겨주는 믿음직한 형/오빠/친구" 같은 톤으로, 전문성을 갖추되 쉽고 명쾌하게 설명합니다.
+전문성을 갖추되 쉽고 명쾌하게 설명하며, 친근하고 신뢰감 있는 톤을 유지합니다.
+
+**호칭 규칙**:
+- 환자 이름만 사용하세요 (예: "OOO님")
+- "형님", "오빠", "언니", "형" 같은 친밀한 호칭은 절대 사용하지 마세요
 
 # Task
 환자의 **[Primary/Secondary 페르소나 충돌]**, **[선택한 항목(Concerns)]**, **[객관적 데이터(Reality)]**, **[행동 신호(Behavior)]**를 종합 분석하여, 
@@ -472,14 +477,33 @@ def create_step1_prompt(
     "strategy_key": "{persona_result.get('bridge_strategy', 'Standard')}",
     "risk_flags": {json.dumps(persona_result.get('risk_flags', []))}
   }},
-  "persona_conflict_summary": "Step 2 전략 수립용 내부 요약. (예: 가족력 때문에 Worrier 성향이 강하지만, 음주/흡연 패턴은 Manager에 가깝습니다. 불안을 줄이기 위해 행동 교정형 전략이 필요합니다.)",
+  "persona_conflict_summary": "**[INTERNAL ONLY - Step 2 전략 수립 전용]** 페르소나 충돌 및 전략 요약. 이 필드는 사용자에게 절대 노출되지 않습니다. (예: 가족력 때문에 Worrier 성향이 강하지만, 음주/흡연 패턴은 Manager에 가깝습니다. 불안을 줄이기 위해 행동 교정형 전략이 필요합니다.)",
   "concern_vs_reality": {{
     "summary": "선택한 항목과 현실, 그리고 행동 패턴을 종합한 요약",
     "match_type": "Match(일치) / Over_Concern(과도한관심) / Hidden_Risk(숨겨진위험)",
     "message": "환자에게 전할 핵심 메시지 (친근하고 현실적인 톤)"
   }},
   "patient_summary": "환자 상태 3줄 요약 (과거 검진 이력, 현재 건강 상태, 주요 행동 패턴) - 명쾌한 톤 사용",
-  "analysis": "종합 분석 (Persona Conflict + Behavior + Data Reality). **80%는 생활습관/만성질환, 20%는 암/특이사항 위주로 작성.** 어려운 용어 대신 '생활 언어(술배, 기름진 피 등)' 사용. 문단 구분: 1. 팩트/생활습관 요약, 2. 심리적 모순과 행동 데이터 해석.",
+  "analysis": "환자의 건강 상태를 친근하고 현실적인 톤으로 분석한 내용입니다. **반드시 다음 규칙을 지키세요:**
+
+1. **내부 용어 사용 금지**: '팩트/생활습관 요약', '심리적 모순', '행동 데이터', '페르소나', 'Primary', 'Secondary', 'Worrier', 'Manager' 같은 내부 전략 용어를 절대 사용하지 마세요.
+
+2. **설문 기반 작성**: 설문에서 제공되지 않은 정보(직업, 근무 형태, 현장직, 교대 근무 등)를 추측하지 마세요. 오직 제공된 건강 데이터와 설문 응답만 사용하세요.
+
+3. **행동 분석 언급 금지**: '고민하신 시간', '10초 넘게', '망설이신 점', '오래 고민하신' 같은 응답 행동 패턴을 직접 언급하지 마세요.
+
+4. **자연스러운 문장**: 내부 구조(1., 2. 같은 번호 매기기나 소제목)를 사용하지 말고, 자연스러운 건강 분석 문장으로만 작성하세요.
+
+5. **적절한 문단 구분**: 2-3개 문단으로 나누되, 각 문단 사이에 빈 줄을 넣어 가독성을 확보하세요. 한 문단이 너무 길지 않게 작성하세요.
+
+6. **생활 언어 사용**: 어려운 의학 용어 대신 '술배', '기름진 피', '혈관 찌꺼기', '만성 피로' 같은 생활 언어를 사용하세요.
+
+7. **비중**: 생활습관/만성질환 80%, 암/특이사항 20%
+
+**작성 예시**:
+'OOO님, 지금 몸 상태는 혈관 건강에 주의가 필요한 시점입니다. 담배를 피우고 계시고, 가족 중 뇌졸중과 당뇨 병력이 있어서 혈관과 대사 쪽을 꼼꼼히 확인해야 합니다.
+
+다행히 술은 거의 안 하시니, 지금 담배만 끊으셔도 혈관 탄력이 빠르게 회복될 수 있습니다. 과거 검진에서 이상 소견이 있었다고 하셨으니, 이번 기회에 정확한 상태를 확인하고 미리 손을 쓰는 게 중요합니다.'",
   "risk_profile": [
     {{
       "organ_system": "대상 장기 (예: 위, 간, 심뇌혈관)",
@@ -532,8 +556,8 @@ def create_step1_prompt(
 ## analysis & risk_profile
 - eGFR 60 이상인 경우, 절대 신장 관련 'High Risk'를 주지 마세요.
 - 문진에서 '신장' 관련 항목을 선택했더라도, 수치가 정상이면 "콩팥 필터 기능 아주 깨끗합니다"라고 안심시키는 분석을 작성하세요.
-- **행동 데이터 활용**: "설문 작성 시 오래 고민하신 점을 보아..."와 같이 사용자의 행동을 읽어주면 신뢰도가 높아집니다.
-- **페르소나 톤앤매너 적용**: Casual & Smart (친근한 멘토, 형/오빠/친구 톤)
+- **행동 데이터는 내부 분석에만 사용**: 행동 패턴은 분석의 깊이를 더하는 데 활용하되, 사용자에게 직접 언급하지 마세요.
+- **친근하고 신뢰감 있는 톤**: 전문성을 유지하되 쉽고 명쾌하게 설명하세요.
 
 ## basic_checkup_guide
 - 기본 검진 항목 중에서 주의 깊게 봐야 할 항목 식별

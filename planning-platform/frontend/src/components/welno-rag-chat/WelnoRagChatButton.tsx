@@ -26,20 +26,21 @@ const WelnoRagChatButton: React.FC<WelnoRagChatButtonProps> = ({ onToggle }) => 
       const manualCollect = localStorage.getItem('tilko_manual_collect') === 'true';
       const collectingStatus = localStorage.getItem('tilko_collecting_status') === 'true';
       const passwordModalOpen = localStorage.getItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN) === 'true';
+      const surveyPanelOpen = localStorage.getItem('checkup_survey_panel_open') === 'true';
       
-      // 특정 페이지에서 숨김
+      // 특정 페이지에서 숨김 (checkup-design은 문진 패널 열릴 때만 숨김)
       const isSpecialPage = path.includes('/questionnaire') || 
-                           path.includes('/checkup-design') || 
                            path.includes('/survey') ||
                            path.includes('/habits');
       
-      const shouldHide = manualCollect || collectingStatus || passwordModalOpen || isSpecialPage;
+      const shouldHide = manualCollect || collectingStatus || passwordModalOpen || surveyPanelOpen || isSpecialPage;
       console.log('[WelnoRagChatButton] 상태 확인:', { 
         path, 
         isMainPage, 
         manualCollect, 
         collectingStatus, 
         passwordModalOpen, 
+        surveyPanelOpen,
         isSpecialPage, 
         shouldHide 
       });
