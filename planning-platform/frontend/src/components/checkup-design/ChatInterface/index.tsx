@@ -17,16 +17,16 @@ import { InteractionEvent } from '../CheckupDesignSurveyPanel/useSurveyTracker';
 import { WELNO_LOGO_IMAGE } from '../../../constants/images';
 import './styles.scss';
 
-// 메시지 딜레이 상수 (모든 딜레이 제거 - 즉시 실행)
-const INITIAL_MESSAGE_DELAY = 0; // 처음 메시지 딜레이 (ms)
-const MESSAGE_DELAY = 0; // 메시지 간 기본 딜레이 (ms)
-const THINKING_DELAY = 0; // 고민하는 시간 (ms)
-const SPINNER_DURATION = 0; // 스피너가 돌아가는 시간 (ms)
-const OPTIONS_SHOW_DELAY = 0; // 옵션 카드 표시 딜레이 (ms)
-const USER_RESPONSE_DELAY = 0; // 사용자 응답 후 딜레이 (ms)
-const USER_CARD_DISPLAY_DELAY = 0; // 사용자 선택 후 카드 표시 딜레이 (ms)
-const CONFIRMATION_DELAY = 0; // 확인 메시지 딜레이 (ms)
-const THINKING_TEXT_DELAY = 0; // 중얼중얼 텍스트 변경 딜레이 (ms)
+// 메시지 딜레이 상수 (순차적 버블 표시)
+const INITIAL_MESSAGE_DELAY = 500; // 처음 메시지 딜레이 (ms)
+const MESSAGE_DELAY = 400; // 메시지 간 기본 딜레이 (ms)
+const THINKING_DELAY = 800; // 고민하는 시간 (ms)
+const SPINNER_DURATION = 600; // 스피너가 돌아가는 시간 (ms)
+const OPTIONS_SHOW_DELAY = 300; // 옵션 카드 표시 딜레이 (ms)
+const USER_RESPONSE_DELAY = 300; // 사용자 응답 후 딜레이 (ms)
+const USER_CARD_DISPLAY_DELAY = 400; // 사용자 선택 후 카드 표시 딜레이 (ms)
+const CONFIRMATION_DELAY = 400; // 확인 메시지 딜레이 (ms)
+const THINKING_TEXT_DELAY = 600; // 중얼중얼 텍스트 변경 딜레이 (ms)
 
 interface ChatInterfaceProps {
   healthData: any;
@@ -80,9 +80,72 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     navigate(`/${queryString}`);
   };
 
-  // 처방 패턴 분석 (초기화 플래그로 중복 방지)
+  // 검진 데이터 준비 (초기화 플래그로 중복 방지) - 첫 번째 단계
   useEffect(() => {
-    if (prescriptionData && state.currentStep === 'checkup_selection' && !hasInitialized) {
+    if (healthData && state.currentStep === 'checkup_selection' && !hasInitialized) {
+      setShowOptions(false); // 옵션 초기화
+      setShowActionButtons(false); // 버튼 초기화
+      const healthList = Array.isArray(healthData) 
+        ? healthData 
+        : healthData.ResultList || [];
+      
+      if (healthList.length > 0) {
+        setHasInitialized(true); // 초기화 완료 표시
+        
+        // 초기 메시지 추가 (딜레이 후, 스피너 없음)
+        setTimeout(() => {
+          const greetingText = patientName 
+            ? `안녕하세요 ${patientName}님! 검진 항목을 설계하기 위해 먼저 검진 이력을 확인해볼게요.`
+            : '안녕하세요! 검진 항목을 설계하기 위해 먼저 검진 이력을 확인해볼게요.';
+          addBotMessage('bot_intro', greetingText, undefined, false);
+        }, INITIAL_MESSAGE_DELAY);
+        
+        // 검진 이력 확인 메시지 추가 (순차적으로)
+        setTimeout(() => {
+          // 검진 데이터 기반 중얼중얼 효과
+          setIsThinkingForOptions(true);
+          const healthCount = healthList.length;
+          const thinkingTexts = [
+            `검진 기록 ${healthCount}건 확인 중...`,
+            ...healthList.slice(0, 2).map((checkup: any) => {
+              const year = checkup.year || checkup.Year || '2023';
+              return `${year}년 검진 확인 중...`;
+            })
+          ];
+          let textIndex = 0;
+          const thinkingInterval = setInterval(() => {
+            if (textIndex < thinkingTexts.length) {
+              setThinkingText(thinkingTexts[textIndex]);
+              textIndex++;
+            } else {
+              clearInterval(thinkingInterval);
+            }
+          }, THINKING_TEXT_DELAY);
+          
+          setTimeout(() => {
+            clearInterval(thinkingInterval);
+            setIsThinkingForOptions(false);
+            setThinkingText('');
+            addBotMessageWithOptions('bot_question',
+              '다음 검진 기록 중에서 특히 주의 깊게 봐야 할 항목을 선택해주세요:',
+              generateCheckupOptions(healthList)
+            );
+          }, THINKING_DELAY);
+        }, MESSAGE_DELAY + INITIAL_MESSAGE_DELAY);
+      } else {
+        setTimeout(() => {
+          addBotMessage('bot_analysis', '검진 이력이 없어서 다음 단계로 넘어가겠습니다.');
+          setTimeout(() => {
+            moveToNextStep(true);
+          }, MESSAGE_DELAY + THINKING_DELAY);
+        }, MESSAGE_DELAY);
+      }
+    }
+  }, [healthData, state.currentStep, hasInitialized]);
+
+  // 처방 패턴 분석 (초기화 플래그로 중복 방지) - 두 번째 단계
+  useEffect(() => {
+    if (prescriptionData && state.currentStep === 'prescription_analysis' && !hasInitialized) {
       setShowOptions(false); // 옵션 초기화
       setShowActionButtons(false); // 버튼 초기화
       const prescriptionList = Array.isArray(prescriptionData) 
@@ -94,15 +157,12 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         setPrescriptionAnalysis(analysis);
         setHasInitialized(true); // 초기화 완료 표시
         
-        // 초기 메시지 추가 (딜레이 후, 스피너 없음)
+        // 처방 이력 확인 메시지 추가
         setTimeout(() => {
-          const greetingText = patientName 
-            ? `안녕하세요 ${patientName}님! 검진 항목을 설계하기 위해 먼저 처방 이력을 확인해볼게요.`
-            : '안녕하세요! 검진 항목을 설계하기 위해 먼저 처방 이력을 확인해볼게요.';
-          addBotMessage('bot_intro', greetingText, undefined, false);
-        }, INITIAL_MESSAGE_DELAY);
+          addBotMessage('bot_intro', '이제 처방 이력을 확인해볼게요.', undefined, false);
+        }, MESSAGE_DELAY);
         
-        // 분석 결과 메시지 추가 (순차적으로, 동일한 템포)
+        // 분석 결과 메시지 추가 (순차적으로)
         if (analysis.topEffects.length > 0) {
           setTimeout(() => {
             // 분석 결과 메시지 전에 스피너 표시 (오른쪽) - 띵킹 모드
@@ -125,7 +185,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               } else {
                 clearInterval(thinkingInterval);
               }
-            }, THINKING_TEXT_DELAY); // 더 천천히 텍스트 변경
+            }, THINKING_TEXT_DELAY);
             
             setTimeout(() => {
               clearInterval(thinkingInterval);
@@ -148,69 +208,18 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 );
               }, MESSAGE_DELAY);
             }, THINKING_DELAY);
-          }, MESSAGE_DELAY);
+          }, MESSAGE_DELAY * 2);
         } else {
           setTimeout(() => {
-            addBotMessage('bot_analysis', '처방 이력이 없어서 다음 단계로 넘어가겠습니다.');
+            addBotMessage('bot_analysis', '처방 이력이 없어서 설계를 완료하겠습니다.');
             setTimeout(() => {
-              moveToNextStep(true); // 이미 메시지를 보냈으므로 skipMode
+              handleComplete();
             }, MESSAGE_DELAY + THINKING_DELAY);
-          }, MESSAGE_DELAY);
+          }, MESSAGE_DELAY * 2);
         }
       }
     }
   }, [prescriptionData, state.currentStep, hasInitialized]);
-
-  // 검진 데이터 준비 (초기화 플래그로 중복 방지)
-  useEffect(() => {
-    if (state.currentStep === 'prescription_analysis' && healthData && !hasInitialized) {
-      setShowOptions(false); // 옵션 초기화
-      setShowActionButtons(false); // 버튼 초기화
-      const healthList = Array.isArray(healthData) 
-        ? healthData 
-        : healthData.ResultList || [];
-      
-      if (healthList.length > 0) {
-        setHasInitialized(true); // 초기화 완료 표시
-        setTimeout(() => {
-          // 검진 데이터 기반 중얼중얼 효과
-          setIsThinkingForOptions(true);
-          const healthCount = healthList.length;
-          const thinkingTexts = [
-            `검진 기록 ${healthCount}건 확인 중...`,
-            ...healthList.slice(0, 2).map((checkup: any) => {
-              const year = checkup.year || checkup.Year || '2023';
-              return `${year}년 검진 확인 중...`;
-            })
-          ];
-          let textIndex = 0;
-          const thinkingInterval = setInterval(() => {
-            if (textIndex < thinkingTexts.length) {
-              setThinkingText(thinkingTexts[textIndex]);
-              textIndex++;
-            } else {
-              clearInterval(thinkingInterval);
-            }
-          }, THINKING_TEXT_DELAY); // 통일된 딜레이 사용
-          
-          setTimeout(() => {
-            clearInterval(thinkingInterval);
-            setIsThinkingForOptions(false);
-            setThinkingText('');
-            addBotMessageWithOptions('bot_question',
-              '이제 검진 이력을 확인해볼게요. 다음 검진 기록 중에서 특히 주의 깊게 봐야 할 항목을 선택해주세요:',
-              generateCheckupOptions(healthList)
-            );
-          }, THINKING_DELAY);
-        }, MESSAGE_DELAY);
-      } else {
-        setTimeout(() => {
-          setShowOptions(false);
-          setState(prev => ({ ...prev, currentStep: 'complete' }));
-        }, MESSAGE_DELAY);
-      }
-    }
-  }, [state.currentStep, healthData, hasInitialized]);
 
   // 메시지 추가 함수 (고민 중 스피너 표시 후 메시지 추가)
   const addBotMessage = (type: ChatMessage['type'], content: string, data?: any, showThinking: boolean = true) => {
@@ -692,8 +701,8 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         setTimeout(() => {
           const count = state.selectedCheckupRecords.length;
           addBotMessage('bot_confirmation', count > 0 
-            ? `검진 기록 ${count}개를 선택하셨습니다. 다음 단계로 넘어가겠습니다.`
-            : '다음 단계로 넘어가겠습니다.'
+            ? `검진 기록 ${count}개를 선택하셨습니다. 이제 처방 이력을 확인하겠습니다.`
+            : '이제 처방 이력을 확인하겠습니다.'
           );
           setTimeout(() => {
             setState(prev => ({ ...prev, currentStep: 'prescription_analysis' }));
@@ -719,16 +728,29 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const handleComplete = () => {
     setShowOptions(false);
     
-    // 선택된 항목들을 사용자 메시지로 표시
-    addSelectedItemsAsUserMessage('checkup_selection');
+    // 선택된 처방전 항목들을 사용자 메시지로 표시
+    const hasSelectedPrescription = state.selectedPrescriptionEffects.length > 0;
+    if (hasSelectedPrescription) {
+      addSelectedItemsAsUserMessage('prescription_analysis');
+    }
     
     // 확인 메시지 추가
     setTimeout(() => {
-      const count = state.selectedCheckupRecords.length;
-      addBotMessage('bot_confirmation', count > 0
-        ? `검진 기록 ${count}개를 선택하셨습니다.`
-        : '검진 기록을 건너뛰셨습니다.'
-      );
+      const checkupCount = state.selectedCheckupRecords.length;
+      const prescriptionCount = state.selectedPrescriptionEffects.length;
+      let confirmationText = '';
+      
+      if (checkupCount > 0 && prescriptionCount > 0) {
+        confirmationText = `검진 기록 ${checkupCount}개, 처방 이력 ${prescriptionCount}개를 선택하셨습니다.`;
+      } else if (checkupCount > 0) {
+        confirmationText = `검진 기록 ${checkupCount}개를 선택하셨습니다.`;
+      } else if (prescriptionCount > 0) {
+        confirmationText = `처방 이력 ${prescriptionCount}개를 선택하셨습니다.`;
+      } else {
+        confirmationText = '선택한 항목이 없습니다.';
+      }
+      
+      addBotMessage('bot_confirmation', confirmationText);
       
       // 문진으로 넘어간다는 메시지 추가
       setTimeout(() => {
@@ -739,7 +761,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           setShowSurveyPanel(true);
         }, MESSAGE_DELAY + THINKING_DELAY);
       }, MESSAGE_DELAY + THINKING_DELAY);
-    }, USER_CARD_DISPLAY_DELAY);
+    }, hasSelectedPrescription ? USER_CARD_DISPLAY_DELAY : 0);
   };
 
   // 문진 패널 제출 핸들러
