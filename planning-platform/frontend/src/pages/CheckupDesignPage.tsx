@@ -58,20 +58,115 @@ const CheckupDesignPage: React.FC = () => {
 
         // 설계 완료 여부 확인 (새로고침 플래그가 없을 때만)
         const shouldRefresh = urlParams.get('refresh') === 'true';
+        const resumeId = urlParams.get('resume'); // ✅ 알림톡 재시도 파라미터
+        
         if (!shouldRefresh) {
           try {
+            // 1순위: 완료된 설계 확인
             const designResult = await checkupDesignService.getLatestCheckupDesign(uuid, hospital);
             if (designResult.success && designResult.data) {
-              console.log('✅ [검진설계] 기존 설계 결과 발견 - 결과 페이지로 이동');
-              // 기존 설계 결과가 있으면 결과 페이지로 바로 이동
-              const queryString = location.search.replace(/[?&]refresh=true/, ''); // refresh 파라미터 제거
+              console.log('✅ [검진설계] 완료된 설계 발견 - 결과 페이지로 이동');
+              const queryString = location.search.replace(/[?&]refresh=true/, '');
               navigate(`/recommendations${queryString}`, {
                 state: {
                   checkupDesign: designResult.data,
-                  fromExisting: true // 기존 설계 결과임을 표시
+                  fromExisting: true
                 }
               });
               return;
+            }
+            
+            // 2순위: 미완료 설계 확인 (STEP1만 완료)
+            const incompleteResult = await checkupDesignService.getIncompleteCheckupDesign(uuid, hospital);
+            if (incompleteResult.success && incompleteResult.data) {
+              console.log('⚠️ [검진설계] 미완료 설계 발견 - 복구 처리');
+              
+              const requestId = incompleteResult.data.id;
+              
+              // ✅ resume 파라미터가 있으면 자동으로 재시도 (알림톡에서 진입)
+              if (resumeId && parseInt(resumeId) === requestId) {
+                console.log('🔄 [검진설계] 알림톡 재시도 - 자동 진행');
+                setShowProcessingModal(true);
+                setProcessingStage('preparing');
+                setProcessingProgress(0);
+                
+                setTimeout(async () => {
+                  try {
+                    setProcessingStage('designing');
+                    setProcessingProgress(50);
+                    
+                    const retryResult = await checkupDesignService.retryCheckupDesign(requestId);
+                    
+                    setProcessingProgress(100);
+                    setProcessingStage('saving');
+                    
+                    if (retryResult.success && retryResult.data) {
+                      console.log('✅ [검진설계] 재시도 성공');
+                      await new Promise(resolve => setTimeout(resolve, 500));
+                      setShowProcessingModal(false);
+                      
+                      const queryString = location.search.replace(/[?&]resume=\d+/, '');
+                      navigate(`/recommendations${queryString}`, {
+                        state: { checkupDesign: retryResult.data }
+                      });
+                    }
+                  } catch (retryError) {
+                    console.error('❌ [검진설계] 재시도 실패:', retryError);
+                    setError('재시도 실패. 처음부터 다시 시작합니다.');
+                    setShowProcessingModal(false);
+                    navigate(`/checkup-design?uuid=${uuid}&hospital=${hospital}&refresh=true`);
+                  }
+                }, 1000);
+                
+                return;
+              }
+              
+              // ✅ 수동 진입: 복구 확인 모달 표시
+              const shouldResume = window.confirm(
+                `이전에 중단된 검진설계가 있습니다.\n\n` +
+                `일부 분석이 완료되어 있어, 이어서 진행하실 수 있습니다.\n\n` +
+                `[확인] 이어서 진행\n[취소] 처음부터 다시`
+              );
+              
+              if (shouldResume) {
+                console.log('🔄 [검진설계] 사용자 재시도 선택');
+                setShowProcessingModal(true);
+                setProcessingStage('preparing');
+                setProcessingProgress(0);
+                
+                setTimeout(async () => {
+                  try {
+                    setProcessingStage('designing');
+                    setProcessingProgress(50);
+                    
+                    const retryResult = await checkupDesignService.retryCheckupDesign(requestId);
+                    
+                    setProcessingProgress(100);
+                    setProcessingStage('saving');
+                    
+                    if (retryResult.success && retryResult.data) {
+                      console.log('✅ [검진설계] 재시도 성공');
+                      await new Promise(resolve => setTimeout(resolve, 500));
+                      setShowProcessingModal(false);
+                      
+                      navigate(`/recommendations${location.search}`, {
+                        state: { checkupDesign: retryResult.data }
+                      });
+                    }
+                  } catch (retryError) {
+                    console.error('❌ [검진설계] 재시도 실패:', retryError);
+                    setError('재시도에 실패했습니다. 다시 시도해주세요.');
+                    setShowProcessingModal(false);
+                  }
+                }, 1000);
+                
+                return;
+              } else {
+                // 취소: refresh=true로 새로 시작
+                console.log('🔄 [검진설계] 처음부터 다시 시작');
+                navigate(`/checkup-design?uuid=${uuid}&hospital=${hospital}&refresh=true`);
+                return;
+              }
             }
           } catch (err) {
             console.warn('⚠️ [검진설계] 설계 결과 조회 실패 (계속 진행):', err);
@@ -180,10 +275,19 @@ const CheckupDesignPage: React.FC = () => {
       
       console.log('✅ [CheckupDesignPage] STEP 1 응답 수신:', step1Response);
       
-      // STEP 1 결과 저장 (타이핑 효과용) - analyzing 단계에서 타이핑 시작
+      // ✅ STEP 1 결과 저장 (타이핑 효과용 + design_request_id 추출)
+      let designRequestId: number | null = null;
       if (step1Response.success && step1Response.data) {
         setStep1Result(step1Response.data);
         setProcessingProgress(50);
+        
+        // ✅ design_request_id 저장 (DB에 저장된 요청 ID)
+        designRequestId = step1Response.data.design_request_id;
+        if (designRequestId) {
+          console.log('✅ [STEP1] DB 저장 완료 - ID:', designRequestId);
+        } else {
+          console.warn('⚠️ [STEP1] design_request_id 없음 - DB 저장 실패 가능');
+        }
         
         // 세션 ID 추출
         const sessionId = step1Response.data.session_id;
@@ -237,55 +341,147 @@ const CheckupDesignPage: React.FC = () => {
       }
       
       console.log('🔍 [CheckupDesignPage] STEP 2 API 호출 시작');
-      const step2Response = await checkupDesignService.createCheckupDesignStep2(step2Request);
       
-      console.log('✅ [CheckupDesignPage] STEP 2 응답 수신:', step2Response);
-      
-      setProcessingProgress(80);
-      
-      // STEP 2 응답에 이미 STEP 1 + STEP 2가 병합되어 있음
-      // 프론트엔드는 STEP 2 응답만 사용
-      const mergedData = step2Response.data;
-      
-      if (!mergedData) {
-        throw new Error('STEP 2 응답 데이터가 없습니다.');
+      // ✅ STEP2 호출을 try-catch로 감싸서 에러 시 폴백 처리
+      try {
+        const step2Response = await checkupDesignService.createCheckupDesignStep2(step2Request);
+        
+        console.log('✅ [CheckupDesignPage] STEP 2 응답 수신:', step2Response);
+        
+        setProcessingProgress(80);
+        
+        // STEP 2 응답에 이미 STEP 1 + STEP 2가 병합되어 있음
+        // 프론트엔드는 STEP 2 응답만 사용
+        const mergedData = step2Response.data;
+        
+        if (!mergedData) {
+          throw new Error('STEP 2 응답 데이터가 없습니다.');
+        }
+        
+        console.log('📦 [CheckupDesignPage] 최종 병합 데이터:', {
+          keys: Object.keys(mergedData),
+          has_priority_1: 'priority_1' in mergedData,
+          has_priority_2: 'priority_2' in mergedData,
+          has_priority_3: 'priority_3' in mergedData,
+          has_recommended_items: 'recommended_items' in mergedData,
+          recommended_items_count: mergedData.recommended_items?.length || 0
+        });
+        
+        setProcessingProgress(90);
+        
+        // 5단계: 결과 저장 (90-100%)
+        setProcessingStage('saving');
+        await new Promise(resolve => setTimeout(resolve, 300));
+        setProcessingProgress(100);
+        
+        setLoadingStage('complete');
+        setLoadingMessage('검진 설계가 완료되었습니다.');
+        
+        // 모달 닫기 전 짧은 딜레이
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setShowProcessingModal(false);
+        
+        // 결과 페이지로 이동 (병합된 데이터 사용)
+        const queryString = location.search;
+        navigate(`/recommendations${queryString}`, { 
+          state: { 
+            checkupDesign: mergedData,
+            selectedConcerns: selectedConcerns,
+            surveyResponses: surveyResponses,
+            events // 결과 페이지에도 events 전달 (필요 시 활용)
+          }
+        });
+        
+      } catch (step2Error) {
+        // ✅ STEP2 실패 시 폴백 로직
+        console.error('❌ [STEP2] 실패:', step2Error);
+        setShowProcessingModal(false);
+        
+        // STEP1 결과는 이미 DB에 저장되었음을 알림
+        const shouldRetry = window.confirm(
+          `검진 설계 중 오류가 발생했습니다.\n\n` +
+          `일부 분석은 완료되어 저장되었으며,\n` +
+          `나중에 이어서 진행할 수 있습니다.\n\n` +
+          `[확인] 지금 다시 시도\n[취소] 나중에 알림 받기`
+        );
+        
+        if (shouldRetry && designRequestId) {
+          // 즉시 재시도
+          console.log('🔄 [폴백] 즉시 재시도 선택 - ID:', designRequestId);
+          setShowProcessingModal(true);
+          setProcessingStage('designing');
+          setProcessingProgress(50);
+          
+          try {
+            const retryResult = await checkupDesignService.retryCheckupDesign(designRequestId);
+            
+            setProcessingProgress(100);
+            setProcessingStage('saving');
+            
+            if (retryResult.success && retryResult.data) {
+              console.log('✅ [폴백] 재시도 성공');
+              await new Promise(resolve => setTimeout(resolve, 500));
+              setShowProcessingModal(false);
+              
+              navigate(`/recommendations${location.search}`, {
+                state: {
+                  checkupDesign: retryResult.data,
+                  selectedConcerns: selectedConcerns,
+                  surveyResponses: surveyResponses,
+                  events
+                }
+              });
+            }
+          } catch (retryError) {
+            console.error('❌ [폴백] 재시도 실패:', retryError);
+            setShowProcessingModal(false);
+            setError('재시도에 실패했습니다. 나중에 다시 시도해주세요.');
+          }
+        } else {
+          // 나중에 알림 받기
+          console.log('📲 [폴백] 나중에 알림 받기 선택');
+          
+          /*
+           * ============================================
+           * 알림톡 재전송 로직 (향후 구현)
+           * ============================================
+           * 
+           * TODO: 백엔드 API 호출하여 알림톡 예약
+           * 
+           * await fetch('/welno-api/v1/notifications/schedule', {
+           *   method: 'POST',
+           *   headers: { 'Content-Type': 'application/json' },
+           *   body: JSON.stringify({
+           *     request_id: designRequestId,
+           *     patient_uuid: uuid,
+           *     patient_name: state.patient?.name,
+           *     phone_number: state.patient?.phone,
+           *     notification_type: 'checkup_design_retry',
+           *     scheduled_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+           *   })
+           * });
+           * 
+           * 알림톡 메시지:
+           * "안녕하세요, {환자명}님!
+           * 
+           * 이전에 진행하시던 맞춤 검진 설계가 있습니다.
+           * 이미 분석이 일부 완료되어 있어, 클릭 한 번으로 바로 이어서 진행하실 수 있습니다.
+           * 
+           * [검진 설계 이어하기]
+           * {baseURL}/checkup-design?uuid={uuid}&hospital={hospital}&resume={request_id}
+           * 
+           * 건강한 하루 되세요!
+           * 웰노 드림"
+           * 
+           * ============================================
+           */
+          
+          setError('분석이 일부 완료되었습니다.\n나중에 알림을 보내드리겠습니다.');
+        }
       }
       
-      console.log('📦 [CheckupDesignPage] 최종 병합 데이터:', {
-        keys: Object.keys(mergedData),
-        has_priority_1: 'priority_1' in mergedData,
-        has_priority_2: 'priority_2' in mergedData,
-        has_priority_3: 'priority_3' in mergedData,
-        has_recommended_items: 'recommended_items' in mergedData,
-        recommended_items_count: mergedData.recommended_items?.length || 0
-      });
-      
-      setProcessingProgress(90);
-      
-      // 5단계: 결과 저장 (90-100%)
-      setProcessingStage('saving');
-      await new Promise(resolve => setTimeout(resolve, 300));
-      setProcessingProgress(100);
-      
-      setLoadingStage('complete');
-      setLoadingMessage('검진 설계가 완료되었습니다.');
-      
-      // 모달 닫기 전 짧은 딜레이
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setShowProcessingModal(false);
-      
-      // 결과 페이지로 이동 (병합된 데이터 사용)
-      const queryString = location.search;
-      navigate(`/recommendations${queryString}`, { 
-        state: { 
-          checkupDesign: mergedData,
-          selectedConcerns: selectedConcerns,
-          surveyResponses: surveyResponses,
-          events // 결과 페이지에도 events 전달 (필요 시 활용)
-        }
-      });
     } catch (error) {
-      console.error('❌ [검진설계] API 호출 실패:', error);
+      console.error('❌ [검진설계] 전체 실패:', error);
       setError('검진 설계 생성에 실패했습니다. 다시 시도해주세요.');
       setLoading(false);
       setShowProcessingModal(false);

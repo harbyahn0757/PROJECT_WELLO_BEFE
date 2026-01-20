@@ -800,9 +800,18 @@ class WelnoDataService:
         hospital_id: str,
         selected_concerns: List[Dict[str, Any]],
         survey_responses: Optional[Dict[str, Any]] = None,
-        design_result: Optional[Dict[str, Any]] = None
+        design_result: Optional[Dict[str, Any]] = None,
+        step1_result: Optional[Dict[str, Any]] = None,
+        step2_result: Optional[Dict[str, Any]] = None,
+        prescription_analysis_text: Optional[str] = None,
+        selected_medication_texts: Optional[List[str]] = None,
+        additional_info: Optional[Dict[str, Any]] = None,
+        session_id: Optional[str] = None,
+        status: str = 'pending',
+        error_stage: Optional[str] = None,
+        error_message: Optional[str] = None
     ) -> Dict[str, Any]:
-        """검진 설계 요청 및 결과 저장"""
+        """검진 설계 요청 및 결과 저장 (재시도 가능하도록 모든 파라미터 저장)"""
         try:
             conn = await asyncpg.connect(**self.db_config)
             
@@ -827,30 +836,48 @@ class WelnoDataService:
             if survey_responses and survey_responses.get("additional_concerns"):
                 additional_concerns = survey_responses.get("additional_concerns")
             
-            # 검진 설계 요청 저장
+            # 검진 설계 요청 저장 (확장된 컬럼 포함)
             insert_query = """
                 INSERT INTO welno.welno_checkup_design_requests 
-                (patient_id, selected_concerns, survey_responses, additional_concerns, design_result, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+                (patient_id, uuid, hospital_id,
+                 selected_concerns, survey_responses, additional_concerns, 
+                 step1_result, step2_result, design_result,
+                 prescription_analysis_text, selected_medication_texts, additional_info,
+                 session_id, status, error_stage, error_message,
+                 created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW(), NOW())
                 RETURNING id
             """
             
             request_id = await conn.fetchval(
                 insert_query,
                 patient_id,
+                uuid,
+                hospital_id,
                 json.dumps(selected_concerns, ensure_ascii=False),
                 json.dumps(survey_responses, ensure_ascii=False) if survey_responses else None,
                 additional_concerns,
-                json.dumps(design_result, ensure_ascii=False) if design_result else None
+                json.dumps(step1_result, ensure_ascii=False) if step1_result else None,
+                json.dumps(step2_result, ensure_ascii=False) if step2_result else None,
+                json.dumps(design_result, ensure_ascii=False) if design_result else None,
+                prescription_analysis_text,
+                json.dumps(selected_medication_texts, ensure_ascii=False) if selected_medication_texts else None,
+                json.dumps(additional_info, ensure_ascii=False) if additional_info else None,
+                session_id,
+                status,
+                error_stage,
+                error_message
             )
             
             await conn.close()
             
             import logging
             logger = logging.getLogger(__name__)
-            logger.info(f"✅ [검진설계요청] 저장 완료 - ID: {request_id}, 환자: {uuid} @ {hospital_id}")
+            logger.info(f"✅ [검진설계요청] 저장 완료 - ID: {request_id}, 환자: {uuid} @ {hospital_id}, 상태: {status}")
             logger.info(f"   - 선택 항목: {len(selected_concerns)}개")
             logger.info(f"   - 설문 응답: {'있음' if survey_responses else '없음'}")
+            logger.info(f"   - STEP1 결과: {'있음' if step1_result else '없음'}")
+            logger.info(f"   - STEP2 결과: {'있음' if step2_result else '없음'}")
             logger.info(f"   - 설계 결과: {'있음' if design_result else '없음'}")
             
             return {
@@ -865,6 +892,143 @@ class WelnoDataService:
                 "success": False,
                 "error": str(e)
             }
+    
+    async def update_checkup_design_request(
+        self,
+        request_id: int,
+        step2_result: Optional[Dict[str, Any]] = None,
+        design_result: Optional[Dict[str, Any]] = None,
+        status: Optional[str] = None,
+        error_stage: Optional[str] = None,
+        error_message: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """검진 설계 요청 업데이트 (재시도용)"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            update_query = """
+                UPDATE welno.welno_checkup_design_requests 
+                SET 
+                    step2_result = COALESCE($2, step2_result),
+                    design_result = COALESCE($3, design_result),
+                    status = COALESCE($4, status),
+                    error_stage = $5,
+                    error_message = $6,
+                    retry_count = retry_count + 1,
+                    last_retry_at = NOW(),
+                    updated_at = NOW()
+                WHERE id = $1
+                RETURNING id, retry_count
+            """
+            
+            result = await conn.fetchrow(
+                update_query,
+                request_id,
+                json.dumps(step2_result, ensure_ascii=False) if step2_result else None,
+                json.dumps(design_result, ensure_ascii=False) if design_result else None,
+                status,
+                error_stage,
+                error_message
+            )
+            
+            await conn.close()
+            
+            if result:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"✅ [검진설계업데이트] 완료 - ID: {result['id']}, 재시도: {result['retry_count']}회")
+                return {
+                    "success": True,
+                    "request_id": result['id'],
+                    "retry_count": result['retry_count']
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "요청을 찾을 수 없습니다."
+                }
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"❌ [검진설계업데이트] 오류: {e}", exc_info=True)
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def get_incomplete_checkup_design(
+        self,
+        uuid: str,
+        hospital_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """미완료 검진 설계 요청 조회 (step1_completed 상태)"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            query = """
+                SELECT 
+                    id, uuid, hospital_id, patient_id,
+                    selected_concerns, survey_responses, additional_concerns,
+                    step1_result, prescription_analysis_text, selected_medication_texts,
+                    additional_info, session_id, status, error_stage, error_message,
+                    retry_count, created_at, last_retry_at
+                FROM welno.welno_checkup_design_requests
+                WHERE uuid = $1 AND hospital_id = $2 
+                  AND status = 'step1_completed'
+                ORDER BY created_at DESC
+                LIMIT 1
+            """
+            
+            row = await conn.fetchrow(query, uuid, hospital_id)
+            await conn.close()
+            
+            if row:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.info(f"✅ [미완료조회] 발견 - ID: {row['id']}, 환자: {uuid}")
+                return dict(row)
+            
+            return None
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"❌ [미완료조회] 오류: {e}", exc_info=True)
+            return None
+    
+    async def get_latest_checkup_design(
+        self,
+        uuid: str,
+        hospital_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """최신 완료된 검진 설계 조회 (step2_completed 상태)"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            query = """
+                SELECT design_result
+                FROM welno.welno_checkup_design_requests
+                WHERE uuid = $1 AND hospital_id = $2 
+                  AND status = 'step2_completed'
+                  AND design_result IS NOT NULL
+                ORDER BY created_at DESC
+                LIMIT 1
+            """
+            
+            row = await conn.fetchrow(query, uuid, hospital_id)
+            await conn.close()
+            
+            if row and row['design_result']:
+                return json.loads(row['design_result'])
+            
+            return None
+            
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"❌ [완료된설계조회] 오류: {e}", exc_info=True)
+            return None
 
 # 싱글톤 인스턴스
 welno_data_service = WelnoDataService()

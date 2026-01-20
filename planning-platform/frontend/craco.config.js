@@ -1,8 +1,39 @@
 const path = require('path');
+const TerserPlugin = require('terser-webpack-plugin');
 
 module.exports = {
   webpack: {
     configure: (webpackConfig, { env, paths }) => {
+      // 프로덕션 빌드: 모든 console.* 완전 제거
+      if (env === 'production') {
+        webpackConfig.optimization.minimizer = [
+          new TerserPlugin({
+            terserOptions: {
+              compress: {
+                drop_console: true,  // 모든 console.* 제거
+                drop_debugger: true, // debugger 구문 제거
+                pure_funcs: [
+                  'console.log',
+                  'console.info',
+                  'console.debug',
+                  'console.warn',
+                  'console.error',  // 에러 로그도 제거
+                  'console.trace',
+                  'console.table',
+                  'console.group',
+                  'console.groupEnd',
+                  'console.groupCollapsed'
+                ],
+              },
+              format: {
+                comments: false, // 주석 제거
+              },
+            },
+            extractComments: false, // 라이선스 파일 생성 안 함
+          }),
+        ];
+      }
+      
       if (env === 'development') {
         webpackConfig.devtool = 'eval-cheap-source-map';
         webpackConfig.optimization = {

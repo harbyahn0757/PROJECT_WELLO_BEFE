@@ -381,6 +381,99 @@ class CheckupDesignService {
       throw error;
     }
   }
+
+  /**
+   * 미완료 검진 설계 조회 (step1_completed 상태)
+   */
+  async getIncompleteCheckupDesign(uuid: string, hospitalId: string): Promise<CheckupDesignResponse> {
+    try {
+      const url = API_BASE_URL 
+        ? `${API_BASE_URL}/welno-api/v1/checkup-design/incomplete/${uuid}?hospital_id=${hospitalId}`
+        : `/welno-api/v1/checkup-design/incomplete/${uuid}?hospital_id=${hospitalId}`;
+      
+      console.log('🔍 [미완료조회] API 호출:', {
+        url,
+        uuid,
+        hospital_id: hospitalId
+      });
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          // 미완료 요청이 없는 경우는 정상
+          return {
+            success: false,
+            data: null,
+            message: '미완료 검진 설계가 없습니다.'
+          };
+        }
+        const errorText = await response.text();
+        console.error('❌ [미완료조회] API 오류:', response.status, errorText);
+        throw new Error(`미완료 조회 실패: ${response.status} ${errorText}`);
+      }
+      
+      const result: CheckupDesignResponse = await response.json();
+      console.log('✅ [미완료조회] API 응답 수신:', {
+        success: result.success,
+        has_data: !!result.data
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('❌ [미완료조회] API 호출 실패:', error);
+      return {
+        success: false,
+        data: null,
+        message: '미완료 조회 실패'
+      };
+    }
+  }
+
+  /**
+   * 검진 설계 재시도 (step1_completed 상태의 요청을 STEP2부터 재실행)
+   */
+  async retryCheckupDesign(requestId: number): Promise<CheckupDesignResponse> {
+    try {
+      const url = API_BASE_URL 
+        ? `${API_BASE_URL}/welno-api/v1/checkup-design/retry/${requestId}`
+        : `/welno-api/v1/checkup-design/retry/${requestId}`;
+      
+      console.log('🔄 [재시도] API 호출:', {
+        url,
+        request_id: requestId
+      });
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [재시도] API 오류:', response.status, errorText);
+        throw new Error(`재시도 실패: ${response.status} ${errorText}`);
+      }
+      
+      const result: CheckupDesignResponse = await response.json();
+      console.log('✅ [재시도] API 응답 수신:', {
+        success: result.success,
+        has_data: !!result.data
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('❌ [재시도] API 호출 실패:', error);
+      throw error;
+    }
+  }
 }
 
 export default new CheckupDesignService();

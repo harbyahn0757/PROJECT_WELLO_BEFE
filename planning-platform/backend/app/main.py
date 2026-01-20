@@ -162,6 +162,18 @@ async def startup_event():
     except Exception as e:
         print(f"⚠️ [파일처리] 스케줄러 시작 실패: {e}")
     
+    # RAG 엔진 사전 초기화 (벡터 DB를 메모리에 미리 로드)
+    try:
+        import time
+        from .services.checkup_design.rag_service import init_rag_engine
+        print("📚 [RAG 엔진] 벡터 DB 사전 로드 시작...")
+        start_rag = time.time()
+        await init_rag_engine(use_local_vector_db=True)
+        elapsed = time.time() - start_rag
+        print(f"✅ [RAG 엔진] 벡터 DB 메모리 로드 완료 ({elapsed:.2f}초)")
+    except Exception as e:
+        print(f"⚠️ [RAG 엔진] 사전 로드 실패: {e}")
+    
     print("✅ [시스템] 서버 시작 완료")
 
 def custom_openapi():

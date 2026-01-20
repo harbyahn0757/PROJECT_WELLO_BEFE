@@ -84,6 +84,59 @@ if (process.env.NODE_ENV === 'development') {
   });
 }
 
+// 우클릭 방지 및 보안 설정
+document.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  return false;
+}, { passive: false });
+
+// 텍스트 선택 방지 (선택적 - 필요시 주석 해제)
+// document.addEventListener('selectstart', (e) => {
+//   e.preventDefault();
+//   return false;
+// }, { passive: false });
+
+// 이미지 드래그 방지
+document.addEventListener('dragstart', (e) => {
+  if (e.target instanceof HTMLImageElement) {
+    e.preventDefault();
+    return false;
+  }
+}, { passive: false });
+
+// 키보드 단축키 방지 (F12, Ctrl+Shift+I 등)
+document.addEventListener('keydown', (e) => {
+  // F12 (개발자 도구)
+  if (e.key === 'F12') {
+    e.preventDefault();
+    return false;
+  }
+  
+  // Ctrl+Shift+I (개발자 도구)
+  if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+    e.preventDefault();
+    return false;
+  }
+  
+  // Ctrl+Shift+J (콘솔)
+  if (e.ctrlKey && e.shiftKey && e.key === 'J') {
+    e.preventDefault();
+    return false;
+  }
+  
+  // Ctrl+U (소스 보기)
+  if (e.ctrlKey && e.key === 'u') {
+    e.preventDefault();
+    return false;
+  }
+  
+  // Ctrl+S (저장 방지)
+  if (e.ctrlKey && e.key === 's') {
+    e.preventDefault();
+    return false;
+  }
+}, { passive: false });
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );

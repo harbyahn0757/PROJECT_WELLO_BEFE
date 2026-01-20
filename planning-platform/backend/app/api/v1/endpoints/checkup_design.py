@@ -60,14 +60,19 @@ def parse_json_with_recovery(content: str, step_name: str = "STEP") -> Dict[str,
     cleaned = re.sub(r'\n?```\s*$', '', cleaned, flags=re.MULTILINE | re.DOTALL)
     cleaned = cleaned.strip()
     
-    # 2. 첫 번째 JSON 파싱 시도
+    # 2. 응답 길이 체크 (너무 짧으면 불완전한 응답)
+    if len(cleaned) < 500:
+        logger.error(f"❌ [{step_name}] 응답이 너무 짧음 ({len(cleaned)}자) - Gemini 응답 불완전")
+        raise ValueError(f"{step_name} 응답 불완전: 길이 {len(cleaned)}자 (최소 500자 필요)")
+    
+    # 3. 첫 번째 JSON 파싱 시도
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError as e:
         logger.warning(f"⚠️ [{step_name}] JSON 파싱 실패, 복구 시도 중...")
         logger.warning(f"⚠️ [{step_name}] 에러 위치: line {e.lineno}, column {e.colno}, pos {getattr(e, 'pos', 'unknown')}")
         
-        # 3. JSON 복구 시도
+        # 4. JSON 복구 시도
         error_pos = getattr(e, 'pos', None)
         if not error_pos or error_pos >= len(cleaned):
             error_pos = len(cleaned)
@@ -75,31 +80,40 @@ def parse_json_with_recovery(content: str, step_name: str = "STEP") -> Dict[str,
         # 에러 위치 이전까지의 텍스트 추출
         fixed = cleaned[:error_pos]
         
-        # 불완전한 문자열 찾기 및 닫기
-        last_quote_pos = fixed.rfind('"')
-        if last_quote_pos != -1:
-            # 따옴표 개수 확인 (이스케이프된 따옴표 제외)
-            # 간단한 방법: 마지막 따옴표 이전의 백슬래시 개수 확인
-            backslash_count = 0
-            for i in range(last_quote_pos - 1, -1, -1):
-                if fixed[i] == '\\':
-                    backslash_count += 1
-                else:
-                    break
-            
-            # 홀수 개의 백슬래시면 이스케이프된 따옴표, 짝수면 시작 따옴표
-            if backslash_count % 2 == 0:
-                # 시작 따옴표인 경우, 닫는 따옴표 추가
-                fixed += '"'
+        # 불완전한 문자열 찾기 및 닫기 (개선된 로직)
+        # 문자열 내부인지 확인 (따옴표 개수 세기)
+        quote_count = 0
+        in_escape = False
+        for char in fixed:
+            if char == '\\' and not in_escape:
+                in_escape = True
+                continue
+            if char == '"' and not in_escape:
+                quote_count += 1
+            in_escape = False
         
-        # 중괄호/대괄호 닫기
+        # 홀수 개의 따옴표 = 문자열이 열린 상태
+        if quote_count % 2 == 1:
+            fixed += '"'
+            logger.info(f"🔧 [{step_name}] 종료되지 않은 문자열 닫기 추가")
+        
+        # 배열이 열린 상태면 닫기
+        open_brackets = fixed.count('[') - fixed.count(']')
+        if open_brackets > 0:
+            # 배열이 완전히 비어있는지 확인
+            last_bracket = fixed.rfind('[')
+            after_bracket = fixed[last_bracket+1:].strip()
+            if not after_bracket or after_bracket == ',':
+                # 빈 배열 요소 추가
+                fixed += '""' * open_brackets
+            fixed += ']' * open_brackets
+            logger.info(f"🔧 [{step_name}] 열린 배열 {open_brackets}개 닫기")
+        
+        # 객체가 열린 상태면 닫기
         open_braces = fixed.count('{') - fixed.count('}')
         if open_braces > 0:
             fixed += '}' * open_braces
-        
-        open_brackets = fixed.count('[') - fixed.count(']')
-        if open_brackets > 0:
-            fixed += ']' * open_brackets
+            logger.info(f"🔧 [{step_name}] 열린 객체 {open_braces}개 닫기")
         
         # 4. 복구된 JSON 파싱 시도
         try:
@@ -940,6 +954,30 @@ async def create_checkup_design_step1(
         except Exception as e:
             logger.warning(f"⚠️ [STEP1] 응답 txt 저장 실패: {str(e)}")
         
+        # ✅ STEP1 완료 즉시 부분 저장 (재시도 가능하도록)
+        try:
+            save_result = await welno_data_service.save_checkup_design_request(
+                uuid=request.uuid,
+                hospital_id=request.hospital_id,
+                selected_concerns=selected_concerns,
+                survey_responses=survey_responses_clean,
+                step1_result=ai_response,
+                prescription_analysis_text=prescription_analysis_text,
+                selected_medication_texts=selected_medication_texts,
+                session_id=session_id,
+                status='step1_completed'  # ✅ 부분 성공 상태
+            )
+            
+            if save_result.get("success"):
+                request_id = save_result.get('request_id')
+                logger.info(f"✅ [STEP1-저장] 부분 저장 완료 - ID: {request_id}")
+                # ✅ request_id를 응답에 포함하여 STEP2에서 사용
+                ai_response['design_request_id'] = request_id
+            else:
+                logger.warning(f"⚠️ [STEP1-저장] 부분 저장 실패: {save_result.get('error')}")
+        except Exception as e:
+            logger.warning(f"⚠️ [STEP1-저장] 부분 저장 중 오류 (무시): {str(e)}")
+        
         return CheckupDesignResponse(
             success=True,
             data=ai_response,
@@ -1112,15 +1150,17 @@ async def create_checkup_design_step2(
         if not step1_result_dict.get("persona"):
             logger.warning("⚠️ [STEP2-설계] STEP 1 결과에 페르소나 정보 누락됨. 백엔드에서 재계산 시도...")
             try:
-                from ....services.checkup_design.persona_engine import determine_persona_engine
+                from ....services.checkup_design.persona import determine_persona
                 
                 # 설문 응답 정리
                 survey_res = normalize_survey_responses(request.survey_responses)
                 
-                persona_result = determine_persona_engine(
-                    hospital_id=request.hospital_id,
+                persona_result = determine_persona(
                     survey_responses=survey_res,
                     patient_age=patient_age,
+                    health_history=full_data.get("health_data", []),
+                    selected_concerns=request.selected_concerns if hasattr(request, 'selected_concerns') else None,
+                    prescription_data=full_data.get("prescription_data", [])
                 )
                 step1_result_dict["persona"] = persona_result
                 logger.info(f"✅ [STEP2-설계] 페르소나 재계산 완료: {persona_result.get('primary_persona')}")
@@ -1302,52 +1342,58 @@ async def create_checkup_design_step2(
             response_format={"type": "json_object"}
         )
         
-        gemini_response_p1 = await gemini_service.call_api(
-            gemini_request_p1,
-            save_log=True,
-            patient_uuid=request.uuid,
-            session_id=request.session_id if hasattr(request, 'session_id') and request.session_id else None,
-            step_number="2-1",
-            step_name="Priority 1 - 일반검진 주의 항목"
-        )
-        elapsed_p1 = time.time() - start_time_p1
-        logger.info(f"✅ [STEP2-1] Gemini 응답 완료 - {elapsed_p1:.1f}초")
+        # Gemini 호출 및 재시도 로직 (응답 불완전 시 재시도)
+        max_retries = 2
+        step2_1_result = None
+        gemini_response_p1 = None
         
-        if not gemini_response_p1.success:
-            logger.error(f"❌ [STEP2-1] Gemini 호출 실패: {gemini_response_p1.error}")
-            raise ValueError(f"STEP 2-1 실패: {gemini_response_p1.error}")
-        
-        # JSON 파싱 (복구 로직 포함)
-        try:
-            step2_1_result = parse_json_with_recovery(
-                gemini_response_p1.content,
-                step_name="STEP2-1"
-            )
-            logger.info(f"✅ [STEP2-1] JSON 파싱 성공 - 키: {list(step2_1_result.keys())}")
-        except Exception as e:
-            # 파싱 실패해도 원본 응답 파일 저장 (디버깅용)
+        for retry_count in range(max_retries):
             try:
-                response_txt_file = os.path.join(session_dir, "step2_1_result.txt")
-                with open(response_txt_file, "w", encoding="utf-8") as f:
-                    f.write("=" * 80 + "\n")
-                    f.write("STEP 2-1 RESPONSE (원본 - 파싱 실패)\n")
-                    f.write("=" * 80 + "\n\n")
-                    f.write(gemini_response_p1.content)
-                    f.write("\n\n")
-                    f.write("=" * 80 + "\n")
-                    f.write("ERROR INFO\n")
-                    f.write("=" * 80 + "\n")
-                    f.write(f"Error: {str(e)}\n")
-                    f.write(f"Response Length: {len(gemini_response_p1.content) if gemini_response_p1.content else 0}\n")
-                    f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                if retry_count > 0:
+                    logger.warning(f"🔄 [STEP2-1] 재시도 {retry_count}/{max_retries-1}")
                 
-                logger.info(f"💾 [STEP2-1] 에러 응답 txt 저장 완료: {response_txt_file}")
-            except Exception as save_error:
-                logger.warning(f"⚠️ [STEP2-1] 에러 응답 txt 저장 실패: {str(save_error)}")
-            
-            logger.error(f"❌ [STEP2-1] JSON 파싱 실패: {str(e)}")
-            logger.error(f"❌ [STEP2-1] 원본 응답 (처음 500자): {gemini_response_p1.content[:500] if gemini_response_p1.content else 'None'}")
-            raise ValueError(f"STEP 2-1 JSON 파싱 실패: {str(e)}")
+                gemini_response_p1 = await gemini_service.call_api(
+                    gemini_request_p1,
+                    save_log=True,
+                    patient_uuid=request.uuid,
+                    session_id=request.session_id if hasattr(request, 'session_id') and request.session_id else None,
+                    step_number="2-1",
+                    step_name="Priority 1 - 일반검진 주의 항목"
+                )
+                elapsed_p1 = time.time() - start_time_p1
+                logger.info(f"✅ [STEP2-1] Gemini 응답 완료 - {elapsed_p1:.1f}초 (시도 {retry_count+1}/{max_retries})")
+                
+                if not gemini_response_p1.success:
+                    logger.error(f"❌ [STEP2-1] Gemini 호출 실패: {gemini_response_p1.error}")
+                    if retry_count == max_retries - 1:
+                        raise ValueError(f"STEP 2-1 실패: {gemini_response_p1.error}")
+                    continue
+                
+                # JSON 파싱 (복구 로직 포함)
+                step2_1_result = parse_json_with_recovery(
+                    gemini_response_p1.content,
+                    step_name="STEP2-1"
+                )
+                logger.info(f"✅ [STEP2-1] JSON 파싱 성공 - 키: {list(step2_1_result.keys())}")
+                break  # 성공 시 루프 종료
+                
+            except ValueError as ve:
+                # 응답 불완전 에러 (500자 미만)
+                if "응답 불완전" in str(ve) or "응답이 너무 짧음" in str(ve):
+                    logger.warning(f"⚠️ [STEP2-1] 응답 불완전 감지: {str(ve)}")
+                    if retry_count == max_retries - 1:
+                        logger.error(f"❌ [STEP2-1] 재시도 {max_retries}회 모두 실패")
+                        raise
+                    # 다음 재시도
+                    continue
+                else:
+                    # 다른 ValueError는 즉시 실패
+                    raise
+        
+        if step2_1_result is None:
+            raise ValueError(f"STEP 2-1 실패: {max_retries}회 재시도 후에도 성공하지 못함")
+        
+        # 파싱 실패 시 에러 응답 저장 (재시도 루프 밖에서 처리됨)
         
         # 📝 [LOGGING] STEP 2-1 응답 txt 파일 저장 (성공 시)
         try:
@@ -1542,21 +1588,40 @@ async def create_checkup_design_step2(
         
         logger.info(f"✅ [STEP2-설계] 병합 완료 - 최종 결과 키: {list(merged_result.keys())}")
         
-        # 검진 설계 요청 저장 (업셀링용) - 병합된 결과 저장
+        # ✅ STEP2 완료 시 상태 업데이트 (STEP1에서 받은 design_request_id 사용)
+        design_request_id = step1_result_dict.get('design_request_id')
         try:
-            save_result = await welno_data_service.save_checkup_design_request(
-                uuid=request.uuid,
-                hospital_id=request.hospital_id,
-                selected_concerns=selected_concerns,
-                survey_responses=survey_responses_clean,
-                design_result=merged_result
-            )
-            if save_result.get("success"):
-                logger.info(f"✅ [STEP2-설계] 요청 저장 완료 - ID: {save_result.get('request_id')}")
+            if design_request_id:
+                # 기존 요청 업데이트
+                update_result = await welno_data_service.update_checkup_design_request(
+                    request_id=design_request_id,
+                    step2_result=ai_response,
+                    design_result=merged_result,
+                    status='step2_completed'  # ✅ 완전 성공
+                )
+                if update_result.get("success"):
+                    logger.info(f"✅ [STEP2-저장] 상태 업데이트 완료 - ID: {design_request_id}")
+                else:
+                    logger.warning(f"⚠️ [STEP2-저장] 상태 업데이트 실패: {update_result.get('error')}")
             else:
-                logger.warning(f"⚠️ [STEP2-설계] 요청 저장 실패: {save_result.get('error')}")
+                # design_request_id가 없으면 새로 저장 (폴백)
+                save_result = await welno_data_service.save_checkup_design_request(
+                    uuid=request.uuid,
+                    hospital_id=request.hospital_id,
+                    selected_concerns=selected_concerns,
+                    survey_responses=survey_responses_clean,
+                    step1_result=step1_result_dict,
+                    step2_result=ai_response,
+                    design_result=merged_result,
+                    session_id=request.session_id,
+                    status='step2_completed'
+                )
+                if save_result.get("success"):
+                    logger.info(f"✅ [STEP2-저장] 새로 저장 완료 - ID: {save_result.get('request_id')}")
+                else:
+                    logger.warning(f"⚠️ [STEP2-저장] 저장 실패: {save_result.get('error')}")
         except Exception as e:
-            logger.warning(f"⚠️ [STEP2-설계] 요청 저장 중 오류 (무시): {str(e)}")
+            logger.warning(f"⚠️ [STEP2-저장] 저장 중 오류 (무시): {str(e)}")
         
         # STEP 2 응답 반환 (설계 및 근거 결과)
         logger.info(f"✅ [STEP2-설계] STEP 2 완료 - 설계 및 근거 결과 반환")
@@ -1579,8 +1644,46 @@ async def create_checkup_design_step2(
         
     except HTTPException:
         raise
+    except ValueError as ve:
+        # ✅ JSON 파싱 에러 (불완전 응답) - STEP1 상태 유지
+        logger.error(f"❌ [STEP2-설계] JSON 파싱 오류: {str(ve)}", exc_info=True)
+        
+        # design_request_id가 있으면 에러 상태 저장
+        try:
+            step1_result_dict = request.step1_result.dict() if hasattr(request, 'step1_result') else {}
+            design_request_id = step1_result_dict.get('design_request_id')
+            if design_request_id:
+                await welno_data_service.update_checkup_design_request(
+                    request_id=design_request_id,
+                    status='step1_completed',  # 재시도 가능 상태 유지
+                    error_stage='step2_parsing',
+                    error_message=f"JSON 파싱 실패: {str(ve)[:500]}"
+                )
+                logger.info(f"✅ [STEP2-에러저장] 에러 상태 저장 - ID: {design_request_id}")
+        except Exception as save_error:
+            logger.warning(f"⚠️ [STEP2-에러저장] 에러 상태 저장 실패: {str(save_error)}")
+        
+        raise HTTPException(status_code=500, detail=f"응답 파싱 오류: {str(ve)}")
+        
     except Exception as e:
+        # ✅ 기타 에러 - 실패 상태 저장
         logger.error(f"❌ [STEP2-설계] 오류 발생: {str(e)}", exc_info=True)
+        
+        # design_request_id가 있으면 실패 상태 저장
+        try:
+            step1_result_dict = request.step1_result.dict() if hasattr(request, 'step1_result') else {}
+            design_request_id = step1_result_dict.get('design_request_id')
+            if design_request_id:
+                await welno_data_service.update_checkup_design_request(
+                    request_id=design_request_id,
+                    status='failed',
+                    error_stage='step2',
+                    error_message=str(e)[:500]
+                )
+                logger.info(f"✅ [STEP2-에러저장] 실패 상태 저장 - ID: {design_request_id}")
+        except Exception as save_error:
+            logger.warning(f"⚠️ [STEP2-에러저장] 실패 상태 저장 실패: {str(save_error)}")
+        
         raise HTTPException(status_code=500, detail=f"검진 설계 생성 중 오류: {str(e)}")
 
 
@@ -1947,3 +2050,125 @@ def validate_and_fix_priority1(result: Dict[str, Any]) -> Dict[str, Any]:
     logger.info(f"✅ [검증] priority_1 검증 완료 - items: {len(normalized_items)}개, focus_items: {len(focus_items)}개")
     
     return result
+
+
+# ============================================================
+# 검진설계 복구 API (재시도 및 미완료 조회)
+# ============================================================
+
+@router.get("/incomplete/{patient_uuid}")
+async def get_incomplete_checkup_design(
+    patient_uuid: str = Path(..., description="환자 UUID"),
+    hospital_id: str = Query(..., description="병원 ID")
+):
+    """
+    미완료 검진 설계 요청 조회 (step1_completed 상태)
+    STEP1만 완료되고 STEP2가 실패한 경우를 조회합니다.
+    """
+    try:
+        logger.info(f"🔍 [미완료조회] 요청 - UUID: {patient_uuid}, Hospital: {hospital_id}")
+        
+        incomplete_data = await welno_data_service.get_incomplete_checkup_design(
+            uuid=patient_uuid,
+            hospital_id=hospital_id
+        )
+        
+        if incomplete_data:
+            logger.info(f"✅ [미완료조회] 발견 - ID: {incomplete_data['id']}")
+            return {
+                "success": True,
+                "data": incomplete_data,
+                "message": "미완료 검진 설계를 찾았습니다."
+            }
+        else:
+            logger.info(f"📭 [미완료조회] 없음 - UUID: {patient_uuid}")
+            return {
+                "success": False,
+                "data": None,
+                "message": "미완료 검진 설계가 없습니다."
+            }
+            
+    except Exception as e:
+        logger.error(f"❌ [미완료조회] 오류: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"미완료 조회 중 오류: {str(e)}")
+
+
+@router.post("/retry/{request_id}")
+async def retry_checkup_design(
+    request_id: int = Path(..., description="검진설계 요청 ID")
+):
+    """
+    미완료 검진 설계 재시도
+    step1_completed 상태의 요청을 STEP2부터 재실행합니다.
+    """
+    try:
+        logger.info(f"🔄 [재시도] 요청 - ID: {request_id}")
+        
+        # 1. 요청 정보 조회
+        conn = await asyncpg.connect(**welno_data_service.db_config)
+        query = """
+            SELECT uuid, hospital_id, step1_result, selected_concerns, 
+                   survey_responses, session_id, status
+            FROM welno.welno_checkup_design_requests
+            WHERE id = $1 AND status = 'step1_completed'
+        """
+        row = await conn.fetchrow(query, request_id)
+        await conn.close()
+        
+        if not row:
+            logger.warning(f"⚠️ [재시도] 재시도 불가 - ID: {request_id}")
+            raise HTTPException(
+                status_code=404,
+                detail="재시도 가능한 요청이 없습니다. (이미 완료되었거나 존재하지 않음)"
+            )
+        
+        # 2. STEP2 요청 구성
+        from ...models.checkup_design import CheckupDesignStep2Request, Step1Result
+        
+        step1_result_dict = json.loads(row['step1_result']) if isinstance(row['step1_result'], str) else row['step1_result']
+        selected_concerns_list = json.loads(row['selected_concerns']) if isinstance(row['selected_concerns'], str) else row['selected_concerns']
+        survey_responses_dict = json.loads(row['survey_responses']) if isinstance(row['survey_responses'], str) else row['survey_responses'] if row['survey_responses'] else {}
+        
+        # Step1Result 객체 생성
+        step1_result_obj = Step1Result(**step1_result_dict)
+        
+        # CheckupDesignStep2Request 생성
+        step2_request = CheckupDesignStep2Request(
+            uuid=row['uuid'],
+            hospital_id=row['hospital_id'],
+            step1_result=step1_result_obj,
+            selected_concerns=selected_concerns_list,
+            survey_responses=survey_responses_dict,
+            session_id=row['session_id']
+        )
+        
+        logger.info(f"🚀 [재시도] STEP2 재실행 시작 - UUID: {row['uuid']}")
+        
+        # 3. STEP2 API 재호출
+        step2_response = await create_checkup_design_step2(step2_request)
+        
+        logger.info(f"✅ [재시도] 성공 - ID: {request_id}")
+        
+        return {
+            "success": True,
+            "data": step2_response.data,
+            "message": "재시도 성공"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [재시도] 실패 - ID: {request_id}: {str(e)}", exc_info=True)
+        
+        # 재시도 실패 시 에러 상태 업데이트
+        try:
+            await welno_data_service.update_checkup_design_request(
+                request_id=request_id,
+                status='failed',
+                error_stage='retry',
+                error_message=str(e)[:500]
+            )
+        except:
+            pass
+        
+        raise HTTPException(status_code=500, detail=f"재시도 실패: {str(e)}")

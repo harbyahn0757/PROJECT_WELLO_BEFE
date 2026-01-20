@@ -4,10 +4,11 @@ import logging
 import asyncio
 from typing import Optional, List, Dict, Any, Union
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
+from google.generativeai import caching
 
 from app.core.config import settings
 
@@ -23,6 +24,7 @@ class GeminiRequest:
     max_tokens: int = 4096
     response_format: Optional[Dict[str, Any]] = None  # JSON 응답 요청 시 {"type": "json_object"}
     chat_history: Optional[List[Dict[str, str]]] = None  # 세션 히스토리 (role, content)
+    system_instruction: Optional[str] = None  # Context Caching용 시스템 프롬프트 (optional)
 
 @dataclass
 class GeminiResponse:
@@ -39,6 +41,8 @@ class GeminiService:
         self._api_key: Optional[str] = None
         self._initialized: bool = False
         self._chat_sessions: Dict[str, Any] = {}  # 세션별 ChatSession 저장
+        self._content_caches: Dict[str, Any] = {}  # 세션별 CachedContent 저장
+        self._cache_enabled: bool = True  # Context Caching 활성화 여부
         
     async def initialize(self):
         """Gemini 클라이언트 초기화"""
@@ -158,7 +162,14 @@ class GeminiService:
             return GeminiResponse(success=False, error=str(e))
 
     async def stream_api(self, request: GeminiRequest, session_id: Optional[str] = None):
-        """Gemini API 스트리밍 호출 (세션 히스토리 지원)"""
+        """
+        Gemini API 스트리밍 호출
+        
+        기능:
+        - 세션 히스토리 지원 (멀티턴 대화)
+        - Context Caching 자동 활성화 (조건 충족 시)
+        - Graceful degradation (캐싱 실패 시 일반 모드)
+        """
         if not self._initialized:
             await self.initialize()
             
@@ -172,11 +183,32 @@ class GeminiService:
                 "max_output_tokens": request.max_tokens,
             }
             
-            model = genai.GenerativeModel(
-                model_name=request.model,
-                generation_config=generation_config
-            )
+            # Context Caching 시도 (첫 메시지 + system_instruction 있을 때만)
+            cached_content = None
+            is_first_message = not (request.chat_history and len(request.chat_history) > 0)
+            
+            if request.system_instruction and session_id and is_first_message:
+                cached_content = await self._get_or_create_cache(
+                    system_prompt=request.system_instruction,
+                    model_name=request.model,
+                    cache_key=session_id
+                )
+            
+            # 모델 생성 (캐시 사용 or 일반)
+            if cached_content:
+                model = genai.GenerativeModel.from_cached_content(
+                    cached_content=cached_content,
+                    generation_config=generation_config
+                )
+                cache_status = "cached"
+            else:
+                model = genai.GenerativeModel(
+                    model_name=request.model,
+                    generation_config=generation_config
+                )
+                cache_status = "normal"
 
+            # 안전 설정 (의료 콘텐츠를 위해 차단 최소화)
             safety_settings = {
                 HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
                 HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
@@ -184,32 +216,30 @@ class GeminiService:
                 HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
             }
 
-            logger.info(f"📡 [Gemini Service] 스트리밍 호출 중... (Model: {request.model}, Session: {session_id})")
+            logger.info(f"📡 [Gemini] {request.model} 호출 (session: {session_id[:8] if session_id else 'None'}..., mode: {cache_status})")
             
-            # 세션 히스토리가 있으면 ChatSession 사용
-            if session_id and request.chat_history and len(request.chat_history) > 0:
-                # 기존 히스토리로 ChatSession 시작
-                chat_session = model.start_chat(history=request.chat_history)
-                # 새 메시지 전송
-                response = chat_session.send_message(
-                    request.prompt,
-                    safety_settings=safety_settings,
-                    stream=True
-                )
-            else:
-                # 일반 스트리밍 호출 (첫 메시지 또는 히스토리 없음)
+            # 히스토리 있으면 Chat 모드, 없으면 단일 생성
+            if is_first_message:
                 response = model.generate_content(
                     request.prompt,
                     safety_settings=safety_settings,
                     stream=True
                 )
+            else:
+                chat_session = model.start_chat(history=request.chat_history)
+                response = chat_session.send_message(
+                    request.prompt,
+                    safety_settings=safety_settings,
+                    stream=True
+                )
             
+            # 스트리밍 응답
             for chunk in response:
                 if chunk.text:
                     yield chunk.text
 
         except Exception as e:
-            logger.error(f"❌ [Gemini Service] 스트리밍 호출 실패: {str(e)}")
+            logger.error(f"❌ [Gemini] 호출 실패: {str(e)}")
             yield f"오류 발생: {str(e)}"
     
     def _format_chat_history(self, history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -234,6 +264,90 @@ class GeminiService:
             })
         
         return formatted
+    
+    async def _get_or_create_cache(
+        self, 
+        system_prompt: str, 
+        model_name: str,
+        cache_key: Optional[str] = None
+    ) -> Optional[Any]:
+        """
+        시스템 프롬프트를 캐싱하여 재사용 (Graceful degradation)
+        
+        캐싱 조건:
+        - 최소 1,024 토큰 이상 (Gemini 3 Flash 요구사항)
+        - 실패 시 자동으로 non-cached 방식으로 fallback
+        - 기존 기능에 전혀 영향 없음
+        
+        Args:
+            system_prompt: 캐싱할 시스템 프롬프트
+            model_name: 모델 이름
+            cache_key: 캐시 식별자 (세션 ID 등)
+        
+        Returns:
+            CachedContent 객체 또는 None (캐싱 불가 시)
+        """
+        if not self._cache_enabled or not cache_key:
+            return None
+        
+        try:
+            # 기존 캐시 재사용 (있으면)
+            if cache_key in self._content_caches:
+                cached = self._content_caches[cache_key]
+                try:
+                    # 캐시 유효성 확인
+                    if hasattr(cached, 'expire_time') and cached.expire_time:
+                        if datetime.now() < cached.expire_time:
+                            logger.debug(f"♻️ [Cache] 기존 캐시 재사용: {cache_key[:8]}...")
+                            return cached
+                    
+                    # 만료된 캐시 정리
+                    await asyncio.to_thread(cached.delete)
+                    del self._content_caches[cache_key]
+                    logger.debug(f"🗑️ [Cache] 만료된 캐시 정리")
+                except:
+                    # 정리 실패해도 무시하고 진행
+                    pass
+            
+            # 토큰 수 추정 (4자 ≈ 1토큰, 보수적 추정)
+            estimated_tokens = len(system_prompt) // 4
+            
+            # 최소 토큰 수 체크 (Gemini 3 Flash: 1,024 토큰)
+            if estimated_tokens < 1024:
+                logger.debug(f"⏭️ [Cache] 토큰 부족 ({estimated_tokens} < 1024), 일반 모드 사용")
+                return None
+            
+            # 새 캐시 생성 시도
+            logger.debug(f"📦 [Cache] 새 캐시 생성 중... (~{estimated_tokens} tokens)")
+            
+            cached_content = await asyncio.to_thread(
+                caching.CachedContent.create,
+                model=model_name,
+                display_name=f"welno_rag_{cache_key[:16]}",
+                system_instruction=system_prompt,
+                ttl=timedelta(hours=1)
+            )
+            
+            self._content_caches[cache_key] = cached_content
+            logger.info(f"✅ [Cache] 캐시 생성 완료 (30-50% 성능 향상 예상)")
+            
+            return cached_content
+            
+        except Exception as e:
+            # 모든 캐싱 에러는 조용히 무시하고 일반 모드로 진행
+            logger.debug(f"⏭️ [Cache] 캐싱 불가 (일반 모드): {str(e)[:50]}...")
+            return None
+    
+    async def clear_cache(self, cache_key: str):
+        """특정 세션의 캐시 삭제"""
+        if cache_key in self._content_caches:
+            try:
+                cached = self._content_caches[cache_key]
+                await asyncio.to_thread(cached.delete)
+                del self._content_caches[cache_key]
+                logger.info(f"🗑️ [Context Cache] 캐시 삭제 완료: {cache_key}")
+            except Exception as e:
+                logger.warning(f"⚠️ [Context Cache] 캐시 삭제 실패: {str(e)}")
 
 # 전역 인스턴스 생성
 gemini_service = GeminiService()
