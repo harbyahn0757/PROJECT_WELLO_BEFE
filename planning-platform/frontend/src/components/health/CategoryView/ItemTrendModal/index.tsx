@@ -39,7 +39,7 @@ const ItemTrendModal: React.FC<ItemTrendModalProps> = ({
   
   // 차트 데이터 추출
   const chartData = useMemo(() => {
-    const data: { year: string; value: number | null }[] = [];
+    const dataPoints: { date: string; value: number }[] = [];
     
     // 연도별 데이터 수집
     healthData.forEach(record => {
@@ -66,14 +66,24 @@ const ItemTrendModal: React.FC<ItemTrendModalProps> = ({
         }
       }
       
-      data.push({
-        year: record.Year.replace('년', ''),
-        value: foundValue
-      });
+      if (foundValue !== null) {
+        dataPoints.push({
+          date: record.Year.replace('년', ''),
+          value: foundValue
+        });
+      }
     });
     
-    // 연도 순으로 정렬
-    return data.sort((a, b) => parseInt(a.year) - parseInt(b.year));
+    // 연도 순으로 정렬 후 LineChart 형식으로 변환
+    const sorted = dataPoints.sort((a, b) => parseInt(a.date) - parseInt(b.date));
+    
+    return [{
+      id: itemName,
+      name: itemName,
+      data: sorted,
+      showPoints: true,
+      showArea: false
+    }];
   }, [healthData, itemName]);
   
   const unit = getUnitForMetric(itemName);
@@ -97,11 +107,10 @@ const ItemTrendModal: React.FC<ItemTrendModalProps> = ({
         </div>
         
         <div className="modal-body">
-          {chartData.length > 0 ? (
+          {chartData.length > 0 && chartData[0].data.length > 0 ? (
             <>
               <LineChart 
-                data={chartData}
-                unit={unit}
+                series={chartData}
               />
               
               {showRangeIndicator && (

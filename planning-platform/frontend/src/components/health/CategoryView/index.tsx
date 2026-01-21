@@ -100,7 +100,7 @@ const CategoryView: React.FC<CategoryViewProps> = ({
           healthData={healthData}
           onClose={handleCloseModal}
           patientName={patientName}
-          showRangeIndicator={showRangeIndicator}
+          showRangeIndicator={true}
         />
       )}
     </div>

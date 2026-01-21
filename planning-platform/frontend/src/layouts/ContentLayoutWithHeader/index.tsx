@@ -17,8 +17,8 @@ interface ContentLayoutWithHeaderProps {
   onRefresh?: (withdraw?: boolean) => void | Promise<void>;
   // 토글 props
   showToggle?: boolean;
-  activeTab?: 'trends' | 'timeline';
-  onTabChange?: (tab: 'trends' | 'timeline') => void;
+  activeTab?: 'trends' | 'timeline' | 'category';
+  onTabChange?: (tab: 'trends' | 'timeline' | 'category') => void;
   // Pull-to-refresh props
   containerRef?: RefObject<HTMLDivElement | null>;
   onTouchStart?: (e: React.TouchEvent) => void;
