@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/welno/static/css/main.5e8d5d77.css",
-    "main.js": "/welno/static/js/main.3dcb56c1.js",
+    "main.js": "/welno/static/js/main.6c8851dc.js",
     "static/media/check_2 1.png": "/welno/static/media/check_2 1.ea1a1f3695073d984b80.png",
     "static/media/doc_nobg.png": "/welno/static/media/doc_nobg.777d6a56e64ed09e0ed9.png",
     "static/media/healthy_potato_nobg.png": "/welno/static/media/healthy_potato_nobg.6382d3f877e453c1c65a.png",
@@ -13,10 +13,10 @@
     "static/media/pass.png": "/welno/static/media/pass.203049a9f19b1e505577.png",
     "index.html": "/welno/index.html",
     "main.5e8d5d77.css.map": "/welno/static/css/main.5e8d5d77.css.map",
-    "main.3dcb56c1.js.map": "/welno/static/js/main.3dcb56c1.js.map"
+    "main.6c8851dc.js.map": "/welno/static/js/main.6c8851dc.js.map"
   },
   "entrypoints": [
     "static/css/main.5e8d5d77.css",
-    "static/js/main.3dcb56c1.js"
+    "static/js/main.6c8851dc.js"
   ]
 }

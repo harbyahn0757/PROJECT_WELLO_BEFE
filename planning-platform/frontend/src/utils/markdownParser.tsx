@@ -116,8 +116,16 @@ export const parseMarkdownWithLists = (text: string): React.ReactNode => {
       // 리스트가 끝나면 플러시
       flushList();
       
-      // 일반 텍스트 또는 빈 줄
-      if (trimmed) {
+      // ### 헤더 처리 (볼드 처리만)
+      if (trimmed.match(/^###\s+(.+)$/)) {
+        const headerText = trimmed.replace(/^###\s+/, '');
+        elements.push(
+          <div key={key++} className="markdown-paragraph">
+            <strong className="markdown-bold">{headerText}</strong>
+          </div>
+        );
+      } else if (trimmed) {
+        // 일반 텍스트 또는 빈 줄
         elements.push(
           <div key={key++} className="markdown-paragraph">
             {parseMarkdown(trimmed)}

@@ -6,6 +6,7 @@ import json
 import redis
 import os
 import time
+import re
 from typing import Dict, Any, Optional, List, AsyncGenerator
 from datetime import datetime
 
@@ -464,9 +465,17 @@ class WelnoRagChatService:
                 async for chunk in gemini_service.stream_api(gemini_req, session_id=session_id):
                     full_answer += chunk
                     display_chunk = chunk
+                    
+                    # [SUGGESTIONS] 태그 및 불완전한 [SUGGEST 태그 감지
                     if "[SUGGESTIONS]" in full_answer and "[SUGGESTIONS]" in chunk:
                         display_chunk = chunk.split("[SUGGESTIONS]")[0]
                     elif "[SUGGESTIONS]" in full_answer:
+                        display_chunk = ""
+                    elif "[SUGGEST" in full_answer and "[SUGGEST" in chunk:
+                        # 불완전한 태그가 chunk에 포함된 경우
+                        display_chunk = chunk.split("[SUGGEST")[0]
+                    elif "[SUGGEST" in full_answer:
+                        # 불완전한 태그가 이미 full_answer에 있는 경우 더 이상 출력하지 않음
                         display_chunk = ""
                         
                     if display_chunk:
@@ -476,6 +485,9 @@ class WelnoRagChatService:
                 gemini_time = time.time() - gemini_start
                 logger.info(f"⏱️  [RAG 채팅] Gemini API 응답 생성: {gemini_time:.3f}초")
                 logger.info(f"📝 [RAG 채팅] 최종 답변 길이: {len(full_answer)}자")
+                
+                # 불완전한 태그 제거 (정규식으로 [SUGGEST로 시작하는 모든 패턴 제거)
+                full_answer = re.sub(r'\[SUGGEST[^\]]*\]?.*', '', full_answer, flags=re.DOTALL).strip()
                 
                 # 예상 질문 파싱
                 if "[SUGGESTIONS]" in full_answer:

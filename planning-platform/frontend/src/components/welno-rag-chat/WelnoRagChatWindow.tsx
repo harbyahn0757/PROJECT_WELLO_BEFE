@@ -4,6 +4,7 @@ import RagChatMessage from './RagChatMessage';
 import RagChatInput from './RagChatInput';
 import SurveyTriggerPrompt from './SurveyTriggerPrompt';
 import PNTInlineSurvey from './PNTInlineSurvey';
+import AuthPromptBubble from './AuthPromptBubble';
 import apiConfig from '../../config/api';
 
 interface Source {
@@ -28,7 +29,7 @@ interface PNTQuestion {
 }
 
 interface Message {
-  role: 'user' | 'assistant' | 'pnt_question';
+  role: 'user' | 'assistant' | 'pnt_question' | 'auth_prompt';
   content: string;
   timestamp: string;
   sources?: Source[];
@@ -51,8 +52,13 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
   const [showPNTPrompt, setShowPNTPrompt] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [isSuggestionsExpanded, setIsSuggestionsExpanded] = useState(true);
+  const [visibleSuggestionsCount, setVisibleSuggestionsCount] = useState(0);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [hasHealthData, setHasHealthData] = useState<boolean | null>(null);
+  const [pendingActions, setPendingActions] = useState<{
+    suggestions: string[];
+    needsAuth: boolean;
+  } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -79,6 +85,35 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
       }
     }
   }, [uuid, hospitalId, sessionId, messages.length]);
+
+  useEffect(() => {
+    // 데이터 유무 확인 (게스트가 아니고 기본 hospital이 아닐 때만)
+    const checkHealthData = async () => {
+      if (uuid === 'guest' || hospitalId === 'default') {
+        setHasHealthData(false);
+        return;
+      }
+
+      try {
+        const baseUrl = apiConfig.IS_DEVELOPMENT ? '' : apiConfig.API_BASE_URL;
+        const response = await fetch(
+          `${baseUrl}/welno-api/v1/checkup-data/has-data?uuid=${uuid}&hospital_id=${hospitalId}`
+        );
+        
+        if (response.ok) {
+          const result = await response.json();
+          setHasHealthData(result.has_data || false);
+        } else {
+          setHasHealthData(false);
+        }
+      } catch (error) {
+        console.error('[RAG 챗] 데이터 확인 실패:', error);
+        setHasHealthData(false);
+      }
+    };
+
+    checkHealthData();
+  }, [uuid, hospitalId]);
 
   useEffect(() => {
     // 모바일에서 스크롤 방지
@@ -137,7 +172,8 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
     setSuggestions([]); // 새 질문 시작 시 이전 제안 삭제
-    setIsSuggestionsExpanded(true); // 새 제안 시 다시 펼치기
+    setVisibleSuggestionsCount(0); // 추가 질문 카운트 초기화
+    setPendingActions(null); // 이전 pendingActions 초기화
 
     try {
       // API 호출
@@ -168,13 +204,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
       let finalSources: Source[] = [];
       let finalTriggerSurvey = false;
       let finalSuggestions: string[] = [];
-
-      // 초기 어시스턴트 메시지 추가 (비어있음)
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: '',
-        timestamp: new Date().toISOString()
-      }]);
+      let hasReceivedAnswer = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -190,18 +220,38 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
             
             if (data.answer) {
               assistantContent += data.answer;
-              // 메시지 업데이트
-              setMessages(prev => {
-                const newMessages = [...prev];
-                const lastIdx = newMessages.length - 1;
-                if (newMessages[lastIdx].role === 'assistant') {
-                  newMessages[lastIdx] = {
-                    ...newMessages[lastIdx],
-                    content: assistantContent
-                  };
+              
+              // 첫 답변이 올 때 버블 생성 및 로딩 숨김
+              if (!hasReceivedAnswer) {
+                setIsLoading(false); // 첫 답변이 올 때 로딩 숨김
+                hasReceivedAnswer = true;
+                // 첫 assistant 메시지 생성
+                setMessages(prev => [...prev, {
+                  role: 'assistant',
+                  content: assistantContent,
+                  timestamp: new Date().toISOString()
+                }]);
+              } else {
+                // 기존 메시지 업데이트
+                setMessages(prev => {
+                  const newMessages = [...prev];
+                  const lastIdx = newMessages.length - 1;
+                  if (newMessages[lastIdx].role === 'assistant') {
+                    newMessages[lastIdx] = {
+                      ...newMessages[lastIdx],
+                      content: assistantContent
+                    };
+                  }
+                  return newMessages;
+                });
+              }
+              
+              // 스크롤을 부드럽게 유지
+              setTimeout(() => {
+                if (messagesEndRef.current) {
+                  messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
                 }
-                return newMessages;
-              });
+              }, 50);
             }
 
             if (data.done) {
@@ -210,7 +260,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
               finalSuggestions = data.suggestions || [];
               const suggestPNT = !!data.suggest_pnt;
               
-              // 최종 메타데이터 업데이트
+              // 최종 메타데이터 업데이트 (sources만 즉시 업데이트)
               setMessages(prev => {
                 const newMessages = [...prev];
                 const lastIdx = newMessages.length - 1;
@@ -223,9 +273,11 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
                 return newMessages;
               });
 
-              if (finalSuggestions.length > 0) {
-                setSuggestions(finalSuggestions);
-              }
+              // 인증 버블과 추가 질문은 타이핑 완료 후 처리하도록 pendingActions에 저장
+              setPendingActions({
+                suggestions: finalSuggestions,
+                needsAuth: hasHealthData === false && uuid !== 'guest'
+              });
 
               // PNT 문진 시작 제안 (우선순위: PNT > 일반 문진)
               if (suggestPNT && !showPNTPrompt) {
@@ -256,8 +308,44 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
-      setIsLoading(false);
+      // 에러 케이스에서만 로딩 상태 해제 (정상 케이스는 첫 답변 수신 시 이미 해제됨)
+      if (isLoading) {
+        setIsLoading(false);
+      }
     }
+  };
+
+  const handleTypingComplete = () => {
+    if (!pendingActions) return;
+    
+    // 1. 참고문헌은 이미 표시됨 (sources가 메시지에 추가됨)
+    
+    // 2. 인증 버블 (500ms 후)
+    if (pendingActions.needsAuth) {
+      setTimeout(() => {
+        setMessages(prev => [...prev, {
+          role: 'auth_prompt',
+          content: '건강 데이터로 더 자세한 안내를 받아보세요',
+          timestamp: new Date().toISOString()
+        }]);
+      }, 500);
+    }
+    
+    // 3. 추가 질문 (인증 버블 후 또는 참고문헌 후)
+    const baseDelay = pendingActions.needsAuth ? 1000 : 500;
+    if (pendingActions.suggestions.length > 0) {
+      setSuggestions(pendingActions.suggestions);
+      setTimeout(() => {
+        setVisibleSuggestionsCount(0);
+        pendingActions.suggestions.forEach((suggestion, index) => {
+          setTimeout(() => {
+            setVisibleSuggestionsCount(prev => prev + 1);
+          }, index * 400);
+        });
+      }, baseDelay);
+    }
+    
+    setPendingActions(null);
   };
 
   const handleStartSurvey = async () => {
@@ -393,13 +481,42 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
               />
             );
           }
-          return <RagChatMessage key={idx} message={msg} />;
+          if (msg.role === 'auth_prompt') {
+            return (
+              <AuthPromptBubble
+                key={idx}
+                onClick={() => navigate(`/login?uuid=${uuid}&hospital=${hospitalId}`)}
+              />
+            );
+          }
+          return (
+            <RagChatMessage 
+              key={idx} 
+              message={msg} 
+              onTypingUpdate={() => {
+                // 타이핑 중 버블 하단 자동 스크롤
+                requestAnimationFrame(() => {
+                  if (messagesEndRef.current) {
+                    messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+                  }
+                });
+              }}
+              onTypingComplete={
+                msg.role === 'assistant' && idx === messages.length - 1
+                  ? handleTypingComplete
+                  : undefined
+              }
+            />
+          );
         })}
         {isLoading && (
           <div className="loading-indicator">
-            <span className="dot"></span>
-            <span className="dot"></span>
-            <span className="dot"></span>
+            <div className="loading-text">답변을 작성중이에요</div>
+            <div className="loading-spinner">
+              <span className="spinner-dot"></span>
+              <span className="spinner-dot"></span>
+              <span className="spinner-dot"></span>
+            </div>
           </div>
         )}
 
@@ -431,40 +548,31 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
           </div>
         )}
 
-        {/* 예상 질문 제안 (아코디언 스타일, 채팅 영역 내부) */}
-        {!isLoading && suggestions.length > 0 && (
-          <div className={`chat-suggestions-accordion ${isSuggestionsExpanded ? 'expanded' : 'collapsed'}`}>
-            <div 
-              className="suggestions-header" 
-              onClick={() => setIsSuggestionsExpanded(!isSuggestionsExpanded)}
-            >
-              <span className="header-title">💡 이런 질문은 어떠세요?</span>
-              <span className="header-icon">{isSuggestionsExpanded ? '▾' : '▴'}</span>
-            </div>
-            {isSuggestionsExpanded && (
-              <div className="suggestions-list">
-                {suggestions.map((sug, idx) => (
-                  <button 
-                    key={idx} 
-                    className="suggestion-item"
-                    onClick={() => handleSendMessage(sug)}
-                  >
-                    {sug}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
         <div ref={messagesEndRef} />
       </div>
+
+      {/* 추가 질문 제안 (입력창 위, 가로 스크롤) */}
+      {!isLoading && suggestions.length > 0 && visibleSuggestionsCount > 0 && (
+        <div className="chat-suggestions-horizontal">
+          <div className="suggestions-scroll">
+            {suggestions.slice(0, visibleSuggestionsCount).map((sug, idx) => (
+              <button 
+                key={idx} 
+                className="suggestion-item-horizontal"
+                onClick={() => handleSendMessage(sug)}
+              >
+                {sug}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 입력 영역 */}
       <RagChatInput
         onSend={handleSendMessage}
         disabled={isLoading}
-        placeholder="궁금한 점을 물어보세요..."
+        placeholder="궁금한 내용을 물어보세요"
         onFocus={() => setIsInputFocused(true)}
         onBlur={() => setIsInputFocused(false)}
       />
