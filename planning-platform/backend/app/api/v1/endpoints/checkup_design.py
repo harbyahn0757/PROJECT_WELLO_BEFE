@@ -233,13 +233,18 @@ async def create_checkup_design(
     GPT 기반 검진 설계 생성
     사용자가 선택한 염려 항목을 기반으로 맞춤형 검진 계획 생성
     """
+    import time
+    overall_start = time.time()
+    
     try:
         logger.info(f"🔍 [검진설계] 요청 시작 - UUID: {request.uuid}, 선택 항목: {len(request.selected_concerns)}개")
+        logger.info(f"⏱️  [타이밍] 전체 시작: 0.0초")
         logger.info(f"🔍 [검진설계] request 타입: {type(request)}")
         logger.info(f"🔍 [검진설계] request.uuid 타입: {type(request.uuid)}")
         logger.info(f"🔍 [검진설계] request.hospital_id 타입: {type(request.hospital_id)}")
         
         # 1. 환자 정보 조회
+        data_start = time.time()
         logger.info(f"🔍 [검진설계] 환자 정보 조회 시작...")
         patient_info = await welno_data_service.get_patient_by_uuid(request.uuid)
         logger.info(f"🔍 [검진설계] patient_info 타입: {type(patient_info)}")
@@ -301,6 +306,8 @@ async def create_checkup_design(
                 logger.info(f"  ... 외 {len(hospital_external_checkup) - 3}개 항목")
         
         # 2. 건강 데이터 조회
+        logger.info(f"⏱️  [타이밍] 환자/병원 정보 조회: {time.time() - data_start:.2f}초")
+        health_start = time.time()
         logger.info(f"🔍 [검진설계] 건강 데이터 조회 시작...")
         health_data_result = await welno_data_service.get_patient_health_data(request.uuid, request.hospital_id)
         logger.info(f"🔍 [검진설계] health_data_result 타입: {type(health_data_result)}")
@@ -374,6 +381,8 @@ async def create_checkup_design(
         # hospital_national_checkup, hospital_recommended는 위에서 이미 조회됨
         
         # 5. 2단계 파이프라인 실행: STEP 1 → STEP 2 순차 호출
+        logger.info(f"⏱️  [타이밍] 데이터 조회 완료: {time.time() - health_start:.2f}초")
+        logger.info(f"⏱️  [타이밍] 누적 (데이터 조회까지): {time.time() - overall_start:.2f}초")
         logger.info(f"🔄 [검진설계] 2단계 파이프라인 시작...")
         
         # survey_responses에서 약품 분석 텍스트 추출
@@ -382,6 +391,7 @@ async def create_checkup_design(
         selected_medication_texts = survey_responses_clean.pop("selected_medication_texts", None) or request.selected_medication_texts
         
         # STEP 1: 빠른 분석 수행
+        step1_start = time.time()
         logger.info(f"📊 [검진설계] STEP 1: 빠른 분석 시작...")
         step1_response = await create_checkup_design_step1(request)
         if not step1_response.success:
@@ -389,7 +399,10 @@ async def create_checkup_design(
             raise ValueError("STEP 1 분석 실패")
         
         step1_result = step1_response.data
+        step1_elapsed = time.time() - step1_start
         logger.info(f"✅ [검진설계] STEP 1 완료 - 분석 결과 수신")
+        logger.info(f"⏱️  [타이밍] STEP 1 소요: {step1_elapsed:.2f}초")
+        logger.info(f"⏱️  [타이밍] 누적 (STEP 1까지): {time.time() - overall_start:.2f}초")
         logger.info(f"🔍 [검진설계] STEP 1 결과 타입: {type(step1_result)}")
         logger.info(f"🔍 [검진설계] step1_response 타입: {type(step1_response)}")
         logger.info(f"🔍 [검진설계] step1_response.data 타입: {type(step1_response.data)}")
@@ -403,6 +416,7 @@ async def create_checkup_design(
         logger.info(f"📊 [검진설계] STEP 1 결과 키: {list(step1_result.keys())}")
         
         # STEP 2: 설계 및 근거 확보 (STEP 1 결과를 구조체로 전달)
+        step2_start = time.time()
         logger.info(f"🔧 [검진설계] STEP 2: 설계 및 근거 확보 시작...")
         try:
             # STEP 1 결과를 Step1Result 구조체로 변환
@@ -434,7 +448,10 @@ async def create_checkup_design(
                 ai_response = step1_result
             else:
                 step2_result = step2_response.data
+                step2_elapsed = time.time() - step2_start
                 logger.info(f"✅ [검진설계] STEP 2 완료 - 설계 및 근거 결과 수신")
+                logger.info(f"⏱️  [타이밍] STEP 2 소요: {step2_elapsed:.2f}초")
+                logger.info(f"⏱️  [타이밍] 누적 (STEP 2까지): {time.time() - overall_start:.2f}초")
                 
                 # step2_result 타입 검증
                 logger.info(f"🔍 [검진설계] STEP 2 결과 타입: {type(step2_result)}")
@@ -546,6 +563,12 @@ async def create_checkup_design(
             logger.warning(f"⚠️ [검진설계] 요청 저장 중 오류 (무시): {str(e)}")
         
         # 8. 응답 반환
+        total_elapsed = time.time() - overall_start
+        logger.info(f"✅ [검진설계] 검진 설계 완료")
+        logger.info(f"⏱️  [타이밍] ========================================")
+        logger.info(f"⏱️  [타이밍] 전체 완료: {total_elapsed:.2f}초")
+        logger.info(f"⏱️  [타이밍] ========================================")
+        
         return CheckupDesignResponse(
             success=True,
             data=ai_response,
