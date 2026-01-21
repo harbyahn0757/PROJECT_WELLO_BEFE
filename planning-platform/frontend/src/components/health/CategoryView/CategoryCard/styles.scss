@@ -1,0 +1,155 @@
+/**
+ * CategoryCard 스타일
+ * 디자인 시스템 준수 (variables.scss)
+ */
+@use '../../../../styles/variables' as *;
+
+.category-card {
+  aspect-ratio: 1;
+  border-radius: $border-radius-2xl;
+  padding: $spacing-md $spacing-sm;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  font-family: $font-family-base;
+  position: relative;
+  overflow: hidden;
+  
+  // 기본 호버 효과
+  &:hover {
+    box-shadow: $shadow-md;
+  }
+  
+  // 액티브 효과
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  // 포커스 효과 (키보드 접근성)
+  &:focus {
+    outline: 2px solid $brand-brown;
+    outline-offset: 2px;
+  }
+  
+  .card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: $spacing-xs;
+    width: 100%;
+  }
+  
+  .card-name {
+    font-size: $font-base;
+    font-weight: $font-weight-semibold;
+    text-align: center;
+    line-height: 1.3;
+    word-break: keep-all;
+  }
+  
+  .card-status {
+    font-size: $font-sm;
+    font-weight: $font-weight-medium;
+    text-align: center;
+  }
+  
+  // ========================================
+  // 상태별 스타일
+  // ========================================
+  
+  // 주의 카드 (빨간색 계열)
+  &.card-caution {
+    background: #5C2F2F; // IMG_4580 분석 결과
+    
+    .card-name {
+      color: $white;
+    }
+    
+    .card-status {
+      color: $error; // #f56565
+      font-weight: $font-weight-semibold;
+    }
+  }
+  
+  // 정상 카드 (회색 배경 + 민트색 텍스트)
+  &.card-normal {
+    background: #2D2D2D; // IMG_4580 분석 결과
+    
+    .card-name {
+      color: $white;
+    }
+    
+    .card-status {
+      color: #4ECDC4; // IMG_4580 분석 결과 (민트색)
+      font-weight: $font-weight-semibold;
+    }
+  }
+  
+  // 결과없음 카드 (회색 계열)
+  &.card-no-data {
+    background: #3A3A3A; // IMG_4580 분석 결과
+    cursor: default; // 클릭 불가 표시
+    
+    .card-name {
+      color: $gray-500;
+    }
+    
+    .card-status {
+      color: $gray-600;
+    }
+    
+    &:hover {
+      box-shadow: none; // 호버 효과 제거
+    }
+    
+    &:active {
+      transform: none; // 액티브 효과 제거
+    }
+  }
+  
+  // ========================================
+  // 컴팩트 모드 (채팅용)
+  // ========================================
+  
+  .category-cards-grid.compact & {
+    padding: $spacing-sm $spacing-xs;
+    border-radius: $border-radius-xl;
+    
+    .card-name {
+      font-size: $font-sm;
+    }
+    
+    .card-status {
+      font-size: $font-xs;
+    }
+  }
+  
+  // ========================================
+  // 애니메이션 (stagger)
+  // ========================================
+  
+  animation: cardStagger 0.3s ease-out;
+  animation-fill-mode: both;
+  
+  // Stagger 딜레이 (최대 9개)
+  @for $i from 1 through 9 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{$i * 0.05}s;
+    }
+  }
+}
+
+// 카드 등장 애니메이션
+@keyframes cardStagger {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

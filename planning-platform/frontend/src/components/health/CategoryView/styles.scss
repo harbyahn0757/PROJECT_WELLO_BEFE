@@ -1,0 +1,24 @@
+/**
+ * CategoryView 공통 스타일
+ */
+@use '../../../styles/variables' as *;
+
+.category-view {
+  width: 100%;
+  min-height: 100vh;
+  font-family: $font-family-base;
+  
+  // 뷰 전환 애니메이션
+  & > * {
+    animation: fadeIn 0.3s ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

@@ -5,6 +5,7 @@ import RagChatInput from './RagChatInput';
 import SurveyTriggerPrompt from './SurveyTriggerPrompt';
 import PNTInlineSurvey from './PNTInlineSurvey';
 import AuthPromptBubble from './AuthPromptBubble';
+import CategoryCardsGrid from '../health/CategoryView/CategoryCardsGrid';
 import apiConfig from '../../config/api';
 
 interface Source {
@@ -29,7 +30,7 @@ interface PNTQuestion {
 }
 
 interface Message {
-  role: 'user' | 'assistant' | 'pnt_question' | 'auth_prompt';
+  role: 'user' | 'assistant' | 'pnt_question' | 'auth_prompt' | 'health_category';
   content: string;
   timestamp: string;
   sources?: Source[];
@@ -39,6 +40,7 @@ interface Message {
     recommended_supplements?: any[];
     recommended_foods?: any[];
   };
+  categoryData?: any[]; // 카테고리 데이터 (CategoryData[])
 }
 
 interface WelnoRagChatWindowProps {
@@ -487,6 +489,20 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
                 key={idx}
                 onClick={() => navigate(`/login?uuid=${uuid}&hospital=${hospitalId}`)}
               />
+            );
+          }
+          if (msg.role === 'health_category') {
+            return (
+              <div key={idx} className="chat-message assistant">
+                <CategoryCardsGrid
+                  categories={msg.categoryData || []}
+                  onCategoryClick={(catId) => {
+                    const categoryName = msg.categoryData?.find((c: any) => c.id === catId)?.name || '';
+                    handleSendMessage(`${categoryName} 카테고리 상세 정보를 알려주세요`);
+                  }}
+                  compact={true}
+                />
+              </div>
             );
           }
           return (

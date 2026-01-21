@@ -31,7 +31,7 @@
   // 토글을 감싸는 컨테이너 (고정 크기)
   &__container {
     display: flex;
-    width: 319px; // 고정 너비
+    width: 319px; // 고정 너비 (2버튼)
     height: 60px; // 고정 높이
     background: #F8EDDA; // 감싸는 영역 배경색
     padding: 10px; // 토글 버튼과 감싸는 영역 사이 간격
@@ -39,12 +39,19 @@
     align-items: center;
     justify-content: center;
     border-radius: $border-radius-md; // 약간의 라운드 처리 (6px)
+    
+    // 3버튼 모드 (카테고리 추가)
+    &.three-buttons {
+      width: auto; // 자동 너비
+      min-width: 319px;
+      gap: 8px;
+    }
   }
   
   &__button {
-    width: 145px; // 고정 너비
+    width: 145px; // 고정 너비 (2버튼)
     height: 40px; // 고정 높이
-    padding: 0;
+    padding: 0 12px;
     background: transparent; // 비선택: 투명 배경
     color: #A16A51; // 비선택: 브라운 텍스트 (#A16A51)
     border: none;
@@ -60,6 +67,14 @@
     justify-content: center;
     position: relative;
     flex-shrink: 0; // 크기 고정
+    white-space: nowrap;
+    
+    // 3버튼 모드
+    .three-buttons & {
+      width: auto;
+      min-width: 90px;
+      font-size: 13px;
+    }
     
     // 선택된 토글
     &--active {

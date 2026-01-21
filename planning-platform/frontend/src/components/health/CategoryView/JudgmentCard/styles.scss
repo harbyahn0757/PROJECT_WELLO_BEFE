@@ -1,0 +1,94 @@
+/**
+ * JudgmentCard 스타일
+ */
+@use '../../../../styles/variables' as *;
+
+.judgment-card {
+  background: $background-cream;
+  border-radius: $border-radius-xl;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-lg;
+  font-family: $font-family-base;
+  border: 1px solid $gray-300;
+  
+  .judgment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: $spacing-md;
+    margin-bottom: $spacing-md;
+    
+    .judgment-text-wrapper {
+      flex: 1;
+      display: flex;
+      align-items: flex-start;
+      gap: $spacing-xs;
+    }
+    
+    .judgment-text {
+      font-size: $font-base;
+      color: $gray-800;
+      line-height: 1.5;
+      
+      .judgment-result {
+        font-weight: $font-weight-bold;
+        color: $error;
+      }
+    }
+    
+    .judgment-help-icon {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: $gray-400;
+      color: $white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: $font-xs;
+      font-weight: $font-weight-bold;
+      cursor: help;
+      flex-shrink: 0;
+    }
+    
+    .judgment-icon {
+      font-size: $font-2xl;
+      flex-shrink: 0;
+    }
+  }
+  
+  .judgment-description {
+    font-size: $font-sm;
+    color: $gray-700;
+    line-height: 1.6;
+    margin: 0;
+    padding: $spacing-md;
+    background: rgba($gray-200, 0.5);
+    border-radius: $border-radius-md;
+  }
+  
+  // 판정 결과별 스타일
+  &.judgment-caution {
+    border-color: rgba($error, 0.3);
+    
+    .judgment-header .judgment-text .judgment-result {
+      color: $error;
+    }
+  }
+  
+  &.judgment-warning {
+    border-color: rgba($warning, 0.3);
+    
+    .judgment-header .judgment-text .judgment-result {
+      color: $warning;
+    }
+  }
+  
+  &.judgment-normal {
+    border-color: rgba($success, 0.3);
+    
+    .judgment-header .judgment-text .judgment-result {
+      color: $success;
+    }
+  }
+}

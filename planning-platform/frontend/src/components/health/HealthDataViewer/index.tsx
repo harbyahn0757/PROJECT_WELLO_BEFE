@@ -7,6 +7,7 @@ import { HealthDataViewerProps } from '../../../types/health';
 import UnifiedHealthTimeline from '../UnifiedHealthTimeline/index';
 import TrendsSection from './TrendsSection';
 import VisitTrendsChart from '../VisitTrendsChart';
+import CategoryView from '../CategoryView';
 import { useWelnoData } from '../../../contexts/WelnoDataContext';
 import { API_ENDPOINTS } from '../../../config/api';
 import { useNavigate } from 'react-router-dom';
@@ -36,10 +37,10 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   const [prescriptionData, setPrescriptionData] = useState<any>(null);
   const [filterMode, setFilterMode] = useState<'all' | 'checkup' | 'pharmacy' | 'treatment'>('all');
   
-  // 뷰 모드 상태 추가 (trends: 추이분석, timeline: 타임라인)
-  const [viewMode, setViewMode] = useState<'trends' | 'timeline'>(() => {
+  // 뷰 모드 상태 추가 (trends: 추이분석, timeline: 타임라인, category: 카테고리)
+  const [viewMode, setViewMode] = useState<'trends' | 'timeline' | 'category'>(() => {
     // localStorage에서 저장된 viewMode 복원 (기본값: trends)
-    const savedViewMode = localStorage.getItem('welno_view_mode') as 'trends' | 'timeline';
+    const savedViewMode = localStorage.getItem('welno_view_mode') as 'trends' | 'timeline' | 'category';
     return savedViewMode || 'trends';
   });
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -898,7 +899,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
         transition={isPulling ? 'none' : 'transform 0.3s ease-out'}
         pullToRefreshIndicator={pullToRefreshIndicator}
       >
-        {/* 조건부 렌더링: viewMode에 따라 TrendsSection 또는 UnifiedHealthTimeline 표시 */}
+        {/* 조건부 렌더링: viewMode에 따라 TrendsSection, UnifiedHealthTimeline, CategoryView 표시 */}
         {isTransitioning ? (
           <div className="view-transition-loading">
             <div className="loading-spinner">
@@ -916,6 +917,14 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
             prescriptionData={prescriptionData?.ResultList || []}
             filterMode={filterMode}
             isLoading={isLoadingTrends}
+          />
+        ) : viewMode === 'category' ? (
+          <CategoryView
+            healthData={healthData?.ResultList || []}
+            year={undefined}
+            patientName={patientName}
+            healthAge={49}
+            actualAge={44}
           />
         ) : (
           <>

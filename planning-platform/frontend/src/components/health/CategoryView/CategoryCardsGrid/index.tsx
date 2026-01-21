@@ -1,0 +1,78 @@
+/**
+ * CategoryCardsGrid - 건강 카테고리 카드 그리드
+ * 3x3 그리드 레이아웃으로 카테고리 카드 표시
+ * 재사용 가능 (HealthDataViewer, WelnoRagChatWindow)
+ */
+import React from 'react';
+import { CategoryData } from '../../../../types/category';
+import CategoryCard from '../CategoryCard';
+import HealthAgeCard from '../HealthAgeCard';
+import './styles.scss';
+
+interface CategoryCardsGridProps {
+  categories: CategoryData[];
+  onCategoryClick: (categoryId: string) => void;
+  compact?: boolean;           // 채팅용 컴팩트 모드
+  showHealthAge?: boolean;     // 건강 나이 섹션 표시 여부
+  healthAge?: number;          // 건강 나이
+  actualAge?: number;          // 실제 나이
+  patientName?: string;        // 환자 이름
+}
+
+const CategoryCardsGrid: React.FC<CategoryCardsGridProps> = ({
+  categories,
+  onCategoryClick,
+  compact = false,
+  showHealthAge = false,
+  healthAge,
+  actualAge,
+  patientName
+}) => {
+  // 주의 항목이 있는 카테고리
+  const cautionCategories = categories.filter(c => c.status === 'caution');
+  const totalCautionItems = cautionCategories.reduce(
+    (sum, cat) => sum + cat.cautionCount, 
+    0
+  );
+  
+  return (
+    <div className={`category-cards-grid ${compact ? 'compact' : ''}`}>
+      {/* 주의 메시지 */}
+      {!compact && cautionCategories.length > 0 && (
+        <div className="attention-banner">
+          <span className="attention-text">
+            확인해야 할 <strong>주의</strong> 항목이 {totalCautionItems}개 있어요
+          </span>
+          <span className="attention-arrow">›</span>
+        </div>
+      )}
+      
+      {/* 카드 그리드 */}
+      <div className="cards-grid">
+        {categories.map((category, index) => (
+          <CategoryCard
+            key={category.id}
+            category={category}
+            onClick={() => {
+              // 결과없음 카드는 클릭 불가
+              if (category.status !== 'no_data') {
+                onCategoryClick(category.id);
+              }
+            }}
+          />
+        ))}
+      </div>
+      
+      {/* 건강 나이 섹션 */}
+      {!compact && showHealthAge && healthAge && actualAge && (
+        <HealthAgeCard
+          healthAge={healthAge}
+          actualAge={actualAge}
+          patientName={patientName}
+        />
+      )}
+    </div>
+  );
+};
+
+export default CategoryCardsGrid;

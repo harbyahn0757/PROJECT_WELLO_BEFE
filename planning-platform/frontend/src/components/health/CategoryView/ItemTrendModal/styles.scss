@@ -1,0 +1,154 @@
+/**
+ * ItemTrendModal 스타일
+ */
+@use '../../../../styles/variables' as *;
+
+.item-trend-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: $font-family-base;
+  
+  // 모달 오버레이
+  .modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: $overlay-dark;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.2s ease-out;
+  }
+  
+  // 모달 컨텐츠
+  .modal-content {
+    position: relative;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    background: $white;
+    border-radius: $border-radius-xl;
+    box-shadow: $shadow-lg;
+    display: flex;
+    flex-direction: column;
+    animation: modalSlideUp 0.3s ease-out;
+    overflow: hidden;
+  }
+  
+  // 모달 헤더
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: $spacing-lg;
+    border-bottom: 1px solid $gray-200;
+    background: $background-cream;
+    
+    .modal-title {
+      font-size: $font-lg;
+      font-weight: $font-weight-semibold;
+      color: $gray-900;
+      margin: 0;
+      flex: 1;
+    }
+    
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: transparent;
+      color: $gray-600;
+      font-size: $font-xl;
+      cursor: pointer;
+      border-radius: $border-radius-sm;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      
+      &:hover {
+        background: $gray-100;
+        color: $gray-800;
+      }
+      
+      &:active {
+        transform: scale(0.9);
+      }
+    }
+  }
+  
+  // 모달 바디
+  .modal-body {
+    padding: $spacing-lg;
+    overflow-y: auto;
+    flex: 1;
+    
+    .health-range-indicator {
+      margin-top: $spacing-lg;
+      padding: $spacing-md;
+      background: $gray-50;
+      border-radius: $border-radius-md;
+      
+      .range-note {
+        font-size: $font-sm;
+        color: $gray-600;
+        margin: 0;
+        text-align: center;
+        line-height: 1.5;
+      }
+    }
+    
+    .modal-empty {
+      text-align: center;
+      padding: $spacing-2xl;
+      color: $gray-600;
+      font-size: $font-base;
+    }
+  }
+}
+
+// 애니메이션
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// 모바일 반응형
+@media (max-width: $breakpoint-sm) {
+  .item-trend-modal {
+    .modal-content {
+      width: 95%;
+      max-height: 90vh;
+    }
+    
+    .modal-header {
+      padding: $spacing-md;
+    }
+    
+    .modal-body {
+      padding: $spacing-md;
+    }
+  }
+}

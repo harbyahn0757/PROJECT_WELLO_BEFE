@@ -1,0 +1,104 @@
+/**
+ * CategoryDetailView 스타일
+ */
+@use '../../../../styles/variables' as *;
+
+.category-detail-view {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: $spacing-md;
+  font-family: $font-family-base;
+  animation: fadeInUp 0.4s ease-out;
+  
+  // 헤더
+  .detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: $spacing-lg;
+    
+    .back-button {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: $gray-100;
+      color: $gray-800;
+      font-size: $font-xl;
+      border-radius: $border-radius-lg;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      
+      &:hover {
+        background: $gray-200;
+      }
+      
+      &:active {
+        transform: scale(0.95);
+      }
+    }
+    
+    .detail-title {
+      font-size: $font-xl;
+      font-weight: $font-weight-semibold;
+      color: $gray-900;
+      margin: 0;
+      flex: 1;
+      text-align: center;
+    }
+    
+    .header-spacer {
+      width: 40px; // back-button과 동일한 너비로 중앙 정렬
+    }
+  }
+  
+  // 연도 표시
+  .year-display {
+    font-size: $font-3xl;
+    font-weight: $font-weight-bold;
+    color: $brand-brown-darker;
+    text-align: center;
+    margin-bottom: $spacing-lg;
+    font-family: $font-family-value;
+  }
+  
+  // 주의 항목 개수
+  .caution-notice {
+    font-size: $font-base;
+    color: $gray-800;
+    margin-bottom: $spacing-md;
+    padding: $spacing-sm $spacing-md;
+    background: rgba($error, 0.05);
+    border-radius: $border-radius-md;
+    border: 1px solid rgba($error, 0.2);
+    
+    strong {
+      color: $error;
+      font-weight: $font-weight-semibold;
+    }
+  }
+  
+  // 빈 상태
+  .detail-empty,
+  .items-empty {
+    text-align: center;
+    padding: $spacing-2xl;
+    color: $gray-600;
+    font-size: $font-base;
+  }
+}
+
+// 페이드 인 애니메이션
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

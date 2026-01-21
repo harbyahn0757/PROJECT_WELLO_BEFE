@@ -1,0 +1,144 @@
+/**
+ * ItemsList 스타일
+ */
+@use '../../../../styles/variables' as *;
+
+.items-list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+  font-family: $font-family-base;
+  
+  .item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: $spacing-md;
+    background: $white;
+    border-radius: $border-radius-lg;
+    border: 1px solid $gray-200;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      background: $gray-50;
+      box-shadow: $shadow-sm;
+    }
+    
+    &:active {
+      transform: scale(0.98);
+    }
+    
+    &:focus {
+      outline: 2px solid $brand-brown;
+      outline-offset: 2px;
+    }
+    
+    .item-left {
+      display: flex;
+      align-items: center;
+      gap: $spacing-sm;
+      
+      .item-icon {
+        font-size: $font-lg;
+        line-height: 1;
+      }
+      
+      .item-name {
+        font-size: $font-base;
+        font-weight: $font-weight-medium;
+        color: $gray-800;
+      }
+    }
+    
+    .item-right {
+      display: flex;
+      align-items: center;
+      gap: $spacing-sm;
+      
+      .item-value-wrapper {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+        
+        .item-value {
+          font-size: $font-lg;
+          font-weight: $font-weight-semibold;
+          color: $value-color;
+          font-family: $font-family-value;
+        }
+        
+        .item-unit {
+          font-size: $font-sm;
+          color: $value-unit-color;
+          font-family: $font-family-value;
+        }
+      }
+      
+      .item-status {
+        font-size: $font-xs;
+        padding: 4px 8px;
+        border-radius: $border-radius-sm;
+        font-weight: $font-weight-medium;
+        white-space: nowrap;
+        
+        &.normal {
+          background: $badge-normal-bg;
+          color: $badge-normal-text;
+        }
+        
+        &.borderline {
+          background: $badge-warning-bg;
+          color: $badge-warning-text;
+        }
+        
+        &.abnormal {
+          background: $badge-abnormal-bg;
+          color: $badge-abnormal-text;
+        }
+      }
+      
+      .view-button {
+        padding: 6px 12px;
+        background: $gray-200;
+        border: none;
+        border-radius: $border-radius-sm;
+        font-size: $font-sm;
+        font-weight: $font-weight-medium;
+        color: $gray-700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        
+        &:hover {
+          background: $gray-300;
+        }
+      }
+    }
+    
+    // 상태별 행 스타일
+    &.item-status-abnormal {
+      border-color: rgba($error, 0.3);
+      background: rgba($error, 0.02);
+    }
+    
+    &.item-status-borderline {
+      border-color: rgba($warning, 0.3);
+      background: rgba($warning, 0.02);
+    }
+  }
+  
+  // 모바일 반응형
+  @media (max-width: $breakpoint-sm) {
+    .item-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: $spacing-sm;
+      
+      .item-right {
+        width: 100%;
+        justify-content: space-between;
+      }
+    }
+  }
+}

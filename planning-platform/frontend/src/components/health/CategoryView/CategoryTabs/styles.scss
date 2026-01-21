@@ -1,0 +1,55 @@
+/**
+ * CategoryTabs 스타일
+ */
+@use '../../../../styles/variables' as *;
+
+.category-tabs {
+  margin-bottom: $spacing-lg;
+  
+  .tabs-scroll {
+    display: flex;
+    gap: $spacing-xs;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    padding: $spacing-xs 0;
+    
+    // 스크롤바 숨기기
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    scrollbar-width: none;
+  }
+  
+  .tab {
+    flex-shrink: 0;
+    padding: $spacing-xs $spacing-md;
+    background: transparent;
+    border: 1px solid $gray-300;
+    border-radius: $border-radius-full;
+    font-size: $font-sm;
+    font-weight: $font-weight-medium;
+    font-family: $font-family-base;
+    color: $gray-600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    scroll-snap-align: start;
+    white-space: nowrap;
+    
+    &:hover {
+      background: rgba($brand-brown, 0.05);
+      border-color: $brand-brown-light;
+    }
+    
+    &.active {
+      background: $brand-brown-dark;
+      border-color: $brand-brown-dark;
+      color: $white;
+      font-weight: $font-weight-semibold;
+    }
+    
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { parseMarkdownWithLists } from '../../utils/markdownParser';
 
 interface Message {
-  role: 'user' | 'assistant' | 'pnt_question' | 'auth_prompt';
+  role: 'user' | 'assistant' | 'pnt_question' | 'auth_prompt' | 'health_category';
   content: string;
   timestamp: string;
   sources?: any[];
@@ -11,6 +11,7 @@ interface Message {
     recommended_supplements?: any[];
     recommended_foods?: any[];
   };
+  categoryData?: any[];
 }
 
 interface RagChatMessageProps {
