@@ -142,6 +142,22 @@ export interface CheckupDesignResponse {
     }>;
     // 세션 관리
     session_id?: string; // 세션 ID (STEP 1에서 생성되어 반환됨)
+    // DB 저장 관련
+    design_request_id?: number; // STEP 1에서 DB에 저장된 요청 ID
+    // 미완료 설계 조회 시 반환되는 필드들
+    id?: number; // 미완료 설계 요청 ID (getIncompleteCheckupDesign 응답)
+    uuid?: string;
+    hospital_id?: string;
+    patient_id?: number;
+    status?: string;
+    step1_result?: any;
+    prescription_analysis_text?: string;
+    selected_medication_texts?: string[];
+    error_stage?: string;
+    error_message?: string;
+    retry_count?: number;
+    created_at?: string;
+    last_retry_at?: string;
   } | null;
   message?: string;
 }

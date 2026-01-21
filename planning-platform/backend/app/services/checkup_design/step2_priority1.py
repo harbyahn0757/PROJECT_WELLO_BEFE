@@ -2,10 +2,13 @@
 STEP 2-1: Priority 1 (일반검진 주의 항목) 전용 프롬프트 생성 모듈
 """
 import json
+import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 
 from .rag_service import init_rag_engine, get_medical_evidence_from_rag
+
+logger = logging.getLogger(__name__)
 from .prompt_utils import remove_html_tags, generate_behavior_section
 from .constants import (
     RISK_ANALYSIS_LOGIC_JSON,
@@ -52,18 +55,25 @@ async def create_checkup_design_prompt_step2_priority1(
     Returns:
         tuple: (프롬프트 문자열, 구조화된 에비던스 리스트, RAG 컨텍스트 원문)
     """
+    import time
+    func_start = time.time()
+    
     # 💾 로그: 함수 시작
-    print(f"[INFO] 🎯 STEP 2-1 (Priority 1) 프롬프트 생성 시작...")
+    logger.info(f"🎯 [STEP2-1] 프롬프트 생성 시작...")
     
     # STEP 1 결과를 JSON 문자열로 변환
+    json_start = time.time()
     step1_result_json = json.dumps(step1_result, ensure_ascii=False, indent=2)
+    logger.info(f"⏱️  [TIMING-2-1] JSON 변환: {time.time() - json_start:.3f}초")
     
     # RAG 검색 수행 (구조화된 에비던스 반환)
     rag_evidence_context = ""
     structured_evidences = []
     try:
         # RAG 엔진 초기화
+        rag_start = time.time()
         query_engine = await init_rag_engine()
+        logger.info(f"⏱️  [TIMING-2-1] RAG 엔진 초기화: {time.time() - rag_start:.3f}초")
         
         if query_engine:
             # 환자 컨텍스트 구성
@@ -95,11 +105,13 @@ async def create_checkup_design_prompt_step2_priority1(
                         })
             
             # RAG 검색 실행
+            rag_search_start = time.time()
             rag_result = await get_medical_evidence_from_rag(
                 query_engine=query_engine,
                 patient_context=patient_context,
                 concerns=selected_concerns
             )
+            logger.info(f"⏱️  [TIMING-2-1] RAG 검색 실행: {time.time() - rag_search_start:.3f}초")
             
             rag_evidence_context = rag_result.get("context_text", "")
             structured_evidences = rag_result.get("structured_evidences", [])
@@ -141,6 +153,7 @@ async def create_checkup_design_prompt_step2_priority1(
 """
 
     # 건강 데이터 섹션
+    health_data_start = time.time()
     health_data_section = ""
     if health_data:
         health_data_section = "\n## 과거 건강검진 데이터 (참고용)\n"
@@ -213,8 +226,11 @@ async def create_checkup_design_prompt_step2_priority1(
                 health_data_section += "**경계 항목:**\n" + "\n".join(warning_items) + "\n\n"
             if not abnormal_items and not warning_items:
                 health_data_section += "이상 소견 없음\n\n"
+    
+    logger.info(f"⏱️  [TIMING-2-1] 건강 데이터 파싱: {time.time() - health_data_start:.3f}초")
 
     # 처방전 데이터 섹션
+    prescription_start = time.time()
     prescription_section = ""
     if prescription_analysis_text:
         clean_analysis_text = remove_html_tags(prescription_analysis_text)
@@ -230,8 +246,11 @@ async def create_checkup_design_prompt_step2_priority1(
                 medication_summary.append(f"- {med_name} ({period})")
         if medication_summary:
             prescription_section += "\n".join(medication_summary) + "\n"
+    
+    logger.info(f"⏱️  [TIMING-2-1] 처방전 데이터 파싱: {time.time() - prescription_start:.3f}초")
 
     # 선택한 염려 항목 섹션
+    concerns_start = time.time()
     concerns_section = ""
     if selected_concerns:
         concerns_section = "\n## 사용자가 선택한 염려 항목\n"
@@ -250,6 +269,8 @@ async def create_checkup_design_prompt_step2_priority1(
             if concern_status:
                 concerns_section += f" [{concern_status}]"
             concerns_section += "\n"
+    
+    logger.info(f"⏱️  [TIMING-2-1] 염려 항목 파싱: {time.time() - concerns_start:.3f}초")
 
     # 문진 응답 섹션
     survey_section = ""
@@ -458,7 +479,9 @@ STEP 1에서 분석된 위험 요인과 **사용자의 행동 패턴(Behavioral 
     
     prompt = "\n".join(prompt_parts)
     
-    print(f"[INFO] ✅ STEP 2-1 프롬프트 생성 완료 - 길이: {len(prompt):,}자")
+    func_elapsed = time.time() - func_start
+    logger.info(f"✅ [STEP2-1] 프롬프트 생성 완료 - 길이: {len(prompt):,}자")
+    logger.info(f"⏱️  [TIMING-2-1] ========== 전체 소요: {func_elapsed:.3f}초 ==========")
     
     # RAG Context 원문도 함께 반환하여 Step 2-2에서 재사용
     return prompt, structured_evidences, rag_evidence_context

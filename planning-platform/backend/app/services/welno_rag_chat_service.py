@@ -314,11 +314,30 @@ class WelnoRagChatService:
                 search_query = f"{', '.join(current_keywords)} 관련: {message}"
             
             from .checkup_design.rag_service import init_rag_engine, CHAT_SYSTEM_PROMPT
+            
+            # 타이밍 변수 초기화
+            rag_engine_time = 0.0
+            rag_search_time = 0.0
+            gemini_time = 0.0
+            
+            # RAG 엔진 초기화 타이밍
+            rag_engine_start = time.time()
             query_engine = await init_rag_engine(use_local_vector_db=True)
+            rag_engine_time = time.time() - rag_engine_start
+            logger.info(f"⏱️  [RAG 채팅] RAG 엔진 초기화: {rag_engine_time:.3f}초")
             
             if query_engine:
+                # RAG 검색 실행 타이밍
+                rag_search_start = time.time()
                 nodes = await query_engine.aretrieve(search_query)
+                rag_search_time = time.time() - rag_search_start
+                
                 context_str = "\n".join([n.node.get_content() for n in nodes])
+                context_length = len(context_str)
+                
+                logger.info(f"⏱️  [RAG 채팅] RAG 검색 실행: {rag_search_time:.3f}초")
+                logger.info(f"📊 [RAG 채팅] RAG 검색 결과 - {len(nodes)}개 노드, {context_length}자 컨텍스트")
+                logger.info(f"🔍 [RAG 채팅] 검색 쿼리: {search_query[:100]}...")
                 
                 # 소스 추출 강화 (메타데이터 포함, 중복 제거)
                 sources = []
@@ -334,12 +353,17 @@ class WelnoRagChatService:
                         continue  # 이미 추가된 소스는 건너뛰기
                     seen_sources.add(source_key)
                     
+                    score = float(n.score) if hasattr(n, 'score') else None
                     sources.append({
                         "text": clean_html_content(n.node.get_content())[:500],
-                        "score": float(n.score) if hasattr(n, 'score') else None,
+                        "score": score,
                         "title": file_name,
                         "page": page
                     })
+                
+                logger.info(f"📚 [RAG 채팅] 소스 추출 완료 - {len(sources)}개 고유 소스")
+                if sources:
+                    logger.info(f"📚 [RAG 채팅] 상위 소스 점수: {sources[0].get('score', 'N/A')}")
                 
                 # 세션 히스토리 준비 (첫 메시지가 아닌 경우)
                 chat_history = None
@@ -435,6 +459,8 @@ class WelnoRagChatService:
                     
                     gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", chat_history=chat_history)
                 
+                # Gemini API 호출 타이밍
+                gemini_start = time.time()
                 async for chunk in gemini_service.stream_api(gemini_req, session_id=session_id):
                     full_answer += chunk
                     display_chunk = chunk
@@ -445,6 +471,11 @@ class WelnoRagChatService:
                         
                     if display_chunk:
                         yield json.dumps({"answer": display_chunk, "done": False}, ensure_ascii=False) + "\n"
+                
+                # Gemini API 응답 시간 계산
+                gemini_time = time.time() - gemini_start
+                logger.info(f"⏱️  [RAG 채팅] Gemini API 응답 생성: {gemini_time:.3f}초")
+                logger.info(f"📝 [RAG 채팅] 최종 답변 길이: {len(full_answer)}자")
                 
                 # 예상 질문 파싱
                 if "[SUGGESTIONS]" in full_answer:
@@ -459,6 +490,11 @@ class WelnoRagChatService:
 
             # 5. 마무리 및 메타데이터 업데이트
             self.chat_manager.add_message(uuid, hospital_id, "assistant", full_answer)
+            
+            # 전체 응답 시간 계산 및 로그
+            total_time = time.time() - start_total
+            logger.info(f"⏱️  [RAG 채팅] ========== 전체 소요 시간: {total_time:.3f}초 ==========")
+            logger.info(f"📊 [RAG 채팅] 성능 요약 - RAG 엔진: {rag_engine_time:.3f}초, RAG 검색: {rag_search_time:.3f}초, Gemini: {gemini_time:.3f}초")
             
             # PNT 문진 트리거 조건: pnt_ready 단계이거나 영양 관련 키워드가 포함된 3회 이상 대화 시
             has_nutrition_kw = any(kw in all_keywords for kw in ["영양", "건기식", "비타민"])

@@ -24,6 +24,7 @@ from ....services.checkup_design import (
     create_checkup_design_prompt_step1,
     create_checkup_design_prompt_step2_priority1,
     create_checkup_design_prompt_step2_upselling,
+    CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1,
     CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2
 )
 from ....services.welno_data_service import WelnoDataService
@@ -864,7 +865,8 @@ async def create_checkup_design_step1(
             model=fast_model,
             temperature=0.3,
             max_tokens=max_tokens,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
+            system_instruction=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1  # Phase 4: System Message 적용
         )
         
         # Gemini 서비스 초기화
@@ -1354,15 +1356,14 @@ async def create_checkup_design_step2(
 
         logger.info(f"🤖 [STEP2-1] Gemini API 호출 중... (모델: {powerful_model})")
         
-        # 시스템 메시지를 사용자 메시지 앞단에 결합 (Gemini는 system_instruction을 지원하지만 여기서는 단순화)
-        full_prompt_p1 = f"{CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2}\n\n---\n\n{user_message_p1}"
-        
+        # Phase 4: System Message를 system_instruction으로 분리 (Context Caching 최적화)
         gemini_request_p1 = GeminiRequest(
-            prompt=full_prompt_p1,
+            prompt=user_message_p1,  # User Message만 전달
             model=powerful_model,
             temperature=0.5,
             max_tokens=3000,  # Priority 1 응답 (2000에서 증가하여 잘림 방지)
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
+            system_instruction=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2  # System Message 분리
         )
         
         # Gemini 호출 및 재시도 로직 (응답 불완전 시 재시도)

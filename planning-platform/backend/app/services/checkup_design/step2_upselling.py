@@ -1,6 +1,9 @@
 import json
+import logging
 from typing import List, Dict, Any, Optional, Tuple
 from .rag_service import init_rag_engine, get_medical_evidence_from_rag
+
+logger = logging.getLogger(__name__)
 from .prompt_utils import build_bridge_strategy_knowledge, generate_behavior_section, generate_clinical_rules
 
 def get_demographic_keywords(age: int, address: str) -> Dict[str, str]:
@@ -52,6 +55,9 @@ async def create_checkup_design_prompt_step2_upselling(
     """
     STEP 2-2: Upselling (정밀 검사) 및 Bridge Strategy 제안 프롬프트 생성
     """
+    import time
+    func_start = time.time()
+    logger.info(f"🎯 [STEP2-2] 프롬프트 생성 시작...")
     
     # 기본 정보 추출
     patient_name = request.patient_name
@@ -394,35 +400,20 @@ Step 1 분석 결과를 바탕으로, 환자의 성향에 딱 맞는 **설득 �
 
 ---
 
-## [Communication Rules] ⭐ Medical Reframing (암 → 만성질환 치환)
-**'암'이라는 단어는 공포를 유발합니다. 모든 검사 항목을 '만성질환 관리'와 '현재 상태 확인'의 관점으로 재해석(Reframing)하여 제안하십시오.**
-
-| 검사 항목 | ❌ 기존 논리 (Cancer-Focus) | ✅ 변경된 논리 (Chronic-Focus) |
-| :--- | :--- | :--- |
-| **저선량 폐 CT** | "폐암 조기 발견" | **"흡연과 미세먼지로 지친 폐의 '염증 상태' 확인 및 호흡기 관리"** |
-| **복부 초음파** | "간암, 췌장암 발견" | **"지방간이 얼마나 쌓였는지 눈으로 확인하고, '술 줄일 명분' 만들기"** |
-| **뇌 MRA/MRI** | "뇌종양, 뇌졸중 예방" | **"혈관이 얼마나 깨끗한지 확인하고, 고혈압/두통 관리를 위한 '기준점' 잡기"** |
-| **위/대장 내시경** | "위암, 대장암 진단" | **"속쓰림과 더부룩함의 원인(위염/용종)을 제거해서, '편안한 속' 되찾기"** |
-| **관상동맥 석회화 CT** | "심근경색 예방" | **"혈관 나이를 측정해서, 내 몸의 '엔진(심장)'이 얼마나 튼튼한지 성적표 받기"** |
+## [Communication Rules]
+**System Message의 Medical Reframing 원칙과 Tone 가이드를 적용하십시오.**
 
 1. **RAG 우선 & 각주 필수**: [Critical Evidence]에 있는 내용을 반드시 인용하고, 문장 끝에 `[1]`, `[2]`와 같이 출처 번호를 표기하세요.
-2. **소통 전략: 'Casual & Smart (형/오빠 톤)'**: 
-   - **Tone & Manner**: 딱딱한 의사가 아닌, **"건강 챙겨주는 센스 있는 형/오빠/친구"** 톤을 유지하세요.
-   - **Key Message**: "안 하면 큰일 납니다(Fear)"가 아니라 **"이거 딱 챙기면 1년 농사 편해집니다(Value/Efficiency)"**로 설득하세요.
-   - **[중요] 과거 병력 해석 (Past History)**: 과거의 병력(궤양, 결핵 등)을 현재의 질병으로 단정하지 마십시오. **"과거 기록을 고려하여 현재 상태를 한번 더 점검하자"**는 뉘앙스로, '확인 필요성'에 집중하십시오. (비난/단정 금지)
+
+2. **현재 환자 페르소나**: 이 환자는 **'{persona_type}' ({persona_desc})** 성향입니다. 
+   - System Message의 해당 페르소나 전략을 적용하십시오.
    
-3. **페르소나 적용 & 공감**: 환자는 **'{persona_type}' ({persona_desc})** 성향입니다.
-   - **Worrier**: 확신과 안심("이 검사 하나로 불안을 끝내십시오.")
-   - **Manager**: 효율과 통제("수치를 눈으로 확인하고 관리 기준을 잡으십시오.")
-   - **Symptom Solver**: 원인 규명("증상의 뿌리를 찾아 해결합시다.")
-   - **Minimalist/Optimizer**: 가치 제안("이것이 가장 확실한 투자입니다.")
-   
-4. **Safety Guardrail (Hallucination Prevention)**:
+3. **Safety Guardrail (Hallucination Prevention)**:
    - **중복 방지 (No Duplication)**: '[참고] 기본 검사 항목'에 있는 검사는 이미 포함되어 있습니다. 이를 Upselling 항목으로 중복 제안하지 마십시오.
    - **체중 감소 시**: 반드시 내시경/CT 등 **구조적 검사**를 1순위로 제안하십시오. 유전자/마커 단독 제안 금지.
    - **심장 가족력 시**: **관상동맥 석회화 CT**를 필수 제안하십시오.
 
-5. **행동 데이터 활용 (Behavioral Signals)**:
+4. **행동 데이터 활용 (Behavioral Signals)**:
    - [Behavioral Signals] 섹션에 있는 진심도/고민 흔적을 Upselling 전략에 활용하세요.
 """)
 
@@ -544,4 +535,9 @@ strategies 배열은 **Priority 2와 Priority 3에 포함된 '모든 항목'에 
     prompt_parts.append(task_section + output_format_section)
     
     prompt = "\n".join(prompt_parts)
+    
+    func_elapsed = time.time() - func_start
+    logger.info(f"✅ [STEP2-2] 프롬프트 생성 완료 - 길이: {len(prompt):,}자")
+    logger.info(f"⏱️  [TIMING-2-2] ========== 전체 소요: {func_elapsed:.3f}초 ==========")
+    
     return prompt, structured_evidences, rag_evidence_context

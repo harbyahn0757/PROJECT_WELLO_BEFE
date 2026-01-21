@@ -440,18 +440,54 @@ async def get_medical_evidence_from_rag(query_engine, patient_context: Dict, con
         final_query = " \n".join(query_parts)
         print(f"[INFO] RAG 검색 쿼리 생성: {len(final_query)}자")
         
-        # 검색 실행
-        response = await query_engine.aquery(final_query)
+        # 검색 실행 - aretrieve() 사용 (벡터 검색만, LLM 응답 생성 제거)
+        nodes = await query_engine.aretrieve(final_query)
         
-        # 결과 처리
-        context_text = str(response)
-        structured_evidences = extract_evidence_from_source_nodes(response)
+        # 결과 처리 - source_nodes에서 직접 추출
+        structured_evidences = []
+        for node in nodes:
+            metadata = node.metadata if hasattr(node, 'metadata') else {}
+            text = node.text if hasattr(node, 'text') else ""
+            
+            # HTML 태그 정제
+            text = clean_html_content(text)
+            
+            score = node.score if hasattr(node, 'score') else 0.0
+            
+            # 메타데이터 추출
+            file_name = metadata.get('file_name', 'Unknown')
+            page_label = metadata.get('page_label', 'Unknown')
+            
+            # 인용구 추출
+            citation = text[:100] + "..." if len(text) > 100 else text
+            
+            structured_evidences.append({
+                "source_document": file_name,
+                "page": page_label,
+                "citation": citation,
+                "full_text": text,
+                "confidence_score": score,
+                "organization": "의학회",
+                "year": "2024"
+            })
         
         # 각 에비던스에 쿼리 맥락 추가
         for ev in structured_evidences:
             ev['query'] = final_query
             ev['category'] = 'Clinical Guideline'
-            
+        
+        # structured_evidences를 context_text로 포맷팅 (LLM 응답 대신 원본 문서 사용)
+        # 간단한 포맷팅 (순환 import 방지)
+        context_text = ""
+        if structured_evidences:
+            formatted_parts = []
+            for idx, ev in enumerate(structured_evidences[:5], 1):  # 상위 5개만
+                doc_name = ev.get('source_document', '문서명 없음')
+                citation = ev.get('citation', '')
+                if citation:
+                    formatted_parts.append(f"{idx}. [{doc_name}]\n\"{citation}\"\n")
+            context_text = "\n".join(formatted_parts)
+        
         return {
             "context_text": context_text,
             "structured_evidences": structured_evidences

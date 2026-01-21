@@ -87,10 +87,34 @@ class GeminiService:
             if request.response_format and request.response_format.get("type") == "json_object":
                 generation_config["response_mime_type"] = "application/json"
 
-            model = genai.GenerativeModel(
-                model_name=request.model,
-                generation_config=generation_config
-            )
+            # Phase 3: Context Caching 적용
+            cached_content = None
+            is_first_message = not (request.chat_history and len(request.chat_history) > 0)
+            
+            if self._cache_enabled and request.system_instruction and session_id and is_first_message:
+                cached_content = await self._get_or_create_cache(
+                    system_prompt=request.system_instruction,
+                    model_name=request.model,
+                    cache_key=session_id
+                )
+            
+            # 모델 생성 (캐시 사용 또는 일반 모드)
+            if cached_content:
+                model = genai.GenerativeModel.from_cached_content(
+                    cached_content=cached_content,
+                    generation_config=generation_config
+                )
+                logger.info(f"✅ [Cache] Context Caching 활성화 (30-50% 성능 향상 예상)")
+            else:
+                # System instruction 설정
+                model_kwargs = {
+                    "model_name": request.model,
+                    "generation_config": generation_config
+                }
+                if request.system_instruction:
+                    model_kwargs["system_instruction"] = request.system_instruction
+                
+                model = genai.GenerativeModel(**model_kwargs)
 
             # 안전 설정 (차단 최소화)
             safety_settings = {

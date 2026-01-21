@@ -84,7 +84,7 @@ const CheckupDesignPage: React.FC = () => {
               const requestId = incompleteResult.data.id;
               
               // ✅ resume 파라미터가 있으면 자동으로 재시도 (알림톡에서 진입)
-              if (resumeId && parseInt(resumeId) === requestId) {
+              if (resumeId && requestId && parseInt(resumeId) === requestId) {
                 console.log('🔄 [검진설계] 알림톡 재시도 - 자동 진행');
                 setShowProcessingModal(true);
                 setProcessingStage('preparing');
@@ -128,7 +128,7 @@ const CheckupDesignPage: React.FC = () => {
                 `[확인] 이어서 진행\n[취소] 처음부터 다시`
               );
               
-              if (shouldResume) {
+              if (shouldResume && requestId) {
                 console.log('🔄 [검진설계] 사용자 재시도 선택');
                 setShowProcessingModal(true);
                 setProcessingStage('preparing');
@@ -282,7 +282,7 @@ const CheckupDesignPage: React.FC = () => {
         setProcessingProgress(50);
         
         // ✅ design_request_id 저장 (DB에 저장된 요청 ID)
-        designRequestId = step1Response.data.design_request_id;
+        designRequestId = step1Response.data.design_request_id ?? null;
         if (designRequestId) {
           console.log('✅ [STEP1] DB 저장 완료 - ID:', designRequestId);
         } else {

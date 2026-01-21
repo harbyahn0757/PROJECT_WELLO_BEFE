@@ -106,6 +106,16 @@ class GPTService:
             if request.response_format:
                 api_params["response_format"] = request.response_format
             
+            # Phase 3: Prompt Caching 최적화 (OpenAI 자동 캐싱 활용)
+            # System Message가 첫 번째 메시지에 있으면 자동으로 캐싱됨
+            # prompt_cache_key는 선택사항이지만, 동일한 System Message를 사용하는 요청들의 캐시 히트율 향상
+            if request.system_message and len(request.system_message) > 100:
+                # System Message 해시를 기반으로 캐시 키 생성 (선택사항)
+                import hashlib
+                cache_key = hashlib.md5(request.system_message.encode()).hexdigest()[:16]
+                # OpenAI는 자동으로 캐싱하므로 명시적 키는 선택사항
+                # api_params["prompt_cache_key"] = f"welno_{cache_key}"  # 필요시 활성화
+            
             response = await self._client.chat.completions.create(**api_params)
             
             result = response.choices[0].message.content
