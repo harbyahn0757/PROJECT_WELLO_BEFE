@@ -127,13 +127,61 @@ class GeminiService:
             # 비동기 호출 (asyncio.to_thread로 래핑, genai 라이브러리가 기본적으로 동기식이므로)
             logger.info(f"📡 [Gemini Service] API 호출 중... (Model: {request.model})")
             
-            response = await asyncio.to_thread(
-                model.generate_content,
-                request.prompt,
-                safety_settings=safety_settings
-            )
+            try:
+                response = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        model.generate_content,
+                        request.prompt,
+                        safety_settings=safety_settings
+                    ),
+                    timeout=60.0  # 60초 타임아웃
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"❌ [Gemini Service] 타임아웃 (60초 초과)")
+                return GeminiResponse(success=False, error="Gemini API 타임아웃 (60초 초과)")
+            
+            # 응답 완료 여부 확인
+            if not response.candidates:
+                logger.error(f"❌ [Gemini Service] 응답에 candidates가 없습니다")
+                return GeminiResponse(success=False, error="Gemini API 응답 형식 오류 (candidates 없음)")
+            
+            finish_reason = response.candidates[0].finish_reason
+            finish_reason_map = {
+                1: "STOP",           # 정상 완료
+                2: "MAX_TOKENS",     # 토큰 제한 초과
+                3: "SAFETY",         # 안전 필터 차단
+                4: "RECITATION",     # 인용 감지
+                5: "OTHER"           # 기타
+            }
+            finish_reason_name = finish_reason_map.get(finish_reason, f"UNKNOWN({finish_reason})")
+            
+            logger.debug(f"🔍 [Gemini] finish_reason: {finish_reason_name}")
+            
+            if finish_reason != 1:  # STOP이 아니면 비정상
+                logger.warning(f"⚠️ [Gemini Service] 비정상 종료: {finish_reason_name}")
+                
+                if finish_reason == 2:  # MAX_TOKENS
+                    logger.error(f"❌ [Gemini Service] 토큰 제한 초과 (max: {request.max_tokens})")
+                    return GeminiResponse(success=False, error=f"응답이 토큰 제한({request.max_tokens})을 초과했습니다")
+                elif finish_reason == 3:  # SAFETY
+                    logger.error(f"❌ [Gemini Service] 안전 필터에 의해 차단됨")
+                    return GeminiResponse(success=False, error="안전 필터에 의해 응답이 차단되었습니다")
+                else:
+                    logger.error(f"❌ [Gemini Service] 알 수 없는 종료 이유: {finish_reason_name}")
+                    return GeminiResponse(success=False, error=f"응답 생성 실패: {finish_reason_name}")
             
             response_text = response.text
+            
+            # 응답 길이 체크 (JSON인 경우 최소 길이 검증)
+            if request.response_format and request.response_format.get("type") == "json_object":
+                if len(response_text) < 100:
+                    logger.warning(f"⚠️ [Gemini Service] 응답이 너무 짧음: {len(response_text)}자")
+                    return GeminiResponse(success=False, error=f"Gemini 응답 불완전 ({len(response_text)}자, 최소 100자 필요)")
+            
+            # 디버깅 로그
+            logger.debug(f"🔍 [Gemini] 응답 길이: {len(response_text)}자")
+            if response.usage_metadata:
+                logger.debug(f"🔍 [Gemini] 토큰: {response.usage_metadata.total_token_count} (입력: {response.usage_metadata.prompt_token_count}, 출력: {response.usage_metadata.candidates_token_count})")
             
             # 로깅 저장
             if save_log and patient_uuid:
