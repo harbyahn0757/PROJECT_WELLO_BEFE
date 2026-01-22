@@ -883,13 +883,10 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
         showToggle={true}
         activeTab={viewMode}
         onTabChange={(tab) => {
-          if (tab === 'trends') {
-            setViewMode('trends');
-            setFilterMode('all');
-          } else {
-            setViewMode('timeline');
-            setFilterMode('all');
-          }
+          setViewMode(tab);
+          setFilterMode('all');
+          // viewMode 변경을 localStorage에 저장
+          localStorage.setItem('welno_view_mode', tab);
         }}
         containerRef={containerRef}
         onTouchStart={handleTouchStart}
