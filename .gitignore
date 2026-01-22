@@ -149,3 +149,4 @@ jspm_packages/
 test-images/
 temp/
 planning-platform/backend/config.env
+planning-platform/backend/logs_backup/
