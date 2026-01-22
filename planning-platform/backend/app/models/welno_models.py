@@ -35,6 +35,8 @@ class WelnoPatient(Base):
     # 데이터 수집 상태
     has_health_data = Column(Boolean, default=False)
     has_prescription_data = Column(Boolean, default=False)
+    has_mediarc_report = Column(Boolean, default=False)  # Mediarc 질병예측 리포트 존재 여부
+    has_questionnaire_data = Column(Boolean, default=False)  # 문진 데이터 포함 여부
     last_data_update = Column(DateTime(timezone=True), nullable=True)
     
     # 🔐 비밀번호 관련 필드
@@ -55,6 +57,7 @@ class WelnoPatient(Base):
     # 관계
     checkup_data = relationship("WelnoCheckupData", back_populates="patient", cascade="all, delete-orphan")
     prescription_data = relationship("WelnoPrescriptionData", back_populates="patient", cascade="all, delete-orphan")
+    mediarc_reports = relationship("WelnoMediarcReport", back_populates="patient", cascade="all, delete-orphan")
     collection_history = relationship("WelnoCollectionHistory", back_populates="patient", cascade="all, delete-orphan")
     
     def __repr__(self):
@@ -135,6 +138,47 @@ class WelnoPrescriptionData(Base):
     def __repr__(self):
         return f"<WelnoPrescriptionData(patient_id={self.patient_id}, hospital={self.hospital_name}, date={self.treatment_date})>"
 
+class WelnoMediarcReport(Base):
+    """Mediarc 질병예측 리포트 테이블"""
+    __tablename__ = "welno_mediarc_reports"
+    
+    # 기본 식별자
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("welno_patients.id"), nullable=False)
+    patient_uuid = Column(String(36), nullable=False, index=True)
+    hospital_id = Column(String(20), nullable=False, index=True)
+    
+    # 원본 응답 전체 저장 (JSONB)
+    raw_response = Column(JSON, nullable=False)  # Mediarc/Twobecon API 원본 응답
+    
+    # 자주 사용되는 필드
+    mkt_uuid = Column(String(50), unique=True, nullable=True, index=True)  # 마케팅 UUID
+    report_url = Column(Text, nullable=True)  # PDF 리포트 URL
+    provider = Column(String(20), default='twobecon')  # 제공자
+    
+    # 분석 결과 핵심 정보
+    analyzed_at = Column(DateTime(timezone=True), nullable=True, index=True)  # 분석 완료 시각
+    bodyage = Column(Integer, nullable=True)  # 체질 나이 (건강 나이)
+    rank = Column(Integer, nullable=True)  # 등수 (상위 몇%)
+    
+    # 질병 및 암 예측 데이터 (JSONB)
+    disease_data = Column(JSON, nullable=True)  # 질병 예측 결과
+    cancer_data = Column(JSON, nullable=True)  # 암 예측 결과
+    
+    # 문진 데이터 포함 여부
+    has_questionnaire = Column(Boolean, default=False)
+    questionnaire_data = Column(JSON, nullable=True)  # 문진 응답 데이터
+    
+    # 메타데이터
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # 관계
+    patient = relationship("WelnoPatient", back_populates="mediarc_reports")
+    
+    def __repr__(self):
+        return f"<WelnoMediarcReport(patient_id={self.patient_id}, bodyage={self.bodyage}, analyzed_at={self.analyzed_at})>"
+
 class WelnoCollectionHistory(Base):
     """데이터 수집 이력 테이블"""
     __tablename__ = "welno_collection_history"
@@ -211,6 +255,26 @@ class WelnoPrescriptionDataResponse(BaseModel):
     prescription_count: int
     prescription_details: Optional[List[Dict[str, Any]]]
     collected_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class WelnoMediarcReportResponse(BaseModel):
+    """Mediarc 리포트 응답 모델"""
+    id: int
+    patient_uuid: str
+    hospital_id: str
+    mkt_uuid: Optional[str]
+    report_url: Optional[str]
+    provider: str
+    analyzed_at: Optional[datetime]
+    bodyage: Optional[int]
+    rank: Optional[int]
+    disease_data: Optional[Dict[str, Any]]
+    cancer_data: Optional[Dict[str, Any]]
+    has_questionnaire: bool
+    questionnaire_data: Optional[Dict[str, Any]]
+    created_at: datetime
     
     class Config:
         from_attributes = True

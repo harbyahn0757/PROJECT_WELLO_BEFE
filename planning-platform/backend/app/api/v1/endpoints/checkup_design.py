@@ -580,7 +580,70 @@ async def create_checkup_design(
         except Exception as e:
             logger.warning(f"⚠️ [검진설계] 요청 저장 중 오류 (무시): {str(e)}")
         
-        # 8. 응답 반환
+        # 8. 검진설계 완료 → Mediarc 리포트 자동 생성 (케이스 1)
+        # ─────────────────────────────────────────────────────────────────
+        # 사용자가 검진설계를 완료했을 때, Mediarc 질병예측 리포트가 아직
+        # 생성되지 않았다면 백그라운드에서 자동으로 생성합니다.
+        #
+        # 흐름:
+        # 1. Mediarc 리포트 존재 여부 확인
+        # 2. 없으면: 검진설계 문진 → Mediarc 코드 변환
+        # 3. 백그라운드에서 Mediarc 생성 (문진 포함)
+        # 4. WebSocket 알림: "질병예측 리포트가 생성되었습니다!"
+        #
+        # 장점:
+        # - 사용자가 추가 액션 없이 자동으로 질병예측 리포트 확보
+        # - 검진설계 문진 데이터를 즉시 활용하여 정확도 향상
+        # ─────────────────────────────────────────────────────────────────
+        try:
+            from ....core.config import settings
+            MEDIARC_ENABLED = getattr(settings, 'MEDIARC_ENABLED', False)
+            
+            if MEDIARC_ENABLED:
+                import asyncpg
+                import asyncio
+                
+                # Mediarc 리포트 존재 여부 확인
+                conn = await asyncpg.connect(
+                    host=settings.DB_HOST if hasattr(settings, 'DB_HOST') else '10.0.1.10',
+                    port=settings.DB_PORT if hasattr(settings, 'DB_PORT') else 5432,
+                    database=settings.DB_NAME if hasattr(settings, 'DB_NAME') else 'p9_mkt_biz',
+                    user=settings.DB_USER if hasattr(settings, 'DB_USER') else 'peernine',
+                    password=settings.DB_PASSWORD if hasattr(settings, 'DB_PASSWORD') else 'autumn3334!'
+                )
+                
+                existing_report = await conn.fetchrow(
+                    "SELECT id FROM welno.welno_mediarc_reports WHERE patient_uuid = $1 AND hospital_id = $2 LIMIT 1",
+                    request.uuid, request.hospital_id
+                )
+                await conn.close()
+                
+                if not existing_report:
+                    logger.info(f"📊 [검진설계 완료] Mediarc 리포트 없음 → 백그라운드 생성 시작")
+                    
+                    # 검진설계 문진 → Mediarc 코드 변환
+                    from ....services.mediarc.questionnaire_mapper import map_checkup_design_survey_to_mediarc
+                    questionnaire_codes = map_checkup_design_survey_to_mediarc(survey_responses_clean)
+                    
+                    # 백그라운드에서 Mediarc 리포트 생성
+                    from ....services.mediarc import generate_mediarc_report_async
+                    asyncio.create_task(
+                        generate_mediarc_report_async(
+                            patient_uuid=request.uuid,
+                            hospital_id=request.hospital_id,
+                            session_id=request.session_id,
+                            service=welno_data_service,
+                            questionnaire_data=questionnaire_codes  # 검진설계 문진 포함
+                        )
+                    )
+                    
+                    logger.info(f"✅ [검진설계 완료] Mediarc 생성 트리거 완료 (백그라운드)")
+                else:
+                    logger.info(f"ℹ️ [검진설계 완료] Mediarc 리포트 이미 존재 → 생성 생략")
+        except Exception as mediarc_error:
+            logger.warning(f"⚠️ [검진설계 완료] Mediarc 생성 트리거 실패 (무시): {mediarc_error}")
+        
+        # 9. 응답 반환
         total_elapsed = time.time() - overall_start
         logger.info(f"✅ [검진설계] 검진 설계 완료")
         logger.info(f"⏱️  [타이밍] ========================================")
@@ -1098,13 +1161,14 @@ async def get_latest_checkup_design(
                 except:
                     pass  # 파싱 실패 시 무시하고 전체 데이터 반환
         
-        logger.info(f"✅ [검진설계조회] 설계 결과 조회 완료 - ID: {design_result.get('id')}")
+        logger.info(f"✅ [검진설계조회] 설계 결과 조회 완료")
         
         # 응답 생성 (헤더 포함)
+        # ✅ design_result는 이미 welno_data_service에서 json.loads된 전체 내용
         response_data = {
             "success": True,
             "data": {
-                **design_result.get("design_result", {}),
+                **design_result,  # ✅ 중첩 제거: design_result가 이미 최종 데이터
                 "last_update": updated_at,  # ✅ 업데이트 시간 포함
             },
             "message": "최신 설계 결과를 조회했습니다."

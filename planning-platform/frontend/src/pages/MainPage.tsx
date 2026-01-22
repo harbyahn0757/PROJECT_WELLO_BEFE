@@ -720,6 +720,21 @@ const MainPage: React.FC = () => {
                   return;
                 }
                 
+                // IndexedDB에서 비밀번호 인증 캐시 확인 (10분 이내)
+                try {
+                  const cachedAuth = await WelnoIndexedDB.getPasswordAuth(uuid, hospitalId);
+                  if (cachedAuth) {
+                    console.log('[비밀번호] IndexedDB 캐시 인증 유효 - 바로 이동');
+                    setTimeout(() => {
+                      navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
+                    }, 300);
+                    return;
+                  }
+                } catch (error) {
+                  console.warn('[비밀번호] IndexedDB 확인 실패 (무시):', error);
+                  // IndexedDB 확인 실패해도 기존 로직 진행
+                }
+                
                 // 비밀번호 확인 필요 - 모달 표시하므로 로딩 숨김
                 console.log('[비밀번호] 인증 필요');
                 setIsPageTransitioning(false);
@@ -895,6 +910,96 @@ const MainPage: React.FC = () => {
       }
         
       case 'prediction': {
+        // ⭐ 신규 로직: 내부 Mediarc 리포트 페이지로 이동
+        // 데이터 체크 순서: Mediarc 리포트 → 검진 데이터 → 틸코 인증
+        try {
+          console.log('[질병예측리포트] 데이터 체크 시작');
+          
+          // 우선순위: 1) URL 파라미터 2) WelnoDataContext 3) StorageManager
+          const urlParams = new URLSearchParams(location.search);
+          let patientUuid = urlParams.get('uuid') || patient?.uuid || StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID);
+          let hospitalId = urlParams.get('hospital') || urlParams.get('hospitalId') || patient?.hospital_id || StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID);
+          
+          // 출처 확인
+          let source = 'Unknown';
+          if (urlParams.get('uuid')) {
+            source = 'URL';
+          } else if (patient?.uuid) {
+            source = 'Context';
+          } else if (StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID)) {
+            source = 'Storage';
+          }
+          
+          // 1. 환자 정보 없으면 틸코 인증 필요
+          if (!patientUuid || !hospitalId) {
+            console.log('[질병예측리포트] 환자 정보 없음 → 틸코 인증 필요');
+            alert('먼저 본인 인증을 진행해주세요.');
+            navigate('/auth?redirect=/disease-report');
+            setIsPageTransitioning(false);
+            return;
+          }
+          
+          console.log('[질병예측리포트] 환자 정보 확인:', { 
+            uuid: patientUuid, 
+            hospitalId, 
+            source,
+            urlUuid: urlParams.get('uuid'),
+            contextUuid: patient?.uuid,
+            storageUuid: StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID)
+          });
+          
+          // 2. Mediarc 리포트 존재 여부 확인
+          console.log('[질병예측리포트] Mediarc 리포트 조회 중...');
+          const reportRes = await fetch(`/welno-api/v1/welno/mediarc-report?uuid=${patientUuid}&hospital_id=${hospitalId}`);
+          const reportData = await reportRes.json();
+          
+          if (reportData.success && reportData.has_report) {
+            console.log('[질병예측리포트] Mediarc 리포트 있음 → 바로 표시');
+            navigate(`/disease-report?uuid=${patientUuid}&hospital=${hospitalId}`);
+            setIsPageTransitioning(false);
+            return;
+          }
+          
+          console.log('[질병예측리포트] Mediarc 리포트 없음 → 검진 데이터 확인');
+          
+          // 3. 검진 데이터 확인
+          const healthRes = await fetch(API_ENDPOINTS.HEALTH_DATA(patientUuid, hospitalId));
+          
+          // 404 또는 기타 에러 처리
+          if (!healthRes.ok) {
+            const errorData = await healthRes.json().catch(() => ({ detail: '데이터 조회 실패' }));
+            console.log('[질병예측리포트] 검진 데이터 조회 실패:', errorData);
+            // 검진 데이터도 없음 → 틸코 인증 필요
+            alert('건강 데이터가 없습니다. 먼저 건강검진 데이터를 수집해주세요.');
+            navigate('/auth?redirect=/disease-report');
+            setIsPageTransitioning(false);
+            return;
+          }
+          
+          const healthData = await healthRes.json();
+          console.log('[질병예측리포트] 검진 데이터 응답:', healthData);
+          
+          if (healthData.success && healthData.data?.health_data && healthData.data.health_data.length > 0) {
+            console.log('[질병예측리포트] 검진 데이터 있음 → Mediarc 생성 페이지로 이동');
+            // 검진 데이터는 있지만 Mediarc 리포트가 없음 → 생성 필요
+            navigate(`/disease-report?uuid=${patientUuid}&hospital=${hospitalId}&generate=true`);
+            setIsPageTransitioning(false);
+            return;
+          }
+          
+          // 4. 검진 데이터도 없음 → 틸코 인증 필요
+          console.log('[질병예측리포트] 검진 데이터 없음 → 틸코 인증 필요');
+          alert('건강 데이터가 없습니다. 먼저 건강검진 데이터를 수집해주세요.');
+          navigate('/auth?redirect=/disease-report');
+          setIsPageTransitioning(false);
+          
+        } catch (error) {
+          console.error('[질병예측리포트] 데이터 체크 오류:', error);
+          setIsPageTransitioning(false);
+          alert('질병예측 리포트 확인 중 오류가 발생했습니다.');
+        }
+        
+        /* ⚠️ 기존 파트너 인증 API 로직 (주석처리)
         // 질병예측 리포트 보기는 파트너 인증 API를 거쳐 캠페인 페이지로 이동
         // mkt_uuid는 선택사항 (없으면 새 사용자로 등록)
         try {
@@ -958,6 +1063,7 @@ const MainPage: React.FC = () => {
           setIsPageTransitioning(false);
           alert('질병예측 리포트 접속 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
         }
+        */
         break;
       }
         

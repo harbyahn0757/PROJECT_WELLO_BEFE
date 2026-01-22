@@ -6,25 +6,25 @@
 .health-age-card {
   background: $background-cream;
   border-radius: $border-radius-xl;
-  padding: $spacing-lg;
-  margin-bottom: $spacing-lg;
+  padding: $spacing-sm; // $spacing-md → $spacing-sm 추가 축소
+  margin-bottom: $spacing-sm; // $spacing-md → $spacing-sm 추가 축소
   font-family: $font-family-base;
   
   .health-age-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: $spacing-md;
+    margin-bottom: $spacing-sm; // $spacing-md → $spacing-sm 축소
     
     .health-age-message {
-      font-size: $font-base;
+      font-size: $font-sm; // $font-base → $font-sm 축소
       font-weight: $font-weight-medium;
       color: $gray-800;
     }
     
     .info-icon {
-      width: 20px;
-      height: 20px;
+      width: 18px; // 20px → 18px 축소
+      height: 18px; // 20px → 18px 축소
       border-radius: 50%;
       background: $gray-400;
       color: $white;
@@ -41,8 +41,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: $spacing-lg;
-    padding: $spacing-lg 0;
+    gap: $spacing-sm; // $spacing-md → $spacing-sm 추가 축소
+    padding: $spacing-sm 0; // $spacing-md 0 → $spacing-sm 0 추가 축소
     
     .age-item {
       display: flex;
@@ -52,13 +52,13 @@
       flex: 1;
       
       .age-label {
-        font-size: $font-sm;
+        font-size: $font-xs; // $font-sm → $font-xs 축소
         color: $gray-600;
         font-weight: $font-weight-medium;
       }
       
       .age-value {
-        font-size: $font-3xl;
+        font-size: $font-2xl; // $font-3xl → $font-2xl 축소
         font-weight: $font-weight-bold;
         color: $brand-brown-darker;
         font-family: $font-family-value;
@@ -67,20 +67,20 @@
     
     .age-divider {
       width: 1px;
-      height: 60px;
+      height: 40px; // 60px → 40px 축소
       background: $gray-300;
     }
   }
   
   .health-age-notice {
-    margin-top: $spacing-md;
-    padding: $spacing-sm $spacing-md;
+    margin-top: $spacing-sm; // $spacing-md → $spacing-sm 축소
+    padding: $spacing-xs $spacing-sm; // padding 축소
     background: rgba($brand-brown, 0.05);
     border-radius: $border-radius-md;
-    font-size: $font-sm;
+    font-size: $font-xs; // $font-sm → $font-xs 축소
     color: $gray-700;
     text-align: center;
-    line-height: 1.5;
+    line-height: 1.4; // 1.5 → 1.4 줄간격 축소
   }
   
   // 컴팩트 모드 (채팅용)

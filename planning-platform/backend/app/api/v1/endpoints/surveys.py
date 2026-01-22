@@ -175,7 +175,54 @@ async def submit_survey(request: Dict[str, Any]) -> Dict[str, Any]:
         except Exception as e:
             logger.warning(f"⚠️ [문진 제출] 페르소나 저장 실패: {e}")
         
-        # 6. 채팅에서 문진 트리거됨 표시
+        # 6. Mediarc 리포트 자동 업데이트 체크
+        try:
+            from ....services.welno_data_service import welno_data_service
+            from ....services.mediarc.questionnaire_mapper import map_survey_to_mediarc_codes
+            from ....services.mediarc import generate_mediarc_report_async
+            import asyncio
+            import asyncpg
+            
+            # Mediarc 리포트가 이미 있는지 확인
+            conn = await asyncpg.connect(
+                host=settings.DB_HOST if hasattr(settings, 'DB_HOST') else '10.0.1.10',
+                port=settings.DB_PORT if hasattr(settings, 'DB_PORT') else 5432,
+                database=settings.DB_NAME if hasattr(settings, 'DB_NAME') else 'p9_mkt_biz',
+                user=settings.DB_USER if hasattr(settings, 'DB_USER') else 'peernine',
+                password=settings.DB_PASSWORD if hasattr(settings, 'DB_PASSWORD') else 'autumn3334!'
+            )
+            
+            existing_report = await conn.fetchrow(
+                "SELECT id FROM welno.welno_mediarc_reports WHERE patient_uuid = $1 AND hospital_id = $2 LIMIT 1",
+                uuid, hospital_id
+            )
+            await conn.close()
+            
+            if existing_report:
+                logger.info(f"📊 [문진 제출] Mediarc 리포트 발견 → 문진 반영하여 재생성 시작")
+                
+                # 문진 응답을 Mediarc 코드로 변환
+                questionnaire_codes = map_survey_to_mediarc_codes(survey_responses)
+                
+                # 백그라운드에서 Mediarc 리포트 재생성 (문진 포함)
+                asyncio.create_task(
+                    generate_mediarc_report_async(
+                        patient_uuid=uuid,
+                        hospital_id=hospital_id,
+                        session_id=session_id,
+                        service=welno_data_service,
+                        questionnaire_data=questionnaire_codes  # 문진 데이터 추가
+                    )
+                )
+                
+                logger.info(f"✅ [문진 제출] Mediarc 재생성 트리거 완료 (백그라운드)")
+            else:
+                logger.info(f"ℹ️ [문진 제출] Mediarc 리포트 없음 → 재생성 생략")
+                
+        except Exception as e:
+            logger.warning(f"⚠️ [문진 제출] Mediarc 업데이트 체크 실패: {e}")
+        
+        # 7. 채팅에서 문진 트리거됨 표시
         if session_id and "rag_chat" in session_id:
             await rag_chat_service.mark_survey_triggered(uuid, hospital_id, session_id)
         

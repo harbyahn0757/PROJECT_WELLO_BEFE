@@ -39,6 +39,8 @@ const createApiUrl = (path: string): string => {
 
 // WELNO API 엔드포인트
 export const API_ENDPOINTS = {
+  BASE_URL: API_BASE_URL,  // API 베이스 URL (DiseaseReportPage 등에서 사용)
+  
   // 환자 관련 (welno.welno_patients 테이블 조회)
   PATIENT: (uuid: string) => createApiUrl(`/welno-api/v1/welno/patients/${uuid}`),
   

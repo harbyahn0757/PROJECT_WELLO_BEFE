@@ -30,9 +30,23 @@ const ItemsList: React.FC<ItemsListProps> = ({
     }
   };
   
+  // 정상이 아닌 항목들을 위에 정렬
+  const sortedItems = React.useMemo(() => {
+    return [...items].sort((a, b) => {
+      // 정상이 아닌 항목(abnormal, borderline)을 위로
+      if (a.status === 'normal' && b.status !== 'normal') return 1;
+      if (a.status !== 'normal' && b.status === 'normal') return -1;
+      // 둘 다 정상이 아니면 abnormal > borderline 순서
+      if (a.status === 'abnormal' && b.status === 'borderline') return -1;
+      if (a.status === 'borderline' && b.status === 'abnormal') return 1;
+      // 나머지는 원래 순서 유지
+      return 0;
+    });
+  }, [items]);
+  
   return (
     <div className="items-list">
-      {items.map((item, idx) => (
+      {sortedItems.map((item, idx) => (
         <div 
           key={idx}
           className={`item-row item-status-${item.status}`}

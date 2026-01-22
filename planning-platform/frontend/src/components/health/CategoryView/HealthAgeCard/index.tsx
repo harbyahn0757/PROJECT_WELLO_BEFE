@@ -1,6 +1,10 @@
 /**
  * HealthAgeCard - 건강 나이 비교 카드
  * 건강 나이 vs 실제 나이 비교 표시 (재사용 가능)
+ * 
+ * @deprecated Use HealthAgeSection instead
+ * 이 컴포넌트는 곧 제거될 예정입니다. 대신 HealthAgeSection을 사용하세요.
+ * 위치: src/components/health/HealthAgeSection/
  */
 import React from 'react';
 import './styles.scss';

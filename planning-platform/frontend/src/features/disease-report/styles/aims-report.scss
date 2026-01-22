@@ -1,0 +1,1573 @@
+@import './campaign.scss';
+@import './campaign-fixed.scss';
+@import './agreement-screen.scss';
+
+// 리포트 페이지 전용 body/html 스타일
+body:has(.aims-report-page),
+html:has(.aims-report-page) {
+  background: var(--report-page-bg, #000000) !important;
+  overflow: hidden;
+}
+
+.aims-report-page {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: 100vh;
+  width: 100vw;
+  background: var(--report-page-bg, rgba(0, 0, 0, 0.5));
+  backdrop-filter: blur(10px);
+  padding: 0;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1000;
+  transition: opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: opacity, transform;
+  opacity: 0;
+  animation: fadeInPage 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  
+  &.fade-out {
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
+  }
+  
+  @keyframes fadeInPage {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  // 브라운 스킨일 때 배경색 조정
+  &.skin-br {
+    background: var(--report-page-bg, #FFF9EF);
+    backdrop-filter: none;
+  }
+  
+  // 모든 요소에 프리텐다드 폰트 적용
+  * {
+    font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+  }
+
+  // 초기 스피너 (패널 올라오기 전과 후 모두)
+  .initial-loading-spinner {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    z-index: 100;
+    opacity: 1;
+    transition: opacity 0.6s ease-out;
+    animation: spinnerFadeOut 0.6s ease-out forwards;
+    animation-delay: 1.2s; // 1.2초 후 페이드 아웃
+    
+    &.on-panel {
+      z-index: 200; // 패널 위에 표시
+    }
+    
+    .spinner {
+      width: 50px;
+      height: 50px;
+      border: 4px solid rgba(255, 255, 255, 0.2);
+      border-top-color: var(--report-spinner-color, #FFB84D);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    
+    p {
+      color: var(--report-text-secondary, rgba(255, 255, 255, 0.9));
+      font-size: 16px;
+      margin: 0;
+    }
+  }
+
+  .report-panel {
+    background: var(--report-panel-bg, #4a4a4a);
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    padding: 4px 20px 24px 20px; // 상단 패딩 더 줄이기
+    max-height: 90vh;
+    width: 100%;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    
+    &.hide {
+      opacity: 0;
+      transform: translateY(100%);
+    }
+    
+    &.show {
+      animation: slideUp 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+      will-change: transform, opacity;
+    }
+    
+    // 뿌연 상태
+    &.blurred {
+      opacity: 0.7;
+      filter: blur(2px);
+    }
+    
+    // 뿌연 오버레이
+    .panel-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(3px);
+      border-radius: 24px 24px 0 0;
+      z-index: 10;
+      animation: fadeOut 0.6s ease-out forwards;
+      animation-delay: 1.2s; // 1.2초 후 페이드 아웃
+    }
+  }
+  
+  @keyframes fadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+  
+  @keyframes spinnerFadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  // 페이지 전환 페이드 효과
+  &.fade-out {
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
+  }
+  
+  // 나이 카드 반짝임 효과
+  .glow-effect {
+    animation: glowTwice 2.5s ease-in-out;
+  }
+  
+  @keyframes glowTwice {
+    0%, 100% {
+      box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+    }
+    15%, 25% {
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.4), 0 0 20px rgba(255, 255, 255, 0.3);
+    }
+    35%, 45% {
+      box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+    }
+    55%, 65% {
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.4), 0 0 20px rgba(255, 255, 255, 0.3);
+    }
+    75%, 100% {
+      box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+    }
+  }
+  
+  // 뱃지 반짝임 효과
+  .age-difference-badge.glow-effect {
+    animation: badgeGlowTwice 2.5s ease-in-out;
+  }
+  
+  @keyframes badgeGlowTwice {
+    0%, 100% {
+      box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+    }
+    15%, 25% {
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.5), 0 0 16px rgba(255, 255, 255, 0.4);
+    }
+    35%, 45% {
+      box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+    }
+    55%, 65% {
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.5), 0 0 16px rgba(255, 255, 255, 0.4);
+    }
+    75%, 100% {
+      box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+    }
+  }
+
+  // 로딩 상태
+  &.loading {
+    align-items: center;
+    justify-content: center;
+
+    .loading-spinner {
+      text-align: center;
+      background: #4a4a4a;
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+
+      .spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid rgba(255, 255, 255, 0.2);
+        border-top-color: var(--report-spinner-color, #FFB84D);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 16px;
+      }
+
+      p {
+        color: var(--report-text-secondary, rgba(255, 255, 255, 0.8));
+        font-size: 16px;
+        margin: 8px 0;
+      }
+
+      .countdown-number {
+        font-size: 120px;
+        font-weight: 900;
+        color: var(--report-accent-color, #FFB84D);
+        margin: 30px auto;
+        line-height: 1;
+        text-shadow: 
+          0 0 20px rgba(255, 184, 77, 0.8),
+          0 0 40px rgba(255, 184, 77, 0.6),
+          0 4px 8px rgba(0, 0, 0, 0.3);
+        animation: countdownPulse 1.2s ease-in-out infinite, countdownChange 0.5s ease-out;
+        display: block;
+        letter-spacing: -0.05em;
+        font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+      }
+
+      .countdown-message {
+        font-size: 14px;
+        color: var(--report-text-tertiary, rgba(255, 255, 255, 0.6));
+        margin-top: 12px;
+      }
+    }
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.1);
+      opacity: 0.8;
+    }
+  }
+
+  @keyframes countdownPulse {
+    0%, 100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.05);
+      opacity: 0.98;
+    }
+  }
+
+  @keyframes countdownChange {
+    0% {
+      transform: scale(0.7) rotate(-5deg);
+      opacity: 0;
+    }
+    50% {
+      transform: scale(1.15) rotate(2deg);
+    }
+    100% {
+      transform: scale(1) rotate(0deg);
+      opacity: 1;
+    }
+  }
+
+  // 페이지 전환 시 페이드 아웃 효과
+  &.fade-out {
+    animation: pageFadeOut 0.5s ease-out forwards;
+  }
+
+  @keyframes pageFadeOut {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+  }
+
+  // 에러 상태
+  &.error {
+    align-items: center;
+    justify-content: center;
+
+    .error-message {
+      text-align: center;
+      padding: 40px;
+      background: var(--report-panel-bg, #4a4a4a);
+      border-radius: 24px;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+
+      h2 {
+        color: var(--report-text-primary, #ffffff);
+        font-size: 20px;
+        margin-bottom: 12px;
+      }
+
+      p {
+        color: var(--report-text-tertiary, rgba(255, 255, 255, 0.7));
+        font-size: 14px;
+      }
+    }
+  }
+
+  // 헤더
+  .report-header {
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    padding-top: 0; // 상단 여백 제거
+    margin-top: 0; // 상단 마진 제거
+    border-bottom: 1px solid var(--report-border-color, rgba(255, 255, 255, 0.1));
+
+    .report-header-top {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+
+      .report-back-button {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: var(--report-card-bg, rgba(255, 255, 255, 0.05));
+        border: 1px solid var(--report-card-border, rgba(255, 255, 255, 0.1));
+        color: var(--report-text-primary, #ffffff);
+        font-size: 20px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 2px;
+
+        &:hover {
+          background: var(--report-accent-bg-light, rgba(255, 184, 77, 0.2));
+          border-color: var(--report-accent-border, rgba(255, 184, 77, 0.5));
+          color: var(--report-accent-color, #FFB84D);
+        }
+      }
+
+      .report-title-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+      }
+
+      .report-title {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--report-text-primary, #ffffff);
+        margin: 0;
+        line-height: 1.3;
+        flex: 1;
+      }
+
+      .report-skin-toggle {
+        display: flex;
+        gap: 4px;
+        background: var(--report-card-bg, rgba(255, 255, 255, 0.05));
+        border: 1px solid var(--report-card-border, rgba(255, 255, 255, 0.1));
+        border-radius: 8px;
+        padding: 2px;
+        flex-shrink: 0;
+
+        .skin-toggle-button {
+          padding: 6px 12px;
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--report-text-tertiary, rgba(255, 255, 255, 0.7));
+          background: transparent;
+          border: none;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+
+          &:hover {
+            color: var(--report-text-primary, #ffffff);
+            background: var(--report-accent-bg-light, rgba(255, 184, 77, 0.1));
+          }
+
+          &.active {
+            color: #ffffff !important; // 선택 시 텍스트 흰색으로 고정
+            background: var(--report-accent-color, #FFB84D);
+            font-weight: 600;
+          }
+        }
+      }
+
+      .report-update-info {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: var(--report-text-tertiary, rgba(255, 255, 255, 0.7));
+        flex-shrink: 0;
+        margin-top: 4px;
+
+        .update-icon {
+          font-size: 14px;
+          opacity: 0.8;
+        }
+
+        .update-text {
+          white-space: nowrap;
+        }
+      }
+
+      @media (max-width: 768px) {
+        flex-wrap: wrap;
+        
+        .report-title {
+          width: 100%;
+          margin-bottom: 8px;
+        }
+        
+        .report-update-info {
+          width: 100%;
+          margin-top: 0;
+        }
+      }
+    }
+
+    .report-header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center; // 같은 높이에 배치
+      gap: 8px; // 제목과 뱃지 사이 간격 줄이기
+    }
+
+    .report-header-left {
+      flex: 1;
+      text-align: left;
+    }
+
+    .report-header-badges {
+      display: flex;
+      gap: 8px;
+      align-items: center; // 같은 높이에 배치
+      flex-shrink: 0;
+    }
+
+    .customer-name {
+      font-size: 14px;
+      color: var(--report-text-tertiary, rgba(255, 255, 255, 0.7));
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    // 뱃지 스타일
+    .report-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .report-badge-test {
+      background: var(--report-accent-bg-light, rgba(255, 184, 77, 0.2));
+      color: var(--report-accent-color, #FFB84D);
+      border: 1px solid var(--report-accent-border, rgba(255, 184, 77, 0.4));
+    }
+
+    .report-badge-source {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--report-text-secondary, rgba(255, 255, 255, 0.8));
+      border: 1px solid var(--report-border-color, rgba(255, 255, 255, 0.2));
+    }
+
+    .report-badge-db {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--report-success-color, #10b981);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    .report-badge-delayed {
+      background: rgba(59, 130, 246, 0.2);
+      color: #3b82f6;
+      border: 1px solid rgba(59, 130, 246, 0.4);
+    }
+
+    .report-badge-mock {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--report-warning-color, #f59e0b);
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+  }
+
+  // 건강나이 vs 실제나이 비교
+  .age-comparison-section {
+    margin-bottom: 24px;
+    padding: 12px 16px 16px 16px; // 상단 여백 줄이기
+    background: var(--report-section-bg, rgba(255, 255, 255, 0.08));
+    border-radius: 16px;
+    border: 2px solid var(--report-section-border, rgba(255, 184, 77, 0.3));
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--report-text-primary, #ffffff);
+      margin-bottom: 16px; // 헤더와 카드 사이 간격 확대
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .age-comparison-boxes {
+      display: flex;
+      flex-direction: row; // 가로 배치 강제
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: nowrap; // 줄바꿈 방지
+      width: 100%;
+
+      .age-box {
+        flex: 1 1 auto;
+        min-width: 0; // flex 아이템이 축소 가능하도록
+        max-width: 120px;
+        padding: 14px 10px;
+        border-radius: 12px;
+        text-align: center;
+        min-height: 85px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        flex-shrink: 1; // 공간이 부족하면 축소
+
+        &.current-age-box {
+          background: var(--report-age-card-current-bg, var(--report-age-card-bg, rgba(255, 255, 255, 0.1)));
+          border: 2px solid var(--report-age-card-current-border, var(--report-age-card-border, rgba(255, 255, 255, 0.2)));
+        }
+
+        &.bodyage-box {
+          background: var(--report-accent-bg-light, rgba(255, 184, 77, 0.2));
+          border: 2px solid var(--report-accent-border, rgba(255, 184, 77, 0.5));
+        }
+        
+        // 건강나이가 검진나이보다 낮을 경우 (더 좋음) - 초록색
+        &.bodyage-better {
+          background: var(--report-age-card-better-bg, rgba(16, 185, 129, 0.2));
+          border: 2px solid var(--report-age-card-better-border, rgba(16, 185, 129, 0.5));
+        }
+        
+        // 건강나이가 검진나이보다 높을 경우 (더 나쁨) - 빨간색
+        &.bodyage-worse {
+          background: var(--report-age-card-worse-bg, rgba(239, 68, 68, 0.2));
+          border: 2px solid var(--report-age-card-worse-border, rgba(239, 68, 68, 0.5));
+        }
+
+        .age-box-label {
+          font-size: 15px; // 더 크게
+          font-weight: 700; // 볼드 처리
+          color: var(--report-text-secondary, rgba(255, 255, 255, 0.9)); // 더 밝게
+          margin-bottom: 10px; // 라벨과 나이 사이 간격 확대
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .age-box-value {
+          font-size: 27px; // +3
+          font-weight: 700;
+          color: var(--report-text-primary, #ffffff);
+          line-height: 1.2;
+          
+          // 엔티티 사용 (작은 크기)
+          &::after {
+            content: '세';
+            font-size: 0.5em;
+            font-weight: 500;
+            margin-left: 2px;
+            opacity: 0.9;
+            vertical-align: super;
+          }
+          
+          // "계산 중..." 같은 텍스트는 "세" 제거
+          &[data-no-suffix="true"]::after {
+            content: '';
+          }
+        }
+      }
+
+      .age-arrow {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        min-width: 45px;
+        max-width: 50px;
+        flex-shrink: 0; // 화살표는 축소하지 않음
+
+        .age-difference {
+          font-size: 13px; // +2
+          font-weight: 600;
+          color: var(--report-accent-color, #FFB84D);
+          padding: 3px 5px;
+          background: var(--report-accent-bg-light, rgba(255, 184, 77, 0.2));
+          border-radius: 6px;
+          white-space: nowrap;
+          
+          &::after {
+            content: '세';
+            font-size: 0.75em;
+            margin-left: 1px;
+            opacity: 0.9;
+            vertical-align: super;
+          }
+        }
+
+        .arrow-icon {
+          font-size: 16px;
+          color: var(--report-text-tertiary, rgba(255, 255, 255, 0.5));
+          transform: rotate(90deg); // 가로 배치이므로 오른쪽 화살표
+        }
+      }
+      
+      // 모바일 반응형
+      @media (max-width: 480px) {
+        gap: 6px;
+        
+        .age-box {
+          max-width: 100px;
+          padding: 12px 6px;
+          min-height: 75px;
+          
+          .age-box-label {
+            font-size: 14px; // 더 크게
+            font-weight: 700; // 볼드 처리
+            margin-bottom: 4px;
+          }
+          
+          .age-box-value {
+            font-size: 23px; // +3
+          }
+        }
+        
+        .age-arrow {
+          min-width: 35px;
+          max-width: 40px;
+          
+          .age-difference {
+            font-size: 12px; // +2
+            padding: 2px 4px;
+          }
+          
+          .arrow-icon {
+            font-size: 14px;
+          }
+        }
+      }
+      
+      // 매우 작은 화면
+      @media (max-width: 360px) {
+        gap: 4px;
+        
+        .age-box {
+          max-width: 90px;
+          padding: 10px 4px;
+          min-height: 70px;
+          
+          .age-box-label {
+            font-size: 13px; // 더 크게
+            font-weight: 700; // 볼드 처리
+          }
+          
+          .age-box-value {
+            font-size: 21px; // +3
+          }
+        }
+        
+        .age-arrow {
+          min-width: 30px;
+          max-width: 35px;
+          
+          .age-difference {
+            font-size: 11px; // +2
+            padding: 2px 3px;
+          }
+        }
+      }
+    }
+
+    .age-comparison-message {
+      text-align: center;
+      font-size: 14px;
+      color: var(--report-text-secondary, rgba(255, 255, 255, 0.8));
+      line-height: 1.5;
+      
+      .age-difference-badge {
+        display: inline-block;
+        background: var(--report-accent-bg-light, rgba(255, 184, 77, 0.25));
+        color: var(--report-accent-color, #FFB84D);
+        padding: 3px 8px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        margin: 0 2px;
+      }
+    }
+  }
+
+  // 동일 연령 대비 건강 등수
+  .rank-section {
+    margin-bottom: 24px;
+    padding: 12px 16px 16px 16px; // 상단 여백 줄이기
+    background: var(--report-section-bg, rgba(255, 255, 255, 0.05));
+    border-radius: 16px;
+    border: 1px solid var(--report-border-color, rgba(255, 255, 255, 0.1));
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--report-text-primary, #ffffff);
+      margin-bottom: 8px; // 간격 더 줄이기
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+
+      .info-icon-button {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-left: auto;
+        padding: 0;
+        flex-shrink: 0;
+        position: relative;
+
+        &:hover {
+          background: rgba(255, 184, 77, 0.2);
+          border-color: rgba(255, 184, 77, 0.4);
+          transform: scale(1.1);
+          animation: iconGlow 0.6s ease-out;
+        }
+
+        &:active {
+          transform: scale(0.95);
+        }
+
+        .info-icon {
+          font-size: 14px;
+          font-weight: 700;
+          line-height: 1;
+          color: var(--report-text-secondary, rgba(255, 255, 255, 0.9));
+        }
+      }
+
+      @keyframes iconGlow {
+        0%, 100% {
+          box-shadow: 0 0 0 var(--report-accent-bg-light, rgba(255, 184, 77, 0));
+        }
+        50% {
+          box-shadow: 0 0 12px var(--report-accent-border, rgba(255, 184, 77, 0.6)), 0 0 20px var(--report-accent-bg-light, rgba(255, 184, 77, 0.4));
+        }
+      }
+    }
+
+    .rank-tooltip {
+      margin-bottom: 12px;
+      animation: tooltipFadeIn 0.3s ease-out;
+
+      .tooltip-content {
+        background: var(--report-accent-bg-light, rgba(255, 184, 77, 0.15));
+        border: 1px solid var(--report-accent-border, rgba(255, 184, 77, 0.3));
+        border-radius: 12px;
+        padding: 12px 16px;
+        position: relative;
+        backdrop-filter: blur(10px);
+
+        .tooltip-text {
+          font-size: 13px;
+          color: var(--report-text-primary, rgba(255, 255, 255, 0.95));
+          line-height: 1.8;
+          margin: 0;
+          padding-right: 24px;
+
+          strong {
+            color: var(--report-accent-color, #FFB84D);
+            font-weight: 700;
+            display: block;
+            margin-bottom: 8px;
+          }
+        }
+
+        .tooltip-close {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          background: rgba(255, 255, 255, 0.1);
+          border: none;
+          border-radius: 50%;
+          width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          color: rgba(255, 255, 255, 0.8);
+          font-size: 12px;
+          line-height: 1;
+          transition: all 0.2s ease;
+          padding: 0;
+
+          &:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: var(--report-text-primary, rgba(255, 255, 255, 1));
+            transform: scale(1.1);
+          }
+
+          &:active {
+            transform: scale(0.9);
+          }
+        }
+      }
+    }
+
+    @keyframes tooltipFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .rank-explanation {
+      font-size: 13px;
+      color: var(--report-text-tertiary, rgba(255, 255, 255, 0.7));
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .rank-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+
+      .rank-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: var(--report-card-bg, rgba(255, 255, 255, 0.08));
+        border-radius: 12px;
+        border: 1px solid var(--report-card-border, rgba(255, 255, 255, 0.1));
+
+        &.main-rank {
+          background: var(--report-accent-bg-light, rgba(255, 184, 77, 0.15));
+          border-color: var(--report-accent-border, rgba(255, 184, 77, 0.3));
+        }
+
+        &.rank-item-good {
+          background: rgba(16, 185, 129, 0.1);
+          border-color: rgba(16, 185, 129, 0.2);
+        }
+
+        &.rank-item-bad {
+          background: rgba(239, 68, 68, 0.1);
+          border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        &.rank-item-empty {
+          background: var(--report-card-bg, rgba(255, 255, 255, 0.05));
+          border-color: var(--report-card-border, rgba(255, 255, 255, 0.1));
+          opacity: 0.7;
+
+          .rank-icon {
+            font-size: 20px;
+          }
+
+          .rank-info {
+            .rank-label {
+              color: var(--report-text-tertiary, rgba(255, 255, 255, 0.7));
+              font-style: italic;
+            }
+          }
+        }
+
+        .rank-icon {
+          font-size: 24px;
+          flex-shrink: 0;
+        }
+
+        .rank-info {
+          flex: 1;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+
+          .rank-label {
+            font-size: 14px;
+            color: var(--report-text-secondary, rgba(255, 255, 255, 0.9));
+            font-weight: 500;
+          }
+
+          .rank-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--report-rank-value-color, #FFB84D);
+          }
+        }
+      }
+
+      .rank-divider {
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          transparent,
+          rgba(255, 255, 255, 0.3),
+          transparent
+        );
+        margin: 8px 0;
+        position: relative;
+
+        &::before {
+          content: '';
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          transform: translate(-50%, -50%);
+          width: 4px;
+          height: 4px;
+          background: rgba(255, 255, 255, 0.5);
+          border-radius: 50%;
+        }
+      }
+    }
+  }
+
+  // 주요질환 발병확률
+  .probability-section {
+    margin-bottom: 24px;
+    padding: 12px 16px 16px 16px; // 상단 여백 줄이기
+    background: var(--report-section-bg, rgba(255, 255, 255, 0.05));
+    border-radius: 16px;
+    border: 1px solid var(--report-border-color, rgba(255, 255, 255, 0.1));
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--report-text-primary, #ffffff);
+      margin-bottom: 8px; // 간격 더 줄이기
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .probability-summary {
+      margin-bottom: 24px;
+
+      .probability-message {
+        font-size: 14px;
+        color: var(--report-text-secondary, rgba(255, 255, 255, 0.9));
+        line-height: 1.6;
+
+        .disease-tags {
+          display: inline-block;
+          margin: 8px 0;
+        }
+
+        .disease-tag {
+          color: var(--report-accent-color, #FFB84D);
+          font-weight: 700; // 볼드 처리
+          font-size: 17px; // +2
+        }
+        
+        .disease-count {
+          background: rgba(255, 255, 255, 0.25);
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 13px;
+          color: var(--report-text-secondary, rgba(255, 255, 255, 0.9));
+        }
+      }
+    }
+
+    .probability-charts {
+      .probability-charts-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
+        width: 100%;
+
+        @media (max-width: 480px) {
+          gap: 16px;
+        }
+      }
+
+      .probability-chart {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+
+        .chart-circle {
+          position: relative;
+          width: 140px;
+          height: 140px;
+
+          .chart-svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+
+            .chart-background {
+              fill: none;
+              stroke: var(--report-chart-background, rgba(255, 255, 255, 0.15));
+              stroke-width: 8;
+            }
+
+            .chart-progress {
+              fill: none;
+              stroke-width: 8;
+              stroke-linecap: round;
+              transition: stroke-dashoffset 0.5s ease;
+            }
+          }
+
+          .chart-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+
+            .chart-percentage {
+              font-size: 28px;
+              font-weight: 700;
+              color: var(--report-text-primary, #ffffff);
+              line-height: 1.2;
+            }
+
+            .chart-label {
+              font-size: 12px;
+              color: var(--report-text-secondary, rgba(255, 255, 255, 0.8));
+              font-weight: 500;
+            }
+          }
+        }
+
+        .chart-disease-name {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--report-text-primary, #ffffff);
+          text-align: center;
+          margin: 0;
+        }
+      }
+      
+      // 모바일 반응형
+      @media (max-width: 480px) {
+        gap: 16px;
+        
+        .probability-charts-top {
+          gap: 20px;
+        }
+        
+        .probability-chart {
+          .chart-circle {
+            width: 120px;
+            height: 120px;
+            
+            .chart-text {
+              .chart-percentage {
+                font-size: 24px;
+              }
+              
+              .chart-label {
+                font-size: 11px;
+              }
+            }
+          }
+          
+          .chart-disease-name {
+            font-size: 13px;
+          }
+        }
+      }
+    }
+  }
+
+  // 질병 섹션
+  .diseases-section {
+    margin-bottom: 20px;
+
+    .disease-type-section {
+      margin-bottom: 24px;
+
+      .disease-type-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+        gap: 12px;
+        flex-wrap: wrap;
+
+        .disease-type-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: var(--report-text-primary, #ffffff);
+          margin: 0;
+        }
+
+        .disease-label-filters {
+          display: flex;
+          gap: 6px;
+          flex-shrink: 0;
+
+          .label-filter {
+            padding: 6px 12px;
+            background: var(--report-card-bg, rgba(255, 255, 255, 0.05));
+            border: 1px solid var(--report-card-border, rgba(255, 255, 255, 0.1));
+            border-radius: 6px;
+            color: var(--report-text-tertiary, rgba(255, 255, 255, 0.7));
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+
+            &:hover {
+              background: var(--report-accent-bg-light, rgba(255, 184, 77, 0.1));
+              border-color: var(--report-accent-border, rgba(255, 184, 77, 0.3));
+              color: var(--report-text-secondary, rgba(255, 255, 255, 0.9));
+            }
+
+            &.active {
+              background: var(--report-accent-bg-light, rgba(255, 184, 77, 0.2));
+              border-color: var(--report-accent-border, rgba(255, 184, 77, 0.5));
+              color: var(--report-accent-color, #FFB84D);
+            }
+          }
+        }
+      }
+
+      .diseases-empty {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--report-text-tertiary, rgba(255, 255, 255, 0.7));
+        font-size: 14px;
+      }
+
+      .diseases-slider-container {
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 16px;
+        width: 100%;
+
+        .diseases-slider {
+          display: flex;
+          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          will-change: transform;
+          cursor: grab;
+          user-select: none; // 텍스트 선택 방지
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          
+          &:active {
+            cursor: grabbing;
+          }
+
+          .disease-card-slide {
+            flex: 0 0 calc(100% / 1.5); // 한 화면에 1.5개 보이도록
+            padding-right: 12px;
+            box-sizing: border-box;
+            width: calc(100% / 1.5);
+            flex-shrink: 0; // 축소 방지
+            touch-action: pan-y pinch-zoom; // 수직 스크롤과 핀치 줌 허용
+            
+            // 반짝임 효과
+            &.glow-effect {
+              animation: cardGlowPulse 2.5s ease-in-out;
+            }
+          }
+        }
+
+        .diseases-slider-dots {
+          display: flex;
+          justify-content: center;
+          gap: 8px;
+          align-items: center;
+          margin-top: 48px; // 32px -> 48px로 증가
+
+          .slider-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--report-card-border, rgba(255, 255, 255, 0.2));
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 0;
+
+            &:hover {
+              background: var(--report-text-tertiary, rgba(255, 255, 255, 0.5));
+            }
+
+            &.active {
+              width: 24px;
+              border-radius: 4px;
+              background: var(--report-accent-color, #FFB84D);
+            }
+          }
+        }
+      }
+    }
+
+    .disease-section-divider {
+      height: 1px;
+      background: var(--report-border-color, rgba(255, 255, 255, 0.1));
+      margin: 24px 0;
+    }
+
+    .diseases-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .disease-card {
+      background: var(--report-card-bg, rgba(255, 255, 255, 0.05));
+      border: 1px solid var(--report-card-border, rgba(255, 255, 255, 0.1));
+      border-radius: 12px;
+      padding: 16px;
+      transition: transform 0.2s, box-shadow 0.2s;
+      height: 100%; // 카드 높이 통일
+      min-height: 280px; // 최소 높이 설정
+      display: flex;
+      flex-direction: column;
+      position: relative; // 뱃지 절대 위치를 위한 relative
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+
+      // 뱃지 - 우상단 고정
+      .disease-label {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        padding: 6px 12px;
+        border-radius: 16px;
+        color: white;
+        font-size: 12px;
+        font-weight: 600;
+        white-space: nowrap;
+        z-index: 1;
+      }
+
+      .disease-header {
+        display: flex;
+        justify-content: flex-start;
+        align-items: flex-start;
+        margin-bottom: 12px;
+        padding-right: 80px; // 뱃지 공간 확보
+
+        .disease-info {
+          flex: 1;
+
+          .disease-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--report-text-primary, #ffffff);
+            margin-bottom: 6px;
+          }
+
+          .disease-meta {
+            display: flex;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--report-text-tertiary, rgba(255, 255, 255, 0.6));
+
+            .disease-type {
+              padding: 3px 8px;
+              background: var(--report-accent-bg-light, rgba(255, 184, 77, 0.2));
+              border-radius: 4px;
+              color: var(--report-accent-color, #FFB84D);
+            }
+
+            .disease-rank {
+              color: var(--report-text-tertiary, rgba(255, 255, 255, 0.6));
+            }
+          }
+        }
+      }
+
+      .disease-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+
+        .stat-item {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+
+          .stat-label {
+            font-size: 12px;
+            color: var(--report-text-tertiary, rgba(255, 255, 255, 0.6));
+          }
+
+          .stat-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--report-text-primary, #ffffff);
+          }
+        }
+      }
+
+      .disease-influence {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+
+        .influence-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--report-text-secondary, rgba(255, 255, 255, 0.9));
+          margin-bottom: 8px;
+        }
+
+        .influence-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+
+          .influence-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            font-size: 12px;
+
+            .influence-name {
+              color: var(--report-text-secondary, rgba(255, 255, 255, 0.9));
+              font-weight: 500;
+            }
+
+            .influence-label {
+              color: var(--report-text-tertiary, rgba(255, 255, 255, 0.6));
+              font-size: 11px;
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  // 브라운 스킨 전용 스타일 (CSS 변수 사용으로 변경)
+  &.skin-br {
+    .age-comparison-section {
+      .age-box.current-age-box {
+        background: var(--report-age-card-current-bg, #FFFFFF);
+        border: 2px solid var(--report-age-card-current-border, #D4D4D4);
+        box-shadow: 0 2px 8px rgba(90, 70, 52, 0.1);
+      }
+    }
+    
+    .probability-section {
+      .chart-background {
+        stroke: var(--report-chart-background, rgba(90, 70, 52, 0.25));
+      }
+    }
+  }
+  
+  // 기본 스킨(G, M, B, R)에서 브라운 스킨 스타일 초기화 보장
+  &.skin-g,
+  &.skin-m,
+  &.skin-b,
+  &.skin-r {
+    .age-comparison-section {
+      .age-box.current-age-box {
+        background: var(--report-age-card-current-bg, var(--report-age-card-bg, rgba(255, 255, 255, 0.1)));
+        border: 2px solid var(--report-age-card-current-border, var(--report-age-card-border, rgba(255, 255, 255, 0.2)));
+        box-shadow: none;
+      }
+    }
+    
+    .probability-section {
+      .chart-background {
+        stroke: var(--report-chart-background, rgba(255, 255, 255, 0.1));
+      }
+    }
+  }
+}
+
+// 애니메이션
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// 질병/암 카드 반짝임 애니메이션
+@keyframes cardGlowPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(255, 184, 77, 0);
+    transform: scale(1);
+  }
+  20%, 40% {
+    box-shadow: 0 0 16px rgba(255, 184, 77, 0.6), 0 0 32px rgba(255, 184, 77, 0.4);
+    transform: scale(1.02);
+  }
+  30%, 50% {
+    box-shadow: 0 0 0 rgba(255, 184, 77, 0);
+    transform: scale(1);
+  }
+  60%, 80% {
+    box-shadow: 0 0 16px rgba(255, 184, 77, 0.6), 0 0 32px rgba(255, 184, 77, 0.4);
+    transform: scale(1.02);
+  }
+}
+
+// 반응형
+@media (max-width: 768px) {
+  .aims-report-page {
+    &.loading {
+      .loading-spinner {
+        padding: 32px 24px;
+
+        .countdown-number {
+          font-size: 96px;
+          margin: 24px auto;
+        }
+
+        p {
+          font-size: 15px;
+          line-height: 1.6;
+        }
+      }
+    }
+
+    .report-panel {
+      padding: 20px 16px;
+      max-height: 95vh;
+    }
+
+    .age-comparison-section {
+      .age-comparison-boxes {
+        flex-direction: row !important; // 가로 배치 유지
+        gap: 8px;
+
+        .age-arrow {
+          .arrow-icon {
+            transform: rotate(0deg); // 오른쪽 화살표 유지
+          }
+        }
+      }
+    }
+
+    .probability-charts {
+      grid-template-columns: 1fr;
+    }
+
+    .disease-card {
+      .disease-header {
+        flex-direction: column;
+        gap: 12px;
+
+        .disease-label {
+          align-self: flex-start;
+        }
+      }
+
+      .disease-stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .aims-report-page {
+    &.loading {
+      .loading-spinner {
+        padding: 24px 20px;
+
+        .countdown-number {
+          font-size: 80px;
+          margin: 20px auto;
+          text-shadow: 
+            0 0 15px rgba(255, 184, 77, 0.7),
+            0 0 30px rgba(255, 184, 77, 0.5),
+            0 3px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        p {
+          font-size: 14px;
+          line-height: 1.6;
+        }
+      }
+    }
+  }
+}

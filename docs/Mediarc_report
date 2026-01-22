@@ -1,0 +1,689 @@
+# 메디아크 리포트 생성 외부 API 가이드
+
+**작성일**: 2026-01-23  
+**버전**: 1.0  
+**대상**: 외부 파트너사
+
+---
+
+## 개요
+
+외부 파트너사가 API 키로 인증하여 투비콘(메디아크) 건강 리포트를 생성할 수 있는 API입니다.
+
+### 주요 특징
+
+- ✅ **투비콘 형식 직접 지원**: 복잡한 변환 없이 투비콘 데이터 형식으로 직접 요청
+- ✅ **API 키 인증**: 파트너사별 고유 API 키로 안전하게 인증
+- ✅ **선택적 반환**: PDF/데이터/둘 다 중 선택 가능
+- ✅ **UUID 매칭**: mkt_uuid로 PDF와 데이터 연결
+
+---
+
+## API 엔드포인트
+
+### Production
+```
+POST https://xogxog.com/api/external/mediarc/report/
+```
+
+### Development
+```
+POST http://localhost:8000/api/external/mediarc/report/
+```
+
+---
+
+## 인증
+
+### API 키 발급
+
+파트너사별 API 키는 피어나인에서 발급합니다.
+
+**현재 발급된 파트너**:
+- WELNO (웰노): `welno_5a9bb40b5108ecd8ef864658d5a2d5ab`
+- KIM_HW_CLINIC (김현우내과의원): `C44E0A83336AD8B1BC5CD21228AE0778...`
+- MDXHOS (메디링스 병원): `CEBFB480143B6F24BEB0870567EBF05C...`
+
+---
+
+## 요청 형식
+
+### Headers
+```
+Content-Type: application/json
+```
+
+### Request Body
+```json
+{
+  "api_key": "welno_5a9bb40b5108ecd8ef864658d5a2d5ab",
+  "user_name": "홍길동",
+  "twobecon_data": {
+    "tid": "TM_UNKNOWN_xxx",
+    "birth": "1966-02-05",
+    "gender": 1,
+    "drink": "DRK0002",
+    "smoke": "SMK0003",
+    "family": ["FH0001"],
+    "disease": ["DIS0001"],
+    "cancer": ["CNR0001"],
+    "checkup": {
+      "date": "2025-06-15",
+      "height": 164.0,
+      "weight": 62.0,
+      "waist": 80.0,
+      "bmi": 23.05,
+      "sbp": 98.0,
+      "dbp": 61.0,
+      "fbs": 90.0,
+      "tc": 176.0,
+      "hdl": 42.0,
+      "tg": 82.0,
+      "ldl": 140.0,
+      "scr": 0.7,
+      "gfr": 0.0,
+      "ast": 18.0,
+      "alt": 11.0,
+      "gpt": 20.0,
+      "tb": "정상"
+    }
+  },
+  "return_type": "both"
+}
+```
+
+### 필수 파라미터
+
+| 파라미터 | 타입 | 설명 |
+|----------|------|------|
+| `api_key` | string | 파트너 API 키 (필수) |
+| `user_name` | string | 사용자 이름 (필수) |
+| `twobecon_data` | object | 투비콘 형식 데이터 (필수) |
+| `return_type` | string | 반환 타입: "both" / "pdf" / "data" (기본값: "both") |
+
+### 투비콘 데이터 형식 (twobecon_data)
+
+#### 필수 필드
+- `tid`: 거래번호 (Transaction ID)
+- `birth`: 생년월일 (YYYY-MM-DD)
+- `gender`: 성별 (1=남, 0=여)
+- `checkup`: 검진 데이터 객체
+
+#### 선택 필드
+- `drink`: 음주 코드 (예: "DRK0002")
+- `smoke`: 흡연 코드 (예: "SMK0003")
+- `family`: 가족력 배열 (예: ["FH0001"])
+- `disease`: 질환 배열 (예: ["DIS0001"])
+- `cancer`: 암 배열 (예: ["CNR0001"])
+
+---
+
+## 데이터 검증 규칙
+
+### 필수 필드 검증
+
+다음 필드는 반드시 제공되어야 하며, 누락 시 400 에러가 반환됩니다.
+
+| 필드 | 타입 | 검증 규칙 | 예시 |
+|------|------|-----------|------|
+| `tid` | string | 비어있으면 안 됨 | "TM_UNKNOWN_xxx" |
+| `birth` | string | YYYY-MM-DD 형식 | "1966-02-05" |
+| `gender` | integer | 0 또는 1만 허용 | 1 (남성), 0 (여성) |
+| `checkup.height` | float | 0보다 커야 함 (100-250) | 164.0 |
+| `checkup.weight` | float | 0보다 커야 함 (30-200) | 62.0 |
+| `checkup.waist` | float | 0보다 커야 함 (50-150) | 80.0 |
+| `checkup.sbp` | float | 수축기 혈압 (80-200) | 98.0 |
+| `checkup.dbp` | float | 이완기 혈압 (50-130) | 61.0 |
+| `checkup.fbs` | float | 공복혈당 (70-200) | 90.0 |
+| `checkup.scr` | float | 혈청크레아티닌 (0-5) | 0.7 |
+| `checkup.ast` | float | AST 수치 (0-200) | 18.0 |
+| `checkup.alt` | float | ALT 수치 (0-200) | 11.0 |
+| `checkup.gpt` | float | 감마지티피 (0-200) | 20.0 |
+
+### 빈 값 처리 규칙
+
+- **빈 문자열 `""`**: 자동으로 `0.0`으로 변환
+- **null 값**: 자동으로 `0.0`으로 변환
+- **누락된 선택 필드**: 기본값 사용 (예: `tc`, `hdl`, `tg`, `ldl`)
+- **필수 필드 누락**: 에러 반환 (400 Bad Request)
+
+### 검진 데이터 상세 테이블
+
+| 필드 | 타입 | 필수 | 기본값 | 설명 | 정상범위 |
+|------|------|------|--------|------|----------|
+| `date` | string | O | - | 검진일자 (YYYY-MM-DD) | - |
+| `height` | float | O | - | 키 (cm) | 100-250 |
+| `weight` | float | O | - | 체중 (kg) | 30-200 |
+| `waist` | float | O | - | 허리둘레 (cm) | 50-150 |
+| `bmi` | float | O | 자동계산 | BMI (체질량지수) | 15-40 |
+| `sbp` | float | O | - | 수축기 혈압 (mmHg) | 80-200 |
+| `dbp` | float | O | - | 이완기 혈압 (mmHg) | 50-130 |
+| `up` | string | O | "" | 요단백 | "음성" or "" |
+| `hgb` | float | O | 0.0 | 혈색소 (g/dL) | 0-20 |
+| `fbs` | float | O | - | 공복혈당 (mg/dL) | 70-200 |
+| `tc` | float | X | 0 | 총콜레스테롤 (mg/dL) | 0-400 |
+| `hdl` | float | X | 0 | HDL콜레스테롤 (mg/dL) | 0-100 |
+| `tg` | float | X | 0 | 중성지방 (mg/dL) | 0-500 |
+| `ldl` | float | X | 0 | LDL콜레스테롤 (mg/dL) | 0-300 |
+| `scr` | float | O | - | 혈청크레아티닌 (mg/dL) | 0-5 |
+| `gfr` | float | O | 0.0 | 신사구체여과율 (mL/min) | 0-150 |
+| `ast` | float | O | - | AST (IU/L) | 0-200 |
+| `alt` | float | O | - | ALT (IU/L) | 0-200 |
+| `gpt` | float | O | - | 감마지티피 (IU/L) | 0-200 |
+| `tb` | string | O | "정상" | 폐결핵 흉부질환 | "정상" |
+
+---
+
+## 데이터 입력 시 주의사항
+
+### 1. 날짜 형식 엄수
+
+**반드시 `YYYY-MM-DD` 형식을 사용하세요.**
+
+```javascript
+// ❌ 잘못된 예
+"birth": "19660205"        // YYYYMMDD
+"birth": "1966/02/05"      // 슬래시 구분
+"birth": "1966.02.05"      // 점 구분
+"checkup.date": "20250615" // YYYYMMDD
+
+// ✅ 올바른 예
+"birth": "1966-02-05"      // YYYY-MM-DD
+"checkup.date": "2025-06-15"
+```
+
+### 2. 성별 값 주의
+
+**반드시 숫자 타입 (integer)을 사용하세요.**
+
+```javascript
+// ❌ 잘못된 예
+"gender": "1"      // 문자열
+"gender": "M"      // 문자
+"gender": "male"   // 영문
+
+// ✅ 올바른 예
+"gender": 1        // 남성 (숫자)
+"gender": 0        // 여성 (숫자)
+```
+
+### 3. BMI 자동 계산
+
+BMI는 서버에서 자동으로 계산되므로 정확한 `height`와 `weight`가 필수입니다.
+
+- **계산식**: `weight / (height/100)²`
+- **입력한 BMI 값은 무시되고 재계산됨**
+
+```javascript
+// 예시: 키 164cm, 몸무게 62kg
+{
+  "height": 164.0,
+  "weight": 62.0,
+  "bmi": 99.9  // 이 값은 무시되고, 23.05로 재계산됨
+}
+```
+
+### 4. 빈 값 처리
+
+검사하지 않은 항목은 명시적으로 `0` 또는 `0.0`을 입력하세요.
+
+```javascript
+// ✅ 권장 방법
+{
+  "tc": 0,      // 총콜레스테롤 미검사
+  "hdl": 0,     // HDL 미검사
+  "tg": 0,      // 중성지방 미검사
+  "ldl": 0      // LDL 미검사
+}
+
+// ⚠️ 가능하지만 비권장
+{
+  "tc": "",     // 빈 문자열 → 0.0으로 자동 변환
+  "hdl": null   // null → 0.0으로 자동 변환
+}
+```
+
+### 5. 필수 검진 항목
+
+최소한 다음 항목은 반드시 입력해야 합니다:
+
+- ✅ 키 (height)
+- ✅ 몸무게 (weight)
+- ✅ 허리둘레 (waist)
+- ✅ 혈압 (sbp, dbp)
+- ✅ 공복혈당 (fbs)
+- ✅ 크레아티닌 (scr)
+- ✅ AST, ALT, GPT
+
+**누락 시 리포트 생성이 불가능합니다.**
+
+### 6. 코드 값 정확성
+
+`drink`, `smoke`, `family`, `disease`, `cancer` 코드는 정확히 입력하세요.
+
+```javascript
+// ✅ 올바른 코드 사용
+{
+  "drink": "DRK0002",           // 음주: 아니요
+  "smoke": "SMK0003",           // 흡연: 아니요
+  "family": ["FH0001"],         // 가족력: 없음
+  "disease": ["DIS0001"],       // 질환: 없음
+  "cancer": ["CNR0001"]         // 암: 없음
+}
+
+// ❌ 잘못된 코드
+{
+  "drink": "NO",                // 에러
+  "smoke": "NON_SMOKER",        // 에러
+  "family": ["NONE"]            // 에러
+}
+```
+
+---
+
+## 응답 형식
+
+### 성공 응답 (HTTP 200)
+```json
+{
+  "success": true,
+  "mkt_uuid": "53ab296d-d792-491d-9ebd-71474afdca3f",
+  "report_url": "https://kr.ncloudstorage.com/xogxog/reports/twobecon_report_xxx.pdf",
+  "mediarC": {
+    "provider": "twobecon",
+    "analyzed_at": "2026-01-23T12:34:56",
+    "bodyage": 63,
+    "rank": 51,
+    "data": [
+      {
+        "name": "고혈압",
+        "code": "hypertension",
+        "type": "disease",
+        "label": "경계",
+        "rank": 81,
+        "average": 33,
+        "rate": 4.1
+      }
+    ]
+  },
+  "pdf_metadata": {
+    "s3_key": "reports/twobecon_report_xxx.pdf",
+    "filename": "twobecon_report_김명수_01012345678_20260123_120000.pdf"
+  },
+  "partner_id": "WELNO",
+  "partner_name": "웰노"
+}
+```
+
+### 에러 응답
+
+#### 400 Bad Request - API 키 누락
+```json
+{
+  "success": false,
+  "error": "API 키가 필요합니다."
+}
+```
+
+#### 400 Bad Request - 필수 파라미터 누락
+```json
+{
+  "success": false,
+  "error": "user_name이 필요합니다."
+}
+```
+
+#### 400 Bad Request - 필수 필드 누락
+```json
+{
+  "success": false,
+  "error": "필수 필드가 누락되었습니다: height, weight, waist"
+}
+```
+
+#### 400 Bad Request - 잘못된 데이터 형식
+```json
+{
+  "success": false,
+  "error": "birth 필드는 YYYY-MM-DD 형식이어야 합니다."
+}
+```
+
+#### 400 Bad Request - 잘못된 return_type
+```json
+{
+  "success": false,
+  "error": "return_type은 both, pdf, data 중 하나여야 합니다."
+}
+```
+
+#### 401 Unauthorized
+```json
+{
+  "success": false,
+  "error": "유효하지 않은 API 키입니다."
+}
+```
+
+#### 500 Internal Server Error - 투비콘 API 실패
+```json
+{
+  "success": false,
+  "error": "투비콘 분석 API 호출 실패: ...",
+  "api_stage": "analysis"
+}
+```
+
+#### 500 Internal Server Error - S3 업로드 실패
+```json
+{
+  "success": false,
+  "error": "S3 업로드 실패: ...",
+  "api_stage": "s3_upload",
+  "mkt_uuid": "xxx-xxx-xxx"
+}
+```
+
+---
+
+## return_type 옵션
+
+| return_type | PDF | 분석 데이터 | 설명 |
+|-------------|-----|-------------|------|
+| `"both"` | ✅ | ✅ | PDF + 분석 데이터 모두 반환 (기본값) |
+| `"pdf"` | ✅ | ❌ | PDF만 반환 |
+| `"data"` | ❌ | ✅ | 분석 데이터만 반환 |
+
+---
+
+## 사용 예시
+
+### JavaScript (Fetch)
+```javascript
+fetch('https://xogxog.com/api/external/mediarc/report/', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    api_key: 'welno_5a9bb40b5108ecd8ef864658d5a2d5ab',
+    user_name: '홍길동',
+    twobecon_data: {
+      tid: 'TM_UNKNOWN_xxx',
+      birth: '1966-02-05',
+      gender: 1,
+      checkup: {
+        date: '2025-06-15',
+        height: 164.0,
+        weight: 62.0,
+        // ... 기타 필드
+      }
+    },
+    return_type: 'both'
+  })
+})
+.then(response => response.json())
+.then(data => {
+  console.log('mkt_uuid:', data.mkt_uuid);
+  console.log('PDF URL:', data.report_url);
+  console.log('분석 데이터:', data.mediarC);
+});
+```
+
+### Python (requests)
+```python
+import requests
+
+response = requests.post(
+    'https://xogxog.com/api/external/mediarc/report/',
+    json={
+        'api_key': 'welno_5a9bb40b5108ecd8ef864658d5a2d5ab',
+        'user_name': '홍길동',
+        'twobecon_data': {
+            'tid': 'TM_UNKNOWN_xxx',
+            'birth': '1966-02-05',
+            'gender': 1,
+            'checkup': {
+                'date': '2025-06-15',
+                'height': 164.0,
+                'weight': 62.0,
+            }
+        },
+        'return_type': 'both'
+    }
+)
+
+result = response.json()
+print('mkt_uuid:', result['mkt_uuid'])
+print('PDF URL:', result['report_url'])
+```
+
+### cURL
+```bash
+curl -X POST https://xogxog.com/api/external/mediarc/report/ \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "api_key": "welno_5a9bb40b5108ecd8ef864658d5a2d5ab",
+    "user_name": "홍길동",
+    "twobecon_data": {
+      "tid": "TM_UNKNOWN_xxx",
+      "birth": "1966-02-05",
+      "gender": 1,
+      "checkup": {
+        "date": "2025-06-15",
+        "height": 164.0,
+        "weight": 62.0
+      }
+    },
+    "return_type": "both"
+  }'
+```
+
+---
+
+## UUID 매칭 방법
+
+`mkt_uuid`를 키로 사용하여 PDF와 분석 데이터를 매칭합니다.
+
+```javascript
+// 응답 저장
+const report = await fetchMediarcReport(...);
+const mktUuid = report.mkt_uuid;  // "53ab296d-d792-491d-9ebd-71474afdca3f"
+
+// PDF URL 저장
+database.savePdfUrl(mktUuid, report.report_url);
+
+// 분석 데이터 저장
+database.saveAnalysisData(mktUuid, report.mediarC);
+
+// 나중에 UUID로 조회
+const pdfUrl = database.getPdfUrl(mktUuid);
+const analysisData = database.getAnalysisData(mktUuid);
+```
+
+---
+
+## 보안 및 주의사항
+
+### 1. API 키 관리
+- ⚠️ API 키는 절대 클라이언트 사이드 코드에 노출하지 마세요
+- ✅ 서버 사이드에서만 사용
+- ✅ 환경 변수로 관리
+
+### 2. HTTPS 사용
+- ✅ 프로덕션 환경에서는 반드시 HTTPS 사용
+
+### 3. 에러 처리
+```javascript
+try {
+  const result = await fetch(...);
+  if (!result.success) {
+    console.error('API 에러:', result.error);
+  }
+} catch (error) {
+  console.error('네트워크 에러:', error);
+}
+```
+
+---
+
+## 투비콘 데이터 코드표
+
+### 성별 (gender)
+- `1`: 남성
+- `0`: 여성
+
+### 음주 (drink)
+- `DRK0001`: 예
+- `DRK0002`: 아니요
+
+### 흡연 (smoke)
+- `SMK0001`: 예
+- `SMK0002`: 금연중
+- `SMK0003`: 아니요
+
+### 가족력 (family)
+*다중선택 가능*
+
+- `FH0001`: 없음
+- `FH0002`: 고혈압
+- `FH0003`: 뇌혈관질환
+- `FH0004`: 당뇨
+- `FH0005`: 대장암
+- `FH0006`: 심혈관질환
+- `FH0007`: 갑상선암
+- `FH0008`: 신장암
+- `FH0009`: 유방암
+- `FH0010`: 전립선암
+- `FH0011`: 폐암
+
+### 질환 (disease)
+*다중선택 가능*
+
+- `DIS0001`: 없음
+- `DIS0002`: 간경화
+- `DIS0003`: 갑상선염
+- `DIS0004`: 고혈압
+- `DIS0005`: 궤양성대장염
+- `DIS0006`: 뇌혈관질환
+- `DIS0007`: 늦은 폐경
+- `DIS0008`: 담낭용종
+- `DIS0009`: 담석증
+- `DIS0010`: 당뇨
+- `DIS0011`: 만성위염
+- `DIS0012`: 바이러스성간염 B형
+- `DIS0013`: 바이러스성간염 C형
+- `DIS0014`: 심혈관질환
+- `DIS0015`: 알츠하이머병
+- `DIS0016`: 장티푸스 보균자
+- `DIS0017`: 췌장염
+- `DIS0018`: 헬리코박터균 감염
+
+### 암 (cancer)
+*다중선택 가능*
+
+- `CNR0001`: 없음
+- `CNR0002`: 간암
+- `CNR0003`: 갑상선암
+- `CNR0004`: 담낭암
+- `CNR0005`: 대장암
+- `CNR0006`: 신장암
+- `CNR0007`: 위암
+- `CNR0008`: 유방암
+- `CNR0009`: 전립선암
+- `CNR0010`: 췌장암
+- `CNR0011`: 폐암
+
+---
+
+## 투비콘 분석 결과 코드
+
+API 응답의 `mediarC.data[]` 배열에 포함되는 질환/암 분석 결과 코드입니다.
+
+### 질환 (type: "disease")
+
+| 코드 | 한글명 | 설명 |
+|------|--------|------|
+| `alzheimers` | 알츠하이머 | 알츠하이머병 발병 위험도 |
+| `cardiovascular` | 심혈관질환 | 심혈관질환 발병 위험도 |
+| `cerebrovascular` | 뇌혈관질환 | 뇌혈관질환 발병 위험도 |
+| `diabetes` | 당뇨 | 당뇨병 발병 위험도 |
+| `hypertension` | 고혈압 | 고혈압 발병 위험도 |
+| `kidney` | 만성신장병 | 만성신장병 발병 위험도 |
+| `metabolic` | 대사증후군 | 대사증후군 발병 위험도 |
+
+### 암 (type: "cancer")
+
+| 코드 | 한글명 | 성별 | 설명 |
+|------|--------|------|------|
+| `breast` | 유방암 | 여성전용 | 유방암 발병 위험도 |
+| `colorectal` | 대장암 | 공통 | 대장암 발병 위험도 |
+| `gallbladder` | 담낭암 | 공통 | 담낭암 발병 위험도 |
+| `liver` | 간암 | 공통 | 간암 발병 위험도 |
+| `lung` | 폐암 | 공통 | 폐암 발병 위험도 |
+| `pancreatic` | 췌장암 | 공통 | 췌장암 발병 위험도 |
+| `prostate` | 전립선암 | 남성전용 | 전립선암 발병 위험도 |
+| `renal` | 신장암 | 공통 | 신장암 발병 위험도 |
+| `stomach` | 위암 | 공통 | 위암 발병 위험도 |
+| `thyroid` | 갑상선암 | 공통 | 갑상선암 발병 위험도 |
+
+### 등급 (label)
+
+분석 결과의 등급 분류:
+- **정상**: 발병률 1.0 이하
+- **이상**: 발병률 1.1 ~ 3.0
+- **경계**: 발병률 3.1 ~ 4.9
+- **위험**: 발병률 5.0 이상
+- **유질환자**: 이미 질환 보유
+
+---
+
+## API 호출 전 체크리스트
+
+API를 호출하기 전에 다음 사항을 확인하세요.
+
+### 인증 및 기본 정보
+- [ ] API 키가 유효한가?
+- [ ] `user_name`이 입력되었는가?
+- [ ] `return_type`이 올바른 값인가? (`both`, `pdf`, `data`)
+
+### 필수 데이터
+- [ ] `tid` (거래번호)가 설정되었는가?
+- [ ] `birth`가 `YYYY-MM-DD` 형식인가?
+- [ ] `gender`가 숫자 타입 (0 또는 1)인가?
+
+### 검진 데이터
+- [ ] 키 (height)가 100-250 범위인가?
+- [ ] 몸무게 (weight)가 30-200 범위인가?
+- [ ] 허리둘레 (waist)가 50-150 범위인가?
+- [ ] 수축기 혈압 (sbp)이 80-200 범위인가?
+- [ ] 이완기 혈압 (dbp)이 50-130 범위인가?
+- [ ] 공복혈당 (fbs)이 70-200 범위인가?
+- [ ] 크레아티닌 (scr)이 0-5 범위인가?
+- [ ] AST, ALT, GPT가 0-200 범위인가?
+
+### 데이터 형식
+- [ ] 모든 숫자 필드가 숫자 타입인가? (문자열 아님)
+- [ ] 날짜 필드가 하이픈(-) 구분자를 사용하는가?
+- [ ] 코드 값들이 정확한 형식인가? (DRK0001, SMK0003 등)
+- [ ] 배열 필드가 올바르게 전달되는가? (family, disease, cancer)
+
+### 선택 항목
+- [ ] 검사하지 않은 항목은 `0` 또는 `0.0`으로 설정되었는가?
+- [ ] 빈 문자열이나 null 대신 명시적 값을 사용하는가?
+
+---
+
+## 문의
+
+- **기술 지원**: thomas.kim@peernine.co.kr
+- **API 키 발급**: admin@peernine.co.kr
+
+---
+
+**문서 버전**: 1.2  
+**최종 수정**: 2026-01-23  
+**변경 이력**:
+- v1.2 (2026-01-23): 요단백 값 수정, 전체 코드표 추가 (가족력 11개, 질환 18개, 암 11개), 투비콘 분석 결과 코드표 추가
+- v1.1 (2026-01-23): 데이터 검증 규칙, 주의사항, 체크리스트 추가
+- v1.0 (2026-01-23): 초기 버전

@@ -15,54 +15,59 @@
   .detail-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center; // 중앙 정렬
+    gap: $spacing-md;
     margin-bottom: $spacing-lg;
     
-    .back-button {
-      width: 40px;
-      height: 40px;
-      border: none;
-      background: $gray-100;
-      color: $gray-800;
-      font-size: $font-xl;
-      border-radius: $border-radius-lg;
-      cursor: pointer;
-      transition: all 0.2s ease;
+    // 헤더 내부 연도 표시 (인라인)
+    .year-display-inline {
       display: flex;
       align-items: center;
-      justify-content: center;
+      gap: $spacing-sm;
+      flex: 0 0 auto; // flex: 1 제거, 자동 크기로 변경
       
-      &:hover {
-        background: $gray-200;
+      .year-text {
+        font-size: $font-lg;
+        font-weight: $font-weight-semibold;
+        color: $brand-brown-darker;
+        font-family: $font-family-value;
+        min-width: 60px;
+        text-align: center;
       }
       
-      &:active {
-        transform: scale(0.95);
+      .year-arrow {
+        font-size: $font-base;
+        color: $gray-600;
+        cursor: pointer;
+        padding: $spacing-xs $spacing-sm;
+        border-radius: $border-radius-sm;
+        border: none;
+        background: transparent;
+        transition: all 0.2s ease;
+        user-select: none;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        
+        &:hover:not(.disabled) {
+          background: $gray-100;
+          color: $brand-brown-darker;
+        }
+        
+        &:active:not(.disabled) {
+          transform: scale(0.95);
+        }
+        
+        &.disabled {
+          color: $gray-400;
+          cursor: not-allowed;
+          opacity: 0.5;
+        }
       }
     }
     
-    .detail-title {
-      font-size: $font-xl;
-      font-weight: $font-weight-semibold;
-      color: $gray-900;
-      margin: 0;
-      flex: 1;
-      text-align: center;
-    }
-    
-    .header-spacer {
-      width: 40px; // back-button과 동일한 너비로 중앙 정렬
-    }
-  }
-  
-  // 연도 표시
-  .year-display {
-    font-size: $font-3xl;
-    font-weight: $font-weight-bold;
-    color: $brand-brown-darker;
-    text-align: center;
-    margin-bottom: $spacing-lg;
-    font-family: $font-family-value;
   }
   
   // 주의 항목 개수

@@ -30,38 +30,90 @@ $accordion-ultra-compact-spacing: 2px; // 아코디언 초간격 (문진 반영,
     max-height: 180px; // 최대 높이 제한
   }
 
-  // 로고와 인사말 간격 더 줄이기
-  .main-page__header {
-    margin-bottom: -28px !important; // -24px에서 -28px로 더 줄임
+  // 로고와 인사말 간격 조정 (음수 마진 제거)
+  // 더 구체적인 셀렉터로 우선순위 높이기
+  .main-page__header-greeting-section .main-page__header {
+    margin-bottom: 0 !important; // 음수 마진 제거
+    padding: 14px 0 !important; // 모바일: 상하 패딩 증가 (버튼 영역 확보)
+    padding-top: 14px !important; // 상단 패딩 명시
+    min-height: 48px !important; // 모바일: 버튼 높이 보장 (absolute 버튼을 위해)
     
-    // 닫기 버튼이 있는 헤더 레이아웃
-    &.checkup-recommendations__header-with-close {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      position: relative;
+    // 데스크톱: 패딩 및 높이 증가
+    @media (min-width: 768px) {
+      padding: 16px 0 !important;
+      padding-top: 16px !important;
+      min-height: 52px !important;
+    }
+  }
+  
+  // 뒤로가기 버튼 있는 헤더
+  .main-page__header-greeting-section .main-page__header.checkup-recommendations__header-with-back {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    position: relative;
+    margin-bottom: 0 !important;
+    padding: 14px 0 !important;
+    padding-top: 14px !important;
+    min-height: 48px !important;
+    
+    // 데스크톱
+    @media (min-width: 768px) {
+      padding: 16px 0 !important;
+      padding-top: 16px !important;
+      min-height: 52px !important;
+    }
+  }
+  
+  // 로고 중앙 정렬 및 좌우 버튼 공간 확보
+  .main-page__header-greeting-section .main-page__header-logo {
+    margin: 0 auto !important; // 중앙 정렬
+    padding: 0 50px !important; // 좌우 버튼 영역 확보 (버튼 폭 + 여백)
+    z-index: 1; // 버튼보다 아래
+  }
+
+  // 인사말 영역
+  .main-page__header-greeting-section .main-page__greeting {
+    margin-top: 16px !important; // 모바일: min-height 보장으로 적절한 간격
+    margin-bottom: 0 !important;
+    padding-top: 0 !important; // 상단 패딩 제거
+    padding-bottom: $spacing-xs !important; // $spacing-sm에서 $spacing-xs로 더 줄임
+    
+    // 데스크톱: 간격 유지
+    @media (min-width: 768px) {
+      margin-top: 16px !important;
     }
   }
 
-  .main-page__greeting {
-    margin-top: -28px !important; // -24px에서 -28px로 더 줄임
-    padding-bottom: $spacing-xs !important; // $spacing-sm에서 $spacing-xs로 더 줄임
+  // 환자 이름 스타일 (검진 추천 페이지 전용)
+  .checkup-recommendations__patient-name {
+    font-size: 16px !important; // 모바일: 16px
+    font-weight: $font-weight-bold !important;
+    margin-bottom: 6px !important; // 아래 간격 추가
+    display: inline-block !important; // 간격 확보
+    line-height: 1.3 !important; // 라인 높이 조정
+    
+    // 데스크톱: 폰트 크기 증가
+    @media (min-width: 768px) {
+      font-size: 18px !important;
+    }
+  }
+
+  // 인사 텍스트 스타일 조정 (검진 추천 페이지)
+  .main-page__greeting-title .greeting-text {
+    margin-top: 6px !important; // 위 간격 추가
+    display: inline-block !important;
   }
 
   // 뒤로가기 버튼 (좌측, 다른 페이지와 동일한 위치)
   &__header-with-back {
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    
     .back-button-container {
       position: absolute;
       left: $spacing-md;
       top: 50%;
       transform: translateY(-50%);
-      z-index: 1;
+      z-index: 10; // 로고보다 위에 표시
     }
   }
 
@@ -71,7 +123,7 @@ $accordion-ultra-compact-spacing: 2px; // 아코디언 초간격 (문진 반영,
     right: $spacing-md;
     top: 50%;
     transform: translateY(-50%);
-    z-index: 1;
+    z-index: 10; // 로고보다 위에 표시
   }
 
   &__refresh-button {

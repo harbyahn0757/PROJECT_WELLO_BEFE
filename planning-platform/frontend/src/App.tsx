@@ -17,6 +17,7 @@ import PrescriptionHistory from './pages/PrescriptionHistory';
 import HealthComparison from './pages/HealthComparison';
 import AppointmentPage from './pages/AppointmentPage';
 import ResultsTrendPage from './pages/ResultsTrendPage';
+import DiseaseReportPage from './features/disease-report/pages/DiseaseReportPage';
 // import RagTestPage from './pages/RagTestPage';
 import AppointmentModal from './components/appointment/AppointmentModal';
 import { LayoutType } from './constants/layoutTypes';
@@ -397,6 +398,8 @@ const AppContent: React.FC = () => {
         <Route path="/results-trend" element={<ResultsTrendPage />} />
         {/* 이전 호환성: /results → /results-trend 리다이렉트 */}
         <Route path="/results" element={<Navigate to="/results-trend" replace />} />
+        {/* ⭐ 질병예측 리포트 페이지 */}
+        <Route path="/disease-report" element={<DiseaseReportPage />} />
         <Route path="/prescription-history" element={<PrescriptionHistory />} />
         <Route path="/comparison" element={<HealthComparison />} />
         <Route path="/appointment" element={<AppointmentPage />} />

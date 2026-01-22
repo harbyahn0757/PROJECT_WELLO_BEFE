@@ -1,0 +1,129 @@
+.report-action-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+}
+
+.report-action-modal {
+  background: #ffffff;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e0e0e0;
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333333;
+      margin: 0;
+    }
+
+    .modal-close-button {
+      background: none;
+      border: none;
+      font-size: 28px;
+      color: #999999;
+      cursor: pointer;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.2s;
+
+      &:hover {
+        color: #333333;
+      }
+    }
+  }
+
+  .modal-content {
+    padding: 24px;
+
+    .modal-description {
+      font-size: 14px;
+      color: #666666;
+      line-height: 1.6;
+      margin: 0 0 24px 0;
+      text-align: center;
+    }
+
+    .modal-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+
+      .action-button {
+        width: 100%;
+        padding: 14px 24px;
+        font-size: 16px;
+        font-weight: 600;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+
+        &.view-report-button {
+          color: #ffffff;
+          background: var(--button-primary, #4a90e2);
+
+          &:hover {
+            background: var(--primary-dark, var(--primary-hover, #357abd));
+          }
+        }
+
+        &.restart-survey-button {
+          color: var(--button-primary, #4a90e2);
+          background: #ffffff;
+          border: 2px solid var(--button-primary, #4a90e2);
+
+          &:hover {
+            background: var(--button-secondary, var(--primary-bg-light, #f0f7ff));
+          }
+        }
+      }
+    }
+  }
+
+  // 스킨별 스타일 (기본 스타일에서 이미 CSS 변수 사용하므로 스킨별 오버라이드는 필요시에만)
+  &.skin-g,
+  &.skin-m,
+  &.skin-b,
+  &.skin-r,
+  &.skin-br {
+    .modal-actions .view-report-button {
+      background: var(--button-primary, var(--accent-color, #4a90e2));
+      
+      &:hover {
+        background: var(--primary-dark, var(--primary-hover, #357abd));
+    }
+    }
+    
+    .modal-actions .restart-survey-button {
+      color: var(--button-primary, var(--accent-color, #4a90e2));
+      border-color: var(--button-primary, var(--accent-color, #4a90e2));
+      
+      &:hover {
+        background: var(--button-secondary, var(--primary-bg-light, #f0f7ff));
+      }
+    }
+  }
+}
+

@@ -367,6 +367,11 @@ const CheckupRecommendationsPage: React.FC = () => {
   const [showDebugPanel, setShowDebugPanel] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // URL에서 환자 정보 가져오기 (patient가 없을 때 대비)
+  const urlParams = new URLSearchParams(window.location.search);
+  const patientUuid = urlParams.get('uuid');
+  const [patientName, setPatientName] = useState<string>(patient?.name || '사용자');
 
   // GPT 응답 데이터 (location.state에서 받음 또는 DB에서 불러옴)
   const [gptResponse, setGptResponse] = useState<any>(location.state?.checkupDesign);
@@ -461,6 +466,33 @@ const CheckupRecommendationsPage: React.FC = () => {
       alert('❌ 로그 다운로드 실패');
     }
   };
+
+  // 환자 이름 로드 (patient context에 없을 때 API 호출)
+  useEffect(() => {
+    const loadPatientName = async () => {
+      if (patient?.name) {
+        setPatientName(patient.name);
+        return;
+      }
+
+      if (!patientUuid) return;
+
+      try {
+        const response = await fetch(`/welno-api/v1/patients/${patientUuid}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data?.name) {
+            console.log('✅ [환자정보] 환자 이름 로드:', data.data.name);
+            setPatientName(data.data.name);
+          }
+        }
+      } catch (error) {
+        console.error('❌ [환자정보] 환자 이름 로드 실패:', error);
+      }
+    };
+
+    loadPatientName();
+  }, [patient?.name, patientUuid]);
 
   // 저장된 설계 결과 불러오기 (location.state에 없을 때만)
   useEffect(() => {
@@ -717,7 +749,7 @@ const CheckupRecommendationsPage: React.FC = () => {
     } : undefined);
 
     return {
-      patientName: patient?.name || '환자',
+      patientName: patientName,
       totalCount: categories.reduce((sum, cat) => sum + cat.itemCount, 0),
       categories,
       summary,
@@ -730,9 +762,9 @@ const CheckupRecommendationsPage: React.FC = () => {
     ? convertGPTResponseToRecommendationData(gptResponse)
     : {
         ...mockRecommendationData,
-        patientName: patient?.name || mockRecommendationData.patientName,
+        patientName: patientName,
       };
-  }, [gptResponse, patient?.name]);
+  }, [gptResponse, patientName]);
 
   // 최종 설계 응답값 콘솔 로그 출력 (점검용)
   useEffect(() => {

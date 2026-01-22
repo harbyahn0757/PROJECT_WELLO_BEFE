@@ -20,19 +20,140 @@ class WelnoDataService:
             "password": "autumn3334!"
         }
     
+    # ========================================
+    # 공통 헬퍼 함수들
+    # ========================================
+    
+    async def _fetch_patient_base(
+        self,
+        conn: asyncpg.Connection,
+        uuid: Optional[str] = None,
+        hospital_id: Optional[str] = None,
+        phone_number: Optional[str] = None,
+        birth_date: Optional[date] = None,
+        name: Optional[str] = None,
+        include_timestamps: bool = False
+    ) -> Optional[asyncpg.Record]:
+        """
+        공통 환자 정보 조회 헬퍼
+        
+        조회 모드:
+        1. uuid + hospital_id: 특정 환자 조회 (login, check_existing_data)
+        2. uuid only: 병원 무관 조회 (get_patient_by_uuid)
+        3. phone + birth + name: 복합키 조회 (get_patient_by_combo)
+        
+        Args:
+            conn: asyncpg 연결 객체
+            uuid: 환자 UUID
+            hospital_id: 병원 ID
+            phone_number: 전화번호
+            birth_date: 생년월일 (date 객체)
+            name: 환자 이름
+            include_timestamps: True면 created_at, updated_at 포함
+            
+        Returns:
+            환자 정보 Record 또는 None
+        """
+        # 기본 컬럼 (모든 함수 공통)
+        base_columns = """
+            id, uuid, hospital_id, name, phone_number, birth_date, gender,
+            has_health_data, has_prescription_data, has_mediarc_report,
+            last_data_update, last_auth_at, last_access_at
+        """
+        
+        # 타임스탬프 추가 (일부 함수만 필요)
+        full_columns = f"{base_columns}, created_at, updated_at" if include_timestamps else base_columns
+        
+        # WHERE 조건 동적 생성
+        if uuid and hospital_id:
+            query = f"SELECT {full_columns} FROM welno.welno_patients WHERE uuid = $1 AND hospital_id = $2"
+            return await conn.fetchrow(query, uuid, hospital_id)
+        elif uuid:
+            query = f"SELECT {full_columns} FROM welno.welno_patients WHERE uuid = $1"
+            return await conn.fetchrow(query, uuid)
+        elif phone_number and birth_date and name:
+            query = f"""
+                SELECT {full_columns} FROM welno.welno_patients
+                WHERE phone_number = $1 AND birth_date = $2 AND name = $3
+                ORDER BY last_auth_at DESC NULLS LAST, created_at DESC
+                LIMIT 1
+            """
+            return await conn.fetchrow(query, phone_number, birth_date, name)
+        
+        return None
+    
+    def _serialize_patient_dates(self, patient_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        환자 정보의 날짜 필드를 ISO 형식 문자열로 변환
+        
+        Args:
+            patient_dict: 환자 정보 딕셔너리
+            
+        Returns:
+            날짜가 변환된 환자 정보 딕셔너리
+        """
+        date_fields = [
+            'birth_date', 'last_data_update', 'last_auth_at',
+            'last_access_at', 'created_at', 'updated_at'
+        ]
+        
+        for field in date_fields:
+            if patient_dict.get(field):
+                value = patient_dict[field]
+                if isinstance(value, (datetime, date)):
+                    patient_dict[field] = value.isoformat()
+        
+        return patient_dict
+    
+    async def _fetch_patient_data_counts(
+        self,
+        conn: asyncpg.Connection,
+        uuid: str,
+        hospital_id: str
+    ) -> Dict[str, int]:
+        """
+        환자의 건강검진/처방전/Mediarc 리포트 개수 조회
+        
+        Args:
+            conn: asyncpg 연결 객체
+            uuid: 환자 UUID
+            hospital_id: 병원 ID
+            
+        Returns:
+            데이터 개수 딕셔너리 (health_data_count, prescription_data_count, mediarc_report_count)
+        """
+        health_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM welno.welno_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2",
+            uuid, hospital_id
+        )
+        
+        prescription_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM welno.welno_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2",
+            uuid, hospital_id
+        )
+        
+        mediarc_count = await conn.fetchval(
+            "SELECT COUNT(*) FROM welno.welno_mediarc_reports WHERE patient_uuid = $1 AND hospital_id = $2",
+            uuid, hospital_id
+        )
+        
+        return {
+            "health_data_count": health_count,
+            "prescription_data_count": prescription_count,
+            "mediarc_report_count": mediarc_count
+        }
+    
+    # ========================================
+    # 기존 서비스 함수들
+    # ========================================
+    
     async def check_existing_data(self, uuid: str, hospital_id: str) -> Dict[str, Any]:
-        """기존 데이터 존재 여부 확인"""
+        """기존 데이터 존재 여부 확인 (리팩토링 완료 - 헬퍼 함수 사용)"""
         try:
             conn = await asyncpg.connect(**self.db_config)
             
-            # 환자 정보 조회
-            patient_query = """
-                SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
-                       has_health_data, has_prescription_data, last_data_update, last_auth_at, last_access_at
-                FROM welno.welno_patients 
-                WHERE uuid = $1 AND hospital_id = $2
-            """
-            patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
+            # 헬퍼 함수로 환자 정보 조회
+            patient_row = await self._fetch_patient_base(conn, uuid=uuid, hospital_id=hospital_id)
             
             if not patient_row:
                 await conn.close()
@@ -41,25 +162,23 @@ class WelnoDataService:
                     "patient": None,
                     "health_data_count": 0,
                     "prescription_data_count": 0,
+                    "mediarc_report_count": 0,
                     "last_update": None
                 }
             
-            # 건강검진 데이터 개수 조회 (patient_uuid 기준)
-            health_count_query = "SELECT COUNT(*) FROM welno.welno_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2"
-            health_count = await conn.fetchval(health_count_query, uuid, hospital_id)
-            
-            # 처방전 데이터 개수 조회 (patient_uuid 기준)
-            prescription_count_query = "SELECT COUNT(*) FROM welno.welno_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2"
-            prescription_count = await conn.fetchval(prescription_count_query, uuid, hospital_id)
-            
+            # 헬퍼 함수로 데이터 개수 조회 (health, prescription, mediarc)
+            counts = await self._fetch_patient_data_counts(conn, uuid, hospital_id)
             await conn.close()
+            
+            # 헬퍼 함수로 날짜 변환
+            patient_dict = self._serialize_patient_dates(dict(patient_row))
             
             return {
                 "exists": True,
-                "patient": dict(patient_row),
-                "health_data_count": health_count,
-                "prescription_data_count": prescription_count,
-                "last_update": patient_row['last_data_update']
+                "patient": patient_dict,
+                **counts,  # health_data_count, prescription_data_count, mediarc_report_count
+                "has_mediarc_report": patient_row['has_mediarc_report'],
+                "last_update": patient_dict.get('last_data_update')
             }
             
         except Exception as e:
@@ -70,43 +189,26 @@ class WelnoDataService:
             }
 
     async def login_patient(self, uuid: str, hospital_id: str) -> Dict[str, Any]:
-        """환자 로그인 처리"""
+        """환자 로그인 처리 (리팩토링 완료 - 헬퍼 함수 사용)"""
         try:
             conn = await asyncpg.connect(**self.db_config)
             
-            # 환자 정보 조회
-            patient_query = """
-                SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
-                       has_health_data, has_prescription_data, last_data_update, last_auth_at, last_access_at
-                FROM welno.welno_patients 
-                WHERE uuid = $1 AND hospital_id = $2
-            """
-            patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
+            # 헬퍼 함수로 환자 정보 조회
+            patient_row = await self._fetch_patient_base(conn, uuid=uuid, hospital_id=hospital_id)
             
             if not patient_row:
                 await conn.close()
                 return {"error": "환자 정보를 찾을 수 없습니다"}
             
             # 마지막 로그인 시간 업데이트
-            update_query = """
-                UPDATE welno.welno_patients 
-                SET last_auth_at = NOW()
-                WHERE uuid = $1 AND hospital_id = $2
-            """
-            await conn.execute(update_query, uuid, hospital_id)
-            
-            # 환자 정보를 딕셔너리로 변환
-            patient_dict = dict(patient_row)
-            
-            # 날짜 객체를 문자열로 변환
-            if patient_dict.get('birth_date'):
-                patient_dict['birth_date'] = patient_dict['birth_date'].isoformat()
-            if patient_dict.get('last_data_update'):
-                patient_dict['last_data_update'] = patient_dict['last_data_update'].isoformat()
-            if patient_dict.get('last_auth_at'):
-                patient_dict['last_auth_at'] = patient_dict['last_auth_at'].isoformat()
-            
+            await conn.execute(
+                "UPDATE welno.welno_patients SET last_auth_at = NOW() WHERE uuid = $1 AND hospital_id = $2",
+                uuid, hospital_id
+            )
             await conn.close()
+            
+            # 헬퍼 함수로 날짜 변환
+            patient_dict = self._serialize_patient_dates(dict(patient_row))
             
             return {
                 "patient": patient_dict,
@@ -119,41 +221,31 @@ class WelnoDataService:
             return {"error": f"로그인 처리 중 오류가 발생했습니다: {str(e)}"}
 
     async def get_patient_by_uuid(self, uuid: str) -> Dict[str, Any]:
-        """UUID로 환자 정보 조회"""
+        """UUID로 환자 정보 조회 (리팩토링 완료 - 헬퍼 함수 사용)"""
         try:
             conn = await asyncpg.connect(**self.db_config)
             
-            # 환자 정보 조회
-            patient_query = """
-                SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
-                       has_health_data, has_prescription_data, last_data_update, last_auth_at, last_access_at,
-                       created_at, updated_at
-                FROM welno.welno_patients 
-                WHERE uuid = $1
-            """
-            patient_row = await conn.fetchrow(patient_query, uuid)
+            # 헬퍼 함수로 환자 정보 조회 (타임스탬프 포함)
+            patient_row = await self._fetch_patient_base(
+                conn,
+                uuid=uuid,
+                include_timestamps=True
+            )
             await conn.close()
             
             if not patient_row:
                 return {"error": "환자 정보를 찾을 수 없습니다"}
             
-            # 환자 정보를 딕셔너리로 변환
-            patient_dict = dict(patient_row)
+            # 헬퍼 함수로 날짜 변환
+            patient_dict = self._serialize_patient_dates(dict(patient_row))
             
-            # 날짜 객체를 문자열로 변환
-            if patient_dict.get('birth_date'):
-                if isinstance(patient_dict['birth_date'], date):
-                    patient_dict['birth_date'] = patient_dict['birth_date'].isoformat()
-            if patient_dict.get('last_data_update'):
-                patient_dict['last_data_update'] = patient_dict['last_data_update'].isoformat()
-            if patient_dict.get('last_auth_at'):
-                patient_dict['last_auth_at'] = patient_dict['last_auth_at'].isoformat()
-            if patient_dict.get('last_access_at'):
-                patient_dict['last_access_at'] = patient_dict['last_access_at'].isoformat()
-            if patient_dict.get('created_at'):
-                patient_dict['created_at'] = patient_dict['created_at'].isoformat()
-            if patient_dict.get('updated_at'):
-                patient_dict['updated_at'] = patient_dict['updated_at'].isoformat()
+            # 🔍 생년월일 데이터 확인 로그
+            print(f"🔍 [get_patient_by_uuid] 환자 정보 조회:")
+            print(f"  - uuid: {uuid}")
+            print(f"  - name: {patient_dict.get('name')}")
+            print(f"  - birth_date (원본): {dict(patient_row).get('birth_date')}")
+            print(f"  - birth_date (변환 후): {patient_dict.get('birth_date')}")
+            print(f"  - birth_date NULL 여부: {dict(patient_row).get('birth_date') is None}")
             
             return patient_dict
             
@@ -167,9 +259,8 @@ class WelnoDataService:
         birth_date: str,  # YYYYMMDD 또는 YYYY-MM-DD 형식
         name: str
     ) -> Optional[Dict[str, Any]]:
-        """전화번호, 생년월일, 이름으로 기존 환자 조회"""
+        """전화번호, 생년월일, 이름으로 기존 환자 조회 (리팩토링 완료 - 헬퍼 함수 사용)"""
         try:
-            from datetime import datetime, date
             conn = await asyncpg.connect(**self.db_config)
             
             # 생년월일 형식 정규화 및 date 객체 변환
@@ -187,42 +278,19 @@ class WelnoDataService:
                 await conn.close()
                 return None
             
-            # 환자 조회 쿼리
-            query = """
-                SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
-                       has_health_data, has_prescription_data, last_data_update, last_auth_at,
-                       created_at, updated_at
-                FROM welno.welno_patients 
-                WHERE phone_number = $1 
-                  AND birth_date = $2 
-                  AND name = $3
-                ORDER BY last_auth_at DESC NULLS LAST, created_at DESC
-                LIMIT 1
-            """
-            
-            row = await conn.fetchrow(query, phone_number, birth_date_obj, name)
+            # 헬퍼 함수로 환자 정보 조회 (복합키, 타임스탬프 포함)
+            patient_row = await self._fetch_patient_base(
+                conn,
+                phone_number=phone_number,
+                birth_date=birth_date_obj,
+                name=name,
+                include_timestamps=True
+            )
             await conn.close()
             
-            if row:
-                patient_dict = dict(row)
-                
-                # 날짜 객체를 문자열로 변환
-                if patient_dict.get('birth_date'):
-                    if isinstance(patient_dict['birth_date'], date):
-                        patient_dict['birth_date'] = patient_dict['birth_date'].isoformat()
-                if patient_dict.get('last_data_update'):
-                    if isinstance(patient_dict['last_data_update'], datetime):
-                        patient_dict['last_data_update'] = patient_dict['last_data_update'].isoformat()
-                if patient_dict.get('last_auth_at'):
-                    if isinstance(patient_dict['last_auth_at'], datetime):
-                        patient_dict['last_auth_at'] = patient_dict['last_auth_at'].isoformat()
-                if patient_dict.get('created_at'):
-                    if isinstance(patient_dict['created_at'], datetime):
-                        patient_dict['created_at'] = patient_dict['created_at'].isoformat()
-                if patient_dict.get('updated_at'):
-                    if isinstance(patient_dict['updated_at'], datetime):
-                        patient_dict['updated_at'] = patient_dict['updated_at'].isoformat()
-                
+            if patient_row:
+                # 헬퍼 함수로 날짜 변환
+                patient_dict = self._serialize_patient_dates(dict(patient_row))
                 print(f"✅ [환자조회] 기존 환자 발견: {patient_dict['uuid']} @ {patient_dict['hospital_id']}")
                 return patient_dict
             
@@ -573,17 +641,231 @@ class WelnoDataService:
             print(f"❌ [처방전저장] 오류: {e}")
             return False
     
-    async def get_patient_health_data(self, uuid: str, hospital_id: str) -> Dict[str, Any]:
-        """환자의 모든 건강정보 조회"""
+    async def load_checkup_design_survey(
+        self, 
+        patient_uuid: str, 
+        hospital_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        환자의 가장 최근 검진설계 문진 데이터 조회
+        
+        ## 용도
+        질병예측 리포트 생성 시 검진설계에서 수집한 문진 데이터를 자동으로 반영하여
+        더 정확한 예측 리포트를 생성합니다.
+        
+        ## 데이터 출처
+        - **테이블**: `welno.welno_checkup_design_requests`
+        - **컬럼**: `survey_responses` (JSONB)
+        - **정렬**: `created_at DESC` (가장 최근 데이터)
+        
+        ## 반환 데이터 형식
+        ```json
+        {
+            "smoking": "current_smoker",
+            "drinking": "weekly_1_2",
+            "family_history": ["heart_disease", "diabetes"],
+            "exercise_frequency": "sometimes",
+            "sleep_hours": "6_7",
+            "daily_routine": ["physical_job", "mental_stress"],
+            "weight_change": "decrease_bad",
+            "additional_concerns": ""
+        }
+        ```
+        
+        ## 사용 예시
+        ```python
+        # Mediarc 리포트 생성 전 문진 조회
+        survey = await service.load_checkup_design_survey(uuid, hospital_id)
+        
+        if survey:
+            # 문진 데이터 변환
+            from app.services.mediarc.questionnaire_mapper import map_checkup_design_survey_to_mediarc
+            questionnaire_codes = map_checkup_design_survey_to_mediarc(survey)
+            
+            # Mediarc 생성 시 포함
+            await generate_mediarc_report_async(..., questionnaire_data=questionnaire_codes)
+        ```
+        
+        Args:
+            patient_uuid: 환자 UUID
+            hospital_id: 병원 ID
+            
+        Returns:
+            Optional[Dict]: 문진 응답 데이터 (없으면 None)
+        """
         try:
             conn = await asyncpg.connect(**self.db_config)
             
+            # 가장 최근 검진설계 문진 조회
+            result = await conn.fetchrow("""
+                SELECT cdr.survey_responses
+                FROM welno.welno_checkup_design_requests cdr
+                JOIN welno.welno_patients p ON cdr.patient_id = p.id
+                WHERE p.uuid = $1 AND p.hospital_id = $2
+                  AND cdr.survey_responses IS NOT NULL
+                ORDER BY cdr.created_at DESC
+                LIMIT 1
+            """, patient_uuid, hospital_id)
+            
+            await conn.close()
+            
+            if not result or not result['survey_responses']:
+                print(f"ℹ️ [문진조회] 검진설계 문진 없음: {patient_uuid}")
+                return None
+            
+            # JSONB 파싱 (asyncpg는 문자열로 반환할 수 있음)
+            survey_data = result['survey_responses']
+            if isinstance(survey_data, str):
+                import json
+                survey_data = json.loads(survey_data)
+            
+            print(f"✅ [문진조회] 검진설계 문진 발견: {patient_uuid}")
+            print(f"   - 흡연: {survey_data.get('smoking')}")
+            print(f"   - 음주: {survey_data.get('drinking')}")
+            print(f"   - 가족력: {survey_data.get('family_history')}")
+            
+            return survey_data
+            
+        except Exception as e:
+            print(f"❌ [문진조회] 오류: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    async def save_mediarc_report(
+        self, 
+        patient_uuid: str, 
+        hospital_id: str, 
+        mediarc_response: Dict[str, Any],
+        has_questionnaire: bool = False,
+        questionnaire_data: Optional[Dict] = None
+    ) -> bool:
+        """
+        Mediarc 질병예측 리포트 저장
+        
+        Args:
+            patient_uuid: 환자 UUID
+            hospital_id: 병원 ID
+            mediarc_response: Mediarc API 원본 응답
+            has_questionnaire: 문진 데이터 포함 여부
+            questionnaire_data: 문진 응답 데이터
+            
+        Returns:
+            bool: 저장 성공 여부
+        """
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            # 1. 기존 리포트 삭제 (UNIQUE 제약조건: patient_uuid, hospital_id)
+            await conn.execute(
+                "DELETE FROM welno.welno_mediarc_reports WHERE patient_uuid = $1 AND hospital_id = $2", 
+                patient_uuid, hospital_id
+            )
+            print(f"🗑️ [Mediarc저장] 기존 리포트 삭제 완료")
+            
+            # 2. 응답에서 핵심 필드 추출
+            response_data = mediarc_response.get('data', {})
+            
+            mkt_uuid = response_data.get('mkt_uuid')
+            report_url = response_data.get('report_url')
+            provider = response_data.get('provider', 'twobecon')
+            analyzed_at_str = response_data.get('analyzed_at')
+            bodyage = response_data.get('bodyage')
+            rank = response_data.get('rank')
+            disease_data = response_data.get('disease_data')
+            cancer_data = response_data.get('cancer_data')
+            
+            # analyzed_at 파싱
+            analyzed_at = None
+            if analyzed_at_str:
+                try:
+                    analyzed_at = datetime.fromisoformat(analyzed_at_str.replace('Z', '+00:00'))
+                except:
+                    pass
+            
+            # 3. 새 리포트 삽입
+            insert_query = """
+                INSERT INTO welno.welno_mediarc_reports 
+                (patient_uuid, hospital_id, raw_response, mkt_uuid, report_url, provider,
+                 analyzed_at, bodyage, rank, disease_data, cancer_data, 
+                 has_questionnaire, questionnaire_data)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            """
+            
+            await conn.execute(
+                insert_query,
+                patient_uuid,
+                hospital_id,
+                json.dumps(mediarc_response, ensure_ascii=False),  # raw_response
+                mkt_uuid,
+                report_url,
+                provider,
+                analyzed_at,
+                bodyage,
+                rank,
+                json.dumps(disease_data, ensure_ascii=False) if disease_data else None,
+                json.dumps(cancer_data, ensure_ascii=False) if cancer_data else None,
+                has_questionnaire,
+                json.dumps(questionnaire_data, ensure_ascii=False) if questionnaire_data else None
+            )
+            
+            print(f"✅ [Mediarc저장] 리포트 저장 완료 - bodyage: {bodyage}, rank: {rank}")
+            
+            # 4. 환자 테이블 플래그 업데이트
+            update_query = """
+                UPDATE welno.welno_patients 
+                SET has_mediarc_report = TRUE, 
+                    has_questionnaire_data = $3,
+                    last_data_update = NOW() 
+                WHERE uuid = $1 AND hospital_id = $2
+            """
+            await conn.execute(update_query, patient_uuid, hospital_id, has_questionnaire)
+            
+            print(f"✅ [Mediarc저장] 환자 플래그 업데이트 완료 - has_questionnaire: {has_questionnaire}")
+            
+            await conn.close()
+            return True
+            
+        except Exception as e:
+            print(f"❌ [Mediarc저장] 오류: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+    
+    async def get_patient_health_data(self, uuid: str, hospital_id: str) -> Dict[str, Any]:
+        """환자의 모든 건강정보 조회 (hospital_id가 없으면 UUID만으로 조회)"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            # 먼저 UUID와 hospital_id로 조회 시도
             patient_query = "SELECT * FROM welno.welno_patients WHERE uuid = $1 AND hospital_id = $2"
             patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
+            
+            # 없으면 UUID만으로 조회 (hospital_id가 다를 수 있음)
+            if not patient_row:
+                print(f"⚠️ [get_patient_health_data] UUID+hospital_id 조합으로 환자를 찾을 수 없음. UUID만으로 재시도: uuid={uuid}, hospital_id={hospital_id}")
+                patient_query_uuid_only = "SELECT * FROM welno.welno_patients WHERE uuid = $1 ORDER BY last_auth_at DESC NULLS LAST, created_at DESC LIMIT 1"
+                patient_row = await conn.fetchrow(patient_query_uuid_only, uuid)
+                
+                if patient_row:
+                    # 실제 DB의 hospital_id로 업데이트
+                    actual_hospital_id = dict(patient_row).get('hospital_id')
+                    print(f"✅ [get_patient_health_data] UUID만으로 환자 찾음. 실제 hospital_id: {actual_hospital_id} (요청한 hospital_id: {hospital_id})")
+                    hospital_id = actual_hospital_id  # 실제 hospital_id로 업데이트
             
             if not patient_row:
                 await conn.close()
                 return {"error": "환자를 찾을 수 없습니다"}
+            
+            # 🔍 생년월일 데이터 확인 로그
+            patient_dict_temp = dict(patient_row)
+            print(f"🔍 [get_patient_health_data] 환자 정보 조회:")
+            print(f"  - uuid: {uuid}")
+            print(f"  - hospital_id: {hospital_id}")
+            print(f"  - name: {patient_dict_temp.get('name')}")
+            print(f"  - birth_date (DB): {patient_dict_temp.get('birth_date')}")
+            print(f"  - birth_date 타입: {type(patient_dict_temp.get('birth_date'))}")
+            print(f"  - birth_date NULL 여부: {patient_dict_temp.get('birth_date') is None}")
             
             health_query = """
                 SELECT * FROM welno.welno_checkup_data 

@@ -7,6 +7,8 @@ import LineChart from '../../charts/LineChart';
 import BarChart from '../../charts/BarChart';
 import { TilkoHealthCheckupRaw, TilkoPrescriptionRaw } from '../../../types/health';
 import { WELNO_LOGO_IMAGE } from '../../../constants/images';
+import { getTrendsItems, getItemConfig } from '../../../utils/healthItemsConfig';
+import { isInRange } from '../../../utils/rangeUtils';
 import '../../../pages/ComprehensiveAnalysisPage/styles.scss';
 // 이미지 import
 import healthyPotatoImage from '../../../assets/images/gamgam/healthy_potato_nobg.png';
@@ -32,12 +34,10 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
   const [imageKey, setImageKey] = useState(0);
   // 의료기관 방문 추이 관련 상태 제거됨 (의료 기록 타임라인 토글에 포함)
   
-  // 건강 지표 목록
-  const healthMetrics = [
-    '신장', '체중', 'BMI', '허리둘레', '혈압 (수축기)', 
-    '혈압 (이완기)', '혈당', '총콜레스테롤', 'HDL 콜레스테롤', 
-    'LDL 콜레스테롤', '중성지방', '헤모글로빈'
-  ];
+  // 건강 지표 목록 (매트릭스 기반 동적 생성)
+  const healthMetrics = useMemo(() => {
+    return getTrendsItems().map(item => item.displayName);
+  }, []);
 
   // 통합 년도 목록 생성 (모든 검진 데이터의 년도 수집)
   const allYears = useMemo(() => {
@@ -54,41 +54,23 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     return Array.from(yearsSet).sort((a, b) => b - a); // 최신 년도 순
   }, [healthData]);
 
-  // 헬퍼 함수들 (ComprehensiveAnalysisPage에서 복사)
+  // 헬퍼 함수들 (매트릭스 기반)
   const getFieldNameForMetric = (metric: string): string => {
-    switch (metric) {
-      case '신장': return 'height';
-      case '체중': return 'weight';
-      case 'BMI': return 'bmi';
-      case '허리둘레': return 'waist_circumference';
-      case '혈압 (수축기)': return 'blood_pressure_high';
-      case '혈압 (이완기)': return 'blood_pressure_low';
-      case '혈당': return 'blood_sugar';
-      case '총콜레스테롤': return 'cholesterol';
-      case 'HDL 콜레스테롤': return 'hdl_cholesterol';
-      case 'LDL 콜레스테롤': return 'ldl_cholesterol';
-      case '중성지방': return 'triglyceride';
-      case '헤모글로빈': return 'hemoglobin';
-      default: return 'blood_pressure_high';
+    const config = getItemConfig(metric);
+    if (!config) {
+      console.error(`[매트릭스 누락] ${metric} - HEALTH_ITEMS_CONFIG에 추가 필요`);
+      return 'unknown';
     }
+    return config.fieldName;
   };
   
   const getUnitForMetric = (metric: string): string => {
-    switch (metric) {
-      case '신장': return 'cm';
-      case '체중': return 'kg';
-      case 'BMI': return 'kg/m²';
-      case '허리둘레': return 'cm';
-      case '혈압 (수축기)':
-      case '혈압 (이완기)': return 'mmHg';
-      case '혈당': return 'mg/dL';
-      case '총콜레스테롤':
-      case 'HDL 콜레스테롤':
-      case 'LDL 콜레스테롤':
-      case '중성지방': return 'mg/dL';
-      case '헤모글로빈': return 'g/dL';
-      default: return '';
+    const config = getItemConfig(metric);
+    if (!config) {
+      console.error(`[매트릭스 누락] ${metric} - HEALTH_ITEMS_CONFIG에 추가 필요`);
+      return '';
     }
+    return config.unit;
   };
 
 
@@ -144,29 +126,18 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
               // 🔍 디버깅: 모든 Item 이름 수집
               allItemNames.push(...illness.Items.map((i: any) => i.Name).filter(Boolean));
               
+              const config = getItemConfig(metric);
+              if (!config) {
+                continue; // 매트릭스에 없으면 다음 illness로
+              }
+              
               const item = illness.Items.find((item: any) => {
                 if (!item.Name) return false;
-                const itemName = item.Name;
-                const metricName = metric.replace(' (수축기)', '').replace(' (이완기)', '');
                 
-                // 🔧 지표별 정확한 매칭 로직
-                if (metric === 'HDL 콜레스테롤') {
-                  return itemName.includes('hdl') || itemName.includes('고밀도');
-                }
-                if (metric === 'LDL 콜레스테롤') {
-                  return itemName.includes('ldl') || itemName.includes('저밀도');
-                }
-                if (metric === '총콜레스테롤' || metric === '총 콜레스테롤') {
-                  return itemName.includes('총콜레스테롤') || (itemName.includes('콜레스테롤') && !itemName.includes('hdl') && !itemName.includes('ldl') && !itemName.includes('고밀도') && !itemName.includes('저밀도'));
-                }
-                
-                return itemName.includes(metricName) ||
-                       (metric === 'BMI' && (itemName.includes('체질량지수') || itemName.includes('bmi'))) ||
-                       (metric === '허리둘레' && (itemName.includes('허리') || itemName.includes('waist'))) ||
-                       (metric.includes('혈압') && itemName.includes('혈압')) ||
-                       (metric.includes('콜레스테롤') && itemName.includes('콜레스테롤')) ||
-                       (metric === '중성지방' && itemName.includes('중성지방')) ||
-                       (metric === '헤모글로빈' && (itemName.includes('혈색소') || itemName.includes('헤모글로빈')));
+                // 매트릭스 기반 매칭 (tilkoName으로 직접 매칭)
+                return item.Name === config.tilkoName || 
+                       item.Name.includes(config.tilkoName) ||
+                       (config.extract && item.Name.includes('혈압'));
               });
               
               if (item) {
@@ -397,116 +368,6 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
     return null;
   };
 
-  // 🔧 범위 체크 함수 (성별 구분 문자열 지원 추가)
-  const isInRange = (value: number, rangeStr: string, gender: string = 'M'): boolean => {
-    if (!rangeStr) return false;
-    
-    try {
-      // 복합 범위 처리 (예: "18.5미만/25~29.9", "18.5미만/25-29.9")
-      // "/"로 구분된 여러 범위 중 하나라도 매칭되면 true 반환
-      if (rangeStr.includes('/') && !rangeStr.includes('남') && !rangeStr.includes('여')) {
-        const parts = rangeStr.split('/');
-        for (const part of parts) {
-          const trimmedPart = part.trim();
-          if (trimmedPart && isInRange(value, trimmedPart, gender)) {
-            return true; // 하나라도 매칭되면 true
-          }
-        }
-        return false; // 모든 부분이 매칭되지 않으면 false
-      }
-      
-      // 성별 구분 처리 (예: "남 90이상 / 여 85이상", "남: 13-16.5 / 여: 12-15.5", "남:12.0미만 / 여:10.0미만")
-      if (rangeStr.includes('남') && (rangeStr.includes('여') || rangeStr.includes('/'))) {
-        const parts = rangeStr.split('/');
-        const targetPart = gender === 'M' ? 
-          parts.find(p => p.includes('남'))?.trim() : 
-          parts.find(p => p.includes('여'))?.trim();
-        
-        if (targetPart) {
-          // "남:" 또는 "여:" 제거하고 공백 정리
-          const cleanRange = targetPart.replace(/^남:|^여:/, '').trim();
-          return isInRange(value, cleanRange, gender); // 재귀 호출로 처리
-        }
-        return false;
-      }
-      
-      // "40미만" 또는 "12.0미만" 형태 처리
-      if (rangeStr.includes('미만')) {
-        const match = rangeStr.match(/(\d+(?:\.\d+)?)미만/);
-        if (match) {
-          const max = parseFloat(match[1]);
-          return !isNaN(max) && value < max;
-        }
-        // 숫자만 추출 시도
-        const max = parseFloat(rangeStr.replace(/[^0-9.-]/g, ''));
-        return !isNaN(max) && value < max;
-      }
-      
-      // "60이상" 형태 처리
-      if (rangeStr.includes('이상')) {
-        const match = rangeStr.match(/(\d+(?:\.\d+)?)이상/);
-        if (match) {
-          const min = parseFloat(match[1]);
-          return !isNaN(min) && value >= min;
-        }
-        // 숫자만 추출 시도
-        const min = parseFloat(rangeStr.replace(/[^0-9.-]/g, ''));
-        return !isNaN(min) && value >= min;
-      }
-      
-      // "25~29.9" 또는 "25-29.9" 형태 처리 (물결표 또는 하이픈)
-      if ((rangeStr.includes('~') || rangeStr.includes('-')) && !rangeStr.includes('이상') && !rangeStr.includes('미만')) {
-        const separator = rangeStr.includes('~') ? '~' : '-';
-        // "25~29.9" 또는 "25-29.9" 형태에서 숫자 추출
-        const rangeMatch = rangeStr.match(/(\d+(?:\.\d+)?)\s*[~-]\s*(\d+(?:\.\d+)?)/);
-        if (rangeMatch) {
-          const min = parseFloat(rangeMatch[1]);
-          const max = parseFloat(rangeMatch[2]);
-          return !isNaN(min) && !isNaN(max) && value >= min && value <= max;
-        }
-        // 정규식 매칭 실패 시 기존 방식 사용
-        const parts = rangeStr.split(separator);
-        if (parts.length === 2) {
-          const min = parseFloat(parts[0].replace(/[^0-9.-]/g, ''));
-          const max = parseFloat(parts[1].replace(/[^0-9.-]/g, ''));
-          return !isNaN(min) && !isNaN(max) && value >= min && value <= max;
-        }
-      }
-      
-      // ">=120" 형태
-      if (rangeStr.includes('>=')) {
-        const min = parseFloat(rangeStr.replace(/[^0-9.-]/g, ''));
-        return !isNaN(min) && value >= min;
-      }
-      
-      // "<=140" 형태
-      if (rangeStr.includes('<=')) {
-        const max = parseFloat(rangeStr.replace(/[^0-9.-]/g, ''));
-        return !isNaN(max) && value <= max;
-      }
-      
-      // ">120" 형태
-      if (rangeStr.includes('>') && !rangeStr.includes('>=')) {
-        const min = parseFloat(rangeStr.replace(/[^0-9.-]/g, ''));
-        return !isNaN(min) && value > min;
-      }
-      
-      // "<140" 형태
-      if (rangeStr.includes('<') && !rangeStr.includes('<=')) {
-        const max = parseFloat(rangeStr.replace(/[^0-9.-]/g, ''));
-        return !isNaN(max) && value < max;
-      }
-      
-      return false;
-    } catch (error) {
-      // 개발 모드에서만 경고 출력
-      if (process.env.NODE_ENV === 'development') {
-      console.warn('범위 체크 실패:', rangeStr, error);
-      }
-      return false;
-    }
-  };
-
   // 건강지표 상태 판단 함수 - 데이터 기준으로만 판단, ItemReferences의 Name을 그대로 사용
   const getHealthStatus = (metric: string, value: number, healthDataItem: any, gender: string = 'M'): { status: 'normal' | 'warning' | 'abnormal' | 'neutral', text: string, date: string, refName?: string } => {
     // 디버그 로그 제거
@@ -550,31 +411,16 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
         if (inspection.Illnesses && Array.isArray(inspection.Illnesses)) {
           for (const illness of inspection.Illnesses) {
             if (illness.Items && Array.isArray(illness.Items)) {
+              const config = getItemConfig(metric);
+              if (!config) continue;
+              
               const item = illness.Items.find((item: any) => {
                 if (!item.Name) return false;
                 
-                const itemName = item.Name.toLowerCase();
-                const metricName = metric.toLowerCase();
-                
-                // 🔧 실제 데이터 구조에 맞는 매칭 로직
-                if (metric === 'HDL 콜레스테롤') {
-                  return itemName.includes('hdl') || itemName.includes('고밀도');
-                }
-                if (metric === 'LDL 콜레스테롤') {
-                  return itemName.includes('ldl') || itemName.includes('저밀도');
-                }
-                if (metric === '총 콜레스테롤') {
-                  return itemName.includes('총콜레스테롤') || (itemName.includes('콜레스테롤') && !itemName.includes('hdl') && !itemName.includes('ldl') && !itemName.includes('고밀도') && !itemName.includes('저밀도'));
-                }
-                
-                // 기존 매칭 로직
-                return itemName.includes(metricName.replace(' (수축기)', '').replace(' (이완기)', '')) ||
-                       (metric === 'BMI' && (itemName.includes('체질량지수') || itemName.includes('bmi'))) ||
-                       (metric === '허리둘레' && (itemName.includes('허리') || itemName.includes('waist'))) ||
-                       (metricName.includes('혈압') && itemName.includes('혈압')) ||
-                       (metricName.includes('콜레스테롤') && itemName.includes('콜레스테롤')) ||
-                       (metricName === '중성지방' && itemName.includes('중성지방')) ||
-                       (metricName === '헤모글로빈' && (itemName.includes('혈색소') || itemName.includes('헤모글로빈')));
+                // 매트릭스 기반 매칭 (tilkoName으로 직접 매칭)
+                return item.Name === config.tilkoName || 
+                       item.Name.includes(config.tilkoName) ||
+                       (config.extract && item.Name.includes('혈압'));
               });
               
               if (item) {
@@ -588,46 +434,58 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                   
                   if (!isNaN(itemValue)) {
                     // 🔧 데이터 기준으로만 판단 - ItemReferences에 명시된 범위만 체크
-                    // 질환의심 범위 체크 (우선순위)
+                    // 판정 우선순위: 질환의심 > 경계 > 정상(명시) > 정상(기본)
+                    
+                    // 1. 질환의심 범위 체크 (최우선)
                     const abnormal = item.ItemReferences.find((ref: any) => ref.Name === '질환의심');
                     if (abnormal && isInRange(itemValue, abnormal.Value, gender)) {
                       itemStatus = 'abnormal';
                       return {
                         status: itemStatus,
-                        text: abnormal.Name, // ItemReferences의 Name 그대로 사용
+                        text: abnormal.Name,
                         date: rawData.CheckUpDate || healthDataItem?.CheckUpDate || '',
                         refName: abnormal.Name
                       };
                     }
                     
-                    // 정상 범위 체크 (우선순위 1) - "정상", "정상(A)", "정상(B)" 모두 포함
-                    const normal = item.ItemReferences.find((ref: any) => 
-                      ref.Name === '정상' || ref.Name === '정상(A)' || ref.Name === '정상(B)'
-                    );
-                    if (normal && isInRange(itemValue, normal.Value, gender)) {
-                      itemStatus = 'normal';
-                      return {
-                        status: itemStatus,
-                        text: normal.Name, // ItemReferences의 Name 그대로 사용
-                        date: rawData.CheckUpDate || healthDataItem?.CheckUpDate || '',
-                        refName: normal.Name
-                      };
-                    }
-                    
-                    // 정상(B) 또는 경계 범위 체크 (우선순위 2)
+                    // 2. 경계 범위 체크
                     const normalB = item.ItemReferences.find((ref: any) => ref.Name === '정상(B)' || ref.Name === '정상(경계)');
                     if (normalB && isInRange(itemValue, normalB.Value, gender)) {
                       itemStatus = 'warning';
                       return {
                         status: itemStatus,
-                        text: normalB.Name, // ItemReferences의 Name 그대로 사용
+                        text: normalB.Name,
                         date: rawData.CheckUpDate || healthDataItem?.CheckUpDate || '',
                         refName: normalB.Name
                       };
                     }
                     
-                    // 🔧 데이터에 명시된 범위에 해당하지 않는 경우 - 임의 판정하지 않음
-                    // ItemReferences에 명시된 범위만 사용, 범위를 벗어난 경우는 데이터에 명시된 기준이 없으므로 판정하지 않음
+                    // 3. 정상 범위 체크 (명시된 경우)
+                    const normal = item.ItemReferences.find((ref: any) => 
+                      ref.Name === '정상' || ref.Name === '정상(A)'
+                    );
+                    if (normal && isInRange(itemValue, normal.Value, gender)) {
+                      itemStatus = 'normal';
+                      return {
+                        status: itemStatus,
+                        text: normal.Name,
+                        date: rawData.CheckUpDate || healthDataItem?.CheckUpDate || '',
+                        refName: normal.Name
+                      };
+                    }
+                    
+                    // 4. 정상 범위가 명시되지 않은 경우
+                    // 질환의심/경계 범위에 해당하지 않으면 정상으로 판정
+                    // (예: 크레아티닌, AST, ALT 등은 정상 범위가 없고 비정상 범위만 명시)
+                    if (!normal) {
+                      itemStatus = 'normal';
+                      return {
+                        status: itemStatus,
+                        text: '정상',
+                        date: rawData.CheckUpDate || healthDataItem?.CheckUpDate || '',
+                        refName: '정상'
+                      };
+                    }
                   }
                 }
               }
@@ -750,28 +608,16 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
               if (inspection.Illnesses) {
                 for (const illness of inspection.Illnesses) {
                   if (illness.Items) {
+                    const config = getItemConfig(targetMetric);
+                    if (!config) continue;
+                    
                     const foundItem = illness.Items.find((rawItem: any) => {
                       if (!rawItem.Name) return false;
-                      const itemName = rawItem.Name.toLowerCase();
-                      const metricName = targetMetric.toLowerCase().replace(' (수축기)', '').replace(' (이완기)', '');
                       
-                       // 🔧 실제 데이터 구조에 맞는 매칭 로직
-                       if (targetMetric === 'HDL 콜레스테롤') {
-                         return itemName.includes('hdl') || itemName.includes('고밀도');
-                       }
-                       if (targetMetric === 'LDL 콜레스테롤') {
-                         return itemName.includes('ldl') || itemName.includes('저밀도');
-                       }
-                       if (targetMetric === '총 콜레스테롤') {
-                         return itemName.includes('총콜레스테롤') || (itemName.includes('콜레스테롤') && !itemName.includes('hdl') && !itemName.includes('ldl') && !itemName.includes('고밀도') && !itemName.includes('저밀도'));
-                       }
-                       
-                      return itemName.includes(metricName) ||
-                             (targetMetric === '허리둘레' && (itemName.includes('허리') || itemName.includes('waist'))) ||
-                             (targetMetric.includes('혈압') && itemName.includes('혈압')) ||
-                             (targetMetric.includes('콜레스테롤') && itemName.includes('콜레스테롤')) ||
-                             (targetMetric === '중성지방' && itemName.includes('중성지방')) ||
-                             (targetMetric === '헤모글로빈' && (itemName.includes('혈색소') || itemName.includes('헤모글로빈')));
+                      // 매트릭스 기반 매칭
+                      return rawItem.Name === config.tilkoName || 
+                             rawItem.Name.includes(config.tilkoName) ||
+                             (config.extract && rawItem.Name.includes('혈압'));
                     });
                     
                     // 🔧 빈 문자열과 0값 모두 필터링
@@ -816,32 +662,20 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                   const inspections = healthDataItem.raw_data?.Inspections || healthDataItem.Inspections;
                   
                   if (inspections && Array.isArray(inspections)) {
+                    const config = getItemConfig(metric);
+                    if (!config) return 0;
+                    
                     for (const inspection of inspections) {
                       if (inspection.Illnesses) {
                         for (const illness of inspection.Illnesses) {
                           if (illness.Items) {
                             const item = illness.Items.find((item: any) => {
                               if (!item.Name) return false;
-                              const itemName = item.Name.toLowerCase();
-                              const metricName = metric.toLowerCase().replace(' (수축기)', '').replace(' (이완기)', '');
                               
-                              // 🔧 실제 데이터 구조에 맞는 매칭 로직
-                              if (metric === 'HDL 콜레스테롤') {
-                                return itemName.includes('hdl') || itemName.includes('고밀도');
-                              }
-                              if (metric === 'LDL 콜레스테롤') {
-                                return itemName.includes('ldl') || itemName.includes('저밀도');
-                              }
-                              if (metric === '총 콜레스테롤') {
-                                return itemName.includes('총콜레스테롤') || (itemName.includes('콜레스테롤') && !itemName.includes('hdl') && !itemName.includes('ldl') && !itemName.includes('고밀도') && !itemName.includes('저밀도'));
-                              }
-                              
-                              return itemName.includes(metricName) ||
-                                     (metric === '허리둘레' && (itemName.includes('허리') || itemName.includes('waist'))) ||
-                                     (metric.includes('혈압') && itemName.includes('혈압')) ||
-                                     (metric.includes('콜레스테롤') && itemName.includes('콜레스테롤')) ||
-                                     (metric === '중성지방' && itemName.includes('중성지방')) ||
-                                     (metric === '헤모글로빈' && (itemName.includes('혈색소') || itemName.includes('헤모글로빈')));
+                              // 매트릭스 기반 매칭
+                              return item.Name === config.tilkoName || 
+                                     item.Name.includes(config.tilkoName) ||
+                                     (config.extract && item.Name.includes('혈압'));
                             });
                             
                             // 🔧 빈 문자열 체크 추가
@@ -1006,17 +840,11 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                                           return 'warning' as const;
                                         }
                                         
-                                        // 🔧 데이터 기준으로만 판단 - ItemReferences에 명시된 범위만 체크
-                                        // 범위를 벗어난 경우는 데이터에 명시된 기준이 없으므로 판정하지 않음
-                                        // 문제 발생 시에만 로그 출력 (개발 모드에서만)
-                                        if (itemValue && !isNaN(itemValue) && process.env.NODE_ENV === 'development') {
-                                          console.warn(`⚠️ [${metric}] 범위 체크 실패 - ItemReferences에 매칭되는 범위 없음:`, {
-                                            itemValue,
-                                            itemName: item.Name,
-                                            abnormal: abnormal ? { Name: abnormal.Name, Value: abnormal.Value } : '없음',
-                                            normalB: normalB ? { Name: normalB.Name, Value: normalB.Value } : '없음',
-                                            normal: normal ? { Name: normal.Name, Value: normal.Value } : '없음'
-                                          });
+                                        // 🔧 정상 범위가 명시되지 않은 경우
+                                        // 질환의심/경계 범위에 해당하지 않으면 정상으로 처리
+                                        // (예: 크레아티닌, AST, ALT 등은 정상 범위가 없고 비정상 범위만 명시)
+                                        if (!normal) {
+                                          return 'normal' as const;
                                         }
                                       }
                                     }
@@ -1046,10 +874,14 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                             if (healthRanges.normal && pointValue >= healthRanges.normal.min && pointValue <= healthRanges.normal.max) {
                               return 'normal' as const;
                             }
-                            // 🔧 데이터에 명시된 범위에 해당하지 않는 경우 - 임의 판정하지 않음
-                            // 문제 발생 시에만 로그 출력 (개발 모드에서만)
-                            if (process.env.NODE_ENV === 'development') {
-                            console.warn(`⚠️ [${metric}] healthRanges 범위 체크 실패 - 값: ${pointValue}, normal: ${healthRanges.normal ? `${healthRanges.normal.min}-${healthRanges.normal.max}` : '없음'}, borderline: ${healthRanges.borderline ? `${healthRanges.borderline.min}-${healthRanges.borderline.max}` : '없음'}, abnormal: ${healthRanges.abnormal ? `${healthRanges.abnormal.min}-${healthRanges.abnormal.max}` : '없음'}`);
+                            // 🔧 정상 범위가 명시되지 않은 경우
+                            // 질환의심/경계 범위에 해당하지 않으면 정상으로 처리
+                            if (!healthRanges.normal && !healthRanges.borderline && !healthRanges.abnormal) {
+                              return 'normal' as const;
+                            }
+                            // 정상 범위가 없지만 비정상/경계 범위에 해당하지 않으면 정상
+                            if (!healthRanges.normal) {
+                              return 'normal' as const;
                             }
                           }
                         }
@@ -1059,14 +891,9 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
                         if (metric === '신장') {
                           return 'neutral' as const;
                         }
-                        // 🔧 데이터에 명시된 범위에 해당하지 않는 경우 - 임의 판정하지 않음
-                        // 범위를 벗어난 경우는 데이터에 명시된 기준이 없으므로 'neutral' 반환
-                        // 문제 발생 시에만 로그 출력
-                        // 개발 모드에서만 경고 출력
-                        if (process.env.NODE_ENV === 'development') {
-                        console.warn(`⚠️ [${metric}] 포인트 상태 계산 실패 - 데이터에 명시된 범위에 해당하지 않음, 값: ${pointValue}`);
-                        }
-                        return 'neutral' as const;
+                        // 🔧 기본값: 신장은 neutral, 나머지는 normal
+                        // 정상 범위가 명시되지 않았거나 범위 밖이면 정상으로 처리
+                        return 'normal' as const;
                       })();
 
                       return {
@@ -1385,25 +1212,16 @@ const TrendsSection: React.FC<TrendsSectionProps> = ({
               if (inspection.Illnesses) {
                 for (const illness of inspection.Illnesses) {
                   if (illness.Items) {
+                    const config = getItemConfig(metric);
+                    if (!config) continue;
+                    
                     const item = illness.Items.find((item: any) => {
                       if (!item.Name) return false;
-                      const itemName = item.Name.toLowerCase();
-                      const metricName = metric.toLowerCase().replace(' (수축기)', '').replace(' (이완기)', '');
-                      if (metric === 'HDL 콜레스테롤') {
-                        return itemName.includes('hdl') || itemName.includes('고밀도');
-                      }
-                      if (metric === 'LDL 콜레스테롤') {
-                        return itemName.includes('ldl') || itemName.includes('저밀도');
-                      }
-                      if (metric === '총 콜레스테롤') {
-                        return itemName.includes('총콜레스테롤') || (itemName.includes('콜레스테롤') && !itemName.includes('hdl') && !itemName.includes('ldl') && !itemName.includes('고밀도') && !itemName.includes('저밀도'));
-                      }
-                      return itemName.includes(metricName) ||
-                             (metric === '허리둘레' && (itemName.includes('허리') || itemName.includes('waist'))) ||
-                             (metric.includes('혈압') && itemName.includes('혈압')) ||
-                             (metric.includes('콜레스테롤') && itemName.includes('콜레스테롤')) ||
-                             (metric === '중성지방' && itemName.includes('중성지방')) ||
-                             (metric === '헤모글로빈' && (itemName.includes('혈색소') || itemName.includes('헤모글로빈')));
+                      
+                      // 매트릭스 기반 매칭
+                      return item.Name === config.tilkoName || 
+                             item.Name.includes(config.tilkoName) ||
+                             (config.extract && item.Name.includes('혈압'));
                     });
                     if (item && item.Value && item.Value.trim() !== "") {
                       const value = parseFloat(item.Value);

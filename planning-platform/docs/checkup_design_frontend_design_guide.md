@@ -1015,7 +1015,7 @@ $font-sm: 0.875rem; // 14px (보조)
 $font-xs: 0.75rem; // 12px (캡션)
 
 // 헤더 높이
-$header-height-mobile: 52px; // HealthTrendsHeader 모바일 높이
+$header-height-mobile: 42px; // HealthTrendsHeader 모바일 높이 (80% 축소)
 
 // 버튼 높이
 min-height: 52px; // 모바일 하단 버튼

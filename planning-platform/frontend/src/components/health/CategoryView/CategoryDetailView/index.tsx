@@ -4,7 +4,8 @@
  */
 import React, { useState, useMemo } from 'react';
 import { TilkoHealthCheckupRaw } from '../../../../types/health';
-import { processHealthDataToCategories, HEALTH_CATEGORIES } from '../../../../utils/categoryDataProcessor';
+import { processHealthDataToCategories } from '../../../../utils/categoryDataProcessor';
+import { HEALTH_CATEGORIES } from '../../../../utils/healthItemsConfig';
 import CategoryTabs from '../CategoryTabs';
 import JudgmentCard from '../JudgmentCard';
 import HealthAgeCard from '../HealthAgeCard';
@@ -15,6 +16,8 @@ interface CategoryDetailViewProps {
   categoryId: string;
   healthData: TilkoHealthCheckupRaw[];
   year: string;
+  availableYears: string[];
+  onYearChange: (year: string) => void;
   onBack: () => void;
   onItemClick: (itemName: string) => void;
   patientName?: string;
@@ -26,6 +29,8 @@ const CategoryDetailView: React.FC<CategoryDetailViewProps> = ({
   categoryId,
   healthData,
   year,
+  availableYears,
+  onYearChange,
   onBack,
   onItemClick,
   patientName = '사용자',
@@ -33,6 +38,25 @@ const CategoryDetailView: React.FC<CategoryDetailViewProps> = ({
   actualAge
 }) => {
   const [selectedTab, setSelectedTab] = useState(categoryId);
+  
+  // 년도 전환 핸들러
+  const handlePrevYear = () => {
+    const currentIndex = availableYears.indexOf(year);
+    if (currentIndex < availableYears.length - 1) {
+      onYearChange(availableYears[currentIndex + 1]); // 다음 인덱스는 더 오래된 년도
+    }
+  };
+  
+  const handleNextYear = () => {
+    const currentIndex = availableYears.indexOf(year);
+    if (currentIndex > 0) {
+      onYearChange(availableYears[currentIndex - 1]); // 이전 인덱스는 더 최신 년도
+    }
+  };
+  
+  // 년도 네비게이션 가능 여부
+  const canGoPrev = availableYears.indexOf(year) < availableYears.length - 1;
+  const canGoNext = availableYears.indexOf(year) > 0;
   
   // 모든 카테고리 데이터 추출
   const allCategories = useMemo(() => {
@@ -51,10 +75,10 @@ const CategoryDetailView: React.FC<CategoryDetailViewProps> = ({
     return (
       <div className="category-detail-view">
         <div className="detail-header">
-          <button onClick={onBack} className="back-button" aria-label="뒤로 가기">
-            ←
-          </button>
-          <h2 className="detail-title">검진 결과</h2>
+          <div className="year-display-inline">
+            <span className="year-text">{year}년</span>
+          </div>
+          <div className="header-spacer" />
         </div>
         <div className="detail-empty">
           <p>카테고리 데이터를 찾을 수 없습니다.</p>
@@ -65,21 +89,29 @@ const CategoryDetailView: React.FC<CategoryDetailViewProps> = ({
   
   return (
     <div className="category-detail-view">
-      {/* 헤더 */}
+      {/* 헤더 - 년도 네비게이션 중앙 정렬 */}
       <div className="detail-header">
-        <button 
-          onClick={onBack} 
-          className="back-button"
-          aria-label="뒤로 가기"
-        >
-          ←
-        </button>
-        <h2 className="detail-title">검진 결과</h2>
-        <div className="header-spacer" />
+        {/* 연도 표시 (화살표 포함) - 중앙 정렬 */}
+        <div className="year-display-inline">
+          <button 
+            className={`year-arrow ${!canGoPrev ? 'disabled' : ''}`}
+            onClick={handlePrevYear}
+            disabled={!canGoPrev}
+            aria-label="이전 년도"
+          >
+            ←
+          </button>
+          <span className="year-text">{year}년</span>
+          <button 
+            className={`year-arrow ${!canGoNext ? 'disabled' : ''}`}
+            onClick={handleNextYear}
+            disabled={!canGoNext}
+            aria-label="다음 년도"
+          >
+            →
+          </button>
+        </div>
       </div>
-      
-      {/* 연도 표시 */}
-      <div className="year-display">{year}년</div>
       
       {/* 탭 메뉴 */}
       <CategoryTabs
@@ -95,15 +127,6 @@ const CategoryDetailView: React.FC<CategoryDetailViewProps> = ({
           patientName={patientName}
           judgment={currentCategory.judgment}
           description={currentCategory.description}
-        />
-      )}
-      
-      {/* 건강 나이 카드 */}
-      {healthAge && actualAge && (
-        <HealthAgeCard
-          healthAge={healthAge}
-          actualAge={actualAge}
-          patientName={patientName}
         />
       )}
       

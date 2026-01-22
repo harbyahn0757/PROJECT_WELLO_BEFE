@@ -24,6 +24,7 @@ export interface Patient {
   tilko_session_id?: string;
   has_health_data: boolean;
   has_prescription_data: boolean;
+  has_mediarc_report?: boolean;  // Mediarc 질병예측 리포트 존재 여부
   last_data_update?: string;
   created_at: string;
   updated_at: string;
@@ -268,6 +269,8 @@ export interface ExistingDataCheck {
   patient?: Patient;
   health_data_count: number;
   prescription_data_count: number;
+  mediarc_report_count: number;     // Mediarc 리포트 개수
+  has_mediarc_report?: boolean;     // Mediarc 리포트 존재 여부 (patient 객체와 중복이지만 편의성을 위해 포함)
   last_update?: string;
   error?: string;
 }

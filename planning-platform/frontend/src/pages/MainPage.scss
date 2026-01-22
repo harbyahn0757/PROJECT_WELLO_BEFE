@@ -63,7 +63,7 @@
   
   &__greeting {
     padding: 0 0 $spacing-md 0 !important;
-    padding-top: 8px !important; // 로고와 인사말 사이 간격 확보
+    padding-top: 16px !important; // 로고와 인사말 사이 간격 확보 (8px -> 16px 증가)
     padding-left: 0 !important;
     margin: 0 !important;
     margin-left: 0 !important;

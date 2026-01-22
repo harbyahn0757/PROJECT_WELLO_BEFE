@@ -1,0 +1,442 @@
+/* 
+==============================================
+버튼 중앙 정렬 문제 해결된 캠페인 스타일
+==============================================
+기존 기능은 동일하지만 버튼 레이아웃만 개선
+*/
+
+html:has(.event-page-fixed),
+body:has(.event-page-fixed),
+#root:has(.event-page-fixed) {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow-x: hidden !important;
+}
+
+.event-page-fixed {
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  background-color: transparent; /* 검정 배경 제거 */
+  color: #fff;
+  overflow-x: hidden;
+  overflow-y: hidden; /* 스크롤 방지 - 이미지 높이에 맞춰서 컨테이너 높이 제한 */
+  min-height: 100vh;
+  position: relative;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  
+  /* 초기 로딩 시 깜빡임 방지 */
+  &[style*="opacity: 0"] {
+    pointer-events: none;
+  }
+
+  .container {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden; // 컨테이너 내부 스크롤 방지
+    margin: 0;
+    padding: 0;
+  }
+
+  // 외부에서 들어온 경우 뒤로가기 버튼
+  .event-back-button {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001; // SurveySlideUpPanel(z-index: 250) 위에 표시되도록 높은 값 설정
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    will-change: transform, background-color;
+
+    &:hover {
+      background: rgba(255, 184, 77, 0.2);
+      border-color: rgba(255, 184, 77, 0.5);
+      color: #FFB84D;
+      transform: scale(1.05);
+    }
+
+    &:active {
+      transform: scale(0.95);
+    }
+  }
+  
+  // 페이지 전환 페이드 효과
+  &.fade-out {
+    opacity: 0;
+    transform: translateY(20px);
+    pointer-events: none;
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+  }
+
+  .images-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: transparent;
+  }
+
+  .event-image {
+    width: 100%;
+    display: block;
+    opacity: 0;
+    transition: opacity 0.8s ease-in-out;
+
+    &.fade-in {
+      opacity: 1;
+    }
+
+    img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: cover;
+    }
+  }
+
+  /* 페이지 전환 로딩 오버레이 */
+  .page-transition-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.95);
+    backdrop-filter: blur(10px);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 24px;
+    opacity: 0;
+    animation: fadeInOverlay 0.2s ease-in-out forwards;
+
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-top: 4px solid white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    .loading-text {
+      color: white;
+      font-size: 18px;
+      font-weight: 500;
+      text-align: center;
+    }
+  }
+
+  @keyframes fadeInOverlay {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* 🎯 개선된 버튼 컨테이너 - Flexbox 중앙 정렬 */
+  .bottom-button-container-fixed {
+    position: fixed;
+    bottom: 48px; /* 버튼을 위로 올림 */
+    left: 50%;
+    transform: translateX(-50%); /* 중앙 정렬 */
+    padding: 0; /* 패딩 제거 */
+    background: transparent !important; /* 배경 레이어 제거 */
+    backdrop-filter: none !important; /* 블러 효과 제거 */
+    border: none !important; /* 테두리 제거 */
+    z-index: 100;
+    box-shadow: none !important; /* 그림자 제거 */
+    
+    /* Flexbox로 완벽한 중앙 정렬 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* 🎯 개선된 버튼 - 안전한 중앙 정렬 */
+  .bottom-button-fixed {
+    /* 크기 설정 - 고정 너비로 중앙 정렬 */
+    width: 320px;
+    max-width: calc(100vw - 32px); /* 양쪽 16px씩 여백 확보 */
+    min-width: 280px; /* 최소 너비 보장 */
+    
+    /* 마진 제거 - Flexbox 중앙 정렬 사용 */
+    margin: 0;
+    
+    /* 스타일링 */
+    padding: 16px 24px; /* 위아래 패딩 감소 */
+    background: #FFB84D; /* 주황색 */
+    border: 1px solid #FFB84D;
+    border-radius: 16px;
+    color: white;
+    font-size: 36px; /* 폰트 사이즈 증가 */
+    font-weight: 800; /* 더 굵게 */
+    letter-spacing: 0.1em; /* 글자 간격 추가 */
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 25px rgba(255, 184, 77, 0.4);
+    position: relative;
+    overflow: hidden;
+    line-height: 1.3;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    
+    /* 텍스트 줄바꿈 허용 */
+    white-space: normal;
+    word-break: keep-all;
+    
+    /* Box-sizing 명시적 설정 */
+    box-sizing: border-box;
+
+    .button-icon {
+      max-width: 40px;
+      max-height: 40px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      flex-shrink: 0;
+    }
+
+    /* 애니메이션 효과 */
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      transition: left 0.5s ease;
+    }
+
+    &:hover {
+      background: #FFA500; /* 더 진한 주황색 (hover) */
+      transform: translateY(-3px);
+      box-shadow: 0 8px 25px rgba(255, 184, 77, 0.5);
+
+      &::before {
+        left: 100%;
+      }
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
+
+    /* disabled 상태 */
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+      
+      &:hover {
+        background: #FFB84D;
+        transform: none;
+        box-shadow: 0 8px 25px rgba(255, 184, 77, 0.4);
+      }
+    }
+    
+    /* 포커스 접근성 개선 */
+    &:focus {
+      outline: 3px solid rgba(255, 255, 255, 0.5);
+      outline-offset: 2px;
+    }
+  }
+
+  /* 태블릿 대응 */
+  @media (max-width: 768px) {
+    .bottom-button-container-fixed {
+      bottom: 40px; /* 태블릿에서도 올림 */
+      padding: 0; /* 패딩 제거 */
+    }
+    
+    .bottom-button-fixed {
+      max-width: calc(100vw - 24px); /* 더 작은 여백 */
+      padding: 14px 22px; /* 위아래 패딩 감소 */
+      font-size: 32px; /* 폰트 사이즈 증가 */
+      font-weight: 800; /* 더 굵게 */
+      letter-spacing: 0.1em; /* 글자 간격 추가 */
+      border-radius: 14px;
+      border: 1px solid #FFB84D;
+      background: #FFB84D; /* 주황색 */
+      
+      .button-icon {
+        max-width: 36px;
+        max-height: 36px;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+      }
+    }
+  }
+
+  /* 모바일 대응 - 안전한 여백 확보 */
+  @media (max-width: 480px) {
+    .bottom-button-container-fixed {
+      bottom: 32px; /* 모바일에서도 올림 */
+      padding: 0; /* 패딩 제거 */
+    }
+    
+    .bottom-button-fixed {
+      max-width: calc(100vw - 16px); /* 최소 여백 */
+      min-width: 250px; /* 최소 너비 줄임 */
+      padding: 10px 18px; /* 높이 줄임 (12px → 10px) */
+      font-size: 26px; /* 폰트 작게 (30px → 26px) */
+      font-weight: 800; /* 더 굵게 */
+      letter-spacing: 0.1em; /* 글자 간격 추가 */
+      border-radius: 12px;
+      border: 1px solid #FFB84D;
+      background: #FFB84D; /* 주황색 */
+      line-height: 1.3; /* 줄간격 조정 */
+      
+      .button-icon {
+        max-width: 28px; /* 아이콘 작게 (32px → 28px) */
+        max-height: 28px; /* 아이콘 작게 (32px → 28px) */
+        width: auto;
+        height: auto;
+        object-fit: contain;
+      }
+    }
+  }
+
+  /* 매우 작은 화면 대응 */
+  @media (max-width: 320px) {
+    .bottom-button-fixed {
+      min-width: 200px;
+      font-size: 28px; /* 폰트 사이즈 증가 */
+      font-weight: 800; /* 더 굵게 */
+      letter-spacing: 0.1em; /* 글자 간격 추가 */
+      padding: 10px 18px; /* 위아래 패딩 감소 */
+      background: #FFB84D; /* 주황색 */
+      
+      .button-icon {
+        max-width: 28px;
+        max-height: 28px;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+      }
+    }
+  }
+}
+
+/* 다크 모드 대응 */
+@media (prefers-color-scheme: dark) {
+  .event-page-fixed {
+    .bottom-button-container-fixed {
+      background: transparent !important; /* 배경 레이어 제거 */
+    }
+  }
+}
+
+/* 고대비 모드 대응 */
+@media (prefers-contrast: high) {
+  .event-page-fixed {
+    .bottom-button-fixed {
+      border-width: 6px;
+      font-weight: 800;
+    }
+  }
+}
+
+/* 애니메이션 축소 모드 대응 */
+@media (prefers-reduced-motion: reduce) {
+  .event-page-fixed {
+    .bottom-button-fixed {
+      transition: none;
+      
+      &::before {
+        transition: none;
+      }
+      
+      &:hover {
+        transform: none;
+      }
+      
+      &:active {
+        transform: none;
+      }
+    }
+  }
+}
+
+  /* 로딩 스피너 오버레이 */
+  .loading-spinner-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  .loading-spinner-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .loading-spinner-icon {
+    max-width: 80px;
+    max-height: 80px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    animation: spinnerRotate 1.5s linear infinite;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes spinnerRotate {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }

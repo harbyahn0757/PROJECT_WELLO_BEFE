@@ -175,14 +175,14 @@
   // 모바일 반응형
   @media (max-width: 767px) {
     padding: $spacing-sm $spacing-sm !important;
-    min-height: 52px; // 기본 높이 (default 타입)
-    --header-height: 52px; // 모바일 기본값
+    min-height: 42px; // 기본 높이 (default 타입) - 80% 축소
+    --header-height: 42px; // 모바일 기본값 - 80% 축소
     gap: $spacing-sm;
     
     // large 타입일 때 모바일에서도 높이 증가
     &.health-trends-header--large {
-      min-height: 80px !important; // 모바일: 큰 높이
-      --header-height: 80px; // 모바일 large 타입
+      min-height: 64px !important; // 모바일: 큰 높이 - 80% 축소
+      --header-height: 64px; // 모바일 large 타입 - 80% 축소
     }
     
     &__back-button {

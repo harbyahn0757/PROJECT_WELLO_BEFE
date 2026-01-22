@@ -223,6 +223,18 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
       }
 
       if (result.success) {
+        // 비밀번호 확인 성공 시 IndexedDB에 10분간 캐싱
+        if (type === 'confirm' && uuid && hospitalId) {
+          try {
+            const { WelnoIndexedDB } = await import('../../services/WelnoIndexedDB');
+            await WelnoIndexedDB.savePasswordAuth(uuid, hospitalId);
+            console.log('✅ [PasswordModal] 비밀번호 인증 IndexedDB 저장 완료');
+          } catch (error) {
+            console.warn('⚠️ [PasswordModal] IndexedDB 저장 실패 (무시):', error);
+            // IndexedDB 저장 실패해도 진행
+          }
+        }
+        
         onSuccess(type);
         onClose();
       } else {

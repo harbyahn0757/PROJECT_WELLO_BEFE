@@ -7,77 +7,15 @@ import { TilkoHealthCheckupRaw, TilkoTestItem } from '../types/health';
 import { 
   CategoryData, 
   CategoryItem, 
-  CategoryDefinition, 
+  CategoryDefinition,
   CategoryStatus,
   ItemStatus 
 } from '../types/category';
+import { HEALTH_CATEGORIES, CATEGORY_ICONS } from './healthItemsConfig';
+import { isInRange, determineBloodPressureStatus, matchesStringValue } from './rangeUtils';
 
-// ============================================================================
-// 카테고리 정의
-// ============================================================================
-
-export const HEALTH_CATEGORIES: Record<string, CategoryDefinition> = {
-  BODY: { 
-    id: 'body', 
-    name: '신체', 
-    illnesses: ['비만', '저체중'],
-    icon: '🏃'
-  },
-  BLOOD_PRESSURE: { 
-    id: 'blood_pressure', 
-    name: '혈압', 
-    illnesses: ['고혈압', '저혈압'],
-    icon: '🩺'
-  },
-  KIDNEY: { 
-    id: 'kidney', 
-    name: '신장', 
-    illnesses: ['신장질환', '신기능이상'],
-    icon: '🫘'
-  },
-  ANEMIA: { 
-    id: 'anemia', 
-    name: '빈혈', 
-    illnesses: ['빈혈'],
-    icon: '🩸'
-  },
-  DIABETES: { 
-    id: 'diabetes', 
-    name: '혈당', 
-    illnesses: ['당뇨병', '공복혈당장애'],
-    icon: '🍬'
-  },
-  CHOLESTEROL: { 
-    id: 'cholesterol', 
-    name: '콜레스테롤', 
-    illnesses: ['이상지질혈증', '고지혈증'],
-    icon: '🧪'
-  },
-  LIVER: { 
-    id: 'liver', 
-    name: '간', 
-    illnesses: ['간장질환', '간기능이상'],
-    icon: '🫀'
-  },
-  LUNG: { 
-    id: 'lung', 
-    name: '폐', 
-    illnesses: ['폐결핵', '흉부질환', '폐질환'],
-    icon: '🫁'
-  },
-  BONE: { 
-    id: 'bone', 
-    name: '골다공증', 
-    illnesses: ['골다공증'],
-    icon: '🦴'
-  }
-};
-
-// 카테고리 아이콘 매핑 (재사용)
-export const CATEGORY_ICONS: Record<string, string> = Object.values(HEALTH_CATEGORIES).reduce(
-  (acc, cat) => ({ ...acc, [cat.id]: cat.icon || '' }),
-  {}
-);
+// 하위 호환성을 위해 HEALTH_CATEGORIES를 다시 export
+export { HEALTH_CATEGORIES, CATEGORY_ICONS };
 
 // ============================================================================
 // 메인 처리 함수
@@ -91,7 +29,8 @@ export const CATEGORY_ICONS: Record<string, string> = Object.values(HEALTH_CATEG
  */
 export function processHealthDataToCategories(
   healthData: TilkoHealthCheckupRaw[],
-  year?: string
+  year?: string,
+  gender: string = 'M'
 ): CategoryData[] {
   // 1. 연도 필터링
   const filteredData = year 
@@ -119,7 +58,7 @@ export function processHealthDataToCategories(
             if (catDef.illnesses.includes(illness.Name)) {
               if (illness.Items && Array.isArray(illness.Items)) {
                 illness.Items.forEach(item => {
-                  const itemStatus = determineItemStatus(item);
+                  const itemStatus = determineItemStatus(item, gender);
                   
                   // 주의 항목 카운트
                   if (itemStatus === 'abnormal' || itemStatus === 'borderline') {
@@ -168,68 +107,83 @@ export function processHealthDataToCategories(
 // ============================================================================
 
 /**
- * 항목 상태 판정
+ * 항목 상태 판정 (검진추이 TrendsSection과 100% 동일)
  * @param item - 검사 항목 데이터
+ * @param gender - 성별 ('M' | 'F')
  * @returns 상태 ('normal' | 'borderline' | 'abnormal')
  * 
- * 판정 우선순위 (검진추이 TrendsSection과 동일):
+ * 판정 우선순위:
  * 1. 질환의심 범위 체크 → abnormal
- * 2. 정상 범위 체크 → normal
- * 3. 경계 범위 체크 → borderline
- * 4. 범위 외 → normal (기본값)
+ * 2. 경계 범위 체크 (정상(B), 정상(경계)) → borderline
+ * 3. 정상 범위 체크 (정상, 정상(A)) → normal
+ * 4. 정상 범위가 없으면 → normal (역방향 판정)
  */
-function determineItemStatus(item: TilkoTestItem): ItemStatus {
-  if (!item.ItemReferences || !Array.isArray(item.ItemReferences)) {
-    return 'normal'; // ItemReferences 없으면 기본 정상
+function determineItemStatus(item: TilkoTestItem, gender: string = 'M'): ItemStatus {
+  if (!item.ItemReferences || !Array.isArray(item.ItemReferences) || item.ItemReferences.length === 0) {
+    return 'normal';
+  }
+  
+  // 특수 케이스 1: 혈압(최고/최저) 복합값 처리
+  if (item.Name === '혈압(최고/최저)' || item.Name.includes('혈압')) {
+    if (item.Value && item.Value.includes('/')) {
+      return determineBloodPressureStatus(item.Value, item.ItemReferences, gender);
+    }
+  }
+  
+  // 특수 케이스 2: 빈 값
+  if (!item.Value || item.Value.trim() === '') {
+    return 'normal';
   }
   
   const itemValue = parseFloat(item.Value);
+  
+  // 특수 케이스 3: 문자열 값 (숫자가 아닌 경우)
   if (isNaN(itemValue)) {
-    return 'normal'; // 숫자가 아닌 값은 기본 정상 처리
+    // 문자열 값 매칭 (요단백 "음성", 폐결핵 "정상" 등)
+    for (const ref of item.ItemReferences) {
+      if (ref.Value && matchesStringValue(item.Value, ref.Value)) {
+        if (ref.Name === '질환의심' || ref.Name?.includes('질환의심') || ref.Name?.includes('이상')) {
+          return 'abnormal';
+        }
+        if (ref.Name === '정상' || ref.Name === '정상(A)') {
+          return 'normal';
+        }
+        if (ref.Name === '정상(B)' || ref.Name === '정상(경계)') {
+          return 'borderline';
+        }
+      }
+    }
+    return 'normal';
   }
+  
+  // 일반 케이스: 숫자 값 (검진추이와 100% 동일)
+  // 판정 우선순위: 질환의심 > 경계 > 정상(명시) > 정상(기본)
   
   // 1. 질환의심 범위 체크 (최우선)
-  const abnormalRef = item.ItemReferences.find(r => 
-    r.Name === '질환의심' || 
-    r.Name?.includes('질환의심') || 
-    r.Name?.includes('이상')
-  );
-  if (abnormalRef && abnormalRef.Value) {
-    const range = parseRange(abnormalRef.Value);
-    if (range && isInRange(itemValue, range)) {
-      return 'abnormal';
-    }
+  const abnormalRef = item.ItemReferences.find(r => r.Name === '질환의심');
+  if (abnormalRef && abnormalRef.Value && isInRange(itemValue, abnormalRef.Value, gender)) {
+    return 'abnormal';
   }
   
-  // 2. 정상 범위 체크 (두 번째 우선순위)
-  // 정상, 정상(A), 정상(B) 모두 포함 (검진추이와 동일)
-  const normalRef = item.ItemReferences.find(r => 
-    r.Name === '정상' || 
-    r.Name === '정상(A)' || 
-    r.Name === '정상(B)' || 
-    r.Name?.includes('정상')
-  );
-  if (normalRef && normalRef.Value) {
-    const range = parseRange(normalRef.Value);
-    if (range && isInRange(itemValue, range)) {
-      return 'normal'; // 정상 범위 내면 정상
-    }
-  }
-  
-  // 3. 경계 범위 체크 (세 번째 우선순위)
+  // 2. 경계 범위 체크
   const borderlineRef = item.ItemReferences.find(r => 
-    r.Name === '정상(B)' || 
-    r.Name?.includes('정상(B)') || 
-    r.Name?.includes('경계')
+    r.Name === '정상(B)' || r.Name === '정상(경계)'
   );
-  if (borderlineRef && borderlineRef.Value) {
-    const range = parseRange(borderlineRef.Value);
-    if (range && isInRange(itemValue, range)) {
-      return 'borderline';
-    }
+  if (borderlineRef && borderlineRef.Value && isInRange(itemValue, borderlineRef.Value, gender)) {
+    return 'borderline';
   }
   
-  // 4. 범위에 해당 없으면 기본 정상 (검진추이와 동일)
+  // 3. 정상 범위 체크 (명시된 경우)
+  const normalRef = item.ItemReferences.find(r => 
+    r.Name === '정상' || r.Name === '정상(A)'
+  );
+  if (normalRef && normalRef.Value && isInRange(itemValue, normalRef.Value, gender)) {
+    return 'normal';
+  }
+  
+  // 4. 정상 범위가 명시되지 않은 경우
+  // 질환의심/경계 범위에 해당하지 않으면 정상으로 판정
+  // (예: 크레아티닌, AST, ALT 등은 정상 범위가 없고 비정상 범위만 명시)
   return 'normal';
 }
 
@@ -260,94 +214,6 @@ function getReferenceName(item: TilkoTestItem): string | undefined {
   if (normalRef) return normalRef.Name;
   
   return undefined;
-}
-
-/**
- * 범위 문자열 파싱
- * @param rangeStr - 범위 문자열 (예: "13-16.5", "120미만", "남: 13-16.5 / 여: 12-15.5")
- * @param gender - 성별 ('M' | 'F')
- * @returns { min, max } 또는 null
- */
-function parseRange(
-  rangeStr: string, 
-  gender: string = 'M'
-): { min: number; max: number } | null {
-  if (!rangeStr) return null;
-  
-  try {
-    // 성별 구분 처리
-    if (rangeStr.includes('남') && rangeStr.includes('여')) {
-      const parts = rangeStr.split('/');
-      const targetPart = gender === 'M' 
-        ? parts.find(p => p.includes('남'))?.trim()
-        : parts.find(p => p.includes('여'))?.trim();
-      
-      if (targetPart) {
-        const cleanRange = targetPart.replace(/남:|여:/, '').trim();
-        return parseSimpleRange(cleanRange);
-      }
-    }
-    
-    // 단순 범위 파싱
-    return parseSimpleRange(rangeStr);
-  } catch (error) {
-    console.warn('[parseRange] 범위 파싱 실패:', rangeStr, error);
-    return null;
-  }
-}
-
-/**
- * 단순 범위 문자열 파싱
- * @param rangeStr - 범위 문자열 (예: "13-16.5", "120미만")
- * @returns { min, max } 또는 null
- */
-function parseSimpleRange(rangeStr: string): { min: number; max: number } | null {
-  const cleaned = rangeStr.trim();
-  
-  // "120미만" 형태
-  if (cleaned.includes('미만')) {
-    const value = parseFloat(cleaned.replace(/[^0-9.]/g, ''));
-    if (!isNaN(value)) {
-      return { min: -Infinity, max: value };
-    }
-  }
-  
-  // "120이상" 형태
-  if (cleaned.includes('이상')) {
-    const value = parseFloat(cleaned.replace(/[^0-9.]/g, ''));
-    if (!isNaN(value)) {
-      return { min: value, max: Infinity };
-    }
-  }
-  
-  // "13-16.5" 형태
-  if (cleaned.includes('-') || cleaned.includes('~')) {
-    const parts = cleaned.split(/[-~]/).map(p => parseFloat(p.trim()));
-    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-      return { min: parts[0], max: parts[1] };
-    }
-  }
-  
-  // 단일 값 (정확히 일치해야 함)
-  const singleValue = parseFloat(cleaned);
-  if (!isNaN(singleValue)) {
-    return { min: singleValue, max: singleValue };
-  }
-  
-  return null;
-}
-
-/**
- * 값이 범위 내에 있는지 확인
- * @param value - 확인할 값
- * @param range - 범위 { min, max }
- * @returns 범위 내 여부
- */
-function isInRange(
-  value: number, 
-  range: { min: number; max: number }
-): boolean {
-  return value >= range.min && value <= range.max;
 }
 
 /**

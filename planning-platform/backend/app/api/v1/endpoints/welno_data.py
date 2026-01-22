@@ -630,3 +630,233 @@ async def save_terms_agreement(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"약관 동의 저장 실패: {str(e)}")
+
+@router.get("/mediarc-report")
+async def get_mediarc_report(
+    uuid: str = Query(..., description="환자 UUID"),
+    hospital_id: str = Query(..., description="병원 ID")
+) -> Dict[str, Any]:
+    """
+    Mediarc 질병예측 리포트 조회
+    
+    Args:
+        uuid: 환자 UUID
+        hospital_id: 병원 ID
+        
+    Returns:
+        Mediarc 리포트 데이터 (bodyage, rank, disease_data, cancer_data 등)
+    """
+    try:
+        import asyncpg
+        from ....core.config import settings
+        
+        # DB 연결
+        conn = await asyncpg.connect(
+            host=settings.DB_HOST if hasattr(settings, 'DB_HOST') else '10.0.1.10',
+            port=settings.DB_PORT if hasattr(settings, 'DB_PORT') else 5432,
+            database=settings.DB_NAME if hasattr(settings, 'DB_NAME') else 'p9_mkt_biz',
+            user=settings.DB_USER if hasattr(settings, 'DB_USER') else 'peernine',
+            password=settings.DB_PASSWORD if hasattr(settings, 'DB_PASSWORD') else 'autumn3334!'
+        )
+        
+        # Mediarc 리포트 조회
+        query = """
+            SELECT 
+                id, patient_uuid, hospital_id, raw_response, mkt_uuid, report_url,
+                provider, analyzed_at, bodyage, rank, disease_data, cancer_data,
+                has_questionnaire, questionnaire_data, created_at, updated_at
+            FROM welno.welno_mediarc_reports
+            WHERE patient_uuid = $1 AND hospital_id = $2
+            ORDER BY created_at DESC
+            LIMIT 1
+        """
+        
+        row = await conn.fetchrow(query, uuid, hospital_id)
+        await conn.close()
+        
+        if not row:
+            return {
+                "success": False,
+                "has_report": False,
+                "message": "Mediarc 리포트가 없습니다."
+            }
+        
+        # 데이터 변환 (Decimal, datetime, JSONB 처리)
+        import json as json_lib
+        
+        def convert_value(obj):
+            # JSONB가 문자열로 온 경우 파싱
+            if isinstance(obj, str):
+                try:
+                    obj = json_lib.loads(obj)
+                except:
+                    return obj
+            
+            if isinstance(obj, datetime):
+                return obj.isoformat()
+            elif isinstance(obj, dict):
+                return {k: convert_value(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_value(i) for i in obj]
+            else:
+                return obj
+        
+        report_data = {
+            "id": row['id'],
+            "patient_uuid": row['patient_uuid'],
+            "hospital_id": row['hospital_id'],
+            "mkt_uuid": row['mkt_uuid'],
+            "report_url": row['report_url'],
+            "provider": row['provider'],
+            "analyzed_at": row['analyzed_at'].isoformat() if row['analyzed_at'] else None,
+            "bodyage": row['bodyage'],
+            "rank": row['rank'],
+            "disease_data": convert_value(row['disease_data']),
+            "cancer_data": convert_value(row['cancer_data']),
+            "has_questionnaire": row['has_questionnaire'],
+            "questionnaire_data": convert_value(row['questionnaire_data']),
+            "created_at": row['created_at'].isoformat() if row['created_at'] else None,
+            "updated_at": row['updated_at'].isoformat() if row['updated_at'] else None,
+        }
+        
+        print(f"✅ [Mediarc조회] 리포트 조회 성공: bodyage={report_data['bodyage']}, rank={report_data['rank']}")
+        
+        return {
+            "success": True,
+            "has_report": True,
+            "data": report_data
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ [Mediarc조회] 오류: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Mediarc 리포트 조회 실패: {str(e)}")
+
+@router.post("/mediarc-report/generate")
+async def generate_mediarc_report(
+    uuid: str = Query(..., description="환자 UUID"),
+    hospital_id: str = Query(..., description="병원 ID")
+) -> Dict[str, Any]:
+    """
+    Mediarc 질병예측 리포트 생성 요청 (백그라운드 처리)
+    
+    검진 데이터가 있을 때 호출하면 백그라운드에서 Mediarc API를 호출하여 리포트 생성
+    
+    Args:
+        uuid: 환자 UUID
+        hospital_id: 병원 ID
+        
+    Returns:
+        생성 요청 성공 여부 (실제 생성은 백그라운드에서 진행)
+    """
+    try:
+        from ....core.config import settings
+        from ....services.welno_data_service import welno_data_service
+        import asyncio
+        
+        print(f"\n{'='*80}")
+        print(f"🔄 [Mediarc 생성 요청] 시작")
+        print(f"  - uuid: {uuid}")
+        print(f"  - hospital_id: {hospital_id}")
+        print(f"{'='*80}\n")
+        
+        # 1. MEDIARC_ENABLED 플래그 확인
+        MEDIARC_ENABLED = getattr(settings, 'MEDIARC_ENABLED', False)
+        
+        if not MEDIARC_ENABLED:
+            print(f"⚠️ [Mediarc 생성 요청] 기능 비활성화 (MEDIARC_ENABLED=False)")
+            return {
+                "success": False,
+                "message": "Mediarc 기능이 비활성화되어 있습니다"
+            }
+        
+        # 2. 검진 데이터 존재 확인
+        health_data = await welno_data_service.get_patient_health_data(uuid, hospital_id)
+        
+        if "error" in health_data:
+            print(f"❌ [Mediarc 생성 요청] 환자를 찾을 수 없음")
+            raise HTTPException(status_code=404, detail="환자를 찾을 수 없습니다")
+        
+        health_count = len(health_data.get('health_data', []))
+        
+        if health_count == 0:
+            print(f"⚠️ [Mediarc 생성 요청] 검진 데이터가 없음")
+            return {
+                "success": False,
+                "message": "검진 데이터가 없습니다. 먼저 건강검진 데이터를 수집해주세요."
+            }
+        
+        print(f"✅ [Mediarc 생성 요청] 검진 데이터 확인: {health_count}건")
+        
+        # 3. 검진설계 문진 데이터 조회 (케이스 2: 질병예측 시 설계 문진 활용)
+        # ─────────────────────────────────────────────────────────────────
+        # 사용자가 이전에 검진설계를 완료했다면, 그때 작성한 문진 데이터를
+        # 자동으로 Mediarc 리포트 생성에 반영합니다.
+        #
+        # 장점:
+        # - 사용자가 문진을 다시 작성할 필요 없음
+        # - 검진설계 문진이 더 상세하고 정확함
+        # - 일관성 있는 데이터 활용
+        # ─────────────────────────────────────────────────────────────────
+        questionnaire_codes = None
+        
+        try:
+            # 검진설계 문진 조회
+            design_survey = await welno_data_service.load_checkup_design_survey(uuid, hospital_id)
+            
+            if design_survey:
+                print(f"📋 [Mediarc 생성] 검진설계 문진 발견 → Mediarc 코드로 변환")
+                
+                # 문진 데이터를 Mediarc 코드로 변환
+                from ....services.mediarc.questionnaire_mapper import map_checkup_design_survey_to_mediarc
+                questionnaire_codes = map_checkup_design_survey_to_mediarc(design_survey)
+                
+                print(f"✅ [Mediarc 생성] 문진 변환 완료:")
+                print(f"   - 흡연: {questionnaire_codes.get('smoke')}")
+                print(f"   - 음주: {questionnaire_codes.get('drink')}")
+                print(f"   - 가족력: {len(questionnaire_codes.get('family', []))}개")
+            else:
+                print(f"ℹ️ [Mediarc 생성] 검진설계 문진 없음 → 기본값 사용")
+                
+        except Exception as e:
+            print(f"⚠️ [Mediarc 생성] 문진 조회 실패 (기본값 사용): {e}")
+            questionnaire_codes = None
+        
+        # 4. 백그라운드에서 Mediarc 리포트 생성
+        # ─────────────────────────────────────────────────────────────────
+        # questionnaire_codes가 None이면 기본값 자동 추가됨
+        # (generate_mediarc_report_async 내부 로직)
+        # ─────────────────────────────────────────────────────────────────
+        from ....services.mediarc import generate_mediarc_report_async
+        
+        print(f"🔄 [Mediarc 생성 요청] 백그라운드 태스크 시작")
+        
+        asyncio.create_task(
+            generate_mediarc_report_async(
+                patient_uuid=uuid,
+                hospital_id=hospital_id,
+                session_id=None,  # 수동 생성이므로 session_id 없음
+                service=welno_data_service,
+                questionnaire_data=questionnaire_codes  # 문진 데이터 포함
+            )
+        )
+        
+        print(f"✅ [Mediarc 생성 요청] 백그라운드 태스크 등록 완료")
+        print(f"{'='*80}\n")
+        
+        return {
+            "success": True,
+            "message": "Mediarc 리포트 생성을 시작했습니다. 완료되면 알림을 받게 됩니다.",
+            "generating": True
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ [Mediarc 생성 요청] 에러: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"리포트 생성 요청 실패: {str(e)}")

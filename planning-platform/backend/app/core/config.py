@@ -124,6 +124,11 @@ class Settings(BaseSettings):
     # Perplexity 설정
     perplexity_api_key: str = Field(default="dev-perplexity-key", env="PERPLEXITY_API_KEY")
 
+    # Mediarc 질병예측 리포트 설정
+    MEDIARC_ENABLED: bool = Field(default=True, env="MEDIARC_ENABLED")
+    MEDIARC_API_URL: str = Field(default="https://xogxog.com/api/external/mediarc/report/", env="MEDIARC_API_URL")
+    MEDIARC_API_KEY: str = Field(default="welno_5a9bb40b5108ecd8ef864658d5a2d5ab", env="MEDIARC_API_KEY")
+    
     # WELNO 기본 설정
     welno_default_hospital_id: str = Field(default="PEERNINE", env="WELNO_DEFAULT_HOSPITAL_ID")  # 직접 접속 유저용 기본 병원 ID
 

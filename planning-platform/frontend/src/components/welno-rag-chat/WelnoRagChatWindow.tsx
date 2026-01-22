@@ -99,12 +99,13 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
       try {
         const baseUrl = apiConfig.IS_DEVELOPMENT ? '' : apiConfig.API_BASE_URL;
         const response = await fetch(
-          `${baseUrl}/welno-api/v1/checkup-data/has-data?uuid=${uuid}&hospital_id=${hospitalId}`
+          `${baseUrl}/welno-api/v1/welno/check-existing-data?uuid=${uuid}&hospital_id=${hospitalId}`
         );
         
         if (response.ok) {
           const result = await response.json();
-          setHasHealthData(result.has_data || false);
+          // 기존 API 응답: { success: true, data: { exists: true, ... } }
+          setHasHealthData(result.data?.exists || false);
         } else {
           setHasHealthData(false);
         }

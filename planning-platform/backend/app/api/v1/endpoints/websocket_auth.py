@@ -237,6 +237,36 @@ async def notify_data_extracting(session_id: str, data_type: str):
         f"{data_type} 데이터를 추출하고 있습니다..."
     )
 
+async def notify_mediarc_completed(session_id: str, report_data: dict):
+    """
+    Mediarc 리포트 생성 완료 시 WebSocket으로 클라이언트에 알림
+    
+    Args:
+        session_id: 세션 ID
+        report_data: Mediarc 리포트 데이터 (bodyage, rank, disease_data, cancer_data 등)
+    """
+    message = {
+        "type": "streaming_status",
+        "session_id": session_id,
+        "status": "mediarc_report_completed",
+        "message": "질병예측 리포트가 생성되었습니다!",
+        "data": {
+            "bodyage": report_data.get("bodyage"),
+            "rank": report_data.get("rank"),
+            "has_questionnaire": report_data.get("has_questionnaire", False),
+            "mkt_uuid": report_data.get("mkt_uuid"),
+            "report_url": report_data.get("report_url")
+        }
+    }
+    
+    success = await manager.send_personal_message(message, session_id)
+    if success:
+        print(f"✅ [WebSocket] 세션 {session_id} Mediarc 완료 알림 전송됨")
+    else:
+        print(f"⚠️ [WebSocket] 세션 {session_id} 연결 없음 - Mediarc 알림 전송 실패")
+    
+    return success
+
 async def notify_completion(session_id: str, collected_data: dict):
     """데이터 수집 완료"""
     # 🔍 전달되는 데이터 상태 로깅

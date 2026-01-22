@@ -306,7 +306,8 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
       // 3. 차이 확인 및 동기화 (서버에 데이터가 있을 때만 동기화)
       const needsSync = 
         (indexedHealthCount !== serverHealthCount || 
-         indexedPrescriptionCount !== serverPrescriptionCount) &&
+         indexedPrescriptionCount !== serverPrescriptionCount ||
+         indexedData?.patientName !== result.data.patient?.name) &&  // 환자 이름 비교 추가
         (serverHealthCount > 0 || serverPrescriptionCount > 0); // 서버에 데이터가 있을 때만 동기화
       
       if (needsSync) {
@@ -774,7 +775,14 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
             birthday: patientData.birthday || '(없음)',
             gender: patientData.gender,
             '원본 phone_number': rawPatientData.phone_number,
-            '변환된 phone': patientData.phone
+            '변환된 phone': patientData.phone,
+            '🔍 생년월일 상세': {
+              '원본 birth_date': rawPatientData.birth_date,
+              '원본 birthday': rawPatientData.birthday,
+              '변환된 birthday': patientData.birthday,
+              'birthday 존재 여부': !!(patientData.birthday && patientData.birthday.trim()),
+              'birthday 길이': patientData.birthday ? patientData.birthday.length : 0
+            }
           });
         } catch (error) {
           const responseText = await patientResponse.text();

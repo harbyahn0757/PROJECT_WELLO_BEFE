@@ -21,6 +21,8 @@ export const STORAGE_KEYS = {
   // 환자 정보
   PATIENT_UUID: 'welno_patient_uuid',
   HOSPITAL_ID: 'welno_hospital_id',
+  PATIENT_NAME: 'welno_patient_name',
+  PATIENT_BIRTH_DATE: 'welno_patient_birth_date',
   
   // 데이터 캐시 (WelnoDataContext)
   CACHE_PREFIX: 'welno_cache_',

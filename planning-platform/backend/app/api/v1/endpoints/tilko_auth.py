@@ -1467,6 +1467,37 @@ async def collect_health_data_background_task(session_id: str):
                 print(f"✅ [백그라운드] 건강검진 데이터 수집 성공 - {health_count}건")
                 print(f"✅ [백그라운드] JSON 파일 저장 완료")
                 
+                # ⭐ Mediarc API 병렬 호출 (답변 대기 X)
+                try:
+                    # MEDIARC_ENABLED 플래그 확인
+                    from app.core.config import settings
+                    MEDIARC_ENABLED = getattr(settings, 'MEDIARC_ENABLED', False)
+                    
+                    if MEDIARC_ENABLED and health_count > 0:
+                        print(f"🔄 [Mediarc] 리포트 생성 백그라운드 시작")
+                        
+                        import asyncio
+                        from app.services.mediarc import generate_mediarc_report_async
+                        
+                        # asyncio.create_task()로 독립 실행 (답변 기다리지 않음)
+                        asyncio.create_task(
+                            generate_mediarc_report_async(
+                                patient_uuid=patient_uuid,
+                                hospital_id=hospital_id,
+                                session_id=session_id,
+                                service=welno_service
+                            )
+                        )
+                        print(f"⏭️ [Mediarc] 답변 대기하지 않고 처방전 조회 진행")
+                    else:
+                        if not MEDIARC_ENABLED:
+                            print(f"⚠️ [Mediarc] 기능 비활성화 (MEDIARC_ENABLED=False)")
+                        elif health_count == 0:
+                            print(f"⚠️ [Mediarc] 건강검진 데이터 없음 - 스킵")
+                except Exception as mediarc_error:
+                    # Mediarc 에러는 로그만 남기고 전체 플로우는 계속 진행
+                    print(f"❌ [Mediarc] 백그라운드 시작 실패 (무시): {mediarc_error}")
+                
         except Exception as e:
             session_manager.add_error_message(session_id, f"건강검진 데이터 수집 실패: {str(e)}")
             print(f"❌ [백그라운드] 건강검진 데이터 수집 실패: {str(e)}")
@@ -1844,11 +1875,16 @@ async def collect_health_data_background_task(session_id: str):
                     else:
                         print(f"   - ⚠️ prescription_data.ResultList가 리스트가 아님: {type(result_list)}")
             
+            # 세션에서 환자 이름 가져오기
+            user_info = updated_session.get("user_info", {})
+            patient_name = user_info.get("name", "사용자")
+            
             collected_data = {
                 "health_data": health_data_from_session,
                 "prescription_data": prescription_data_from_session,
                 "patient_uuid": patient_uuid,
-                "hospital_id": hospital_id
+                "hospital_id": hospital_id,
+                "patient_name": patient_name
             }
             
             print(f"🔍 [백그라운드-알림] collected_data 구조:")

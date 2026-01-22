@@ -473,11 +473,26 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         return;
       }
       
-      // 건강검진 데이터 수집 완료 상태 처리
+      // ⭐ 건강검진 데이터 수집 완료 → 즉시 화면 전환
       if (type === 'health_data_completed') {
-        setCurrentStatus('health_data_completed');
-        setStatusMessage(message || '건강검진 데이터 수집이 완료되었습니다.');
-        // 스피너는 계속 돌아가야 함 (처방전 수집 중)
+        console.log('✅ [health_data_completed] 검진 데이터 확보 완료 → 즉시 화면 전환');
+        
+        const uuid = StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID);
+        const hospital = StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID);
+        const sessionId = authFlow.state.sessionId;
+        
+        if (uuid && hospital && sessionId) {
+          // sessionId를 URL 파라미터로 전달하여 WebSocket 계속 수신
+          console.log(`📍 [화면전환] /results-trend?uuid=${uuid}&hospital=${hospital}&sessionId=${sessionId}`);
+          navigate(`/results-trend?uuid=${uuid}&hospital=${hospital}&sessionId=${sessionId}`, { 
+            replace: true 
+          });
+        } else {
+          console.warn('⚠️ [health_data_completed] UUID/Hospital/SessionID 누락:', { uuid, hospital, sessionId });
+          // 정보가 없으면 기존 로직 유지 (스피너 계속)
+          setCurrentStatus('health_data_completed');
+          setStatusMessage(message || '건강검진 데이터 수집이 완료되었습니다.');
+        }
         return;
       }
       

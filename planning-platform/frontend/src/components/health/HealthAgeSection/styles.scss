@@ -1,0 +1,419 @@
+/**
+ * HealthAgeSection 스타일
+ * DiseaseReportPage와 CategoryView 공용
+ */
+@use '../../../styles/variables' as *;
+
+.health-age-section {
+  font-family: $font-family-base;
+  border-radius: 16px;
+  
+  // ========================================
+  // 섹션 타이틀
+  // ========================================
+  .section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--report-text-primary, $gray-800);
+    margin-bottom: 8px; // 16px → 8px로 축소
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  // ========================================
+  // 비교 메시지
+  // ========================================
+  .age-comparison-message {
+    text-align: center;
+    font-size: 14px;
+    color: var(--report-text-secondary, $gray-600);
+    line-height: 1.5;
+    margin-bottom: 8px; // 12px → 8px로 축소
+    
+    .age-difference-badge {
+      display: inline-block;
+      background: var(--report-accent-bg-light, rgba(255, 184, 77, 0.25));
+      color: var(--report-accent-color, #FFB84D);
+      padding: 3px 8px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      margin: 0 2px;
+    }
+    
+    // 반짝임 효과
+    .age-difference-badge.glow-effect {
+      animation: badgeGlowTwice 2.5s ease-in-out;
+    }
+  }
+  
+  // ========================================
+  // 나이 박스 컨테이너
+  // ========================================
+  .age-comparison-boxes {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+    width: 100%;
+    margin-top: 0; // 상단 여백 제거
+    
+      .age-box {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 120px;
+        padding: 10px 8px; // 14px 10px → 10px 8px로 축소
+        border-radius: 12px;
+        text-align: center;
+        min-height: 70px; // 85px → 70px로 축소
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        flex-shrink: 1;
+        transition: all 0.3s ease;
+      
+      .age-box-label {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--report-text-secondary, $gray-600);
+        margin-bottom: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      
+      .age-box-value {
+        font-size: 27px;
+        font-weight: 700;
+        color: var(--report-text-primary, $gray-800);
+        line-height: 1.2;
+        
+        // "세" 추가
+        &::after {
+          content: '세';
+          font-size: 0.5em;
+          font-weight: 500;
+          margin-left: 2px;
+          opacity: 0.9;
+          vertical-align: super;
+        }
+        
+        // "계산 중..." 같은 텍스트는 "세" 제거
+        &[data-no-suffix="true"]::after {
+          content: '';
+        }
+      }
+      
+      // 반짝임 효과
+      &.glow-effect {
+        animation: boxGlow 1.5s ease-in-out;
+      }
+    }
+    
+    // 화살표
+    .age-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      min-width: 45px;
+      max-width: 50px;
+      flex-shrink: 0;
+      
+      .arrow-icon {
+        font-size: 20px;
+        color: var(--report-text-tertiary, $gray-500);
+        line-height: 1;
+      }
+    }
+  }
+  
+  // ========================================
+  // Variant: default (CategoryView용)
+  // ========================================
+  &.variant-default {
+    padding: 6px 12px; // 8px 12px → 6px 12px로 더 축소 (제목 제거로 인한 여백 축소)
+    margin-bottom: 20px; // 8px → 20px로 증가 (카드 그리드와의 여백 확보)
+    margin-top: 0; // 상단 여백 제거
+    background: transparent;
+    border: none;
+    
+    // 테두리 옵션 (이미지와 정확히 일치)
+    &.with-border {
+      // 배경: 주의 배너와 동일한 크림색 (#FEF9EE)
+      background: #FEF9EE;
+      // 테두리: 연한 오렌지/브라운 (rgba(255, 184, 77, 0.3) 또는 #E8D5C4)
+      border: 2px solid rgba(255, 184, 77, 0.3);
+      border-radius: 16px;
+    }
+    
+    // variant-default에서는 제목 숨김
+    .section-title {
+      display: none;
+    }
+    
+    .age-comparison-message {
+      text-align: center;
+      font-size: 14px;
+      color: $gray-700;
+      margin-bottom: 8px; // 16px → 8px로 축소
+      margin-top: 0; // 상단 여백 제거
+      line-height: 1.5;
+      
+      .age-difference-badge {
+        // 주황색 하이라이트 (이미지와 일치)
+        background: #FFC68C;
+        color: #D97706;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-weight: 600;
+        display: inline-block;
+        margin: 0 2px;
+      }
+    }
+    
+    .age-box {
+      &.current-age-box {
+        // 검진나이 카드: 흰색 배경, 회색 테두리
+        background: #FFFFFF;
+        border: 2px solid #D3D3D3;
+        border-radius: 12px;
+      }
+      
+      &.bodyage-box {
+        // 기본: 연한 브라운
+        background: rgba($brand-brown, 0.1);
+        border: 2px solid rgba($brand-brown, 0.3);
+        border-radius: 12px;
+      }
+      
+      // 건강나이가 검진나이보다 낮을 경우 (더 좋음) - 연한 초록색 (이미지와 일치)
+      &.bodyage-better {
+        background: #E6F7EA;
+        border: 2px solid #A7D9B1;
+        
+        .age-box-label {
+          color: $gray-700; // 이미지에서 다크 그레이
+        }
+        
+        .age-box-value {
+          color: $gray-900; // 이미지에서 다크 그레이
+        }
+      }
+      
+      // 건강나이가 검진나이보다 높을 경우 (더 나쁨) - 빨간색
+      &.bodyage-worse {
+        background: rgba(239, 68, 68, 0.1);
+        border: 2px solid rgba(239, 68, 68, 0.4);
+      }
+      
+      .age-box-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: $gray-700;
+        margin-bottom: 4px; // 6px → 4px로 더 축소
+      }
+      
+      .age-box-value {
+        font-size: 28px; // 32px → 28px로 축소
+        font-weight: 700;
+        color: $gray-900;
+        line-height: 1.2;
+      }
+    }
+    
+    .age-arrow .arrow-icon {
+      font-size: 20px;
+      color: $gray-600;
+    }
+  }
+  
+  // ========================================
+  // Variant: card (DiseaseReportPage용)
+  // ========================================
+  &.variant-card {
+    margin-bottom: 24px;
+    padding: 12px 16px 16px 16px;
+    background: var(--report-section-bg, rgba(255, 255, 255, 0.08));
+    border: 2px solid var(--report-section-border, rgba(255, 184, 77, 0.3));
+    
+    .section-title {
+      color: var(--report-text-primary, #ffffff);
+    }
+    
+    .age-comparison-message {
+      color: var(--report-text-secondary, rgba(255, 255, 255, 0.8));
+    }
+    
+    .age-box {
+      &.current-age-box {
+        background: var(--report-age-card-current-bg, var(--report-age-card-bg, rgba(255, 255, 255, 0.1)));
+        border: 2px solid var(--report-age-card-current-border, var(--report-age-card-border, rgba(255, 255, 255, 0.2)));
+      }
+      
+      &.bodyage-box {
+        background: var(--report-accent-bg-light, rgba(255, 184, 77, 0.2));
+        border: 2px solid var(--report-accent-border, rgba(255, 184, 77, 0.5));
+      }
+      
+      // 건강나이가 검진나이보다 낮을 경우 (더 좋음) - 초록색
+      &.bodyage-better {
+        background: var(--report-age-card-better-bg, rgba(16, 185, 129, 0.2));
+        border: 2px solid var(--report-age-card-better-border, rgba(16, 185, 129, 0.5));
+      }
+      
+      // 건강나이가 검진나이보다 높을 경우 (더 나쁨) - 빨간색
+      &.bodyage-worse {
+        background: var(--report-age-card-worse-bg, rgba(239, 68, 68, 0.2));
+        border: 2px solid var(--report-age-card-worse-border, rgba(239, 68, 68, 0.5));
+      }
+      
+      .age-box-label {
+        color: var(--report-text-secondary, rgba(255, 255, 255, 0.9));
+      }
+      
+      .age-box-value {
+        color: var(--report-text-primary, #ffffff);
+      }
+    }
+  }
+  
+  // ========================================
+  // 컴팩트 모드 (채팅용)
+  // ========================================
+  &.compact {
+    padding: $spacing-sm;
+    margin-bottom: $spacing-sm;
+    
+    .section-title {
+      font-size: 16px;
+      margin-bottom: $spacing-sm;
+    }
+    
+    .age-comparison-boxes {
+      gap: $spacing-xs;
+      
+      .age-box {
+        max-width: 100px;
+        padding: $spacing-sm $spacing-xs;
+        min-height: 70px;
+        
+        .age-box-label {
+          font-size: 13px;
+          margin-bottom: $spacing-xs;
+        }
+        
+        .age-box-value {
+          font-size: 22px;
+        }
+      }
+      
+      .age-arrow {
+        min-width: 30px;
+        max-width: 35px;
+        
+        .arrow-icon {
+          font-size: 16px;
+        }
+      }
+    }
+  }
+  
+  // ========================================
+  // 반응형 (모바일)
+  // ========================================
+  @media (max-width: 480px) {
+    .age-comparison-boxes {
+      gap: 6px;
+      
+      .age-box {
+        max-width: 100px;
+        padding: 12px 6px;
+        min-height: 75px;
+        
+        .age-box-label {
+          font-size: 14px;
+          margin-bottom: 4px;
+        }
+        
+        .age-box-value {
+          font-size: 23px;
+        }
+      }
+      
+      .age-arrow {
+        min-width: 35px;
+        max-width: 40px;
+        
+        .arrow-icon {
+          font-size: 14px;
+        }
+      }
+    }
+  }
+  
+  // ========================================
+  // 매우 작은 화면
+  // ========================================
+  @media (max-width: 360px) {
+    .age-comparison-boxes {
+      gap: 4px;
+      
+      .age-box {
+        max-width: 90px;
+        padding: 10px 4px;
+        min-height: 70px;
+        
+        .age-box-label {
+          font-size: 13px;
+        }
+        
+        .age-box-value {
+          font-size: 21px;
+        }
+      }
+      
+      .age-arrow {
+        min-width: 30px;
+        max-width: 35px;
+      }
+    }
+  }
+}
+
+// ========================================
+// 애니메이션
+// ========================================
+
+// 배지 반짝임 (2번)
+@keyframes badgeGlowTwice {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+  }
+  15%, 25% {
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5), 0 0 16px rgba(255, 255, 255, 0.4);
+  }
+  35%, 45% {
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+  }
+  55%, 65% {
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5), 0 0 16px rgba(255, 255, 255, 0.4);
+  }
+  75%, 100% {
+    box-shadow: 0 0 0 rgba(255, 255, 255, 0);
+  }
+}
+
+// 박스 반짝임
+@keyframes boxGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(255, 184, 77, 0);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(255, 184, 77, 0.6), 0 0 24px rgba(255, 184, 77, 0.4);
+  }
+}

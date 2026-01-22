@@ -1,0 +1,197 @@
+@import './campaign.scss';
+@import './agreement-screen.scss';
+
+.aims-loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+
+  .aims-loading-content {
+    background: #4a4a4a;
+    border-radius: 24px;
+    padding: 32px 24px;
+    max-width: 240px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+    
+    // 에러 모드일 때 작게
+    .aims-loading-screen.error-mode & {
+      max-width: 200px;
+      padding: 24px 20px;
+    }
+
+    .aims-loading-spinner {
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      .blinking-icon {
+        max-width: 48px;
+        max-height: 48px;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        animation: blink 1.5s ease-in-out infinite;
+      }
+
+      .countdown-number {
+        font-size: 80px;
+        font-weight: 900;
+        color: #FFB84D;
+        margin: 20px auto;
+        line-height: 1;
+        text-shadow: 
+          0 0 15px rgba(255, 184, 77, 0.8),
+          0 0 30px rgba(255, 184, 77, 0.6),
+          0 3px 6px rgba(0, 0, 0, 0.3);
+        animation: countdownPulse 1.2s ease-in-out infinite, countdownChange 0.5s ease-out;
+      }
+    }
+
+    .aims-loading-message {
+      font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: #ffffff;
+      margin-bottom: 20px;
+      min-height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.6;
+      word-break: keep-all;
+      word-wrap: break-word;
+      padding: 0 8px;
+      transition: opacity 0.3s ease;
+      
+      // 에러 메시지 스타일
+      &.error-message {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        min-height: auto;
+        margin-bottom: 0;
+        
+        .error-message-primary {
+          color: #ef4444;
+          font-weight: 600;
+          font-size: 14px;
+          line-height: 1.5;
+          margin: 0;
+          word-break: keep-all;
+        }
+        
+        .error-message-secondary {
+          color: #9ca3af;
+          font-size: 13px;
+          line-height: 1.5;
+          margin: 0;
+          word-break: keep-all;
+        }
+      }
+    }
+
+    .aims-loading-progress {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+
+      .aims-loading-progress-bar {
+        height: 100%;
+        background: #FFB84D;
+        border-radius: 2px;
+        transition: width 0.3s ease;
+      }
+    }
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes countdownPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.9;
+  }
+}
+
+@keyframes countdownChange {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+// 반응형
+@media (max-width: 768px) {
+  .aims-loading-screen {
+    .aims-loading-content {
+      padding: 24px 20px;
+      max-width: 85%;
+
+      .aims-loading-spinner {
+        margin-bottom: 16px;
+
+        .blinking-icon {
+          max-width: 40px;
+          max-height: 40px;
+        }
+
+        .countdown-number {
+          font-size: 64px;
+          margin: 16px auto;
+        }
+      }
+
+      .aims-loading-message {
+        font-size: 13px;
+        min-height: 56px;
+        line-height: 1.5;
+        padding: 0 4px;
+      }
+    }
+  }
+}
+
+

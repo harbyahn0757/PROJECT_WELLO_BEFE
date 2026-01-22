@@ -17,9 +17,11 @@ import { STORAGE_KEYS } from '../../../constants/storage';
 import { WELNO_LOGO_IMAGE } from '../../../constants/images';
 import AIAnalysisSection from '../AIAnalysisSection'; // AI 분석 섹션 컴포넌트
 import ContentLayoutWithHeader from '../../../layouts/ContentLayoutWithHeader'; // 컨텐츠 레이아웃 (헤더 있음)
+import { useWebSocketAuth } from '../../../hooks/useWebSocketAuth'; // ⭐ WebSocket 훅 추가
 import './styles.scss';
 
 import { simplifyDataForLog } from '../../../utils/debugUtils';
+import { calculateCurrentAge } from '../../../features/disease-report/utils/ageCalculator';
 
 const pillIconPath = `${process.env.PUBLIC_URL || ''}/free-icon-pill-5405585.png`;
 
@@ -36,16 +38,23 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   const [healthData, setHealthData] = useState<any>(null);
   const [prescriptionData, setPrescriptionData] = useState<any>(null);
   const [filterMode, setFilterMode] = useState<'all' | 'checkup' | 'pharmacy' | 'treatment'>('all');
+  const [categoryDepth, setCategoryDepth] = useState<number>(0); // CategoryView 뎁스 추적 (0: 그리드, 1: 상세, 2: 모달)
+  const categoryViewBackRef = React.useRef<(() => void) | null>(null); // CategoryView의 handleBack 참조
   
   // 뷰 모드 상태 추가 (trends: 추이분석, timeline: 타임라인, category: 카테고리)
   const [viewMode, setViewMode] = useState<'trends' | 'timeline' | 'category'>(() => {
-    // localStorage에서 저장된 viewMode 복원 (기본값: trends)
+    // localStorage에서 저장된 viewMode 복원 (기본값: category)
     const savedViewMode = localStorage.getItem('welno_view_mode') as 'trends' | 'timeline' | 'category';
-    return savedViewMode || 'trends';
+    return savedViewMode || 'category';
   });
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isLoadingTrends] = useState(false);
   const [showAIAnalysis, setShowAIAnalysis] = useState(false); // AI 분석 섹션 표시 상태
+  
+  // ⭐ Mediarc 리포트 상태
+  const [mediarcData, setMediarcData] = useState<any>(null); // Mediarc 리포트 데이터
+  const [showMediarcSection, setShowMediarcSection] = useState(false); // Mediarc 섹션 표시 여부
+  const [showMediarcGlow, setShowMediarcGlow] = useState(false); // 건강나이 반짝임 효과
   
   // Pull-to-refresh 관련 상태
   const [isPulling, setIsPulling] = useState(false);
@@ -64,6 +73,78 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   
   // 환자 이름 추출 (기본값: "사용자")
   const patientName = state.patient?.name || '사용자';
+  
+  // 🔍 생년월일 데이터 확인 로그
+  useEffect(() => {
+    if (state.patient) {
+      console.log('[HealthDataViewer] 환자 데이터 확인:', {
+        uuid: state.patient.uuid,
+        name: state.patient.name,
+        birthday: state.patient.birthday || '(없음)',
+        birthday_존재: !!(state.patient.birthday && state.patient.birthday.trim()),
+        birthday_길이: state.patient.birthday ? state.patient.birthday.length : 0,
+        actualAge_계산값: state.patient.birthday ? calculateCurrentAge(state.patient.birthday) : null
+      });
+    } else {
+      console.log('[HealthDataViewer] 환자 데이터 없음: state.patient =', state.patient);
+    }
+  }, [state.patient]);
+  
+  // ⭐ URL에서 sessionId 추출 (AuthForm에서 전달됨)
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sid = urlParams.get('sessionId');
+    if (sid) {
+      setSessionId(sid);
+      console.log(`🔌 [HealthDataViewer] sessionId 감지: ${sid}`);
+    }
+  }, []);
+  
+  // ⭐ WebSocket 연결 및 Mediarc 완료 이벤트 수신
+  useWebSocketAuth({
+    sessionId,
+    onDataCollectionProgress: (type, message, data) => {
+      console.log(`📨 [HealthDataViewer WebSocket] 이벤트: ${type}`);
+      
+      // Mediarc 리포트 완료 시
+      if (type === 'mediarc_report_completed') {
+        console.log('🎉 [HealthDataViewer] Mediarc 완료 → 건강 나이 섹션 표시');
+        console.log('   - bodyage:', data?.bodyage);
+        console.log('   - rank:', data?.rank);
+        
+        setMediarcData({
+          bodyage: data?.bodyage,
+          rank: data?.rank,
+          mkt_uuid: data?.mkt_uuid,
+          report_url: data?.report_url,
+          has_questionnaire: data?.has_questionnaire
+        });
+        setShowMediarcSection(true);
+        
+        // 반짝임 효과 트리거
+        setShowMediarcGlow(true);
+        setTimeout(() => {
+          setShowMediarcGlow(false);
+        }, 2500); // 2.5초 후 끄기
+        
+        // 건강 나이 섹션으로 스크롤 (선택사항)
+        setTimeout(() => {
+          const mediarcSection = document.querySelector('.mediarc-section');
+          if (mediarcSection) {
+            mediarcSection.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'start' 
+            });
+          }
+        }, 300);
+      }
+    },
+    onError: (error) => {
+      console.error('❌ [HealthDataViewer WebSocket] 에러:', error);
+    }
+  });
 
   // 페이지 타이틀 동적 변경 로직
   const getPageTitle = () => {
@@ -585,6 +666,64 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
     loadHealthData();
   }, []);
 
+  // ⭐ 건강검진 데이터 로드 후 Mediarc 리포트 조회
+  useEffect(() => {
+    const loadMediarcReport = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const uuid = urlParams.get('uuid');
+      const hospital = urlParams.get('hospital') || urlParams.get('hospitalId') || urlParams.get('hospital_id');
+      
+      if (!uuid || !hospital || !healthData?.ResultList || healthData.ResultList.length === 0) {
+        return; // 건강검진 데이터가 없으면 조회하지 않음
+      }
+      
+      // 이미 로드된 경우 스킵
+      if (mediarcData) {
+        return;
+      }
+      
+      try {
+        console.log('[HealthDataViewer] Mediarc 리포트 조회 시작:', { uuid, hospital });
+        const mediarcResponse = await fetch(`/welno-api/v1/welno/mediarc-report?uuid=${uuid}&hospital_id=${hospital}`);
+        const mediarcResult = await mediarcResponse.json();
+        
+        console.log('[HealthDataViewer] Mediarc 리포트 응답:', {
+          success: mediarcResult.success,
+          has_report: mediarcResult.has_report,
+          data: mediarcResult.data,
+          message: mediarcResult.message
+        });
+        
+        if (mediarcResult.success && mediarcResult.has_report && mediarcResult.data) {
+          console.log('[HealthDataViewer] Mediarc 리포트 로드 성공:', {
+            bodyage: mediarcResult.data.bodyage,
+            rank: mediarcResult.data.rank,
+            mkt_uuid: mediarcResult.data.mkt_uuid
+          });
+          setMediarcData({
+            bodyage: mediarcResult.data.bodyage,
+            rank: mediarcResult.data.rank,
+            mkt_uuid: mediarcResult.data.mkt_uuid,
+            report_url: mediarcResult.data.report_url,
+            has_questionnaire: mediarcResult.data.has_questionnaire
+          });
+          setShowMediarcSection(true);
+        } else {
+          console.log('[HealthDataViewer] Mediarc 리포트 없음:', mediarcResult.message || '리포트가 없습니다');
+          console.log('[HealthDataViewer] 응답 상세:', mediarcResult);
+        }
+      } catch (mediarcError) {
+        console.error('[HealthDataViewer] Mediarc 리포트 조회 실패:', mediarcError);
+      }
+    };
+
+    // 건강검진 데이터가 로드되고 로딩이 완료되었을 때만 조회
+    if (healthData?.ResultList && healthData.ResultList.length > 0 && !loading && !mediarcData) {
+      loadMediarcReport();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [healthData, loading]); // mediarcData는 의존성에서 제외 (무한 루프 방지)
+
   // Pull-to-refresh 터치 이벤트 핸들러
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (containerRef.current && containerRef.current.scrollTop === 0) {
@@ -781,6 +920,19 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
   }, []);
 
   const handleBack = () => {
+    // 카테고리 모드이고 뎁스가 1 이상이면 CategoryView의 뒤로가기 호출
+    if (viewMode === 'category' && categoryDepth > 0) {
+      // CategoryView의 handleBack 호출
+      if (categoryViewBackRef.current) {
+        categoryViewBackRef.current();
+      } else {
+        // 이벤트로 전달
+        window.dispatchEvent(new CustomEvent('categoryViewBack'));
+      }
+      return;
+    }
+    
+    // 그 외의 경우 (카테고리 그리드, trends, timeline) → 메인 페이지로
     if (onBack) {
       onBack();
     } else {
@@ -916,13 +1068,36 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
             isLoading={isLoadingTrends}
           />
         ) : viewMode === 'category' ? (
-          <CategoryView
-            healthData={healthData?.ResultList || []}
-            year={undefined}
-            patientName={patientName}
-            healthAge={49}
-            actualAge={44}
-          />
+          <>
+            <CategoryView
+              healthData={healthData?.ResultList || []}
+              year={undefined}
+              patientName={patientName}
+              healthAge={mediarcData?.bodyage}
+              actualAge={(() => {
+                // birthday가 있으면 계산, 없으면 bodyage 기준으로 추정 (bodyage + 2세 정도)
+                if (state.patient?.birthday) {
+                  const calculated = calculateCurrentAge(state.patient.birthday);
+                  if (calculated !== null) {
+                    return calculated;
+                  }
+                }
+                // birthday가 없으면 bodyage를 기준으로 추정 (일반적으로 건강나이보다 2-3세 높음)
+                if (mediarcData?.bodyage) {
+                  return Math.round(mediarcData.bodyage + 2);
+                }
+                return undefined;
+              })()}
+              showHealthAgeGlow={showMediarcGlow}
+              onDepthChange={setCategoryDepth}
+              onBackRequest={() => {
+                // CategoryView의 handleBack을 ref로 저장
+                categoryViewBackRef.current = () => {
+                  window.dispatchEvent(new CustomEvent('categoryViewBack'));
+                };
+              }}
+            />
+          </>
         ) : (
           <>
             {/* 타임라인 위에 병원/약국 방문 추이 그래프 표시 */}

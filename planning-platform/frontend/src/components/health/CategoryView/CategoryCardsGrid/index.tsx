@@ -6,7 +6,7 @@
 import React from 'react';
 import { CategoryData } from '../../../../types/category';
 import CategoryCard from '../CategoryCard';
-import HealthAgeCard from '../HealthAgeCard';
+import HealthAgeSection from '../../HealthAgeSection';
 import './styles.scss';
 
 interface CategoryCardsGridProps {
@@ -17,6 +17,7 @@ interface CategoryCardsGridProps {
   healthAge?: number;          // 건강 나이
   actualAge?: number;          // 실제 나이
   patientName?: string;        // 환자 이름
+  showHealthAgeGlow?: boolean; // 건강나이 반짝임 효과
 }
 
 const CategoryCardsGrid: React.FC<CategoryCardsGridProps> = ({
@@ -26,7 +27,8 @@ const CategoryCardsGrid: React.FC<CategoryCardsGridProps> = ({
   showHealthAge = false,
   healthAge,
   actualAge,
-  patientName
+  patientName,
+  showHealthAgeGlow = false
 }) => {
   // 주의 항목이 있는 카테고리
   const cautionCategories = categories.filter(c => c.status === 'caution');
@@ -67,6 +69,17 @@ const CategoryCardsGrid: React.FC<CategoryCardsGridProps> = ({
         </div>
       )}
       
+      {/* 건강 나이 섹션 - 카드 그리드 위로 이동 */}
+      {!compact && showHealthAge && (healthAge !== undefined && healthAge !== null) && (actualAge !== undefined && actualAge !== null) && (
+        <HealthAgeSection
+          healthAge={healthAge}
+          actualAge={actualAge}
+          variant="default"
+          showGlowEffect={showHealthAgeGlow}
+          showBorder={true}
+        />
+      )}
+      
       {/* 카드 그리드 */}
       <div className="cards-grid">
         {categories.map((category, index) => (
@@ -82,15 +95,6 @@ const CategoryCardsGrid: React.FC<CategoryCardsGridProps> = ({
           />
         ))}
       </div>
-      
-      {/* 건강 나이 섹션 */}
-      {!compact && showHealthAge && healthAge && actualAge && (
-        <HealthAgeCard
-          healthAge={healthAge}
-          actualAge={actualAge}
-          patientName={patientName}
-        />
-      )}
     </div>
   );
 };

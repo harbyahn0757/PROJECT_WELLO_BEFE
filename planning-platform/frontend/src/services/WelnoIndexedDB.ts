@@ -23,14 +23,23 @@ export interface SessionRecord {
   expiresAt: string;     // 만료 시간
 }
 
+export interface PasswordAuthRecord {
+  id: string;            // Primary Key: `${uuid}_${hospitalId}`
+  uuid: string;          // 환자 UUID
+  hospitalId: string;    // 병원 ID
+  timestamp: number;     // 인증 성공 시간 (Unix timestamp)
+  expiresAt: number;     // 만료 시간 (Unix timestamp, timestamp + 10분)
+}
+
 export class WelnoIndexedDB {
   private static readonly DB_NAME = 'WelnoHealthDB';
-  private static readonly DB_VERSION = 1;
+  private static readonly DB_VERSION = 2; // password_auth 스토어 추가로 버전 업그레이드
   
   // 스토어 정의
   private static readonly STORES = {
     HEALTH_DATA: 'health_data',
-    SESSION_DATA: 'session_data'
+    SESSION_DATA: 'session_data',
+    PASSWORD_AUTH: 'password_auth'
   } as const;
 
   private static db: IDBDatabase | null = null;
@@ -83,6 +92,20 @@ export class WelnoIndexedDB {
           sessionStore.createIndex('expiresAt', 'expiresAt', { unique: false });
           
           console.log('📋 [IndexedDB] session_data 스토어 생성 완료');
+        }
+
+        // 비밀번호 인증 스토어 생성
+        if (!db.objectStoreNames.contains(this.STORES.PASSWORD_AUTH)) {
+          const passwordAuthStore = db.createObjectStore(this.STORES.PASSWORD_AUTH, { 
+            keyPath: 'id' 
+          });
+          
+          // 인덱스 생성
+          passwordAuthStore.createIndex('uuid', 'uuid', { unique: false });
+          passwordAuthStore.createIndex('hospitalId', 'hospitalId', { unique: false });
+          passwordAuthStore.createIndex('expiresAt', 'expiresAt', { unique: false });
+          
+          console.log('📋 [IndexedDB] password_auth 스토어 생성 완료');
         }
       };
     });
@@ -481,15 +504,135 @@ export class WelnoIndexedDB {
   }
 
   /**
+   * 비밀번호 인증 저장 (10분 유효)
+   */
+  static async savePasswordAuth(uuid: string, hospitalId: string): Promise<boolean> {
+    try {
+      const db = await this.ensureConnection();
+      const transaction = db.transaction([this.STORES.PASSWORD_AUTH], 'readwrite');
+      const store = transaction.objectStore(this.STORES.PASSWORD_AUTH);
+      
+      const id = `${uuid}_${hospitalId}`;
+      const timestamp = Date.now();
+      const expiresAt = timestamp + 600000; // 10분 (600,000ms)
+      
+      const record: PasswordAuthRecord = {
+        id,
+        uuid,
+        hospitalId,
+        timestamp,
+        expiresAt
+      };
+      
+      const request = store.put(record);
+
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => {
+          console.log('✅ [IndexedDB] 비밀번호 인증 저장 완료:', id, { expiresAt: new Date(expiresAt).toISOString() });
+          resolve(true);
+        };
+
+        request.onerror = () => {
+          console.error('❌ [IndexedDB] 비밀번호 인증 저장 실패:', request.error);
+          reject(request.error);
+        };
+      });
+
+    } catch (error) {
+      console.error('❌ [IndexedDB] savePasswordAuth 오류:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 비밀번호 인증 확인 (10분 이내인지 확인)
+   */
+  static async getPasswordAuth(uuid: string, hospitalId: string): Promise<boolean> {
+    try {
+      const db = await this.ensureConnection();
+      const transaction = db.transaction([this.STORES.PASSWORD_AUTH], 'readonly');
+      const store = transaction.objectStore(this.STORES.PASSWORD_AUTH);
+      
+      const id = `${uuid}_${hospitalId}`;
+      const request = store.get(id);
+
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => {
+          const result = request.result as PasswordAuthRecord | undefined;
+          
+          if (!result) {
+            console.log('📭 [IndexedDB] 비밀번호 인증 기록 없음:', id);
+            resolve(false);
+            return;
+          }
+
+          // 만료 시간 체크
+          const now = Date.now();
+          if (result.expiresAt > now) {
+            const remainingMinutes = Math.round((result.expiresAt - now) / 60000);
+            console.log('✅ [IndexedDB] 비밀번호 인증 유효:', id, { remainingMinutes: `${remainingMinutes}분 남음` });
+            resolve(true);
+          } else {
+            console.log('⏰ [IndexedDB] 비밀번호 인증 만료됨:', id);
+            // 만료된 항목 삭제
+            this.deletePasswordAuth(uuid, hospitalId);
+            resolve(false);
+          }
+        };
+
+        request.onerror = () => {
+          console.error('❌ [IndexedDB] 비밀번호 인증 조회 실패:', request.error);
+          reject(request.error);
+        };
+      });
+
+    } catch (error) {
+      console.error('❌ [IndexedDB] getPasswordAuth 오류:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 비밀번호 인증 삭제
+   */
+  static async deletePasswordAuth(uuid: string, hospitalId: string): Promise<boolean> {
+    try {
+      const db = await this.ensureConnection();
+      const transaction = db.transaction([this.STORES.PASSWORD_AUTH], 'readwrite');
+      const store = transaction.objectStore(this.STORES.PASSWORD_AUTH);
+      
+      const id = `${uuid}_${hospitalId}`;
+      const request = store.delete(id);
+
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => {
+          console.log('✅ [IndexedDB] 비밀번호 인증 삭제 완료:', id);
+          resolve(true);
+        };
+
+        request.onerror = () => {
+          console.error('❌ [IndexedDB] 비밀번호 인증 삭제 실패:', request.error);
+          reject(request.error);
+        };
+      });
+
+    } catch (error) {
+      console.error('❌ [IndexedDB] deletePasswordAuth 오류:', error);
+      return false;
+    }
+  }
+
+  /**
    * 전체 데이터베이스 초기화 (개발용)
    */
   static async clearAllData(): Promise<boolean> {
     try {
       const db = await this.ensureConnection();
-      const transaction = db.transaction([this.STORES.HEALTH_DATA, this.STORES.SESSION_DATA], 'readwrite');
+      const transaction = db.transaction([this.STORES.HEALTH_DATA, this.STORES.SESSION_DATA, this.STORES.PASSWORD_AUTH], 'readwrite');
       
       const healthStore = transaction.objectStore(this.STORES.HEALTH_DATA);
       const sessionStore = transaction.objectStore(this.STORES.SESSION_DATA);
+      const passwordAuthStore = transaction.objectStore(this.STORES.PASSWORD_AUTH);
       
       await Promise.all([
         new Promise((resolve, reject) => {
@@ -499,6 +642,11 @@ export class WelnoIndexedDB {
         }),
         new Promise((resolve, reject) => {
           const request = sessionStore.clear();
+          request.onsuccess = () => resolve(true);
+          request.onerror = () => reject(request.error);
+        }),
+        new Promise((resolve, reject) => {
+          const request = passwordAuthStore.clear();
           request.onsuccess = () => resolve(true);
           request.onerror = () => reject(request.error);
         })

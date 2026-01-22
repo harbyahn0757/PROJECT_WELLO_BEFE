@@ -1,0 +1,265 @@
+.aims-request-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 20px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.aims-request-modal-content {
+  background: #4a4a4a;
+  border-radius: 16px;
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.aims-request-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.aims-request-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  
+  h3 {
+    margin: 0;
+    font-family: 'Pretendard', sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    color: #ffffff;
+  }
+}
+
+.aims-request-modal-icon {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.aims-request-modal-close {
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-size: 32px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+  
+  &:hover {
+    opacity: 1;
+  }
+}
+
+.aims-request-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  min-height: 200px;
+  max-height: calc(90vh - 180px);
+}
+
+.aims-request-modal-json {
+  margin: 0;
+  padding: 16px;
+  background: #2a2a2a;
+  border-radius: 8px;
+  font-family: 'Courier New', 'Monaco', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #e0e0e0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  
+  // JSON 구문 강조 (기본)
+  .string {
+    color: #98d982;
+  }
+  
+  .number {
+    color: #ffb84d;
+  }
+  
+  .boolean {
+    color: #4fc3f7;
+  }
+  
+  .null {
+    color: #999;
+  }
+}
+
+.aims-request-modal-footer {
+  display: flex;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  justify-content: flex-end;
+}
+
+.aims-request-modal-copy,
+.aims-request-modal-send,
+.aims-request-modal-close-btn {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.aims-request-modal-copy {
+  background: #FFB84D;
+  color: #ffffff;
+  
+  &:hover:not(:disabled) {
+    background: #FFA500;
+  }
+  
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+}
+
+.aims-request-modal-send {
+  background: #10b981;
+  color: #ffffff;
+  
+  &:hover:not(:disabled) {
+    background: #059669;
+  }
+  
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  
+  &.success {
+    background: #10b981;
+  }
+}
+
+.aims-request-modal-close-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+}
+
+.aims-request-modal-error {
+  color: #ef4444;
+  font-size: 14px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+// 모바일 스타일
+@media (max-width: 768px) {
+  .aims-request-modal-overlay {
+    padding: 12px;
+  }
+  
+  .aims-request-modal-content {
+    max-height: 95vh;
+  }
+  
+  .aims-request-modal-header {
+    padding: 16px 20px;
+  }
+  
+  .aims-request-modal-title h3 {
+    font-size: 18px;
+  }
+  
+  .aims-request-modal-icon {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .aims-request-modal-body {
+    padding: 16px;
+    max-height: calc(95vh - 160px);
+  }
+  
+  .aims-request-modal-json {
+    font-size: 12px;
+    padding: 12px;
+  }
+  
+  .aims-request-modal-footer {
+    padding: 16px 20px;
+    flex-direction: column;
+  }
+  
+  .aims-request-modal-copy,
+  .aims-request-modal-send,
+  .aims-request-modal-close-btn {
+    width: 100%;
+    padding: 14px 24px;
+  }
+  
+  .aims-request-modal-error {
+    width: 100%;
+    margin-top: 12px;
+  }
+}
+

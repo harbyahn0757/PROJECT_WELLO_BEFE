@@ -94,7 +94,7 @@
   
   // 모바일 반응형
   @media (max-width: 767px) {
-    top: calc(var(--header-height, 52px) + 20px) !important; // 모바일 헤더 높이 + 간격(20px) 아래
+    top: calc(var(--header-height, 42px) + 20px) !important; // 모바일 헤더 높이 + 간격(20px) 아래 - 80% 축소
     
     &__container {
       width: calc(100% - 32px); // 모바일에서는 좌우 여백 고려
