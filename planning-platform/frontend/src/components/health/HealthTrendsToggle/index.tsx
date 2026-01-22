@@ -18,18 +18,18 @@ const HealthTrendsToggle: React.FC<HealthTrendsToggleProps> = ({
     <div className="health-trends-toggle">
       <div className="health-trends-toggle__container three-buttons">
         <button
-          className={`health-trends-toggle__button ${activeTab === 'trends' ? 'health-trends-toggle__button--active' : ''}`}
-          onClick={() => onTabChange('trends')}
-          aria-label="건강검진 결과 추이"
-        >
-          검진추이
-        </button>
-        <button
           className={`health-trends-toggle__button ${activeTab === 'category' ? 'health-trends-toggle__button--active' : ''}`}
           onClick={() => onTabChange('category')}
           aria-label="카테고리별 보기"
         >
           카테고리
+        </button>
+        <button
+          className={`health-trends-toggle__button ${activeTab === 'trends' ? 'health-trends-toggle__button--active' : ''}`}
+          onClick={() => onTabChange('trends')}
+          aria-label="건강검진 결과 추이"
+        >
+          검진추이
         </button>
         <button
           className={`health-trends-toggle__button ${activeTab === 'timeline' ? 'health-trends-toggle__button--active' : ''}`}

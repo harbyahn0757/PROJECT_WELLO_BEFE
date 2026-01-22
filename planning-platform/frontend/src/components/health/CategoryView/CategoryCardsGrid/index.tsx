@@ -39,7 +39,27 @@ const CategoryCardsGrid: React.FC<CategoryCardsGridProps> = ({
     <div className={`category-cards-grid ${compact ? 'compact' : ''}`}>
       {/* 주의 메시지 */}
       {!compact && cautionCategories.length > 0 && (
-        <div className="attention-banner">
+        <div 
+          className="attention-banner clickable"
+          onClick={() => {
+            const firstCautionCategory = cautionCategories[0];
+            if (firstCautionCategory) {
+              onCategoryClick(firstCautionCategory.id);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              const firstCautionCategory = cautionCategories[0];
+              if (firstCautionCategory) {
+                onCategoryClick(firstCautionCategory.id);
+              }
+            }
+          }}
+          aria-label={`확인해야 할 주의 항목 ${totalCautionItems}개, 클릭하여 첫 번째 주의 카테고리 보기`}
+        >
           <span className="attention-text">
             확인해야 할 <strong>주의</strong> 항목이 {totalCautionItems}개 있어요
           </span>

@@ -171,32 +171,29 @@ export function processHealthDataToCategories(
  * 항목 상태 판정
  * @param item - 검사 항목 데이터
  * @returns 상태 ('normal' | 'borderline' | 'abnormal')
+ * 
+ * 판정 우선순위 (검진추이 TrendsSection과 동일):
+ * 1. 질환의심 범위 체크 → abnormal
+ * 2. 정상 범위 체크 → normal
+ * 3. 경계 범위 체크 → borderline
+ * 4. 범위 외 → normal (기본값)
  */
 function determineItemStatus(item: TilkoTestItem): ItemStatus {
   if (!item.ItemReferences || !Array.isArray(item.ItemReferences)) {
-    return 'normal';
+    return 'normal'; // ItemReferences 없으면 기본 정상
   }
-  
-  const normalRef = item.ItemReferences.find(r => 
-    r.Name?.includes('정상')
-  );
-  const borderlineRef = item.ItemReferences.find(r => 
-    r.Name?.includes('정상(B)') || 
-    r.Name?.includes('정상B') || 
-    r.Name?.includes('경계')
-  );
-  const abnormalRef = item.ItemReferences.find(r => 
-    r.Name?.includes('질환의심') || 
-    r.Name?.includes('질환') ||
-    r.Name?.includes('이상')
-  );
   
   const itemValue = parseFloat(item.Value);
   if (isNaN(itemValue)) {
     return 'normal'; // 숫자가 아닌 값은 기본 정상 처리
   }
   
-  // 질환의심 범위 체크
+  // 1. 질환의심 범위 체크 (최우선)
+  const abnormalRef = item.ItemReferences.find(r => 
+    r.Name === '질환의심' || 
+    r.Name?.includes('질환의심') || 
+    r.Name?.includes('이상')
+  );
   if (abnormalRef && abnormalRef.Value) {
     const range = parseRange(abnormalRef.Value);
     if (range && isInRange(itemValue, range)) {
@@ -204,7 +201,27 @@ function determineItemStatus(item: TilkoTestItem): ItemStatus {
     }
   }
   
-  // 경계 범위 체크
+  // 2. 정상 범위 체크 (두 번째 우선순위)
+  // 정상, 정상(A), 정상(B) 모두 포함 (검진추이와 동일)
+  const normalRef = item.ItemReferences.find(r => 
+    r.Name === '정상' || 
+    r.Name === '정상(A)' || 
+    r.Name === '정상(B)' || 
+    r.Name?.includes('정상')
+  );
+  if (normalRef && normalRef.Value) {
+    const range = parseRange(normalRef.Value);
+    if (range && isInRange(itemValue, range)) {
+      return 'normal'; // 정상 범위 내면 정상
+    }
+  }
+  
+  // 3. 경계 범위 체크 (세 번째 우선순위)
+  const borderlineRef = item.ItemReferences.find(r => 
+    r.Name === '정상(B)' || 
+    r.Name?.includes('정상(B)') || 
+    r.Name?.includes('경계')
+  );
   if (borderlineRef && borderlineRef.Value) {
     const range = parseRange(borderlineRef.Value);
     if (range && isInRange(itemValue, range)) {
@@ -212,14 +229,7 @@ function determineItemStatus(item: TilkoTestItem): ItemStatus {
     }
   }
   
-  // 정상 범위 체크
-  if (normalRef && normalRef.Value) {
-    const range = parseRange(normalRef.Value);
-    if (range && !isInRange(itemValue, range)) {
-      return 'borderline'; // 정상 범위 벗어나면 경계
-    }
-  }
-  
+  // 4. 범위에 해당 없으면 기본 정상 (검진추이와 동일)
   return 'normal';
 }
 

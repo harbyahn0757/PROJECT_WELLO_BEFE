@@ -24,11 +24,24 @@
     background: $background-cream;
     border-radius: $border-radius-xl;
     box-shadow: $shadow-subtle;
-    cursor: pointer;
-    transition: box-shadow 0.2s ease;
+    transition: all 0.2s ease;
     
-    &:hover {
-      box-shadow: $shadow-md;
+    &.clickable {
+      cursor: pointer;
+      
+      &:hover {
+        box-shadow: $shadow-md;
+        background: rgba($error, 0.05);
+        
+        .attention-arrow {
+          transform: translateX(4px);
+          color: $error;
+        }
+      }
+      
+      &:active {
+        transform: scale(0.98);
+      }
     }
     
     .attention-text {
@@ -47,6 +60,7 @@
       font-size: $font-xl;
       color: $gray-600;
       line-height: 1;
+      transition: all 0.2s ease;
     }
   }
   
