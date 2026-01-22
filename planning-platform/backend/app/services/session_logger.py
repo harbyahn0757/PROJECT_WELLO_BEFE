@@ -14,7 +14,7 @@ import threading
 class SessionLogger:
     """환자별 세션 로깅 관리"""
     
-    def __init__(self, logs_dir: str = "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs"):
+    def __init__(self, logs_dir: str = "/data/wello_logs"):
         self.logs_dir = Path(logs_dir)
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()  # 파일 쓰기 동시성 제어

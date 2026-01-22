@@ -1,0 +1,198 @@
+{
+  "patient_uuid": "c254eba4-aa34-4ef6-be70-59cc2f842e02",
+  "patient_name": "",
+  "hospital_id": "PEERNINE",
+  "sessions": [
+    {
+      "session_id": "20260120_154308_c254eba4",
+      "started_at": "2026-01-20T15:43:08.874028",
+      "completed_at": null,
+      "session_dir": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260120/20260120_154308_c254eba4",
+      "steps": [
+        {
+          "step": "1",
+          "name": "건강 분석",
+          "timestamp": "2026-01-20T15:43:28.896478",
+          "duration_ms": null,
+          "files": {
+            "prompt_txt": null,
+            "result_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260120/20260120_154308_c254eba4/step1_result.txt"
+          }
+        },
+        {
+          "step": "2-1",
+          "name": "Priority 1 - 일반검진 주의 항목",
+          "timestamp": "2026-01-20T15:44:21.754286",
+          "duration_ms": null,
+          "files": {
+            "prompt_txt": null,
+            "result_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260120/20260120_154308_c254eba4/step2_1_result.txt"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "20260121_162231_c254eba4",
+      "started_at": "2026-01-21T16:22:31.800161",
+      "completed_at": "2026-01-21T16:23:21.994445",
+      "session_dir": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_162231_c254eba4",
+      "steps": [
+        {
+          "step": "1",
+          "name": "건강 분석",
+          "timestamp": "2026-01-21T16:22:49.178599",
+          "duration_ms": null,
+          "files": {
+            "prompt_txt": null,
+            "result_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_162231_c254eba4/step1_result.txt"
+          }
+        },
+        {
+          "step": "2-1",
+          "name": "Priority 1 - 일반검진 주의 항목",
+          "timestamp": "2026-01-21T16:23:05.444136",
+          "duration_ms": null,
+          "files": {
+            "prompt_txt": null,
+            "result_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_162231_c254eba4/step2_1_result.txt"
+          }
+        },
+        {
+          "step": "2-2",
+          "name": "Priority 2, 3 - Upselling 전략",
+          "timestamp": "2026-01-21T16:23:21.968170",
+          "duration_ms": 15980,
+          "files": {
+            "prompt_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_162231_c254eba4/step2_2_prompt.txt",
+            "result_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_162231_c254eba4/step2_2_result.txt"
+          }
+        }
+      ],
+      "total_duration_ms": 15980
+    },
+    {
+      "session_id": "20260121_163720_c254eba4",
+      "started_at": "2026-01-21T16:37:20.620140",
+      "completed_at": "2026-01-21T16:38:13.420003",
+      "session_dir": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_163720_c254eba4",
+      "steps": [
+        {
+          "step": "1",
+          "name": "건강 분석",
+          "timestamp": "2026-01-21T16:37:40.458814",
+          "duration_ms": null,
+          "files": {
+            "prompt_txt": null,
+            "result_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_163720_c254eba4/step1_result.txt"
+          }
+        },
+        {
+          "step": "2-1",
+          "name": "Priority 1 - 일반검진 주의 항목",
+          "timestamp": "2026-01-21T16:37:57.853284",
+          "duration_ms": null,
+          "files": {
+            "prompt_txt": null,
+            "result_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_163720_c254eba4/step2_1_result.txt"
+          }
+        },
+        {
+          "step": "2-2",
+          "name": "Priority 2, 3 - Upselling 전략",
+          "timestamp": "2026-01-21T16:38:13.393739",
+          "duration_ms": 15075,
+          "files": {
+            "prompt_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_163720_c254eba4/step2_2_prompt.txt",
+            "result_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_163720_c254eba4/step2_2_result.txt"
+          }
+        }
+      ],
+      "total_duration_ms": 15075
+    },
+    {
+      "session_id": "20260121_163821_c254eba4",
+      "started_at": "2026-01-21T16:38:21.017597",
+      "completed_at": "2026-01-21T16:39:14.509000",
+      "session_dir": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_163821_c254eba4",
+      "steps": [
+        {
+          "step": "1",
+          "name": "건강 분석",
+          "timestamp": "2026-01-21T16:38:40.415264",
+          "duration_ms": null,
+          "files": {
+            "prompt_txt": null,
+            "result_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_163821_c254eba4/step1_result.txt"
+          }
+        },
+        {
+          "step": "2-1",
+          "name": "Priority 1 - 일반검진 주의 항목",
+          "timestamp": "2026-01-21T16:38:56.487851",
+          "duration_ms": null,
+          "files": {
+            "prompt_txt": null,
+            "result_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_163821_c254eba4/step2_1_result.txt"
+          }
+        },
+        {
+          "step": "2-2",
+          "name": "Priority 2, 3 - Upselling 전략",
+          "timestamp": "2026-01-21T16:39:14.466598",
+          "duration_ms": 17624,
+          "files": {
+            "prompt_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_163821_c254eba4/step2_2_prompt.txt",
+            "result_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_163821_c254eba4/step2_2_result.txt"
+          }
+        }
+      ],
+      "total_duration_ms": 17624
+    },
+    {
+      "session_id": "20260121_164125_c254eba4",
+      "started_at": "2026-01-21T16:41:25.925120",
+      "completed_at": null,
+      "session_dir": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_164125_c254eba4",
+      "steps": [
+        {
+          "step": "1",
+          "name": "건강 분석",
+          "timestamp": "2026-01-21T16:41:52.974569",
+          "duration_ms": null,
+          "files": {
+            "prompt_txt": null,
+            "result_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_164125_c254eba4/step1_result.txt"
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "20260121_164158_c254eba4",
+      "started_at": "2026-01-21T16:41:58.225560",
+      "completed_at": null,
+      "session_dir": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_164158_c254eba4",
+      "steps": [
+        {
+          "step": "1",
+          "name": "건강 분석",
+          "timestamp": "2026-01-21T16:42:15.464660",
+          "duration_ms": null,
+          "files": {
+            "prompt_txt": null,
+            "result_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_164158_c254eba4/step1_result.txt"
+          }
+        },
+        {
+          "step": "2-1",
+          "name": "Priority 1 - 일반검진 주의 항목",
+          "timestamp": "2026-01-21T16:42:35.697178",
+          "duration_ms": null,
+          "files": {
+            "prompt_txt": null,
+            "result_txt": "/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs/planning_20260121/20260121_164158_c254eba4/step2_1_result.txt"
+          }
+        }
+      ]
+    }
+  ]
+}

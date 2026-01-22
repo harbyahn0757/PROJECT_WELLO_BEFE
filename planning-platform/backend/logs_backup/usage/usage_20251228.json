@@ -1,0 +1,14 @@
+{
+  "date": "2025-12-28",
+  "models": {
+    "gemini-3-flash-preview": {
+      "requests": 3,
+      "prompt_tokens": 77,
+      "completion_tokens": 1420,
+      "total_tokens": 1497,
+      "cost": 0.0005757
+    }
+  },
+  "total_cost": 0.0005757,
+  "total_requests": 3
+}

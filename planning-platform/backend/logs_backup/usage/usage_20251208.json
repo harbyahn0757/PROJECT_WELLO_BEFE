@@ -1,0 +1,21 @@
+{
+  "date": "2025-12-08",
+  "models": {
+    "gemini-2.0-flash": {
+      "requests": 10,
+      "prompt_tokens": 26449,
+      "completion_tokens": 7386,
+      "total_tokens": 33835,
+      "cost": 0.0055993000000000015
+    },
+    "gpt-4o": {
+      "requests": 5,
+      "prompt_tokens": 24740,
+      "completion_tokens": 4816,
+      "total_tokens": 29556,
+      "cost": 0.19594
+    }
+  },
+  "total_cost": 0.20153929999999998,
+  "total_requests": 15
+}

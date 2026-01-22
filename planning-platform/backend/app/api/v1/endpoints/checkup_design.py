@@ -13,6 +13,7 @@ from datetime import datetime
 import os
 import json
 import time
+import asyncpg
 
 from ....services.exceptions import PatientNotFoundError, CheckupDesignError
 from ....repositories.implementations import PatientRepository, CheckupDesignRepository
@@ -39,7 +40,7 @@ welno_data_service = WelnoDataService()
 gpt_service = GPTService()
 
 # JSON 파싱 복구 함수
-def parse_json_with_recovery(content: str, step_name: str = "STEP") -> Dict[str, Any]:
+def parse_json_with_recovery(content: str, step_name: str = "STEP", session_id: Optional[str] = None) -> Dict[str, Any]:
     """
     JSON 문자열을 안전하게 파싱하고, 실패 시 복구 시도
     
@@ -125,6 +126,22 @@ def parse_json_with_recovery(content: str, step_name: str = "STEP") -> Dict[str,
             return parsed
         except json.JSONDecodeError as e2:
             logger.error(f"❌ [{step_name}] JSON 복구 실패: {str(e2)}")
+            
+            # 디버깅용 부분 응답 저장
+            if session_id:
+                try:
+                    date_str = session_id.split('_')[0]
+                    partial_file = f"/data/wello_logs/planning_{date_str}/{session_id}/partial_{step_name}.txt"
+                    os.makedirs(os.path.dirname(partial_file), exist_ok=True)
+                    with open(partial_file, 'w', encoding='utf-8') as f:
+                        f.write(f"=== 원본 응답 (전체) ===\n{content}\n\n")
+                        f.write(f"=== 복구 시도 결과 ===\n{fixed}\n\n")
+                        f.write(f"=== 에러 메시지 ===\n{str(e2)}\n\n")
+                        f.write(f"=== 에러 위치 ===\nLine: {e2.lineno}, Column: {e2.colno}, Position: {e2.pos}\n")
+                    logger.info(f"💾 [{step_name}] 부분 응답 저장: {partial_file}")
+                except Exception as save_err:
+                    logger.error(f"❌ [{step_name}] 부분 응답 저장 실패: {str(save_err)}")
+            
             logger.error(f"❌ [{step_name}] 원본 응답 (처음 2000자): {content[:2000]}")
             logger.error(f"❌ [{step_name}] 복구 시도 내용 (처음 2000자): {fixed[:2000]}")
             raise ValueError(f"{step_name} JSON 파싱 실패: {str(e2)}")
@@ -901,7 +918,8 @@ async def create_checkup_design_step1(
             # JSON 파싱 (복구 로직 포함)
             ai_response = parse_json_with_recovery(
                 gemini_api_response.content,
-                step_name="STEP1-분석"
+                step_name="STEP1-분석",
+                session_id=request.session_id if hasattr(request, 'session_id') else None
             )
             
             logger.info(f"✅ [STEP1-분석] JSON 파싱 성공")
@@ -1180,17 +1198,47 @@ async def create_checkup_design_step2(
                 # 설문 응답 정리
                 survey_res = normalize_survey_responses(request.survey_responses)
                 
+                # 페르소나 재계산용 데이터 조회 (1220-1237줄에서 다시 조회하지만, 여기서 먼저 필요)
+                health_data_for_persona = []
+                prescription_data_for_persona = []
+                
+                try:
+                    logger.debug(f"🔍 [DEBUG] 페르소나 재계산용 데이터 조회 시작 - UUID: {request.uuid}")
+                    health_result = await welno_data_service.get_patient_health_data(request.uuid, request.hospital_id)
+                    if "error" not in health_result:
+                        health_data_for_persona = health_result.get("health_data", [])
+                        logger.debug(f"🔍 [DEBUG] 건강 데이터 조회 완료: {len(health_data_for_persona)}건")
+                    else:
+                        logger.warning(f"⚠️ [STEP2-설계] 건강 데이터 조회 실패: {health_result.get('error')}")
+                    
+                    prescription_result = await welno_data_service.get_patient_prescription_data(request.uuid, request.hospital_id)
+                    if "error" not in prescription_result:
+                        prescription_data_for_persona = prescription_result.get("prescription_data", [])
+                        logger.debug(f"🔍 [DEBUG] 처방전 데이터 조회 완료: {len(prescription_data_for_persona)}건")
+                    else:
+                        logger.warning(f"⚠️ [STEP2-설계] 처방전 데이터 조회 실패: {prescription_result.get('error')}")
+                except Exception as data_fetch_error:
+                    logger.warning(f"⚠️ [STEP2-설계] 페르소나 재계산용 데이터 조회 실패: {str(data_fetch_error)}")
+                    logger.error(f"🔍 [DEBUG] 스택 트레이스:", exc_info=True)
+                
                 persona_result = determine_persona(
                     survey_responses=survey_res,
                     patient_age=patient_age,
-                    health_history=full_data.get("health_data", []),
+                    health_history=health_data_for_persona,
                     selected_concerns=request.selected_concerns if hasattr(request, 'selected_concerns') else None,
-                    prescription_data=full_data.get("prescription_data", [])
+                    prescription_data=prescription_data_for_persona
                 )
                 step1_result_dict["persona"] = persona_result
                 logger.info(f"✅ [STEP2-설계] 페르소나 재계산 완료: {persona_result.get('primary_persona')}")
             except Exception as e:
                 logger.error(f"❌ [STEP2-설계] 페르소나 재계산 실패: {str(e)}")
+                logger.error(f"🔍 [DEBUG] 스택 트레이스:", exc_info=True)
+                logger.error(f"🔍 [DEBUG] 현재 변수 상태:")
+                logger.error(f"  - request.uuid: {request.uuid}")
+                logger.error(f"  - request.hospital_id: {request.hospital_id}")
+                logger.error(f"  - patient_age: {patient_age}")
+                logger.error(f"  - survey_responses 개수: {len(request.survey_responses) if request.survey_responses else 0}")
+                logger.error(f"  - selected_concerns 개수: {len(request.selected_concerns) if hasattr(request, 'selected_concerns') and request.selected_concerns else 0}")
                 # 기본값 설정
                 step1_result_dict["persona"] = {
                     "primary_persona": "General",
@@ -1396,7 +1444,8 @@ async def create_checkup_design_step2(
                 # JSON 파싱 (복구 로직 포함)
                 step2_1_result = parse_json_with_recovery(
                     gemini_response_p1.content,
-                    step_name="STEP2-1"
+                    step_name="STEP2-1",
+                    session_id=request.session_id if hasattr(request, 'session_id') else None
                 )
                 logger.info(f"✅ [STEP2-1] JSON 파싱 성공 - 키: {list(step2_1_result.keys())}")
                 break  # 성공 시 루프 종료
@@ -1539,7 +1588,8 @@ async def create_checkup_design_step2(
             try:
                 step2_2_result = parse_json_with_recovery(
                     gpt_response_p2.content,
-                    step_name="STEP2-2"
+                    step_name="STEP2-2",
+                    session_id=request.session_id if hasattr(request, 'session_id') else None
                 )
                 logger.info(f"✅ [STEP2-2] JSON 파싱 성공 - 키: {list(step2_2_result.keys())}")
                 
@@ -2127,6 +2177,7 @@ async def retry_checkup_design(
     """
     try:
         logger.info(f"🔄 [재시도] 요청 - ID: {request_id}")
+        logger.debug(f"🔍 [DEBUG] DB 연결 설정: host={welno_data_service.db_config.get('host')}, port={welno_data_service.db_config.get('port')}, database={welno_data_service.db_config.get('database')}")
         
         # 1. 요청 정보 조회
         conn = await asyncpg.connect(**welno_data_service.db_config)
@@ -2183,6 +2234,8 @@ async def retry_checkup_design(
         raise
     except Exception as e:
         logger.error(f"❌ [재시도] 실패 - ID: {request_id}: {str(e)}", exc_info=True)
+        logger.error(f"🔍 [DEBUG] 에러 타입: {type(e).__name__}")
+        logger.error(f"🔍 [DEBUG] request_id: {request_id}")
         
         # 재시도 실패 시 에러 상태 업데이트
         try:
