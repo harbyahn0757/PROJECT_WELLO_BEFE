@@ -3,11 +3,21 @@ API v1 패키지
 """
 
 from fastapi import APIRouter
-from .endpoints import patients, hospitals, checkup_design, health, auth, surveys, kakao_auth, checkup_records, tilko_auth, websocket_auth, health_analysis, welno_rag_chat
+from .endpoints import (
+    patients, hospitals, checkup_design, health, auth, surveys, kakao_auth,
+    checkup_records, tilko_auth, websocket_auth, health_analysis, welno_rag_chat,
+    disease_report_unified
+)
 
 api_router = APIRouter()
 
 # 엔드포인트 라우터들 등록
+
+api_router.include_router(
+    disease_report_unified.router,
+    prefix="",
+    tags=["disease-report"]
+)
 
 api_router.include_router(
     kakao_auth.router,

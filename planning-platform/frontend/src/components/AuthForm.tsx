@@ -17,6 +17,21 @@ import naverIcon from '../assets/images/naver.png';
 import passIcon from '../assets/images/pass.png';
 import './AuthForm.scss';
 
+/**
+ * 생년월일 6자리를 8자리로 변환 (YYMMDD -> YYYYMMDD)
+ */
+const convertTo8DigitBirth = (birth: string): string => {
+  if (!birth || birth.length !== 6) return birth;
+  
+  const currentYear = new Date().getFullYear() % 100; // 26
+  const year = parseInt(birth.substring(0, 2), 10);
+  const prefix = year <= currentYear ? '20' : '19';
+  
+  const formatted = `${prefix}${birth.substring(0, 2)}-${birth.substring(2, 4)}-${birth.substring(4, 6)}`;
+  console.log(`[BirthFormat] 6자 -> 8자 변환: ${birth} -> ${formatted}`);
+  return formatted;
+};
+
 interface AuthFormProps {
   onBack: () => void;
 }
@@ -39,23 +54,31 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const authFlow = useAuthFlow();
   const { actions } = useWelnoData();
   
+  const urlParams = new URLSearchParams(location.search);
+  const isCampaignMode = urlParams.get('mode') === 'campaign';
+  const campaignUserName = urlParams.get('name');
+  const campaignUserPhone = urlParams.get('phone');
+  const campaignUserBirth = urlParams.get('birthdate');
+
   // 추가 UI 상태
   const [showTermsModal, setShowTermsModal] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(isCampaignMode ? false : false); // 캠페인 모드면 무조건 인사말(false)부터
   const [currentConfirmationStep, setCurrentConfirmationStep] = useState<'name' | 'phone' | 'birthday' | 'auth_method'>('name');
-  const [authRequested, setAuthRequested] = useState(false);
-  const [descriptionMessage, setDescriptionMessage] = useState('');
+
+  // 데이터 수집 관련 상태
   const [isCollecting, setIsCollecting] = useState(false);
-  const [showPendingAuthModal, setShowPendingAuthModal] = useState(false); // 인증 미완료 안내 모달
-  const [pendingAuthMessage, setPendingAuthMessage] = useState('');
-  const [isCheckingPatient, setIsCheckingPatient] = useState(false);
-  const [isDataCompleted, setIsDataCompleted] = useState(false);
-  const [currentStatus, setCurrentStatus] = useState('initial');
-  const [statusMessage, setStatusMessage] = useState('');
-  const [wsError, setWsError] = useState<string | null>(null);
-  const [lastCollectedRecord, setLastCollectedRecord] = useState<any | null>(null);
   const [collectionStartTime, setCollectionStartTime] = useState<number | null>(null);
   const [showRetryButton, setShowRetryButton] = useState(false);
+  const [currentStatus, setCurrentStatus] = useState<string>('initial');
+  const [statusMessage, setStatusMessage] = useState<string>('');
+  const [authRequested, setAuthRequested] = useState(false);
+  const [wsError, setWsError] = useState<string | null>(null);
+  const [lastCollectedRecord, setLastCollectedRecord] = useState<any>(null);
+  const [isDataCompleted, setIsDataCompleted] = useState(false);
+  const [isCheckingPatient, setIsCheckingPatient] = useState(false);
+  const [descriptionMessage, setDescriptionMessage] = useState<string>('');
+  const [showPendingAuthModal, setShowPendingAuthModal] = useState(false);
+  const [pendingAuthMessage, setPendingAuthMessage] = useState<string>('');
 
   // 수집 타임아웃 체크 (60초 이상 진전이 없으면 다시 시도 버튼 표시)
   useEffect(() => {
@@ -119,7 +142,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             환자정보포함: !!uploadData.phone && !!uploadData.birthday
           });
           
-          const response = await fetch(`/welno-api/v1/welno/upload-health-data?uuid=${passwordSetupData.uuid}&hospital_id=${passwordSetupData.hospital}`, {
+          const response = await fetch(`/api/v1/welno/upload-health-data?uuid=${passwordSetupData.uuid}&hospital_id=${passwordSetupData.hospital}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(uploadData)
@@ -152,18 +175,36 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
 
     // 2. 결과 페이지로 이동 (replace로 히스토리 교체 - 뒤로가기 시 메인으로)
     if (passwordSetupData?.uuid && passwordSetupData?.hospital) {
-      // 원래 가려던 페이지 정보 확인
-      const from = (location.state as any)?.from;
-      let targetUrl = from || `/results-trend?uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
+      // 1순위: URL 파라미터 redirect 또는 return_to 확인
+      const urlParams = new URLSearchParams(location.search);
+      const redirectParam = urlParams.get('redirect');
+      const returnToParam = urlParams.get('return_to');
       
-      // targetUrl에 uuid/hospital이 없으면 추가
+      // 2순위: location.state에서 from 정보 확인
+      const from = (location.state as any)?.from;
+      
+      let targetUrl = redirectParam || returnToParam || from || `/results-trend?uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
+      
+      // targetUrl에 uuid/hospital이 없으면 추가 (단, 외부 URL인 경우 제외)
       if (targetUrl.startsWith('/') && !targetUrl.includes('uuid=')) {
         const separator = targetUrl.includes('?') ? '&' : '?';
         targetUrl = `${targetUrl}${separator}uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
       }
       
+      // 내부 사용자의 리포트 바로가기인 경우 generate=true 파라미터 추가
+      if (redirectParam === '/disease-report' && !targetUrl.includes('generate=')) {
+        const separator = targetUrl.includes('?') ? '&' : '?';
+        targetUrl = `${targetUrl}${separator}generate=true`;
+      }
+      
       console.log('🚀 [비밀번호설정완료] 대상 페이지로 이동:', targetUrl);
-      navigate(targetUrl, { replace: true });
+      
+      // 외부 URL(return_to)인 경우 window.location.href 사용, 내부 경로인 경우 navigate 사용
+      if (targetUrl.startsWith('http') || (returnToParam && !returnToParam.startsWith('/'))) {
+        window.location.href = targetUrl;
+      } else {
+        navigate(targetUrl, { replace: true });
+      }
     } else {
       console.warn('⚠️ [비밀번호설정완료] UUID/병원 정보 부족');
       navigate('/results-trend', { replace: true });
@@ -175,18 +216,53 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     setShowPasswordSetupModal(false);
     
     if (passwordSetupData?.uuid && passwordSetupData?.hospital) {
-      // 원래 가려던 페이지 정보 확인
-      const from = (location.state as any)?.from;
-      let targetUrl = from || `/results-trend?uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
+      // 1순위: URL 파라미터 redirect 또는 return_to 확인
+      const urlParams = new URLSearchParams(location.search);
+      const redirectParam = urlParams.get('redirect');
+      const returnToParam = urlParams.get('return_to');
       
+      // 2순위: location.state에서 from 정보 확인
+      const from = (location.state as any)?.from;
+      
+      let targetUrl = redirectParam || returnToParam || from || `/results-trend?uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
+      
+      // 캠페인 모드인 경우 status=success 파라미터를 강제로 보존 및 OID 유입 확인
+      if (isCampaignMode && targetUrl.includes('disease-prediction')) {
+        const currentUrlParams = new URLSearchParams(location.search);
+        const currentOid = currentUrlParams.get('oid');
+        
+        if (!targetUrl.includes('status=')) {
+          const separator = targetUrl.includes('?') ? '&' : '?';
+          targetUrl = `${targetUrl}${separator}status=success`;
+        }
+        // OID가 URL에 없으면 추가 유입
+        if (currentOid && !targetUrl.includes('oid=')) {
+          const separator = targetUrl.includes('?') ? '&' : '?';
+          targetUrl = `${targetUrl}${separator}oid=${currentOid}`;
+        }
+        // fail 파라미터가 있다면 success로 교체
+        targetUrl = targetUrl.replace('status=fail', 'status=success');
+      }
+
       // targetUrl에 uuid/hospital이 없으면 추가
       if (targetUrl.startsWith('/') && !targetUrl.includes('uuid=')) {
         const separator = targetUrl.includes('?') ? '&' : '?';
         targetUrl = `${targetUrl}${separator}uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
       }
       
+      // 내부 사용자의 리포트 바로가기인 경우 generate=true 파라미터 추가
+      if (redirectParam === '/disease-report' && !targetUrl.includes('generate=')) {
+        const separator = targetUrl.includes('?') ? '&' : '?';
+        targetUrl = `${targetUrl}${separator}generate=true`;
+      }
+      
       console.log('🚀 [비밀번호건너뛰기] 대상 페이지로 이동:', targetUrl);
-      navigate(targetUrl, { replace: true });
+      
+      if (targetUrl.startsWith('http') || (returnToParam && !returnToParam.startsWith('/'))) {
+        window.location.href = targetUrl;
+      } else {
+        navigate(targetUrl, { replace: true });
+      }
     } else {
       console.warn('⚠️ [비밀번호건너뛰기] UUID/병원 정보 부족');
       navigate('/results-trend', { replace: true });
@@ -583,7 +659,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     
     const pollInterval = setInterval(async () => {
       try {
-        const response = await fetch(`/welno-api/v1/tilko/session/${authFlow.state.sessionId}/status`);
+        const response = await fetch(`/api/v1/tilko/session/${authFlow.state.sessionId}/status`);
         const data = await response.json();
         
         console.log('🔄 [폴링] 세션 상태:', data.status);
@@ -739,24 +815,44 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     return () => clearInterval(pollInterval);
   }, [authFlow.state.sessionId, authFlow.state.userInfo.name, isCollecting]);
   
-  // 컴포넌트 마운트 시 세션 복구 및 약관 동의 여부 확인
+  // 컴포넌트 마운트 시 세션 복구 및 약관 동의 여부 확인 (한번만 실행)
   useEffect(() => {
     const initialize = async () => {
+      // 1. 세션 복구 (기존 데이터 로드)
       await authFlow.actions.recoverSession();
       
-      // 약관 동의 여부 확인
+      // 2. 캠페인 모드 데이터 주입 (세션 복구 데이터를 덮어씌움 - 최우선 순위)
+      if (isCampaignMode) {
+        console.log('🎁 [AuthForm] 캠페인 모드 데이터 주입 시작');
+        if (campaignUserName) authFlow.actions.setName(campaignUserName);
+        if (campaignUserPhone) authFlow.actions.setPhone(campaignUserPhone);
+        if (campaignUserBirth) {
+          const formattedBirth = convertTo8DigitBirth(campaignUserBirth);
+          authFlow.actions.setBirthday(formattedBirth);
+        }
+        setDescriptionMessage('리포트 생성을 위한 정보를 확인해주세요');
+      }
+      
+      // 3. 약관 동의 여부 체크 (한번만) - 캠페인/일반 모드 공통
       const termsAgreed = StorageManager.getItem(STORAGE_KEYS.TILKO_TERMS_AGREED);
+      
       if (termsAgreed === 'true') {
-        console.log('[AuthForm] 약관 동의 이력 있음 - 약관 모달 스킵');
-    setShowTermsModal(false);
-      setShowConfirmation(true);
+        // 약관 동의 완료 → 인사말 또는 정보 확인 단계로 이동
+        setShowTermsModal(false);
+        if (isCampaignMode) {
+          setShowConfirmation(false); // 인사말부터 시작
+        } else {
+          setShowConfirmation(true); // 정보 확인 단계로 바로 이동
+        }
       } else {
-        console.log('[AuthForm] 약관 동의 이력 없음 - 약관 모달 표시 대기');
+        // 약관 동의 안함 → 약관 모달 표시 (서비스 진행 불가)
+        setShowTermsModal(true);
+        setShowConfirmation(false);
       }
     };
     
     initialize();
-  }, []);
+  }, []); // ⚠️ 빈 배열로 한번만 실행
   
   // 단계 이동 핸들러
   const handleNextStep = async () => {
@@ -886,7 +982,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     setAuthRequested(true);
     
     try {
-      await authFlow.actions.startAuth();
+      // URL 파라미터에서 oid 가져오기
+      const urlParams = new URLSearchParams(location.search);
+      const oid = urlParams.get('oid');
+      
+      await authFlow.actions.startAuth(oid || undefined);
     } catch (error) {
       console.error('🚨 [인증시작] 인증 시작 실패:', error);
       alert('인증 시작 중 오류가 발생했습니다.');
@@ -902,9 +1002,22 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   // 플로팅 버튼 클릭 이벤트 리스너
   useEffect(() => {
     const handleFloatingButtonClick = () => {
-      console.log('🚀 [플로팅버튼] 클릭 감지 - 약관 동의 모달 오픈');
-      setShowTermsModal(true);
-      console.log('🚀 [플로팅버튼] setShowTermsModal(true) 실행 완료');
+      console.log('🚀 [플로팅버튼] 클릭 감지');
+      
+      // ⚠️ 약관 동의 체크 제거 (이미 마운트 시 체크 완료)
+      // 약관 모달이 표시 중이면 아무 동작 안함
+      if (showTermsModal) {
+        console.log('📜 약관 모달 표시 중 - 약관 동의 대기');
+        return; // 약관 동의 대기 중
+      }
+      
+      // 약관 동의 완료된 경우에만 정보 확인 단계로 이동
+      if (!showConfirmation) {
+        console.log('✅ 약관 동의 완료 -> 정보 확인 단계로 이동');
+        setShowConfirmation(true);
+        setCurrentConfirmationStep('name');
+        setDescriptionMessage('정보를 확인해주세요');
+      }
     };
     
     window.addEventListener('welno-start-auth', handleFloatingButtonClick);
@@ -912,7 +1025,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     return () => {
       window.removeEventListener('welno-start-auth', handleFloatingButtonClick);
     };
-  }, []);
+  }, [showTermsModal, showConfirmation]); // showTermsModal, showConfirmation 의존성 추가
 
   // 정보 확인 단계 진입 시 localStorage 설정
   useEffect(() => {
@@ -1039,7 +1152,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         // 인증 시작
         console.log('🚀 [AuthForm] 인증 시작 호출 - userInfo:', authFlow.state.userInfo);
         setAuthRequested(true);
-        authFlow.actions.startAuth()
+        
+        // URL 파라미터에서 oid 가져오기
+        const urlParams = new URLSearchParams(location.search);
+        const oid = urlParams.get('oid');
+
+        authFlow.actions.startAuth(oid || undefined)
           .then(() => {
             console.log('✅ [AuthForm] 인증 시작 성공');
           })
@@ -1076,7 +1194,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       try {
         // 1단계: 인증 완료 상태로 변경
         console.log('[AuthForm] 1단계: 인증 완료 상태 업데이트');
-        const authCompleteResponse = await fetch(`/welno-api/v1/tilko/session/${authFlow.state.sessionId}/manual-auth-complete`, {
+        const authCompleteResponse = await fetch(`/api/v1/tilko/session/${authFlow.state.sessionId}/manual-auth-complete`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1093,7 +1211,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         
         // 2단계: 데이터 수집 시작
         console.log('[AuthForm] 2단계: 데이터 수집 시작');
-        const collectResponse = await fetch(`/welno-api/v1/tilko/session/${authFlow.state.sessionId}/collect-health-data`, {
+        const collectResponse = await fetch(`/api/v1/tilko/session/${authFlow.state.sessionId}/collect-health-data`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1143,9 +1261,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       const hospital = StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID);
       
       if (uuid && hospital) {
-        // 이미 완료된 세션은 바로 대상 페이지로 이동 (비밀번호는 이미 설정되었을 것)
+        // 1순위: URL 파라미터 redirect 또는 return_to 확인
+        const urlParams = new URLSearchParams(location.search);
+        const redirectParam = urlParams.get('redirect');
+        const returnToParam = urlParams.get('return_to');
+        
+        // 2순위: location.state에서 from 정보 확인
         const from = (location.state as any)?.from;
-        let targetUrl = from || `/results-trend?uuid=${uuid}&hospital=${hospital}`;
+        
+        let targetUrl = redirectParam || returnToParam || from || `/results-trend?uuid=${uuid}&hospital=${hospital}`;
         
         // targetUrl에 uuid/hospital이 없으면 추가
         if (targetUrl.startsWith('/') && !targetUrl.includes('uuid=')) {
@@ -1153,7 +1277,17 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           targetUrl = `${targetUrl}${separator}uuid=${uuid}&hospital=${hospital}`;
         }
         
-        navigate(targetUrl, { replace: true });
+        // 리포트 바로가기 처리
+        if (redirectParam === '/disease-report' && !targetUrl.includes('generate=')) {
+          const separator = targetUrl.includes('?') ? '&' : '?';
+          targetUrl = `${targetUrl}${separator}generate=true`;
+        }
+        
+        if (targetUrl.startsWith('http') || (returnToParam && !returnToParam.startsWith('/'))) {
+          window.location.href = targetUrl;
+        } else {
+          navigate(targetUrl, { replace: true });
+        }
       }
     }
   }, [authFlow.state.currentStep, authFlow.state.isCompleted, navigate]);
@@ -1218,9 +1352,53 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       <TermsAgreementModal
         isOpen={showTermsModal}
         onClose={() => setShowTermsModal(false)}
-        onConfirm={(agreedTerms) => {
+        onConfirm={async (agreedTerms) => {
           console.log('✅ 약관 동의 완료 -> 정보 확인 단계로 이동');
           authFlow.actions.agreeToTerms(agreedTerms);
+          
+          // 캠페인 모드이고 oid가 있으면 welno_patients 등록
+          if (isCampaignMode) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const oid = urlParams.get('oid');
+            const uuid = urlParams.get('uuid') || StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID) || '';
+            const apiKey = urlParams.get('api_key') || '';
+            const partnerId = urlParams.get('partner') || '';
+            
+            if (uuid && oid) {
+              try {
+                // 사용자 정보 수집 (현재 입력된 정보 또는 캠페인 파라미터)
+                const userInfo = {
+                  name: authFlow.state.userInfo.name || campaignUserName || '',
+                  phone: authFlow.state.userInfo.phone || campaignUserPhone || '',
+                  birth: authFlow.state.userInfo.birthday || campaignUserBirth || '',
+                  gender: 'M' // 기본값 사용 (UserInputInfo에 gender 필드 없음)
+                };
+                
+                const response = await fetch('/api/v1/campaigns/disease-prediction/register-patient/', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    uuid,
+                    oid,
+                    user_info: userInfo,
+                    terms_agreement: agreedTerms,
+                    api_key: apiKey || undefined,
+                    partner_id: partnerId || undefined
+                  })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                  console.log('✅ [AuthForm] 약관동의 완료 시 환자 등록 성공:', data);
+                } else {
+                  console.warn('⚠️ [AuthForm] 환자 등록 실패 (계속 진행):', data.message);
+                }
+              } catch (error) {
+                console.error('❌ [AuthForm] 환자 등록 API 호출 실패 (계속 진행):', error);
+              }
+            }
+          }
+          
           setShowTermsModal(false);
           setShowConfirmation(true);
           setAuthRequested(false); // 중요: 인증 요청 상태 초기화
@@ -1343,8 +1521,17 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     mainContent = (
       <div className="auth-form-content">
         <h2 className="auth-form-title">
-          건강검진 데이터를 안전하게 불러와<br/>
-          검진 추이를 안내하겠습니다.
+          {isCampaignMode && campaignUserName ? (
+            <>
+              {campaignUserName}님, 자세한 리포트를 위하여<br/>
+              본인인증 절차를 진행할게요.
+            </>
+          ) : (
+            <>
+              건강검진 데이터를 안전하게 불러와<br/>
+              검진 추이를 안내하겠습니다.
+            </>
+          )}
         </h2>
         <p style={{ 
           fontSize: '14px', 

@@ -25,8 +25,8 @@ class SurveyService {
   async getSurvey(surveyId: string): Promise<Survey> {
     try {
       const url = API_BASE_URL 
-        ? `${API_BASE_URL}/welno-api/v1/surveys/${surveyId}`
-        : `/welno-api/v1/surveys/${surveyId}`;
+        ? `${API_BASE_URL}/api/v1/surveys/${surveyId}`
+        : `/api/v1/surveys/${surveyId}`;
       const response = await fetch(url);
       
       if (!response.ok) {
@@ -63,8 +63,8 @@ class SurveyService {
   async saveSurveyResponse(request: SurveySubmitRequest): Promise<SurveySubmitResponse> {
     try {
       const url = API_BASE_URL 
-        ? `${API_BASE_URL}/welno-api/v1/surveys/save`
-        : `/welno-api/v1/surveys/save`;
+        ? `${API_BASE_URL}/api/v1/surveys/save`
+        : `/api/v1/surveys/save`;
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -126,8 +126,8 @@ class SurveyService {
   async submitSurvey(request: SurveySubmitRequest): Promise<SurveySubmitResponse> {
     try {
       const url = API_BASE_URL 
-        ? `${API_BASE_URL}/welno-api/v1/surveys/submit`
-        : `/welno-api/v1/surveys/submit`;
+        ? `${API_BASE_URL}/api/v1/surveys/submit`
+        : `/api/v1/surveys/submit`;
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -167,8 +167,8 @@ class SurveyService {
   async getSurveyResponse(surveyId: string, sessionId: string): Promise<SurveyResponse | null> {
     try {
       const url = API_BASE_URL 
-        ? `${API_BASE_URL}/welno-api/v1/surveys/${surveyId}/responses/${sessionId}`
-        : `/welno-api/v1/surveys/${surveyId}/responses/${sessionId}`;
+        ? `${API_BASE_URL}/api/v1/surveys/${surveyId}/responses/${sessionId}`
+        : `/api/v1/surveys/${surveyId}/responses/${sessionId}`;
       const response = await fetch(url);
       
       if (!response.ok) {

@@ -934,7 +934,7 @@ const MainPage: React.FC = () => {
           if (!patientUuid || !hospitalId) {
             console.log('[질병예측리포트] 환자 정보 없음 → 틸코 인증 필요');
             alert('먼저 본인 인증을 진행해주세요.');
-            navigate('/auth?redirect=/disease-report');
+            navigate('/login?redirect=/disease-report');
             setIsPageTransitioning(false);
             return;
           }
@@ -950,7 +950,7 @@ const MainPage: React.FC = () => {
           
           // 2. Mediarc 리포트 존재 여부 확인
           console.log('[질병예측리포트] Mediarc 리포트 조회 중...');
-          const reportRes = await fetch(`/welno-api/v1/welno/mediarc-report?uuid=${patientUuid}&hospital_id=${hospitalId}`);
+          const reportRes = await fetch(`/api/v1/welno/mediarc-report?uuid=${patientUuid}&hospital_id=${hospitalId}`);
           const reportData = await reportRes.json();
           
           if (reportData.success && reportData.has_report) {
@@ -971,7 +971,7 @@ const MainPage: React.FC = () => {
             console.log('[질병예측리포트] 검진 데이터 조회 실패:', errorData);
             // 검진 데이터도 없음 → 틸코 인증 필요
             alert('건강 데이터가 없습니다. 먼저 건강검진 데이터를 수집해주세요.');
-            navigate('/auth?redirect=/disease-report');
+            navigate('/login?redirect=/disease-report');
             setIsPageTransitioning(false);
             return;
           }
@@ -990,7 +990,7 @@ const MainPage: React.FC = () => {
           // 4. 검진 데이터도 없음 → 틸코 인증 필요
           console.log('[질병예측리포트] 검진 데이터 없음 → 틸코 인증 필요');
           alert('건강 데이터가 없습니다. 먼저 건강검진 데이터를 수집해주세요.');
-          navigate('/auth?redirect=/disease-report');
+          navigate('/login?redirect=/disease-report');
           setIsPageTransitioning(false);
           
         } catch (error) {

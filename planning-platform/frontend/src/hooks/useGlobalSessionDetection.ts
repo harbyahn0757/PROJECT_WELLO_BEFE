@@ -7,7 +7,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 // API 엔드포인트 (기존 config에서 가져오기)
 const TILKO_API = {
-  SESSION_STATUS: (sessionId: string) => `/welno-api/v1/tilko/session/status/${sessionId}`
+  SESSION_STATUS: (sessionId: string) => `/api/v1/tilko/session/status/${sessionId}`
 };
 
 interface SessionDetectionOptions {

@@ -448,7 +448,7 @@ const CheckupDesignPage: React.FC = () => {
            * 
            * TODO: 백엔드 API 호출하여 알림톡 예약
            * 
-           * await fetch('/welno-api/v1/notifications/schedule', {
+           * await fetch('/api/v1/notifications/schedule', {
            *   method: 'POST',
            *   headers: { 'Content-Type': 'application/json' },
            *   body: JSON.stringify({

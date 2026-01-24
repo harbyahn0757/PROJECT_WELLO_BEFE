@@ -99,7 +99,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
       try {
         const baseUrl = apiConfig.IS_DEVELOPMENT ? '' : apiConfig.API_BASE_URL;
         const response = await fetch(
-          `${baseUrl}/welno-api/v1/welno/check-existing-data?uuid=${uuid}&hospital_id=${hospitalId}`
+          `${baseUrl}/api/v1/welno/check-existing-data?uuid=${uuid}&hospital_id=${hospitalId}`
         );
         
         if (response.ok) {
@@ -181,7 +181,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
     try {
       // API 호출
       const baseUrl = apiConfig.IS_DEVELOPMENT ? '' : apiConfig.API_BASE_URL;
-      const response = await fetch(`${baseUrl}/welno-api/v1/welno-rag-chat/message`, {
+      const response = await fetch(`${baseUrl}/api/v1/welno-rag-chat/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -359,7 +359,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
       setShowSurveyPrompt(false); // 일반 문진 프롬프트도 숨김
       
       const baseUrl = apiConfig.IS_DEVELOPMENT ? '' : apiConfig.API_BASE_URL;
-      const response = await fetch(`${baseUrl}/welno-api/v1/welno-rag-chat/pnt/start`, {
+      const response = await fetch(`${baseUrl}/api/v1/welno-rag-chat/pnt/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -395,7 +395,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
   const handlePNTAnswer = async (questionId: string, answerValue: string, answerScore: number) => {
     try {
       const baseUrl = apiConfig.IS_DEVELOPMENT ? '' : apiConfig.API_BASE_URL;
-      const response = await fetch(`${baseUrl}/welno-api/v1/welno-rag-chat/pnt/answer`, {
+      const response = await fetch(`${baseUrl}/api/v1/welno-rag-chat/pnt/answer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -450,7 +450,7 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
     // 닫기 전 요약 요청 (백그라운드)
     try {
       const baseUrl = apiConfig.IS_DEVELOPMENT ? '' : apiConfig.API_BASE_URL;
-      fetch(`${baseUrl}/welno-api/v1/welno-rag-chat/summarize`, {
+      fetch(`${baseUrl}/api/v1/welno-rag-chat/summarize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uuid, hospital_id: hospitalId })

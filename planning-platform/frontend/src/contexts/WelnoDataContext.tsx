@@ -388,7 +388,7 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
           
           // 서버로 업로드
           const uploadResponse = await fetch(
-            `/welno-api/v1/welno/upload-health-data?uuid=${uuid}&hospital_id=${hospitalId}`,
+            `/api/v1/welno/upload-health-data?uuid=${uuid}&hospital_id=${hospitalId}`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

@@ -331,7 +331,51 @@ async def upload_health_data(
                 print(f"📊 [데이터업로드] 처방전 데이터 저장: {prescription_count}건, 성공: {prescription_saved}")
             else:
                 print(f"⚠️ [데이터업로드] 처방전 데이터가 비어있거나 형식 오류: {type(prescription_data_list)}")
+        
+        # 4. 캠페인 결제 유저인 경우 리포트 자동 생성 트리거
+        try:
+            import asyncpg
+            from ....core.config import settings
+            from ....services.mediarc import generate_mediarc_report_async
+            import asyncio
             
+            # DB 연결
+            conn = await asyncpg.connect(
+                host=settings.DB_HOST if hasattr(settings, 'DB_HOST') else '10.0.1.10',
+                port=settings.DB_PORT if hasattr(settings, 'DB_PORT') else 5432,
+                database=settings.DB_NAME if hasattr(settings, 'DB_NAME') else 'p9_mkt_biz',
+                user=settings.DB_USER if hasattr(settings, 'DB_USER') else 'peernine',
+                password=settings.DB_PASSWORD if hasattr(settings, 'DB_PASSWORD') else 'autumn3334!'
+            )
+            
+            # 결제 완료된 캠페인 주문 확인
+            query = """
+                SELECT oid, partner_id 
+                FROM welno.tb_campaign_payments 
+                WHERE uuid = $1 AND status = 'COMPLETED'
+                ORDER BY created_at DESC LIMIT 1
+            """
+            order = await conn.fetchrow(query, uuid)
+            await conn.close()
+            
+            if order:
+                print(f"🚀 [데이터업로드] 캠페인 결제 확인됨 (oid: {order['oid']}) -> 리포트 생성 시작")
+                
+                # DB 상태 업데이트: 리포트 생성 중
+                from .campaign_payment import update_pipeline_step
+                update_pipeline_step(order['oid'], 'REPORT_WAITING')
+
+                asyncio.create_task(
+                    generate_mediarc_report_async(
+                        patient_uuid=uuid,
+                        hospital_id=hospital_id,
+                        session_id=None,
+                        service=welno_data_service
+                    )
+                )
+        except Exception as campaign_err:
+            print(f"⚠️ [데이터업로드] 캠페인 리포트 트리거 실패: {campaign_err}")
+
         return {
             "success": True,
             "message": "데이터가 성공적으로 업로드되었습니다.",

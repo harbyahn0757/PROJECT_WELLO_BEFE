@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 개선된 통합 배포 스크립트
-PROJECT_ROOT="/home/workspace/PROJECT_WELLO_BEFE"
+PROJECT_ROOT="/home/workspace/PROJECT_WELNO_BEFE"
 echo "🚀 WELNO 서비스 배포 시작 (루트: $PROJECT_ROOT)"
 
 # 1. 개발 서버 종료 (포트 9282)
@@ -28,7 +28,7 @@ cp -r ../frontend/build/* static/
 
 # 4. PM2로 백엔드 재시작
 echo "🔄 백엔드 서버 재시작 중..."
-pm2 restart WELLO_BE 2>/dev/null || pm2 start ecosystem.config.js
+pm2 restart WELNO_BE 2>/dev/null || pm2 start ecosystem.config.js
 
 # 5. 서비스 상태 확인
 echo "🔍 서비스 상태 확인 중..."
@@ -38,11 +38,11 @@ sleep 3
 sudo systemctl reload nginx
 
 # 백엔드 상태 확인
-if pm2 list | grep -q "WELLO_BE.*online"; then
+if pm2 list | grep -q "WELNO_BE.*online"; then
     echo "✅ 백엔드 서버 정상 실행 중"
 else
     echo "❌ 백엔드 서버 실행 실패"
-    pm2 logs WELLO_BE --lines 10
+    pm2 logs WELNO_BE --lines 10
     exit 1
 fi
 

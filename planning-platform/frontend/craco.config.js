@@ -101,7 +101,13 @@ module.exports = {
     },
     webSocketServer: false,
     // 표준 프록시 설정 (webpack-dev-server 기본 기능)
+    // 주의: 더 구체적인 경로를 먼저 정의해야 함
     proxy: {
+      '/api/partner-marketing': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        logLevel: 'debug'
+      },
       '/welno-api': {
         target: 'http://localhost:8082',
         changeOrigin: true,
@@ -109,10 +115,11 @@ module.exports = {
         logLevel: 'debug',
         ws: true
       },
-      '/api/partner-marketing': {
-        target: 'http://localhost:8000',
+      '/api': {
+        target: 'http://localhost:8082',
         changeOrigin: true,
-        logLevel: 'debug'
+        logLevel: 'debug',
+        ws: true
       }
     },
     setupMiddlewares: (middlewares, devServer) => {

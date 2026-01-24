@@ -35,6 +35,7 @@ class SimpleAuthWithSessionRequest(BaseModel):
     gender: str = "M"
     patient_uuid: Optional[str] = None  # 환자 UUID
     hospital_id: Optional[str] = None   # 병원 ID
+    oid: Optional[str] = None           # 캠페인 주문번호 추가
 
 class HealthDataRequest(BaseModel):
     cx_id: str
@@ -216,8 +217,16 @@ async def start_auth_session(request: SimpleAuthWithSessionRequest) -> Dict[str,
             session_data = session_manager.get_session(session_id)
             session_data["patient_uuid"] = request.patient_uuid
             session_data["hospital_id"] = request.hospital_id
+            if request.oid:
+                session_data["oid"] = request.oid
+                # DB 상태 업데이트: 틸코 인증 시작
+                try:
+                    from .campaign_payment import update_pipeline_step
+                    update_pipeline_step(request.oid, 'TILKO_SYNCING')
+                except:
+                    pass
             session_manager._save_session(session_id, session_data)
-            print(f"✅ [세션생성] 환자 정보 저장: {request.patient_uuid} @ {request.hospital_id}")
+            print(f"✅ [세션생성] 환자 정보 저장: {request.patient_uuid} @ {request.hospital_id} (OID: {request.oid})")
         else:
             print(f"⚠️ [세션생성] 환자 정보 누락 - patient_uuid: {request.patient_uuid}, hospital_id: {request.hospital_id}")
         
@@ -1454,6 +1463,16 @@ async def collect_health_data_background_task(session_id: str):
                 
                 # 건강검진 수집 완료 메시지 전송
                 health_success_message = f"건강검진 데이터 {health_count}건 수집했습니다."
+                
+                # DB 상태 업데이트: 데이터 수집 완료
+                try:
+                    oid = session_data.get("oid")
+                    if oid:
+                        from .campaign_payment import update_pipeline_step
+                        update_pipeline_step(oid, 'DATA_COLLECTED')
+                except:
+                    pass
+
                 try:
                     await notify_streaming_status(
                         session_id,
@@ -1467,7 +1486,8 @@ async def collect_health_data_background_task(session_id: str):
                 print(f"✅ [백그라운드] 건강검진 데이터 수집 성공 - {health_count}건")
                 print(f"✅ [백그라운드] JSON 파일 저장 완료")
                 
-                # ⭐ Mediarc API 병렬 호출 (답변 대기 X)
+                # [삭제] 이 위치에서는 patient_uuid가 없을 수 있음 (환자 식별 로직 뒤로 이동)
+                """
                 try:
                     # MEDIARC_ENABLED 플래그 확인
                     from app.core.config import settings
@@ -1476,6 +1496,11 @@ async def collect_health_data_background_task(session_id: str):
                     if MEDIARC_ENABLED and health_count > 0:
                         print(f"🔄 [Mediarc] 리포트 생성 백그라운드 시작")
                         
+                        # DB 상태 업데이트: 리포트 대기 중
+                        if oid:
+                            from .campaign_payment import update_pipeline_step
+                            update_pipeline_step(oid, 'REPORT_WAITING')
+
                         import asyncio
                         from app.services.mediarc import generate_mediarc_report_async
                         
@@ -1497,6 +1522,7 @@ async def collect_health_data_background_task(session_id: str):
                 except Exception as mediarc_error:
                     # Mediarc 에러는 로그만 남기고 전체 플로우는 계속 진행
                     print(f"❌ [Mediarc] 백그라운드 시작 실패 (무시): {mediarc_error}")
+                """
                 
         except Exception as e:
             session_manager.add_error_message(session_id, f"건강검진 데이터 수집 실패: {str(e)}")
@@ -1711,80 +1737,145 @@ async def collect_health_data_background_task(session_id: str):
             if not patient_uuid or not hospital_id:
                 print(f"🆕 [백그라운드-식별] 환자 정보 없음 - 조회/생성 시작")
                 
-                phone_no = user_info.get("phone_no")
-                birthdate = user_info.get("birthdate")
-                name = user_info.get("name")
+                # ⭐ [추가] 캠페인 사용자인 경우 캠페인 UUID 우선 사용
+                oid = final_session_data.get("oid")
+                if oid:
+                    print(f"🔍 [백그라운드-식별] 캠페인 사용자 확인 - OID: {oid}")
+                    from ....core.database import db_manager
+                    with db_manager.get_connection() as conn:
+                        with conn.cursor() as cur:
+                            cur.execute("""
+                                SELECT uuid, partner_id
+                                FROM welno.tb_campaign_payments
+                                WHERE oid = %s
+                                LIMIT 1
+                            """, (oid,))
+                            campaign_row = cur.fetchone()
+                            if campaign_row:
+                                campaign_uuid = campaign_row[0]
+                                partner_id = campaign_row[1]
+                                print(f"✅ [백그라운드-식별] 캠페인 UUID 발견: {campaign_uuid}")
+                                
+                                # 캠페인 UUID로 welno_patients 확인
+                                try:
+                                    existing_campaign_patient = await welno_service.get_patient_by_uuid(campaign_uuid)
+                                    if existing_campaign_patient and not existing_campaign_patient.get("error"):
+                                        # 이미 캠페인 UUID로 등록되어 있음
+                                        patient_uuid = campaign_uuid
+                                        hospital_id = existing_campaign_patient.get("hospital_id", "PEERNINE")
+                                        print(f"✅ [백그라운드-식별] 캠페인 UUID로 기존 환자 발견: {patient_uuid}")
+                                    else:
+                                        # 캠페인 UUID로 새로 등록
+                                        patient_uuid = campaign_uuid
+                                        hospital_id = "PEERNINE"  # 캠페인 기본 병원
+                                        
+                                        # 환자 정보 준비
+                                        phone_no = user_info.get("phone_no")
+                                        birthdate = user_info.get("birthdate")
+                                        name = user_info.get("name")
+                                        
+                                        if phone_no and birthdate and name:
+                                            user_info_for_save = {
+                                                "name": name,
+                                                "phone_number": phone_no,
+                                                "birth_date": birthdate,
+                                                "gender": user_info.get("gender", "M")
+                                            }
+                                            
+                                            patient_id = await welno_service.save_patient_data(
+                                                uuid=campaign_uuid,
+                                                hospital_id=hospital_id,
+                                                user_info=user_info_for_save,
+                                                session_id=f"CAMPAIGN_{oid}"
+                                            )
+                                            
+                                            if patient_id:
+                                                print(f"✅ [백그라운드-식별] 캠페인 UUID로 새 환자 등록 완료: {patient_uuid}")
+                                            else:
+                                                print(f"⚠️ [백그라운드-식별] 캠페인 UUID 환자 등록 실패, 계속 진행")
+                                        else:
+                                            print(f"⚠️ [백그라운드-식별] 캠페인 UUID 사용하지만 환자 정보 부족, 나중에 등록 예정")
+                                except Exception as e:
+                                    print(f"⚠️ [백그라운드-식별] 캠페인 UUID 환자 조회 실패, 새로 등록: {e}")
+                                    patient_uuid = campaign_uuid
+                                    hospital_id = "PEERNINE"
                 
-                if not phone_no or not birthdate or not name:
-                    print(f"❌ [백그라운드-식별] 필수 사용자 정보 누락")
-                    raise Exception("필수 사용자 정보(이름, 생년월일, 전화번호)가 누락되어 환자를 식별할 수 없습니다.")
-                
-                # 기존 환자 조회
-                existing_patient = await welno_service.get_patient_by_combo(phone_no, birthdate, name)
-                
-                if existing_patient:
-                    patient_uuid = existing_patient["uuid"]
-                    hospital_id = existing_patient["hospital_id"]
-                    print(f"✅ [백그라운드-식별] 기존 환자 발견 - UUID: {patient_uuid}")
-                else:
-                    # 새 환자 생성
-                    new_uuid = str(uuid_lib.uuid4())
+                # 캠페인 UUID가 없거나 설정되지 않은 경우에만 기존 환자 조회
+                if not patient_uuid or not hospital_id:
+                    phone_no = user_info.get("phone_no")
+                    birthdate = user_info.get("birthdate")
+                    name = user_info.get("name")
                     
-                    # 병원 ID Fallback 로직 강화
-                    default_hosp = settings.welno_default_hospital_id
+                    if not phone_no or not birthdate or not name:
+                        print(f"❌ [백그라운드-식별] 필수 사용자 정보 누락")
+                        raise Exception("필수 사용자 정보(이름, 생년월일, 전화번호)가 누락되어 환자를 식별할 수 없습니다.")
                     
-                    # DB에 실제 존재하는 병원인지 확인
-                    try:
-                        import asyncpg
-                        conn = await asyncpg.connect(
-                            host=settings.DB_HOST if hasattr(settings, 'DB_HOST') else '10.0.1.10',
-                            port=settings.DB_PORT if hasattr(settings, 'DB_PORT') else 5432,
-                            database=settings.DB_NAME if hasattr(settings, 'DB_NAME') else 'p9_mkt_biz',
-                            user=settings.DB_USER if hasattr(settings, 'DB_USER') else 'peernine',
-                            password=settings.DB_PASSWORD if hasattr(settings, 'DB_PASSWORD') else 'autumn3334!'
-                        )
-                        hosp_exists = await conn.fetchval("SELECT COUNT(*) FROM welno.welno_hospitals WHERE hospital_id = $1", default_hosp)
+                    # 기존 환자 조회
+                    existing_patient = await welno_service.get_patient_by_combo(phone_no, birthdate, name)
+                    
+                    if existing_patient:
+                        patient_uuid = existing_patient["uuid"]
+                        hospital_id = existing_patient["hospital_id"]
+                        print(f"✅ [백그라운드-식별] 기존 환자 발견 - UUID: {patient_uuid}")
+                    else:
+                        # 새 환자 생성
+                        new_uuid = str(uuid_lib.uuid4())
                         
-                        if hosp_exists == 0:
-                            print(f"⚠️ [백그라운드-식별] 설정된 기본 병원 ID '{default_hosp}'가 DB에 없습니다. 대체 ID 조회.")
-                            # 'PEERNINE' 시도
-                            peernine_exists = await conn.fetchval("SELECT COUNT(*) FROM welno.welno_hospitals WHERE hospital_id = 'PEERNINE'")
-                            if peernine_exists > 0:
-                                default_hosp = 'PEERNINE'
-                            else:
-                                # DB에 있는 아무 병원 ID나 가져옴
-                                first_hosp = await conn.fetchval("SELECT hospital_id FROM welno.welno_hospitals LIMIT 1")
-                                if first_hosp:
-                                    default_hosp = first_hosp
+                        # 병원 ID Fallback 로직 강화
+                        default_hosp = settings.welno_default_hospital_id
                         
-                        await conn.close()
-                    except Exception as hosp_check_error:
-                        print(f"⚠️ [백그라운드-식별] 병원 유효성 체크 실패 (계속 진행): {hosp_check_error}")
-                        if not default_hosp:
-                            default_hosp = "PEERNINE"
+                        # DB에 실제 존재하는 병원인지 확인
+                        try:
+                            import asyncpg
+                            conn = await asyncpg.connect(
+                                host=settings.DB_HOST if hasattr(settings, 'DB_HOST') else '10.0.1.10',
+                                port=settings.DB_PORT if hasattr(settings, 'DB_PORT') else 5432,
+                                database=settings.DB_NAME if hasattr(settings, 'DB_NAME') else 'p9_mkt_biz',
+                                user=settings.DB_USER if hasattr(settings, 'DB_USER') else 'peernine',
+                                password=settings.DB_PASSWORD if hasattr(settings, 'DB_PASSWORD') else 'autumn3334!'
+                            )
+                            hosp_exists = await conn.fetchval("SELECT COUNT(*) FROM welno.welno_hospitals WHERE hospital_id = $1", default_hosp)
+                            
+                            if hosp_exists == 0:
+                                print(f"⚠️ [백그라운드-식별] 설정된 기본 병원 ID '{default_hosp}'가 DB에 없습니다. 대체 ID 조회.")
+                                # 'PEERNINE' 시도
+                                peernine_exists = await conn.fetchval("SELECT COUNT(*) FROM welno.welno_hospitals WHERE hospital_id = 'PEERNINE'")
+                                if peernine_exists > 0:
+                                    default_hosp = 'PEERNINE'
+                                else:
+                                    # DB에 있는 아무 병원 ID나 가져옴
+                                    first_hosp = await conn.fetchval("SELECT hospital_id FROM welno.welno_hospitals LIMIT 1")
+                                    if first_hosp:
+                                        default_hosp = first_hosp
+                            
+                            await conn.close()
+                        except Exception as hosp_check_error:
+                            print(f"⚠️ [백그라운드-식별] 병원 유효성 체크 실패 (계속 진행): {hosp_check_error}")
+                            if not default_hosp:
+                                default_hosp = "PEERNINE"
 
-                    print(f"🆕 [백그라운드-식별] 새 환자 생성 시도 - UUID: {new_uuid}, Hospital: {default_hosp}")
-                    
-                    user_info_for_save = {
-                        "name": name,
-                        "phone_number": phone_no,
-                        "birth_date": birthdate,
-                        "gender": user_info.get("gender", "M")
-                    }
-                    
-                    patient_id = await welno_service.save_patient_data(
-                        uuid=new_uuid,
-                        hospital_id=default_hosp,
-                        user_info=user_info_for_save,
-                        session_id=session_id
-                    )
-                    
-                    if not patient_id:
-                        raise Exception("DB에 새 환자 정보를 저장하는 데 실패했습니다.")
-                    
-                    patient_uuid = new_uuid
-                    hospital_id = default_hosp
-                    print(f"✅ [백그라운드-식별] 새 환자 생성 완료 - UUID: {patient_uuid}")
+                        print(f"🆕 [백그라운드-식별] 새 환자 생성 시도 - UUID: {new_uuid}, Hospital: {default_hosp}")
+                        
+                        user_info_for_save = {
+                            "name": name,
+                            "phone_number": phone_no,
+                            "birth_date": birthdate,
+                            "gender": user_info.get("gender", "M")
+                        }
+                        
+                        patient_id = await welno_service.save_patient_data(
+                            uuid=new_uuid,
+                            hospital_id=default_hosp,
+                            user_info=user_info_for_save,
+                            session_id=session_id
+                        )
+                        
+                        if not patient_id:
+                            raise Exception("DB에 새 환자 정보를 저장하는 데 실패했습니다.")
+                        
+                        patient_uuid = new_uuid
+                        hospital_id = default_hosp
+                        print(f"✅ [백그라운드-식별] 새 환자 생성 완료 - UUID: {patient_uuid}")
                 
                 # 2. 세션에 즉시 반영 (중요!)
                 final_session_data["patient_uuid"] = patient_uuid
@@ -1826,6 +1917,103 @@ async def collect_health_data_background_task(session_id: str):
                 print(f"⚠️ [백그라운드-저장] DB 저장 실패 - 파일은 안전하게 보관됨 (나중에 재시도 가능)")
             
             print(f"✅ [백그라운드-완료] 모든 데이터 처리 프로세스 종료 - 환자: {patient_uuid}")
+
+            # [추가] 캠페인 유저인 경우 (oid 존재), 데이터 수집 완료 즉시 정보 동기화 및 정식 환자로 등록
+            if final_session_data.get('oid'):
+                oid = final_session_data['oid']
+                try:
+                    # 1. 틸코 본인인증으로 확인된 실제 정보 추출
+                    verified_name = user_info.get('name')
+                    verified_phone = user_info.get('phone_no')
+                    verified_birth = user_info.get('birthdate')
+                    verified_gender = user_info.get('gender', 'M')
+
+                    # 2. 임시 테이블(tb_campaign_payments) 정보 동기화 (본인인증 데이터 기준)
+                    from ....core.database import db_manager
+                    with db_manager.get_connection() as conn:
+                        with conn.cursor() as cur:
+                            # 기존 정보 가져오기
+                            cur.execute("SELECT user_name, user_data, remarks FROM welno.tb_campaign_payments WHERE oid = %s", (oid,))
+                            row = cur.fetchone()
+                            old_name = row[0] if row else 'Unknown'
+                            current_user_data = row[1] if row and row[1] else {}
+                            existing_remarks = row[2] if row and row[2] else ''
+                            
+                            if isinstance(current_user_data, str):
+                                import json
+                                current_user_data = json.loads(current_user_data)
+                            
+                            # 히스토리 기록 생성
+                            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            history_msg = f"[{timestamp}] 본인인증 정보로 업데이트: 이름({old_name}->{verified_name}), 생년월일({current_user_data.get('birth', 'N/A')}->{verified_birth}), 전화번호({current_user_data.get('phone', 'N/A')}->{verified_phone})"
+                            new_remarks = f"{existing_remarks}\n{history_msg}".strip()
+                            
+                            # 실명 정보로 덮어쓰기
+                            current_user_data['name'] = verified_name or current_user_data.get('name')
+                            current_user_data['phone'] = verified_phone or current_user_data.get('phone')
+                            current_user_data['birth'] = verified_birth or current_user_data.get('birth')
+                            current_user_data['gender'] = '1' if verified_gender == 'M' else '2'
+                            
+                            cur.execute("""
+                                UPDATE welno.tb_campaign_payments 
+                                SET user_name = %s, user_data = %s, remarks = %s, updated_at = NOW() 
+                                WHERE oid = %s
+                            """, (verified_name, json.dumps(current_user_data), new_remarks, oid))
+                            conn.commit()
+                    print(f"🔄 [백그라운드-동기화] 임시 테이블 정보를 본인인증 데이터로 업데이트 완료 (OID: {oid})")
+
+                    # 3. 정식 환자 등록 (본인인증 데이터 최우선 사용)
+                    from ....services.welno_data_service import WelnoDataService
+                    welno_service_instance = WelnoDataService()
+                    user_info_for_reg = {
+                        "name": verified_name,
+                        "phone_number": verified_phone,
+                        "birth_date": verified_birth,
+                        "gender": verified_gender
+                    }
+                    await welno_service_instance.save_patient_data(
+                        uuid=patient_uuid,
+                        hospital_id=hospital_id,
+                        user_info=user_info_for_reg,
+                        session_id=f"CAMPAIGN_{oid}"
+                    )
+                    print(f"✅ [백그라운드-정규화] 캠페인 유저 정식 등록 완료 (본인인증 정보 사용): {patient_uuid}")
+                except Exception as reg_err:
+                    print(f"⚠️ [백그라운드-정규화/동기화] 실패: {reg_err}")
+
+            # ⭐ [추가] 데이터 저장 및 환자 식별 완료 후 리포트 생성 트리거
+            try:
+                from app.core.config import settings
+                MEDIARC_ENABLED = getattr(settings, 'MEDIARC_ENABLED', False)
+                
+                # 수집된 건강검진 기록 확인
+                health_data_obj = final_session_data.get("health_data", {})
+                health_count = len(health_data_obj.get("ResultList", [])) if isinstance(health_data_obj, dict) else 0
+
+                if MEDIARC_ENABLED and health_count > 0:
+                    print(f"🔄 [Mediarc] 리포트 생성 백그라운드 시작 (UUID: {patient_uuid})")
+                    
+                    # DB 상태 업데이트: 리포트 대기 중
+                    oid = final_session_data.get("oid")
+                    if oid:
+                        from .campaign_payment import update_pipeline_step
+                        update_pipeline_step(oid, 'REPORT_WAITING')
+
+                    from app.services.mediarc import generate_mediarc_report_async
+                    
+                    # asyncio.create_task()로 독립 실행
+                    asyncio.create_task(
+                        generate_mediarc_report_async(
+                            patient_uuid=patient_uuid,
+                            hospital_id=hospital_id,
+                            session_id=session_id,
+                            service=welno_service
+                        )
+                    )
+                else:
+                    print(f"⚠️ [Mediarc] 트리거 건너뜀 - 활성화: {MEDIARC_ENABLED}, 데이터수: {health_count}")
+            except Exception as mediarc_error:
+                print(f"❌ [Mediarc] 백그라운드 시작 실패: {mediarc_error}")
 
         except Exception as e:
             print(f"❌ [백그라운드-치명적오류] 데이터 처리 중 예외 발생: {str(e)}")

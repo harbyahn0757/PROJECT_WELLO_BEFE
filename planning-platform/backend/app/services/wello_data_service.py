@@ -118,11 +118,11 @@ class WelloDataService:
             return {"error": f"로그인 처리 중 오류가 발생했습니다: {str(e)}"}
 
     async def get_patient_by_uuid(self, uuid: str) -> Dict[str, Any]:
-        """UUID로 환자 정보 조회 (welno.welno_patients 테이블만 조회)"""
+        """UUID로 환자 정보 조회 (캠페인 임시 유저 지원 포함)"""
         try:
             conn = await asyncpg.connect(**self.db_config)
             
-            # 환자 정보 조회
+            # 1. 정식 환자 정보 조회
             patient_query = """
                 SELECT id, uuid, hospital_id, name, phone_number, birth_date, gender,
                        has_health_data, has_prescription_data, last_data_update, last_auth_at,
@@ -131,6 +131,51 @@ class WelloDataService:
                 WHERE uuid = $1
             """
             patient_row = await conn.fetchrow(patient_query, uuid)
+            
+            # 2. 정식 환자가 없을 경우 캠페인 결제 테이블 확인
+            if not patient_row:
+                print(f"🔍 [get_patient_by_uuid] 정식 회원 없음, 캠페인 테이블 확인: {uuid}")
+                campaign_row = await conn.fetchrow("""
+                    SELECT oid, uuid, partner_id, user_name, user_data, email, status, created_at, updated_at
+                    FROM welno.tb_campaign_payments
+                    WHERE uuid = $1
+                    ORDER BY created_at DESC LIMIT 1
+                """, uuid)
+                
+                if campaign_row:
+                    user_data = campaign_row.get('user_data') or {}
+                    if isinstance(user_data, str):
+                        try:
+                            import json
+                            user_data = json.loads(user_data)
+                        except:
+                            user_data = {}
+                            
+                    patient_dict = {
+                        "id": -1,
+                        "uuid": uuid,
+                        "hospital_id": "PEERNINE",
+                        "name": campaign_row.get('user_name') or user_data.get('name', '고객'),
+                        "phone_number": user_data.get('phone') or user_data.get('phone_number', ''),
+                        "birth_date": user_data.get('birth') or user_data.get('birth_date'),
+                        "gender": user_data.get('gender', 'M'),
+                        "has_health_data": False,
+                        "has_prescription_data": False,
+                        "has_mediarc_report": campaign_row.get('status') == 'COMPLETED',
+                        "registration_source": "PARTNER",
+                        "partner_id": campaign_row.get('partner_id'),
+                        "created_at": campaign_row.get('created_at'),
+                        "updated_at": campaign_row.get('updated_at')
+                    }
+                    
+                    # 날짜 직렬화
+                    for field in ['created_at', 'updated_at']:
+                        if patient_dict.get(field):
+                            patient_dict[field] = patient_dict[field].isoformat()
+                    
+                    await conn.close()
+                    return patient_dict
+
             await conn.close()
             
             if not patient_row:
@@ -151,8 +196,6 @@ class WelloDataService:
                 patient_dict['created_at'] = patient_dict['created_at'].isoformat()
             if patient_dict.get('updated_at'):
                 patient_dict['updated_at'] = patient_dict['updated_at'].isoformat()
-            
-            await conn.close()
             
             return patient_dict
             
@@ -199,83 +242,11 @@ class WelloDataService:
             if hospital_dict.get('created_at'):
                 hospital_dict['created_at'] = hospital_dict['created_at'].isoformat()
             
-            # 외부 검사 항목 매핑 조회 (테이블이 존재하는 경우에만)
-            try:
-                print(f"🔍 [병원별 프리미엄 항목] 조회 시작 - hospital_id: {hospital_id}")
-                external_checkup_items = await conn.fetch("""
-                    SELECT 
-                        e.id,
-                        e.category,
-                        e.sub_category,
-                        e.item_name,
-                        e.item_name_en,
-                        e.difficulty_level,
-                        e.target_trigger,
-                        e.gap_description,
-                        e.solution_narrative,
-                        e.description,
-                        e.manufacturer,
-                        e.target,
-                        e.input_sample,
-                        e.algorithm_class,
-                        m.display_order
-                    FROM welno.welno_hospital_external_checkup_mapping m
-                    JOIN welno.welno_external_checkup_items e ON m.external_checkup_item_id = e.id
-                    WHERE m.hospital_id = $1 AND m.is_active = true AND e.is_active = true
-                    ORDER BY m.display_order
-                """, hospital_id)
-                
-                if external_checkup_items:
-                    print(f"✅ [병원별 프리미엄 항목] 조회 성공 - {len(external_checkup_items)}개 항목 발견")
-                    # 난이도별 통계
-                    difficulty_stats = {}
-                    for item in external_checkup_items:
-                        level = item['difficulty_level']
-                        difficulty_stats[level] = difficulty_stats.get(level, 0) + 1
-                    print(f"📊 [병원별 프리미엄 항목] 난이도별 통계: {difficulty_stats}")
-                    
-                    hospital_dict['external_checkup_items'] = [
-                        {
-                            'id': item['id'],
-                            'category': item['category'],
-                            'sub_category': item['sub_category'],
-                            'item_name': item['item_name'],
-                            'item_name_en': item['item_name_en'],
-                            'difficulty_level': item['difficulty_level'],
-                            'difficulty_badge': {
-                                'Low': '부담없는',
-                                'Mid': '추천',
-                                'High': '프리미엄'
-                            }.get(item['difficulty_level'], item['difficulty_level']),
-                            'target_trigger': item['target_trigger'],
-                            'gap_description': item['gap_description'],
-                            'solution_narrative': item['solution_narrative'],
-                            'description': item['description'],
-                            'manufacturer': item['manufacturer'],
-                            'target': item['target'],
-                            'input_sample': item['input_sample'],
-                            'algorithm_class': item['algorithm_class'],
-                            'display_order': item['display_order']
-                        }
-                        for item in external_checkup_items
-                    ]
-                    # 처음 3개 항목만 로그 출력 (너무 길어지지 않도록)
-                    for idx, item in enumerate(external_checkup_items[:3]):
-                        algorithm_info = f" [{item.get('algorithm_class', 'N/A')}]" if item.get('algorithm_class') else ""
-                        target_info = f" - {item.get('target', 'N/A')}" if item.get('target') else ""
-                        print(f"  [{idx+1}] {item['item_name']} ({item['difficulty_level']}){algorithm_info}{target_info} - {item['category']}")
-                    if len(external_checkup_items) > 3:
-                        print(f"  ... 외 {len(external_checkup_items) - 3}개 항목")
-                else:
-                    print(f"⚠️ [병원별 프리미엄 항목] 매핑된 항목 없음 - hospital_id: {hospital_id}")
-                    hospital_dict['external_checkup_items'] = []
-            except Exception as e:
-                # 테이블이 없거나 조회 실패 시 빈 배열 반환
-                print(f"❌ [병원별 프리미엄 항목] 조회 실패 (무시): {e}")
-                hospital_dict['external_checkup_items'] = []
+            # ✅ [수정] 설계용 프리미엄 항목 조회 로직 제거 (일반 조회 시 불필요)
+            # 로그를 어지럽히는 불필요한 설계용 조회를 수행하지 않도록 함.
+            hospital_dict['external_checkup_items'] = []
             
             await conn.close()
-            
             return hospital_dict
             
         except Exception as e:

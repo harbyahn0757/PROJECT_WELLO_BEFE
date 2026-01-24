@@ -59,7 +59,7 @@ const CollectingDataPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`/welno-api/v1/tilko/session/status/${sessionId}`);
+      const response = await fetch(`/api/v1/tilko/session/status/${sessionId}`);
       
       if (!response.ok) {
         throw new Error(`API 호출 실패: ${response.status}`);
@@ -193,7 +193,7 @@ const CollectingDataPage: React.FC = () => {
               const savedSessionId = localStorage.getItem('tilko_session_id');
               if (savedSessionId) {
                 // 세션 상태 API 호출하여 patient_uuid와 hospital_id 가져오기
-                const response = await fetch(`/welno-api/v1/tilko/session/status/${savedSessionId}`);
+                const response = await fetch(`/api/v1/tilko/session/status/${savedSessionId}`);
                 if (response.ok) {
                   const result = await response.json();
                   if (result.success && result.patient_uuid && result.hospital_id) {

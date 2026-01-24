@@ -43,10 +43,10 @@ declare global {
 const getBasename = () => {
   const hostname = window.location.hostname;
   
-  // localhost, 127.0.0.1 → /welno 사용 (개발 환경)
+  // localhost, 127.0.0.1 → 루트(/) 사용 (운영 환경과 동일하게)
   if (hostname === 'localhost' || 
       hostname === '127.0.0.1') {
-    return '/welno';
+    return '/';
   }
   
   // 전용 도메인(welno.kindhabit.com, report.kindhabit.com) → 루트(/) 사용
@@ -75,6 +75,7 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
   const [isInfoConfirming, setIsInfoConfirming] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [buttonUpdateTrigger, setButtonUpdateTrigger] = useState(0);
+  const [campaignButtonText, setCampaignButtonText] = useState<string | null>(null);
   
   // 세션 및 상태 초기화 함수 (직접 조치)
   const cleanupAllStorage = useCallback(() => {
@@ -147,8 +148,12 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
                            location.pathname === '/survey' ||
                            location.pathname === '/habits';
       
+      // 캠페인 페이지는 항상 플로팅 버튼 표시 (파트너 플로우)
+      const isCampaignPage = location.pathname.includes('/campaigns/disease-prediction');
+      
       // 데이터 수집 중이거나 비밀번호 모달이 열려있거나 메인 페이지 또는 특수 페이지이면 숨김
-      const shouldHide = isManualCollecting || isCollectingPath || passwordModalOpen || isMainPage || isSpecialPage;
+      // 단, 캠페인 페이지는 예외 (항상 표시)
+      const shouldHide = !isCampaignPage && (isManualCollecting || isCollectingPath || passwordModalOpen || isMainPage || isSpecialPage);
       setHideFloatingButton(shouldHide);
       setIsAuthWaiting(authWaiting);
       setIsAuthMethodSelection(authMethodSelection);
@@ -186,11 +191,20 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       setButtonUpdateTrigger(prev => prev + 1);
     };
     
+    // 캠페인 버튼 텍스트 업데이트 리스너
+    const handleCampaignButtonText = (e: Event) => {
+      const customEvent = e as CustomEvent<{ text: string }>;
+      if (customEvent.detail?.text) {
+        setCampaignButtonText(customEvent.detail.text);
+      }
+    };
+    
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('tilko-status-change', handleCustomEvent);
     window.addEventListener('localStorageChange', handleCustomEvent);
     window.addEventListener('password-modal-change', handleCustomEvent);
     window.addEventListener('welno-view-mode-change', handleCustomEvent);
+    window.addEventListener('welno-campaign-button-text', handleCampaignButtonText as EventListener);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
@@ -198,8 +212,16 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       window.removeEventListener('localStorageChange', handleCustomEvent);
       window.removeEventListener('password-modal-change', handleCustomEvent);
       window.removeEventListener('welno-view-mode-change', handleCustomEvent);
+      window.removeEventListener('welno-campaign-button-text', handleCampaignButtonText as EventListener);
     };
   }, [location.pathname, buttonUpdateTrigger]);
+  
+  // 캠페인 페이지가 아닐 때 campaignButtonText 초기화
+  useEffect(() => {
+    if (!location.pathname.includes('/campaigns/disease-prediction')) {
+      setCampaignButtonText(null);
+    }
+  }, [location.pathname]);
   
   // 인증 페이지에서 환자 데이터가 로드되면 플로팅 버튼 표시 보장
   useEffect(() => {
@@ -261,20 +283,54 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
   if (hideFloatingButton) return null;
 
   const getButtonContent = () => {
+    const searchParams = new URLSearchParams(location.search);
+    const isCampaignModeFromUrl = searchParams.get('mode') === 'campaign';
+    const isCampaignPath = location.pathname.includes('/campaigns/disease-prediction');
+    const isCampaignMode = isCampaignPath || isCampaignModeFromUrl;
+
+    // 1. 캠페인 모드 우선 처리
+    if (isCampaignMode) {
+      const page = searchParams.get('page');
+      const isLoginPage = location.pathname.includes('/login');
+      
+      // 결과 페이지 (로딩/성공/실패) -> 버튼 숨김
+      if (page === 'result' || location.pathname.includes('results-trend')) {
+        return null;
+      }
+      
+      // 비밀번호 설정 모달이 열려있으면 숨김
+      if (isPasswordModalOpen) return null;
+
+      // [로그인/인증 페이지인 경우] 단계별 문구 강제 적용
+      if (isLoginPage) {
+        // 모바일 인증 대기 단계
+        if (isAuthWaiting) return '인증 완료하고 리포트 보기';
+        // 인증 수단 선택 단계 및 정보 확인 단계는 모두 '확인 완료' (매트릭스 기준)
+        // 그 외 로그인 페이지의 기본값은 '확인 완료' (정보 확인 단계)
+        return '확인 완료';
+      }
+
+      // [결제/소개 페이지인 경우]
+      if (page === 'payment') {
+        return campaignButtonText || '7,900원 결제하고 리포트 보기';
+      }
+      
+      return campaignButtonText || '7,900원 결제하고 리포트 보기';
+    }
+
+    // 2. 일반 WELNO 플로우 (캠페인이 아닐 때만 진입)
+    if (isPasswordModalOpen) return null;
     if (isAuthWaiting) return '인증 완료했어요';
     if (isAuthMethodSelection) return '인증 요청하기';
     if (isInfoConfirming) return '확인 완료';
-    if (isPasswordModalOpen) return null;
     
-    if (location.pathname === '/login') {
-      return '인증하고 내 검진추이 확인하기';
-    }
-    if (location.pathname === '/recommendations' ||
-        location.pathname === '/health-comparison' || 
-        location.pathname === '/results-trend' || 
-        location.pathname === '/prescription-history') {
-      return '상담예약 신청';
-    }
+    const isSpecialPage = location.pathname === '/recommendations' ||
+                         location.pathname === '/health-comparison' || 
+                         location.pathname === '/results-trend' || 
+                         location.pathname === '/prescription-history';
+
+    if (isSpecialPage) return '상담예약 신청';
+    
     return '인증하고 내 검진추이 확인하기';
   };
 
@@ -295,6 +351,13 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
     if (isInfoConfirming) {
       console.log('✅ 정보 확인 완료 클릭');
       window.dispatchEvent(new CustomEvent('tilko-info-confirm-clicked'));
+      return;
+    }
+
+    // 캠페인 페이지인 경우 별도 이벤트 발생
+    if (location.pathname.includes('/campaigns/disease-prediction')) {
+      console.log('🚀 캠페인 리포트 받아보기 클릭');
+      window.dispatchEvent(new CustomEvent('welno-campaign-click'));
       return;
     }
     

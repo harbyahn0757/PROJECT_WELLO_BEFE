@@ -27,6 +27,7 @@ from .api.v1.endpoints import (
     rag_test,
     welno_rag_chat,
     campaign_payment,
+    disease_report_unified,
 )
 from .core.config import settings
 from .data.redis_session_manager import redis_session_manager as session_manager
@@ -72,6 +73,7 @@ app.include_router(debug.router, prefix="/api/v1/debug", tags=["debug"])
 app.include_router(rag_test.router, prefix="/api/v1", tags=["rag-test"])
 app.include_router(welno_rag_chat.router, prefix="/api/v1/welno-rag-chat", tags=["welno-rag-chat"])
 app.include_router(campaign_payment.router, prefix="/api/v1/campaigns", tags=["campaigns"])
+app.include_router(disease_report_unified.router, prefix="/api/v1", tags=["disease-report"])
 
 # 배포환경을 위한 welno-api 경로 추가 (프록시 없이 직접 접근)
 app.include_router(health.router, prefix="/welno-api/v1/health", tags=["health-welno"])
@@ -89,7 +91,9 @@ app.include_router(sync.router, prefix="/welno-api/v1", tags=["sync-welno"])
 app.include_router(surveys.router, prefix="/welno-api/v1", tags=["surveys-welno"])
 app.include_router(welno_rag_chat.router, prefix="/welno-api/v1/welno-rag-chat", tags=["welno-rag-chat-welno"])
 app.include_router(debug.router, prefix="/welno-api/v1/debug", tags=["debug-welno"])
-app.include_router(rag_test.router, prefix="/welno-api/v1", tags=["rag-test-welno"])
+app.include_router(rag_test.router, prefix="/welno-api/v1/rag-test", tags=["rag-test-welno"])
+app.include_router(campaign_payment.router, prefix="/welno-api/v1/campaigns", tags=["campaigns-welno"])
+app.include_router(disease_report_unified.router, prefix="/welno-api/v1", tags=["disease-report-welno"])
 
 # React Router를 위한 catch-all 라우트 (모든 API 라우터 등록 후에 추가)
 # GET과 HEAD 메서드 모두 지원

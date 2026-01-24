@@ -288,7 +288,7 @@ export async function syncHealthData(
   return syncData(
     key,
     async (headers) => {
-      const url = `/welno-api/v1/welno/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`;
+      const url = `/api/v1/welno/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`;
       return fetch(url, { headers });
     },
     async (response) => {
@@ -315,7 +315,7 @@ export async function syncCheckupDesign(
   return syncData(
     key,
     async (headers) => {
-      const url = `/welno-api/v1/checkup-design/latest?uuid=${uuid}&hospital_id=${hospitalId}`;
+      const url = `/api/v1/checkup-design/latest?uuid=${uuid}&hospital_id=${hospitalId}`;
       return fetch(url, { headers });
     },
     async (response) => {

@@ -42,41 +42,48 @@ export const API_ENDPOINTS = {
   BASE_URL: API_BASE_URL,  // API 베이스 URL (DiseaseReportPage 등에서 사용)
   
   // 환자 관련 (welno.welno_patients 테이블 조회)
-  PATIENT: (uuid: string) => createApiUrl(`/welno-api/v1/welno/patients/${uuid}`),
+  PATIENT: (uuid: string) => createApiUrl(`/api/v1/welno/patients/${uuid}`),
   
   // 병원 관련
-  HOSPITAL: (hospitalId: string) => createApiUrl(`/welno-api/v1/welno/hospitals/${hospitalId}`),
+  HOSPITAL: (hospitalId: string) => createApiUrl(`/api/v1/welno/hospitals/${hospitalId}`),
   
   // 건강 데이터 관련
   HEALTH_DATA: (uuid: string, hospitalId: string) => 
-    createApiUrl(`/welno-api/v1/welno/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`),
+    createApiUrl(`/api/v1/welno/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`),
   
   // 기존 데이터 확인 및 검색
   CHECK_EXISTING_DATA: (uuid: string, hospitalId: string) => 
-    createApiUrl(`/welno-api/v1/welno/check-existing-data?uuid=${uuid}&hospital_id=${hospitalId}`),
+    createApiUrl(`/api/v1/welno/check-existing-data?uuid=${uuid}&hospital_id=${hospitalId}`),
   
-  FIND_PATIENT: createApiUrl('/welno-api/v1/welno/find-patient'),
+  FIND_PATIENT: createApiUrl('/api/v1/welno/find-patient'),
+  
+  // 질병예측 캠페인 관련
+  CHECK_PARTNER_STATUS: createApiUrl('/api/v1/disease-report/check-partner-status'),
+  INIT_PAYMENT: createApiUrl('/api/v1/campaigns/disease-prediction/init-payment/'),
+  GENERATE_REPORT: createApiUrl('/api/v1/campaigns/disease-prediction/generate'),
+  GET_REPORT: (oid: string) => createApiUrl(`/api/v1/campaigns/disease-prediction/report?oid=${oid}`),
+  UPDATE_EMAIL: createApiUrl('/api/v1/campaigns/disease-prediction/update-email/'),
   
   // 건강데이터 삭제
   DELETE_HEALTH_DATA: (uuid: string, hospitalId: string) => 
-    createApiUrl(`/welno-api/v1/welno/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`),
+    createApiUrl(`/api/v1/welno/patient-health-data?uuid=${uuid}&hospital_id=${hospitalId}`),
   
   // 약관 동의 저장
   SAVE_TERMS_AGREEMENT: (uuid: string, hospitalId: string) => 
-    createApiUrl(`/welno-api/v1/welno/terms-agreement?uuid=${uuid}&hospital_id=${hospitalId}`),
+    createApiUrl(`/api/v1/welno/terms-agreement?uuid=${uuid}&hospital_id=${hospitalId}`),
   
   // Tilko 인증 관련
-  TILKO_SESSION_START: createApiUrl('/welno-api/v1/tilko/session/start'),
-  TILKO_SESSION_STATUS: (sessionId: string) => createApiUrl(`/welno-api/v1/tilko/session/${sessionId}/status`),
-  TILKO_COLLECT_DATA: (sessionId: string) => createApiUrl(`/welno-api/v1/tilko/session/${sessionId}/collect-data`),
+  TILKO_SESSION_START: createApiUrl('/api/v1/tilko/session/start'),
+  TILKO_SESSION_STATUS: (sessionId: string) => createApiUrl(`/api/v1/tilko/session/${sessionId}/status`),
+  TILKO_COLLECT_DATA: (sessionId: string) => createApiUrl(`/api/v1/tilko/session/${sessionId}/collect-data`),
   
   // 약품 상세정보 관련
-  DRUG_DETAIL: (drugCode: string) => createApiUrl(`/welno-api/v1/welno/drug-detail/${drugCode}`),
+  DRUG_DETAIL: (drugCode: string) => createApiUrl(`/api/v1/welno/drug-detail/${drugCode}`),
   
   // MDX 동기화 관련
   MDX_SYNC: {
     GET_MDX_PATIENTS: (phoneno: string, birthday: string, name: string) =>
-      createApiUrl(`/welno-api/v1/sync/mdx-patients?phoneno=${phoneno}&birthday=${birthday}&name=${encodeURIComponent(name)}`),
+      createApiUrl(`/api/v1/sync/mdx-patients?phoneno=${phoneno}&birthday=${birthday}&name=${encodeURIComponent(name)}`),
   },
   
   // 파트너 마케팅 인증 관련
@@ -87,31 +94,31 @@ export const API_ENDPOINTS = {
   // 비밀번호 관련
   PASSWORD: {
     CHECK_PASSWORD: (uuid: string, hospitalId: string) => 
-      createApiUrl(`/welno-api/v1/patients/${uuid}/password/check?hospital_id=${hospitalId}`),
+      createApiUrl(`/api/v1/patients/${uuid}/password/check?hospital_id=${hospitalId}`),
     SET_PASSWORD: (uuid: string, hospitalId: string) => 
-      createApiUrl(`/welno-api/v1/patients/${uuid}/password/set?hospital_id=${hospitalId}`),
+      createApiUrl(`/api/v1/patients/${uuid}/password/set?hospital_id=${hospitalId}`),
     VERIFY_PASSWORD: (uuid: string, hospitalId: string) => 
-      createApiUrl(`/welno-api/v1/patients/${uuid}/password/verify?hospital_id=${hospitalId}`),
+      createApiUrl(`/api/v1/patients/${uuid}/password/verify?hospital_id=${hospitalId}`),
     CHANGE_PASSWORD: (uuid: string, hospitalId: string) => 
-      createApiUrl(`/welno-api/v1/patients/${uuid}/password/change?hospital_id=${hospitalId}`),
+      createApiUrl(`/api/v1/patients/${uuid}/password/change?hospital_id=${hospitalId}`),
         PROMPT_CHECK: (uuid: string, hospitalId: string) => 
-          createApiUrl(`/welno-api/v1/patients/${uuid}/password/should-prompt?hospital_id=${hospitalId}`),
+          createApiUrl(`/api/v1/patients/${uuid}/password/should-prompt?hospital_id=${hospitalId}`),
     PROMPT_UPDATE: (uuid: string, hospitalId: string) => 
-      createApiUrl(`/welno-api/v1/patients/${uuid}/password/update-prompt?hospital_id=${hospitalId}`),
+      createApiUrl(`/api/v1/patients/${uuid}/password/update-prompt?hospital_id=${hospitalId}`),
     ACCESS_UPDATE: (uuid: string, hospitalId: string) => 
-      createApiUrl(`/welno-api/v1/patients/${uuid}/password/access-update?hospital_id=${hospitalId}`),
+      createApiUrl(`/api/v1/patients/${uuid}/password/access-update?hospital_id=${hospitalId}`),
     
     // 세션 관리 API
     CREATE_SESSION: (uuid: string, hospitalId: string) => 
-      createApiUrl(`/welno-api/v1/patients/${uuid}/sessions/create?hospital_id=${hospitalId}`),
+      createApiUrl(`/api/v1/patients/${uuid}/sessions/create?hospital_id=${hospitalId}`),
     VERIFY_SESSION: () => 
-      createApiUrl(`/welno-api/v1/sessions/verify`),
+      createApiUrl(`/api/v1/sessions/verify`),
     INVALIDATE_SESSION: (sessionToken: string) => 
-      createApiUrl(`/welno-api/v1/sessions/${sessionToken}`),
+      createApiUrl(`/api/v1/sessions/${sessionToken}`),
     GET_SESSIONS: (uuid: string, hospitalId: string) => 
-      createApiUrl(`/welno-api/v1/patients/${uuid}/sessions?hospital_id=${hospitalId}`),
+      createApiUrl(`/api/v1/patients/${uuid}/sessions?hospital_id=${hospitalId}`),
     CLEANUP_SESSIONS: () => 
-      createApiUrl(`/welno-api/v1/sessions/cleanup`)
+      createApiUrl(`/api/v1/sessions/cleanup`)
   }
 };
 

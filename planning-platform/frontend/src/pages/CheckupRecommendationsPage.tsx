@@ -478,7 +478,7 @@ const CheckupRecommendationsPage: React.FC = () => {
       if (!patientUuid) return;
 
       try {
-        const response = await fetch(`/welno-api/v1/patients/${patientUuid}`);
+        const response = await fetch(`/api/v1/patients/${patientUuid}`);
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.data?.name) {

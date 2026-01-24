@@ -1,5 +1,7 @@
-import React, { useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import React, { useMemo, useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { PartnerStatus } from './index';
+import { API_ENDPOINTS } from '../../config/api';
 import './styles/landing.scss';
 
 // 이미지 임포트
@@ -11,27 +13,85 @@ import reportB4 from './assets/report_b_4.png';
 import reportB5 from './assets/report_b_5.png';
 import reportB6 from './assets/report_b_6.png';
 
-const LandingPage: React.FC = () => {
+interface Props {
+  status?: PartnerStatus | null;
+}
+
+const LandingPage: React.FC<Props> = ({ status }) => {
   const { search } = useLocation();
+  const navigate = useNavigate();
   const query = useMemo(() => new URLSearchParams(search), [search]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // URL 파라미터 파싱
   const userData = {
     data: query.get('data') || '', // 암호화된 전체 데이터
     uuid: query.get('uuid') || query.get('webapp_key') || '', // 사용자 식별자
+    partner_id: status?.partner_id || query.get('partner') || 'kindhabit', // 서버 식별 파트너 ID 우선
+    oid: query.get('oid') || '', // 기존 주문번호
     name: query.get('name') || '',
     gender: query.get('gender') || '',
     birth: query.get('birth') || '',
     email: query.get('email') || '',
   };
 
-  const handlePayment = async () => {
+  // ✅ Auto Trigger 로직 (결제 완료 또는 무료 유저 즉시 생성)
+  useEffect(() => {
+    const autoTrigger = query.get('auto_trigger') === 'true';
+    const isPaymentPage = query.get('page') === 'payment';
+    
+    if (autoTrigger && !isGenerating) {
+      handleDirectGenerate();
+    } else if (isPaymentPage && !isGenerating) {
+      console.log('💳 [LandingPage] 결제 페이지 진입 -> 즉시 결제 시도');
+      handlePayment();
+    }
+
+    // 플로팅 버튼 텍스트 업데이트 (결제 페이지용)
+    const amount = status?.payment_amount || 7900;
+    const text = status?.requires_payment === false ? 'AI 리포트 즉시 생성하기' : `${amount.toLocaleString('ko-KR')}원 결제하고 리포트 보기`;
+    window.dispatchEvent(new CustomEvent('welno-campaign-button-text', { 
+      detail: { text } 
+    }));
+  }, [query, isGenerating, status]); // query나 생성 상태가 바뀔 때 체크하도록 수정
+
+  const handleDirectGenerate = async () => {
+    setIsGenerating(true);
     try {
-      // 1. 백엔드에 결제 초기화 요청 (서명 생성 및 주문 저장)
-      const response = await fetch('/api/campaigns/disease-prediction/init-payment/', {
+      const response = await fetch(API_ENDPOINTS.GENERATE_REPORT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData),
+        body: JSON.stringify({
+          ...userData,
+          api_key: query.get('api_key') || ''
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        // 생성 페이지(Result)로 이동
+        navigate(`/campaigns/disease-prediction?page=result&oid=${data.oid || userData.oid}`);
+      } else {
+        alert('리포트 생성 시작 실패: ' + data.detail);
+        setIsGenerating(false);
+      }
+    } catch (error) {
+      console.error('Direct generation failed:', error);
+      setIsGenerating(false);
+    }
+  };
+
+  const handlePayment = async () => {
+    // ... 기존 handlePayment 로직 ...
+    try {
+      // 1. 백엔드에 결제 초기화 요청 (서명 생성 및 주문 저장)
+      const response = await fetch(API_ENDPOINTS.INIT_PAYMENT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...userData,
+          api_key: query.get('api_key') || '' // API Key 추가 보장
+        }),
       });
 
       const data = await response.json();
@@ -49,9 +109,9 @@ const LandingPage: React.FC = () => {
           P_OID: data.P_OID,
           P_AMT: data.P_AMT,
           P_GOODS: '질병예측 리포트',
-          P_UNAME: userData.name,
+          P_UNAME: userData.name || '사용자',
           P_MOBILE: query.get('phone') || '01000000000',
-          P_EMAIL: userData.email,
+          P_EMAIL: userData.email || '',
           P_NEXT_URL: data.P_NEXT_URL, // 백엔드에서 전달받은 운영 URL 사용
           P_CHARSET: 'utf8',
           P_TIMESTAMP: data.P_TIMESTAMP,
@@ -78,6 +138,19 @@ const LandingPage: React.FC = () => {
       alert('서버 통신 오류가 발생했습니다.');
     }
   };
+
+  // ✅ 전역 플로팅 버튼 클릭 이벤트 구독
+  useEffect(() => {
+    const handleCampaignClick = () => {
+      console.log('📣 [LandingPage] 전역 버튼 클릭 수신 -> 결제 시도');
+      handlePayment();
+    };
+
+    window.addEventListener('welno-campaign-click', handleCampaignClick);
+    return () => {
+      window.removeEventListener('welno-campaign-click', handleCampaignClick);
+    };
+  }, [userData]); // userData 변경 시 리스너 재등록
 
   return (
     <div className="dp-landing">
@@ -117,12 +190,6 @@ const LandingPage: React.FC = () => {
           </p>
         </section>
       </main>
-
-      <footer className="dp-footer">
-        <button className="pay-button" onClick={handlePayment}>
-          인공지능 질병예측 리포트 설계하기
-        </button>
-      </footer>
     </div>
   );
 };

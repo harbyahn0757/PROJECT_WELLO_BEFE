@@ -684,7 +684,7 @@ const HealthDataViewer: React.FC<HealthDataViewerProps> = ({
       
       try {
         console.log('[HealthDataViewer] Mediarc 리포트 조회 시작:', { uuid, hospital });
-        const mediarcResponse = await fetch(`/welno-api/v1/welno/mediarc-report?uuid=${uuid}&hospital_id=${hospital}`);
+        const mediarcResponse = await fetch(`/api/v1/welno/mediarc-report?uuid=${uuid}&hospital_id=${hospital}`);
         const mediarcResult = await mediarcResponse.json();
         
         console.log('[HealthDataViewer] Mediarc 리포트 응답:', {

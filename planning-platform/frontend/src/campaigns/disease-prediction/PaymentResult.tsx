@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { API_ENDPOINTS } from '../../config/api';
+import PageTransitionLoader from '../../components/PageTransitionLoader';
 import './styles/landing.scss';
 
 const PaymentResult: React.FC = () => {
   const { search } = useLocation();
+  const navigate = useNavigate();
   const query = useMemo(() => new URLSearchParams(search), [search]);
 
   const status = query.get('status'); // 'success' or 'fail'
@@ -13,10 +16,42 @@ const PaymentResult: React.FC = () => {
   const [email, setEmail] = useState('');
   const [isSent, setIsSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
 
+  // 리포트 생성 여부 폴링
   useEffect(() => {
-    // 결제 성공 시 페이지 뷰 추적 등을 수행할 수 있습니다.
-  }, [status]);
+    if (status === 'success' && oid) {
+      setIsPolling(true);
+      
+      const pollReport = async () => {
+        try {
+          const response = await fetch(API_ENDPOINTS.GET_REPORT(oid));
+          const data = await response.json();
+          
+          if (data.success && data.report_url) {
+            console.log('✅ 리포트 생성 확인됨 -> 이동');
+            setIsPolling(false);
+            navigate(`/disease-report?oid=${oid}`);
+            return true;
+          }
+          return false;
+        } catch (err) {
+          console.error('Polling error:', err);
+          return false;
+        }
+      };
+
+      // 즉시 1회 실행 후 주기적으로 실행
+      pollReport();
+      
+      const intervalId = setInterval(async () => {
+        const finished = await pollReport();
+        if (finished) clearInterval(intervalId);
+      }, 3000); // 3초 간격
+
+      return () => clearInterval(intervalId);
+    }
+  }, [status, oid, navigate]);
 
   const handleSendEmail = async () => {
     if (!email || !email.includes('@')) {
@@ -26,7 +61,7 @@ const PaymentResult: React.FC = () => {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/campaigns/disease-prediction/update-email/', {
+      const response = await fetch(API_ENDPOINTS.UPDATE_EMAIL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ oid, email }),
@@ -49,6 +84,7 @@ const PaymentResult: React.FC = () => {
 
   return (
     <div className="dp-landing">
+      <PageTransitionLoader isVisible={isPolling} message="리포트를 분석 중입니다..." />
       <header className="dp-header">
         <div className="logo">쏙(Xog)</div>
         <h1 className="title">결제 결과</h1>
@@ -56,7 +92,13 @@ const PaymentResult: React.FC = () => {
 
       <main className="dp-content">
         <section className="result-section">
-          {status === 'success' ? (
+          {isPolling ? (
+            <div className="result-card loading">
+              <div className="icon">⌛</div>
+              <h2>리포트 분석 중...</h2>
+              <p className="description">잠시만 기다려주세요. AI가 건강 데이터를 정밀 분석하고 있습니다.</p>
+            </div>
+          ) : status === 'success' ? (
             <div className="result-card success">
               <div className="icon">✅</div>
               <h2>결제가 완료되었습니다!</h2>

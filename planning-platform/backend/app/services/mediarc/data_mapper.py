@@ -225,3 +225,88 @@ def map_questionnaire_to_codes(questionnaire_answers: Dict[str, Any]) -> Dict[st
         codes['cancer'] = [CANCER_CODES.get(item, item) for item in cancer_list]
     
     return codes
+
+
+def map_partner_data_to_twobecon(
+    partner_data: Dict[str, Any],
+    partner_id: str
+) -> Dict[str, Any]:
+    """
+    파트너 암호화 데이터를 Twobecon 형식으로 변환 (MediLinx 약어 필드 지원)
+    
+    Args:
+        partner_data: 복호화된 파트너 데이터 (약어 필드 포함)
+        partner_id: 파트너 ID
+        
+    Returns:
+        Twobecon 형식 데이터
+    """
+    
+    # 1. Transaction ID 생성
+    tid = f"{partner_id}_{uuid.uuid4().hex[:8]}"
+    
+    # 2. 기본 정보 (생년월일, 성별 정규화)
+    birth = partner_data.get('birth', partner_data.get('birth_date', '1990-01-01'))
+    
+    # 성별 정규화 (1/M/m -> 1, 2/F/f -> 2)
+    gender_raw = str(partner_data.get('gender', '1')).upper()
+    if gender_raw in ['1', 'M']:
+        gender = 1
+    elif gender_raw in ['2', 'F']:
+        gender = 2
+    else:
+        gender = 1 # 기본값 남성
+    
+    # 3. 수치 데이터 변환 유틸
+    def to_float(val, default=0.0):
+        try:
+            if val is None or val == '': return default
+            return float(val)
+        except (ValueError, TypeError):
+            return default
+
+    # 4. 검진 데이터 매핑 (MediLinx 약어 필드 우선 대응)
+    checkup = {
+        "date": partner_data.get('checkup_date', datetime.now().strftime('%Y-%m-%d')),
+        "height": to_float(partner_data.get('height')),
+        "weight": to_float(partner_data.get('weight')),
+        "waist": to_float(partner_data.get('waist', partner_data.get('waist_circumference'))),
+        "sbp": to_float(partner_data.get('bphigh', partner_data.get('bpHigh', partner_data.get('blood_pressure_high')))),
+        "dbp": to_float(partner_data.get('bplwst', partner_data.get('bpLwst', partner_data.get('blood_pressure_low')))),
+        "fbs": to_float(partner_data.get('blds', partner_data.get('blood_sugar'))),
+        "tc": to_float(partner_data.get('totchole', partner_data.get('totChole', partner_data.get('cholesterol')))),
+        "hdl": to_float(partner_data.get('hdlchole', partner_data.get('hdlChole', partner_data.get('hdl_cholesterol')))),
+        "ldl": to_float(partner_data.get('ldlchole', partner_data.get('ldlChole', partner_data.get('ldl_cholesterol')))),
+        "tg": to_float(partner_data.get('triglyceride', partner_data.get('tg'))),
+        "scr": to_float(partner_data.get('creatinine', partner_data.get('scr'))),
+        "ast": to_float(partner_data.get('sgotast', partner_data.get('sgotAst', partner_data.get('ast')))),
+        "alt": to_float(partner_data.get('sgptalt', partner_data.get('sgptAlt', partner_data.get('alt')))),
+        "gpt": to_float(partner_data.get('gammagtp', partner_data.get('gammaGtp', partner_data.get('gpt')))),
+        "gfr": to_float(partner_data.get('gfr')),
+        "hgb": to_float(partner_data.get('hmg', partner_data.get('hemoglobin'))),
+        "up": str(partner_data.get('oligProteCd', partner_data.get('up', ''))),
+        "tb": str(partner_data.get('tuberculosis', partner_data.get('tb', '정상'))),
+    }
+    
+    # BMI 자동 계산 (높이/몸무게 있을 때)
+    if to_float(checkup.get('bmi')) == 0.0 and checkup['height'] > 0 and checkup['weight'] > 0:
+        height_m = checkup['height'] / 100
+        checkup['bmi'] = round(checkup['weight'] / (height_m ** 2), 2)
+    else:
+        checkup['bmi'] = to_float(partner_data.get('bmi'))
+    
+    # 5. Twobecon 데이터 구조 조립
+    twobecon_data = {
+        "tid": tid,
+        "birth": birth,
+        "gender": gender,
+        "checkup": checkup,
+        # 문진 데이터 Fallback 처리
+        "drink": partner_data.get('drink', 'DRK0002'),
+        "smoke": partner_data.get('smoke', 'SMK0003'),
+        "family": partner_data.get('family', ['FH0001']),
+        "disease": partner_data.get('disease', ['DIS0001']),
+        "cancer": partner_data.get('cancer', ['CNR0001'])
+    }
+    
+    return twobecon_data

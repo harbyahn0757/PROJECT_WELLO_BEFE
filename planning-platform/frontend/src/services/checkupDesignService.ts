@@ -169,8 +169,8 @@ class CheckupDesignService {
   async createCheckupDesignStep1(request: CheckupDesignRequest): Promise<CheckupDesignResponse> {
     try {
       const url = API_BASE_URL 
-        ? `${API_BASE_URL}/welno-api/v1/checkup-design/create-step1`
-        : `/welno-api/v1/checkup-design/create-step1`;
+        ? `${API_BASE_URL}/api/v1/checkup-design/create-step1`
+        : `/api/v1/checkup-design/create-step1`;
       
       console.log('🔍 [STEP1-분석] API 호출:', {
         url,
@@ -220,8 +220,8 @@ class CheckupDesignService {
   async createCheckupDesignStep2(request: CheckupDesignStep2Request): Promise<CheckupDesignResponse> {
     try {
       const url = API_BASE_URL 
-        ? `${API_BASE_URL}/welno-api/v1/checkup-design/create-step2`
-        : `/welno-api/v1/checkup-design/create-step2`;
+        ? `${API_BASE_URL}/api/v1/checkup-design/create-step2`
+        : `/api/v1/checkup-design/create-step2`;
       
       console.log('🔍 [STEP2-설계] API 호출:', {
         url,
@@ -270,8 +270,8 @@ class CheckupDesignService {
   async deleteCheckupDesign(uuid: string, hospitalId: string): Promise<{ success: boolean; message?: string; deleted_count?: number }> {
     try {
       const url = API_BASE_URL 
-        ? `${API_BASE_URL}/welno-api/v1/checkup-design/delete/${uuid}?hospital_id=${hospitalId}`
-        : `/welno-api/v1/checkup-design/delete/${uuid}?hospital_id=${hospitalId}`;
+        ? `${API_BASE_URL}/api/v1/checkup-design/delete/${uuid}?hospital_id=${hospitalId}`
+        : `/api/v1/checkup-design/delete/${uuid}?hospital_id=${hospitalId}`;
       
       console.log('🗑️ [검진설계삭제] API 호출:', {
         url,
@@ -311,8 +311,8 @@ class CheckupDesignService {
   async getLatestCheckupDesign(uuid: string, hospitalId: string): Promise<CheckupDesignResponse> {
     try {
       const url = API_BASE_URL 
-        ? `${API_BASE_URL}/welno-api/v1/checkup-design/latest/${uuid}?hospital_id=${hospitalId}`
-        : `/welno-api/v1/checkup-design/latest/${uuid}?hospital_id=${hospitalId}`;
+        ? `${API_BASE_URL}/api/v1/checkup-design/latest/${uuid}?hospital_id=${hospitalId}`
+        : `/api/v1/checkup-design/latest/${uuid}?hospital_id=${hospitalId}`;
       
       console.log('🔍 [검진설계조회] API 호출:', {
         url,
@@ -360,8 +360,8 @@ class CheckupDesignService {
   async createCheckupDesign(request: CheckupDesignRequest): Promise<CheckupDesignResponse> {
     try {
       const url = API_BASE_URL 
-        ? `${API_BASE_URL}/welno-api/v1/checkup-design/create`
-        : `/welno-api/v1/checkup-design/create`;
+        ? `${API_BASE_URL}/api/v1/checkup-design/create`
+        : `/api/v1/checkup-design/create`;
       
       console.log('🔍 [검진설계] API 호출 (2단계 파이프라인):', {
         url,
@@ -404,8 +404,8 @@ class CheckupDesignService {
   async getIncompleteCheckupDesign(uuid: string, hospitalId: string): Promise<CheckupDesignResponse> {
     try {
       const url = API_BASE_URL 
-        ? `${API_BASE_URL}/welno-api/v1/checkup-design/incomplete/${uuid}?hospital_id=${hospitalId}`
-        : `/welno-api/v1/checkup-design/incomplete/${uuid}?hospital_id=${hospitalId}`;
+        ? `${API_BASE_URL}/api/v1/checkup-design/incomplete/${uuid}?hospital_id=${hospitalId}`
+        : `/api/v1/checkup-design/incomplete/${uuid}?hospital_id=${hospitalId}`;
       
       console.log('🔍 [미완료조회] API 호출:', {
         url,
@@ -457,8 +457,8 @@ class CheckupDesignService {
   async retryCheckupDesign(requestId: number): Promise<CheckupDesignResponse> {
     try {
       const url = API_BASE_URL 
-        ? `${API_BASE_URL}/welno-api/v1/checkup-design/retry/${requestId}`
-        : `/welno-api/v1/checkup-design/retry/${requestId}`;
+        ? `${API_BASE_URL}/api/v1/checkup-design/retry/${requestId}`
+        : `/api/v1/checkup-design/retry/${requestId}`;
       
       console.log('🔄 [재시도] API 호출:', {
         url,

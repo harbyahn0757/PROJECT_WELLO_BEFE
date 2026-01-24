@@ -63,11 +63,12 @@ const DiseaseReportPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // 최초 마운트 시에만 실행
   
-  // ⭐ URL 파라미터에서 uuid, hospital, sessionId 가져오기
+  // ⭐ URL 파라미터에서 uuid, hospital, sessionId, oid 가져오기
   const uuid = searchParams.get('uuid') || StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID) || '';
   const hospitalId = searchParams.get('hospital') || StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID) || '';
   const sessionId = searchParams.get('sessionId') || null;
   const shouldGenerate = searchParams.get('generate') === 'true';
+  const oid = searchParams.get('oid') || null;  // 파트너 결제 주문번호
   
   // ⭐ BNR 레거시 코드 호환성: mktUuid → uuid 매핑
   const mktUuid = uuid;
@@ -95,6 +96,7 @@ const DiseaseReportPage: React.FC = () => {
   const [diseaseSliderIndex, setDiseaseSliderIndex] = useState(0); // 질병 카드 슬라이드 인덱스
   const cancerSliderContainerRef = useRef<HTMLDivElement>(null);
   const diseaseSliderContainerRef = useRef<HTMLDivElement>(null);
+  const generationRequestedRef = useRef(false); // 리포트 생성 중복 요청 방지용
   
   // 디버그 모달 관련 상태
   const [showDebugModal, setShowDebugModal] = useState(false);
@@ -432,8 +434,57 @@ const DiseaseReportPage: React.FC = () => {
   }, [customerBirthday]);
 
   // 리포트 조회 함수 (3초 간격으로 3번만 호출)
-  // ⭐ 신규: Mediarc 리포트 조회 함수
+  // ⭐ 신규: Mediarc 리포트 조회 함수 (WELNO 또는 파트너)
   const fetchReport = useCallback(async () => {
+    // 파트너 케이스: oid로 조회
+    if (oid) {
+      try {
+        console.log(`[리포트 조회] 파트너 케이스 - oid: ${oid}`);
+        
+        // tb_campaign_payments에서 리포트 조회
+        const response = await fetch(`/api/v1/campaigns/disease-prediction/report?oid=${oid}`);
+        const data = await response.json();
+        
+        if (data.success && data.report_url) {
+          console.log('[리포트 조회] 파트너 리포트 발견!');
+          
+          // Mediarc 응답 파싱 (API 레벨에서 이미 data 필드 추출됨)
+          const medarcResponse = data.mediarc_response || {};
+          const diseaseData = medarcResponse.disease_data || [];
+          const cancerData = medarcResponse.cancer_data || [];
+          const combinedData = [...diseaseData, ...cancerData];
+          
+          const aimsData: AIMSResponse = {
+            bodyage: medarcResponse.bodyage || 0,
+            rank: medarcResponse.rank || 0,
+            data: combinedData
+          };
+          
+          setReportDataWithInfo(
+            aimsData,
+            'db',
+            {
+              name: data.user_name,
+              birthday: ''  // 파트너 데이터에는 없을 수 있음
+            }
+          );
+          setLoading(false);
+          setDataSource('db');
+          return;
+        } else {
+          setError('리포트를 찾을 수 없습니다.');
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.error('[리포트 조회] 파트너 오류:', err);
+        setError('리포트 조회 중 오류가 발생했습니다.');
+        setLoading(false);
+        return;
+      }
+    }
+    
+    // WELNO 케이스: uuid + hospital_id로 조회
     if (!uuid || !hospitalId) {
       setError('환자 정보가 없습니다.');
       setLoading(false);
@@ -441,10 +492,10 @@ const DiseaseReportPage: React.FC = () => {
     }
 
     try {
-      console.log(`[리포트 조회] 시작 - uuid: ${uuid}, hospital: ${hospitalId}`);
+      console.log(`[리포트 조회] WELNO 케이스 - uuid: ${uuid}, hospital: ${hospitalId}`);
       
       // Mediarc 리포트 조회
-      const response = await fetch(`/welno-api/v1/welno/mediarc-report?uuid=${uuid}&hospital_id=${hospitalId}`);
+      const response = await fetch(`/api/v1/welno/mediarc-report?uuid=${uuid}&hospital_id=${hospitalId}`);
       const data = await response.json();
       
       console.log('[리포트 조회] 응답:', {
@@ -491,12 +542,13 @@ const DiseaseReportPage: React.FC = () => {
         );
         setLoading(false);
         setDataSource('db');
-      } else if (shouldGenerate) {
-        // generate=true인데 리포트 없음 → 생성 요청
-        console.log('[리포트 조회] 리포트 없음 → Mediarc 생성 요청');
+      } else if (shouldGenerate && !generationRequestedRef.current) {
+        // generate=true인데 리포트 없음 → 생성 요청 (중복 방지 체크 추가)
+        console.log('[리포트 조회] 리포트 없음 → Mediarc 생성 요청 시작');
+        generationRequestedRef.current = true;
         
         try {
-          const generateRes = await fetch(`/welno-api/v1/welno/mediarc-report/generate?uuid=${uuid}&hospital_id=${hospitalId}`, {
+          const generateRes = await fetch(`/api/v1/welno/mediarc-report/generate?uuid=${uuid}&hospital_id=${hospitalId}`, {
             method: 'POST'
           });
           const generateData = await generateRes.json();
@@ -511,12 +563,17 @@ const DiseaseReportPage: React.FC = () => {
             console.log('[리포트 생성] 생성 실패:', generateData.message);
             setError(generateData.message || '리포트 생성을 시작할 수 없습니다.');
             setLoading(false);
+            generationRequestedRef.current = false; // 실패 시 재시도 가능하도록 초기화
           }
         } catch (genError) {
           console.error('[리포트 생성] 에러:', genError);
           setError('리포트 생성 요청 중 오류가 발생했습니다.');
           setLoading(false);
+          generationRequestedRef.current = false; // 에러 시 재시도 가능하도록 초기화
         }
+      } else if (shouldGenerate && generationRequestedRef.current) {
+        console.log('[리포트 조회] 리포트 생성 대기 중 (중복 요청 방지)');
+        setLoading(true);
       } else {
         // 리포트 없음
         setError('질병예측 리포트가 없습니다. 먼저 건강검진 데이터를 수집해주세요.');
@@ -527,7 +584,7 @@ const DiseaseReportPage: React.FC = () => {
       setError('리포트 조회 중 오류가 발생했습니다.');
       setLoading(false);
     }
-  }, [uuid, hospitalId, shouldGenerate, setReportDataWithInfo]);
+  }, [uuid, hospitalId, oid, shouldGenerate, setReportDataWithInfo]);
 
   // 카운트다운 시작 함수
   const startCountdown = useCallback(() => {
@@ -595,6 +652,14 @@ const DiseaseReportPage: React.FC = () => {
 
   // ⭐ 리포트 조회 useEffect
   useEffect(() => {
+    // 캠페인 케이스: oid만 있는 경우 허용
+    if (oid && !uuid && !hospitalId) {
+      console.log('[DiseaseReportPage] 캠페인 모드 (oid 기반 조회)');
+      fetchReport();
+      return;
+    }
+
+    // 일반 WELNO 케이스: uuid와 hospitalId 필수
     if (!uuid || !hospitalId) {
       setError('환자 정보가 없습니다.');
       setLoading(false);
@@ -603,7 +668,7 @@ const DiseaseReportPage: React.FC = () => {
 
     // 리포트 조회
     fetchReport();
-  }, [uuid, hospitalId, fetchReport]);
+  }, [uuid, hospitalId, oid, fetchReport]);
 
   // 카카오톡 메시지 표시 시 카운트다운 시작 (한 번만)
   useEffect(() => {

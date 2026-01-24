@@ -30,6 +30,10 @@ CREATE TABLE IF NOT EXISTS welno.welno_patients (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     
+    -- 파트너/가입 출처 관련 플래그 추가
+    registration_source VARCHAR(20) DEFAULT 'DIRECT', -- DIRECT, PARTNER, HOSPITAL 등
+    partner_id VARCHAR(50), -- 가입 시 식별된 파트너 ID (예: medilinx)
+    
     -- 인덱스
     UNIQUE(uuid, hospital_id)
 );

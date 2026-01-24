@@ -70,7 +70,7 @@ export interface AuthFlowActions {
   recoverSession: () => Promise<boolean>;
   
   // 인증 시작
-  startAuth: () => Promise<void>;
+  startAuth: (oid?: string) => Promise<void>;
   
   // 리셋
   reset: () => void;
@@ -292,7 +292,7 @@ export function useAuthFlow() {
       
       try {
         // 세션 유효성 검증
-        const response = await fetch(`/welno-api/v1/tilko/session/${sessionId}/status`);
+        const response = await fetch(`/api/v1/tilko/session/${sessionId}/status`);
         
         if (!response.ok) {
           // 세션이 만료되었거나 없음 - localStorage 정리 (정상적인 동작)
@@ -434,13 +434,13 @@ export function useAuthFlow() {
   /**
    * 인증 시작
    */
-  const startAuth = useCallback(async () => {
+  const startAuth = useCallback(async (oid?: string) => {
     // 최신 상태 가져오기 (ref 사용으로 클로저 문제 방지)
     const currentUserInfo: UserInputInfo = userInfoRef.current;
     
     setState(prev => ({ ...prev, isLoading: true, error: null }));
     
-    console.log('[useAuthFlow] 인증 시작:', currentUserInfo);
+    console.log('[useAuthFlow] 인증 시작:', { ...currentUserInfo, oid });
     
     try {
       const { name, phone, birthday, authMethod } = currentUserInfo;
@@ -455,10 +455,11 @@ export function useAuthFlow() {
         phone_no: phone,
         birthdate: birthday,
         private_auth_type: authMethod,
+        oid: oid
       });
       
       // 1단계: 세션 생성
-      const sessionResponse = await fetch('/welno-api/v1/tilko/session/start', {
+      const sessionResponse = await fetch('/api/v1/tilko/session/start', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -469,6 +470,7 @@ export function useAuthFlow() {
           birthdate: birthday,
           private_auth_type: authMethod,
           gender: 'M',
+          oid: oid // 주문번호 전달
         }),
       });
       
@@ -493,7 +495,7 @@ export function useAuthFlow() {
       // 2단계: 실제 인증 요청 (Tilko API 호출)
       console.log('[useAuthFlow] 2단계: 인증 요청 시작', { sessionId });
       
-      const authResponse = await fetch(`/welno-api/v1/tilko/session/simple-auth?session_id=${sessionId}`, {
+      const authResponse = await fetch(`/api/v1/tilko/session/simple-auth?session_id=${sessionId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

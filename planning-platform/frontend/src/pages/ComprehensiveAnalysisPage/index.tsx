@@ -134,7 +134,7 @@ const ComprehensiveAnalysisPage: React.FC = () => {
 
       console.log('📤 [GPT분석] API 요청 데이터:', requestData);
 
-      const response = await fetch('/welno-api/v1/health-analysis/analyze', {
+      const response = await fetch('/api/v1/health-analysis/analyze', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
