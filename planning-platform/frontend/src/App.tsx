@@ -18,6 +18,7 @@ import HealthComparison from './pages/HealthComparison';
 import AppointmentPage from './pages/AppointmentPage';
 import ResultsTrendPage from './pages/ResultsTrendPage';
 import DiseaseReportPage from './features/disease-report/pages/DiseaseReportPage';
+import DiseasePredictionCampaign from './campaigns/disease-prediction';
 // import RagTestPage from './pages/RagTestPage';
 import AppointmentModal from './components/appointment/AppointmentModal';
 import { LayoutType } from './constants/layoutTypes';
@@ -41,11 +42,17 @@ declare global {
 // basename 동적 설정 함수
 const getBasename = () => {
   const hostname = window.location.hostname;
-  // xogxog.com으로 접속했을 때만 기존처럼 /welno를 사용
-  if (hostname === 'xogxog.com' || hostname === 'www.xogxog.com') {
+  
+  // localhost, 127.0.0.1, xogxog.com, report.kindhabit.com → /welno 사용
+  if (hostname === 'localhost' || 
+      hostname === '127.0.0.1' ||
+      hostname === 'xogxog.com' || 
+      hostname === 'www.xogxog.com' ||
+      hostname === 'report.kindhabit.com') {
     return '/welno';
   }
-  // 그 외 전용 도메인(welno.xog.co.kr, welno.kindhabit.com 등)은 루트(/) 사용
+  
+  // 전용 도메인(welno.xog.co.kr, welno.kindhabit.com 등) → 루트(/) 사용
   return '/';
 };
 
@@ -400,6 +407,8 @@ const AppContent: React.FC = () => {
         <Route path="/results" element={<Navigate to="/results-trend" replace />} />
         {/* ⭐ 질병예측 리포트 페이지 */}
         <Route path="/disease-report" element={<DiseaseReportPage />} />
+        {/* ⭐ 외부 파트너 연동 캠페인 페이지 (결제 포함) */}
+        <Route path="/campaigns/disease-prediction" element={<DiseasePredictionCampaign />} />
         <Route path="/prescription-history" element={<PrescriptionHistory />} />
         <Route path="/comparison" element={<HealthComparison />} />
         <Route path="/appointment" element={<AppointmentPage />} />

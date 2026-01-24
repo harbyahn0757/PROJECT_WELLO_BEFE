@@ -1,0 +1,279 @@
+.dp-landing {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  color: #333;
+  padding-bottom: 120px; // Floating button 공간 확보
+
+  .top-banner-img {
+    width: 100%;
+    display: block;
+    height: auto;
+  }
+
+  .dp-header {
+    background-color: #fff;
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+
+    .logo {
+      color: #ffcc00;
+      font-weight: 800;
+      font-size: 1.2rem;
+      margin-bottom: 5px;
+    }
+
+    .title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0;
+    }
+  }
+
+  .dp-content {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+
+    .image-intro {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      margin-bottom: 30px;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+
+      .intro-img {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+    }
+
+    .payment-guide {
+      background-color: #fff;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      margin-bottom: 30px;
+
+      .price-box {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-bottom: 20px;
+        border-bottom: 1px dashed #dee2e6;
+        margin-bottom: 20px;
+
+        .item-name {
+          font-weight: 600;
+          font-size: 1.1rem;
+        }
+
+        .price {
+          font-size: 1.5rem;
+          font-weight: 800;
+          color: #ff4d4f;
+        }
+      }
+
+      .benefits {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+
+        li {
+          font-size: 1rem;
+          margin-bottom: 12px;
+          color: #495057;
+          display: flex;
+          align-items: center;
+          
+          &:last-child {
+            margin-bottom: 0;
+          }
+        }
+      }
+    }
+
+    .result-section {
+      text-align: center;
+      padding: 20px 0;
+
+      .result-card {
+        background-color: #fff;
+        border-radius: 20px;
+        padding: 40px 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+
+        .icon {
+          font-size: 4rem;
+          margin-bottom: 20px;
+        }
+
+        h2 {
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin-bottom: 15px;
+        }
+
+        .description {
+          font-size: 1rem;
+          color: #666;
+          line-height: 1.6;
+          margin-bottom: 30px;
+        }
+
+        .email-collection {
+          margin: 20px 0;
+          padding: 20px;
+          background-color: #fff9db;
+          border-radius: 12px;
+          border: 1px solid #ffe066;
+          text-align: left;
+
+          .hint {
+            font-size: 0.9rem;
+            color: #856404;
+            margin-bottom: 12px;
+            font-weight: 600;
+          }
+
+          .email-input-group {
+            display: flex;
+            gap: 8px;
+
+            input {
+              flex: 1;
+              padding: 12px;
+              border: 1px solid #ced4da;
+              border-radius: 8px;
+              font-size: 0.95rem;
+              outline: none;
+
+              &:focus {
+                border-color: #ffcc00;
+              }
+            }
+
+            button {
+              padding: 0 20px;
+              background-color: #ffcc00;
+              border: none;
+              border-radius: 8px;
+              font-weight: 700;
+              color: #333;
+              cursor: pointer;
+
+              &:disabled {
+                background-color: #e9ecef;
+                color: #adb5bd;
+                cursor: not-allowed;
+              }
+            }
+          }
+        }
+
+        .order-info {
+          background-color: #f8f9fa;
+          padding: 15px;
+          border-radius: 10px;
+          text-align: left;
+
+          .info-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+
+            .label {
+              color: #868e96;
+            }
+
+            .value {
+              font-weight: 600;
+            }
+          }
+        }
+
+        .retry-button {
+          background-color: #333;
+          color: #fff;
+          border: none;
+          padding: 12px 25px;
+          border-radius: 8px;
+          font-weight: 600;
+          cursor: pointer;
+          margin-top: 20px;
+        }
+      }
+    }
+
+    .company-info {
+      width: 100%;
+      color: #888;
+      font-size: 12px;
+      line-height: 1.8;
+      text-align: left;
+      padding: 30px 10px;
+      border-top: 1px solid #eee;
+
+      h4 {
+        font-size: 14px;
+        color: #555;
+        margin-bottom: 12px;
+        font-weight: 700;
+      }
+
+      p {
+        margin: 4px 0;
+      }
+
+      .footer-links {
+        margin-top: 12px;
+        span {
+          text-decoration: underline;
+          cursor: pointer;
+          margin: 0 5px;
+          
+          &:first-of-type {
+            margin-left: 0;
+          }
+        }
+      }
+    }
+  }
+
+  .dp-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(to top, rgba(255,255,255,1) 70%, rgba(255,255,255,0));
+    padding: 20px 20px 40px;
+    display: flex;
+    justify-content: center;
+    z-index: 1000;
+
+    .pay-button, .home-button {
+      width: 100%;
+      max-width: 560px;
+      background-color: #ffcc00;
+      color: #333;
+      border: none;
+      padding: 20px;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 8px 20px rgba(255, 204, 0, 0.4);
+
+      &:active {
+        background-color: #e6b800;
+        transform: scale(0.98);
+      }
+    }
+  }
+}

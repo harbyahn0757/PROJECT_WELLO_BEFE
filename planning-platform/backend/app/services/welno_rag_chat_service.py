@@ -219,14 +219,19 @@ class WelnoRagChatService:
 
             if is_first_message:
                 try:
+                    logger.info(f"🔍 [검진데이터] 조회 시작: uuid={uuid}, hospital_id={hospital_id}")
                     health_info = await self.welno_data_service.get_patient_health_data(uuid, hospital_id)
+                    
                     if "error" not in health_info:
                         patient_name = health_info.get("patient", {}).get("name", "고객")
                         health_data = health_info.get("health_data", [])
                         prescription_data = health_info.get("prescription_data", [])
                         
+                        logger.info(f"📊 [검진데이터] 조회 결과: health_data={len(health_data)}건, prescription_data={len(prescription_data)}건, error=no")
+                        
                         # 최근 3년간 데이터 필터링
                         filtered_health, filtered_prescription = self._filter_recent_3years_data(health_data, prescription_data)
+                        logger.info(f"📋 [검진데이터] 필터링 결과: 최근 3년간 health_data={len(filtered_health)}건, prescription_data={len(filtered_prescription)}건")
                         
                         if filtered_health:
                             latest = filtered_health[0]
@@ -246,6 +251,7 @@ class WelnoRagChatService:
                             chronic = ", ".join(stats.get("chronic_diseases", []))
                             
                             # 최근 3년간 주요 요소 정리
+                            logger.info(f"📝 [컨텍스트] briefing_context 생성 시작")
                             briefing_context = f"\n[환자 최근 건강 상태 (최근 3년간 데이터 분석)]\n- 이름: {patient_name}\n"
                             briefing_context += f"- 분석 기간: 최근 3년간 ({len(filtered_health)}건 검진, {len(filtered_prescription)}건 복약)\n"
                             
@@ -293,6 +299,14 @@ class WelnoRagChatService:
                                 briefing_context += "\n이 정보를 바탕으로 다각도로 분석하여 상담을 시작하세요. 추이, 패턴, 위험도를 종합적으로 언급하세요."
                                 chat_stage = "normal"
                             
+                            # briefing_context 생성 완료 로깅
+                            briefing_length = len(briefing_context)
+                            briefing_preview = briefing_context[:200] + "..." if briefing_length > 200 else briefing_context
+                            logger.info(f"✅ [컨텍스트] briefing_context 생성 완료: 길이={briefing_length}자, 내용={briefing_preview}")
+                            
+                            if not briefing_context or briefing_context.strip() == "":
+                                logger.warning(f"⚠️ [컨텍스트] briefing_context가 비어있음 - 검진 데이터 없음")
+                            
                             # Redis에 검진/복약 데이터 요약 저장 (이후 메시지에서 참조)
                             if self.redis_client:
                                 summary_key = f"welno:rag_chat:data_summary:{uuid}:{hospital_id}:{session_id}"
@@ -305,8 +319,11 @@ class WelnoRagChatService:
                                     "stale_year": stale_year
                                 }
                                 self.redis_client.setex(summary_key, 86400, json.dumps(summary_data, ensure_ascii=False))
+                    else:
+                        logger.warning(f"⚠️ [검진데이터] 조회 결과: error=yes, health_info={health_info.get('error', 'unknown')}")
                 except Exception as e:
                     logger.warning(f"⚠️ [브리핑] 데이터 로드 실패: {e}")
+                    logger.warning(f"⚠️ [검진데이터] 조회 실패: {str(e)}")
 
             # 4. 응답 생성 분기
             # 일반 RAG 스트리밍
@@ -384,6 +401,20 @@ class WelnoRagChatService:
                     if combined_context:
                         enhanced_prompt = enhanced_prompt.replace("[Context]", f"[Context]{combined_context}")
                     
+                    # 프롬프트 구성 로깅
+                    prompt_length = len(enhanced_prompt)
+                    briefing_length = len(briefing_context) if briefing_context else 0
+                    past_survey_length = len(past_survey_info) if past_survey_info else 0
+                    context_str_length = len(context_str) if context_str else 0
+                    logger.info(f"📝 [프롬프트] 최종 구성 (첫 메시지):")
+                    logger.info(f"  - 전체 길이: {prompt_length}자")
+                    logger.info(f"  - briefing_context 포함: {'yes' if briefing_context else 'no'}, 길이: {briefing_length}자")
+                    logger.info(f"  - past_survey_info 포함: {'yes' if past_survey_info else 'no'}, 길이: {past_survey_length}자")
+                    logger.info(f"  - context_str (RAG 검색) 포함: {'yes' if context_str else 'no'}, 길이: {context_str_length}자")
+                    
+                    if not briefing_context:
+                        logger.warning(f"⚠️ [프롬프트] 검진 데이터가 컨텍스트에 포함되지 않음 - briefing_context 없음")
+                    
                     # 단계별 지침 추가
                     stage_instruction = ""
                     logger.info(f"🔍 [PNT] 첫 메시지 chat_stage: {chat_stage}, message: {message[:50]}")
@@ -407,6 +438,7 @@ class WelnoRagChatService:
                 else:
                     # 이후 메시지: 히스토리 + 검진/복약/문진 데이터 요약 포함
                     # Redis에서 저장된 검진/복약 데이터 요약 가져오기
+                    logger.info(f"🔍 [검진데이터] Redis에서 data_summary 조회 시작: session_id={session_id}")
                     data_summary = ""
                     if self.redis_client:
                         summary_key = f"welno:rag_chat:data_summary:{uuid}:{hospital_id}:{session_id}"
@@ -417,8 +449,17 @@ class WelnoRagChatService:
                                 data_summary = summary_data.get("health_summary", "")
                                 if data_summary:
                                     data_summary = f"\n[환자 건강 데이터 요약 (과거 내역 참고용)]\n{data_summary}\n"
-                            except:
-                                pass
+                                    data_summary_length = len(data_summary)
+                                    data_summary_preview = data_summary[:200] + "..." if data_summary_length > 200 else data_summary
+                                    logger.info(f"✅ [컨텍스트] data_summary 포함: 길이={data_summary_length}자, 내용={data_summary_preview}")
+                                else:
+                                    logger.warning(f"⚠️ [컨텍스트] data_summary 내용이 비어있음 - 검진 데이터가 컨텍스트에 포함되지 않음")
+                            except Exception as e:
+                                logger.warning(f"⚠️ [검진데이터] data_summary 파싱 실패: {str(e)}")
+                        else:
+                            logger.warning(f"⚠️ [검진데이터] data_summary 조회 결과: 존재=no - Redis에 저장된 검진 데이터 요약 없음")
+                    else:
+                        logger.warning(f"⚠️ [검진데이터] Redis 클라이언트 없음 - data_summary 조회 불가")
                     
                     # 문진 내역도 함께 전달 (이후 메시지에서도)
                     past_survey_info_subsequent = ""
@@ -436,6 +477,20 @@ class WelnoRagChatService:
                     
                     # 히스토리와 검진/복약/문진 데이터 요약을 함께 전달
                     prompt = f"{data_summary}{past_survey_info_subsequent}[의학 지식 문서 (참고 문헌)]\n{context_str}\n\n사용자 질문: {message}\n전문가 답변:"
+                    
+                    # 프롬프트 구성 로깅
+                    prompt_length = len(prompt)
+                    data_summary_length = len(data_summary) if data_summary else 0
+                    past_survey_length = len(past_survey_info_subsequent) if past_survey_info_subsequent else 0
+                    context_str_length = len(context_str) if context_str else 0
+                    logger.info(f"📝 [프롬프트] 최종 구성:")
+                    logger.info(f"  - 전체 길이: {prompt_length}자")
+                    logger.info(f"  - data_summary 포함: {'yes' if data_summary else 'no'}, 길이: {data_summary_length}자")
+                    logger.info(f"  - past_survey_info 포함: {'yes' if past_survey_info_subsequent else 'no'}, 길이: {past_survey_length}자")
+                    logger.info(f"  - context_str (RAG 검색) 포함: {'yes' if context_str else 'no'}, 길이: {context_str_length}자")
+                    
+                    if not data_summary:
+                        logger.warning(f"⚠️ [프롬프트] 검진 데이터가 컨텍스트에 포함되지 않음 - data_summary 없음")
                     
                     # 단계별 지침 추가
                     stage_instruction = ""
