@@ -6,7 +6,7 @@
 // 기본 API 호스트
 export const API_HOSTS = {
   LOCAL: 'http://localhost:8082',
-  PRODUCTION: 'https://xogxog.com'
+  PRODUCTION: 'https://welno.kindhabit.com'
 } as const;
 
 // 현재 환경에 따른 API 호스트 선택
