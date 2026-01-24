@@ -43,14 +43,13 @@ declare global {
 const getBasename = () => {
   const hostname = window.location.hostname;
   
-  // localhost, 127.0.0.1, report.kindhabit.com → /welno 사용
+  // localhost, 127.0.0.1 → /welno 사용 (개발 환경)
   if (hostname === 'localhost' || 
-      hostname === '127.0.0.1' ||
-      hostname === 'report.kindhabit.com') {
+      hostname === '127.0.0.1') {
     return '/welno';
   }
   
-  // 전용 도메인(welno.xog.co.kr, welno.kindhabit.com) → 루트(/) 사용
+  // 전용 도메인(welno.kindhabit.com, report.kindhabit.com) → 루트(/) 사용
   return '/';
 };
 
