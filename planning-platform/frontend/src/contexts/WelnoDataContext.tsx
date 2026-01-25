@@ -1175,12 +1175,20 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
       }
     }
 
-    // 3순위: localStorage에서 확인 (재접속 시)
+    // 3순위: localStorage에서 확인 (재접속 시, 하위 호환: 레거시 키도 확인)
     if (!uuid || !hospital) {
       uuid = uuid || StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID) || 
                     localStorage.getItem('tilko_patient_uuid');
       hospital = hospital || StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID) || 
                         localStorage.getItem('tilko_hospital_id');
+      
+      // 레거시 키에서 읽었으면 새 키로 마이그레이션
+      if (uuid && !StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID)) {
+        StorageManager.setItem(STORAGE_KEYS.PATIENT_UUID, uuid);
+      }
+      if (hospital && !StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID)) {
+        StorageManager.setItem(STORAGE_KEYS.HOSPITAL_ID, hospital);
+      }
       
       if (uuid && hospital) {
         console.log('[WelnoContext] localStorage에서 세션 복구:', { uuid, hospital });

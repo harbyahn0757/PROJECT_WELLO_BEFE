@@ -351,9 +351,17 @@ const MainPage: React.FC = () => {
           console.warn('[메인페이지] 초기 데이터 로드 실패:', error);
         }
       } else if (!uuid && !hospital) {
-        // URL 파라미터가 없으면 localStorage에서 확인
-        const savedUuid = localStorage.getItem('tilko_patient_uuid');
-        const savedHospitalId = localStorage.getItem('tilko_hospital_id');
+        // URL 파라미터가 없으면 localStorage에서 확인 (하위 호환: 레거시 키도 확인)
+        const savedUuid = StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID) || localStorage.getItem('tilko_patient_uuid');
+        const savedHospitalId = StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID) || localStorage.getItem('tilko_hospital_id');
+        
+        // 레거시 키에서 읽었으면 새 키로 마이그레이션
+        if (savedUuid && !StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID)) {
+          StorageManager.setItem(STORAGE_KEYS.PATIENT_UUID, savedUuid);
+        }
+        if (savedHospitalId && !StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID)) {
+          StorageManager.setItem(STORAGE_KEYS.HOSPITAL_ID, savedHospitalId);
+        }
         
         if (savedUuid && savedHospitalId && (!patient || !patient.uuid || patient.uuid !== savedUuid)) {
           console.log('[메인페이지] localStorage 기반 초기 데이터 로드:', { uuid: savedUuid, hospital: savedHospitalId });
@@ -644,9 +652,17 @@ const MainPage: React.FC = () => {
             console.warn('[검진결과추이] 데이터 로드 실패:', loadError);
           }
         } else {
-          // localStorage에서 확인 (재접속 시)
-          const savedUuid = localStorage.getItem('tilko_patient_uuid');
-          const savedHospitalId = localStorage.getItem('tilko_hospital_id');
+          // localStorage에서 확인 (재접속 시, 하위 호환: 레거시 키도 확인)
+          const savedUuid = StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID) || localStorage.getItem('tilko_patient_uuid');
+          const savedHospitalId = StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID) || localStorage.getItem('tilko_hospital_id');
+          
+          // 레거시 키에서 읽었으면 새 키로 마이그레이션
+          if (savedUuid && !StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID)) {
+            StorageManager.setItem(STORAGE_KEYS.PATIENT_UUID, savedUuid);
+          }
+          if (savedHospitalId && !StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID)) {
+            StorageManager.setItem(STORAGE_KEYS.HOSPITAL_ID, savedHospitalId);
+          }
           
           if (savedUuid && savedHospitalId) {
             console.log('[검진결과추이] localStorage에서 데이터 발견:', { uuid: savedUuid, hospitalId: savedHospitalId });
@@ -812,9 +828,17 @@ const MainPage: React.FC = () => {
             console.warn('[검진설계] 데이터 로드 실패:', loadError);
           }
         } else {
-          // localStorage에서 확인 (재접속 시)
-          const savedUuid = localStorage.getItem('tilko_patient_uuid');
-          const savedHospitalId = localStorage.getItem('tilko_hospital_id');
+          // localStorage에서 확인 (재접속 시, 하위 호환: 레거시 키도 확인)
+          const savedUuid = StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID) || localStorage.getItem('tilko_patient_uuid');
+          const savedHospitalId = StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID) || localStorage.getItem('tilko_hospital_id');
+          
+          // 레거시 키에서 읽었으면 새 키로 마이그레이션
+          if (savedUuid && !StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID)) {
+            StorageManager.setItem(STORAGE_KEYS.PATIENT_UUID, savedUuid);
+          }
+          if (savedHospitalId && !StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID)) {
+            StorageManager.setItem(STORAGE_KEYS.HOSPITAL_ID, savedHospitalId);
+          }
           
           if (savedUuid && savedHospitalId) {
             console.log('[검진설계] localStorage에서 데이터 발견:', { uuid: savedUuid, hospitalId: savedHospitalId });
@@ -910,7 +934,127 @@ const MainPage: React.FC = () => {
       }
         
       case 'prediction': {
-        // ⭐ 신규 로직: 내부 Mediarc 리포트 페이지로 이동
+        // ⭐⭐⭐ 매트릭스 통합: 통합 상태 API 호출 후 redirect_url 기반 이동
+        try {
+          console.log('[질병예측리포트] 매트릭스 통합 체크 시작');
+          
+          // 우선순위: 1) URL 파라미터 2) WelnoDataContext 3) StorageManager
+          const urlParams = new URLSearchParams(location.search);
+          let patientUuid = urlParams.get('uuid') || patient?.uuid || StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID);
+          let hospitalId = urlParams.get('hospital') || urlParams.get('hospitalId') || patient?.hospital_id || StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID);
+          
+          // 1. 환자 정보 없으면 틸코 인증 필요
+          if (!patientUuid || !hospitalId) {
+            console.log('[질병예측리포트] 환자 정보 없음 → 틸코 인증 필요');
+            
+            // 스피너 메시지 표시
+            setTransitionMessage('상세한 분석을 위해\n본인 인증 후 공단 데이터를 가져와 분석할게요 😄');
+            
+            // 1.5초 후 페이지 이동
+            setTimeout(() => {
+              navigate('/login?redirect=/disease-report');
+              setIsPageTransitioning(false);
+            }, 1500);
+            return;
+          }
+          
+          console.log('[질병예측리포트] 환자 정보 확인:', { uuid: patientUuid, hospitalId });
+          
+          // 2. 통합 상태 API 호출
+          console.log('[질병예측리포트] 통합 상태 조회 중...');
+          const statusRes = await fetch(`/api/v1/welno/user-status?uuid=${patientUuid}&hospital_id=${hospitalId}`);
+          const statusData = await statusRes.json();
+          
+          if (!statusData.success) {
+            console.error('[질병예측리포트] 통합 상태 조회 실패:', statusData);
+            setIsPageTransitioning(false);
+            return;
+          }
+          
+          console.log('[질병예측리포트] 통합 상태:', statusData);
+          
+          // 3. 상태별 처리
+          const { status, redirect_url } = statusData;
+          
+          // REPORT_READY → 바로 리포트 페이지
+          if (status === 'REPORT_READY') {
+            console.log('[질병예측리포트] ✅ 리포트 준비됨 → 바로 표시');
+            navigate(`/disease-report?uuid=${patientUuid}&hospital=${hospitalId}`);
+            setIsPageTransitioning(false);
+            return;
+          }
+          
+          // REPORT_PENDING → 생성 중 페이지
+          if (status === 'REPORT_PENDING') {
+            console.log('[질병예측리포트] ⏳ 리포트 생성 중 → 대기 페이지');
+            navigate(`/disease-report?uuid=${patientUuid}&hospital=${hospitalId}`);
+            setIsPageTransitioning(false);
+            return;
+          }
+          
+          // REPORT_EXPIRED → 만료 페이지
+          if (status === 'REPORT_EXPIRED') {
+            console.log('[질병예측리포트] ⚠️ 리포트 만료 → 재생성 페이지');
+            navigate(`/disease-report?uuid=${patientUuid}&hospital=${hospitalId}`);
+            setIsPageTransitioning(false);
+            return;
+          }
+          
+          // TERMS_REQUIRED* → 약관 페이지
+          if (status.startsWith('TERMS_REQUIRED')) {
+            console.log('[질병예측리포트] 📝 약관 동의 필요 → 약관 페이지');
+            
+            // 스피너 메시지 표시
+            setTransitionMessage('서비스 이용을 위해\n약관 동의가 필요해요 🙏');
+            
+            // 1.5초 후 페이지 이동
+            setTimeout(() => {
+              navigate(`/campaigns/disease-prediction?page=terms&uuid=${patientUuid}`);
+              setIsPageTransitioning(false);
+            }, 1500);
+            return;
+          }
+          
+          // PAYMENT_REQUIRED → 결제 페이지
+          if (status === 'PAYMENT_REQUIRED') {
+            console.log('[질병예측리포트] 💳 결제 필요 → 결제 페이지');
+            
+            // 스피너 메시지 표시
+            setTransitionMessage('리포트 생성을 위해\n결제가 필요해요 😊');
+            
+            // 1.5초 후 페이지 이동
+            setTimeout(() => {
+              navigate(`/campaigns/disease-prediction?page=payment&uuid=${patientUuid}`);
+              setIsPageTransitioning(false);
+            }, 1500);
+            return;
+          }
+          
+          // ACTION_REQUIRED* → 데이터 수집 필요
+          if (status === 'ACTION_REQUIRED' || status === 'ACTION_REQUIRED_PAID') {
+            console.log('[질병예측리포트] 🔍 데이터 수집 필요 → 틸코 인증');
+            
+            // 스피너 메시지 표시
+            setTransitionMessage('상세한 분석을 위해\n건강검진 데이터를 수집할게요 💊');
+            
+            // 1.5초 후 페이지 이동
+            setTimeout(() => {
+              navigate('/login?redirect=/disease-report');
+              setIsPageTransitioning(false);
+            }, 1500);
+            return;
+          }
+          
+          // 기타 상태 → 기본 에러
+          console.error('[질병예측리포트] 알 수 없는 상태:', status);
+          setIsPageTransitioning(false);
+          
+        } catch (error) {
+          console.error('[질병예측리포트] 데이터 체크 오류:', error);
+          setIsPageTransitioning(false);
+        }
+        
+        /* ⚠️ 기존 내부 데이터 체크 로직 (주석처리)
         // 데이터 체크 순서: Mediarc 리포트 → 검진 데이터 → 틸코 인증
         try {
           console.log('[질병예측리포트] 데이터 체크 시작');
@@ -998,6 +1142,7 @@ const MainPage: React.FC = () => {
           setIsPageTransitioning(false);
           alert('질병예측 리포트 확인 중 오류가 발생했습니다.');
         }
+        */
         
         /* ⚠️ 기존 파트너 인증 API 로직 (주석처리)
         // 질병예측 리포트 보기는 파트너 인증 API를 거쳐 캠페인 페이지로 이동

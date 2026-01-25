@@ -13,6 +13,10 @@ export const STORAGE_KEYS = {
   TILKO_COLLECTED_DATA: 'tilko_collected_data',
   TILKO_SELECTED_AUTH_TYPE: 'tilko_selected_auth_type',
   TILKO_TERMS_AGREED: 'tilko_terms_agreed',
+  TILKO_MANUAL_COLLECT: 'tilko_manual_collect',
+  TILKO_COLLECTING_STATUS: 'tilko_collecting_status',
+  TILKO_AUTH_WAITING: 'tilko_auth_waiting',
+  TILKO_AUTH_METHOD_SELECTION: 'tilko_auth_method_selection',
   
   // UI 상태 관리
   TILKO_INFO_CONFIRMING: 'tilko_info_confirming',

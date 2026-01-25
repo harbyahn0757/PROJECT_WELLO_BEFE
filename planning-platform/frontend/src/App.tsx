@@ -83,11 +83,11 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
     
     // Tilko 관련 핵심 키들 삭제
     const keysToRemove = [
-      'tilko_session_id', 'tilko_session_data', 
+      STORAGE_KEYS.TILKO_SESSION_ID, STORAGE_KEYS.TILKO_SESSION_DATA, 
       STORAGE_KEYS.LOGIN_INPUT_DATA, STORAGE_KEYS.LOGIN_INPUT_LAST_UPDATED,
       STORAGE_KEYS.TILKO_INFO_CONFIRMING, 
-      'tilko_auth_requested', 'tilko_auth_waiting', 'tilko_auth_method_selection',
-      'tilko_manual_collect', 'tilko_collecting_status', 'tilko_terms_agreed',
+      STORAGE_KEYS.TILKO_AUTH_REQUESTED, STORAGE_KEYS.TILKO_AUTH_WAITING, STORAGE_KEYS.TILKO_AUTH_METHOD_SELECTION,
+      STORAGE_KEYS.TILKO_MANUAL_COLLECT, STORAGE_KEYS.TILKO_COLLECTING_STATUS, STORAGE_KEYS.TILKO_TERMS_AGREED,
       'last_forced_cleanup'
     ];
     
@@ -103,6 +103,13 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
     // 메인으로 리다이렉트 후 새로고침
     window.location.href = BASENAME === '/' ? '/' : `${BASENAME}/`;
   }, []);
+
+  // ⭐⭐⭐ 매트릭스 통합: 플로팅 버튼 설정 상태
+  const [matrixButtonConfig, setMatrixButtonConfig] = useState<{
+    visible: boolean;
+    text: string;
+    action: (() => void) | null;
+  } | null>(null);
 
   useEffect(() => {
     // URL에 파라미터가 전혀 없고, 현재 메인이라면 강제 초기화 여부 판단
@@ -128,15 +135,15 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
   useEffect(() => {
     const checkHideStatus = () => {
       // 단순화: 핵심 상태만 체크
-      const manualCollect = localStorage.getItem('tilko_manual_collect') === 'true';
-      const collectingStatus = localStorage.getItem('tilko_collecting_status') === 'true';
+      const manualCollect = localStorage.getItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT) === 'true';
+      const collectingStatus = localStorage.getItem(STORAGE_KEYS.TILKO_COLLECTING_STATUS) === 'true';
       const isManualCollecting = manualCollect || collectingStatus;
       
       // 현재 URL이나 전역 상태에서 수집 여부 추가 확인
       const isCollectingPath = location.pathname === '/collecting' || location.pathname.includes('/collect');
       const passwordModalOpen = localStorage.getItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN) === 'true';
-      const authWaiting = localStorage.getItem('tilko_auth_waiting') === 'true';
-      const authMethodSelection = localStorage.getItem('tilko_auth_method_selection') === 'true';
+      const authWaiting = localStorage.getItem(STORAGE_KEYS.TILKO_AUTH_WAITING) === 'true';
+      const authMethodSelection = localStorage.getItem(STORAGE_KEYS.TILKO_AUTH_METHOD_SELECTION) === 'true';
       const infoConfirming = localStorage.getItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING) === 'true';
       
       // 메인 페이지에서는 플로팅 버튼 숨김 (basename이 /welno이므로 실제 pathname은 /)
@@ -177,8 +184,8 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
     
     // storage 이벤트 리스너 (다른 탭에서의 변경사항 감지)
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'tilko_manual_collect' || e.key === STORAGE_KEYS.PASSWORD_MODAL_OPEN ||
-          e.key === 'tilko_auth_waiting' || e.key === 'tilko_auth_method_selection' ||
+      if (e.key === STORAGE_KEYS.TILKO_MANUAL_COLLECT || e.key === STORAGE_KEYS.PASSWORD_MODAL_OPEN ||
+          e.key === STORAGE_KEYS.TILKO_AUTH_WAITING || e.key === STORAGE_KEYS.TILKO_AUTH_METHOD_SELECTION ||
           e.key === STORAGE_KEYS.TILKO_INFO_CONFIRMING) {
         checkHideStatus();
       }
@@ -199,12 +206,27 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       }
     };
     
+    // ⭐⭐⭐ 매트릭스 통합: 플로팅 버튼 설정 이벤트 리스너
+    const handleFloatingButtonConfig = (e: Event) => {
+      const customEvent = e as CustomEvent<{
+        visible: boolean;
+        text: string;
+        action: () => void;
+      }>;
+      
+      if (customEvent.detail) {
+        console.log('[매트릭스 플로팅 버튼] 설정 수신:', customEvent.detail);
+        setMatrixButtonConfig(customEvent.detail);
+      }
+    };
+    
     window.addEventListener('storage', handleStorageChange);
     window.addEventListener('tilko-status-change', handleCustomEvent);
     window.addEventListener('localStorageChange', handleCustomEvent);
     window.addEventListener('password-modal-change', handleCustomEvent);
     window.addEventListener('welno-view-mode-change', handleCustomEvent);
     window.addEventListener('welno-campaign-button-text', handleCampaignButtonText as EventListener);
+    window.addEventListener('floating-button-config', handleFloatingButtonConfig as EventListener); // 매트릭스 이벤트
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
@@ -213,6 +235,7 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       window.removeEventListener('password-modal-change', handleCustomEvent);
       window.removeEventListener('welno-view-mode-change', handleCustomEvent);
       window.removeEventListener('welno-campaign-button-text', handleCampaignButtonText as EventListener);
+      window.removeEventListener('floating-button-config', handleFloatingButtonConfig as EventListener); // 매트릭스 이벤트
     };
   }, [location.pathname, buttonUpdateTrigger]);
   
@@ -230,11 +253,11 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
         removeLocalStorageWithEvent('tilko_info_confirming');
       } else {
         // 환자 정보가 없고 로그인 페이지라면, UI를 가리는 플래그들 정리 (찌꺼기 제거)
-        const manualCollect = localStorage.getItem('tilko_manual_collect') === 'true';
+        const manualCollect = localStorage.getItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT) === 'true';
         const passwordModalOpen = localStorage.getItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN) === 'true';
         if (manualCollect || passwordModalOpen) {
           console.log('🧹 [App] 로그인 페이지 진입 - 찌꺼기 플래그 정리');
-          localStorage.removeItem('tilko_manual_collect');
+          localStorage.removeItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT);
           localStorage.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
           window.dispatchEvent(new CustomEvent('tilko-status-change'));
           window.dispatchEvent(new CustomEvent('password-modal-change'));
@@ -281,8 +304,20 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
   }, [navigate]);
 
   if (hideFloatingButton) return null;
+  
+  // ⭐⭐⭐ 매트릭스 통합: DiseaseReportPage에서 버튼 숨김 요청 시
+  if (matrixButtonConfig && location.pathname === '/disease-report' && !matrixButtonConfig.visible) {
+    console.log('[플로팅 버튼] 매트릭스에서 버튼 숨김 요청');
+    return null;
+  }
 
   const getButtonContent = () => {
+    // ⭐⭐⭐ 매트릭스 통합: DiseaseReportPage에서 설정한 매트릭스 버튼이 있으면 우선 사용
+    if (matrixButtonConfig && location.pathname === '/disease-report') {
+      console.log('[플로팅 버튼] 매트릭스 버튼 사용:', matrixButtonConfig.text);
+      return matrixButtonConfig.text;
+    }
+    
     const searchParams = new URLSearchParams(location.search);
     const isCampaignModeFromUrl = searchParams.get('mode') === 'campaign';
     const isCampaignPath = location.pathname.includes('/campaigns/disease-prediction');
@@ -331,6 +366,12 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
 
     if (isSpecialPage) return '상담예약 신청';
     
+    // ⭐⭐⭐ 매트릭스 통합: /disease-report는 매트릭스 버튼 우선 사용 (위에서 처리됨)
+    // 매트릭스 버튼이 없으면 기본값
+    if (location.pathname === '/disease-report') {
+      return '더 자세히 알아보기';
+    }
+    
     return '인증하고 내 검진추이 확인하기';
   };
 
@@ -338,6 +379,13 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
   if (!buttonText) return null;
 
   const handleClick = () => {
+    // ⭐⭐⭐ 매트릭스 통합: DiseaseReportPage의 매트릭스 액션이 있으면 우선 실행
+    if (matrixButtonConfig && location.pathname === '/disease-report' && matrixButtonConfig.action) {
+      console.log('[플로팅 버튼] 매트릭스 액션 실행');
+      matrixButtonConfig.action();
+      return;
+    }
+    
     if (isAuthWaiting) {
       console.log('✅ 인증 완료 확인 클릭');
       window.dispatchEvent(new CustomEvent('tilko-auth-complete-clicked'));
@@ -358,6 +406,13 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
     if (location.pathname.includes('/campaigns/disease-prediction')) {
       console.log('🚀 캠페인 리포트 받아보기 클릭');
       window.dispatchEvent(new CustomEvent('welno-campaign-click'));
+      return;
+    }
+    
+    // 질병예측 리포트 결과 페이지인 경우 PDF 뷰어 열기 이벤트 발생
+    if (location.pathname === '/disease-report') {
+      console.log('📄 질병예측 리포트 - PDF 뷰어 열기');
+      window.dispatchEvent(new CustomEvent('welno-open-pdf-viewer'));
       return;
     }
     

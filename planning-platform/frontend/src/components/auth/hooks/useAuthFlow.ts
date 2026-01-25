@@ -302,12 +302,12 @@ export function useAuthFlow() {
             console.log('⚠️ [useAuthFlow] 세션 조회 실패 - localStorage 정리');
           }
           StorageManager.removeItem(STORAGE_KEYS.TILKO_SESSION_ID);
-          StorageManager.removeItem('tilko_auth_waiting');
-          StorageManager.removeItem('tilko_auth_method_selection');
+          StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_WAITING);
+          StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_METHOD_SELECTION);
           StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
-          StorageManager.removeItem('tilko_auth_requested');
-          StorageManager.removeItem('tilko_manual_collect');
-          StorageManager.removeItem('tilko_collecting_status');
+          StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_REQUESTED);
+          StorageManager.removeItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT);
+          StorageManager.removeItem(STORAGE_KEYS.TILKO_COLLECTING_STATUS);
           StorageManager.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
           window.dispatchEvent(new CustomEvent('tilko-status-change'));
           window.dispatchEvent(new Event('localStorageChange'));
@@ -330,19 +330,19 @@ export function useAuthFlow() {
               sessionId, 
               currentStep: 'auth_pending'
             }));
-            StorageManager.setItem('tilko_auth_waiting', 'true');
+            StorageManager.setItem(STORAGE_KEYS.TILKO_AUTH_WAITING, 'true');
             window.dispatchEvent(new CustomEvent('tilko-status-change'));
             return true;
           }
 
           console.log('⚠️ [useAuthFlow] 치명적 에러 상태 세션 감지 - 초기화 진행');
           StorageManager.removeItem(STORAGE_KEYS.TILKO_SESSION_ID);
-          StorageManager.removeItem('tilko_auth_waiting');
-          StorageManager.removeItem('tilko_auth_method_selection');
+          StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_WAITING);
+          StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_METHOD_SELECTION);
           StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
-          StorageManager.removeItem('tilko_auth_requested');
-          StorageManager.removeItem('tilko_manual_collect');
-          StorageManager.removeItem('tilko_collecting_status');
+          StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_REQUESTED);
+          StorageManager.removeItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT);
+          StorageManager.removeItem(STORAGE_KEYS.TILKO_COLLECTING_STATUS);
           StorageManager.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
           window.dispatchEvent(new CustomEvent('tilko-status-change'));
           window.dispatchEvent(new Event('localStorageChange'));
@@ -387,12 +387,12 @@ export function useAuthFlow() {
         console.error('[useAuthFlow] 세션 검증 실패:', error);
         // 에러 발생 시에도 localStorage 정리
         StorageManager.removeItem(STORAGE_KEYS.TILKO_SESSION_ID);
-        StorageManager.removeItem('tilko_auth_waiting');
-        StorageManager.removeItem('tilko_auth_method_selection');
+        StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_WAITING);
+        StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_METHOD_SELECTION);
         StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
-        StorageManager.removeItem('tilko_auth_requested');
-        StorageManager.removeItem('tilko_manual_collect');
-        StorageManager.removeItem('tilko_collecting_status');
+        StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_REQUESTED);
+        StorageManager.removeItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT);
+        StorageManager.removeItem(STORAGE_KEYS.TILKO_COLLECTING_STATUS);
         StorageManager.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
         window.dispatchEvent(new CustomEvent('tilko-status-change'));
         window.dispatchEvent(new Event('localStorageChange'));
@@ -408,11 +408,11 @@ export function useAuthFlow() {
       
       // localStorage 정리 (세션 관련 플래그 제거)
       console.log('[useAuthFlow] 세션 ID 없음 - 인증 플래그 정리');
-      StorageManager.removeItem('tilko_auth_waiting');
-      StorageManager.removeItem('tilko_auth_method_selection');
+      StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_WAITING);
+      StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_METHOD_SELECTION);
       StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
-      StorageManager.removeItem('tilko_manual_collect');
-      StorageManager.removeItem('tilko_collecting_status');
+      StorageManager.removeItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT);
+      StorageManager.removeItem(STORAGE_KEYS.TILKO_COLLECTING_STATUS);
       StorageManager.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
       window.dispatchEvent(new CustomEvent('tilko-status-change'));
       window.dispatchEvent(new Event('localStorageChange'));
@@ -450,12 +450,39 @@ export function useAuthFlow() {
         throw new Error(`필수 정보가 누락되었습니다: name=${name}, phone=${phone}, birthday=${birthday}, authMethod=${authMethod}`);
       }
       
+      // ✅ 진입 경로 및 약관 정보 수집
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectPath = urlParams.get('redirect') || urlParams.get('return_to') || null;
+      
+      // 약관 동의 여부 확인 (localStorage 또는 상태에서)
+      const termsAgreedFromStorage = StorageManager.getItem(STORAGE_KEYS.TILKO_TERMS_AGREED) === 'true';
+      const termsAgreed = termsAgreedFromStorage;
+      
+      // 약관 동의 정보 (localStorage에서 가져오기)
+      let termsAgreedAt: string | null = null;
+      let termsExpiresAt: string | null = null;
+      try {
+        const termsDataStr = StorageManager.getItem(STORAGE_KEYS.TILKO_TERMS_AGREED);
+        if (termsDataStr) {
+          const parsed = JSON.parse(termsDataStr);
+          // AuthForm에서 저장한 구조: { agreed_at, expires_at } 또는 단순 boolean
+          if (typeof parsed === 'object' && parsed !== null) {
+            termsAgreedAt = parsed.agreed_at || parsed.agreedAt || null;
+            termsExpiresAt = parsed.expires_at || parsed.expiresAt || null;
+          }
+        }
+      } catch (e) {
+        console.warn('[useAuthFlow] 약관 정보 파싱 실패:', e);
+      }
+      
       console.log('[useAuthFlow] 1단계: 세션 생성 요청 시작', {
         user_name: name,
         phone_no: phone,
         birthdate: birthday,
         private_auth_type: authMethod,
-        oid: oid
+        oid: oid,
+        redirect_path: redirectPath,
+        terms_agreed: termsAgreed
       });
       
       // 1단계: 세션 생성
@@ -470,7 +497,11 @@ export function useAuthFlow() {
           birthdate: birthday,
           private_auth_type: authMethod,
           gender: 'M',
-          oid: oid // 주문번호 전달
+          oid: oid, // 주문번호 전달
+          redirect_path: redirectPath, // ✅ 진입 경로
+          terms_agreed: termsAgreed, // ✅ 약관 동의 여부
+          terms_agreed_at: termsAgreedAt, // ✅ 약관 동의 시각
+          terms_expires_at: termsExpiresAt // ✅ 약관 만료 시각
         }),
       });
       
@@ -515,7 +546,7 @@ export function useAuthFlow() {
       
       // 플로팅 버튼 상태 업데이트
       StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
-      StorageManager.setItem('tilko_auth_waiting', 'true');
+      StorageManager.setItem(STORAGE_KEYS.TILKO_AUTH_WAITING, 'true');
       window.dispatchEvent(new CustomEvent('tilko-status-change'));
       
       setState(prev => ({
@@ -552,12 +583,12 @@ export function useAuthFlow() {
     StorageManager.removeItem(STORAGE_KEYS.LOGIN_INPUT_DATA);
     StorageManager.removeItem(STORAGE_KEYS.TILKO_TERMS_AGREED);
     StorageManager.removeItem(STORAGE_KEYS.TILKO_SESSION_ID);
-    StorageManager.removeItem('tilko_auth_waiting');
-    StorageManager.removeItem('tilko_auth_method_selection');
+    StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_WAITING);
+    StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_METHOD_SELECTION);
     StorageManager.removeItem(STORAGE_KEYS.TILKO_INFO_CONFIRMING);
-    StorageManager.removeItem('tilko_auth_requested');
-    StorageManager.removeItem('tilko_manual_collect');
-    StorageManager.removeItem('tilko_collecting_status');
+    StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_REQUESTED);
+    StorageManager.removeItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT);
+    StorageManager.removeItem(STORAGE_KEYS.TILKO_COLLECTING_STATUS);
     StorageManager.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
     window.dispatchEvent(new CustomEvent('tilko-status-change'));
     window.dispatchEvent(new Event('localStorageChange'));

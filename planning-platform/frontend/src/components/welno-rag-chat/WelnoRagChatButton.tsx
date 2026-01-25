@@ -23,8 +23,8 @@ const WelnoRagChatButton: React.FC<WelnoRagChatButtonProps> = ({ onToggle }) => 
         return;
       }
       
-      const manualCollect = localStorage.getItem('tilko_manual_collect') === 'true';
-      const collectingStatus = localStorage.getItem('tilko_collecting_status') === 'true';
+      const manualCollect = localStorage.getItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT) === 'true';
+      const collectingStatus = localStorage.getItem(STORAGE_KEYS.TILKO_COLLECTING_STATUS) === 'true';
       const passwordModalOpen = localStorage.getItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN) === 'true';
       const surveyPanelOpen = localStorage.getItem('checkup_survey_panel_open') === 'true';
       

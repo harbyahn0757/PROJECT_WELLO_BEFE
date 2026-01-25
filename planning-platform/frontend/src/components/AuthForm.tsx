@@ -1,3 +1,4 @@
+import { saveTermsAgreement, checkAllTermsAgreement } from '../utils/termsAgreement';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthInput, AuthMethodSelect } from './auth/components';
@@ -102,7 +103,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     console.log('🔄 [AuthForm] 수집 강제 초기화');
     setIsCollecting(false);
     setCurrentStatus('auth_completed');
-    StorageManager.removeItem('tilko_manual_collect');
+    StorageManager.removeItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT);
     window.dispatchEvent(new CustomEvent('tilko-status-change'));
   };
   
@@ -117,63 +118,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
 
   // 비밀번호 설정 모달 핸들러
   const handlePasswordSetupSuccess = async (type: PasswordModalType) => {
-    console.log('✅ [비밀번호] 설정 완료 - 데이터 업로드 시도');
+    console.log('✅ [비밀번호] 설정 완료 - 결과 페이지로 이동');
     setShowPasswordSetupModal(false);
     
-    // 1. 수집된 데이터가 있으면 서버로 업로드
-    if (lastCollectedRecord && passwordSetupData?.uuid && passwordSetupData?.hospital) {
-      const hasHealthData = lastCollectedRecord.healthData?.length > 0;
-      const hasPrescriptionData = lastCollectedRecord.prescriptionData?.length > 0;
-      
-      if (hasHealthData || hasPrescriptionData) {
-        try {
-          // 환자 정보 추가 (비밀번호 저장 실패 방지)
-          const uploadData = {
-            ...lastCollectedRecord,
-            // authFlow에서 사용자 정보 가져오기
-            phone: authFlow.state.userInfo.phone,
-            birthday: authFlow.state.userInfo.birthday,
-            gender: 'M' // 기본값 (authMethod에서 추론 가능하지만 일단 기본값 사용)
-          };
-          
-          console.log('📤 [데이터업로드] 서버로 수집 데이터 전송 시작...', {
-            건강검진: uploadData.healthData?.length || 0,
-            처방전: uploadData.prescriptionData?.length || 0,
-            환자정보포함: !!uploadData.phone && !!uploadData.birthday
-          });
-          
-          const response = await fetch(`/api/v1/welno/upload-health-data?uuid=${passwordSetupData.uuid}&hospital_id=${passwordSetupData.hospital}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(uploadData)
-          });
-          
-          if (response.ok) {
-            const result = await response.json();
-            console.log('✅ [데이터업로드] 서버 저장 완료:', result);
-            
-            // 업로드 완료 후 잠시 대기 (DB 커밋 대기)
-            await new Promise(resolve => setTimeout(resolve, 500));
-          } else {
-            const errorText = await response.text();
-            console.error('❌ [데이터업로드] 서버 저장 실패:', {
-              status: response.status,
-              statusText: response.statusText,
-              error: errorText
-            });
-          }
-        } catch (e) {
-          console.error('❌ [데이터업로드] 통신 오류:', e);
-        }
-      } else {
-        console.warn('⚠️ [데이터업로드] 저장할 데이터가 없음 - 업로드 건너뜀', {
-          healthData_길이: lastCollectedRecord.healthData?.length || 0,
-          prescriptionData_길이: lastCollectedRecord.prescriptionData?.length || 0
-        });
-      }
-    }
+    // ✅ IndexedDB 재업로드 제거!
+    // 백엔드는 이미 Tilko에서 받은 데이터를 DB에 저장했으므로
+    // 프론트에서 다시 업로드할 필요 없음
 
-    // 2. 결과 페이지로 이동 (replace로 히스토리 교체 - 뒤로가기 시 메인으로)
+    // 결과 페이지로 이동 (replace로 히스토리 교체 - 뒤로가기 시 메인으로)
     if (passwordSetupData?.uuid && passwordSetupData?.hospital) {
       // 1순위: URL 파라미터 redirect 또는 return_to 확인
       const urlParams = new URLSearchParams(location.search);
@@ -195,6 +147,15 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       if (redirectParam === '/disease-report' && !targetUrl.includes('generate=')) {
         const separator = targetUrl.includes('?') ? '&' : '?';
         targetUrl = `${targetUrl}${separator}generate=true`;
+      }
+      
+      // ✅ [Phase 3] session_id 추가 (WebSocket 알림용)
+      // disease-report로 이동하는 경우, session_id를 URL에 포함하여
+      // DiseaseReportPage에서 WebSocket 재연결 가능하도록 함
+      if (redirectParam === '/disease-report' && authFlow.state.sessionId) {
+        const separator = targetUrl.includes('?') ? '&' : '?';
+        targetUrl = `${targetUrl}${separator}session_id=${authFlow.state.sessionId}`;
+        console.log(`📡 [AuthForm → DiseaseReport] session_id 전달: ${authFlow.state.sessionId}`);
       }
       
       console.log('🚀 [비밀번호설정완료] 대상 페이지로 이동:', targetUrl);
@@ -359,12 +320,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   // isCollecting 상태 변화 시 localStorage 연동
   useEffect(() => {
     if (isCollecting) {
-      StorageManager.setItem('tilko_manual_collect', 'true');
+      StorageManager.setItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT, 'true');
       window.dispatchEvent(new CustomEvent('tilko-status-change'));
     } else {
       // 수집 중이 아닐 때는 (에러 발생 포함) 플래그 제거하여 버튼 복구
-      StorageManager.removeItem('tilko_manual_collect');
-      StorageManager.removeItem('tilko_collecting_status');
+      StorageManager.removeItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT);
+      StorageManager.removeItem(STORAGE_KEYS.TILKO_COLLECTING_STATUS);
       window.dispatchEvent(new CustomEvent('tilko-status-change'));
     }
   }, [isCollecting]);
@@ -468,7 +429,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             setIsCollecting(false);
             setAuthRequested(false); // 인증 대기 상태 해제
             setCurrentStatus('completed');
-            StorageManager.removeItem('tilko_auth_waiting'); // 성공 시 인증 대기 플래그 제거
+            StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_WAITING); // 성공 시 인증 대기 플래그 제거
             
             console.log('🔐 [WS→비밀번호] 바로 비밀번호 모달 표시 (setup)');
             setPasswordSetupData({ 
@@ -507,8 +468,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         setShowPasswordSetupModal(true);
       }
     },
-    onDataCollectionProgress: (type, message) => {
-      console.log('📊 [WS] 수집 진행:', type, message);
+    onDataCollectionProgress: (type: string, message: string, data?: any) => {
+      console.log('📊 [WS] 수집 진행:', type, message, data);
       
       // 인증 미완료 또는 실패 메시지 체크
       const isAuthError = type === 'auth_pending' || 
@@ -536,7 +497,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         setIsCollecting(false); // 로딩 스피너 해제
         
         // ✅ 중요: 플로팅 버튼을 다시 보여주기 위해 수집 중 플래그 제거
-        StorageManager.removeItem('tilko_manual_collect');
+        StorageManager.removeItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT);
         window.dispatchEvent(new CustomEvent('tilko-status-change'));
         return;
       }
@@ -549,26 +510,137 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         return;
       }
       
-      // ⭐ 건강검진 데이터 수집 완료 → 즉시 화면 전환
+      // ⭐ 건강검진 데이터 수집 완료 → 진입 경로별 분기
       if (type === 'health_data_completed') {
-        console.log('✅ [health_data_completed] 검진 데이터 확보 완료 → 즉시 화면 전환');
+        console.log('✅ [health_data_completed] 검진 데이터 완료');
         
-        const uuid = StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID);
-        const hospital = StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID);
+        // WebSocket 데이터에서 UUID 받기
+        const uuid = data?.patient_uuid || StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID);
+        const hospital = data?.hospital_id || StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID);
         const sessionId = authFlow.state.sessionId;
         
-        if (uuid && hospital && sessionId) {
-          // sessionId를 URL 파라미터로 전달하여 WebSocket 계속 수신
-          console.log(`📍 [화면전환] /results-trend?uuid=${uuid}&hospital=${hospital}&sessionId=${sessionId}`);
-          navigate(`/results-trend?uuid=${uuid}&hospital=${hospital}&sessionId=${sessionId}`, { 
-            replace: true 
-          });
-        } else {
-          console.warn('⚠️ [health_data_completed] UUID/Hospital/SessionID 누락:', { uuid, hospital, sessionId });
-          // 정보가 없으면 기존 로직 유지 (스피너 계속)
-          setCurrentStatus('health_data_completed');
-          setStatusMessage(message || '건강검진 데이터 수집이 완료되었습니다.');
+        // UUID와 hospital을 storage에 저장
+        if (uuid && hospital) {
+          StorageManager.setItem(STORAGE_KEYS.PATIENT_UUID, uuid);
+          StorageManager.setItem(STORAGE_KEYS.HOSPITAL_ID, hospital);
         }
+        
+        // 진입 경로 확인
+        const urlParams = new URLSearchParams(location.search);
+        const redirectParam = urlParams.get('redirect');
+        const isDiseaseReport = redirectParam === '/disease-report';
+        
+        if (isDiseaseReport) {
+          // Case 2: 질병예측리포트 - 화면 이동 안함, Mediarc 대기
+          console.log('🎨 [질병예측리포트] Mediarc 생성 대기 중...');
+          
+          // 토스트 표시
+          actions.addNotification({
+            type: 'success',
+            title: '검진 데이터 수집 완료',
+            message: '질병예측 리포트를 생성하고 있습니다...'
+          });
+          
+          setStatusMessage('질병예측 리포트를 생성하고 있습니다...');
+          setIsCollecting(true); // 스피너 유지
+          
+        } else {
+          // Case 1: 추이보기 - 즉시 화면 전환 (기존)
+          console.log('📊 [추이보기] 즉시 화면 전환');
+          
+          // 토스트 표시
+          actions.addNotification({
+            type: 'success',
+            title: '검진 데이터 수집 완료',
+            message: '추이보기 화면으로 이동합니다.'
+          });
+          
+          if (uuid && hospital && sessionId) {
+            navigate(`/results-trend?uuid=${uuid}&hospital=${hospital}&sessionId=${sessionId}`, { 
+              replace: true 
+            });
+          } else {
+            console.warn('⚠️ [health_data_completed] UUID/Hospital/SessionID 누락:', { uuid, hospital, sessionId });
+            setCurrentStatus('health_data_completed');
+            setStatusMessage(message || '건강검진 데이터 수집이 완료되었습니다.');
+          }
+        }
+        
+        return;
+      }
+      
+      // ✅ Mediarc 생성 시작 알림
+      if (type === 'mediarc_generating') {
+        console.log('🎨 [Mediarc 생성 시작]');
+        
+        actions.addNotification({
+          type: 'info',
+          title: '리포트 생성 중',
+          message: '질병예측 리포트를 생성하고 있습니다...'
+        });
+        
+        setStatusMessage('질병예측 리포트를 생성하고 있습니다...');
+        setIsCollecting(true);
+        return;
+      }
+      
+      // ✅ Mediarc 완료 + 비밀번호 모달 트리거
+      if (type === 'mediarc_completed_password_ready') {
+        console.log('✅ [Mediarc 완료] 비밀번호 모달 표시');
+        
+        const uuid = data?.patient_uuid || StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID);
+        const hospital = data?.hospital_id || StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID);
+        
+        // 토스트 표시
+        actions.addNotification({
+          type: 'success',
+          title: '리포트 생성 완료',
+          message: '비밀번호를 설정해주세요.'
+        });
+        
+        setIsCollecting(false); // 스피너 중지
+        setPasswordSetupData({ 
+          uuid, 
+          hospital,
+          type: 'setup'
+        });
+        setShowPasswordSetupModal(true);
+        
+        return;
+      }
+      
+      // ✅ Mediarc 실패
+      if (type === 'mediarc_failed') {
+        console.log('❌ [Mediarc 실패] 메인 페이지로 이동');
+        
+        // 토스트 표시
+        actions.addNotification({
+          type: 'error',
+          title: '리포트 생성 실패',
+          message: data?.error || '리포트 생성 중 오류가 발생했습니다.'
+        });
+        
+        setIsCollecting(false);
+        
+        // 3초 후 메인으로
+        setTimeout(() => {
+          navigate('/', { replace: true });
+        }, 3000);
+        
+        return;
+      }
+      
+      // ✅ 처방전 완료 토스트
+      if (type === 'prescription_completed') {
+        console.log('💊 [처방전 완료] 토스트 표시');
+        
+        // 토스트 표시
+        actions.addNotification({
+          type: 'success',
+          title: '처방전 수집 완료',
+          message: `처방전 데이터 ${data?.count || 0}건이 추가되었습니다.`
+        });
+        
         return;
       }
       
@@ -585,7 +657,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         setIsCollecting(false);
         setAuthRequested(true);
         // localStorage 플래그도 동기화
-        StorageManager.removeItem('tilko_manual_collect');
+        StorageManager.removeItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT);
         window.dispatchEvent(new CustomEvent('tilko-status-change'));
       }
 
@@ -629,7 +701,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             setIsDataCompleted(true);
             setIsCollecting(false);
             setAuthRequested(false); // 인증 대기 상태 해제
-            StorageManager.removeItem('tilko_auth_waiting'); // 성공 시 인증 대기 플래그 제거
+            StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_WAITING); // 성공 시 인증 대기 플래그 제거
             
             console.log('🔐 [onStatusUpdate→비밀번호] 바로 비밀번호 모달 표시 (setup):', { uuid, hospital });
             setPasswordSetupData({ 
@@ -749,7 +821,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
                 setIsCollecting(false);
                 setAuthRequested(false); // 인증 대기 상태 해제
                 setCurrentStatus('completed');
-                StorageManager.removeItem('tilko_auth_waiting'); // 성공 시 인증 대기 플래그 제거
+                StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_WAITING); // 성공 시 인증 대기 플래그 제거
                 
                 console.log('🔐 [폴링→비밀번호] 바로 비밀번호 모달 표시 (setup)');
                 setPasswordSetupData({ 
@@ -798,7 +870,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             setPendingAuthMessage(cleanMessage);
             setShowPendingAuthModal(true);
             // ✅ 중요: 플로팅 버튼을 다시 보여주기 위해 수집 중 플래그 제거
-            StorageManager.removeItem('tilko_manual_collect');
+            StorageManager.removeItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT);
             window.dispatchEvent(new CustomEvent('tilko-status-change'));
           } else {
             setWsError(cleanMessage || '데이터 수집 중 오류가 발생했습니다.');
@@ -834,20 +906,125 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       }
       
       // 3. 약관 동의 여부 체크 (한번만) - 캠페인/일반 모드 공통
-      const termsAgreed = StorageManager.getItem(STORAGE_KEYS.TILKO_TERMS_AGREED);
+      // 새로운 약관 체크 유틸 사용 (로컬/서버 통합 체크)
+      const urlParams = new URLSearchParams(location.search);
+      const uuid = urlParams.get('uuid');
+      const partnerId = urlParams.get('partner') || urlParams.get('partner_id');
       
-      if (termsAgreed === 'true') {
-        // 약관 동의 완료 → 인사말 또는 정보 확인 단계로 이동
-        setShowTermsModal(false);
-        if (isCampaignMode) {
-          setShowConfirmation(false); // 인사말부터 시작
-        } else {
-          setShowConfirmation(true); // 정보 확인 단계로 바로 이동
+      console.log('📜 [AuthForm] 약관 동의 체크 시작:', { uuid, partnerId });
+      
+      if (uuid && partnerId) {
+        try {
+          const termsCheck = await checkAllTermsAgreement(uuid, partnerId);
+          
+          console.log('📜 [AuthForm] 약관 체크 결과:', termsCheck);
+          
+          if (!termsCheck.needsAgreement) {
+            // 약관 동의 완료 (서버 또는 로컬 유효)
+            setShowTermsModal(false);
+            
+            // 토스트 메시지 표시 (로컬만 있고 서버 미동기화인 경우)
+            if (termsCheck.showReminderToast && termsCheck.toastMessage) {
+              console.log('🍞 [AuthForm] 약관 동의 알림 토스트:', termsCheck.toastMessage);
+              window.dispatchEvent(new CustomEvent('show-notification', {
+                detail: {
+                  message: termsCheck.toastMessage,
+                  type: 'info'
+                }
+              }));
+            }
+            
+            if (isCampaignMode) {
+              setShowConfirmation(false); // 인사말부터 시작
+            } else {
+              setShowConfirmation(true); // 정보 확인 단계로 바로 이동
+            }
+          } else {
+            // 약관 동의 필요
+            console.log('❌ [AuthForm] 약관 동의 필요 - 모달 표시');
+            setShowTermsModal(true);
+            setShowConfirmation(false);
+          }
+        } catch (error) {
+          console.error('❌ [AuthForm] 약관 체크 실패 - 약관 모달 표시:', error);
+          setShowTermsModal(true);
+          setShowConfirmation(false);
         }
       } else {
-        // 약관 동의 안함 → 약관 모달 표시 (서비스 진행 불가)
-        setShowTermsModal(true);
-        setShowConfirmation(false);
+        // uuid/partnerId 없으면 기존 로직 사용 (하위 호환)
+        console.log('📝 [AuthForm] UUID 없음 - 기존 약관 체크 방식 사용');
+        const termsAgreedStr = localStorage.getItem(STORAGE_KEYS.TILKO_TERMS_AGREED);
+        console.log('📝 [AuthForm] 저장된 약관 동의:', { termsAgreedStr, key: STORAGE_KEYS.TILKO_TERMS_AGREED });
+        
+        if (!termsAgreedStr) {
+          console.log('❌ [AuthForm] 약관 동의 없음 - 모달 표시');
+          setShowTermsModal(true);
+          setShowConfirmation(false);
+          return;
+        }
+        
+        // 하위 호환: boolean true 또는 string 'true' (타임스탬프 없음)
+        if (termsAgreedStr === 'true') {
+          console.log('⚠️ [AuthForm] 타임스탬프 없는 구 형식 - 삭제 후 모달 표시');
+          localStorage.removeItem(STORAGE_KEYS.TILKO_TERMS_AGREED);
+          setShowTermsModal(true);
+          setShowConfirmation(false);
+          return;
+        }
+        
+        // 새 형식: JSON 객체 (타임스탬프 포함)
+        try {
+          const termsData = JSON.parse(termsAgreedStr);
+          
+          if (termsData && termsData.agreed && termsData.expires_at) {
+            const now = new Date();
+            const expiresAt = new Date(termsData.expires_at);
+            const agreedAt = new Date(termsData.agreed_at);
+            
+            if (now > expiresAt) {
+              // 만료됨
+              console.log('❌ [AuthForm] 약관 동의 만료됨 - 삭제 후 모달 표시');
+              localStorage.removeItem(STORAGE_KEYS.TILKO_TERMS_AGREED);
+              setShowTermsModal(true);
+              setShowConfirmation(false);
+            } else {
+              // 유효함 - 토스트 표시
+              const formattedDate = agreedAt.toLocaleDateString('ko-KR', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              });
+              
+              console.log('✅ [AuthForm] 기존 약관 동의 확인됨 - 모달 스킵, 토스트 표시');
+              
+              setShowTermsModal(false);
+              setShowConfirmation(true);
+              
+              // 토스트 메시지 표시 (WelnoDataContext 사용)
+              setTimeout(() => {
+                actions.addNotification({
+                  type: 'info',
+                  title: '약관 동의 확인',
+                  message: `${formattedDate}에 동의하신 약관으로 진행합니다.`,
+                  autoClose: true,
+                  duration: 3000
+                });
+              }, 300);
+            }
+          } else {
+            // 형식 오류 - 타임스탬프 누락
+            console.log('❌ [AuthForm] 타임스탬프 누락 - 삭제 후 모달 표시');
+            localStorage.removeItem(STORAGE_KEYS.TILKO_TERMS_AGREED);
+            setShowTermsModal(true);
+            setShowConfirmation(false);
+          }
+        } catch (error) {
+          // JSON 파싱 실패 - 구 형식 또는 손상된 데이터
+          console.log('⚠️ [AuthForm] JSON 파싱 실패 - 삭제 후 모달 표시:', error);
+          localStorage.removeItem(STORAGE_KEYS.TILKO_TERMS_AGREED);
+          setShowTermsModal(true);
+          setShowConfirmation(false);
+        }
       }
     };
     
@@ -1223,8 +1400,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         if (collectResponse.ok) {
           console.log('✅ [AuthForm] 데이터 수집 시작 성공:', collectResult);
           // 플로팅 버튼 상태 업데이트 및 수집 화면 표시
-          // StorageManager.removeItem('tilko_auth_waiting'); // ⚠️ 에러 발생 시 버튼 복구를 위해 성공 확정 전까지 유지
-          StorageManager.setItem('tilko_manual_collect', 'true');
+          // StorageManager.removeItem(STORAGE_KEYS.TILKO_AUTH_WAITING); // ⚠️ 에러 발생 시 버튼 복구를 위해 성공 확정 전까지 유지
+          StorageManager.setItem(STORAGE_KEYS.TILKO_MANUAL_COLLECT, 'true');
           setIsCollecting(true);
           authFlow.actions.goToStep('collecting'); // 전역 상태 업데이트
           window.dispatchEvent(new CustomEvent('tilko-status-change'));
@@ -1352,56 +1529,73 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       <TermsAgreementModal
         isOpen={showTermsModal}
         onClose={() => setShowTermsModal(false)}
-        onConfirm={async (agreedTerms) => {
+        onConfirm={async (agreedTerms, termsAgreement) => {
           console.log('✅ 약관 동의 완료 -> 정보 확인 단계로 이동');
+          
+          // URL 파라미터 추출
+          const urlParams = new URLSearchParams(window.location.search);
+          const oid = urlParams.get('oid');
+          const uuid = urlParams.get('uuid') || StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID) || '';
+          const apiKey = urlParams.get('api_key') || '';
+          const partnerId = urlParams.get('partner') || 'kindhabit';
+          
+          console.log('📝 [AuthForm] 약관 저장 시작:', { uuid, partnerId, hasUuid: !!uuid });
+          
+          // 사용자 정보 수집
+          const userInfo = {
+            name: authFlow.state.userInfo.name || campaignUserName || '',
+            phone: authFlow.state.userInfo.phone || campaignUserPhone || '',
+            birth: authFlow.state.userInfo.birthday || campaignUserBirth || '',
+            gender: 'M'
+          };
+          
+          // 약관 동의 저장 (로컬 + 서버)
+          if (uuid) {
+            console.log('✅ [AuthForm] UUID 있음 - 새 방식으로 약관 저장 (각 약관별)');
+            const saveResult = await saveTermsAgreement(
+              uuid,
+              partnerId,
+              termsAgreement || {
+                terms_service: agreedTerms.includes('terms-service'),
+                terms_privacy: agreedTerms.includes('terms-privacy'),
+                terms_sensitive: agreedTerms.includes('terms-sensitive'),
+                terms_marketing: agreedTerms.includes('terms-marketing'),
+              },
+              oid || undefined,
+              userInfo,
+              apiKey || undefined
+            );
+            
+            if (saveResult.success) {
+              console.log('✅ [AuthForm] 약관 동의 저장 완료 (로컬+서버)');
+            } else {
+              console.error('❌ [AuthForm] 약관 동의 저장 실패:', saveResult.error);
+            }
+          }
+          
+          // 기존 플로우 (authFlow가 내부적으로 'true' 저장할 수 있음)
           authFlow.actions.agreeToTerms(agreedTerms);
           
-          // 캠페인 모드이고 oid가 있으면 welno_patients 등록
-          if (isCampaignMode) {
-            const urlParams = new URLSearchParams(window.location.search);
-            const oid = urlParams.get('oid');
-            const uuid = urlParams.get('uuid') || StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID) || '';
-            const apiKey = urlParams.get('api_key') || '';
-            const partnerId = urlParams.get('partner') || '';
+          // uuid 없는 일반 모드: authFlow 저장 후 타임스탬프 덮어쓰기
+          if (!uuid) {
+            console.log('📝 [AuthForm] UUID 없음 - 타임스탬프와 함께 약관 저장 (authFlow 후)');
+            const now = new Date();
+            const expiresAt = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000); // +3일
             
-            if (uuid && oid) {
-              try {
-                // 사용자 정보 수집 (현재 입력된 정보 또는 캠페인 파라미터)
-                const userInfo = {
-                  name: authFlow.state.userInfo.name || campaignUserName || '',
-                  phone: authFlow.state.userInfo.phone || campaignUserPhone || '',
-                  birth: authFlow.state.userInfo.birthday || campaignUserBirth || '',
-                  gender: 'M' // 기본값 사용 (UserInputInfo에 gender 필드 없음)
-                };
-                
-                const response = await fetch('/api/v1/campaigns/disease-prediction/register-patient/', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    uuid,
-                    oid,
-                    user_info: userInfo,
-                    terms_agreement: agreedTerms,
-                    api_key: apiKey || undefined,
-                    partner_id: partnerId || undefined
-                  })
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                  console.log('✅ [AuthForm] 약관동의 완료 시 환자 등록 성공:', data);
-                } else {
-                  console.warn('⚠️ [AuthForm] 환자 등록 실패 (계속 진행):', data.message);
-                }
-              } catch (error) {
-                console.error('❌ [AuthForm] 환자 등록 API 호출 실패 (계속 진행):', error);
-              }
-            }
+            const termsData = {
+              agreed: true,
+              agreed_at: now.toISOString(),
+              expires_at: expiresAt.toISOString(),
+            };
+            
+            // JSON으로 저장 (타임스탬프 포함) - authFlow 후에 덮어쓰기
+            localStorage.setItem(STORAGE_KEYS.TILKO_TERMS_AGREED, JSON.stringify(termsData));
+            console.log('✅ [AuthForm] 약관 동의 저장 완료 (타임스탬프 포함):', termsData);
           }
           
           setShowTermsModal(false);
           setShowConfirmation(true);
-          setAuthRequested(false); // 중요: 인증 요청 상태 초기화
+          setAuthRequested(false);
           setCurrentConfirmationStep('name');
           setDescriptionMessage('정보를 확인해주세요');
         }}
