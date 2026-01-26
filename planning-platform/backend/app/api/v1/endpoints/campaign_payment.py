@@ -334,10 +334,27 @@ async def payment_callback(
                 update_pipeline_step(p_oid, 'TILKO_READY')
                 # return_to 경로 설정 (인증 완료 후 다시 돌아올 주소 - page=result로 변경)
                 return_path = f"/campaigns/disease-prediction?page=result&status=success&oid={p_oid}"
-                # 이름과 모드를 추가하여 맞춤 인사말 유도
-                user_name_encoded = user_name.replace(' ', '+') # 단순 인코딩
+                
+                # 이름 추출 (복호화된 데이터 또는 order_data에서)
+                # 이름은 틸코 인증 후 저장되므로, 여기서는 없을 수 있음
+                user_name = None
+                if 'decrypted' in locals() and decrypted and isinstance(decrypted, dict):
+                    user_name = decrypted.get('name')
+                elif isinstance(user_data, dict):
+                    user_name = user_data.get('name')
+                else:
+                    # order_data에서 user_name 가져오기
+                    user_name = order_data.get('user_name')
+                
+                # 틸코 인증 페이지로 리다이렉트 (이름은 틸코 인증 후 저장됨)
+                # 이름이 있으면 URL에 포함, 없으면 생략
+                redirect_url = f'{SERVICE_DOMAIN}/login?return_to={return_path}&mode=campaign&oid={p_oid}'
+                if user_name:
+                    user_name_encoded = user_name.replace(' ', '+')
+                    redirect_url += f'&name={user_name_encoded}'
+                
                 return RedirectResponse(
-                    url=f'{SERVICE_DOMAIN}/login?return_to={return_path}&name={user_name_encoded}&mode=campaign&oid={p_oid}',
+                    url=redirect_url,
                     status_code=303
                 )
         else:
