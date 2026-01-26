@@ -504,10 +504,30 @@ class WelnoDataService:
             return None
     
     async def save_health_data(self, patient_uuid: str, hospital_id: str, health_data: Dict[str, Any], 
-                              session_id: str) -> bool:
-        """건강검진 데이터 저장"""
+                              session_id: str, data_source: str = 'tilko', 
+                              partner_id: Optional[str] = None, partner_oid: Optional[str] = None) -> bool:
+        """건강검진 데이터 저장
+        
+        Args:
+            patient_uuid: 환자 UUID
+            hospital_id: 병원 ID
+            health_data: 건강검진 데이터
+            session_id: 세션 ID
+            data_source: 데이터 출처 ('tilko', 'indexeddb', 'partner')
+            partner_id: 파트너사 ID (partner 출처인 경우)
+            partner_oid: 파트너사 주문번호 (partner 출처인 경우)
+        """
         try:
             conn = await asyncpg.connect(**self.db_config)
+            
+            # 데이터 출처 검증
+            if data_source not in ('tilko', 'indexeddb', 'partner'):
+                data_source = 'tilko'  # 기본값
+            
+            # IndexedDB 동기화 시간 설정
+            indexeddb_synced_at = None
+            if data_source == 'indexeddb':
+                indexeddb_synced_at = datetime.now()
             
             await conn.execute("DELETE FROM welno.welno_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2", 
                              patient_uuid, hospital_id)
@@ -527,24 +547,33 @@ class WelnoDataService:
                 
                 insert_query = """
                     INSERT INTO welno.welno_checkup_data 
-                    (patient_uuid, hospital_id, raw_data, year, checkup_date, location, code, description)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    (patient_uuid, hospital_id, raw_data, year, checkup_date, location, code, description,
+                     data_source, indexeddb_synced_at, partner_id, partner_oid)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 """
                 
                 await conn.execute(
                     insert_query,
                     patient_uuid, hospital_id, json.dumps(item, ensure_ascii=False),
-                    year, checkup_date, location, code, description
+                    year, checkup_date, location, code, description,
+                    data_source, indexeddb_synced_at, partner_id, partner_oid
                 )
                 saved_count += 1
             
-            await conn.execute(
-                "UPDATE welno.welno_patients SET has_health_data = TRUE, last_data_update = NOW() WHERE uuid = $1 AND hospital_id = $2",
-                patient_uuid, hospital_id
-            )
+            # 환자 테이블 업데이트 (데이터 출처 및 동기화 시간 포함)
+            update_patient_query = """
+                UPDATE welno.welno_patients 
+                SET has_health_data = TRUE, 
+                    last_data_update = NOW(),
+                    data_source = $3,
+                    last_indexeddb_sync_at = CASE WHEN $3 = 'indexeddb' THEN NOW() ELSE last_indexeddb_sync_at END,
+                    last_partner_sync_at = CASE WHEN $3 = 'partner' THEN NOW() ELSE last_partner_sync_at END
+                WHERE uuid = $1 AND hospital_id = $2
+            """
+            await conn.execute(update_patient_query, patient_uuid, hospital_id, data_source)
             
             await conn.close()
-            print(f"✅ [건강검진저장] {saved_count}건 저장 완료")
+            print(f"✅ [건강검진저장] {saved_count}건 저장 완료 (출처: {data_source})")
             return True
             
         except Exception as e:
@@ -552,10 +581,30 @@ class WelnoDataService:
             return False
     
     async def save_prescription_data(self, patient_uuid: str, hospital_id: str, prescription_data: Dict[str, Any], 
-                                   session_id: str) -> bool:
-        """처방전 데이터 저장"""
+                                   session_id: str, data_source: str = 'tilko',
+                                   partner_id: Optional[str] = None, partner_oid: Optional[str] = None) -> bool:
+        """처방전 데이터 저장
+        
+        Args:
+            patient_uuid: 환자 UUID
+            hospital_id: 병원 ID
+            prescription_data: 처방전 데이터
+            session_id: 세션 ID
+            data_source: 데이터 출처 ('tilko', 'indexeddb', 'partner')
+            partner_id: 파트너사 ID (partner 출처인 경우)
+            partner_oid: 파트너사 주문번호 (partner 출처인 경우)
+        """
         try:
             conn = await asyncpg.connect(**self.db_config)
+            
+            # 데이터 출처 검증
+            if data_source not in ('tilko', 'indexeddb', 'partner'):
+                data_source = 'tilko'  # 기본값
+            
+            # IndexedDB 동기화 시간 설정
+            indexeddb_synced_at = None
+            if data_source == 'indexeddb':
+                indexeddb_synced_at = datetime.now()
             
             await conn.execute("DELETE FROM welno.welno_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2", 
                              patient_uuid, hospital_id)
@@ -580,24 +629,33 @@ class WelnoDataService:
                 
                 insert_query = """
                     INSERT INTO welno.welno_prescription_data 
-                    (patient_uuid, hospital_id, raw_data, idx, page, hospital_name, address, treatment_date, treatment_type)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    (patient_uuid, hospital_id, raw_data, idx, page, hospital_name, address, treatment_date, treatment_type,
+                     data_source, indexeddb_synced_at, partner_id, partner_oid)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                 """
                 
                 await conn.execute(
                     insert_query,
                     patient_uuid, hospital_id, json.dumps(item, ensure_ascii=False),
-                    idx, page, hospital_name, address, treatment_date, treatment_type
+                    idx, page, hospital_name, address, treatment_date, treatment_type,
+                    data_source, indexeddb_synced_at, partner_id, partner_oid
                 )
                 saved_count += 1
             
-            await conn.execute(
-                "UPDATE welno.welno_patients SET has_prescription_data = TRUE, last_data_update = NOW() WHERE uuid = $1 AND hospital_id = $2",
-                patient_uuid, hospital_id
-            )
+            # 환자 테이블 업데이트 (데이터 출처 및 동기화 시간 포함)
+            update_patient_query = """
+                UPDATE welno.welno_patients 
+                SET has_prescription_data = TRUE, 
+                    last_data_update = NOW(),
+                    data_source = $3,
+                    last_indexeddb_sync_at = CASE WHEN $3 = 'indexeddb' THEN NOW() ELSE last_indexeddb_sync_at END,
+                    last_partner_sync_at = CASE WHEN $3 = 'partner' THEN NOW() ELSE last_partner_sync_at END
+                WHERE uuid = $1 AND hospital_id = $2
+            """
+            await conn.execute(update_patient_query, patient_uuid, hospital_id, data_source)
             
             await conn.close()
-            print(f"✅ [처방전저장] {saved_count}건 저장 완료")
+            print(f"✅ [처방전저장] {saved_count}건 저장 완료 (출처: {data_source})")
             return True
             
         except Exception as e:
@@ -1274,6 +1332,569 @@ class WelnoDataService:
             logger = logging.getLogger(__name__)
             logger.error(f"❌ [완료된설계조회] 오류: {e}", exc_info=True)
             return None
+    
+    # ========================================
+    # 통합 상태 관리 (Unified Status Pipeline)
+    # ========================================
+    
+    async def get_unified_status(
+        self,
+        uuid: str,
+        hospital_id: str,
+        partner_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        통합 상태 반환 (데이터 출처 포함)
+        
+        환자의 건강검진/처방/리포트 데이터 상태를 통합 조회하고,
+        데이터 출처(Tilko/IndexedDB/파트너)별 정보를 제공합니다.
+        
+        Args:
+            uuid: 환자 UUID
+            hospital_id: 병원 ID
+            partner_id: 파트너 ID (선택, 결제 상태 확인용)
+            
+        Returns:
+            {
+                "status": "ACTION_REQUIRED" | "PAYMENT_REQUIRED" | "REPORT_PENDING" | "REPORT_READY" | "REPORT_EXPIRED",
+                "data_sources": {
+                    "tilko": {"count": int, "last_synced_at": str | None},
+                    "indexeddb": {"count": int, "last_synced_at": str | None},
+                    "partner": {"count": int, "last_synced_at": str | None}
+                },
+                "primary_source": "tilko" | "indexeddb" | "partner" | None,
+                "has_checkup_data": bool,
+                "has_prescription_data": bool,
+                "has_report": bool,
+                "has_payment": bool,
+                "requires_payment": bool,
+                "metric_count": int,
+                "is_sufficient": bool,
+                "total_checkup_count": int,
+                "prescription_count": int
+            }
+        """
+        import logging
+        from app.utils.health_metrics import get_metric_count
+        from app.utils.partner_utils import requires_payment as check_payment_required
+        from app.utils.partner_config import get_partner_config
+        from datetime import datetime, timedelta
+        
+        logger = logging.getLogger(__name__)
+        
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            # 1. 환자 정보 조회
+            patient_row = await self._fetch_patient_base(conn, uuid=uuid, hospital_id=hospital_id)
+            if not patient_row:
+                await conn.close()
+                logger.warning(f"[통합상태] 환자 정보 없음: {uuid}")
+                return {
+                    "status": "ACTION_REQUIRED",
+                    "data_sources": {"tilko": {"count": 0, "last_synced_at": None}, "indexeddb": {"count": 0, "last_synced_at": None}, "partner": {"count": 0, "last_synced_at": None}},
+                    "primary_source": None,
+                    "has_checkup_data": False,
+                    "has_prescription_data": False,
+                    "has_report": False,
+                    "has_payment": False,
+                    "requires_payment": True,
+                    "metric_count": 0,
+                    "is_sufficient": False,
+                    "total_checkup_count": 0,
+                    "prescription_count": 0,
+                    "terms_agreed": False,
+                    "terms_agreed_at": None,
+                    "terms_details": {},
+                    "missing_terms": ['terms_service', 'terms_privacy', 'terms_sensitive']
+                }
+            
+            # 2. 데이터 출처별 건수 및 타임스탬프 조회 (data_source 컬럼 사용)
+            data_sources_query = """
+                SELECT 
+                    data_source, 
+                    COUNT(*) as count, 
+                    MAX(updated_at) as last_synced_at
+                FROM welno.welno_checkup_data
+                WHERE patient_uuid = $1 AND hospital_id = $2
+                GROUP BY data_source
+            """
+            source_rows = await conn.fetch(data_sources_query, uuid, hospital_id)
+            
+            # 기본 구조 초기화 (welno_patients의 타임스탬프 사용)
+            data_sources = {
+                "tilko": {
+                    "count": 0, 
+                    "last_synced_at": patient_row.get('last_data_update')
+                },
+                "indexeddb": {
+                    "count": 0, 
+                    "last_synced_at": patient_row.get('last_indexeddb_sync_at')
+                },
+                "partner": {
+                    "count": 0, 
+                    "last_synced_at": patient_row.get('last_partner_sync_at')
+                }
+            }
+            
+            # welno_checkup_data의 집계 결과 반영
+            total_checkup_count = 0
+            for row in source_rows:
+                source = row['data_source']
+                count = row['count']
+                total_checkup_count += count
+                
+                if source in data_sources:
+                    data_sources[source]['count'] = count
+                    # 더 최신 타임스탬프 사용 (welno_checkup_data vs welno_patients)
+                    if row['last_synced_at']:
+                        existing_ts = data_sources[source]['last_synced_at']
+                        if not existing_ts or row['last_synced_at'] > existing_ts:
+                            data_sources[source]['last_synced_at'] = row['last_synced_at']
+            
+            # 3. 주 출처 결정 (우선순위: Tilko > IndexedDB > 파트너)
+            primary_source = None
+            if data_sources['tilko']['count'] > 0:
+                primary_source = 'tilko'
+            elif data_sources['indexeddb']['count'] > 0:
+                primary_source = 'indexeddb'
+            elif data_sources['partner']['count'] > 0:
+                primary_source = 'partner'
+            
+            # 4. 데이터 충족 여부 판단
+            has_checkup_data = total_checkup_count > 0
+            metric_count = 0
+            
+            if has_checkup_data:
+                latest_checkup_query = """
+                    SELECT raw_data, height, weight, bmi, blood_pressure_high, blood_pressure_low,
+                           blood_sugar, cholesterol, hdl_cholesterol, ldl_cholesterol, triglyceride
+                    FROM welno.welno_checkup_data
+                    WHERE patient_uuid = $1 AND hospital_id = $2
+                    ORDER BY checkup_date DESC, updated_at DESC
+                    LIMIT 1
+                """
+                latest_row = await conn.fetchrow(latest_checkup_query, uuid, hospital_id)
+                
+                if latest_row:
+                    # raw_data에서 지표 개수 계산
+                    if latest_row['raw_data']:
+                        # raw_data가 JSON 문자열인 경우 파싱
+                        raw_data = latest_row['raw_data']
+                        if isinstance(raw_data, str):
+                            import json
+                            raw_data = json.loads(raw_data)
+                        metric_count = get_metric_count(raw_data)
+                    
+                    # raw_data가 없거나 metric_count가 0인 경우, 직접 컬럼에서 확인
+                    if metric_count == 0:
+                        column_count = sum(
+                            1 for field in ['height', 'weight', 'bmi', 'blood_pressure_high', 'blood_pressure_low',
+                                          'blood_sugar', 'cholesterol', 'hdl_cholesterol', 'ldl_cholesterol', 'triglyceride']
+                            if latest_row.get(field) not in [None, 0, 0.0]
+                        )
+                        
+                        if column_count == 0:
+                            logger.warning(f"[데이터품질] UUID={uuid}: 검진 레코드는 있지만 모든 지표가 NULL")
+                            has_checkup_data = False  # 실질적으로 데이터 없음으로 처리
+                        else:
+                            metric_count = column_count
+            
+            is_sufficient = metric_count >= 5
+            
+            # 5. 처방전 데이터 확인
+            prescription_count_query = """
+                SELECT COUNT(*) FROM welno.welno_prescription_data
+                WHERE patient_uuid = $1 AND hospital_id = $2
+            """
+            prescription_count = await conn.fetchval(prescription_count_query, uuid, hospital_id) or 0
+            has_prescription_data = prescription_count > 0
+            
+            # 6. 리포트 존재 여부 확인 (+ 플래그 검증)
+            report_query = """
+                SELECT report_url, analyzed_at, updated_at
+                FROM welno.welno_mediarc_reports
+                WHERE patient_uuid = $1 AND hospital_id = $2
+                ORDER BY created_at DESC
+                LIMIT 1
+            """
+            report_row = await conn.fetchrow(report_query, uuid, hospital_id)
+            has_report_actual = bool(report_row and report_row['report_url'])
+            
+            # ✅ 플래그 검증 및 자동 보정
+            if patient_row['has_mediarc_report'] != has_report_actual:
+                logger.warning(
+                    f"[플래그불일치] UUID={uuid}: has_mediarc_report={patient_row['has_mediarc_report']} "
+                    f"but actual_report={has_report_actual}. 자동 보정 중..."
+                )
+                
+                # 플래그 자동 보정
+                await conn.execute("""
+                    UPDATE welno.welno_patients
+                    SET has_mediarc_report = $1, updated_at = NOW()
+                    WHERE uuid = $2 AND hospital_id = $3
+                """, has_report_actual, uuid, hospital_id)
+            
+            has_report = has_report_actual  # 실제 데이터 기준 사용
+            
+            # 리포트 만료 여부 확인 (S3 presigned URL은 7일)
+            report_expired = False
+            if has_report and report_row:
+                updated_at = report_row['updated_at']
+                if isinstance(updated_at, datetime):
+                    if updated_at < datetime.now(updated_at.tzinfo) - timedelta(days=7):
+                        report_expired = True
+                        logger.info(f"[리포트만료] UUID={uuid}: updated_at={updated_at}")
+            
+            # 7. 결제 상태 확인 (파트너만)
+            has_payment = False
+            requires_payment_flag = False
+            
+            if partner_id:
+                payment_query = """
+                    SELECT status FROM welno.tb_campaign_payments
+                    WHERE uuid = $1 AND partner_id = $2
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """
+                payment_row = await conn.fetchrow(payment_query, uuid, partner_id)
+                has_payment = payment_row and payment_row['status'] == 'COMPLETED'
+                
+                # 파트너 설정에서 결제 필요 여부 확인 (asyncpg 사용)
+                partner_row = await conn.fetchrow("""
+                    SELECT config
+                    FROM welno.tb_partner_config
+                    WHERE partner_id = $1 AND is_active = true
+                    LIMIT 1
+                """, partner_id)
+                partner_config = dict(partner_row) if partner_row else None
+                requires_payment_flag = check_payment_required(partner_config)
+            
+            # 8. 약관 동의 상태 확인 (✨ 추가)
+            from app.utils.terms_agreement import verify_terms_agreement
+            
+            terms_status = await verify_terms_agreement(uuid, hospital_id, conn)
+            
+            await conn.close()
+            
+            # 9. 최종 상태 판단 (약관 우선순위 최상위)
+            # 약관 미동의 시 다른 상태와 무관하게 최우선 처리
+            if not terms_status['is_agreed']:
+                if has_report:
+                    status = "TERMS_REQUIRED_WITH_REPORT"  # 리포트 있지만 약관 필요
+                elif is_sufficient:
+                    status = "TERMS_REQUIRED_WITH_DATA"   # 데이터 있지만 약관 필요
+                else:
+                    status = "TERMS_REQUIRED"             # 약관 필요 + 데이터 없음
+            elif has_report:
+                # 리포트 존재
+                if report_expired:
+                    status = "REPORT_EXPIRED"
+                else:
+                    status = "REPORT_READY"
+            elif not is_sufficient:
+                # 데이터 부족
+                if requires_payment_flag and has_payment:
+                    status = "ACTION_REQUIRED_PAID"  # 결제 완료했지만 데이터 부족 (자동 인증 유도)
+                else:
+                    status = "ACTION_REQUIRED"
+            elif requires_payment_flag and not has_payment:
+                status = "PAYMENT_REQUIRED"  # 결제 필요
+            else:
+                status = "REPORT_PENDING"  # 리포트 생성 대기
+            
+            logger.info(
+                f"[통합상태] UUID={uuid}: status={status}, terms={terms_status['is_agreed']}, "
+                f"data={is_sufficient}({metric_count}), report={has_report}, payment={has_payment}/{requires_payment_flag}"
+            )
+            
+            # 10. 응답 생성
+            return {
+                "status": status,
+                "data_sources": {
+                    k: {
+                        "count": v['count'],
+                        "last_synced_at": v['last_synced_at'].isoformat() if v['last_synced_at'] and isinstance(v['last_synced_at'], datetime) else None
+                    }
+                    for k, v in data_sources.items()
+                },
+                "primary_source": primary_source,
+                "has_checkup_data": has_checkup_data,
+                "has_prescription_data": has_prescription_data,
+                "has_report": has_report,
+                "has_payment": has_payment,
+                "requires_payment": requires_payment_flag,
+                "metric_count": metric_count,
+                "is_sufficient": is_sufficient,
+                "total_checkup_count": total_checkup_count,
+                "prescription_count": prescription_count,
+                
+                # ✨ 약관 상태 추가
+                "terms_agreed": terms_status['is_agreed'],
+                "terms_agreed_at": terms_status['agreed_at'].isoformat() if terms_status['agreed_at'] and isinstance(terms_status['agreed_at'], datetime) else None,
+                "terms_details": terms_status['terms_details'],
+                "missing_terms": terms_status['missing_terms']
+            }
+            
+        except Exception as e:
+            logger.error(f"[통합상태] 오류: {e}", exc_info=True)
+            raise
+    
+    async def merge_partner_and_tilko_data(
+        self,
+        uuid: str,
+        hospital_id: str,
+        partner_id: str
+    ) -> Dict[str, Any]:
+        """
+        파트너 데이터와 Tilko 데이터 병합
+        
+        파트너사에서 제공한 데이터가 부족한 경우, Tilko 인증 후
+        두 데이터를 병합합니다. (Tilko 데이터 우선)
+        
+        Args:
+            uuid: 환자 UUID
+            hospital_id: 병원 ID
+            partner_id: 파트너 ID
+            
+        Returns:
+            {
+                "merged_count": int,  # 병합 후 지표 개수
+                "tilko_count": int,   # Tilko 데이터 건수
+                "partner_data": bool, # 파트너 데이터 존재 여부
+                "data_source": "tilko"  # 최종 출처
+            }
+        """
+        import logging
+        from app.utils.health_metrics import get_metric_count
+        
+        logger = logging.getLogger(__name__)
+        
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            # 1. 파트너 데이터 조회
+            partner_data_query = """
+                SELECT user_data FROM welno.tb_campaign_payments
+                WHERE uuid = $1 AND partner_id = $2
+                ORDER BY created_at DESC
+                LIMIT 1
+            """
+            partner_row = await conn.fetchrow(partner_data_query, uuid, partner_id)
+            partner_data = partner_row['user_data'] if partner_row and partner_row['user_data'] else {}
+            
+            # 2. Tilko 데이터 조회
+            tilko_data_query = """
+                SELECT * FROM welno.welno_checkup_data
+                WHERE patient_uuid = $1 AND hospital_id = $2
+                ORDER BY checkup_date DESC
+            """
+            tilko_rows = await conn.fetch(tilko_data_query, uuid, hospital_id)
+            
+            # 3. 데이터 병합 (Tilko 우선, 파트너 데이터로 보완)
+            health_metrics = [
+                'height', 'weight', 'waist', 'bmi', 'sbp', 'dbp', 'fbs',
+                'tc', 'hdl', 'ldl', 'tg', 'ast', 'alt', 'scr'
+            ]
+            
+            merged_data = {}
+            for metric in health_metrics:
+                # Tilko 데이터 우선
+                tilko_value = tilko_rows[0][metric] if tilko_rows and tilko_rows[0].get(metric) else None
+                partner_value = partner_data.get(metric)
+                merged_data[metric] = tilko_value if tilko_value is not None else partner_value
+            
+            # 4. 병합 결과 저장 (metric_count 계산)
+            metric_count = sum(1 for v in merged_data.values() if v not in [None, '', 0, 0.0])
+            
+            # 5. 환자 테이블 업데이트 (Tilko가 주 출처)
+            update_query = """
+                UPDATE welno.welno_patients
+                SET has_health_data = TRUE,
+                    last_data_update = NOW(),
+                    updated_at = NOW()
+                WHERE uuid = $1 AND hospital_id = $2
+            """
+            await conn.execute(update_query, uuid, hospital_id)
+            
+            await conn.close()
+            
+            logger.info(f"[데이터병합] UUID={uuid}: Tilko={len(tilko_rows)}건 + 파트너={bool(partner_data)} → 지표={metric_count}개")
+            
+            return {
+                'merged_count': metric_count,
+                'tilko_count': len(tilko_rows),
+                'partner_data': bool(partner_data),
+                'data_source': 'tilko'  # 최종 출처
+            }
+            
+        except Exception as e:
+            logger.error(f"[데이터병합] 오류: {e}", exc_info=True)
+            raise
+    
+    async def save_terms_agreement(self, uuid: str, hospital_id: str, terms_agreement: Dict[str, Any]) -> Dict[str, Any]:
+        """약관 동의 저장"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            # 약관 동의 정보를 JSONB로 저장
+            # welno_patients 테이블에 terms_agreement 필드가 있는지 확인하고 업데이트
+            # 없으면 ALTER TABLE로 추가 필요 (스키마 마이그레이션)
+            
+            # 먼저 환자 존재 확인
+            patient_check = await conn.fetchrow(
+                "SELECT id FROM welno.welno_patients WHERE uuid = $1 AND hospital_id = $2",
+                uuid, hospital_id
+            )
+            
+            if not patient_check:
+                await conn.close()
+                return {
+                    "success": False,
+                    "error": "환자 정보를 찾을 수 없습니다."
+                }
+            
+            # 약관 동의 정보 저장 (JSONB 필드)
+            # terms_agreement 필드가 없으면 추가해야 함
+            try:
+                update_query = """
+                    UPDATE welno.welno_patients 
+                    SET terms_agreement = $1,
+                        terms_agreed_at = NOW(),
+                        updated_at = NOW()
+                    WHERE uuid = $2 AND hospital_id = $3
+                """
+                await conn.execute(
+                    update_query,
+                    json.dumps(terms_agreement),
+                    uuid, hospital_id
+                )
+            except asyncpg.exceptions.UndefinedColumnError:
+                # terms_agreement 컬럼이 없으면 추가
+                await conn.execute(
+                    "ALTER TABLE welno.welno_patients ADD COLUMN IF NOT EXISTS terms_agreement JSONB"
+                )
+                await conn.execute(
+                    "ALTER TABLE welno.welno_patients ADD COLUMN IF NOT EXISTS terms_agreed_at TIMESTAMPTZ"
+                )
+                # 다시 업데이트
+                update_query = """
+                    UPDATE welno.welno_patients 
+                    SET terms_agreement = $1,
+                        terms_agreed_at = NOW(),
+                        updated_at = NOW()
+                    WHERE uuid = $2 AND hospital_id = $3
+                """
+                await conn.execute(
+                    update_query,
+                    json.dumps(terms_agreement),
+                    uuid, hospital_id
+                )
+            
+            await conn.close()
+            
+            print(f"✅ [약관동의] 약관 동의 저장 완료: {uuid} @ {hospital_id}")
+            print(f"   - 서비스 이용약관: {terms_agreement.get('terms_service', False)}")
+            print(f"   - 개인정보 수집/이용: {terms_agreement.get('terms_privacy', False)}")
+            print(f"   - 민감정보 수집/이용: {terms_agreement.get('terms_sensitive', False)}")
+            print(f"   - 마케팅 활용: {terms_agreement.get('terms_marketing', False)}")
+            
+            return {
+                "success": True,
+                "terms_agreement": terms_agreement
+            }
+            
+        except Exception as e:
+            print(f"❌ [약관동의] 저장 오류: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def save_terms_agreement_detail(
+        self, 
+        uuid: str, 
+        hospital_id: str, 
+        terms_agreement_detail: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        약관 동의 상세 정보 저장 (각 약관별 개별 타임스탬프)
+        
+        Args:
+            uuid: 환자 UUID
+            hospital_id: 병원 ID
+            terms_agreement_detail: 각 약관별 동의 정보
+                {
+                    "terms_service": {"agreed": true, "agreed_at": "2026-01-25T10:30:00Z"},
+                    "terms_privacy": {"agreed": true, "agreed_at": "2026-01-25T10:30:00Z"},
+                    "terms_sensitive": {"agreed": true, "agreed_at": "2026-01-25T10:30:00Z"},
+                    "terms_marketing": {"agreed": false, "agreed_at": null}
+                }
+        """
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            
+            # 환자 존재 확인
+            patient_check = await conn.fetchrow(
+                "SELECT id FROM welno.welno_patients WHERE uuid = $1 AND hospital_id = $2",
+                uuid, hospital_id
+            )
+            
+            if not patient_check:
+                await conn.close()
+                return {
+                    "success": False,
+                    "error": "환자 정보를 찾을 수 없습니다."
+                }
+            
+            # 필수 약관 모두 동의했는지 확인
+            all_required_agreed = (
+                terms_agreement_detail.get('terms_service', {}).get('agreed', False) and
+                terms_agreement_detail.get('terms_privacy', {}).get('agreed', False) and
+                terms_agreement_detail.get('terms_sensitive', {}).get('agreed', False)
+            )
+            
+            # 약관 동의 상세 정보 저장
+            update_query = """
+                UPDATE welno.welno_patients 
+                SET terms_agreement_detail = $1,
+                    terms_all_required_agreed_at = CASE 
+                        WHEN $2 THEN NOW() 
+                        ELSE terms_all_required_agreed_at 
+                    END,
+                    updated_at = NOW()
+                WHERE uuid = $3 AND hospital_id = $4
+            """
+            
+            await conn.execute(
+                update_query,
+                json.dumps(terms_agreement_detail, ensure_ascii=False),
+                all_required_agreed,
+                uuid, 
+                hospital_id
+            )
+            
+            await conn.close()
+            
+            print(f"✅ [약관동의상세] 저장 완료: {uuid} @ {hospital_id}")
+            print(f"   - 서비스 이용약관: {terms_agreement_detail.get('terms_service', {}).get('agreed', False)}")
+            print(f"   - 개인정보 수집/이용: {terms_agreement_detail.get('terms_privacy', {}).get('agreed', False)}")
+            print(f"   - 민감정보 수집/이용: {terms_agreement_detail.get('terms_sensitive', {}).get('agreed', False)}")
+            print(f"   - 마케팅 활용: {terms_agreement_detail.get('terms_marketing', {}).get('agreed', False)}")
+            print(f"   - 모든 필수 약관 동의: {all_required_agreed}")
+            
+            return {
+                "success": True,
+                "terms_agreement_detail": terms_agreement_detail,
+                "all_required_agreed": all_required_agreed
+            }
+            
+        except Exception as e:
+            print(f"❌ [약관동의상세] 저장 오류: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
 # 싱글톤 인스턴스
 welno_data_service = WelnoDataService()

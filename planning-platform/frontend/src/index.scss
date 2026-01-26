@@ -7,10 +7,10 @@
 @use './styles/auth';
 @use './styles/health';
 
-// 폰트 임포트
+// 폰트 임포트 (font-display: optional로 변경하여 텍스트 크기 변화 최소화)
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=optional');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=optional');
 
 // 커스텀 폰트 파일 로드 (소라임 등)
 @import './styles/fonts.scss';

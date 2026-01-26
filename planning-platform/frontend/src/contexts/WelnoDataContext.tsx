@@ -35,6 +35,7 @@ export interface NotificationMessage {
   };
   autoClose?: boolean;
   duration?: number;
+  priority?: 'high' | 'normal'; // 우선순위: 'high'는 큐의 앞에 추가
 }
 
 // Context 상태 인터페이스
@@ -223,7 +224,62 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
     return `notification_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  // 알림 추가
+  // 알림 큐 관리 (동시에 2개 이상 표시 방지)
+  const notificationQueueRef = useRef<Array<Omit<NotificationMessage, 'id'>>>([]);
+  const isProcessingQueueRef = useRef(false);
+  const removeNotificationRef = useRef<((id: string) => void) | null>(null);
+  const processQueueRef = useRef<(() => void) | null>(null);
+
+  // 알림 제거
+  const removeNotification = useCallback((id: string) => {
+    setState(prev => ({
+      ...prev,
+      notifications: prev.notifications.filter(n => n.id !== id),
+    }));
+    // 알림이 제거되면 큐에서 다음 알림 처리
+    setTimeout(() => {
+      if (processQueueRef.current) {
+        processQueueRef.current();
+      }
+    }, 100);
+  }, []);
+
+  removeNotificationRef.current = removeNotification;
+
+  // 알림 큐 처리
+  const processNotificationQueue = useCallback(() => {
+    if (isProcessingQueueRef.current || notificationQueueRef.current.length === 0) {
+      return;
+    }
+
+    isProcessingQueueRef.current = true;
+    const nextNotification = notificationQueueRef.current.shift();
+    
+    if (nextNotification) {
+      const id = generateNotificationId();
+      const newNotification: NotificationMessage = {
+        ...nextNotification,
+        id,
+        autoClose: nextNotification.autoClose ?? true,
+        duration: nextNotification.duration ?? 5000,
+      };
+
+      setState(prev => ({
+        ...prev,
+        notifications: [newNotification],
+      }));
+
+      // autoClose는 NotificationToast 컴포넌트에서 처리
+      // 큐 처리는 removeNotification에서 자동으로 처리됨
+      isProcessingQueueRef.current = false;
+    } else {
+      isProcessingQueueRef.current = false;
+    }
+  }, []);
+
+  processQueueRef.current = processNotificationQueue;
+
+  // 알림 추가 (큐 시스템)
   const addNotification = useCallback((notification: Omit<NotificationMessage, 'id'>) => {
     const id = generateNotificationId();
     const newNotification: NotificationMessage = {
@@ -233,25 +289,26 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
       duration: notification.duration ?? 5000,
     };
 
-    setState(prev => ({
-      ...prev,
-      notifications: [...prev.notifications, newNotification],
-    }));
+    setState(prev => {
+      // 현재 표시 중인 알림이 1개 이상이면 큐에 추가
+      if (prev.notifications.length >= 1) {
+        // 우선순위가 'high'인 경우 큐의 앞에 추가
+        if (notification.priority === 'high') {
+          notificationQueueRef.current.unshift(notification);
+        } else {
+          notificationQueueRef.current.push(notification);
+        }
+        return prev;
+      }
 
-    // 자동 닫기
-    if (newNotification.autoClose) {
-      setTimeout(() => {
-        removeNotification(id);
-      }, newNotification.duration);
-    }
-  }, []);
+      // 표시 중인 알림이 없으면 즉시 표시
+      return {
+        ...prev,
+        notifications: [newNotification],
+      };
+    });
 
-  // 알림 제거
-  const removeNotification = useCallback((id: string) => {
-    setState(prev => ({
-      ...prev,
-      notifications: prev.notifications.filter(n => n.id !== id),
-    }));
+    // autoClose는 NotificationToast 컴포넌트에서 처리
   }, []);
 
   // 모든 알림 제거
@@ -283,7 +340,16 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
       
       // 2. 서버 DB 데이터 확인
       const response = await fetch(API_ENDPOINTS.HEALTH_DATA(uuid, hospitalId));
+      
+      if (response.status === 404) {
+        // ✅ 404는 정상 상태 (IndexedDB에만 있고 서버에는 아직 없음)
+        // 백엔드 저장이 비동기로 처리되어 지연될 수 있음
+        console.log('[동기화] 서버에 데이터 없음 (IndexedDB만 존재, 정상 상태):', { uuid, hospitalId });
+        return; // 조용히 종료 (에러 아님)
+      }
+      
       if (!response.ok) {
+        // 404가 아닌 다른 에러만 경고
         console.warn('[동기화] 서버 데이터 조회 실패:', response.status);
         return;
       }
@@ -431,13 +497,16 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
       welcomeMessage = `${hospitalData.name}에서 제공하는 웰노 서비스입니다.`;
     }
     
-    addNotification({
-      type: 'info',
-      title: welcomeTitle,
-      message: welcomeMessage,
-      autoClose: true,
-      duration: 3000,
-    });
+    // 페이지 로드 후 1.5초 딜레이 후 웰컴 토스트 표시
+    setTimeout(() => {
+      addNotification({
+        type: 'info',
+        title: welcomeTitle,
+        message: welcomeMessage,
+        autoClose: true,
+        duration: 3000,
+      });
+    }, 1500);
   }, [addNotification]);
 
   // 환자 데이터 로딩
@@ -1255,13 +1324,16 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
       }
     }
 
-    addNotification({
-      type: 'info',
-      title: welcomeTitle,
-      message: welcomeMessage,
-      autoClose: true,
-      duration: 3000,
-    });
+    // 페이지 로드 후 1.5초 딜레이 후 웰컴 토스트 표시
+    setTimeout(() => {
+      addNotification({
+        type: 'info',
+        title: welcomeTitle,
+        message: welcomeMessage,
+        autoClose: true,
+        duration: 3000,
+      });
+    }, 1500);
   }, [addNotification]);
 
   // Actions 객체 메모화

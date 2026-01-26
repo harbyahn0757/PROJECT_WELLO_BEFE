@@ -1,5 +1,5 @@
 /**
- * 웰로 공통 모달 컴포넌트
+ * 웰노 공통 모달 컴포넌트
  * 모든 모달에서 공통으로 사용되는 구조와 스타일을 제공
  */
 import React from 'react';
@@ -35,12 +35,12 @@ const WelnoModal: React.FC<WelnoModalProps> = ({
   return (
     <div className="welno-modal-overlay">
       <div className={`welno-modal welno-modal--${size} ${className}`}>
-        {/* 웰로 아이콘 (선택적) */}
+        {/* 웰노 아이콘 (선택적) */}
         {displayIcon && (
           <div className="welno-modal-icon">
             <img 
               src={WELNO_LOGO_IMAGE}
-              alt="웰로 아이콘" 
+              alt="웰노 아이콘" 
               className="welno-icon-blink"
             />
           </div>

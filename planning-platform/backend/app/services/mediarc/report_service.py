@@ -2,6 +2,7 @@
 Mediarc API HTTP 호출 서비스
 """
 
+import asyncpg
 import httpx
 import json
 import logging
@@ -64,59 +65,79 @@ async def run_disease_report_pipeline(
         report_data = response.get('data', {})
         report_url = report_data.get('report_url')
         
-        # 2. 통합 DB (welno_mediarc_reports) 저장 로직
-        with db_manager.get_connection() as conn:
-            with conn.cursor() as cur:
-                # 2-1. welno_patients 테이블에 patient_uuid가 있는지 확인 (없으면 파트너 유저)
-                cur.execute("SELECT id FROM welno.welno_patients WHERE uuid = %s", (patient_uuid,))
-                patient_row = cur.fetchone()
-                
-                # 2-2. welno_mediarc_reports에 저장 (모든 케이스 통합 관리)
-                cur.execute("""
-                    INSERT INTO welno.welno_mediarc_reports (
-                        patient_uuid, hospital_id, report_url, 
-                        bodyage, rank, disease_data, cancer_data,
-                        provider, analyzed_at, raw_response
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    ON CONFLICT (patient_uuid, hospital_id) DO UPDATE SET
-                        report_url = EXCLUDED.report_url,
-                        bodyage = EXCLUDED.bodyage,
-                        rank = EXCLUDED.rank,
-                        disease_data = EXCLUDED.disease_data,
-                        cancer_data = EXCLUDED.cancer_data,
-                        analyzed_at = EXCLUDED.analyzed_at,
-                        raw_response = EXCLUDED.raw_response,
+        # 2. 통합 DB (welno_mediarc_reports) 저장 로직 - asyncpg 사용
+        logger.info(f"💾 [Pipeline] DB 저장 시작: uuid={patient_uuid}")
+        
+        # DB 설정 가져오기
+        from app.core.config import settings
+        conn = await asyncpg.connect(
+            host=settings.DB_HOST if hasattr(settings, 'DB_HOST') else '10.0.1.10',
+            port=settings.DB_PORT if hasattr(settings, 'DB_PORT') else 5432,
+            database=settings.DB_NAME if hasattr(settings, 'DB_NAME') else 'p9_mkt_biz',
+            user=settings.DB_USER if hasattr(settings, 'DB_USER') else 'peernine',
+            password=settings.DB_PASSWORD if hasattr(settings, 'DB_PASSWORD') else 'autumn3334!'
+        )
+        
+        try:
+            # 2-1. welno_patients 테이블에 patient_uuid가 있는지 확인 (없으면 파트너 유저)
+            patient_row = await conn.fetchrow(
+                "SELECT id FROM welno.welno_patients WHERE uuid = $1", 
+                patient_uuid
+            )
+            
+            # 2-2. welno_mediarc_reports에 저장 (모든 케이스 통합 관리)
+            await conn.execute("""
+                INSERT INTO welno.welno_mediarc_reports (
+                    patient_uuid, hospital_id, report_url, 
+                    bodyage, rank, disease_data, cancer_data,
+                    provider, analyzed_at, raw_response
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                ON CONFLICT (patient_uuid, hospital_id) DO UPDATE SET
+                    report_url = EXCLUDED.report_url,
+                    bodyage = EXCLUDED.bodyage,
+                    rank = EXCLUDED.rank,
+                    disease_data = EXCLUDED.disease_data,
+                    cancer_data = EXCLUDED.cancer_data,
+                    analyzed_at = EXCLUDED.analyzed_at,
+                    raw_response = EXCLUDED.raw_response,
+                    updated_at = NOW()
+            """, 
+                patient_uuid, hospital_id, report_url,
+                report_data.get('bodyage'), report_data.get('rank'),
+                report_data.get('disease_data', []),  # asyncpg가 자동으로 jsonb 변환
+                report_data.get('cancer_data', []),
+                report_data.get('provider', 'twobecon'),
+                report_data.get('analyzed_at'),
+                response  # dict → jsonb 자동 변환
+            )
+            
+            logger.info(f"✅ [Pipeline] welno_mediarc_reports 저장 완료")
+            
+            # 2-3. 파트너사인 경우 tb_campaign_payments 업데이트
+            if partner_id and oid:
+                await conn.execute("""
+                    UPDATE welno.tb_campaign_payments
+                    SET report_url = $1,
+                        mediarc_response = $2,
                         updated_at = NOW()
-                """, (
-                    patient_uuid, hospital_id, report_url,
-                    report_data.get('bodyage'), report_data.get('rank'),
-                    json.dumps(report_data.get('disease_data', [])),
-                    json.dumps(report_data.get('cancer_data', [])),
-                    report_data.get('provider', 'twobecon'),
-                    report_data.get('analyzed_at'),
-                    json.dumps(response) # 전체 응답 저장
-                ))
+                    WHERE oid = $3
+                """, report_url, response, oid)
+                logger.info(f"✅ [Pipeline] tb_campaign_payments 업데이트 완료: oid={oid}")
                 
-                # 2-3. 파트너사인 경우 tb_campaign_payments 업데이트
-                if partner_id and oid:
-                    cur.execute("""
-                        UPDATE welno.tb_campaign_payments
-                        SET report_url = %s,
-                            mediarc_response = %s,
-                            updated_at = NOW()
-                        WHERE oid = %s
-                    """, (report_url, json.dumps(response), oid))
-                    
-                # 2-4. WELNO 환자 플래그 업데이트 (환자 테이블에 존재할 때만)
-                if patient_row:
-                    cur.execute("""
-                        UPDATE welno.welno_patients
-                        SET has_mediarc_report = true,
-                            updated_at = NOW()
-                        WHERE uuid = %s
-                    """, (patient_uuid,))
-                
-                conn.commit()
+            # 2-4. WELNO 환자 플래그 업데이트 (환자 테이블에 존재할 때만)
+            if patient_row:
+                await conn.execute("""
+                    UPDATE welno.welno_patients
+                    SET has_mediarc_report = true,
+                        updated_at = NOW()
+                    WHERE uuid = $1
+                """, patient_uuid)
+                logger.info(f"✅ [Pipeline] welno_patients 플래그 업데이트 완료")
+            
+        finally:
+            await conn.close()
+        
+        logger.info(f"✅ [Pipeline] DB 저장 프로세스 완료")
         
         # 3. 알림 (WebSocket 및 이메일)
         # 3-1. WebSocket 알림 (프론트엔드 실시간 갱신용)

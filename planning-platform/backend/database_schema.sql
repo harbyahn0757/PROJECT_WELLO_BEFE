@@ -34,6 +34,11 @@ CREATE TABLE IF NOT EXISTS welno.welno_patients (
     registration_source VARCHAR(20) DEFAULT 'DIRECT', -- DIRECT, PARTNER, HOSPITAL 등
     partner_id VARCHAR(50), -- 가입 시 식별된 파트너 ID (예: medilinx)
     
+    -- 데이터 출처 추적
+    data_source VARCHAR(20) DEFAULT 'tilko' CHECK (data_source IN ('tilko', 'indexeddb', 'partner')), -- 데이터 출처
+    last_indexeddb_sync_at TIMESTAMPTZ, -- IndexedDB에서 마지막 동기화 시간
+    last_partner_sync_at TIMESTAMPTZ, -- 파트너사에서 마지막 동기화 시간
+    
     -- 인덱스
     UNIQUE(uuid, hospital_id)
 );
@@ -80,6 +85,9 @@ CREATE INDEX IF NOT EXISTS idx_checkup_location ON welno.welno_checkup_data(loca
 CREATE INDEX IF NOT EXISTS idx_checkup_code ON welno.welno_checkup_data(code);
 CREATE INDEX IF NOT EXISTS idx_checkup_raw_data ON welno.welno_checkup_data USING GIN (raw_data);
 CREATE INDEX IF NOT EXISTS idx_checkup_vital_signs ON welno.welno_checkup_data(height, weight, bmi, blood_pressure_high, blood_pressure_low);
+CREATE INDEX IF NOT EXISTS idx_checkup_data_source ON welno.welno_checkup_data(data_source);
+CREATE INDEX IF NOT EXISTS idx_checkup_patient_uuid ON welno.welno_checkup_data(patient_uuid, hospital_id);
+CREATE INDEX IF NOT EXISTS idx_checkup_partner ON welno.welno_checkup_data(partner_id, partner_oid) WHERE partner_id IS NOT NULL;
 
 -- 3. 처방전 데이터 테이블 (모든 필드 저장)
 CREATE TABLE IF NOT EXISTS welno.welno_prescription_data (
@@ -107,7 +115,15 @@ CREATE TABLE IF NOT EXISTS welno.welno_prescription_data (
     -- 메타데이터
     collected_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    
+    -- 데이터 출처 추적
+    patient_uuid VARCHAR(36), -- 환자 UUID (인덱싱 및 조회용)
+    hospital_id VARCHAR(20), -- 병원 ID (인덱싱 및 조회용)
+    data_source VARCHAR(20) DEFAULT 'tilko' CHECK (data_source IN ('tilko', 'indexeddb', 'partner')), -- 데이터 출처
+    indexeddb_synced_at TIMESTAMPTZ, -- IndexedDB에서 업로드된 시간
+    partner_id VARCHAR(50), -- 파트너사 ID (partner 출처인 경우)
+    partner_oid VARCHAR(50) -- 파트너사 주문번호 (partner 출처인 경우)
 );
 
 -- 처방전 데이터 인덱스
@@ -116,6 +132,9 @@ CREATE INDEX IF NOT EXISTS idx_prescription_hospital ON welno.welno_prescription
 CREATE INDEX IF NOT EXISTS idx_prescription_type ON welno.welno_prescription_data(treatment_type);
 CREATE INDEX IF NOT EXISTS idx_prescription_raw_data ON welno.welno_prescription_data USING GIN (raw_data);
 CREATE INDEX IF NOT EXISTS idx_prescription_counts ON welno.welno_prescription_data(visit_count, prescription_count, medication_count);
+CREATE INDEX IF NOT EXISTS idx_prescription_data_source ON welno.welno_prescription_data(data_source);
+CREATE INDEX IF NOT EXISTS idx_prescription_patient_uuid ON welno.welno_prescription_data(patient_uuid, hospital_id);
+CREATE INDEX IF NOT EXISTS idx_prescription_partner ON welno.welno_prescription_data(partner_id, partner_oid) WHERE partner_id IS NOT NULL;
 
 -- 3-1. Mediarc 질병예측 리포트 테이블
 CREATE TABLE IF NOT EXISTS welno.welno_mediarc_reports (
@@ -195,6 +214,7 @@ CREATE TABLE IF NOT EXISTS welno.welno_collection_history (
 CREATE INDEX IF NOT EXISTS idx_patients_uuid_hospital ON welno.welno_patients(uuid, hospital_id);
 CREATE INDEX IF NOT EXISTS idx_patients_phone ON welno.welno_patients(phone_number);
 CREATE INDEX IF NOT EXISTS idx_patients_last_auth ON welno.welno_patients(last_auth_at);
+CREATE INDEX IF NOT EXISTS idx_patients_data_source ON welno.welno_patients(data_source);
 
 -- 트리거: updated_at 자동 업데이트
 CREATE OR REPLACE FUNCTION update_updated_at_column()

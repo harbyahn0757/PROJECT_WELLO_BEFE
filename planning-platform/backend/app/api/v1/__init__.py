@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from .endpoints import (
     patients, hospitals, checkup_design, health, auth, surveys, kakao_auth,
     checkup_records, tilko_auth, websocket_auth, health_analysis, welno_rag_chat,
-    disease_report_unified
+    disease_report_unified, terms_agreement
 )
 
 api_router = APIRouter()
@@ -95,4 +95,11 @@ api_router.include_router(
     welno_rag_chat.router,
     prefix="/welno-rag-chat",
     tags=["welno-rag-chat"]
+)
+
+# 약관 동의 라우터 등록
+api_router.include_router(
+    terms_agreement.router,
+    prefix="/terms",
+    tags=["terms-agreement"]
 )

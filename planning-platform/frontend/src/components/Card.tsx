@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './Card.scss';
 
 export type CardIconType = 'chart' | 'design' | 'habit' | 'prediction';
@@ -13,9 +13,34 @@ interface CardProps {
   onClick?: () => void; // 클릭 이벤트 핸들러
   imageUrl?: string; // 오른쪽 이미지 URL (선택적)
   imageAlt?: string; // 이미지 alt 텍스트
+  imageFlash?: boolean; // 이미지 깜빡임 효과
 }
 
-const Card: React.FC<CardProps> = ({ type, icon, title, description, shortcutText, onClick, imageUrl, imageAlt }) => {
+const Card: React.FC<CardProps> = ({ type, icon, title, description, shortcutText, onClick, imageUrl, imageAlt, imageFlash = false }) => {
+  const [isImageFlashing, setIsImageFlashing] = useState(false);
+  
+  // 이미지 깜빡임 효과 함수 (재사용)
+  const triggerImageFlash = () => {
+    if (imageUrl) {
+      setIsImageFlashing(true);
+      setTimeout(() => {
+        setIsImageFlashing(false);
+      }, 400);
+    }
+  };
+  
+  const handleClick = () => {
+    if (onClick) {
+      // 클릭 시 이미지 깜빡임 효과
+      triggerImageFlash();
+      onClick();
+    }
+  };
+  
+  const handleMouseEnter = () => {
+    // 마우스 hover 시 이미지 깜빡임 효과
+    triggerImageFlash();
+  };
   const renderIcon = () => {
     switch (icon) {
       case 'chart':
@@ -50,7 +75,8 @@ const Card: React.FC<CardProps> = ({ type, icon, title, description, shortcutTex
   return (
     <div 
       className={`card card--${type} ${onClick ? 'card--clickable' : ''}`}
-      onClick={onClick}
+      onClick={handleClick}
+      onMouseEnter={handleMouseEnter}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
@@ -77,7 +103,7 @@ const Card: React.FC<CardProps> = ({ type, icon, title, description, shortcutTex
             <img 
               src={imageUrl} 
               alt={imageAlt || title}
-              className="card__image"
+              className={`card__image ${imageFlash || isImageFlashing ? 'card__image--flash' : ''}`}
               onError={(e) => {
                 // 이미지 로드 실패 시 placeholder 표시
                 const target = e.target as HTMLImageElement;

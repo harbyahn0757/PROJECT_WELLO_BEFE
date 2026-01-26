@@ -386,6 +386,13 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       return;
     }
     
+    // 캠페인 페이지인 경우 별도 이벤트 발생 (다른 상태 체크보다 우선)
+    if (location.pathname.includes('/campaigns/disease-prediction')) {
+      console.log('🚀 캠페인 리포트 받아보기 클릭');
+      window.dispatchEvent(new CustomEvent('welno-campaign-click'));
+      return;
+    }
+    
     if (isAuthWaiting) {
       console.log('✅ 인증 완료 확인 클릭');
       window.dispatchEvent(new CustomEvent('tilko-auth-complete-clicked'));
@@ -401,17 +408,10 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       window.dispatchEvent(new CustomEvent('tilko-info-confirm-clicked'));
       return;
     }
-
-    // 캠페인 페이지인 경우 별도 이벤트 발생
-    if (location.pathname.includes('/campaigns/disease-prediction')) {
-      console.log('🚀 캠페인 리포트 받아보기 클릭');
-      window.dispatchEvent(new CustomEvent('welno-campaign-click'));
-      return;
-    }
     
-    // 질병예측 리포트 결과 페이지인 경우 PDF 뷰어 열기 이벤트 발생
+    // 질병예측 리포트 결과 페이지인 경우 다운로드/공유 이벤트 발생
     if (location.pathname === '/disease-report') {
-      console.log('📄 질병예측 리포트 - PDF 뷰어 열기');
+      console.log('📄 질병예측 리포트 - 다운로드/공유');
       window.dispatchEvent(new CustomEvent('welno-open-pdf-viewer'));
       return;
     }

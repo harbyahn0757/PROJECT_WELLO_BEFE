@@ -94,30 +94,48 @@ html body .questionnaire-container.tilko-login .floating-button-container,
 }
 
 // 인증 페이지 플로팅 버튼 - 모든 인증 단계(name, phone, birthday, auth_method)에 적용
-// Button 컴포넌트와 함께 사용되므로 더 구체적인 선택자 사용
+// App.scss보다 나중에 로드되므로 우선순위가 높지만, 선택자 특이성도 높여서 확실하게 오버라이드
 // 최우선 적용을 위한 강력한 선택자 (모든 가능한 조합)
 html body .questionnaire-container.tilko-login button.floating-button,
+html body .questionnaire-container.tilko-login button.floating-button.button--primary,
 html body .questionnaire-container.tilko-login .button.floating-button,
+html body .questionnaire-container.tilko-login .button.floating-button.button--primary,
 html body .questionnaire-container.tilko-login .floating-button.button,
+html body .questionnaire-container.tilko-login .floating-button.button.button--primary,
 html body .questionnaire-container.tilko-login button.button.floating-button,
+html body .questionnaire-container.tilko-login button.button--primary.floating-button,
+html body .questionnaire-container.tilko-login .questionnaire-container.tilko-login button.floating-button,
+html body .questionnaire-container.tilko-login .questionnaire-container.tilko-login button.floating-button.button--primary,
 .questionnaire-container.tilko-login button.floating-button,
+.questionnaire-container.tilko-login button.floating-button.button--primary,
 .questionnaire-container.tilko-login .button.floating-button,
+.questionnaire-container.tilko-login .button.floating-button.button--primary,
 .questionnaire-container.tilko-login .floating-button.button,
+.questionnaire-container.tilko-login .floating-button.button.button--primary,
 .questionnaire-container.tilko-login button.button.floating-button,
+.questionnaire-container.tilko-login button.button--primary.floating-button,
 // /login 경로의 모든 플로팅 버튼 (모든 인증 단계에 적용)
 html body[data-path*="login"] button.floating-button,
+html body[data-path*="login"] button.floating-button.button--primary,
 html body[data-path*="login"] .button.floating-button,
+html body[data-path*="login"] .button.floating-button.button--primary,
 html body[data-path*="login"] .floating-button.button,
+html body[data-path*="login"] .floating-button.button.button--primary,
 html body[data-path*="login"] button.button.floating-button,
+html body[data-path*="login"] button.button--primary.floating-button,
 // 인증 컨텐츠 영역의 플로팅 버튼 (인증 페이지 내에서만)
 html body .auth__content ~ button.floating-button,
+html body .auth__content ~ button.floating-button.button--primary,
 html body .auth__content ~ .button.floating-button,
+html body .auth__content ~ .button.floating-button.button--primary,
 html body .auth__content ~ .floating-button.button,
-html body .auth__content ~ button.button.floating-button {
-  background: $background-yellow !important; // 상단 페이지와 동일한 노란색 변수
-  background-color: $background-yellow !important; // 추가 보험
-  color: $background-beige !important; // 베이지색 텍스트 (변수 사용)
-  box-shadow: 0 -4px 12px rgba(247, 232, 211, 0.3) !important; // 상단에만 그림자 (하단 그림자 제거)
+html body .auth__content ~ .floating-button.button.button--primary,
+html body .auth__content ~ button.button.floating-button,
+html body .auth__content ~ button.button--primary.floating-button {
+  background: #f7e8d3 !important; // 기본 배경: 갈색 (#f7e8d3) - 직접 색상 값 사용하여 확실하게 적용
+  background-color: #f7e8d3 !important; // 추가 보험
+  color: #ffffff !important; // 흰색 텍스트
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15) !important; // 위쪽에 약간의 그림자
   // 모든 border 완전 제거 (0과 none 모두 사용)
   border: 0 !important;
   border: none !important;
@@ -155,10 +173,10 @@ html body .auth__content ~ button.button.floating-button {
   width: 100vw !important;
   margin: 0 !important; // 마진 제거
   margin-bottom: 0 !important; // 하단 마진 완전 제거
-  min-height: $floating-button-height !important; // 버튼 높이 (상수 사용)
+  min-height: calc($floating-button-height * 0.9) !important; // 버튼 높이 조금 줄이기 (90%)
+  height: calc($floating-button-height * 0.9) !important; // 높이 명시적 설정
   padding: $floating-button-padding-vertical $floating-button-padding-horizontal 0 !important; // 상수 사용
   padding-bottom: 0 !important; // 하단 패딩 명시적 제거
-  height: auto !important; // 높이 자동 조정
   max-height: none !important; // 최대 높이 제한 제거
   overflow: hidden !important; // 오버플로우 숨김
   clip-path: inset(0 0 0 0) !important; // 클리핑 경로로 하단 완전 제거
@@ -170,7 +188,7 @@ html body .auth__content ~ button.button.floating-button {
   border-bottom-right-radius: 0 !important; // 하단 오른쪽 모서리는 직각 유지
   box-sizing: border-box !important; // 패딩 포함 전체 너비 계산
   // transition을 필요한 속성에만 제한 (bottom, position 제외하여 레이아웃 시프트 방지)
-  transition: background-color 0.3s ease, box-shadow 0.3s ease !important;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease !important;
   will-change: auto !important; // 레이아웃 시프트 최소화
   
   // 하단 하얀 줄 완전 제거 - 모든 의사 요소
@@ -289,7 +307,7 @@ html body .auth__content ~ button.button.floating-button {
     border-right: none !important;
     outline: none !important;
     outline-offset: 0 !important;
-    box-shadow: 0 -4px 12px rgba(247, 232, 211, 0.3) !important; // 상단에만 그림자 유지
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15) !important; // 위쪽에 약간의 그림자
   }
   
   // 브라우저 기본 스타일 완전 제거
@@ -312,21 +330,44 @@ html body .auth__content ~ button.button.floating-button {
   }
 }
 
-html body .questionnaire-container.tilko-login .floating-button:hover,
-.questionnaire-container.tilko-login .floating-button:hover {
-  background: $background-beige !important; // 호버시 베이지색
-  background-color: $background-beige !important; // 추가 보험
-  color: $background-yellow !important; // 노란색 텍스트
+html body .questionnaire-container.tilko-login button.floating-button:hover,
+html body .questionnaire-container.tilko-login button.floating-button.button--primary:hover,
+html body .questionnaire-container.tilko-login .button.floating-button:hover,
+html body .questionnaire-container.tilko-login .button.floating-button.button--primary:hover,
+html body .questionnaire-container.tilko-login .floating-button.button:hover,
+html body .questionnaire-container.tilko-login .floating-button.button.button--primary:hover,
+html body .questionnaire-container.tilko-login button.button.floating-button:hover,
+html body .questionnaire-container.tilko-login button.button--primary.floating-button:hover,
+html body .questionnaire-container.tilko-login .questionnaire-container.tilko-login button.floating-button:hover,
+html body .questionnaire-container.tilko-login .questionnaire-container.tilko-login button.floating-button.button--primary:hover,
+.questionnaire-container.tilko-login .floating-button:hover,
+.questionnaire-container.tilko-login button.floating-button.button--primary:hover,
+.questionnaire-container.tilko-login .questionnaire-container.tilko-login button.floating-button:hover {
+  background: #FF8A00 !important; // 호버시 주황색
+  background-color: #FF8A00 !important; // 추가 보험
+  color: #ffffff !important; // 흰색 텍스트
   transform: none !important; // transform 완전 제거 (레이아웃 시프트 방지)
-  box-shadow: 0 6px 16px rgba(247, 232, 211, 0.4) !important;
+  box-shadow: 0 -3px 12px rgba(255, 138, 0, 0.3) !important; // 위쪽에 주황색 그림자
 }
 
-html body .questionnaire-container.tilko-login .floating-button:active,
-.questionnaire-container.tilko-login .floating-button:active {
-  background: $background-beige !important; // 클릭시 베이지색
-  background-color: $background-beige !important; // 추가 보험
-  color: $background-yellow !important; // 노란색 텍스트
+html body .questionnaire-container.tilko-login button.floating-button:active,
+html body .questionnaire-container.tilko-login button.floating-button.button--primary:active,
+html body .questionnaire-container.tilko-login .button.floating-button:active,
+html body .questionnaire-container.tilko-login .button.floating-button.button--primary:active,
+html body .questionnaire-container.tilko-login .floating-button.button:active,
+html body .questionnaire-container.tilko-login .floating-button.button.button--primary:active,
+html body .questionnaire-container.tilko-login button.button.floating-button:active,
+html body .questionnaire-container.tilko-login button.button--primary.floating-button:active,
+html body .questionnaire-container.tilko-login .questionnaire-container.tilko-login button.floating-button:active,
+html body .questionnaire-container.tilko-login .questionnaire-container.tilko-login button.floating-button.button--primary:active,
+.questionnaire-container.tilko-login .floating-button:active,
+.questionnaire-container.tilko-login button.floating-button.button--primary:active,
+.questionnaire-container.tilko-login .questionnaire-container.tilko-login button.floating-button:active {
+  background: #FF8A00 !important; // 클릭시 주황색
+  background-color: #FF8A00 !important; // 추가 보험
+  color: #ffffff !important; // 흰색 텍스트
   transform: none !important; // transform 완전 제거
+  box-shadow: 0 -3px 12px rgba(255, 138, 0, 0.3) !important; // 위쪽에 주황색 그림자
 }
 
 // 뒤로가기 버튼 (인증 페이지용)

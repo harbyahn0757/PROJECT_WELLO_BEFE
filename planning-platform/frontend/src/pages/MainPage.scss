@@ -30,24 +30,26 @@
   // 헤더 (로고 + 병원명)
   &__header {
     padding: 0 !important;
-    padding-top: 10px !important; // 상단 여백 확보 (잘림 방지)
+    padding-top: 18px !important; // 상단 여백 더 추가 (10px → 18px, 아래로 내리기)
     margin: 0 !important;
+    margin-bottom: 12px !important; // 로고와 인사말 사이 간격 추가
     background: transparent;
     
     &-logo {
       display: block !important;
       margin: 0 !important;
+      margin-left: 0 !important; // 왼쪽 정렬
       padding: 0 !important;
+      text-align: left !important; // 왼쪽 정렬
       
       &-image {
-        width: auto;
-        height: auto;
-        max-width: 108px;
-        max-height: 108px;
+        height: 22px !important; // 높이 더 작게 (28px → 22px)
+        width: auto; // 너비는 비율에 맞게 자동 조정
         object-fit: contain;
         flex-shrink: 0;
         border-radius: $border-radius-md;
         margin: 0 !important; // 모든 마진 완전 제거
+        margin-left: 0 !important; // 왼쪽 마진 0
         margin-bottom: 0 !important; // 하단 마진 완전 제거
         padding: 0 !important; // 모든 패딩 완전 제거
         display: block !important; // 인라인 여백 제거
@@ -75,6 +77,9 @@
     width: 100%;
     font-family: var(--font-family-greeting) !important; // 인사말 모든 폰트 Noto Sans KR
     line-height: 1.2 !important; // 라인 높이 최소화
+    // 폰트 로딩 시 텍스트 크기 변화 방지
+    font-size-adjust: 0.5 !important; // 폰트 크기 조정 비율 고정
+    text-rendering: optimizeLegibility !important; // 텍스트 렌더링 최적화
     
     &-title {
       font-size: 22px !important; // 제일 위 영역 폰트 크기 22px
@@ -82,12 +87,16 @@
       color: $black !important; // 검정
       margin: 0 !important; // 모든 마진 제거
       margin-left: 0 !important; // 왼쪽 정렬
+      margin-bottom: 0 !important; // 하단 마진 제거
       padding: 0 !important; // 모든 패딩 제거
       padding-left: 0 !important; // 왼쪽 패딩 제거
       line-height: 1.2 !important; // line-height 줄임
-      display: block;
+      display: inline-block; // 인라인 블록으로 변경하여 subtitle과 같은 줄에 표시
       text-align: left !important; // 왼쪽 정렬 강제
       font-family: var(--font-family-greeting) !important; // Noto Sans KR
+      // 폰트 로딩 시 텍스트 크기 변화 방지
+      font-size-adjust: 0.5 !important;
+      text-rendering: optimizeLegibility !important;
       
       .patient-name {
         color: $black !important; // 검정
@@ -107,13 +116,16 @@
       font-weight: $font-weight-normal !important; // 볼드 없음
       color: #000000 !important; // 기본 검정
       margin: 0 0 $spacing-md 0 !important; // 상단 마진 제거
-      margin-left: 0 !important; // 왼쪽 정렬
+      margin-left: 0 !important; // 왼쪽 정렬 (title과 동일)
       padding: 0 !important; // 모든 패딩 제거
-      padding-left: 0 !important; // 왼쪽 패딩 제거
-      display: block;
+      padding-left: 0 !important; // 왼쪽 패딩 제거 (title과 동일)
+      display: inline-block; // 인라인 블록으로 변경하여 title과 같은 줄에 표시
       line-height: 1.2 !important; // line-height 줄임
       text-align: left !important; // 왼쪽 정렬 강제
       font-family: var(--font-family-greeting) !important; // Noto Sans KR
+      // 폰트 로딩 시 텍스트 크기 변화 방지
+      font-size-adjust: 0.5 !important;
+      text-rendering: optimizeLegibility !important;
       
       .hospital-name {
         color: $brand-brown-dark !important; // 병원명만 브라운 색상
@@ -132,13 +144,16 @@
       color: $gray-450 !important; // 회색 텍스트
       line-height: 1.2 !important; // 줄바꿈 간격 최소화
       margin: 0 !important; // 모든 마진 제거
-      margin-left: 0 !important; // 왼쪽 마진 제거
+      margin-left: 0 !important; // 왼쪽 마진 제거 (title, subtitle과 동일)
       padding: 0 !important; // 모든 패딩 제거
-      padding-left: 0 !important; // 왼쪽 패딩 제거
+      padding-left: 0 !important; // 왼쪽 패딩 제거 (title, subtitle과 동일)
       display: block;
       white-space: pre-line !important; // 줄바꿈 유지
       text-align: left !important; // 왼쪽 정렬 강제
       font-family: var(--font-family-greeting) !important; // Noto Sans KR
+      // 폰트 로딩 시 텍스트 크기 변화 방지
+      font-size-adjust: 0.5 !important;
+      text-rendering: optimizeLegibility !important;
       
       .hospital-name {
         color: $brand-brown-dark !important; // 병원명만 브라운 색상

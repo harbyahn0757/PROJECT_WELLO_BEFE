@@ -12,7 +12,7 @@ from pathlib import Path
 import asyncio
 import shutil
 
-from app.services.wello_data_service import WelloDataService
+from app.services.welno_data_service import WelnoDataService
 
 
 class FileFirstDataService:
@@ -29,7 +29,7 @@ class FileFirstDataService:
         for directory in [self.pending_dir, self.completed_dir, self.failed_dir, self.backup_dir]:
             directory.mkdir(parents=True, exist_ok=True)
         
-        self.wello_service = WelloDataService()
+        self.welno_service = WelnoDataService()
     
     def _generate_file_hash(self, data: Dict[str, Any]) -> str:
         """데이터의 해시값 생성 (무결성 검증용)"""
@@ -188,22 +188,31 @@ class FileFirstDataService:
             
             if data_type == "patient_data":
                 # 환자 정보 저장
-                result = await self.wello_service.save_patient_data(
-                    patient_uuid, hospital_id, raw_data, session_id
+                result = await self.welno_service.save_patient_data(
+                    uuid=patient_uuid,
+                    hospital_id=hospital_id,
+                    user_info=raw_data,
+                    session_id=session_id
                 )
                 return result is not None
                 
             elif data_type == "health_data":
                 # 건강검진 데이터 저장
-                result = await self.wello_service.save_health_data(
-                    patient_uuid, hospital_id, raw_data, session_id
+                result = await self.welno_service.save_health_data(
+                    patient_uuid=patient_uuid,
+                    hospital_id=hospital_id,
+                    health_data=raw_data,
+                    session_id=session_id
                 )
                 return result
                 
             elif data_type == "prescription_data":
                 # 처방전 데이터 저장
-                result = await self.wello_service.save_prescription_data(
-                    patient_uuid, hospital_id, raw_data, session_id
+                result = await self.welno_service.save_prescription_data(
+                    patient_uuid=patient_uuid,
+                    hospital_id=hospital_id,
+                    prescription_data=raw_data,
+                    session_id=session_id
                 )
                 return result
                 

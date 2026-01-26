@@ -128,6 +128,18 @@ export const useGlobalSessionDetection = (options: SessionDetectionOptions = {})
       }
 
       if (isActive && uuid && hospital) {
+        // 캠페인 페이지에서는 자동 리다이렉트하지 않음
+        if (location.pathname.includes('/campaigns/disease-prediction')) {
+          return {
+            sessionId: savedSessionId,
+            status,
+            isActive,
+            isCollecting,
+            shouldRedirect: false,
+            redirectPath: null
+          };
+        }
+        
         // 인증 관련 상태
         if (['auth_pending', 'auth_completed', 'authenticated', 'auth_waiting'].includes(status)) {
           // 현재 로그인 페이지가 아니면 리다이렉트

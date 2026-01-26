@@ -2,6 +2,7 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PartnerStatus } from './index';
 import { API_ENDPOINTS } from '../../config/api';
+import { checkAllTermsAgreement } from '../../utils/termsAgreement';
 import './styles/landing.scss';
 
 // 이미지 임포트
@@ -38,13 +39,10 @@ const LandingPage: React.FC<Props> = ({ status }) => {
   // ✅ Auto Trigger 로직 (결제 완료 또는 무료 유저 즉시 생성)
   useEffect(() => {
     const autoTrigger = query.get('auto_trigger') === 'true';
-    const isPaymentPage = query.get('page') === 'payment';
     
+    // auto_trigger가 true일 때만 자동 생성 (결제 완료 후 콜백)
     if (autoTrigger && !isGenerating) {
       handleDirectGenerate();
-    } else if (isPaymentPage && !isGenerating) {
-      console.log('💳 [LandingPage] 결제 페이지 진입 -> 즉시 결제 시도');
-      handlePayment();
     }
 
     // 플로팅 버튼 텍스트 업데이트 (결제 페이지용)
@@ -82,7 +80,26 @@ const LandingPage: React.FC<Props> = ({ status }) => {
   };
 
   const handlePayment = async () => {
-    // ... 기존 handlePayment 로직 ...
+    // 약관 체크 추가 (partner가 없으면 status에서 가져오거나 기본값 사용)
+    const uuid = userData.uuid;
+    // status가 로드되었으면 status의 partner_id 사용, 없으면 userData의 partner_id 또는 기본값
+    const partnerId = status?.partner_id || userData.partner_id || 'kindhabit';
+    
+    if (uuid && partnerId) {
+      try {
+        const termsCheck = await checkAllTermsAgreement(uuid, partnerId);
+        
+        if (termsCheck.needsAgreement) {
+          // 약관 모달 표시를 위해 page=terms로 이동
+          navigate(`/campaigns/disease-prediction?page=terms&uuid=${uuid}&partner=${partnerId}&api_key=${query.get('api_key') || ''}`);
+          return;
+        }
+      } catch (error) {
+        console.error('[LandingPage] 약관 체크 오류:', error);
+        // 약관 체크 실패해도 결제 진행 (에러 처리)
+      }
+    }
+    
     try {
       // 1. 백엔드에 결제 초기화 요청 (서명 생성 및 주문 저장)
       const response = await fetch(API_ENDPOINTS.INIT_PAYMENT, {

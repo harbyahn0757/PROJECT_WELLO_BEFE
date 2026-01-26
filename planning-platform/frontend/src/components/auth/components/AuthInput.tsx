@@ -41,9 +41,9 @@ const AuthInput: React.FC<AuthInputProps> = ({
     
     switch (type) {
       case 'name':
-        return '이름을 입력하세요';
+        return '이름을 입력해주세요';
       case 'phone':
-        return '휴대폰 번호를 입력하세요 (- 없이)';
+        return '휴대폰 번호를 입력해주세요 (- 없이)';
       case 'birthday':
         return '생년월일 8자리 (예: 19900101)';
       default:
@@ -54,11 +54,11 @@ const AuthInput: React.FC<AuthInputProps> = ({
   const getLabel = () => {
     switch (type) {
       case 'name':
-        return '이름을 입력하세요';
+        return '이름을 입력해주세요';
       case 'phone':
-        return '휴대폰 번호를 입력하세요';
+        return '휴대폰 번호를 입력해주세요';
       case 'birthday':
-        return '생년월일을 입력하세요';
+        return '생년월일을 입력해주세요';
       default:
         return '';
     }

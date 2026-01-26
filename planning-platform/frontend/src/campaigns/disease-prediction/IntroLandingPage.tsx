@@ -2,6 +2,7 @@ import React, { useMemo, useEffect, useCallback, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PartnerStatus } from './index';
 import { API_ENDPOINTS } from '../../config/api';
+import { checkAllTermsAgreement } from '../../utils/termsAgreement';
 import PageTransitionLoader from '../../components/PageTransitionLoader';
 import './styles/landing.scss';
 
@@ -66,16 +67,24 @@ const IntroLandingPage: React.FC<Props> = ({ status }) => {
   }, [status]);
 
   // 실제 버튼 클릭 처리 로직 (useCallback으로 메모이제이션)
-  const handleButtonClick = useCallback(() => {
+  const handleButtonClick = useCallback(async () => {
     console.log('🎯 [IntroLanding] handleButtonClick 실행', { 
       action: buttonConfig.action, 
       partner, 
       uuid, 
-      hasData: !!data 
+      hasData: !!data,
+      statusPartnerId: status?.partner_id
     });
     
     // 공통 파라미터 생성 (api_key 포함)
-    const commonParams = `partner=${partner}&uuid=${uuid}&data=${encodeURIComponent(data)}&api_key=${apiKey}`;
+    // partner가 없으면 status에서 가져오거나 기본값 사용
+    const finalPartner = partner || status?.partner_id || 'kindhabit';
+    const params = new URLSearchParams();
+    params.set('partner', finalPartner);
+    if (uuid) params.set('uuid', uuid);
+    if (data) params.set('data', data);
+    if (apiKey) params.set('api_key', apiKey);
+    const commonParams = params.toString();
 
     switch (buttonConfig.action) {
       case 'auth':
@@ -91,11 +100,40 @@ const IntroLandingPage: React.FC<Props> = ({ status }) => {
 
       case 'payment':
       default:
+        // 약관 체크 추가 (status의 partner_id 우선 사용)
+        const partnerForTerms = status?.partner_id || partner || 'kindhabit';
+        if (uuid && partnerForTerms) {
+          try {
+            console.log('[IntroLandingPage] 약관 체크 시작:', { uuid, partnerForTerms });
+            const termsCheck = await checkAllTermsAgreement(uuid, partnerForTerms);
+            
+            if (termsCheck.needsAgreement) {
+              console.log('[IntroLandingPage] 약관 동의 필요 → 약관 모달 표시');
+              // 약관 모달 표시를 위해 page=terms로 이동 (모든 파라미터 포함)
+              const termsParams = new URLSearchParams();
+              termsParams.set('page', 'terms');
+              if (uuid) termsParams.set('uuid', uuid);
+              if (partnerForTerms) termsParams.set('partner', partnerForTerms);
+              if (apiKey) termsParams.set('api_key', apiKey);
+              if (data) termsParams.set('data', data);
+              navigate(`/campaigns/disease-prediction?${termsParams.toString()}`);
+              return;
+            } else {
+              console.log('[IntroLandingPage] 약관 동의 완료 → 결제 진행');
+            }
+          } catch (error) {
+            console.error('[IntroLandingPage] 약관 체크 오류:', error);
+            // 약관 체크 실패해도 결제 진행 (에러 처리)
+          }
+        } else {
+          console.warn('[IntroLandingPage] 약관 체크 불가:', { uuid, partnerForTerms });
+        }
+        
         console.log('💳 [IntroLanding] 결제 페이지로 이동');
         navigate(`/campaigns/disease-prediction?page=payment&${commonParams}`);
         break;
     }
-  }, [buttonConfig.action, partner, uuid, data, apiKey, navigate]);
+  }, [buttonConfig.action, partner, uuid, data, apiKey, navigate, status]);
 
   // 리포트 생성 폴링 (oid가 있고 auto_trigger가 true인 경우)
   useEffect(() => {

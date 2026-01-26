@@ -60,6 +60,8 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const campaignUserName = urlParams.get('name');
   const campaignUserPhone = urlParams.get('phone');
   const campaignUserBirth = urlParams.get('birthdate');
+  const isFromChart = urlParams.get('from') === 'chart';
+  const isCustomer = urlParams.get('customer') === 'true';
 
   // 추가 UI 상태
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -80,6 +82,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const [descriptionMessage, setDescriptionMessage] = useState<string>('');
   const [showPendingAuthModal, setShowPendingAuthModal] = useState(false);
   const [pendingAuthMessage, setPendingAuthMessage] = useState<string>('');
+
 
   // 수집 타임아웃 체크 (60초 이상 진전이 없으면 다시 시도 버튼 표시)
   useEffect(() => {
@@ -1613,11 +1616,60 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
     );
   } else if (showConfirmation && !authRequested) {
     // 4. 정보 확인 단계 (인증 요청 전)
+    // 진행 상황 계산
+    const getCurrentStepIndex = () => {
+      switch (currentConfirmationStep) {
+        case 'name': return 0;
+        case 'phone': return 1;
+        case 'birthday': return 2;
+        case 'auth_method': return 3;
+        default: return 0;
+      }
+    };
+    
+    const currentStepIndex = getCurrentStepIndex();
+    const isLastStep = currentConfirmationStep === 'auth_method';
+    
     mainContent = (
       <div className="auth-form-content">
         <h2 className="auth-form-title">
-          {descriptionMessage || '정보를 확인해주세요'}
+          {isLastStep ? '이제 마지막 단계입니다 😊' : (descriptionMessage || '정보를 확인해주세요')}
         </h2>
+        
+        {/* 진행 상황 표시 */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '8px',
+          marginBottom: '30px',
+          marginTop: '-20px'
+        }}>
+          {[0, 1, 2, 3].map((step) => (
+            <React.Fragment key={step}>
+              <div
+                style={{
+                  width: step <= currentStepIndex ? '8px' : '6px',
+                  height: step <= currentStepIndex ? '8px' : '6px',
+                  borderRadius: '50%',
+                  backgroundColor: step <= currentStepIndex ? '#f7e8d3' : '#e0e0e0',
+                  border: step <= currentStepIndex ? '1px solid #d4c4a8' : '1px solid #d0d0d0',
+                  transition: 'all 0.3s ease'
+                }}
+              />
+              {step < 3 && (
+                <div
+                  style={{
+                    width: '12px',
+                    height: '1px',
+                    backgroundColor: step < currentStepIndex ? '#f7e8d3' : '#e0e0e0',
+                    transition: 'all 0.3s ease'
+                  }}
+                />
+              )}
+            </React.Fragment>
+          ))}
+        </div>
         
         {currentConfirmationStep === 'name' && (
           <AuthInput
@@ -1666,11 +1718,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               style={{
                 background: 'none',
                 border: 'none',
-                color: '#ff6b6b',
+                color: '#f7e8d3',
                 cursor: 'pointer',
                 fontSize: '14px',
                 marginBottom: '15px',
-                textDecoration: 'underline'
+                fontWeight: 'bold',
+                textDecoration: 'none'
               }}
             >
               ← 이전으로

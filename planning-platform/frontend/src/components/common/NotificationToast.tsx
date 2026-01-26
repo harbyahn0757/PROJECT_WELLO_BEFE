@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NotificationMessage } from '../../contexts/WelnoDataContext';
 import './NotificationToast.scss';
 
@@ -9,6 +9,7 @@ interface NotificationToastProps {
 
 const NotificationToast: React.FC<NotificationToastProps> = ({ notification, onClose }) => {
   const { id, type, title, message, action } = notification;
+  const [isClosing, setIsClosing] = useState(false);
 
   const getIcon = () => {
     switch (type) {
@@ -23,8 +24,29 @@ const NotificationToast: React.FC<NotificationToastProps> = ({ notification, onC
     }
   };
 
+  const handleClose = () => {
+    setIsClosing(true);
+    // 애니메이션 완료 후 실제 제거
+    setTimeout(() => {
+      onClose(id);
+    }, 600); // fade-out 애니메이션 시간과 동일
+  };
+
+  // autoClose가 true이고 duration이 있으면 자동으로 닫기
+  useEffect(() => {
+    if (notification.autoClose && notification.duration) {
+      const timer = setTimeout(() => {
+        setIsClosing(true);
+        setTimeout(() => {
+          onClose(id);
+        }, 600);
+      }, notification.duration);
+      return () => clearTimeout(timer);
+    }
+  }, [notification.autoClose, notification.duration, id, onClose]);
+
   return (
-    <div className={`notification-toast notification-toast--${type}`}>
+    <div className={`notification-toast notification-toast--${type} ${isClosing ? 'notification-toast--closing' : ''}`}>
       <div className="notification-toast__content">
         <div className="notification-toast__title">
           {title}
@@ -47,7 +69,7 @@ const NotificationToast: React.FC<NotificationToastProps> = ({ notification, onC
       
       <button 
         className="notification-toast__close"
-        onClick={() => onClose(id)}
+        onClick={handleClose}
         aria-label="알림 닫기"
       >
         ×

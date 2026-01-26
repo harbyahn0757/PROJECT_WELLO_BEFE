@@ -83,7 +83,7 @@ export const trackLoading = (
  * 리포트 화면 이벤트
  */
 export const trackReportPage = (
-  action: 'page_view' | 'filter_change' | 'card_swipe' | 'card_click' | 'download_click',
+  action: 'page_view' | 'filter_change' | 'card_swipe' | 'card_click' | 'download_click' | 'share_click',
   data?: Record<string, any>
 ) => {
   sendGTMEvent('report_page', {

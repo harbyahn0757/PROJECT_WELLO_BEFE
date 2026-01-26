@@ -101,6 +101,11 @@
   // 기본 스타일
   &--primary {
     @include button-brand;
+    
+    // 인증 페이지 플로팅 버튼인 경우 배경색 오버라이드
+    &.floating-button {
+      background-color: inherit !important; // _auth.scss에서 설정한 색상 사용
+    }
   }
   
   &--secondary {

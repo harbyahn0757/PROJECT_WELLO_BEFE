@@ -235,6 +235,26 @@ export const useWebSocketAuth = ({
                 if (onAuthCompleted && streamingData) {
                   onAuthCompleted(streamingData);
                 }
+              } else if (streamingStatus === 'mediarc_generating') {
+                console.log('🎨 [WebSocket] Mediarc 생성 시작');
+                if (onDataCollectionProgress) {
+                  onDataCollectionProgress('mediarc_generating', streamingMessage || '질병예측 리포트를 생성하고 있습니다...', streamingData);
+                }
+              } else if (streamingStatus === 'mediarc_completed_password_ready') {
+                console.log('✅ [WebSocket] Mediarc 완료 - 비밀번호 모달 트리거');
+                if (onDataCollectionProgress) {
+                  onDataCollectionProgress('mediarc_completed_password_ready', streamingMessage || '리포트 생성 완료!', streamingData);
+                }
+              } else if (streamingStatus === 'mediarc_failed') {
+                console.log('❌ [WebSocket] Mediarc 생성 실패');
+                if (onDataCollectionProgress) {
+                  onDataCollectionProgress('mediarc_failed', streamingMessage || '리포트 생성 실패', streamingData);
+                }
+              } else if (streamingStatus === 'prescription_completed') {
+                console.log('💊 [WebSocket] 처방전 수집 완료');
+                if (onDataCollectionProgress) {
+                  onDataCollectionProgress('prescription_completed', streamingMessage || '처방전 데이터 수집 완료', streamingData);
+                }
               }
               break;
               

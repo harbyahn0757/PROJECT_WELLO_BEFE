@@ -472,15 +472,15 @@ body:has([href*="results-trend"]) .main-container,
 // 플로팅 버튼 자체 스타일 (브라운 스킨) - solid 스타일
 // Button 컴포넌트와 함께 사용되므로 더 구체적인 선택자 사용
 // 메인화면 및 일반 페이지용 (인증 페이지 제외)
-html body:not([data-path*="login"]) button.floating-button:not(.questionnaire-container .floating-button),
-html body:not([data-path*="login"]) .button.floating-button:not(.questionnaire-container .floating-button),
-html body:not([data-path*="login"]) .floating-button.button:not(.questionnaire-container .floating-button),
-html body .main-container button.floating-button:not(.questionnaire-container .floating-button),
-html body .main-container .button.floating-button:not(.questionnaire-container .floating-button),
-html body .main-container .floating-button.button:not(.questionnaire-container .floating-button),
-button.floating-button:not(.questionnaire-container .floating-button),
-.button.floating-button:not(.questionnaire-container .floating-button),
-.floating-button.button:not(.questionnaire-container .floating-button) {
+html body:not([data-path*="login"]) button.floating-button:not(.questionnaire-container .floating-button):not(.questionnaire-container.tilko-login .floating-button),
+html body:not([data-path*="login"]) .button.floating-button:not(.questionnaire-container .floating-button):not(.questionnaire-container.tilko-login .floating-button),
+html body:not([data-path*="login"]) .floating-button.button:not(.questionnaire-container .floating-button):not(.questionnaire-container.tilko-login .floating-button),
+html body .main-container button.floating-button:not(.questionnaire-container .floating-button):not(.questionnaire-container.tilko-login .floating-button),
+html body .main-container .button.floating-button:not(.questionnaire-container .floating-button):not(.questionnaire-container.tilko-login .floating-button),
+html body .main-container .floating-button.button:not(.questionnaire-container .floating-button):not(.questionnaire-container.tilko-login .floating-button),
+button.floating-button:not(.questionnaire-container .floating-button):not(.questionnaire-container.tilko-login .floating-button),
+.button.floating-button:not(.questionnaire-container .floating-button):not(.questionnaire-container.tilko-login .floating-button),
+.floating-button.button:not(.questionnaire-container .floating-button):not(.questionnaire-container.tilko-login .floating-button) {
   position: fixed !important;
   bottom: 0 !important; // 하단에 완전히 붙이기
   left: 0 !important; // 왼쪽부터 시작

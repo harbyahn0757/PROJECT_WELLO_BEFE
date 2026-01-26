@@ -72,6 +72,15 @@ const MainPage: React.FC = () => {
   // IndexedDB 삭제 모달 state
   const [showIndexedDBClearModal, setShowIndexedDBClearModal] = useState(false);
   
+  // 카드 순차 깜빡임 효과 state (아래 4개 카드만)
+  const [cardFlashStates, setCardFlashStates] = useState({
+    chart: false,   // 검진 결과 추이
+    habit: false,   // 착한습관 만들기
+    design: false,  // 검진항목 설계하기
+    prediction: false // 질병예측 리포트
+  });
+  const cardFlashExecutedRef = useRef(false); // 한번만 실행되도록 플래그
+  
   // 오른쪽 상단 3번 클릭 기능
   const topRightClickCount = useRef(0);
   const topRightClickTimer = useRef<NodeJS.Timeout | null>(null);
@@ -618,8 +627,50 @@ const MainPage: React.FC = () => {
   const displayHospital = hospital || defaultHospital;
   const displayPatient = patient || defaultPatient;
 
-  // 카인드해빗 도메인 여부 확인
-  const isKindHabitDomain = window.location.hostname.includes('kindhabit.com');
+  // 도메인별 인사말 구분
+  const hostname = window.location.hostname;
+  const isKindHabitDomain = hostname.includes('kindhabit.com');
+  const isWelnoDomain = hostname === 'xogxog.com' || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  // 카드 순차 깜빡임 효과 (한번만 실행, 아래 4개 카드의 이미지만)
+  useEffect(() => {
+    if (displayPatient && displayPatient.name && !cardFlashExecutedRef.current) {
+      cardFlashExecutedRef.current = true; // 실행 플래그 설정
+      
+      // 첫 번째 카드 (검진 결과 추이) - 2초 후
+      setTimeout(() => {
+        setCardFlashStates(prev => ({ ...prev, chart: true }));
+        setTimeout(() => {
+          setCardFlashStates(prev => ({ ...prev, chart: false }));
+        }, 400);
+      }, 2000);
+
+      // 두 번째 카드 (착한습관 만들기) - 2.5초 후
+      setTimeout(() => {
+        setCardFlashStates(prev => ({ ...prev, habit: true }));
+        setTimeout(() => {
+          setCardFlashStates(prev => ({ ...prev, habit: false }));
+        }, 400);
+      }, 2500);
+
+      // 세 번째 카드 (검진항목 설계하기) - 3초 후
+      setTimeout(() => {
+        setCardFlashStates(prev => ({ ...prev, design: true }));
+        setTimeout(() => {
+          setCardFlashStates(prev => ({ ...prev, design: false }));
+        }, 400);
+      }, 3000);
+
+      // 네 번째 카드 (질병예측 리포트) - 3.5초 후
+      setTimeout(() => {
+        setCardFlashStates(prev => ({ ...prev, prediction: true }));
+        setTimeout(() => {
+          setCardFlashStates(prev => ({ ...prev, prediction: false }));
+        }, 400);
+      }, 3500);
+    }
+  }, [displayPatient]);
+
 
   const handleCardClick = async (cardType: string) => {
     // URL 파라미터에서 환자 정보 추출
@@ -678,11 +729,27 @@ const MainPage: React.FC = () => {
           } else {
             // 데이터 없음 - 인증 페이지로 이동
             console.log('[검진결과추이] 데이터 없음 - Tilko 인증으로 이동');
-            const authPath = `/login${queryString}`;
-            setIsPageTransitioning(false);
+            
+            // 환자 이름 확인 (고객인지 체크)
+            const patientName = patient?.name || displayPatient.name || '고객';
+            const isCustomer = patientName === '고객';
+            
+            // 스피너 메시지 설정
+            if (isCustomer) {
+              setTransitionMessage('건강보험 공단에서 고객님의 데이터를 받기 위해\n인증을 진행합니다 😄');
+            } else {
+              setTransitionMessage('검진 결과를 불러오는 중입니다...');
+            }
+            
+            // URL 파라미터에 from=chart 추가 (AuthForm에서 메시지 표시용)
+            const authQuery = isCustomer ? `${queryString ? queryString + '&' : '?'}from=chart&customer=true` : queryString;
+            
+            // 2.5초 후 페이지 이동 (스피너를 조금 더 길게 표시)
             setTimeout(() => {
+              const authPath = `/login${authQuery}`;
               navigate(authPath);
-            }, 300);
+              setIsPageTransitioning(false);
+            }, 2500);
             return;
           }
         }
@@ -717,10 +784,13 @@ const MainPage: React.FC = () => {
                   } else {
                     // 권유하지 않는 경우 (이미 거부했거나 최근에 물어봄)
                     console.log('[비밀번호] 권유 생략 - 바로 이동');
-                    // 로딩이 보이도록 충분한 시간 후 navigate (더 길게)
+                    // 스피너 메시지 설정
+                    setTransitionMessage('검진 결과를 불러오는 중입니다...');
+                    // 로딩이 보이도록 충분한 시간 후 navigate (스피너를 조금 더 길게 표시)
                     setTimeout(() => {
                       navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
-                    }, 300);
+                      setIsPageTransitioning(false);
+                    }, 2500);
                     return;
                   }
                 }
@@ -729,10 +799,13 @@ const MainPage: React.FC = () => {
                 const isValid = await isPasswordAuthValid(uuid, hospitalId);
                 if (isValid) {
                   console.log('[비밀번호] 인증 유효 - 바로 이동');
-                  // 로딩이 보이도록 충분한 시간 후 navigate (더 길게)
+                  // 스피너 메시지 설정
+                  setTransitionMessage('검진 결과를 불러오는 중입니다...');
+                  // 로딩이 보이도록 충분한 시간 후 navigate (스피너를 조금 더 길게 표시)
                   setTimeout(() => {
                     navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
-                  }, 300);
+                    setIsPageTransitioning(false);
+                  }, 2500);
                   return;
                 }
                 
@@ -741,9 +814,13 @@ const MainPage: React.FC = () => {
                   const cachedAuth = await WelnoIndexedDB.getPasswordAuth(uuid, hospitalId);
                   if (cachedAuth) {
                     console.log('[비밀번호] IndexedDB 캐시 인증 유효 - 바로 이동');
+                    // 스피너 메시지 설정
+                    setTransitionMessage('검진 결과를 불러오는 중입니다...');
+                    // 스피너를 조금 더 길게 표시
                     setTimeout(() => {
                       navigate(`/results-trend?uuid=${uuid}&hospital=${hospitalId}`);
-                    }, 300);
+                      setIsPageTransitioning(false);
+                    }, 2500);
                     return;
                   }
                 } catch (error) {
@@ -1558,7 +1635,7 @@ const MainPage: React.FC = () => {
                 src="/kindhabit_logo.png"
                 alt="착한습관 로고"
                 className="main-page__header-logo-image"
-                style={{ width: '38px', height: '38px', objectFit: 'contain' }}
+                style={{ height: '28px', width: 'auto', objectFit: 'contain' }}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.src = WELNO_LOGO_IMAGE; // 실패 시 웰노 로고로 폴백
@@ -1606,26 +1683,34 @@ const MainPage: React.FC = () => {
           </h1>
           <p className="main-page__greeting-subtitle">
             {isKindHabitDomain ? (
-              <span className="hospital-name">오늘도온 - 착한습관 만들기 프로젝트 입니다</span>
+              <span className="hospital-name">착한습관 만들기 프로젝트에요 😊</span>
+            ) : isWelnoDomain ? (
+              <>
+                <span className="hospital-name">웰노</span> <span className="hospital-suffix">입니다.</span>
+              </>
             ) : (
               <>
                 <span className="hospital-name">{displayHospital.name}</span> <span className="hospital-suffix">입니다.</span>
               </>
             )}
           </p>
-          <p className="main-page__greeting-message">
-            {isKindHabitDomain ? (
-              <>
-                <span className="greeting-text">착한습관</span><span className="greeting-text">에서</span><br />
-              </>
-            ) : (
-              <>
-                <span className="hospital-name">{displayHospital.name}</span><span className="greeting-text">에서</span><br />
-              </>
-            )}
-            <span className="greeting-text-thin">더 의미있는 내원이 되시길 바라며</span><br />
-            <span className="greeting-text-thin">준비한 건강관리 서비스를 확인해보세요!</span>
-          </p>
+          {!isKindHabitDomain && (
+            <p className="main-page__greeting-message">
+              {isWelnoDomain ? (
+                <>
+                  <span className="hospital-name">웰노</span><span className="greeting-text">에서 준비한</span><br />
+                  <span className="greeting-text-thin">건강관리 서비스를 이용하시고</span><br />
+                  <span className="greeting-text-thin">착한습관 만들어 보세요!</span>
+                </>
+              ) : (
+                <>
+                  <span className="hospital-name">{displayHospital.name}</span><span className="greeting-text">에서</span><br />
+                  <span className="greeting-text-thin">더 의미있는 내원이 되시길 바라며</span><br />
+                  <span className="greeting-text-thin">준비한 건강관리 서비스를 확인해보세요!</span>
+                </>
+              )}
+            </p>
+          )}
         </div>
 
         {/* 첫 번째 카드 (인사말 섹션 안에 포함) */}
@@ -1659,46 +1744,58 @@ const MainPage: React.FC = () => {
       {/* 나머지 카드 섹션 (별도 영역 - 흰색 배경) */}
       <div className="main-page__secondary-cards-section">
         <div className="main-page__cards">
-          <Card
-            type="vertical"
-            icon="chart"
-            title="검진 결과 추이"
-            description="공단검진결과를 이용해서
+          <div className="main-page__card-wrapper">
+            <Card
+              type="vertical"
+              icon="chart"
+              title="검진 결과 추이"
+              description="공단검진결과를 이용해서
 내 건강 추이를 확인하세요"
-            onClick={() => handleCardClick('chart')}
-            imageUrl={trendsChartImage}
-            imageAlt="검진 결과 추이 그래프"
-          />
-          <Card
-            type="vertical"
-            icon="habit"
-            title="착한습관 만들기"
-            description="건강검진결과로 만드는
+              onClick={() => handleCardClick('chart')}
+              imageUrl={trendsChartImage}
+              imageAlt="검진 결과 추이 그래프"
+              imageFlash={cardFlashStates.chart}
+            />
+          </div>
+          <div className="main-page__card-wrapper">
+            <Card
+              type="vertical"
+              icon="habit"
+              title="착한습관 만들기"
+              description="건강검진결과로 만드는
 나만의 착한 습관을 만들어보세요"
-            onClick={() => handleCardClick('habit')}
-            imageUrl={healthHabitImage}
-            imageAlt="착한습관 만들기"
-          />
-          <Card
-            type="vertical"
-            icon="design"
-            title="검진항목 설계하기"
-            description="내 검진결과를 이용해서
+              onClick={() => handleCardClick('habit')}
+              imageUrl={healthHabitImage}
+              imageAlt="착한습관 만들기"
+              imageFlash={cardFlashStates.habit}
+            />
+          </div>
+          <div className="main-page__card-wrapper">
+            <Card
+              type="vertical"
+              icon="design"
+              title="검진항목 설계하기"
+              description="내 검진결과를 이용해서
 올해 건강검진 항목을 설계해보세요"
-            onClick={() => handleCardClick('design')}
-            imageUrl={checkupDesignImage}
-            imageAlt="검진항목 설계하기"
-          />
-          <Card
-            type="vertical"
-            icon="prediction"
-            title="질병예측 리포트 보기"
-            description="AI 기반 건강 데이터 분석으로
+              onClick={() => handleCardClick('design')}
+              imageUrl={checkupDesignImage}
+              imageAlt="검진항목 설계하기"
+              imageFlash={cardFlashStates.design}
+            />
+          </div>
+          <div className="main-page__card-wrapper">
+            <Card
+              type="vertical"
+              icon="prediction"
+              title="질병예측 리포트 보기"
+              description="AI 기반 건강 데이터 분석으로
 질병 예측 리포트를 확인하세요"
-            onClick={() => handleCardClick('prediction')}
-            imageUrl={reportImage}
-            imageAlt="질병예측 리포트"
-          />
+              onClick={() => handleCardClick('prediction')}
+              imageUrl={reportImage}
+              imageAlt="질병예측 리포트"
+              imageFlash={cardFlashStates.prediction}
+            />
+          </div>
         </div>
       </div>
 

@@ -4,6 +4,7 @@
  * AppointmentModal과 같은 패널 형태로 아래에서 올라오는 애니메이션
  */
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { WELNO_LOGO_IMAGE } from '../../../constants/images';
 import './styles.scss';
 
@@ -33,6 +34,7 @@ const TermsAgreementModal: React.FC<TermsAgreementModalProps> = ({
   onClose,
   onConfirm
 }) => {
+  const navigate = useNavigate();
   const [agreedTerms, setAgreedTerms] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [shouldRender, setShouldRender] = useState(false);
@@ -47,7 +49,7 @@ const TermsAgreementModal: React.FC<TermsAgreementModalProps> = ({
         const termsList: TermItem[] = [
           {
             id: 'terms-service',
-            title: '웰로 서비스 이용약관 (필수)',
+            title: '웰노 서비스 이용약관 (필수)',
             required: true,
             content: ''
           },
@@ -65,7 +67,7 @@ const TermsAgreementModal: React.FC<TermsAgreementModalProps> = ({
           },
           {
             id: 'terms-marketing',
-            title: '웰로 서비스를 위한 마케팅 활용 및 개인정보 제3자 제공유상동의 (선택)',
+            title: '웰노 서비스를 위한 마케팅 활용 및 개인정보 제3자 제공유상동의 (선택)',
             required: false,
             content: ''
           }
@@ -159,10 +161,10 @@ const TermsAgreementModal: React.FC<TermsAgreementModalProps> = ({
     }
   }, [isOpen]);
 
-  // 오버레이 클릭 시 닫기
+  // 오버레이 클릭 시 메인페이지로 이동
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.target === e.currentTarget) {
-      onClose();
+      navigate('/');
     }
   };
 
@@ -171,10 +173,10 @@ const TermsAgreementModal: React.FC<TermsAgreementModalProps> = ({
     e.stopPropagation();
   };
 
-  // 닫기 버튼 클릭 핸들러
-  const handleCloseClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+  // 뒤로가기 버튼 클릭 핸들러 (메인페이지로 이동)
+  const handleBackClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
-    onClose();
+    navigate('/');
   };
 
   // 약관 동의 체크박스 토글
@@ -272,16 +274,16 @@ const TermsAgreementModal: React.FC<TermsAgreementModalProps> = ({
       >
         {/* 헤더 */}
         <div className="terms-modal__header">
-          <h2 className="terms-modal__title">약관 동의</h2>
           <button 
-            className="terms-modal__close"
-            onClick={handleCloseClick}
-            aria-label="닫기"
+            className="terms-modal__back"
+            onClick={handleBackClick}
+            aria-label="뒤로가기"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6L6 18M6 6l12 12" />
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
           </button>
+          <h2 className="terms-modal__title">약관 동의</h2>
         </div>
 
         {/* 컨텐츠 */}

@@ -459,6 +459,61 @@ html:has(.aims-report-page) {
         }
       }
 
+      .report-action-buttons {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+        margin-left: auto;
+
+        .report-action-button {
+          padding: 8px 16px;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 600;
+          border: none;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          white-space: nowrap;
+
+          &.download-button {
+            background: var(--report-accent-color, #FFB84D);
+            color: #000000;
+            border: 1px solid var(--report-accent-color, #FFB84D);
+
+            &:hover {
+              background: var(--report-accent-color, #FFB84D);
+              opacity: 0.9;
+              transform: translateY(-1px);
+              box-shadow: 0 2px 8px rgba(255, 184, 77, 0.3);
+            }
+
+            &:active {
+              transform: translateY(0);
+            }
+          }
+
+          &.share-button {
+            background: var(--report-card-bg, rgba(255, 255, 255, 0.05));
+            color: var(--report-text-primary, #ffffff);
+            border: 1px solid var(--report-card-border, rgba(255, 255, 255, 0.1));
+
+            &:hover {
+              background: var(--report-accent-bg-light, rgba(255, 184, 77, 0.2));
+              border-color: var(--report-accent-border, rgba(255, 184, 77, 0.5));
+              color: var(--report-accent-color, #FFB84D);
+            }
+
+            &:active {
+              transform: translateY(0);
+            }
+          }
+        }
+      }
+
       @media (max-width: 768px) {
         flex-wrap: wrap;
         
@@ -470,6 +525,13 @@ html:has(.aims-report-page) {
         .report-update-info {
           width: 100%;
           margin-top: 0;
+        }
+
+        .report-action-buttons {
+          width: 100%;
+          margin-left: 0;
+          margin-top: 8px;
+          justify-content: flex-end;
         }
       }
     }

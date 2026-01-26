@@ -4,7 +4,7 @@
  */
 @use '../../../styles/variables' as *;
 
-// 웰로 아이콘 깜박이는 애니메이션
+// 웰노 아이콘 깜박이는 애니메이션
 @keyframes faviconBlink {
   0%, 100% { 
     opacity: 1; 
@@ -62,31 +62,31 @@
 
 // 모달 오버레이
 .terms-modal-overlay {
-  position: fixed;
+  position: fixed !important;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: flex-end;
+  display: flex !important;
+  align-items: flex-end !important;
   justify-content: center;
   z-index: 9999;
-  padding: 0;
+  padding: 0 !important;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 
   &--open {
-    animation: fadeIn 0.3s ease-out forwards;
+    animation: fadeIn 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
   }
 
   &--close {
-    animation: fadeOut 0.3s ease-out forwards;
+    animation: fadeOut 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
   }
 
   @media (min-width: 768px) {
-    align-items: center;
-    padding: 20px;
+    align-items: flex-end !important;
+    padding-bottom: 20px !important;
   }
 }
 
@@ -106,18 +106,18 @@
   padding-bottom: env(safe-area-inset-bottom, 0);
 
   &--open {
-    animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: slideUp 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
   }
 
   &--close {
-    animation: slideDown 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    animation: slideDown 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
   }
 
   @media (min-width: 768px) {
-    border-radius: 16px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.15);
     margin-bottom: 0;
-    max-height: 70vh;
+    max-height: 75vh;
   }
 }
 
@@ -125,7 +125,8 @@
 .terms-modal__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: $spacing-xs;
   padding: $spacing-sm $spacing-sm $spacing-xs;
   border-bottom: none; // 하단 줄 제거
   position: relative;
@@ -138,15 +139,17 @@
   color: $brand-brown-darker;
   margin: 0;
   margin-top: 12px; // 조금 더 아래로
-  margin-left: 8px; // 조금 오른쪽으로
   line-height: 1.2; // 랜딩화면과 동일
   font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif); // 랜딩화면과 동일
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  width: 100%;
+  pointer-events: none; // 클릭 이벤트 방지 (뒤로가기 버튼 클릭 가능하도록)
 }
 
-.terms-modal__close {
-  position: absolute;
-  top: 8px; // 제목과 같은 높이로 맞춤
-  right: $spacing-sm;
+.terms-modal__back {
   background: none;
   border: none;
   color: $gray-500;
@@ -156,10 +159,12 @@
   transition: all 0.2s ease;
   width: 32px;
   height: 32px;
+  min-width: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10;
+  margin-top: 12px; // 제목과 같은 높이로 맞춤
 
   &:hover {
     background: $gray-100;

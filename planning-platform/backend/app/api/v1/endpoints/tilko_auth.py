@@ -36,6 +36,10 @@ class SimpleAuthWithSessionRequest(BaseModel):
     patient_uuid: Optional[str] = None  # 환자 UUID
     hospital_id: Optional[str] = None   # 병원 ID
     oid: Optional[str] = None           # 캠페인 주문번호 추가
+    redirect_path: Optional[str] = None  # 진입 경로 (/disease-report 등)
+    terms_agreed: Optional[bool] = None   # 약관 동의 여부
+    terms_agreed_at: Optional[str] = None  # 약관 동의 시각 (ISO format)
+    terms_expires_at: Optional[str] = None  # 약관 만료 시각 (ISO format)
 
 class HealthDataRequest(BaseModel):
     cx_id: str
@@ -212,9 +216,22 @@ async def start_auth_session(request: SimpleAuthWithSessionRequest) -> Dict[str,
         
         session_id = session_manager.create_session(user_info)
         
+        # 세션 데이터 가져오기
+        session_data = session_manager.get_session(session_id)
+        
+        # ✅ 진입 경로 및 약관 데이터 세션에 저장
+        if request.redirect_path:
+            session_data["redirect_path"] = request.redirect_path
+            print(f"✅ [세션생성] 진입 경로 저장: {request.redirect_path}")
+        
+        if request.terms_agreed is not None:
+            session_data["terms_agreed"] = request.terms_agreed
+            session_data["terms_agreed_at"] = request.terms_agreed_at
+            session_data["terms_expires_at"] = request.terms_expires_at
+            print(f"✅ [세션생성] 약관 동의 정보 저장: agreed={request.terms_agreed}")
+        
         # 환자 UUID와 병원 ID를 세션에 추가로 저장
         if request.patient_uuid and request.hospital_id:
-            session_data = session_manager.get_session(session_id)
             session_data["patient_uuid"] = request.patient_uuid
             session_data["hospital_id"] = request.hospital_id
             if request.oid:
@@ -225,10 +242,12 @@ async def start_auth_session(request: SimpleAuthWithSessionRequest) -> Dict[str,
                     update_pipeline_step(request.oid, 'TILKO_SYNCING')
                 except:
                     pass
-            session_manager._save_session(session_id, session_data)
             print(f"✅ [세션생성] 환자 정보 저장: {request.patient_uuid} @ {request.hospital_id} (OID: {request.oid})")
         else:
             print(f"⚠️ [세션생성] 환자 정보 누락 - patient_uuid: {request.patient_uuid}, hospital_id: {request.hospital_id}")
+        
+        # 세션 저장
+        session_manager._save_session(session_id, session_data)
         
         return {
             "success": True,
@@ -1474,17 +1493,45 @@ async def collect_health_data_background_task(session_id: str):
                     pass
 
                 try:
+                    # ✅ patient_uuid, hospital_id 추가 (프론트 UUID 누락 방지)
                     await notify_streaming_status(
                         session_id,
                         "health_data_completed",
                         health_success_message,
-                        {"count": health_count}
+                        {
+                            "count": health_count,
+                            "patient_uuid": patient_uuid,
+                            "hospital_id": hospital_id
+                        }
                     )
                 except Exception as e:
                     print(f"⚠️ [백그라운드] 건강검진 완료 알림 실패: {e}")
                 
                 print(f"✅ [백그라운드] 건강검진 데이터 수집 성공 - {health_count}건")
                 print(f"✅ [백그라운드] JSON 파일 저장 완료")
+                
+                # ✅ 진입 경로 확인 및 Mediarc 생성 시작
+                if health_count > 0 and patient_uuid and hospital_id:
+                    session_data_for_mediarc = session_manager.get_session(session_id)
+                    redirect_path = session_data_for_mediarc.get("redirect_path", "") if session_data_for_mediarc else ""
+                    is_disease_report = 'disease-report' in redirect_path
+                    
+                    if is_disease_report:
+                        # Case 2: 질병예측리포트 - Mediarc 생성 시작
+                        print(f"🎨 [플로우] 질병예측리포트 케이스 - Mediarc 생성 시작")
+                        
+                        import asyncio
+                        asyncio.create_task(
+                            _generate_mediarc_with_notification(
+                                patient_uuid=patient_uuid,
+                                hospital_id=hospital_id,
+                                session_id=session_id,
+                                service=welno_service
+                            )
+                        )
+                    else:
+                        # Case 1: 추이보기 - 화면 전환만 (Mediarc는 나중에)
+                        print(f"📊 [플로우] 추이보기 케이스 - 화면 전환 알림만")
                 
                 # [삭제] 이 위치에서는 patient_uuid가 없을 수 있음 (환자 식별 로직 뒤로 이동)
                 """
@@ -1637,6 +1684,29 @@ async def collect_health_data_background_task(session_id: str):
                 session_manager.update_prescription_data(session_id, prescription_data)
                 print(f"✅ [백그라운드] 처방전 데이터 수집 성공 - {prescription_count}건")
                 print(f"✅ [백그라운드] JSON 파일 저장 완료")
+                
+                # ✅ 처방전 완료 알림
+                try:
+                    from .websocket_auth import notify_streaming_status
+                    # patient_uuid와 hospital_id는 세션에서 가져오기
+                    session_data_prescription = session_manager.get_session(session_id)
+                    patient_uuid_prescription = session_data_prescription.get("patient_uuid") if session_data_prescription else None
+                    hospital_id_prescription = session_data_prescription.get("hospital_id") if session_data_prescription else None
+                    
+                    if patient_uuid_prescription and hospital_id_prescription:
+                        await notify_streaming_status(
+                            session_id,
+                            "prescription_completed",
+                            f"처방전 데이터 {prescription_count}건 수집했습니다.",
+                            {
+                                "count": prescription_count,
+                                "patient_uuid": patient_uuid_prescription,
+                                "hospital_id": hospital_id_prescription
+                            }
+                        )
+                        print(f"✅ [처방전] 완료 알림 전송: {prescription_count}건")
+                except Exception as e:
+                    print(f"⚠️ [처방전] 완료 알림 실패: {e}")
                 
         except Exception as e:
             # 예외 발생 시 사용자 친화적 에러 메시지
@@ -1817,6 +1887,48 @@ async def collect_health_data_background_task(session_id: str):
                         patient_uuid = existing_patient["uuid"]
                         hospital_id = existing_patient["hospital_id"]
                         print(f"✅ [백그라운드-식별] 기존 환자 발견 - UUID: {patient_uuid}")
+                        
+                        # ✅ 약관 데이터 DB 저장 (기존 환자도 업데이트) - welno_patients 테이블에 저장
+                        try:
+                            session_data_for_terms = session_manager.get_session(session_id)
+                            if session_data_for_terms and session_data_for_terms.get("terms_agreed"):
+                                # 세션 데이터를 welno_patients 테이블 형식으로 변환
+                                terms_agreed_at = session_data_for_terms.get("terms_agreed_at")
+                                terms_expires_at = session_data_for_terms.get("terms_expires_at")
+                                
+                                # terms_agreement_detail 형식으로 변환
+                                terms_agreement_detail = {
+                                    "terms_service": {
+                                        "agreed": True,
+                                        "agreed_at": terms_agreed_at
+                                    },
+                                    "terms_privacy": {
+                                        "agreed": True,
+                                        "agreed_at": terms_agreed_at
+                                    },
+                                    "terms_sensitive": {
+                                        "agreed": True,
+                                        "agreed_at": terms_agreed_at
+                                    },
+                                    "terms_marketing": {
+                                        "agreed": False,
+                                        "agreed_at": None
+                                    }
+                                }
+                                
+                                # WelnoDataService를 사용하여 약관 저장
+                                result = await welno_service.save_terms_agreement_detail(
+                                    uuid=patient_uuid,
+                                    hospital_id=hospital_id,
+                                    terms_agreement_detail=terms_agreement_detail
+                                )
+                                
+                                if result.get("success"):
+                                    print(f"✅ [약관] DB 저장 완료 (기존 환자): {patient_uuid}")
+                                else:
+                                    print(f"⚠️ [약관] DB 저장 실패: {result.get('error')}")
+                        except Exception as e:
+                            print(f"⚠️ [약관] DB 저장 실패 (계속 진행): {e}")
                     else:
                         # 새 환자 생성
                         new_uuid = str(uuid_lib.uuid4())
@@ -1876,6 +1988,48 @@ async def collect_health_data_background_task(session_id: str):
                         patient_uuid = new_uuid
                         hospital_id = default_hosp
                         print(f"✅ [백그라운드-식별] 새 환자 생성 완료 - UUID: {patient_uuid}")
+                        
+                        # ✅ 약관 데이터 DB 저장 - welno_patients 테이블에 저장
+                        try:
+                            session_data_for_terms = session_manager.get_session(session_id)
+                            if session_data_for_terms and session_data_for_terms.get("terms_agreed"):
+                                # 세션 데이터를 welno_patients 테이블 형식으로 변환
+                                terms_agreed_at = session_data_for_terms.get("terms_agreed_at")
+                                terms_expires_at = session_data_for_terms.get("terms_expires_at")
+                                
+                                # terms_agreement_detail 형식으로 변환
+                                terms_agreement_detail = {
+                                    "terms_service": {
+                                        "agreed": True,
+                                        "agreed_at": terms_agreed_at
+                                    },
+                                    "terms_privacy": {
+                                        "agreed": True,
+                                        "agreed_at": terms_agreed_at
+                                    },
+                                    "terms_sensitive": {
+                                        "agreed": True,
+                                        "agreed_at": terms_agreed_at
+                                    },
+                                    "terms_marketing": {
+                                        "agreed": False,
+                                        "agreed_at": None
+                                    }
+                                }
+                                
+                                # WelnoDataService를 사용하여 약관 저장
+                                result = await welno_service.save_terms_agreement_detail(
+                                    uuid=new_uuid,
+                                    hospital_id=default_hosp,
+                                    terms_agreement_detail=terms_agreement_detail
+                                )
+                                
+                                if result.get("success"):
+                                    print(f"✅ [약관] DB 저장 완료: {new_uuid}")
+                                else:
+                                    print(f"⚠️ [약관] DB 저장 실패: {result.get('error')}")
+                        except Exception as e:
+                            print(f"⚠️ [약관] DB 저장 실패 (계속 진행): {e}")
                 
                 # 2. 세션에 즉시 반영 (중요!)
                 final_session_data["patient_uuid"] = patient_uuid
@@ -1990,30 +2144,55 @@ async def collect_health_data_background_task(session_id: str):
                 health_data_obj = final_session_data.get("health_data", {})
                 health_count = len(health_data_obj.get("ResultList", [])) if isinstance(health_data_obj, dict) else 0
 
+                print(f"\n{'='*80}")
+                print(f"🔄 [Tilko → Mediarc 자동 트리거] 검증 시작")
+                print(f"  - patient_uuid: {patient_uuid}")
+                print(f"  - hospital_id: {hospital_id}")
+                print(f"  - session_id: {session_id}")
+                print(f"  - MEDIARC_ENABLED: {MEDIARC_ENABLED}")
+                print(f"  - health_count: {health_count}건")
+                print(f"{'='*80}\n")
+
                 if MEDIARC_ENABLED and health_count > 0:
-                    print(f"🔄 [Mediarc] 리포트 생성 백그라운드 시작 (UUID: {patient_uuid})")
+                    print(f"✅ [Tilko → Mediarc] 조건 충족 → 리포트 생성 시작")
                     
                     # DB 상태 업데이트: 리포트 대기 중
                     oid = final_session_data.get("oid")
                     if oid:
+                        print(f"📊 [Tilko → Mediarc] 캠페인 OID 발견: {oid} → 상태 업데이트")
                         from .campaign_payment import update_pipeline_step
                         update_pipeline_step(oid, 'REPORT_WAITING')
 
                     from app.services.mediarc import generate_mediarc_report_async
+                    
+                    print(f"🚀 [Tilko → Mediarc] 백그라운드 태스크 등록 (session_id={session_id})")
                     
                     # asyncio.create_task()로 독립 실행
                     asyncio.create_task(
                         generate_mediarc_report_async(
                             patient_uuid=patient_uuid,
                             hospital_id=hospital_id,
-                            session_id=session_id,
+                            session_id=session_id,  # ✅ session_id 전달 (WebSocket 알림용)
                             service=welno_service
                         )
                     )
+                    
+                    print(f"✅ [Tilko → Mediarc] 백그라운드 태스크 등록 완료")
+                    print(f"   → WebSocket 알림 예상: ws://.../{session_id}")
+                    print(f"{'='*80}\n")
                 else:
-                    print(f"⚠️ [Mediarc] 트리거 건너뜀 - 활성화: {MEDIARC_ENABLED}, 데이터수: {health_count}")
+                    print(f"⚠️ [Tilko → Mediarc] 트리거 건너뜀")
+                    print(f"   - MEDIARC_ENABLED: {MEDIARC_ENABLED}")
+                    print(f"   - health_count: {health_count}건")
+                    if not MEDIARC_ENABLED:
+                        print(f"   → 설정에서 Mediarc 기능 활성화 필요")
+                    if health_count == 0:
+                        print(f"   → 건강검진 데이터 없음")
+                    print(f"{'='*80}\n")
             except Exception as mediarc_error:
-                print(f"❌ [Mediarc] 백그라운드 시작 실패: {mediarc_error}")
+                print(f"❌ [Tilko → Mediarc] 백그라운드 시작 실패: {mediarc_error}")
+                import traceback
+                traceback.print_exc()
 
         except Exception as e:
             print(f"❌ [백그라운드-치명적오류] 데이터 처리 중 예외 발생: {str(e)}")
@@ -2419,3 +2598,65 @@ async def streaming_auth_monitor(session_id: str):
             await notify_error(session_id, f"시스템 오류가 발생했습니다: {str(e)}")
         except Exception as notify_e:
             print(f"⚠️ [스트리밍모니터] 오류 알림 실패: {notify_e}")
+
+
+async def _generate_mediarc_with_notification(
+    patient_uuid: str,
+    hospital_id: str,
+    session_id: str,
+    service
+):
+    """Mediarc 생성 및 WebSocket 알림"""
+    try:
+        # 생성 시작 알림
+        from .websocket_auth import notify_streaming_status
+        await notify_streaming_status(
+            session_id,
+            "mediarc_generating",
+            "질병예측 리포트를 생성하고 있습니다...",
+            {"patient_uuid": patient_uuid}
+        )
+        
+        # Mediarc 생성 (await - 완료까지 대기)
+        from app.services.mediarc import generate_mediarc_report_async
+        result = await generate_mediarc_report_async(
+            patient_uuid=patient_uuid,
+            hospital_id=hospital_id,
+            session_id=session_id,
+            service=service
+        )
+        
+        if result:
+            # 성공 알림 + 비밀번호 모달 트리거
+            await notify_streaming_status(
+                session_id,
+                "mediarc_completed_password_ready",
+                "리포트 생성 완료!",
+                {
+                    "patient_uuid": patient_uuid,
+                    "hospital_id": hospital_id
+                }
+            )
+            print(f"✅ [Mediarc] 생성 완료 및 비밀번호 모달 트리거")
+        else:
+            # 실패 알림
+            await notify_streaming_status(
+                session_id,
+                "mediarc_failed",
+                "리포트 생성 실패",
+                {"error": "Mediarc 생성 실패"}
+            )
+            print(f"❌ [Mediarc] 생성 실패")
+            
+    except Exception as e:
+        print(f"❌ [Mediarc] 예외 발생: {e}")
+        try:
+            from .websocket_auth import notify_streaming_status
+            await notify_streaming_status(
+                session_id,
+                "mediarc_failed",
+                f"리포트 생성 중 오류: {str(e)}",
+                {"error": str(e)}
+            )
+        except Exception as notify_e:
+            print(f"⚠️ [Mediarc] 실패 알림 전송 실패: {notify_e}")

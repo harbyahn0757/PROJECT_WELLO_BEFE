@@ -136,6 +136,26 @@
     object-fit: contain; // 이미지 비율 유지
     display: block;
     background: transparent; // 이미지 배경색 없음
+    
+    // 이미지 깜빡임 효과 (한번만)
+    &--flash {
+      animation: imageFlash 0.4s ease-in-out;
+    }
+    
+    @keyframes imageFlash {
+      0% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.6;
+        transform: scale(0.95);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
   }
   
   &__image-placeholder {

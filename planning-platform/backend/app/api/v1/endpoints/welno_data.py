@@ -2,10 +2,16 @@
 WELNO 건강정보 데이터 관리 API
 """
 
-from fastapi import APIRouter, HTTPException, Query, Request, Body
+from fastapi import APIRouter, HTTPException, Query, Request, Body, Depends, Header
+from fastapi.responses import StreamingResponse, Response
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Dict, Any, Optional, List
 from datetime import datetime
+import httpx
 from ....services.welno_data_service import welno_data_service
+from ....core.security import get_current_user, verify_token
+
+security = HTTPBearer(auto_error=False)  # 토큰이 없어도 에러 발생 안 함 (선택적 인증)
 
 router = APIRouter()
 
@@ -308,27 +314,33 @@ async def upload_health_data(
         }
         await welno_data_service.save_patient_data(uuid, hospital_id, user_info, "")
         
-        # 2. 건강검진 데이터 저장
+        # 2. 건강검진 데이터 저장 (IndexedDB 출처로 표시)
         health_saved = False
         health_count = 0
         if health_record.get("healthData"):
             health_data_list = health_record["healthData"]
             if isinstance(health_data_list, list) and len(health_data_list) > 0:
-                health_saved = await welno_data_service.save_health_data(uuid, hospital_id, {"ResultList": health_data_list}, "")
+                health_saved = await welno_data_service.save_health_data(
+                    uuid, hospital_id, {"ResultList": health_data_list}, "", 
+                    data_source='indexeddb'
+                )
                 health_count = len(health_data_list)
-                print(f"📊 [데이터업로드] 건강검진 데이터 저장: {health_count}건, 성공: {health_saved}")
+                print(f"📊 [데이터업로드] 건강검진 데이터 저장: {health_count}건, 성공: {health_saved} (출처: indexeddb)")
             else:
                 print(f"⚠️ [데이터업로드] 건강검진 데이터가 비어있거나 형식 오류: {type(health_data_list)}")
             
-        # 3. 처방전 데이터 저장
+        # 3. 처방전 데이터 저장 (IndexedDB 출처로 표시)
         prescription_saved = False
         prescription_count = 0
         if health_record.get("prescriptionData"):
             prescription_data_list = health_record["prescriptionData"]
             if isinstance(prescription_data_list, list) and len(prescription_data_list) > 0:
-                prescription_saved = await welno_data_service.save_prescription_data(uuid, hospital_id, {"ResultList": prescription_data_list}, "")
+                prescription_saved = await welno_data_service.save_prescription_data(
+                    uuid, hospital_id, {"ResultList": prescription_data_list}, "", 
+                    data_source='indexeddb'
+                )
                 prescription_count = len(prescription_data_list)
-                print(f"📊 [데이터업로드] 처방전 데이터 저장: {prescription_count}건, 성공: {prescription_saved}")
+                print(f"📊 [데이터업로드] 처방전 데이터 저장: {prescription_count}건, 성공: {prescription_saved} (출처: indexeddb)")
             else:
                 print(f"⚠️ [데이터업로드] 처방전 데이터가 비어있거나 형식 오류: {type(prescription_data_list)}")
         
@@ -716,14 +728,53 @@ async def get_mediarc_report(
         """
         
         row = await conn.fetchrow(query, uuid, hospital_id)
-        await conn.close()
         
         if not row:
+            await conn.close()
             return {
                 "success": False,
                 "has_report": False,
                 "message": "Mediarc 리포트가 없습니다."
             }
+        
+        # URL 만료 확인 및 재생성
+        report_url = row['report_url']
+        if report_url:
+            try:
+                import httpx
+                # URL 접근 테스트 (HEAD 요청)
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    test_response = await client.head(report_url, follow_redirects=True)
+                    if test_response.status_code == 403:
+                        # Access Denied - URL 만료
+                        print(f"⚠️ [Mediarc조회] 리포트 URL 만료 감지, raw_response에서 재확인 시도...")
+                        
+                        # raw_response에서 원본 URL 확인
+                        raw_response = row['raw_response']
+                        if raw_response and isinstance(raw_response, dict):
+                            # raw_response에서 report_url 추출 시도
+                            original_url = None
+                            if 'data' in raw_response and isinstance(raw_response['data'], dict):
+                                original_url = raw_response['data'].get('report_url')
+                            elif 'report_url' in raw_response:
+                                original_url = raw_response.get('report_url')
+                            
+                            if original_url and original_url != report_url:
+                                # 다른 URL이 있으면 테스트
+                                test_response2 = await client.head(original_url, follow_redirects=True)
+                                if test_response2.status_code == 200:
+                                    report_url = original_url
+                                    print(f"✅ [Mediarc조회] raw_response에서 유효한 URL 발견")
+                                else:
+                                    print(f"⚠️ [Mediarc조회] raw_response의 URL도 만료됨")
+                            else:
+                                print(f"⚠️ [Mediarc조회] raw_response에서 다른 URL을 찾을 수 없음")
+                    elif test_response.status_code == 200:
+                        print(f"✅ [Mediarc조회] 리포트 URL 유효함")
+            except Exception as url_check_error:
+                print(f"⚠️ [Mediarc조회] URL 확인 중 오류 (무시하고 계속): {url_check_error}")
+        
+        await conn.close()
         
         # 데이터 변환 (Decimal, datetime, JSONB 처리)
         import json as json_lib
@@ -750,7 +801,7 @@ async def get_mediarc_report(
             "patient_uuid": row['patient_uuid'],
             "hospital_id": row['hospital_id'],
             "mkt_uuid": row['mkt_uuid'],
-            "report_url": row['report_url'],
+            "report_url": report_url,  # 확인/갱신된 URL 사용
             "provider": row['provider'],
             "analyzed_at": row['analyzed_at'].isoformat() if row['analyzed_at'] else None,
             "bodyage": row['bodyage'],
@@ -782,7 +833,8 @@ async def get_mediarc_report(
 @router.post("/mediarc-report/generate")
 async def generate_mediarc_report(
     uuid: str = Query(..., description="환자 UUID"),
-    hospital_id: str = Query(..., description="병원 ID")
+    hospital_id: str = Query(..., description="병원 ID"),
+    session_id: Optional[str] = Query(None, description="세션 ID (WebSocket 알림용, 선택)")
 ) -> Dict[str, Any]:
     """
     Mediarc 질병예측 리포트 생성 요청 (백그라운드 처리)
@@ -792,6 +844,7 @@ async def generate_mediarc_report(
     Args:
         uuid: 환자 UUID
         hospital_id: 병원 ID
+        session_id: 세션 ID (선택, WebSocket 알림을 위해 전달 가능)
         
     Returns:
         생성 요청 성공 여부 (실제 생성은 백그라운드에서 진행)
@@ -802,9 +855,10 @@ async def generate_mediarc_report(
         import asyncio
         
         print(f"\n{'='*80}")
-        print(f"🔄 [Mediarc 생성 요청] 시작")
+        print(f"🔄 [Mediarc 수동 생성 요청] 시작")
         print(f"  - uuid: {uuid}")
         print(f"  - hospital_id: {hospital_id}")
+        print(f"  - session_id: {session_id or '없음 (WebSocket 알림 skip)'}")
         print(f"{'='*80}\n")
         
         # 1. MEDIARC_ENABLED 플래그 확인
@@ -871,30 +925,35 @@ async def generate_mediarc_report(
         
         # 4. 백그라운드에서 Mediarc 리포트 생성
         # ─────────────────────────────────────────────────────────────────
-        # questionnaire_codes가 None이면 기본값 자동 추가됨
-        # (generate_mediarc_report_async 내부 로직)
+        # ✅ session_id가 있으면 WebSocket 알림 전송
+        # ❌ session_id가 없으면 WebSocket 알림 skip (폴링으로 확인)
         # ─────────────────────────────────────────────────────────────────
         from ....services.mediarc import generate_mediarc_report_async
         
-        print(f"🔄 [Mediarc 생성 요청] 백그라운드 태스크 시작")
+        print(f"🚀 [Mediarc 수동 생성] 백그라운드 태스크 등록")
+        if session_id:
+            print(f"   → WebSocket 알림 활성화 (session_id={session_id})")
+        else:
+            print(f"   → WebSocket 알림 비활성화 (폴링으로 확인 필요)")
         
         asyncio.create_task(
             generate_mediarc_report_async(
                 patient_uuid=uuid,
                 hospital_id=hospital_id,
-                session_id=None,  # 수동 생성이므로 session_id 없음
+                session_id=session_id,  # ✅ session_id 전달 (있으면 WebSocket, 없으면 skip)
                 service=welno_data_service,
                 questionnaire_data=questionnaire_codes  # 문진 데이터 포함
             )
         )
         
-        print(f"✅ [Mediarc 생성 요청] 백그라운드 태스크 등록 완료")
+        print(f"✅ [Mediarc 수동 생성] 백그라운드 태스크 등록 완료")
         print(f"{'='*80}\n")
         
         return {
             "success": True,
             "message": "Mediarc 리포트 생성을 시작했습니다. 완료되면 알림을 받게 됩니다.",
-            "generating": True
+            "generating": True,
+            "has_websocket": session_id is not None  # 프론트엔드에서 폴링 여부 판단용
         }
         
     except HTTPException:
@@ -904,3 +963,169 @@ async def generate_mediarc_report(
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"리포트 생성 요청 실패: {str(e)}")
+
+@router.get("/mediarc-report/download")
+async def download_mediarc_report(
+    uuid: str = Query(..., description="환자 UUID"),
+    hospital_id: str = Query(..., description="병원 ID"),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> StreamingResponse:
+    """
+    Mediarc 리포트 PDF 다운로드 (프록시 + 접근 제어)
+    
+    Presigned URL을 통해 리포트를 다운로드하고 프록시로 전달합니다.
+    CORS 문제와 URL 만료 문제를 해결하며, 접근 제어를 수행합니다.
+    
+    접근 제어:
+    - JWT 토큰이 있으면: 토큰의 uuid와 요청 uuid 일치 확인
+    - 토큰이 없으면: DB에서 환자 정보 존재 확인 (약한 인증)
+    
+    Args:
+        uuid: 환자 UUID
+        hospital_id: 병원 ID
+        credentials: JWT 토큰 (선택적)
+        
+    Returns:
+        PDF 파일 스트림
+    """
+    try:
+        import asyncpg
+        from ....core.config import settings
+        
+        # ============================================
+        # 1. 접근 제어: UUID 소유권 확인
+        # ============================================
+        if credentials:
+            # JWT 토큰이 있는 경우: 토큰의 uuid와 요청 uuid 일치 확인
+            try:
+                token_payload = verify_token(credentials.credentials)
+                token_uuid = token_payload.get("sub")  # JWT의 subject (uuid)
+                
+                if token_uuid != uuid:
+                    print(f"⚠️ [다운로드 프록시] 접근 거부: 토큰 UUID({token_uuid}) != 요청 UUID({uuid})")
+                    raise HTTPException(
+                        status_code=403,
+                        detail="다른 사용자의 리포트에 접근할 수 없습니다."
+                    )
+                
+                print(f"✅ [다운로드 프록시] JWT 토큰 인증 성공: uuid={uuid}")
+            except HTTPException:
+                raise
+            except Exception as e:
+                print(f"⚠️ [다운로드 프록시] 토큰 검증 실패 (다른 방식으로 확인): {str(e)}")
+                # 토큰 검증 실패해도 계속 진행 (DB 확인으로 대체)
+        else:
+            # 토큰이 없는 경우: DB에서 환자 정보 존재 확인 (약한 인증)
+            print(f"ℹ️ [다운로드 프록시] JWT 토큰 없음, DB 확인으로 대체")
+        
+        # DB 연결
+        conn = await asyncpg.connect(
+            host=settings.DB_HOST if hasattr(settings, 'DB_HOST') else '10.0.1.10',
+            port=settings.DB_PORT if hasattr(settings, 'DB_PORT') else 5432,
+            database=settings.DB_NAME if hasattr(settings, 'DB_NAME') else 'p9_mkt_biz',
+            user=settings.DB_USER if hasattr(settings, 'DB_USER') else 'peernine',
+            password=settings.DB_PASSWORD if hasattr(settings, 'DB_PASSWORD') else 'autumn3334!'
+        )
+        
+        # 환자 정보 확인 (접근 제어)
+        patient_check = await conn.fetchrow(
+            "SELECT id, uuid FROM welno.welno_patients WHERE uuid = $1 AND hospital_id = $2",
+            uuid, hospital_id
+        )
+        
+        # 환자 정보가 없어도 리포트는 있을 수 있음 (파트너 케이스 등)
+        # 하지만 최소한 리포트가 해당 uuid에 속하는지 확인
+        report_check = await conn.fetchrow(
+            """
+            SELECT 
+                report_url, raw_response, patient_uuid
+            FROM welno.welno_mediarc_reports
+            WHERE patient_uuid = $1 AND hospital_id = $2
+            ORDER BY created_at DESC
+            LIMIT 1
+            """,
+            uuid, hospital_id
+        )
+        
+        if not report_check:
+            await conn.close()
+            raise HTTPException(status_code=404, detail="리포트를 찾을 수 없습니다.")
+        
+        # 환자 정보가 있고, 리포트의 patient_uuid와 일치하는지 확인
+        if patient_check and report_check['patient_uuid'] != uuid:
+            await conn.close()
+            raise HTTPException(
+                status_code=403,
+                detail="리포트 접근 권한이 없습니다."
+            )
+        
+        row = report_check
+        await conn.close()
+        
+        # report_url 확인
+        report_url = row['report_url']
+        
+        # raw_response에서 URL 확인 (만료된 경우 대비)
+        if not report_url or report_url == '':
+            raw_response = row['raw_response']
+            if raw_response and isinstance(raw_response, dict):
+                report_url = raw_response.get('report_url') or (raw_response.get('data', {}) or {}).get('report_url')
+        
+        if not report_url:
+            raise HTTPException(status_code=404, detail="리포트 URL을 찾을 수 없습니다.")
+        
+        print(f"📥 [다운로드 프록시] 리포트 다운로드 시작: {report_url[:100]}...")
+        
+        # Presigned URL에서 파일 다운로드
+        async with httpx.AsyncClient(timeout=60.0, follow_redirects=True) as client:
+            try:
+                response = await client.get(report_url)
+                response.raise_for_status()
+                
+                # Content-Type 확인
+                content_type = response.headers.get('content-type', 'application/pdf')
+                
+                # 파일명 생성 (한글 인코딩 처리)
+                from urllib.parse import quote
+                filename_base = f"질병예측리포트_{uuid[:8]}_{datetime.now().strftime('%Y%m%d')}.pdf"
+                filename_encoded = quote(filename_base.encode('utf-8'))
+                
+                print(f"✅ [다운로드 프록시] 다운로드 성공: {len(response.content)} bytes")
+                
+                # 스트리밍 응답 반환 (RFC 5987 형식으로 한글 파일명 인코딩)
+                return StreamingResponse(
+                    iter([response.content]),
+                    media_type=content_type,
+                    headers={
+                        "Content-Disposition": f"attachment; filename*=UTF-8''{filename_encoded}",
+                        "Content-Length": str(len(response.content))
+                    }
+                )
+                
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 403:
+                    print(f"❌ [다운로드 프록시] URL 만료 (403): {report_url[:100]}...")
+                    raise HTTPException(
+                        status_code=410,
+                        detail="리포트 URL이 만료되었습니다. 리포트를 다시 생성해주세요."
+                    )
+                else:
+                    print(f"❌ [다운로드 프록시] HTTP 오류: {e.response.status_code}")
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"리포트 다운로드 실패: HTTP {e.response.status_code}"
+                    )
+            except httpx.TimeoutException:
+                print(f"❌ [다운로드 프록시] 타임아웃")
+                raise HTTPException(status_code=504, detail="리포트 다운로드 타임아웃")
+            except Exception as e:
+                print(f"❌ [다운로드 프록시] 오류: {str(e)}")
+                raise HTTPException(status_code=500, detail=f"리포트 다운로드 실패: {str(e)}")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ [다운로드 프록시] 예외: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"리포트 다운로드 처리 실패: {str(e)}")

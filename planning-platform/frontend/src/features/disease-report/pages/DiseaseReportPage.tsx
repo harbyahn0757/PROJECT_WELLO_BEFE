@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useCampaignSkin } from '../hooks/useCampaignSkin';
+import { useUnifiedStatus } from '../hooks/useUnifiedStatus';
+import { useMatrixAutoRedirect } from './DiseaseReportPage/hooks/useMatrixAutoRedirect';
+import { useFloatingButton } from './DiseaseReportPage/hooks/useFloatingButton';
 import { calculateCurrentAge, compareAges } from '../utils/ageCalculator';
 import { DebugDeleteModal } from '../components/DebugDeleteModal';
 import { trackReportPage } from '../utils/gtm';
@@ -13,6 +16,8 @@ import { STORAGE_KEYS, StorageManager } from '../../../constants/storage';
 import { useWebSocketAuth } from '../../../hooks/useWebSocketAuth';
 import { checkQuestionnaireStatus } from '../utils/legacyCompat';
 import HealthAgeSection from '../../../components/health/HealthAgeSection';
+import EmailInputModal from '../../../components/common/EmailInputModal';
+import { useWelnoData } from '../../../contexts/WelnoDataContext';
 
 // 테스트 전화번호 목록
 const TEST_PHONE_NUMBERS = ['01056180757', '01090736617', '01093576240', '01087582656', '01029959533'];
@@ -44,6 +49,7 @@ const DiseaseReportPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { skinType, skinConfig, changeSkin } = useCampaignSkin();
+  const { actions } = useWelnoData();
   // 기본값을 브라운 모드로 설정 (기존 skinType이 'Br'이 아니면 브라운으로 초기화)
   const [isBrownMode, setIsBrownMode] = useState(skinType === 'Br' || skinType !== 'G');
 
@@ -69,13 +75,28 @@ const DiseaseReportPage: React.FC = () => {
   const sessionId = searchParams.get('sessionId') || null;
   const shouldGenerate = searchParams.get('generate') === 'true';
   const oid = searchParams.get('oid') || null;  // 파트너 결제 주문번호
+  const partnerId = searchParams.get('partner') || null;  // 파트너 ID
   
   // ⭐ BNR 레거시 코드 호환성: mktUuid → uuid 매핑
   const mktUuid = uuid;
   
+  // ⭐⭐⭐ 매트릭스 통합: 통합 상태 관리 (백엔드 기반)
+  const { status: unifiedStatus, loading: statusLoading, error: statusError } = useUnifiedStatus(
+    uuid, 
+    hospitalId, 
+    partnerId
+  );
+  
+  // ⭐⭐⭐ 매트릭스 통합: 자동 리다이렉트 (약관, 결제, 데이터 수집)
+  useMatrixAutoRedirect(unifiedStatus, uuid, partnerId);
+  
+  // ⭐⭐⭐ 매트릭스 통합: 플로팅 버튼 제어
+  useFloatingButton(unifiedStatus, uuid, partnerId);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reportData, setReportData] = useState<AIMSResponse | null>(null);
+  const [reportUrl, setReportUrl] = useState<string | null>(null); // 리포트 PDF URL
   const [customerName, setCustomerName] = useState<string | null>(null);
   const [customerBirthday, setCustomerBirthday] = useState<string | null>(null);
   const [customerPhone, setCustomerPhone] = useState<string | null>(null);
@@ -83,6 +104,8 @@ const DiseaseReportPage: React.FC = () => {
   const [ageComparison, setAgeComparison] = useState<{ ageDifference: number; isHealthier: boolean } | null>(null);
   const [isTestMode, setIsTestMode] = useState(false);
   const [dataSource, setDataSource] = useState<'db' | 'delayed' | null>(null); // 데이터 출처 추적 (항상 DB에서 조회)
+  const [showEmailModal, setShowEmailModal] = useState(false); // 이메일 모달 표시 여부
+  const [emailLoading, setEmailLoading] = useState(false); // 이메일 전송 로딩 상태
   const [countdown, setCountdown] = useState<number | null>(null);
   const [countdownStarted, setCountdownStarted] = useState(false); // 카운트다운 시작 여부 (재시작 방지)
   const [showKakaoMessage, setShowKakaoMessage] = useState(false); // 카카오톡 발송 메시지 표시 여부 // 패널 닫기 카운트다운
@@ -446,7 +469,10 @@ const DiseaseReportPage: React.FC = () => {
         const data = await response.json();
         
         if (data.success && data.report_url) {
-          console.log('[리포트 조회] 파트너 리포트 발견!');
+          console.log('[리포트 조회] 파트너 리포트 발견! URL:', data.report_url.substring(0, 100) + '...');
+          
+          // 리포트 URL 저장 (백엔드에서 이미 URL 만료 확인을 했으므로 바로 사용)
+          setReportUrl(data.report_url);
           
           // Mediarc 응답 파싱 (API 레벨에서 이미 data 필드 추출됨)
           const medarcResponse = data.mediarc_response || {};
@@ -506,6 +532,12 @@ const DiseaseReportPage: React.FC = () => {
       if (data.success && data.has_report && data.data) {
         console.log('[리포트 조회] 리포트 발견! - bodyage:', data.data.bodyage, 'rank:', data.data.rank);
         
+        // 리포트 URL 저장 (백엔드에서 이미 URL 만료 확인을 했으므로 바로 사용)
+        if (data.data.report_url) {
+          console.log('[리포트 조회] WELNO 리포트 URL:', data.data.report_url.substring(0, 100) + '...');
+          setReportUrl(data.data.report_url);
+        }
+        
         // 업데이트 시간 설정
         const updateDate = data.data.updated_at ? new Date(data.data.updated_at) : new Date();
         setReportUpdatedAt(updateDate.toLocaleString('ko-KR', {
@@ -548,7 +580,11 @@ const DiseaseReportPage: React.FC = () => {
         generationRequestedRef.current = true;
         
         try {
-          const generateRes = await fetch(`/api/v1/welno/mediarc-report/generate?uuid=${uuid}&hospital_id=${hospitalId}`, {
+          // ✅ [Phase 4] session_id를 API에 전달 (WebSocket 알림용)
+          const apiUrl = `/api/v1/welno/mediarc-report/generate?uuid=${uuid}&hospital_id=${hospitalId}${sessionId ? `&session_id=${sessionId}` : ''}`;
+          console.log(`📡 [DiseaseReportPage] 리포트 생성 API 호출 (session_id=${sessionId || '없음'})`);
+          
+          const generateRes = await fetch(apiUrl, {
             method: 'POST'
           });
           const generateData = await generateRes.json();
@@ -556,7 +592,11 @@ const DiseaseReportPage: React.FC = () => {
           console.log('[리포트 생성] 응답:', generateData);
           
           if (generateData.success && generateData.generating) {
-            console.log('[리포트 생성] 백그라운드 생성 시작 → WebSocket 대기');
+            if (generateData.has_websocket) {
+              console.log('[리포트 생성] 백그라운드 생성 시작 → WebSocket 대기');
+            } else {
+              console.log('[리포트 생성] 백그라운드 생성 시작 → 폴링 대기 (session_id 없음)');
+            }
             setLoading(true);
             // WebSocket이 완료 이벤트를 받으면 자동으로 재조회됩니다
           } else {
@@ -627,10 +667,11 @@ const DiseaseReportPage: React.FC = () => {
   }, [countdownStarted]);
 
   // ⭐ WebSocket으로 Mediarc 완료 이벤트 수신
+  // ✅ [Phase 4] sessionId가 있으면 WebSocket 연결, 없으면 skip
   useWebSocketAuth({
     sessionId,
     onDataCollectionProgress: (type, message, data) => {
-      console.log(`📨 [DiseaseReportPage WebSocket] 이벤트: ${type}`);
+      console.log(`📨 [DiseaseReportPage WebSocket] 이벤트: ${type}, sessionId=${sessionId || '없음'}`);
       
       if (type === 'mediarc_report_completed') {
         console.log('🎉 [DiseaseReportPage] Mediarc 완료 → 리포트 재조회');
@@ -681,6 +722,580 @@ const DiseaseReportPage: React.FC = () => {
   useEffect(() => {
     setIsBrownMode(skinType === 'Br');
   }, [skinType]);
+
+  // 이메일 모달 이벤트 리스너
+  useEffect(() => {
+    const handleEmailModalOpen = () => {
+      console.log('[DiseaseReportPage] 이메일 모달 열기 이벤트 수신');
+      setShowEmailModal(true);
+    };
+
+    window.addEventListener('welno-email-modal-open', handleEmailModalOpen);
+
+    return () => {
+      window.removeEventListener('welno-email-modal-open', handleEmailModalOpen);
+    };
+  }, []);
+
+  // 이메일 전송 핸들러
+  const handleEmailSubmit = useCallback(async (email: string) => {
+    setEmailLoading(true);
+    try {
+      const requestBody: any = { email };
+      
+      // oid가 있으면 oid 사용, 없으면 uuid + hospitalId 사용
+      if (oid) {
+        requestBody.oid = oid;
+      } else if (uuid && hospitalId) {
+        requestBody.uuid = uuid;
+        requestBody.hospital_id = hospitalId;
+      } else {
+        throw new Error('리포트 정보가 없습니다.');
+      }
+
+      const response = await fetch(API_ENDPOINTS.UPDATE_EMAIL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert('리포트 발송 요청이 완료되었습니다.');
+        setShowEmailModal(false);
+      } else {
+        alert('오류가 발생했습니다: ' + (data.error || data.message || '알 수 없는 오류'));
+      }
+    } catch (error) {
+      console.error('Email update failed:', error);
+      alert('서버 통신 오류가 발생했습니다.');
+    } finally {
+      setEmailLoading(false);
+    }
+  }, [oid, uuid, hospitalId]);
+
+  // 모바일 감지 함수
+  const isMobile = useCallback(() => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      (window.innerWidth <= 768);
+  }, []);
+
+  // 리포트 URL 재조회 (만료된 URL 대응)
+  const refreshReportUrl = useCallback(async () => {
+    try {
+      if (oid) {
+        console.log('[URL 재조회] 파트너 케이스 - oid:', oid);
+        const response = await fetch(`/api/v1/campaigns/disease-prediction/report?oid=${oid}`);
+        if (!response.ok) {
+          console.error('[URL 재조회] HTTP 오류:', response.status, response.statusText);
+          return null;
+        }
+        const data = await response.json();
+        console.log('[URL 재조회] 응답 데이터:', { success: data.success, has_url: !!data.report_url });
+        if (data.success && data.report_url) {
+          console.log('[URL 재조회] 성공 - URL:', data.report_url.substring(0, 100) + '...');
+          setReportUrl(data.report_url);
+          return data.report_url;
+        } else {
+          console.warn('[URL 재조회] 리포트 URL이 없음:', data);
+        }
+      } else if (uuid && hospitalId) {
+        console.log('[URL 재조회] WELNO 케이스 - uuid:', uuid, 'hospital:', hospitalId);
+        const response = await fetch(`/api/v1/welno/mediarc-report?uuid=${uuid}&hospital_id=${hospitalId}`);
+        if (!response.ok) {
+          console.error('[URL 재조회] HTTP 오류:', response.status, response.statusText);
+          return null;
+        }
+        const data = await response.json();
+        console.log('[URL 재조회] 응답 데이터:', { success: data.success, has_report: data.has_report, has_url: !!data.data?.report_url });
+        if (data.success && data.has_report && data.data?.report_url) {
+          console.log('[URL 재조회] 성공 - URL:', data.data.report_url.substring(0, 100) + '...');
+          setReportUrl(data.data.report_url);
+          return data.data.report_url;
+        } else {
+          console.warn('[URL 재조회] 리포트 URL이 없음:', data);
+        }
+      } else {
+        console.warn('[URL 재조회] 필요한 파라미터가 없음 - oid:', oid, 'uuid:', uuid, 'hospitalId:', hospitalId);
+      }
+    } catch (error) {
+      console.error('[URL 재조회] 예외 발생:', error);
+    }
+    return null;
+  }, [oid, uuid, hospitalId]);
+
+  // 다운로드 핸들러
+  const handleDownload = useCallback(async () => {
+    if (!reportUrl) {
+      actions.addNotification({
+        type: 'warning',
+        title: '다운로드 불가',
+        message: '리포트 PDF가 아직 준비되지 않았습니다.',
+        priority: 'high',
+        autoClose: true,
+        duration: 3000
+      });
+      return;
+    }
+
+    // URL 정합성 확인: 최신 URL 재조회
+    let currentUrl = reportUrl;
+    console.log('[다운로드] 시작 - 현재 URL:', currentUrl?.substring(0, 100) + '...');
+    try {
+      const refreshedUrl = await refreshReportUrl();
+      if (refreshedUrl) {
+        currentUrl = refreshedUrl;
+        if (refreshedUrl !== reportUrl) {
+          console.log('[다운로드] URL 갱신됨:', refreshedUrl.substring(0, 100) + '...');
+          setReportUrl(refreshedUrl);
+          actions.addNotification({
+            type: 'info',
+            title: 'URL 갱신 완료',
+            message: '최신 리포트 URL로 다운로드를 시작합니다.',
+            autoClose: true,
+            duration: 2000,
+            priority: 'high'
+          });
+        } else {
+          console.log('[다운로드] URL 유효함, 다운로드 진행');
+        }
+      } else {
+        // URL 재조회 실패 - 만료된 URL일 가능성
+        console.error('[다운로드] URL 재조회 실패 - 만료된 URL일 수 있음');
+        actions.addNotification({
+          type: 'error',
+          title: '다운로드 불가',
+          message: '리포트 URL을 가져올 수 없습니다. 리포트가 만료되었을 수 있습니다. 페이지를 새로고침해주세요.',
+          autoClose: true,
+          duration: 5000,
+          priority: 'high'
+        });
+        return; // 다운로드 중단
+      }
+    } catch (urlError) {
+      console.error('[다운로드] URL 갱신 중 예외 발생:', urlError);
+      actions.addNotification({
+        type: 'error',
+        title: '다운로드 불가',
+        message: '리포트 URL 확인 중 오류가 발생했습니다. 페이지를 새로고침해주세요.',
+        autoClose: true,
+        duration: 5000,
+        priority: 'high'
+      });
+      return; // 다운로드 중단
+    }
+
+    if (!currentUrl) {
+      actions.addNotification({
+        type: 'error',
+        title: '다운로드 불가',
+        message: '리포트 URL을 가져올 수 없습니다. 페이지를 새로고침해주세요.',
+        autoClose: true,
+        duration: 5000,
+        priority: 'high'
+      });
+      return;
+    }
+
+    const fileName = `질병예측리포트_${customerName || '사용자'}_${new Date().toISOString().split('T')[0]}.pdf`;
+    
+    // ============================================
+    // 방법 1: 백엔드 프록시 API 사용 (권장 방법)
+    // 접근 제어, CORS 해결, URL 만료 처리 등 모든 기능 포함
+    // ============================================
+    
+    // 1-1. 파트너 케이스 (oid)
+    if (oid) {
+      try {
+        console.log('[다운로드] ✅ 백엔드 프록시 API 사용 (파트너 케이스)');
+        const proxyUrl = `/api/v1/campaigns/disease-prediction/report/download?oid=${oid}`;
+        
+        const response = await fetch(proxyUrl);
+        
+        // HTTP 에러 처리
+        if (!response.ok) {
+          if (response.status === 403) {
+            throw new Error('리포트 접근 권한이 없습니다.');
+          } else if (response.status === 404) {
+            throw new Error('리포트를 찾을 수 없습니다.');
+          } else if (response.status === 410) {
+            throw new Error('리포트 URL이 만료되었습니다.');
+          } else {
+            throw new Error(`서버 오류 (${response.status}): ${response.statusText}`);
+          }
+        }
+        
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        window.URL.revokeObjectURL(blobUrl);
+        
+        console.log('[다운로드] ✅ 성공: 백엔드 프록시 (파트너)');
+        
+        trackReportPage('download_click', {
+          mkt_uuid: mktUuid || null,
+          report_url: currentUrl,
+          method: 'partner_proxy'
+        });
+        
+        actions.addNotification({
+          type: 'success',
+          title: '다운로드 시작',
+          message: '리포트 다운로드를 시작합니다.',
+          autoClose: true,
+          duration: 2000,
+          priority: 'high' // 다운로드 관련 토스트 우선순위 높음
+        });
+        
+        return; // 성공 시 종료
+      } catch (proxyError: any) {
+        console.error('[다운로드] ❌ 백엔드 프록시 실패:', proxyError);
+        
+        // 프록시 실패 시 사용자에게 명확한 메시지
+        const errorMessage = proxyError.message || '다운로드에 실패했습니다.';
+        actions.addNotification({
+          type: 'error',
+          title: '다운로드 실패',
+          message: errorMessage + ' 페이지를 새로고침하거나 잠시 후 다시 시도해주세요.',
+          autoClose: true,
+          duration: 5000,
+          priority: 'high' // 다운로드 관련 토스트 우선순위 높음
+        });
+        
+        // 프록시가 실패하면 다른 방법으로 fallback하지 않고 종료
+        // (보안상 프록시를 통한 다운로드가 권장되므로)
+        return;
+      }
+    }
+    
+    // 1-2. WELNO 케이스 (uuid + hospital_id)
+    if (uuid && hospitalId) {
+      try {
+        console.log('[다운로드] ✅ 백엔드 프록시 API 사용 (WELNO 케이스)');
+        const proxyUrl = `/api/v1/welno/mediarc-report/download?uuid=${uuid}&hospital_id=${hospitalId}`;
+        
+        const response = await fetch(proxyUrl);
+        
+        // HTTP 에러 처리
+        if (!response.ok) {
+          if (response.status === 403) {
+            throw new Error('리포트 접근 권한이 없습니다.');
+          } else if (response.status === 404) {
+            throw new Error('리포트를 찾을 수 없습니다.');
+          } else if (response.status === 410) {
+            throw new Error('리포트 URL이 만료되었습니다.');
+          } else {
+            throw new Error(`서버 오류 (${response.status}): ${response.statusText}`);
+          }
+        }
+        
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        window.URL.revokeObjectURL(blobUrl);
+        
+        console.log('[다운로드] ✅ 성공: 백엔드 프록시 (WELNO)');
+        
+        trackReportPage('download_click', {
+          mkt_uuid: mktUuid || null,
+          report_url: currentUrl,
+          method: 'welno_proxy'
+        });
+        
+        actions.addNotification({
+          type: 'success',
+          title: '다운로드 시작',
+          message: '리포트 다운로드를 시작합니다.',
+          autoClose: true,
+          duration: 2000,
+          priority: 'high' // 다운로드 관련 토스트 우선순위 높음
+        });
+        
+        return; // 성공 시 종료
+      } catch (proxyError: any) {
+        console.error('[다운로드] ❌ 백엔드 프록시 실패:', proxyError);
+        
+        // 프록시 실패 시 사용자에게 명확한 메시지
+        const errorMessage = proxyError.message || '다운로드에 실패했습니다.';
+        actions.addNotification({
+          type: 'error',
+          title: '다운로드 실패',
+          message: errorMessage + ' 페이지를 새로고침하거나 잠시 후 다시 시도해주세요.',
+          autoClose: true,
+          duration: 5000,
+          priority: 'high' // 다운로드 관련 토스트 우선순위 높음
+        });
+        
+        // 프록시가 실패하면 다른 방법으로 fallback하지 않고 종료
+        // (보안상 프록시를 통한 다운로드가 권장되므로)
+        return;
+      }
+    }
+    
+    // 프록시를 사용할 수 없는 경우 (oid, uuid, hospitalId 모두 없음)
+    console.warn('[다운로드] ⚠️ 프록시 사용 불가: 필요한 파라미터가 없습니다.');
+    actions.addNotification({
+      type: 'error',
+      title: '다운로드 불가',
+      message: '리포트 정보를 찾을 수 없습니다. 페이지를 새로고침해주세요.',
+      autoClose: true,
+      duration: 5000,
+      priority: 'high' // 다운로드 관련 토스트 우선순위 높음
+    });
+  }, [reportUrl, customerName, mktUuid, refreshReportUrl, actions]);
+
+  // URL 복사 헬퍼 함수 (iframe 내에서도 동작)
+  const copyToClipboard = useCallback(async (text: string): Promise<boolean> => {
+    // 방법 1: Clipboard API 시도 (실제로 시도해봄)
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch (e) {
+        console.warn('Clipboard API failed:', e);
+        // Clipboard API 실패 시 폴백 사용
+      }
+    }
+
+    // 방법 2: 폴백 - 임시 textarea 사용 (iframe 내에서도 동작)
+    try {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-999999px';
+      textarea.style.top = '-999999px';
+      textarea.setAttribute('readonly', '');
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      
+      // iOS Safari에서 select()가 작동하지 않을 수 있으므로 setSelectionRange 사용
+      if (navigator.userAgent.match(/ipad|iphone/i)) {
+        const range = document.createRange();
+        range.selectNodeContents(textarea);
+        const selection = window.getSelection();
+        if (selection) {
+          selection.removeAllRanges();
+          selection.addRange(range);
+        }
+        textarea.setSelectionRange(0, 999999);
+      } else {
+        textarea.select();
+      }
+      
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textarea);
+      
+      return successful;
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+      return false;
+    }
+  }, []);
+
+  // 공유 핸들러 (Web Share API)
+  const handleShare = useCallback(async () => {
+    if (!reportUrl) {
+      alert('리포트 PDF가 아직 준비되지 않았습니다.');
+      return;
+    }
+
+    // URL 정합성 확인: 최신 URL 재조회
+    let currentUrl = reportUrl;
+    try {
+      const refreshedUrl = await refreshReportUrl();
+      if (refreshedUrl) {
+        currentUrl = refreshedUrl;
+        if (refreshedUrl !== reportUrl) {
+          console.log('[공유] URL 갱신됨:', refreshedUrl.substring(0, 100) + '...');
+          setReportUrl(refreshedUrl);
+        } else {
+          console.log('[공유] URL 유효함, 공유 진행');
+        }
+      } else {
+        // URL 재조회 실패 - 만료된 URL일 가능성
+        console.error('[공유] URL 재조회 실패 - 만료된 URL일 수 있음');
+        actions.addNotification({
+          type: 'error',
+          title: '공유 불가',
+          message: '리포트 URL을 가져올 수 없습니다. 리포트가 만료되었을 수 있습니다. 페이지를 새로고침해주세요.',
+          autoClose: true,
+          duration: 5000
+        });
+        return; // 공유 중단
+      }
+    } catch (urlError) {
+      console.error('[공유] URL 갱신 중 예외 발생:', urlError);
+      actions.addNotification({
+        type: 'error',
+        title: '공유 불가',
+        message: '리포트 URL 확인 중 오류가 발생했습니다. 페이지를 새로고침해주세요.',
+        autoClose: true,
+        duration: 5000
+      });
+      return; // 공유 중단
+    }
+
+    if (navigator.share) {
+      // Web Share API 사용 (모바일)
+      try {
+        await navigator.share({
+          title: '질병예측 리포트',
+          text: `${customerName || '사용자'}님의 질병예측 리포트`,
+          url: currentUrl
+        });
+        
+        // GTM 추적
+        trackReportPage('share_click', {
+          mkt_uuid: mktUuid || null,
+          report_url: currentUrl,
+          share_method: 'web_share_api'
+        });
+      } catch (err: any) {
+        // 사용자가 공유 취소한 경우 무시
+        if (err.name !== 'AbortError') {
+          console.error('Web Share API failed:', err);
+          
+          // Web Share API 실패 토스트 표시
+          actions.addNotification({
+            type: 'warning',
+            title: '공유 기능 실패',
+            message: 'Web Share API 공유에 실패했습니다. URL 복사를 시도합니다.',
+            autoClose: true,
+            duration: 3000
+          });
+          
+          // 폴백: URL 복사
+          const copied = await copyToClipboard(currentUrl);
+          if (copied) {
+            actions.addNotification({
+              type: 'success',
+              title: '복사 완료',
+              message: '리포트 URL이 클립보드에 복사되었습니다.',
+              autoClose: true,
+              duration: 3000
+            });
+          } else {
+            // Clipboard API 복사 실패 시 토스트 메시지 표시
+            actions.addNotification({
+              type: 'error',
+              title: '공유 기능 사용 불가',
+              message: 'Web Share API와 클립보드 복사 모두 실패했습니다. 현재 환경에서는 공유기능을 사용할 수 없어요',
+              autoClose: true,
+              duration: 5000
+            });
+          }
+        }
+      }
+    } else {
+      // Web Share API가 없는 경우 (데스크톱)
+      // PC에서는 PDF를 새 창에서 열기
+      try {
+        console.log('[공유] PC 환경 - PDF 새 창에서 열기:', currentUrl.substring(0, 100) + '...');
+        const newWindow = window.open(currentUrl, '_blank', 'noopener,noreferrer');
+        
+        // 새 창이 열렸는지 확인 (팝업 차단 여부)
+        if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+          throw new Error('팝업이 차단되었습니다');
+        }
+        
+        // 새 창이 로드될 때까지 잠시 대기 후 에러 확인
+        setTimeout(() => {
+          try {
+            // 새 창이 차단되었거나 에러가 발생했는지 확인
+            if (newWindow.closed) {
+              console.warn('[공유] 새 창이 즉시 닫혔습니다 - URL 만료 가능성');
+              actions.addNotification({
+                type: 'error',
+                title: '리포트 열기 실패',
+                message: '리포트를 열 수 없습니다. 리포트가 만료되었을 수 있습니다. 페이지를 새로고침해주세요.',
+                autoClose: true,
+                duration: 5000
+              });
+            }
+          } catch (e) {
+            // cross-origin 에러는 무시 (정상적인 경우)
+            console.log('[공유] 새 창 상태 확인 완료');
+          }
+        }, 1000);
+        
+        actions.addNotification({
+          type: 'success',
+          title: '리포트 열기',
+          message: '리포트를 새 창에서 엽니다.',
+          autoClose: true,
+          duration: 3000
+        });
+        
+        // GTM 추적
+        trackReportPage('share_click', {
+          mkt_uuid: mktUuid || null,
+          report_url: currentUrl,
+          share_method: 'open_new_window'
+        });
+      } catch (error) {
+        console.error('[공유] 새 창 열기 실패:', error);
+        actions.addNotification({
+          type: 'error',
+          title: '리포트 열기 실패',
+          message: '리포트를 열 수 없습니다. 리포트가 만료되었을 수 있습니다. 페이지를 새로고침해주세요.',
+          autoClose: true,
+          duration: 5000
+        });
+      }
+    }
+  }, [reportUrl, customerName, mktUuid, copyToClipboard, actions, refreshReportUrl]);
+
+  // 플로팅 버튼 클릭 이벤트 리스너 (PDF 뷰어/다운로드/공유)
+  useEffect(() => {
+    const handleOpenPdfViewer = async () => {
+      console.log('[DiseaseReportPage] 플로팅 버튼 클릭 이벤트 수신');
+      
+      if (!reportUrl) {
+        actions.addNotification({
+          type: 'warning',
+          title: '리포트 준비 중',
+          message: '리포트 PDF가 아직 준비되지 않았습니다.',
+          priority: 'high',
+          autoClose: true,
+          duration: 3000
+        });
+        return;
+      }
+
+      // 모바일 감지
+      const mobile = isMobile();
+
+      if (mobile) {
+        // 모바일: 공유 기능 사용 (Web Share API 또는 URL 복사)
+        console.log('[DiseaseReportPage] 모바일 - 공유 기능 호출');
+        handleShare();
+      } else {
+        // 데스크톱: 다운로드 기능 사용
+        console.log('[DiseaseReportPage] 데스크톱 - 다운로드 기능 호출');
+        handleDownload();
+      }
+    };
+
+    window.addEventListener('welno-open-pdf-viewer', handleOpenPdfViewer);
+
+    return () => {
+      window.removeEventListener('welno-open-pdf-viewer', handleOpenPdfViewer);
+    };
+  }, [reportUrl, isMobile, handleShare, handleDownload, actions]);
 
   const getLabelColor = (label: string) => {
     switch (label) {
@@ -806,23 +1421,84 @@ const DiseaseReportPage: React.FC = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="aims-report-page error">
-        <div className="error-message">
-          <h2>리포트를 불러올 수 없습니다</h2>
-          <p>{error}</p>
+  // ⭐⭐⭐ 매트릭스 통합: 통합 로딩 상태 (statusLoading + 기존 loading)
+  if (statusLoading || loading || !reportData) {
+    // 매트릭스 상태 확인 중
+    if (statusLoading) {
+      return (
+        <div className="aims-report-page loading">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+            <p>상태를 확인하는 중...</p>
+          </div>
         </div>
-      </div>
-    );
-  }
-
-  if (loading || !reportData) {
+      );
+    }
+    
+    // 리포트 생성 중 (REPORT_PENDING)
+    if (unifiedStatus?.status === 'REPORT_PENDING') {
+      return (
+        <div className="aims-report-page loading">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+            <p>질병예측 리포트를 생성하는 중입니다...</p>
+            <p style={{ fontSize: '14px', color: '#888', marginTop: '10px' }}>
+              리포트 생성에는 약 2-3분이 소요됩니다.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    
+    // 기존 로딩 로직 (리포트 데이터 불러오는 중)
     return (
       <div className="aims-report-page loading">
         <div className="loading-spinner">
           <div className="spinner"></div>
           <p>{loading ? '리포트를 불러오는 중...' : '잠시 후 질병예측 리포트가 카카오톡을 통하여 발송됩니다.'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ⭐⭐⭐ 매트릭스 통합: 에러 처리 (statusError + 기존 error)
+  if (statusError || error) {
+    const errorMessage = statusError || error;
+    
+    // 리포트 만료 상태
+    if (unifiedStatus?.status === 'REPORT_EXPIRED') {
+      return (
+        <div className="aims-report-page error">
+          <div className="error-message">
+            <h2>⚠️ 리포트가 만료되었습니다</h2>
+            <p>리포트 URL이 만료되었습니다. 다시 분석을 요청해주세요.</p>
+          </div>
+        </div>
+      );
+    }
+    
+    // 데이터 부족 상태
+    if (unifiedStatus?.status === 'ACTION_REQUIRED' || unifiedStatus?.status === 'ACTION_REQUIRED_PAID') {
+      return (
+        <div className="aims-report-page error">
+          <div className="error-message">
+            <h2>건강검진 데이터가 필요합니다</h2>
+            <p>질병예측 리포트를 생성하기 위해서는 건강검진 데이터가 필요합니다.</p>
+            <p style={{ fontSize: '14px', color: '#888', marginTop: '10px' }}>
+              데이터 출처: {unifiedStatus?.primary_source || '없음'}<br />
+              지표 개수: {unifiedStatus?.metric_count || 0}개 (최소 5개 필요)
+            </p>
+          </div>
+        </div>
+      );
+    }
+    
+    // 일반 에러
+    return (
+      <div className="aims-report-page error">
+        <div className="error-message">
+          <h2>리포트를 불러올 수 없습니다</h2>
+          <p>{errorMessage}</p>
         </div>
       </div>
     );
@@ -895,6 +1571,32 @@ const DiseaseReportPage: React.FC = () => {
                 </button>
               </div>
             </div>
+            {/* 다운로드/공유 버튼 */}
+            {reportUrl && (
+              <div className="report-action-buttons">
+                {isMobile() ? (
+                  <button
+                    className="report-action-button share-button"
+                    onClick={handleShare}
+                    type="button"
+                    aria-label="공유하기"
+                    title="공유하기"
+                  >
+                    📤 공유
+                  </button>
+                ) : (
+                  <button
+                    className="report-action-button download-button"
+                    onClick={handleDownload}
+                    type="button"
+                    aria-label="다운로드"
+                    title="PDF 다운로드"
+                  >
+                    ⬇️ 다운로드
+                  </button>
+                )}
+              </div>
+            )}
             {reportUpdatedAt && (
               <div className="report-update-info">
                 <span className="update-icon">ⓘ</span>
@@ -1433,6 +2135,14 @@ const DiseaseReportPage: React.FC = () => {
         onClose={() => setShowDebugModal(false)}
         onDelete={handleDebugDelete}
         mktUuid={mktUuid}
+      />
+      
+      {/* 이메일 입력 모달 */}
+      <EmailInputModal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        onSubmit={handleEmailSubmit}
+        loading={emailLoading}
       />
     </div>
   );

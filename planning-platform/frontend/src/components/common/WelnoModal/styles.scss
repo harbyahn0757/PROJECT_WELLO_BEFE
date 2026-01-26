@@ -2,7 +2,7 @@
 @use '../../../styles/variables' as *;
 @use '../../../styles/mixins' as *;
 
-// 웰로 아이콘 깜박이는 애니메이션 (공통)
+// 웰노 아이콘 깜박이는 애니메이션 (공통)
 @keyframes faviconBlink {
   0%, 100% { 
     opacity: 1; 
@@ -14,7 +14,7 @@
   }
 }
 
-// 웰로 모달 오버레이 (공통)
+// 웰노 모달 오버레이 (공통)
 .welno-modal-overlay {
   position: fixed;
   top: 0;
@@ -24,24 +24,34 @@
   background: rgba(0, 0, 0, 0.6);
   display: flex !important;
   justify-content: center !important;
-  align-items: center !important; // 중앙 정렬 강제
+  align-items: flex-end !important; // 하단 정렬
+  padding-bottom: 20px !important; // 하단 끝보다 약간 위에 배치
   z-index: 9999;
   backdrop-filter: blur(4px);
 }
 
-// 웰로 모달 (공통)
+// 웰노 모달 (공통)
 .welno-modal {
   background: linear-gradient(135deg, #4b5563 0%, #374151 100%);
-  border-radius: 16px;
+  border-radius: 16px 16px 0 0; // 하단 모달 스타일 (상단만 둥글게)
   padding: 32px 24px;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom, 0)); // 안전 영역 고려
   text-align: center;
   box-shadow: 
-    0 20px 25px -5px rgba(0, 0, 0, 0.1),
-    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    0 -4px 32px rgba(0, 0, 0, 0.15),
+    0 20px 25px -5px rgba(0, 0, 0, 0.1); // 위쪽 그림자
   position: relative;
   overflow: hidden;
-  max-width: 90vw;
-  max-height: 90vh;
+  width: 100%;
+  max-width: 448px;
+  max-height: 85vh; // 화면 높이의 85%로 제한
+  margin-bottom: 0;
+  
+  // 데스크톱에서도 하단 배치 유지
+  @media (min-width: 768px) {
+    border-radius: 16px 16px 0 0; // 하단 모달 스타일 유지
+    max-width: 448px;
+  }
 
   // 배경 그라데이션 효과
   &::before {
@@ -97,7 +107,7 @@
   }
 }
 
-// 웰로 아이콘 (공통)
+// 웰노 아이콘 (공통)
 .welno-modal-icon {
   text-align: center;
   margin-bottom: 20px;
@@ -148,27 +158,20 @@
 // 반응형 디자인
 @media (max-width: 480px) {
   .welno-modal-overlay {
-    align-items: center !important; // 모바일에서도 중앙 정렬 강제
+    align-items: flex-end !important; // 모바일에서도 하단 정렬
     justify-content: center !important;
-    padding: 20px !important; // 여백 추가로 하단 고정 방지
-    // 하단 고정 방지를 위한 추가 스타일
-    top: 0 !important;
-    bottom: 0 !important;
-    // flex-end를 완전히 무시하고 중앙 정렬 강제
-    align-items: center !important;
+    padding: 0 !important; // 패딩 제거
+    padding-bottom: 20px !important; // 하단 끝보다 약간 위에 배치
   }
 
   .welno-modal {
-    margin: 0 auto !important; // 중앙 정렬 보장
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
     max-height: 85vh !important; // 화면 높이의 85%로 제한
-    position: absolute !important; // absolute로 변경하여 하단 고정 방지
-    // transform을 사용한 완전한 중앙 정렬
-    top: 50% !important;
-    left: 50% !important;
-    transform: translate(-50%, -50%) !important;
-    // 하단 정렬을 완전히 무시
-    bottom: auto !important;
-    align-self: center !important;
+    position: relative !important;
+    border-radius: 16px 16px 0 0 !important; // 하단 모달 스타일
+    padding-bottom: calc(32px + env(safe-area-inset-bottom, 0)) !important; // 안전 영역 고려
 
     &--small {
       width: 260px;
