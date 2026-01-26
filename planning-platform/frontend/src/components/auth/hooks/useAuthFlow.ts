@@ -454,6 +454,26 @@ export function useAuthFlow() {
       const urlParams = new URLSearchParams(window.location.search);
       const redirectPath = urlParams.get('redirect') || urlParams.get('return_to') || null;
       
+      // 캠페인 모드: URL 파라미터에서 uuid와 partner를 가져와서 patient_uuid와 hospital_id로 사용
+      const campaignUuid = urlParams.get('uuid');
+      const partnerId = urlParams.get('partner');
+      const isCampaignMode = urlParams.get('mode') === 'campaign' || !!oid;
+      
+      // patient_uuid와 hospital_id 설정
+      // 캠페인 모드: URL의 uuid를 patient_uuid로, partner가 있으면 PEERNINE을 hospital_id로
+      let patientUuid: string | null = null;
+      let hospitalId: string | null = null;
+      
+      if (isCampaignMode && campaignUuid) {
+        patientUuid = campaignUuid;
+        hospitalId = 'PEERNINE'; // 캠페인 기본 병원
+        console.log('[useAuthFlow] 캠페인 모드 - patient_uuid와 hospital_id 설정:', { patientUuid, hospitalId });
+      } else {
+        // 일반 모드: 기존 로직 유지 (없으면 null)
+        patientUuid = campaignUuid || null;
+        hospitalId = urlParams.get('hospital') || null;
+      }
+      
       // 약관 동의 여부 확인 (localStorage 또는 상태에서)
       const termsAgreedFromStorage = StorageManager.getItem(STORAGE_KEYS.TILKO_TERMS_AGREED) === 'true';
       const termsAgreed = termsAgreedFromStorage;
@@ -482,7 +502,10 @@ export function useAuthFlow() {
         private_auth_type: authMethod,
         oid: oid,
         redirect_path: redirectPath,
-        terms_agreed: termsAgreed
+        terms_agreed: termsAgreed,
+        patient_uuid: patientUuid,
+        hospital_id: hospitalId,
+        is_campaign_mode: isCampaignMode
       });
       
       // 1단계: 세션 생성
@@ -501,7 +524,9 @@ export function useAuthFlow() {
           redirect_path: redirectPath, // ✅ 진입 경로
           terms_agreed: termsAgreed, // ✅ 약관 동의 여부
           terms_agreed_at: termsAgreedAt, // ✅ 약관 동의 시각
-          terms_expires_at: termsExpiresAt // ✅ 약관 만료 시각
+          terms_expires_at: termsExpiresAt, // ✅ 약관 만료 시각
+          patient_uuid: patientUuid, // ✅ 캠페인 모드: URL의 uuid를 patient_uuid로 전달
+          hospital_id: hospitalId // ✅ 캠페인 모드: PEERNINE을 hospital_id로 전달
         }),
       });
       

@@ -368,11 +368,26 @@ async def payment_callback(
                     user_name = order_data.get('user_name')
                 
                 # 틸코 인증 페이지로 리다이렉트 (이름은 틸코 인증 후 저장됨)
-                # 이름이 있으면 URL에 포함, 없으면 생략
-                redirect_url = f'{SERVICE_DOMAIN}/login?return_to={return_path}&mode=campaign&oid={p_oid}'
+                # uuid와 partner_id를 URL에 포함하여 세션 시작 시 patient_uuid로 사용
+                from urllib.parse import urlencode
+                redirect_params = {
+                    'return_to': return_path,
+                    'mode': 'campaign',
+                    'oid': p_oid
+                }
+                
+                # uuid와 partner_id 추가 (세션 시작 시 patient_uuid로 사용)
+                if uuid:
+                    redirect_params['uuid'] = uuid
+                partner_id = order_data.get('partner_id')
+                if partner_id:
+                    redirect_params['partner'] = partner_id
+                
+                # 이름이 있으면 URL에 포함
                 if user_name:
-                    user_name_encoded = user_name.replace(' ', '+')
-                    redirect_url += f'&name={user_name_encoded}'
+                    redirect_params['name'] = user_name.replace(' ', '+')
+                
+                redirect_url = f'{SERVICE_DOMAIN}/login?{urlencode(redirect_params)}'
                 
                 return RedirectResponse(
                     url=redirect_url,
