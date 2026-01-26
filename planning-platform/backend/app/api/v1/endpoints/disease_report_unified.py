@@ -168,9 +168,9 @@ async def check_partner_status(request: Request):
                 payment_config = {}
             payment_required = payment_config.get("required", True)
             payment_amount = payment_config.get("amount", 7900)
-            # 1-1. 파트너 결제 테이블 확인 (리포트 유무 및 유입 기록)
+            # 1-1. 파트너 결제 테이블 확인 (리포트 유무 및 유입 기록, pipeline_step 포함)
             payment_row = await conn.fetchrow("""
-                SELECT oid, status, report_url, user_data, user_name
+                SELECT oid, status, report_url, user_data, user_name, pipeline_step
                 FROM welno.tb_campaign_payments
                 WHERE partner_id = $1 AND uuid = $2
                 ORDER BY created_at DESC
@@ -347,6 +347,55 @@ async def check_partner_status(request: Request):
                 f"report={has_report}, payment={has_payment}/{requires_payment}"
             )
             
+            # ===== 4-1. 재접근 시 복구 로직 (결제 완료 + 중단된 경우) =====
+            if payment_row and payment_row['status'] == 'COMPLETED':
+                pipeline_step = payment_row.get('pipeline_step')
+                logger.info(f"[상태체크] 결제 완료 확인 - pipeline_step: {pipeline_step}")
+                
+                # 검진데이터 확인 (welno_checkup_data 테이블)
+                health_data_count = await conn.fetchval("""
+                    SELECT COUNT(*) FROM welno.welno_checkup_data 
+                    WHERE patient_uuid = $1
+                """, uuid)
+                
+                logger.info(f"[상태체크] 검진데이터 확인 - count: {health_data_count}")
+                
+                # 레포트 없고 검진데이터 있으면 레포트 생성 시도
+                if not payment_row.get('report_url') and health_data_count > 0:
+                    logger.info(f"[상태체크] 레포트 없음 + 검진데이터 있음 → 레포트 생성 트리거")
+                    try:
+                        from .campaign_payment import trigger_report_generation
+                        import asyncio
+                        
+                        order_data = {
+                            'oid': payment_row['oid'],
+                            'uuid': uuid,
+                            'partner_id': partner_id,
+                            'user_name': payment_row.get('user_name', '고객'),
+                            'email': None
+                        }
+                        
+                        # 백그라운드에서 레포트 생성 트리거
+                        asyncio.create_task(trigger_report_generation(order_data))
+                        logger.info(f"[상태체크] 레포트 생성 트리거 완료: oid={payment_row['oid']}")
+                    except Exception as report_err:
+                        logger.error(f"[상태체크] 레포트 생성 트리거 실패: {report_err}")
+                
+                # 처방전 데이터 확인
+                prescription_data_count = await conn.fetchval("""
+                    SELECT COUNT(*) FROM welno.welno_prescription_data 
+                    WHERE patient_uuid = $1
+                """, uuid)
+                
+                # 처방전 데이터 없거나 pipeline_step이 TILKO_READY/DATA_COLLECTED면 틸코 재수집 안내
+                if (pipeline_step in ['TILKO_READY', 'DATA_COLLECTED', 'TILKO_SYNCING'] or 
+                    (pipeline_step and prescription_data_count == 0)):
+                    logger.info(f"[상태체크] 처방전 데이터 없음 또는 중단된 상태 → 틸코 재수집 안내")
+                    # ACTION_REQUIRED_PAID 상태로 설정하여 틸코 재수집 유도
+                    if status not in ['REPORT_READY', 'REPORT_PENDING']:
+                        status = 'ACTION_REQUIRED_PAID'
+                        logger.info(f"[상태체크] 상태 변경: {status} (틸코 재수집 유도)")
+            
             # ===== 5. 상태별 액션 및 리다이렉트 결정 =====
             # 상태 → 액션 매핑
             action_mapping = {
@@ -407,7 +456,7 @@ async def check_partner_status(request: Request):
                     redirect_url += f"&data={encrypted_data}"
                     
             elif status in ["ACTION_REQUIRED", "ACTION_REQUIRED_PAID"]:
-                # Tilko 인증 페이지
+                # Tilko 인증 페이지 (재수집 안내)
                 # 사용자 정보 우선순위: 복호화 > DB저장 > WELNO가입 > 기본값
                 if decrypted:
                     u_info = decrypted
@@ -425,9 +474,12 @@ async def check_partner_status(request: Request):
                 inner_return_path = f"/campaigns/disease-prediction?page=result&status=success&oid={payment_record['oid']}" if payment_record else "/disease-report"
                 encoded_return_path = urllib.parse.quote(inner_return_path)
                 
+                # 결제 완료 상태면 재수집 안내 (retry 플래그 추가)
                 redirect_url = f"/login?return_to={encoded_return_path}&name={user_name_encoded}&mode=campaign"
+                if payment_record and payment_record['status'] == 'COMPLETED':
+                    redirect_url += f"&retry=true"  # 재수집 플래그
                 if payment_record:
-                    redirect_url += f"&oid={payment_record['oid']}"
+                    redirect_url += f"&oid={payment_record['oid']}&uuid={uuid}&partner={partner_id}"
                 if user_phone:
                     redirect_url += f"&phone={user_phone}"
                 if user_birth:

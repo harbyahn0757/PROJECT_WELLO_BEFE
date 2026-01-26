@@ -528,14 +528,31 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           StorageManager.setItem(STORAGE_KEYS.HOSPITAL_ID, hospital);
         }
         
-        // 진입 경로 확인
+        // 진입 경로 확인 (WebSocket 데이터 또는 URL 파라미터)
+        const redirectToReport = data?.redirect_to_report || false;
         const urlParams = new URLSearchParams(location.search);
-        const redirectParam = urlParams.get('redirect');
-        const isDiseaseReport = redirectParam === '/disease-report';
+        const redirectParam = urlParams.get('redirect') || urlParams.get('return_to');
+        const isDiseaseReport = redirectToReport || redirectParam?.includes('disease-report') || redirectParam?.includes('campaigns/disease-prediction');
         
-        if (isDiseaseReport) {
-          // Case 2: 질병예측리포트 - 화면 이동 안함, Mediarc 대기
-          console.log('🎨 [질병예측리포트] Mediarc 생성 대기 중...');
+        if (isDiseaseReport && uuid && hospital) {
+          // Case 2: 질병예측리포트 - 리포트 화면으로 이동
+          console.log('🎨 [질병예측리포트] 건강검진 완료 → 리포트 화면으로 이동');
+          
+          // 토스트 표시
+          actions.addNotification({
+            type: 'success',
+            title: '검진 데이터 수집 완료',
+            message: '질병예측 리포트를 생성하고 있습니다...'
+          });
+          
+          // 질병예측 리포트 화면으로 이동
+          navigate(`/disease-report?uuid=${uuid}&hospital=${hospital}${sessionId ? `&sessionId=${sessionId}` : ''}`, { 
+            replace: true 
+          });
+          
+        } else if (isDiseaseReport) {
+          // UUID/Hospital이 아직 없는 경우 (환자 식별 전)
+          console.log('🎨 [질병예측리포트] Mediarc 생성 대기 중... (UUID 대기)');
           
           // 토스트 표시
           actions.addNotification({
@@ -633,17 +650,51 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         return;
       }
       
-      // ✅ 처방전 완료 토스트
+      // ✅ 처방전 완료 토스트 (질병예측 리포트 케이스에서만 표시)
       if (type === 'prescription_completed') {
-        console.log('💊 [처방전 완료] 토스트 표시');
+        const showToast = data?.show_toast || false;
         
-        // 토스트 표시
+        if (showToast) {
+          console.log('💊 [처방전 완료] 토스트 표시 (질병예측 리포트 케이스)');
+          
+          // 토스트 표시
+          actions.addNotification({
+            type: 'success',
+            title: '처방전 수집 완료',
+            message: `처방전 데이터 ${data?.count || 0}건이 추가되었습니다.`
+          });
+        } else {
+          console.log('💊 [처방전 완료] 토스트 표시 안함 (추이보기 케이스)');
+        }
+        
+        return;
+      }
+      
+      // ✅ 데이터 수집 에러 처리
+      if (type === 'collection_error') {
+        const errorData = data || {};
+        const errorMessage = message || '데이터 수집 중 오류가 발생했습니다.';
+        const redirectDelay = errorData.redirect_delay || 5000;
+        
+        console.log('❌ [데이터 수집 에러]', errorMessage);
+        
+        // 에러 토스트 표시
         actions.addNotification({
-          type: 'success',
-          title: '처방전 수집 완료',
-          message: `처방전 데이터 ${data?.count || 0}건이 추가되었습니다.`
+          type: 'error',
+          title: '데이터 수집 실패',
+          message: errorMessage,
+          autoClose: false
         });
         
+        // 메인 페이지로 리다이렉트
+        if (errorData.redirect_to_main) {
+          setTimeout(() => {
+            console.log('↩️ [에러] 메인 페이지로 이동');
+            navigate('/', { replace: true });
+          }, redirectDelay);
+        }
+        
+        setIsCollecting(false);
         return;
       }
       

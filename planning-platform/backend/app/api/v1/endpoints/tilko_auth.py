@@ -198,6 +198,13 @@ async def start_auth_session(request: SimpleAuthWithSessionRequest) -> Dict[str,
                 print(f"🔧 [이름정규화] '{request.user_name}' → '{clean_name}'")
                 break
         
+        # ✅ 재접근 시 기존 세션 확인 및 플래그 리셋 (oid 기반)
+        if request.oid:
+            print(f"🔍 [세션시작] 재접근 확인 - OID: {request.oid}")
+            # 모든 세션을 순회하여 oid가 일치하는 세션 찾기
+            # Redis 기반이면 직접 조회 불가하므로, 세션 생성 후 oid로 마킹
+            # 파일 기반이면 디렉토리 스캔 가능하지만 복잡하므로, 세션 생성 후 처리
+            
         # 세션 생성 (환자 정보 포함)
         user_info = {
             "name": clean_name,
@@ -236,6 +243,21 @@ async def start_auth_session(request: SimpleAuthWithSessionRequest) -> Dict[str,
             session_data["hospital_id"] = request.hospital_id
             if request.oid:
                 session_data["oid"] = request.oid
+                
+                # ✅ 재접근 시 기존 세션 플래그 리셋 (에러 상태이거나 중단된 세션)
+                # oid로 기존 세션을 찾아서 플래그 리셋 (간단한 방법: 새 세션 생성이므로 기존 세션은 자연스럽게 만료됨)
+                # 대신 현재 세션의 플래그를 초기화하여 재수집 가능하도록 설정
+                session_data["collection_started"] = False
+                session_data["collection_completed"] = False
+                if session_data.get("status") in ["error", "fetching_health_data", "fetching_prescription_data"]:
+                    print(f"🔄 [세션시작] 재접근 감지 - 세션 상태 리셋: {session_data.get('status')} → initiated")
+                    session_data["status"] = "initiated"
+                    session_data["messages"].append({
+                        "timestamp": datetime.now().isoformat(),
+                        "type": "info",
+                        "message": "재접근으로 인해 세션이 초기화되었습니다. 다시 인증을 진행해주세요."
+                    })
+                
                 # DB 상태 업데이트: 틸코 인증 시작
                 try:
                     from .campaign_payment import update_pipeline_step
@@ -1493,45 +1515,37 @@ async def collect_health_data_background_task(session_id: str):
                     pass
 
                 try:
+                    # ✅ 진입 경로 확인 (질병예측 리포트 화면 이동 여부 판단)
+                    session_data_for_notify = session_manager.get_session(session_id)
+                    redirect_path = session_data_for_notify.get("redirect_path", "") if session_data_for_notify else ""
+                    is_disease_report = 'disease-report' in redirect_path
+                    
                     # ✅ patient_uuid, hospital_id 추가 (프론트 UUID 누락 방지)
+                    # redirect_to_report 플래그 추가 (질병예측 리포트 화면으로 이동 유도)
                     await notify_streaming_status(
                         session_id,
                         "health_data_completed",
                         health_success_message,
                         {
                             "count": health_count,
-                            "patient_uuid": patient_uuid,
-                            "hospital_id": hospital_id
+                            "patient_uuid": patient_uuid,  # None일 수 있음 (환자 식별 전)
+                            "hospital_id": hospital_id,   # None일 수 있음 (환자 식별 전)
+                            "redirect_to_report": is_disease_report  # 질병예측 리포트 화면으로 이동
                         }
                     )
+                    print(f"✅ [백그라운드] 건강검진 완료 알림 전송: {health_count}건, 질병예측리포트={is_disease_report}")
                 except Exception as e:
                     print(f"⚠️ [백그라운드] 건강검진 완료 알림 실패: {e}")
                 
                 print(f"✅ [백그라운드] 건강검진 데이터 수집 성공 - {health_count}건")
                 print(f"✅ [백그라운드] JSON 파일 저장 완료")
                 
-                # ✅ 진입 경로 확인 및 Mediarc 생성 시작
-                if health_count > 0 and patient_uuid and hospital_id:
-                    session_data_for_mediarc = session_manager.get_session(session_id)
-                    redirect_path = session_data_for_mediarc.get("redirect_path", "") if session_data_for_mediarc else ""
-                    is_disease_report = 'disease-report' in redirect_path
-                    
-                    if is_disease_report:
-                        # Case 2: 질병예측리포트 - Mediarc 생성 시작
-                        print(f"🎨 [플로우] 질병예측리포트 케이스 - Mediarc 생성 시작")
-                        
-                        import asyncio
-                        asyncio.create_task(
-                            _generate_mediarc_with_notification(
-                                patient_uuid=patient_uuid,
-                                hospital_id=hospital_id,
-                                session_id=session_id,
-                                service=welno_service
-                            )
-                        )
-                    else:
-                        # Case 1: 추이보기 - 화면 전환만 (Mediarc는 나중에)
-                        print(f"📊 [플로우] 추이보기 케이스 - 화면 전환 알림만")
+                # ✅ [제거] 이 위치에서는 patient_uuid가 None일 수 있으므로 레포트 생성 트리거 제거
+                # 레포트 생성은 환자 식별 완료 후(2037줄 이후)에 실행되도록 변경
+                # 기존 코드:
+                # if health_count > 0 and patient_uuid and hospital_id:
+                #     ... 레포트 생성 트리거 ...
+                # → 환자 식별 완료 후로 이동
                 
                 # [삭제] 이 위치에서는 patient_uuid가 없을 수 있음 (환자 식별 로직 뒤로 이동)
                 """
@@ -1694,6 +1708,10 @@ async def collect_health_data_background_task(session_id: str):
                     hospital_id_prescription = session_data_prescription.get("hospital_id") if session_data_prescription else None
                     
                     if patient_uuid_prescription and hospital_id_prescription:
+                        # 질병예측 리포트 케이스인지 확인 (토스트 알림 표시 여부)
+                        redirect_path = session_data_prescription.get("redirect_path", "") if session_data_prescription else ""
+                        is_disease_report = 'disease-report' in redirect_path
+                        
                         await notify_streaming_status(
                             session_id,
                             "prescription_completed",
@@ -1701,10 +1719,11 @@ async def collect_health_data_background_task(session_id: str):
                             {
                                 "count": prescription_count,
                                 "patient_uuid": patient_uuid_prescription,
-                                "hospital_id": hospital_id_prescription
+                                "hospital_id": hospital_id_prescription,
+                                "show_toast": is_disease_report  # 질병예측 리포트 케이스면 토스트 알림 표시
                             }
                         )
-                        print(f"✅ [처방전] 완료 알림 전송: {prescription_count}건")
+                        print(f"✅ [처방전] 완료 알림 전송: {prescription_count}건, 토스트={is_disease_report}")
                 except Exception as e:
                     print(f"⚠️ [처방전] 완료 알림 실패: {e}")
                 
@@ -1722,13 +1741,18 @@ async def collect_health_data_background_task(session_id: str):
             
             session_manager.add_error_message(session_id, user_friendly_error)
             
-            # 처방전 실패 메시지 전송
+            # 처방전 실패 메시지 전송 (collection_error 이벤트로 통일)
             try:
+                from .websocket_auth import notify_streaming_status
                 await notify_streaming_status(
                     session_id,
-                    "prescription_data_failed",
+                    "collection_error",
                     error_message,
-                    {"redirect": True}
+                    {
+                        "error_type": "prescription_collection_failed",
+                        "redirect_to_main": True,
+                        "redirect_delay": 5000
+                    }
                 )
             except Exception as e2:
                 print(f"⚠️ [백그라운드] 처방전 실패 알림 실패: {e2}")
@@ -2036,6 +2060,33 @@ async def collect_health_data_background_task(session_id: str):
                 final_session_data["hospital_id"] = hospital_id
                 session_manager._save_session(session_id, final_session_data)
                 print(f"💾 [백그라운드-세션] 환자 정보 세션 저장 완료")
+                
+                # ✅ [패러럴 처리] 건강검진 데이터가 있으면 즉시 레포트 생성 시작 (처방전 수집과 병렬)
+                health_data = final_session_data.get("health_data")
+                if health_data:
+                    health_count = len(health_data.get("ResultList", [])) if isinstance(health_data, dict) else 0
+                    if health_count > 0:
+                        redirect_path = final_session_data.get("redirect_path", "")
+                        is_disease_report = 'disease-report' in redirect_path
+                        
+                        if is_disease_report:
+                            # 중복 방지 플래그 확인
+                            if not final_session_data.get("mediarc_generation_started"):
+                                final_session_data["mediarc_generation_started"] = True
+                                session_manager._save_session(session_id, final_session_data)
+                                
+                                print(f"🎨 [패러럴] 건강검진 데이터 수집 완료 → 레포트 생성 시작 (처방전 수집과 병렬)")
+                                import asyncio
+                                asyncio.create_task(
+                                    _generate_mediarc_with_notification(
+                                        patient_uuid=patient_uuid,
+                                        hospital_id=hospital_id,
+                                        session_id=session_id,
+                                        service=welno_service
+                                    )
+                                )
+                            else:
+                                print(f"⚠️ [패러럴] 레포트 생성이 이미 시작됨 (중복 방지)")
 
             # 3. 데이터 저장 (파일 우선 저장 후 DB 입력)
             print(f"📁 [백그라운드-저장] 1단계: 파일 저장 시작 (환자: {patient_uuid})")
@@ -2135,60 +2186,76 @@ async def collect_health_data_background_task(session_id: str):
                 except Exception as reg_err:
                     print(f"⚠️ [백그라운드-정규화/동기화] 실패: {reg_err}")
 
-            # ⭐ [추가] 데이터 저장 및 환자 식별 완료 후 리포트 생성 트리거
+            # ⭐ [추가] 데이터 저장 및 환자 식별 완료 후 리포트 생성 트리거 (중복 방지)
+            # 이미 환자 식별 완료 후(2037줄 이후)에 레포트 생성이 시작되었는지 확인
             try:
-                from app.core.config import settings
-                MEDIARC_ENABLED = getattr(settings, 'MEDIARC_ENABLED', False)
-                
-                # 수집된 건강검진 기록 확인
-                health_data_obj = final_session_data.get("health_data", {})
-                health_count = len(health_data_obj.get("ResultList", [])) if isinstance(health_data_obj, dict) else 0
-
-                print(f"\n{'='*80}")
-                print(f"🔄 [Tilko → Mediarc 자동 트리거] 검증 시작")
-                print(f"  - patient_uuid: {patient_uuid}")
-                print(f"  - hospital_id: {hospital_id}")
-                print(f"  - session_id: {session_id}")
-                print(f"  - MEDIARC_ENABLED: {MEDIARC_ENABLED}")
-                print(f"  - health_count: {health_count}건")
-                print(f"{'='*80}\n")
-
-                if MEDIARC_ENABLED and health_count > 0:
-                    print(f"✅ [Tilko → Mediarc] 조건 충족 → 리포트 생성 시작")
+                # 중복 방지: 이미 레포트 생성이 시작되었는지 확인
+                if not final_session_data.get("mediarc_generation_started"):
+                    from app.core.config import settings
+                    MEDIARC_ENABLED = getattr(settings, 'MEDIARC_ENABLED', False)
                     
-                    # DB 상태 업데이트: 리포트 대기 중
-                    oid = final_session_data.get("oid")
-                    if oid:
-                        print(f"📊 [Tilko → Mediarc] 캠페인 OID 발견: {oid} → 상태 업데이트")
-                        from .campaign_payment import update_pipeline_step
-                        update_pipeline_step(oid, 'REPORT_WAITING')
+                    # 수집된 건강검진 기록 확인
+                    health_data_obj = final_session_data.get("health_data", {})
+                    health_count = len(health_data_obj.get("ResultList", [])) if isinstance(health_data_obj, dict) else 0
+                    redirect_path = final_session_data.get("redirect_path", "")
+                    is_disease_report = 'disease-report' in redirect_path
 
-                    from app.services.mediarc import generate_mediarc_report_async
-                    
-                    print(f"🚀 [Tilko → Mediarc] 백그라운드 태스크 등록 (session_id={session_id})")
-                    
-                    # asyncio.create_task()로 독립 실행
-                    asyncio.create_task(
-                        generate_mediarc_report_async(
-                            patient_uuid=patient_uuid,
-                            hospital_id=hospital_id,
-                            session_id=session_id,  # ✅ session_id 전달 (WebSocket 알림용)
-                            service=welno_service
+                    print(f"\n{'='*80}")
+                    print(f"🔄 [Tilko → Mediarc 자동 트리거] 검증 시작 (중복 방지 체크)")
+                    print(f"  - patient_uuid: {patient_uuid}")
+                    print(f"  - hospital_id: {hospital_id}")
+                    print(f"  - session_id: {session_id}")
+                    print(f"  - MEDIARC_ENABLED: {MEDIARC_ENABLED}")
+                    print(f"  - health_count: {health_count}건")
+                    print(f"  - is_disease_report: {is_disease_report}")
+                    print(f"{'='*80}\n")
+
+                    if MEDIARC_ENABLED and health_count > 0 and is_disease_report:
+                        # 중복 방지 플래그 설정
+                        final_session_data["mediarc_generation_started"] = True
+                        session_manager._save_session(session_id, final_session_data)
+                        
+                        print(f"✅ [Tilko → Mediarc] 조건 충족 → 리포트 생성 시작")
+                        
+                        # DB 상태 업데이트: 리포트 대기 중
+                        oid = final_session_data.get("oid")
+                        if oid:
+                            print(f"📊 [Tilko → Mediarc] 캠페인 OID 발견: {oid} → 상태 업데이트")
+                            from .campaign_payment import update_pipeline_step
+                            update_pipeline_step(oid, 'REPORT_WAITING')
+
+                        from app.services.mediarc import generate_mediarc_report_async
+                        
+                        print(f"🚀 [Tilko → Mediarc] 백그라운드 태스크 등록 (session_id={session_id})")
+                        
+                        # asyncio.create_task()로 독립 실행
+                        import asyncio
+                        asyncio.create_task(
+                            generate_mediarc_report_async(
+                                patient_uuid=patient_uuid,
+                                hospital_id=hospital_id,
+                                session_id=session_id,  # ✅ session_id 전달 (WebSocket 알림용)
+                                service=welno_service
+                            )
                         )
-                    )
-                    
-                    print(f"✅ [Tilko → Mediarc] 백그라운드 태스크 등록 완료")
-                    print(f"   → WebSocket 알림 예상: ws://.../{session_id}")
-                    print(f"{'='*80}\n")
+                        
+                        print(f"✅ [Tilko → Mediarc] 백그라운드 태스크 등록 완료")
+                        print(f"   → WebSocket 알림 예상: ws://.../{session_id}")
+                        print(f"{'='*80}\n")
+                    else:
+                        print(f"⚠️ [Tilko → Mediarc] 트리거 건너뜀")
+                        print(f"   - MEDIARC_ENABLED: {MEDIARC_ENABLED}")
+                        print(f"   - health_count: {health_count}건")
+                        print(f"   - is_disease_report: {is_disease_report}")
+                        if not MEDIARC_ENABLED:
+                            print(f"   → 설정에서 Mediarc 기능 활성화 필요")
+                        if health_count == 0:
+                            print(f"   → 건강검진 데이터 없음")
+                        if not is_disease_report:
+                            print(f"   → 질병예측 리포트 케이스 아님")
+                        print(f"{'='*80}\n")
                 else:
-                    print(f"⚠️ [Tilko → Mediarc] 트리거 건너뜀")
-                    print(f"   - MEDIARC_ENABLED: {MEDIARC_ENABLED}")
-                    print(f"   - health_count: {health_count}건")
-                    if not MEDIARC_ENABLED:
-                        print(f"   → 설정에서 Mediarc 기능 활성화 필요")
-                    if health_count == 0:
-                        print(f"   → 건강검진 데이터 없음")
-                    print(f"{'='*80}\n")
+                    print(f"ℹ️ [Tilko → Mediarc] 레포트 생성이 이미 시작됨 (중복 방지)")
             except Exception as mediarc_error:
                 print(f"❌ [Tilko → Mediarc] 백그라운드 시작 실패: {mediarc_error}")
                 import traceback
@@ -2200,6 +2267,23 @@ async def collect_health_data_background_task(session_id: str):
             traceback.print_exc()
             # 세션에 에러 메시지 추가
             session_manager.add_error_message(session_id, f"데이터 저장 중 오류가 발생했습니다: {str(e)}")
+            
+            # WebSocket으로 에러 알림 전송
+            try:
+                from .websocket_auth import notify_streaming_status
+                error_message = f"데이터 저장 중 오류가 발생했습니다.\n{str(e)}\n\n잠시 후 메인 페이지로 돌아갑니다."
+                await notify_streaming_status(
+                    session_id,
+                    "collection_error",
+                    error_message,
+                    {
+                        "error_type": "data_save_failed",
+                        "redirect_to_main": True,
+                        "redirect_delay": 5000
+                    }
+                )
+            except Exception as notify_err:
+                print(f"⚠️ [백그라운드] 에러 알림 실패: {notify_err}")
         
         # 완료 알림 전송 (항상 시도)
         try:
