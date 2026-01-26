@@ -226,6 +226,10 @@ async def payment_callback(
         )
 
     # 최종 승인 요청 (Server to Server)
+    payment_approved = False  # 결제 승인 성공 여부 추적
+    approved_amount = 0  # 승인된 금액
+    approved_mid = None  # 승인된 MID
+    
     try:
         import httpx
         
@@ -253,6 +257,20 @@ async def payment_callback(
         final_msg = approval_res.get('P_RMESG1', '')
         
         if final_status == '00':
+            # 결제 승인 성공 플래그 설정
+            payment_approved = True
+            approved_mid = mid_from_tid
+            # 승인 금액 추출 (응답에서 가져오거나 DB에서 조회)
+            try:
+                approved_amount = int(approval_res.get('P_AMT', 0))
+            except (ValueError, TypeError):
+                # DB에서 금액 조회
+                with db_manager.get_connection() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute("SELECT amount FROM welno.tb_campaign_payments WHERE oid = %s", (p_oid,))
+                        row = cur.fetchone()
+                        if row:
+                            approved_amount = row[0] or 0
             # 결제 성공!
             update_payment_status(
                 p_oid, 'COMPLETED', 
@@ -369,6 +387,21 @@ async def payment_callback(
 
     except Exception as e:
         logger.error(f"Approval error: {str(e)}", exc_info=True)
+        
+        # 결제 승인 성공 후 에러 발생 시 망취소 처리
+        if payment_approved and approved_mid and approved_amount > 0:
+            logger.warning(f"⚠️ [Cancel] 결제 승인 후 에러 발생, 망취소 시도: tid={P_TID}, amount={approved_amount}")
+            cancel_success = await cancel_payment(
+                mid=approved_mid,
+                tid=P_TID,
+                cancel_amount=approved_amount,
+                cancel_msg=f"시스템 오류로 인한 자동 취소: {str(e)}"
+            )
+            if cancel_success:
+                logger.info(f"✅ [Cancel] 망취소 완료: oid={p_oid}")
+            else:
+                logger.error(f"❌ [Cancel] 망취소 실패: oid={p_oid} (수동 처리 필요)")
+        
         update_payment_status(p_oid, 'FAILED', error_msg=str(e))
         return RedirectResponse(
             url=f'{SERVICE_DOMAIN}/campaigns/disease-prediction/?page=result&status=fail&message=Approval+Error&oid={p_oid}',
@@ -544,6 +577,60 @@ def update_pipeline_step(oid: str, step: str):
                 logger.info(f"📊 [Pipeline] Step updated: {oid} -> {step}")
     except Exception as e:
         logger.error(f"❌ [Pipeline] Step update failed: {e}")
+
+
+async def cancel_payment(mid: str, tid: str, cancel_amount: int, cancel_msg: str = "시스템 오류로 인한 자동 취소") -> bool:
+    """
+    이니시스 망취소 API 호출
+    결제 승인 후 에러 발생 시 결제를 취소합니다.
+    
+    Args:
+        mid: 상점 ID
+        tid: 거래 ID (TID)
+        cancel_amount: 취소 금액
+        cancel_msg: 취소 사유
+    
+    Returns:
+        bool: 취소 성공 여부
+    """
+    try:
+        import httpx
+        
+        # 이니시스 모바일 망취소 API URL
+        cancel_url = "https://ksmobile.inicis.com/smart/payCancel.ini"
+        
+        cancel_data = {
+            'P_MID': mid,
+            'P_TID': tid,
+            'P_CANCEL_AMT': str(cancel_amount),
+            'P_CANCEL_MSG': cancel_msg
+        }
+        
+        logger.info(f"🔄 [Cancel] 망취소 요청: mid={mid}, tid={tid}, amount={cancel_amount}")
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.post(cancel_url, data=cancel_data, timeout=30.0)
+        
+        # 응답 파싱 (이니시스 취소 결과는 query string 형식)
+        cancel_res = {}
+        for pair in response.text.split('&'):
+            if '=' in pair:
+                key, value = pair.split('=', 1)
+                cancel_res[key] = value
+        
+        cancel_status = cancel_res.get('P_STATUS', '')
+        cancel_msg_res = cancel_res.get('P_RMESG1', '')
+        
+        if cancel_status == '00':
+            logger.info(f"✅ [Cancel] 망취소 성공: tid={tid}, msg={cancel_msg_res}")
+            return True
+        else:
+            logger.error(f"❌ [Cancel] 망취소 실패: tid={tid}, status={cancel_status}, msg={cancel_msg_res}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"❌ [Cancel] 망취소 API 호출 실패: {str(e)}", exc_info=True)
+        return False
 
 
 async def trigger_report_generation(order_data: Dict[str, Any]):
