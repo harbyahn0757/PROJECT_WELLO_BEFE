@@ -67,7 +67,22 @@ def requires_payment(partner_config: Optional[Dict]) -> bool:
     if not partner_config:
         return False
     
-    return partner_config.get('config', {}).get('payment', {}).get('required', False)
+    # config 필드가 문자열일 수 있으므로 안전하게 처리
+    config_data = partner_config.get('config')
+    if isinstance(config_data, str):
+        import json
+        try:
+            config_data = json.loads(config_data)
+        except:
+            config_data = {}
+    elif not isinstance(config_data, dict):
+        config_data = {}
+    
+    payment_config = config_data.get('payment', {})
+    if not isinstance(payment_config, dict):
+        payment_config = {}
+    
+    return payment_config.get('required', False)
 
 def get_default_hospital_id(partner_config: Optional[Dict], fallback: str = "PARTNER") -> str:
     """

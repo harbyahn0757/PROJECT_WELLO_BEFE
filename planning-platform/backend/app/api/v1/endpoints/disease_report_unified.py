@@ -83,7 +83,14 @@ async def check_partner_status(
                     config_data = partner_row['config']
                     if isinstance(config_data, str):
                         import json
-                        config_data = json.loads(config_data)
+                        try:
+                            config_data = json.loads(config_data)
+                        except:
+                            config_data = {}
+                    elif config_data is None:
+                        config_data = {}
+                    elif not isinstance(config_data, dict):
+                        config_data = {}
                     
                     partner_config = {
                         "partner_id": partner_row['partner_id'],
@@ -105,7 +112,14 @@ async def check_partner_status(
                     config_data = partner_row['config']
                     if isinstance(config_data, str):
                         import json
-                        config_data = json.loads(config_data)
+                        try:
+                            config_data = json.loads(config_data)
+                        except:
+                            config_data = {}
+                    elif config_data is None:
+                        config_data = {}
+                    elif not isinstance(config_data, dict):
+                        config_data = {}
                     
                     partner_config = {
                         "partner_id": partner_row['partner_id'],
@@ -120,15 +134,31 @@ async def check_partner_status(
                 logger.warning(f"[상태체크] 파트너 식별 실패: partner={partner_id}, api_key={api_key}")
                 raise HTTPException(status_code=404, detail="유효하지 않은 파트너 정보입니다.")
             
+            # config가 dict인지 확인 (안전장치)
+            config_dict = partner_config.get("config")
+            if not isinstance(config_dict, dict):
+                if isinstance(config_dict, str):
+                    import json
+                    try:
+                        config_dict = json.loads(config_dict)
+                    except:
+                        config_dict = {}
+                else:
+                    config_dict = {}
+                partner_config["config"] = config_dict
+            
             # API Key 검증 (설정되어 있는 경우)
-            registered_api_key = partner_config.get("config", {}).get("api_key")
+            registered_api_key = config_dict.get("api_key")
             if registered_api_key and registered_api_key != api_key:
                 await conn.close()
                 logger.warning(f"[상태체크] API Key 불일치: partner={partner_id}")
                 raise HTTPException(status_code=403, detail="유효하지 않은 API Key입니다.")
             
-            payment_required = partner_config.get("config", {}).get("payment", {}).get("required", True)
-            payment_amount = partner_config.get("config", {}).get("payment", {}).get("amount", 7900)
+            payment_config = config_dict.get("payment", {})
+            if not isinstance(payment_config, dict):
+                payment_config = {}
+            payment_required = payment_config.get("required", True)
+            payment_amount = payment_config.get("amount", 7900)
             # 1-1. 파트너 결제 테이블 확인 (리포트 유무 및 유입 기록)
             payment_row = await conn.fetchrow("""
                 SELECT oid, status, report_url, user_data, user_name
@@ -208,7 +238,9 @@ async def check_partner_status(
 
             # ===== 2. 데이터 복호화 및 분석 =====
             if encrypted_data:
-                encryption_keys = partner_config.get("config", {}).get("encryption", {})
+                encryption_keys = config_dict.get("encryption", {})
+                if not isinstance(encryption_keys, dict):
+                    encryption_keys = {}
                 aes_key = encryption_keys.get("aes_key")
                 aes_iv = encryption_keys.get("aes_iv")
                 
@@ -278,7 +310,7 @@ async def check_partner_status(
             
             unified_status = await welno_data_service.get_unified_status(
                 uuid=uuid,
-                hospital_id=partner_config.get('default_hospital_id', 'PEERNINE'),
+                hospital_id=config_dict.get('default_hospital_id', 'PEERNINE'),
                 partner_id=partner_id
             )
             

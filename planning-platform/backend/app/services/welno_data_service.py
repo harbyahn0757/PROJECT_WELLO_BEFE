@@ -563,6 +563,16 @@ class WelnoDataService:
                 code = item.get('Code')
                 description = item.get('Description', '')
                 
+                # 타입 변환 (None 처리 및 문자열 변환)
+                year = str(year) if year else None
+                checkup_date = str(checkup_date) if checkup_date else None
+                location = str(location) if location else None
+                code = str(code) if code else None
+                description = str(description) if description else None
+                
+                # raw_data를 JSONB로 변환 (asyncpg는 자동 변환하지만 명시적으로 처리)
+                raw_data_json = json.dumps(item, ensure_ascii=False)
+                
                 # 수치 추출 (생략 가능)
                 height = weight = bmi = bp_high = blood_sugar = cholesterol = None
                 
@@ -570,12 +580,12 @@ class WelnoDataService:
                     INSERT INTO welno.welno_checkup_data 
                     (patient_uuid, hospital_id, raw_data, year, checkup_date, location, code, description,
                      data_source, indexeddb_synced_at, partner_id, partner_oid)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                    VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 """
                 
                 await conn.execute(
                     insert_query,
-                    patient_uuid, hospital_id, json.dumps(item, ensure_ascii=False),
+                    patient_uuid, hospital_id, raw_data_json,
                     year, checkup_date, location, code, description,
                     data_source, indexeddb_synced_at, partner_id, partner_oid
                 )
@@ -1588,7 +1598,20 @@ class WelnoDataService:
                     WHERE partner_id = $1 AND is_active = true
                     LIMIT 1
                 """, partner_id)
-                partner_config = dict(partner_row) if partner_row else None
+                if partner_row:
+                    # config가 문자열일 수 있으므로 안전하게 처리
+                    import json
+                    config_data = partner_row['config']
+                    if isinstance(config_data, str):
+                        try:
+                            config_data = json.loads(config_data)
+                        except:
+                            config_data = {}
+                    elif not isinstance(config_data, dict):
+                        config_data = {}
+                    partner_config = {'config': config_data}
+                else:
+                    partner_config = None
                 requires_payment_flag = check_payment_required(partner_config)
             
             # 8. 약관 동의 상태 확인 (✨ 추가)
