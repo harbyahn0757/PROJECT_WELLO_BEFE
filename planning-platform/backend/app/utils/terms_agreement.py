@@ -22,6 +22,8 @@ async def verify_terms_agreement(
     """
     약관 동의 상태 검증 (DB 기준)
     
+    우선순위: terms_agreement_detail → terms_agreement (하위 호환)
+    
     Args:
         uuid: 환자 UUID
         hospital_id: 병원 ID
@@ -41,12 +43,12 @@ async def verify_terms_agreement(
         }
     """
     row = await conn.fetchrow("""
-        SELECT terms_agreement, terms_agreed_at
+        SELECT terms_agreement, terms_agreement_detail, terms_agreed_at, terms_all_required_agreed_at
         FROM welno.welno_patients
         WHERE uuid = $1 AND hospital_id = $2
     """, uuid, hospital_id)
     
-    if not row or not row['terms_agreement']:
+    if not row:
         return {
             "is_agreed": False,
             "agreed_at": None,
@@ -54,26 +56,88 @@ async def verify_terms_agreement(
             "missing_terms": ['terms_service', 'terms_privacy', 'terms_sensitive']
         }
     
-    terms = row['terms_agreement']
-    if isinstance(terms, str):
-        try:
-            terms = json.loads(terms)
-        except:
-            terms = {}
-    
     # 필수 약관: 서비스 이용약관, 개인정보 수집/이용, 민감정보 수집/이용
     required_terms = ['terms_service', 'terms_privacy', 'terms_sensitive']
-    missing_terms = [term for term in required_terms if not terms.get(term, False)]
-    is_agreed = len(missing_terms) == 0
+    terms_details = {}
+    missing_terms = []
+    is_agreed = False
+    agreed_at = row.get('terms_all_required_agreed_at') or row.get('terms_agreed_at')
     
-    if not is_agreed:
-        logger.info(f"[약관검증] UUID={uuid}: 미동의 약관 = {missing_terms}")
+    # 1. terms_agreement_detail 우선 체크 (새 형식)
+    if row.get('terms_agreement_detail'):
+        terms_detail = row['terms_agreement_detail']
+        if isinstance(terms_detail, str):
+            try:
+                terms_detail = json.loads(terms_detail)
+            except:
+                terms_detail = {}
+        
+        # terms_agreement_detail 형식: {term_name: {agreed: bool, agreed_at: str}}
+        for term_name in required_terms:
+            term_data = terms_detail.get(term_name, {})
+            if isinstance(term_data, dict):
+                agreed = term_data.get('agreed', False)
+            else:
+                # 하위 호환: 직접 bool 값인 경우
+                agreed = bool(term_data)
+            
+            terms_details[term_name] = agreed
+            if not agreed:
+                missing_terms.append(term_name)
+        
+        # 마케팅 약관 (선택)
+        marketing_data = terms_detail.get('terms_marketing', {})
+        if isinstance(marketing_data, dict):
+            terms_details['terms_marketing'] = marketing_data.get('agreed', False)
+        else:
+            terms_details['terms_marketing'] = bool(marketing_data)
+        
+        is_agreed = len(missing_terms) == 0
+        
+        if not is_agreed:
+            logger.info(f"[약관검증] UUID={uuid}: 미동의 약관 = {missing_terms} (terms_agreement_detail)")
+        
+        return {
+            "is_agreed": is_agreed,
+            "agreed_at": agreed_at,
+            "terms_details": terms_details,
+            "missing_terms": missing_terms
+        }
     
+    # 2. terms_agreement 체크 (기존 형식, 하위 호환)
+    if row.get('terms_agreement'):
+        terms = row['terms_agreement']
+        if isinstance(terms, str):
+            try:
+                terms = json.loads(terms)
+            except:
+                terms = {}
+        
+        for term_name in required_terms:
+            agreed = terms.get(term_name, False)
+            terms_details[term_name] = agreed
+            if not agreed:
+                missing_terms.append(term_name)
+        
+        terms_details['terms_marketing'] = terms.get('terms_marketing', False)
+        is_agreed = len(missing_terms) == 0
+        
+        if not is_agreed:
+            logger.info(f"[약관검증] UUID={uuid}: 미동의 약관 = {missing_terms} (terms_agreement)")
+        
+        return {
+            "is_agreed": is_agreed,
+            "agreed_at": agreed_at,
+            "terms_details": terms_details,
+            "missing_terms": missing_terms
+        }
+    
+    # 3. 약관 데이터 없음
     return {
-        "is_agreed": is_agreed,
-        "agreed_at": row['terms_agreed_at'],
-        "terms_details": terms,
-        "missing_terms": missing_terms
+        "is_agreed": False,
+        "agreed_at": None,
+        "terms_details": {},
+        "missing_terms": required_terms
     }
 
 

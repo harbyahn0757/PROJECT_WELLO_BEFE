@@ -441,8 +441,19 @@ class WelnoDataService:
             return {"error": f"데이터 수집 중 오류가 발생했습니다: {str(e)}"}
     
     async def save_patient_data(self, uuid: str, hospital_id: str, user_info: Dict[str, Any], 
-                               session_id: str) -> Optional[int]:
-        """환자 기본정보 저장 또는 업데이트"""
+                               session_id: str, registration_source: Optional[str] = None,
+                               partner_id: Optional[str] = None) -> Optional[int]:
+        """
+        환자 기본정보 저장 또는 업데이트
+        
+        Args:
+            uuid: 환자 UUID
+            hospital_id: 병원 ID
+            user_info: 사용자 정보 (name, phone_number, birth_date, gender)
+            session_id: Tilko 세션 ID
+            registration_source: 등록 출처 ('DIRECT', 'PARTNER', None)
+            partner_id: 파트너 ID (파트너사 유저인 경우)
+        """
         try:
             import datetime
             conn = await asyncpg.connect(**self.db_config)
@@ -453,6 +464,10 @@ class WelnoDataService:
             print(f"   - phone_number: {user_info.get('phone_number')}")
             print(f"   - birth_date: {user_info.get('birth_date')}")
             print(f"   - gender: {user_info.get('gender')}")
+            if registration_source:
+                print(f"   - registration_source: {registration_source}")
+            if partner_id:
+                print(f"   - partner_id: {partner_id}")
             
             birth_date = None
             if user_info.get('birth_date'):
@@ -475,8 +490,8 @@ class WelnoDataService:
             
             upsert_query = """
                 INSERT INTO welno.welno_patients (uuid, hospital_id, name, phone_number, birth_date, gender, 
-                                          last_auth_at, tilko_session_id, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, NOW())
+                                          last_auth_at, tilko_session_id, registration_source, partner_id, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, NOW())
                 ON CONFLICT (uuid, hospital_id) 
                 DO UPDATE SET 
                     name = EXCLUDED.name,
@@ -485,6 +500,8 @@ class WelnoDataService:
                     gender = EXCLUDED.gender,
                     last_auth_at = NOW(),
                     tilko_session_id = EXCLUDED.tilko_session_id,
+                    registration_source = COALESCE(EXCLUDED.registration_source, welno.welno_patients.registration_source),
+                    partner_id = COALESCE(EXCLUDED.partner_id, welno.welno_patients.partner_id),
                     updated_at = NOW()
                 RETURNING id
             """
@@ -492,11 +509,15 @@ class WelnoDataService:
             patient_id = await conn.fetchval(
                 upsert_query,
                 uuid, hospital_id, name, phone_number,
-                birth_date, gender, session_id
+                birth_date, gender, session_id, registration_source, partner_id
             )
             
             await conn.close()
             print(f"✅ [환자저장] 환자 정보 저장 완료 - ID: {patient_id}, 이름: {name}, 전화번호: {phone_number}, 생년월일: {birth_date}")
+            if registration_source:
+                print(f"   - registration_source: {registration_source}")
+            if partner_id:
+                print(f"   - partner_id: {partner_id}")
             return patient_id
             
         except Exception as e:

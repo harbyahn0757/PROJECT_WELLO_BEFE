@@ -862,54 +862,65 @@ async def register_patient_on_terms_agreement(request: Request):
             }
         
         # 3. welno_patients에 등록 (기본 정보만, 건강 데이터는 나중에)
-        if patient_info.get('name'):
-            from ....services.welno_data_service import welno_data_service
+        # 이름이 없어도 최소 정보로 환자 등록 (약관 동의 시점에 환자 정보가 없을 수 있음)
+        from ....services.welno_data_service import welno_data_service
+        
+        # patient_info가 없거나 이름이 없으면 최소 정보로 등록
+        if not patient_info.get('name'):
+            logger.info(f"ℹ️ [환자등록] 이름 정보 없음, 최소 정보로 등록: uuid={uuid}")
+            patient_info = {
+                "name": "임시사용자",
+                "phone_number": "01000000000",
+                "birth_date": "1900-01-01",
+                "gender": "M"
+            }
+        
+        session_id = f"CAMPAIGN_TERMS_{oid}" if oid else f"CAMPAIGN_TERMS_{uuid}"
+        # 파트너사 유저인 경우 registration_source와 partner_id 설정
+        registration_source = 'PARTNER' if partner_id else None
+        patient_id = await welno_data_service.save_patient_data(
+            uuid=uuid,
+            hospital_id="PEERNINE",
+            user_info=patient_info,
+            session_id=session_id,
+            registration_source=registration_source,
+            partner_id=partner_id
+        )
+        
+        if patient_id:
+            # 4. 약관동의 정보 저장
+            if terms_agreement_detail:
+                # 새 형식: 각 약관별 상세 정보
+                try:
+                    await welno_data_service.save_terms_agreement_detail(
+                        uuid=uuid,
+                        hospital_id="PEERNINE",
+                        terms_agreement_detail=terms_agreement_detail
+                    )
+                    logger.info(f"✅ [환자등록] 약관동의 상세 정보 저장 완료: uuid={uuid}")
+                except Exception as e:
+                    logger.warning(f"⚠️ [환자등록] 약관동의 상세 저장 실패: {e}")
+            elif terms_agreement:
+                # 기존 형식: 하위 호환
+                try:
+                    await welno_data_service.save_terms_agreement(
+                        uuid=uuid,
+                        hospital_id="PEERNINE",
+                        terms_agreement=terms_agreement
+                    )
+                    logger.info(f"✅ [환자등록] 약관동의 정보 저장 완료 (기존 형식): uuid={uuid}")
+                except Exception as e:
+                    logger.warning(f"⚠️ [환자등록] 약관동의 저장 실패 (환자 등록은 완료): {e}")
             
-            session_id = f"CAMPAIGN_TERMS_{oid}" if oid else f"CAMPAIGN_TERMS_{uuid}"
-            patient_id = await welno_data_service.save_patient_data(
-                uuid=uuid,
-                hospital_id="PEERNINE",
-                user_info=patient_info,
-                session_id=session_id
-            )
-            
-            if patient_id:
-                # 4. 약관동의 정보 저장
-                if terms_agreement_detail:
-                    # 새 형식: 각 약관별 상세 정보
-                    try:
-                        await welno_data_service.save_terms_agreement_detail(
-                            uuid=uuid,
-                            hospital_id="PEERNINE",
-                            terms_agreement_detail=terms_agreement_detail
-                        )
-                        logger.info(f"✅ [환자등록] 약관동의 상세 정보 저장 완료: uuid={uuid}")
-                    except Exception as e:
-                        logger.warning(f"⚠️ [환자등록] 약관동의 상세 저장 실패: {e}")
-                elif terms_agreement:
-                    # 기존 형식: 하위 호환
-                    try:
-                        await welno_data_service.save_terms_agreement(
-                            uuid=uuid,
-                            hospital_id="PEERNINE",
-                            terms_agreement=terms_agreement
-                        )
-                        logger.info(f"✅ [환자등록] 약관동의 정보 저장 완료 (기존 형식): uuid={uuid}")
-                    except Exception as e:
-                        logger.warning(f"⚠️ [환자등록] 약관동의 저장 실패 (환자 등록은 완료): {e}")
-                
-                logger.info(f"✅ [환자등록] 환자 등록 완료: uuid={uuid}, patient_id={patient_id}")
-                return {
-                    "success": True,
-                    "message": "환자 등록이 완료되었습니다.",
-                    "patient_id": patient_id
-                }
-            else:
-                logger.error(f"❌ [환자등록] 환자 등록 실패: uuid={uuid}")
-                return {"success": False, "message": "환자 등록에 실패했습니다."}
+            logger.info(f"✅ [환자등록] 환자 등록 완료: uuid={uuid}, patient_id={patient_id}")
+            return {
+                "success": True,
+                "message": "환자 등록이 완료되었습니다.",
+                "patient_id": patient_id
+            }
         else:
-            logger.warning(f"⚠️ [환자등록] 이름 정보 부족으로 등록 건너뜀: uuid={uuid}")
-            return {"success": False, "message": "환자 이름 정보가 필요합니다."}
+            logger.error(f"❌ [환자등록] 환자 등록 실패: uuid={uuid}")
+            return {"success": False, "message": "환자 등록에 실패했습니다."}
             
     except HTTPException:
         raise

@@ -348,36 +348,47 @@ export async function saveTermsAgreement(
   }
   
   // 2. 서버 저장 시도 (비동기, 실패해도 로컬은 유효)
-  if (uuid && oid) {
+  // oid가 없어도 서버 저장 시도 (파트너사 유저 약관 동의 시 oid 없을 수 있음)
+  if (uuid) {
     try {
+      const requestBody: any = {
+        uuid,
+        user_info: userInfo,
+        terms_agreement_detail: {
+          terms_service: {
+            agreed: termsAgreement.terms_service,
+            agreed_at: termsAgreement.terms_service ? now.toISOString() : null,
+          },
+          terms_privacy: {
+            agreed: termsAgreement.terms_privacy,
+            agreed_at: termsAgreement.terms_privacy ? now.toISOString() : null,
+          },
+          terms_sensitive: {
+            agreed: termsAgreement.terms_sensitive,
+            agreed_at: termsAgreement.terms_sensitive ? now.toISOString() : null,
+          },
+          terms_marketing: {
+            agreed: termsAgreement.terms_marketing,
+            agreed_at: termsAgreement.terms_marketing ? now.toISOString() : null,
+          },
+        },
+        partner_id: partnerId,
+      };
+      
+      // oid가 있으면 포함
+      if (oid) {
+        requestBody.oid = oid;
+      }
+      
+      // api_key가 있으면 포함
+      if (apiKey) {
+        requestBody.api_key = apiKey;
+      }
+      
       const response = await fetch('/api/v1/campaigns/disease-prediction/register-patient/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uuid,
-          oid,
-          user_info: userInfo,
-          terms_agreement_detail: {
-            terms_service: {
-              agreed: termsAgreement.terms_service,
-              agreed_at: termsAgreement.terms_service ? now.toISOString() : null,
-            },
-            terms_privacy: {
-              agreed: termsAgreement.terms_privacy,
-              agreed_at: termsAgreement.terms_privacy ? now.toISOString() : null,
-            },
-            terms_sensitive: {
-              agreed: termsAgreement.terms_sensitive,
-              agreed_at: termsAgreement.terms_sensitive ? now.toISOString() : null,
-            },
-            terms_marketing: {
-              agreed: termsAgreement.terms_marketing,
-              agreed_at: termsAgreement.terms_marketing ? now.toISOString() : null,
-            },
-          },
-          api_key: apiKey,
-          partner_id: partnerId,
-        }),
+        body: JSON.stringify(requestBody),
       });
       
       if (response.ok) {
@@ -397,7 +408,8 @@ export async function saveTermsAgreement(
         console.log('✅ [약관저장] 서버 동기화 완료');
         return { success: true };
       } else {
-        console.warn('⚠️ [약관저장] 서버 저장 실패 (로컬 3일 유효)');
+        const errorData = await response.json().catch(() => ({}));
+        console.warn('⚠️ [약관저장] 서버 저장 실패 (로컬 3일 유효):', errorData);
         return { success: true }; // 로컬 저장은 성공
       }
     } catch (error) {
