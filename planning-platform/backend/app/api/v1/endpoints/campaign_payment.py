@@ -269,6 +269,9 @@ async def payment_callback(
             uuid = order_data.get('uuid')
             user_data = order_data.get('user_data')
             
+            # decrypted 변수를 미리 초기화 (스코프 문제 방지)
+            decrypted = None
+            
             # 데이터 개수 체크 (암호화된 경우 복호화 후 체크)
             metric_count = 0
             if isinstance(user_data, str):
@@ -298,7 +301,7 @@ async def payment_callback(
                     from ....services.welno_data_service import welno_data_service
                     
                     # 1순위: 방금 복호화된 데이터, 2순위: order_data 내 user_data
-                    u_info = decrypted if 'decrypted' in locals() and decrypted else order_data.get('user_data', {})
+                    u_info = decrypted if decrypted is not None and isinstance(decrypted, dict) else order_data.get('user_data', {})
                     if isinstance(u_info, str):
                         u_info = json.loads(u_info)
                         
@@ -338,7 +341,7 @@ async def payment_callback(
                 # 이름 추출 (복호화된 데이터 또는 order_data에서)
                 # 이름은 틸코 인증 후 저장되므로, 여기서는 없을 수 있음
                 user_name = None
-                if 'decrypted' in locals() and decrypted and isinstance(decrypted, dict):
+                if decrypted is not None and isinstance(decrypted, dict):
                     user_name = decrypted.get('name')
                 elif isinstance(user_data, dict):
                     user_name = user_data.get('name')
