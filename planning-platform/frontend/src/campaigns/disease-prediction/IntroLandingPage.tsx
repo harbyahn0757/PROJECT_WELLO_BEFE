@@ -44,11 +44,8 @@ const IntroLandingPage: React.FC<Props> = ({ status }) => {
 
   // 버튼 문구 및 동작 결정 로직
   const buttonConfig = useMemo(() => {
-    const paymentAmount = status?.payment_amount || 7900;
-    const amountText = formatAmount(paymentAmount);
-    
     if (!status) {
-      return { text: `${amountText}원 결제하고 리포트 보기`, action: 'payment' };
+      return { text: '질병예측 리포트 보기', action: 'payment' };
     }
 
     const { has_payment, has_checkup_data, requires_payment } = status;
@@ -63,7 +60,7 @@ const IntroLandingPage: React.FC<Props> = ({ status }) => {
     }
 
     // 2. 결제가 필요한 경우
-    return { text: `${amountText}원 결제하고 리포트 보기`, action: 'payment' };
+    return { text: '질병예측 리포트 보기', action: 'payment' };
   }, [status]);
 
   // 실제 버튼 클릭 처리 로직 (useCallback으로 메모이제이션)
@@ -119,7 +116,7 @@ const IntroLandingPage: React.FC<Props> = ({ status }) => {
               navigate(`/campaigns/disease-prediction?${termsParams.toString()}`);
               return;
             } else {
-              console.log('[IntroLandingPage] 약관 동의 완료 → 결제 진행');
+              console.log('[IntroLandingPage] 약관 동의 완료 → 스피너 표시 후 결제 진행');
             }
           } catch (error) {
             console.error('[IntroLandingPage] 약관 체크 오류:', error);
@@ -129,8 +126,13 @@ const IntroLandingPage: React.FC<Props> = ({ status }) => {
           console.warn('[IntroLandingPage] 약관 체크 불가:', { uuid, partnerForTerms });
         }
         
+        // 바로 결제 페이지로 이동 (히스토리에 추가하여 뒤로가기 가능하도록)
         console.log('💳 [IntroLanding] 결제 페이지로 이동');
-        navigate(`/campaigns/disease-prediction?page=payment&${commonParams}`);
+        // navigate 직후 location.search 변경 전에 currentPage를 즉시 업데이트하기 위해 커스텀 이벤트 발생
+        window.dispatchEvent(new CustomEvent('welno-campaign-page-change', { 
+          detail: { page: 'payment' } 
+        }));
+        navigate(`/campaigns/disease-prediction?page=payment&${commonParams}`, { replace: false });
         break;
     }
   }, [buttonConfig.action, partner, uuid, data, apiKey, navigate, status]);
@@ -170,6 +172,17 @@ const IntroLandingPage: React.FC<Props> = ({ status }) => {
     }
   }, [oid, autoTrigger, isGenerating, navigate]);
 
+  // 마운트/언마운트 로그
+  useEffect(() => {
+    console.log('🟢 [IntroLandingPage] ===== IntroLandingPage 컴포넌트 마운트됨 =====');
+    console.log('🟢 [IntroLandingPage] 이 페이지는:');
+    console.log('🟢 [IntroLandingPage] - 혜택 리스트: "✓ 20대 질병 예측 분석..."');
+    console.log('🟢 [IntroLandingPage] - "기업정보" 섹션이 없어야 함');
+    return () => {
+      console.log('🟢 [IntroLandingPage] 🗑️ IntroLandingPage 언마운트됨');
+    };
+  }, []);
+
   // 전역 플로팅 버튼 이벤트 리스너
   useEffect(() => {
     console.log('👂 [IntroLanding] 이벤트 리스너 등록됨');
@@ -194,41 +207,43 @@ const IntroLandingPage: React.FC<Props> = ({ status }) => {
   }, [handleButtonClick, buttonConfig.text]);
 
   return (
-    <div className="dp-landing">
-      {/* 리포트 생성 중 스피너 */}
+    <div className="dp-landing" data-page="intro" key="intro-page-root">
+      {/* 리포트 생성 중 스피너 (리포트 생성 시에만 사용) */}
       <PageTransitionLoader isVisible={isGenerating} message="리포트를 분석 중입니다..." />
       
-      <main className="dp-content">
+      <main className="dp-content" key="intro-page-main">
+        {/* CTA 영역 - 상단으로 이동 */}
+        <section className="payment-guide" style={{ textAlign: 'center', padding: '10px 0' }}>
+          <div className="price-box" style={{ justifyContent: 'center', borderBottom: 'none', paddingBottom: '5px', marginBottom: '10px', marginTop: '10px' }}>
+            <span className="item-name" style={{ fontSize: '18px', letterSpacing: '-0.3px', lineHeight: '1.4', color: '#8B4513', fontWeight: '600' }}>AI 질병예측 리포트 (PDF)</span>
+          </div>
+          
+          {/* 구분선 */}
+          <hr style={{ 
+            width: '100%', 
+            maxWidth: '300px', 
+            margin: '10px auto', 
+            border: 'none', 
+            borderTop: '1px solid #e0e0e0' 
+          }} />
+          
+          <ul className="benefits" style={{ listStyle: 'none', padding: 0, margin: '10px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+            <li style={{ fontSize: '14px', letterSpacing: '-0.2px', lineHeight: '1.4' }}>✓ 20대 질병 예측 분석</li>
+            <li style={{ fontSize: '14px', letterSpacing: '-0.2px', lineHeight: '1.4' }}>✓ 암 발생 위험도 분석</li>
+            <li style={{ fontSize: '14px', letterSpacing: '-0.2px', lineHeight: '1.4' }}>✓ 건강 나이 분석</li>
+            <li style={{ fontSize: '14px', letterSpacing: '-0.2px', lineHeight: '1.4' }}>✓ PDF 리포트 다운로드</li>
+          </ul>
+        </section>
+
         {/* 소개 이미지 섹션 */}
         <section className="image-intro">
           <img src={reportB1} alt="intro 1" className="intro-img" />
           <img src={reportB2} alt="intro 2" className="intro-img" />
-          <img src={reportB7_1} alt="intro extra" className="intro-img" />
           <img src={reportB3} alt="intro 3" className="intro-img" />
           <img src={reportB4} alt="intro 4" className="intro-img" />
           <img src={reportB5} alt="intro 5" className="intro-img" />
           <img src={reportB6} alt="intro 6" className="intro-img" />
-        </section>
-
-        {/* CTA 영역 */}
-        <section className="payment-guide">
-          <div className="price-box">
-            <span className="item-name">AI 질병예측 리포트 (PDF)</span>
-            <span className="price">
-              {status?.requires_payment === false 
-                ? '무료' 
-                : status?.payment_amount 
-                  ? `${status.payment_amount.toLocaleString('ko-KR')}원`
-                  : '7,900원'}
-            </span>
-          </div>
-          
-          <ul className="benefits">
-            <li>✓ 20대 질병 예측 분석</li>
-            <li>✓ 암 발생 위험도 분석</li>
-            <li>✓ 건강 나이 분석</li>
-            <li>✓ PDF 리포트 다운로드</li>
-          </ul>
+          <img src={reportB7_1} alt="intro extra" className="intro-img" />
         </section>
       </main>
     </div>

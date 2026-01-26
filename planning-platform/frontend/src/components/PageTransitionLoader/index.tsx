@@ -52,7 +52,7 @@ const PageTransitionLoader: React.FC<PageTransitionLoaderProps> = ({ isVisible, 
             />
           </div>
           {message && (
-            <div className="page-transition-message">
+            <div className="page-transition-message" style={{ whiteSpace: 'pre-line' }}>
               {message}
             </div>
           )}

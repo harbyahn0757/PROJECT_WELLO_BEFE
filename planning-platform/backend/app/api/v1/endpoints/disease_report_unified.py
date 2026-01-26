@@ -25,16 +25,25 @@ def get_payment_amount(partner_id: str) -> int:
     return 7900
 
 @router.post("/disease-report/check-partner-status")
-async def check_partner_status(
-    api_key: Optional[str] = Body(None),
-    partner_id: Optional[str] = Body(None),
-    uuid: str = Body(...),
-    encrypted_data: Optional[str] = Body(None, alias="data")
-):
+async def check_partner_status(request: Request):
     """
     파트너사 유입 사용자의 상태를 체크하고 적절한 페이지로 리다이렉트 정보를 반환합니다.
     """
+    # 요청 본문 전체 받기
+    body = await request.json()
+    api_key = body.get('api_key')
+    partner_id = body.get('partner_id')
+    uuid = body.get('uuid')
+    encrypted_data = body.get('data') or body.get('encrypted_data')
+    
     logger.info(f"[상태체크] 시작: partner={partner_id}, key={bool(api_key)}, uuid={uuid}")
+    # 요청 본문 전체 로그 (json 모듈 사용)
+    try:
+        body_log = {k: (v[:100] + '...' if isinstance(v, str) and len(v) > 100 else v) for k, v in body.items()}
+        logger.info(f"[상태체크] 요청 본문 전체: {json.dumps(body_log, ensure_ascii=False)}")
+    except Exception as e:
+        logger.warning(f"[상태체크] 요청 본문 로그 실패: {e}, body keys: {list(body.keys())}")
+    logger.info(f"[상태체크] encrypted_data 확인: 타입={type(encrypted_data)}, 존재={bool(encrypted_data)}, 길이={len(encrypted_data) if encrypted_data else 0}, 값 시작={str(encrypted_data)[:100] if encrypted_data else 'None'}...")
     
     try:
         # redirect_url에 api_key가 있으면 유지하도록 헬퍼 함수 정의
@@ -237,17 +246,26 @@ async def check_partner_status(
                     logger.error(f"[상태체크] 기록 생성 실패: {e}")
 
             # ===== 2. 데이터 복호화 및 분석 =====
+            logger.info(f"[상태체크] ===== 복호화 시작 ===== uuid={uuid}, partner={partner_id}")
+            logger.info(f"[상태체크] encrypted_data 존재 여부: {bool(encrypted_data)}")
             if encrypted_data:
+                logger.info(f"[상태체크] encrypted_data 상세: 타입={type(encrypted_data)}, 길이={len(encrypted_data)}, 시작={str(encrypted_data)[:50]}...")
                 encryption_keys = config_dict.get("encryption", {})
                 if not isinstance(encryption_keys, dict):
                     encryption_keys = {}
                 aes_key = encryption_keys.get("aes_key")
                 aes_iv = encryption_keys.get("aes_iv")
                 
+                logger.info(f"[상태체크] 암호화 키 확인: aes_key 존재={bool(aes_key)}, aes_key 길이={len(aes_key) if aes_key else 0}, aes_iv 존재={bool(aes_iv)}, aes_iv 길이={len(aes_iv) if aes_iv else 0}, partner={partner_id}")
+                
                 if aes_key:
+                    logger.info(f"[상태체크] 복호화 시도 시작: uuid={uuid}")
                     try:
                         decrypted = decrypt_user_data(encrypted_data, aes_key, aes_iv)
+                        logger.info(f"[상태체크] 복호화 결과: 타입={type(decrypted)}, 존재={bool(decrypted)}")
                         if decrypted:
+                            logger.info(f"[상태체크] 복호화된 데이터 키 목록: {list(decrypted.keys()) if isinstance(decrypted, dict) else 'dict 아님'}")
+                            logger.info(f"[상태체크] 복호화된 데이터 샘플: name={decrypted.get('name', '없음')}, birth={decrypted.get('birth', '없음')}, phone={decrypted.get('phone', '없음')}")
                             # ✅ [추가] 인적 정보 보호 로직: 기존 기록이 있다면 인적 정보는 덮어쓰지 않음
                             if is_recorded_user and saved_user_data:
                                 try:
@@ -292,6 +310,7 @@ async def check_partner_status(
                             logger.error(f"   - Encrypted Data Length: {len(encrypted_data)}")
                     except Exception as e:
                         logger.error(f"[상태체크] ❌ 복호화 중 예외 발생: {str(e)}")
+                        logger.error(f"[상태체크] ❌ 예외 상세: encrypted_data 길이={len(encrypted_data) if encrypted_data else 0}, aes_key 길이={len(aes_key) if aes_key else 0}, aes_iv 길이={len(aes_iv) if aes_iv else 0}")
                         import traceback
                         logger.error(traceback.format_exc())
                 else:

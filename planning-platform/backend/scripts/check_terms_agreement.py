@@ -264,19 +264,136 @@ async def check_terms_agreement(uuid: str, hospital_id: str = "PEERNINE"):
         await conn.close()
 
 
+async def check_all_payments_and_users():
+    """결제 테이블과 웰노 유저 테이블 전체 확인"""
+    
+    # DB 연결 설정
+    db_config = {
+        'host': os.getenv('DB_HOST', '10.0.1.10'),
+        'port': int(os.getenv('DB_PORT', '5432')),
+        'database': os.getenv('DB_NAME', 'p9_mkt_biz'),
+        'user': os.getenv('DB_USER', 'peernine'),
+        'password': os.getenv('DB_PASSWORD', 'autumn3334!')
+    }
+    
+    print("=" * 80)
+    print("🔍 결제 및 웰노 유저 데이터 전체 확인")
+    print("=" * 80)
+    print()
+    
+    conn = await asyncpg.connect(**db_config)
+    
+    try:
+        # 1. 결제 테이블 (tb_campaign_payments) - 파트너용 임시 테이블
+        print("1️⃣ 결제 테이블 (tb_campaign_payments) - 파트너용")
+        print("-" * 80)
+        
+        payment_count = await conn.fetchval("SELECT COUNT(*) FROM welno.tb_campaign_payments")
+        print(f"총 결제 데이터: {payment_count}건")
+        print()
+        
+        if payment_count > 0:
+            payments = await conn.fetch("""
+                SELECT oid, uuid, partner_id, user_name, status, amount, 
+                       email, created_at, updated_at
+                FROM welno.tb_campaign_payments
+                ORDER BY created_at DESC
+            """)
+            
+            for pay in payments:
+                print(f"  - 주문번호: {pay['oid']}")
+                print(f"    UUID: {pay['uuid']}")
+                print(f"    파트너: {pay['partner_id']}")
+                print(f"    사용자: {pay['user_name']}")
+                print(f"    상태: {pay['status']}")
+                print(f"    금액: {pay['amount']:,}원")
+                print(f"    이메일: {pay['email'] or '없음'}")
+                print(f"    생성일: {pay['created_at']}")
+                print(f"    수정일: {pay['updated_at']}")
+                print()
+        else:
+            print("  ✅ 결제 데이터 없음")
+        print()
+        
+        # 2. 웰노 유저 테이블 (welno_patients)
+        print("2️⃣ 웰노 유저 테이블 (welno_patients)")
+        print("-" * 80)
+        
+        user_count = await conn.fetchval("SELECT COUNT(*) FROM welno.welno_patients")
+        print(f"총 웰노 유저: {user_count}명")
+        print()
+        
+        if user_count > 0:
+            # 웰노 유저와 파트너 유저 구분
+            welno_users = await conn.fetch("""
+                SELECT uuid, name, hospital_id, phone_number, registration_source, 
+                       partner_id, created_at, updated_at
+                FROM welno.welno_patients
+                WHERE registration_source IS NULL OR registration_source = 'DIRECT'
+                ORDER BY created_at DESC
+            """)
+            
+            partner_users = await conn.fetch("""
+                SELECT uuid, name, hospital_id, phone_number, registration_source, 
+                       partner_id, created_at, updated_at
+                FROM welno.welno_patients
+                WHERE registration_source = 'PARTNER'
+                ORDER BY created_at DESC
+            """)
+            
+            print(f"  - 웰노 유저: {len(welno_users)}명")
+            for user in welno_users:
+                print(f"    * {user['name']} (UUID: {user['uuid']}, 전화: {user['phone_number']})")
+                print(f"      생성일: {user['created_at']}")
+            print()
+            
+            print(f"  - 파트너사 유저: {len(partner_users)}명")
+            for user in partner_users:
+                print(f"    * {user['name']} (UUID: {user['uuid']}, 파트너: {user['partner_id']}, 전화: {user['phone_number']})")
+                print(f"      생성일: {user['created_at']}")
+        else:
+            print("  ✅ 웰노 유저 데이터 없음")
+        print()
+        
+        # 3. 요약
+        print("3️⃣ 요약")
+        print("-" * 80)
+        print(f"  - 결제 데이터: {payment_count}건")
+        print(f"  - 웰노 유저: {user_count}명")
+        print()
+        
+        if payment_count == 0 and user_count == 0:
+            print("  ✅ 모든 데이터가 삭제되었습니다.")
+        else:
+            print("  ⚠️  일부 데이터가 남아있습니다.")
+        print()
+        
+    except Exception as e:
+        print(f"❌ 오류 발생: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        await conn.close()
+
+
 async def main():
     """메인 함수"""
     if len(sys.argv) < 2:
-        print("사용법: python check_terms_agreement.py <uuid> [hospital_id]")
+        print("사용법:")
+        print("  python check_terms_agreement.py <uuid> [hospital_id]  # 특정 UUID 확인")
+        print("  python check_terms_agreement.py all                   # 전체 결제/유저 확인")
         print("\n예시:")
         print("  python check_terms_agreement.py bbfba40ee649d172c1cee9471249a535")
         print("  python check_terms_agreement.py bbfba40ee649d172c1cee9471249a535 PEERNINE")
+        print("  python check_terms_agreement.py all")
         sys.exit(1)
     
-    uuid = sys.argv[1]
-    hospital_id = sys.argv[2] if len(sys.argv) > 2 else "PEERNINE"
-    
-    await check_terms_agreement(uuid, hospital_id)
+    if sys.argv[1] == 'all':
+        await check_all_payments_and_users()
+    else:
+        uuid = sys.argv[1]
+        hospital_id = sys.argv[2] if len(sys.argv) > 2 else "PEERNINE"
+        await check_terms_agreement(uuid, hospital_id)
 
 
 if __name__ == "__main__":

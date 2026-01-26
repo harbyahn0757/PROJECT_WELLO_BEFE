@@ -6,6 +6,7 @@
   test                   - 테스트 데이터 삭제
   patient <uuid> [hospital_id]  - 특정 환자 삭제
   health <uuid> [hospital_id]  - 건강데이터만 삭제
+  payment                - 모든 결제 데이터 삭제
 """
 import asyncio
 import asyncpg
@@ -138,6 +139,20 @@ async def cmd_all():
             print("=" * 80)
             print(f"⚠️  {remaining_count}명의 유저가 남아있습니다.")
             print("=" * 80)
+        
+        # 결제 데이터도 함께 삭제
+        print()
+        print("=" * 80)
+        print("💳 결제 데이터 삭제")
+        print("=" * 80)
+        payment_count = await conn.fetchval("SELECT COUNT(*) FROM welno.tb_campaign_payments")
+        print(f"결제 데이터: {payment_count}건")
+        
+        if payment_count > 0:
+            payment_deleted = await conn.execute("DELETE FROM welno.tb_campaign_payments")
+            print(f"✅ 결제 데이터 삭제 완료: {payment_deleted}")
+        else:
+            print("✅ 삭제할 결제 데이터가 없습니다.")
         
     finally:
         await conn.close()
@@ -329,6 +344,67 @@ async def cmd_health(uuid: str, hospital_id: str = "PEERNINE"):
         await conn.close()
 
 
+async def cmd_payment():
+    """모든 결제 데이터 삭제"""
+    db_config = get_db_config()
+    
+    print("=" * 80)
+    print("💳 결제 데이터 삭제")
+    print("=" * 80)
+    print()
+    
+    conn = await asyncpg.connect(**db_config)
+    
+    try:
+        # 현재 결제 데이터 확인
+        payment_count = await conn.fetchval("""
+            SELECT COUNT(*) FROM welno.tb_campaign_payments
+        """)
+        
+        print(f"총 결제 데이터: {payment_count}건")
+        print()
+        
+        if payment_count == 0:
+            print("✅ 삭제할 결제 데이터가 없습니다.")
+            return
+        
+        # 결제 데이터 상세 확인
+        payments = await conn.fetch("""
+            SELECT oid, uuid, partner_id, user_name, status, amount, created_at
+            FROM welno.tb_campaign_payments
+            ORDER BY created_at DESC
+        """)
+        
+        print("삭제할 결제 데이터:")
+        for pay in payments:
+            print(f"  - 주문번호: {pay['oid']}, UUID: {pay['uuid']}, 파트너: {pay['partner_id']}, 사용자: {pay['user_name']}, 상태: {pay['status']}, 금액: {pay['amount']:,}원")
+        print()
+        
+        # 삭제 실행
+        payment_deleted = await conn.execute("DELETE FROM welno.tb_campaign_payments")
+        
+        # 최종 확인
+        remaining_count = await conn.fetchval("""
+            SELECT COUNT(*) FROM welno.tb_campaign_payments
+        """)
+        
+        print(f"삭제 완료: {payment_deleted}")
+        print(f"남은 결제 데이터: {remaining_count}건")
+        print()
+        
+        if remaining_count == 0:
+            print("=" * 80)
+            print("✅ 모든 결제 데이터 삭제 완료!")
+            print("=" * 80)
+        else:
+            print("=" * 80)
+            print(f"⚠️  {remaining_count}건의 결제 데이터가 남아있습니다.")
+            print("=" * 80)
+        
+    finally:
+        await conn.close()
+
+
 def main():
     parser = argparse.ArgumentParser(description='삭제 작업 통합 스크립트')
     subparsers = parser.add_subparsers(dest='command', help='서브커맨드')
@@ -349,6 +425,9 @@ def main():
     health_parser.add_argument('uuid', help='환자 UUID')
     health_parser.add_argument('hospital_id', nargs='?', default='PEERNINE', help='병원 ID (기본값: PEERNINE)')
     
+    # payment 명령
+    subparsers.add_parser('payment', help='모든 결제 데이터 삭제')
+    
     args = parser.parse_args()
     
     if not args.command:
@@ -368,6 +447,8 @@ def main():
         asyncio.run(cmd_patient(args.uuid, args.hospital_id))
     elif args.command == 'health':
         asyncio.run(cmd_health(args.uuid, args.hospital_id))
+    elif args.command == 'payment':
+        asyncio.run(cmd_payment())
 
 
 if __name__ == "__main__":

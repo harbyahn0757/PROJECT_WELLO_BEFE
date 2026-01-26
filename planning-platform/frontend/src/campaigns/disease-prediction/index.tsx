@@ -22,21 +22,82 @@ export interface PartnerStatus {
 }
 
 const DiseasePredictionCampaign: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState<PageType>('landing');
+  const [currentPage, setCurrentPage] = useState<PageType>('intro'); // 초기값을 'intro'로 변경하여 IntroLandingPage가 먼저 보이도록
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<PartnerStatus | null>(null);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
+  // 브라우저 뒤로가기/앞으로가기 처리
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      // popstate 이벤트는 이미 URL이 변경된 후 발생하므로
+      // location.search를 확인하여 페이지 상태 동기화
+      const urlParams = new URLSearchParams(location.search);
+      const page = urlParams.get('page');
+      
+      console.log('[DiseasePrediction] 브라우저 뒤로가기/앞으로가기 감지:', { page, location: location.search });
+      
+      if (page && ['payment', 'landing', 'terms', 'intro'].includes(page)) {
+        setCurrentPage(page as PageType);
+        setLoading(false);
+        console.log('[DiseasePrediction] 페이지 변경:', page);
+      } else if (!page) {
+        setCurrentPage('intro');
+        setLoading(false);
+        console.log('[DiseasePrediction] intro 페이지로 복귀');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [location.search]);
+
   useEffect(() => {
     const checkUserStatus = async () => {
       const urlParams = new URLSearchParams(location.search);
-      const page = urlParams.get('page') as PageType;
+      const page = urlParams.get('page'); // string | null
       const partner = urlParams.get('partner');
       const uuid = urlParams.get('uuid');
       const data = urlParams.get('data');
       const apiKey = urlParams.get('api_key');
+      
+      console.log('[DiseasePrediction] URL 파라미터 확인:', { 
+        page, partner, uuid, 
+        data_exists: !!data, 
+        data_length: data?.length || 0,
+        apiKey: !!apiKey,
+        currentPage_before: currentPage
+      });
+
+      // page 파라미터가 있으면 바로 페이지 설정 (상태 체크 생략)
+      const validPages: PageType[] = ['payment', 'landing', 'terms', 'intro'];
+      if (page && validPages.includes(page as PageType)) {
+        console.log('[DiseasePrediction] page 파라미터 있음, 바로 설정:', page, '현재 currentPage:', currentPage);
+        // currentPage가 이미 올바른 값이어도 강제로 설정 (navigate 후 재실행 방지)
+        console.log('[DiseasePrediction] currentPage 강제 설정:', currentPage, '->', page);
+        setCurrentPage(page as PageType);
+        setLoading(false);
+        return; // 상태 체크 생략하고 바로 반환
+      }
+      
+      // page 파라미터가 없을 때 처리
+      if (!page) {
+        // 이미 payment나 terms 페이지에 있다면 유지 (약관 동의 후 이동 중일 수 있음)
+        if (currentPage === 'payment' || currentPage === 'terms') {
+          console.log('[DiseasePrediction] page 파라미터 없지만 현재 페이지 유지:', currentPage);
+          setLoading(false);
+          return;
+        }
+        // 그 외의 경우 intro로 설정
+        console.log('[DiseasePrediction] page 파라미터 없음, intro 페이지로 설정');
+        setCurrentPage('intro');
+        setLoading(false);
+        return;
+      }
 
       // 1. 약관 동의 체크는 플로팅 버튼 클릭 시에만 수행
       // (랜딩페이지를 먼저 보여주기 위해 페이지 로드 시 약관 체크 제거)
@@ -87,10 +148,17 @@ const DiseasePredictionCampaign: React.FC = () => {
           
           // URL 파라미터에 page가 있으면 해당 페이지로, 없으면 intro
           // result 페이지는 제거됨
-          if (page === 'payment' || page === 'landing' || page === 'terms') {
-            setCurrentPage(page);
+          const validPages: PageType[] = ['payment', 'landing', 'terms', 'intro'];
+          if (page && validPages.includes(page as PageType)) {
+            console.log('[DiseasePrediction] currentPage 설정 (상태 체크 후):', page, '현재 currentPage:', currentPage);
+            // page 파라미터가 있으면 무조건 설정 (navigate 후 재실행 방지)
+            setCurrentPage(page as PageType);
           } else {
-            setCurrentPage('intro');
+            console.log('[DiseasePrediction] currentPage 설정: intro (page 파라미터 없음)');
+            // page 파라미터가 없을 때만 intro로 설정 (이미 payment나 terms로 설정된 경우 유지)
+            if (currentPage !== 'payment' && currentPage !== 'landing' && currentPage !== 'terms') {
+              setCurrentPage('intro');
+            }
           }
           
         } catch (error) {
@@ -98,11 +166,12 @@ const DiseasePredictionCampaign: React.FC = () => {
           setCurrentPage('intro');
         }
       } else {
-        // 파트너 정보 없으면 기본 landing (결제 페이지)
-        setCurrentPage('landing');
+        // 파트너 정보 없으면 기본 intro (소개 페이지)
+        setCurrentPage('intro');
       }
 
       setLoading(false);
+      console.log('[DiseasePrediction] loading 상태: false로 변경');
     };
 
     checkUserStatus();
@@ -112,6 +181,23 @@ const DiseasePredictionCampaign: React.FC = () => {
     document.title = 'Xog: 쏙 - AI 질병예측 리포트';
   }, []);
 
+  // 커스텀 이벤트로 currentPage 변경 요청 수신
+  useEffect(() => {
+    const handlePageChange = (event: CustomEvent<{ page: PageType }>) => {
+      const { page } = event.detail;
+      console.log('[DiseasePrediction] 커스텀 이벤트로 currentPage 변경 요청:', page);
+      if (page === 'payment' || page === 'landing' || page === 'terms') {
+        setCurrentPage(page);
+        setLoading(false);
+      }
+    };
+
+    window.addEventListener('welno-campaign-page-change', handlePageChange as EventListener);
+    return () => {
+      window.removeEventListener('welno-campaign-page-change', handlePageChange as EventListener);
+    };
+  }, []);
+
   // page=terms일 때 약관 모달 표시
   useEffect(() => {
     if (currentPage === 'terms') {
@@ -119,24 +205,71 @@ const DiseasePredictionCampaign: React.FC = () => {
     }
   }, [currentPage]);
 
-  // 로딩 중이더라도 이전 컴포넌트를 유지하여 이벤트 리스너 마운트 해제 방지
-  const renderContent = () => {
-    // result 페이지는 제거 - 리포트 생성 중에는 intro 페이지에서 스피너 표시
+  // currentPage 변경 시 스크롤을 맨 위로 이동 및 DOM 확인
+  useEffect(() => {
     if (currentPage === 'payment') {
-      return <LandingPage status={status} />;
+      console.log('[DiseasePrediction] payment 페이지로 전환, 스크롤 맨 위로 이동');
+      console.log('[DiseasePrediction] DOM 요소 확인:', {
+        container: document.querySelector('[data-current-page="payment"]'),
+        paymentPage: document.querySelector('[data-page="payment"]'),
+        introPage: document.querySelector('[data-page="intro"]'),
+        companyInfo: document.querySelector('.company-info')
+      });
+      
+      // 즉시 스크롤 (smooth 대신 auto로 빠르게)
+      window.scrollTo({ top: 0, behavior: 'auto' });
+      
+      // 약간의 지연 후 다시 확인 및 스크롤
+      setTimeout(() => {
+        const container = document.querySelector('[data-current-page="payment"]');
+        const paymentPage = document.querySelector('[data-page="payment"]');
+        const introPage = document.querySelector('[data-page="intro"]');
+        const companyInfo = document.querySelector('.company-info');
+        
+        console.log('[DiseasePrediction] 100ms 후 DOM 확인:', { 
+          container: !!container, 
+          paymentPage: !!paymentPage,
+          introPage: !!introPage, // intro가 남아있으면 문제
+          companyInfo: !!companyInfo // company-info가 있어야 LandingPage가 제대로 렌더링된 것
+        });
+        
+        if (introPage) {
+          console.error('[DiseasePrediction] ⚠️ intro 요소가 아직 DOM에 남아있음!');
+        }
+        
+        if (!companyInfo) {
+          console.error('[DiseasePrediction] ⚠️ company-info 섹션이 없음! LandingPage가 제대로 렌더링되지 않았을 수 있음');
+        }
+        
+        if (paymentPage) {
+          paymentPage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else if (container) {
+          container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
     }
+  }, [currentPage]);
 
-    if (currentPage === 'terms') {
-      // 약관 모달이 표시되는 동안 intro 페이지 표시
-      return <IntroLandingPage status={status} />;
-    }
-
-    if (currentPage === 'intro') {
-      return <IntroLandingPage status={status} />;
-    }
-
-    return <LandingPage />;
-  };
+  // 로딩 중이더라도 이전 컴포넌트를 유지하여 이벤트 리스너 마운트 해제 방지
+  // renderContent를 함수가 아닌 직접 JSX로 변경하여 최신 currentPage 참조 보장
+  console.log('[DiseasePrediction] 렌더링:', { currentPage, loading, hasStatus: !!status });
+  
+  let content;
+  if (currentPage === 'payment') {
+    console.log('🔵 [DiseasePrediction] ===== LandingPage 렌더링 (payment) =====');
+    console.log('🔵 [DiseasePrediction] 이 컴포넌트는 혜택 리스트가 "✅ 10대 주요 질환..."이고, 하단에 "기업정보" 섹션이 있어야 함');
+    content = <LandingPage key="payment-page" status={status} />;
+  } else if (currentPage === 'terms') {
+    console.log('🟡 [DiseasePrediction] ===== IntroLandingPage 렌더링 (terms) =====');
+    content = <IntroLandingPage key="terms-page" status={status} />;
+  } else if (currentPage === 'intro') {
+    console.log('🟢 [DiseasePrediction] ===== IntroLandingPage 렌더링 (intro) =====');
+    console.log('🟢 [DiseasePrediction] 이 컴포넌트는 혜택 리스트가 "✓ 20대 질병..."이고, "기업정보" 섹션이 없어야 함');
+    content = <IntroLandingPage key="intro-page" status={status} />;
+  } else {
+    console.log('⚪ [DiseasePrediction] ===== LandingPage 렌더링 (기본값, currentPage:', currentPage, ') =====');
+    content = <LandingPage key="landing-default" />;
+  }
 
   const urlParams = new URLSearchParams(location.search);
   const uuid = urlParams.get('uuid');
@@ -147,8 +280,12 @@ const DiseasePredictionCampaign: React.FC = () => {
   const partner = status?.partner_id || urlPartner || 'kindhabit';
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh' }}>
-      {renderContent()}
+    <div 
+      style={{ position: 'relative', minHeight: '100vh' }} 
+      data-current-page={currentPage}
+      key={`container-${currentPage}`} // currentPage 변경 시 컨테이너도 완전히 재생성
+    >
+      {content}
       
       {/* 약관 모달 (page=terms일 때 표시) */}
       {showTermsModal && (
@@ -185,14 +322,19 @@ const DiseasePredictionCampaign: React.FC = () => {
             // 약관 모달 닫기
             setShowTermsModal(false);
             
-            // 결제 페이지로 이동 (모든 파라미터 포함)
+            // navigate 직후 location.search 변경 전에 currentPage를 즉시 업데이트하기 위해 커스텀 이벤트 발생
+            window.dispatchEvent(new CustomEvent('welno-campaign-page-change', { 
+              detail: { page: 'payment' } 
+            }));
+            
+            // 결제 페이지로 이동 (모든 파라미터 포함, replace: false로 히스토리 추가)
             const params = new URLSearchParams();
             params.set('page', 'payment');
             if (uuid) params.set('uuid', uuid);
             if (partner) params.set('partner', partner);
             if (apiKey) params.set('api_key', apiKey);
             if (data) params.set('data', data);
-            navigate(`/campaigns/disease-prediction?${params.toString()}`);
+            navigate(`/campaigns/disease-prediction?${params.toString()}`, { replace: false });
           }}
         />
       )}
@@ -211,6 +353,21 @@ const DiseasePredictionCampaign: React.FC = () => {
           color: '#666'
         }}>
           로딩 중...
+        </div>
+      )}
+      {/* 디버깅: 로딩 상태 표시 */}
+      {loading && status && (
+        <div style={{
+          position: 'fixed',
+          top: 10,
+          right: 10,
+          padding: '10px',
+          backgroundColor: 'rgange',
+          color: 'white',
+          zIndex: 10000,
+          fontSize: '12px'
+        }}>
+          ⚠️ loading=true, status 있음 (스피너 안 보임)
         </div>
       )}
     </div>

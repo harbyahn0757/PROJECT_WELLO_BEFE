@@ -71,6 +71,8 @@ async def init_payment(request: Request):
             partner_id = 'kindhabit'  # 최후의 보루
             
         # 2. 암호화된 데이터 복호화
+        logger.info(f"🔍 [결제초기화] 데이터 확인: uuid={uuid}, partner={partner_id}, encrypted_data 존재={bool(encrypted_data)}, encrypted_data 길이={len(encrypted_data) if encrypted_data else 0}")
+        
         user_info = {}
         if encrypted_data:
             aes_key = None
@@ -79,16 +81,28 @@ async def init_payment(request: Request):
                 enc_keys = partner_config["config"].get("encryption", {})
                 aes_key = enc_keys.get("aes_key")
                 aes_iv = enc_keys.get("aes_iv")
+                logger.info(f"🔑 [결제초기화] 암호화 키 확인: aes_key 존재={bool(aes_key)}, aes_iv 존재={bool(aes_iv)}")
+            else:
+                logger.warning(f"⚠️ [결제초기화] partner_config 없음: uuid={uuid}, partner={partner_id}")
             
             user_info = decrypt_user_data(encrypted_data, aes_key, aes_iv)
-            if not user_info:
-                raise HTTPException(status_code=400, detail='Invalid encrypted data')
+            if not user_info or not isinstance(user_info, dict):
+                logger.warning(f"⚠️ [결제초기화] 복호화 실패 또는 결과가 dict가 아님: uuid={uuid}, partner={partner_id}, user_info 타입={type(user_info)}")
+                user_info = {}  # 빈 dict로 설정하여 계속 진행
+            else:
+                logger.info(f"✅ [결제초기화] 복호화 성공: uuid={uuid}, name={user_info.get('name', '없음')}")
         else:
             # 기존 방식 호환 (직접 파라미터가 있는 경우)
-            user_info = data
+            logger.info(f"ℹ️ [결제초기화] encrypted_data 없음, data 직접 사용: uuid={uuid}")
+            user_info = data if isinstance(data, dict) else {}
+        
+        # user_info가 dict인지 확인하고 안전하게 값 추출
+        if not isinstance(user_info, dict):
+            logger.warning(f"⚠️ [결제초기화] user_info가 dict가 아님: {type(user_info)}, uuid={uuid}")
+            user_info = {}
             
-        user_name = user_info.get('name', '고객')
-        email = user_info.get('email', '')
+        user_name = user_info.get('name') if isinstance(user_info, dict) else None
+        email = user_info.get('email', '') if isinstance(user_info, dict) else ''
         
         # 3. 파트너별 결제 금액 조회
         payment_amount = get_payment_amount(partner_id)
@@ -103,12 +117,52 @@ async def init_payment(request: Request):
         chkfake = base64.b64encode(hashlib.sha512(hash_str.encode('utf-8')).digest()).decode('utf-8')
         
         # DB에 주문 정보 저장 (READY 상태, partner_id 포함)
+        # 기존 READY 상태의 결제 데이터가 있으면 업데이트, 없으면 새로 생성
         with db_manager.get_connection() as conn:
             with conn.cursor() as cur:
+                # 기존 READY 상태의 결제 데이터 확인
                 cur.execute("""
-                    INSERT INTO welno.tb_campaign_payments (oid, uuid, partner_id, user_name, user_data, amount, status, email)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """, (oid, uuid, partner_id, user_name, json.dumps(user_info), payment_amount, 'READY', email))
+                    SELECT oid FROM welno.tb_campaign_payments
+                    WHERE uuid = %s AND partner_id = %s AND status = 'READY'
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """, (uuid, partner_id))
+                existing_payment = cur.fetchone()
+                
+                if existing_payment:
+                    # 기존 결제 데이터 업데이트
+                    existing_oid = existing_payment[0]
+                    
+                    # 기존 데이터 조회 (값이 있을 때만 업데이트하기 위해)
+                    cur.execute("""
+                        SELECT user_name, user_data FROM welno.tb_campaign_payments
+                        WHERE oid = %s
+                    """, (existing_oid,))
+                    existing_data = cur.fetchone()
+                    
+                    # user_name과 user_data는 값이 있을 때만 업데이트 (기존 데이터 보존)
+                    update_user_name = user_name if user_name else (existing_data[0] if existing_data and existing_data[0] else None)
+                    update_user_data = json.dumps(user_info) if user_info else (existing_data[1] if existing_data and existing_data[1] else None)
+                    update_email = email if email else None
+                    
+                    cur.execute("""
+                        UPDATE welno.tb_campaign_payments
+                        SET oid = %s, 
+                            user_name = COALESCE(%s, user_name),
+                            user_data = COALESCE(%s::jsonb, user_data),
+                            amount = %s, 
+                            email = COALESCE(%s, email),
+                            updated_at = NOW()
+                        WHERE oid = %s
+                    """, (oid, update_user_name, update_user_data, payment_amount, update_email, existing_oid))
+                    logger.info(f"🔄 [결제초기화] 기존 결제 데이터 업데이트: oid={existing_oid} -> {oid}, uuid={uuid}, user_name 업데이트={bool(user_name)}, user_data 업데이트={bool(user_info)}")
+                else:
+                    # 새로 생성
+                    cur.execute("""
+                        INSERT INTO welno.tb_campaign_payments (oid, uuid, partner_id, user_name, user_data, amount, status, email)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (oid, uuid, partner_id, user_name, json.dumps(user_info), payment_amount, 'READY', email))
+                    logger.info(f"✅ [결제초기화] 새 결제 데이터 생성: oid={oid}, uuid={uuid}")
                 conn.commit()
         
         return JSONResponse({
@@ -143,8 +197,31 @@ async def payment_callback(
 
     if P_STATUS != '00':
         update_payment_status(p_oid, 'FAILED', error_msg=P_RMESG1)
+        # 결제 실패/취소 시 랜딩 페이지(intro)로 리다이렉트
+        # URL 파라미터에서 uuid, partner, api_key 등을 추출하여 유지
+        from urllib.parse import urlencode
+        redirect_params = {
+            'page': 'intro',
+            'status': 'payment_cancelled',
+            'message': P_RMESG1
+        }
+        # OID에서 원래 파라미터 복원 시도
+        with db_manager.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT uuid, partner_id, api_key FROM welno.tb_campaign_payments WHERE oid = %s", (p_oid,))
+                row = cur.fetchone()
+                if row:
+                    uuid_val, partner_val, api_key_val = row
+                    if uuid_val:
+                        redirect_params['uuid'] = uuid_val
+                    if partner_val:
+                        redirect_params['partner'] = partner_val
+                    if api_key_val:
+                        redirect_params['api_key'] = api_key_val
+        
+        redirect_url = f'{SERVICE_DOMAIN}/campaigns/disease-prediction/?{urlencode(redirect_params)}'
         return RedirectResponse(
-            url=f'{SERVICE_DOMAIN}/campaigns/disease-prediction/?page=result&status=fail&message={P_RMESG1}&oid={p_oid}',
+            url=redirect_url,
             status_code=303 # 405 Not Allowed 방지를 위해 303(See Other) 사용
         )
 
