@@ -166,6 +166,13 @@ async def init_payment(request: Request):
                     logger.info(f"✅ [결제초기화] 새 결제 데이터 생성: oid={oid}, uuid={uuid}")
                 conn.commit()
         
+        # 디버깅: 실제 콜백 URL 로깅 (return 이전에 실행)
+        dynamic_domain = get_dynamic_domain(request)
+        callback_url = f"{dynamic_domain}/api/v1/campaigns/disease-prediction/payment-callback/"
+        logger.info(f"🔗 [결제초기화] get_dynamic_domain 반환값: {dynamic_domain}")
+        logger.info(f"🔗 [결제초기화] 이니시스 콜백 URL 설정: {callback_url}")
+        logger.info(f"🔗 [결제초기화] 요청 헤더 host: {request.headers.get('host', 'None')}")
+        
         return JSONResponse({
             'success': True,
             'P_MID': INICIS_MOBILE_MID,
@@ -173,12 +180,8 @@ async def init_payment(request: Request):
             'P_AMT': str(payment_amount),  # 파트너별 금액
             'P_TIMESTAMP': timestamp,
             'P_CHKFAKE': chkfake,
-            'P_NEXT_URL': f"{get_dynamic_domain(request)}/api/v1/campaigns/disease-prediction/payment-callback/"
+            'P_NEXT_URL': callback_url
         })
-        
-        # 디버깅: 실제 콜백 URL 로깅
-        callback_url = f"{get_dynamic_domain(request)}/api/v1/campaigns/disease-prediction/payment-callback/"
-        logger.info(f"🔗 [결제초기화] 이니시스 콜백 URL 설정: {callback_url}")
         
     except Exception as e:
         logger.error(f"init_payment error: {str(e)}", exc_info=True)
