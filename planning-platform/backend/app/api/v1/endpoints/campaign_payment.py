@@ -176,6 +176,10 @@ async def init_payment(request: Request):
             'P_NEXT_URL': f"{get_dynamic_domain(request)}/api/v1/campaigns/disease-prediction/payment-callback/"
         })
         
+        # 디버깅: 실제 콜백 URL 로깅
+        callback_url = f"{get_dynamic_domain(request)}/api/v1/campaigns/disease-prediction/payment-callback/"
+        logger.info(f"🔗 [결제초기화] 이니시스 콜백 URL 설정: {callback_url}")
+        
     except Exception as e:
         logger.error(f"init_payment error: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
