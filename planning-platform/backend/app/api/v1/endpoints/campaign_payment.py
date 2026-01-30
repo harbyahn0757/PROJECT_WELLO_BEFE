@@ -27,6 +27,7 @@ from ....config.payment_config import (
     PAYMENT_AMOUNT,  # 기본값으로 사용
     SERVICE_DOMAIN
 )
+from ....utils.domain_helper import get_dynamic_domain, get_frontend_domain
 from ....utils.partner_config import (
     get_payment_amount, 
     get_partner_encryption_keys,
@@ -172,7 +173,7 @@ async def init_payment(request: Request):
             'P_AMT': str(payment_amount),  # 파트너별 금액
             'P_TIMESTAMP': timestamp,
             'P_CHKFAKE': chkfake,
-            'P_NEXT_URL': f"{SERVICE_DOMAIN}/api/v1/campaigns/disease-prediction/payment-callback/"
+            'P_NEXT_URL': f"{get_dynamic_domain(request)}/api/v1/campaigns/disease-prediction/payment-callback/"
         })
         
     except Exception as e:
@@ -182,6 +183,7 @@ async def init_payment(request: Request):
 
 @router.post("/disease-prediction/payment-callback/")
 async def payment_callback(
+    request: Request,
     P_STATUS: str = Form(...),
     P_RMESG1: str = Form(default=''),
     P_TID: str = Form(...),
@@ -219,7 +221,7 @@ async def payment_callback(
                     if api_key_val:
                         redirect_params['api_key'] = api_key_val
         
-        redirect_url = f'{SERVICE_DOMAIN}/campaigns/disease-prediction/?{urlencode(redirect_params)}'
+        redirect_url = f'{get_frontend_domain(request)}/campaigns/disease-prediction/?{urlencode(redirect_params)}'
         return RedirectResponse(
             url=redirect_url,
             status_code=303 # 405 Not Allowed 방지를 위해 303(See Other) 사용
@@ -282,7 +284,7 @@ async def payment_callback(
             # 결제 데이터 가져오기
             order_data = get_payment_data(p_oid)
             if not order_data:
-                return RedirectResponse(url=f'{SERVICE_DOMAIN}/campaigns/disease-prediction/?page=result&status=fail', status_code=303)
+                return RedirectResponse(url=f'{get_frontend_domain(request)}/campaigns/disease-prediction/?page=result&status=fail', status_code=303)
 
             uuid = order_data.get('uuid')
             user_data = order_data.get('user_data')
@@ -344,8 +346,12 @@ async def payment_callback(
                 update_pipeline_step(p_oid, 'REPORT_WAITING')
                 import asyncio
                 asyncio.create_task(trigger_report_generation(order_data))
+                # 동적 도메인 사용
+                success_url = f'{get_frontend_domain(request)}/campaigns/disease-prediction/?page=result&status=success&oid={p_oid}'
+                logger.info(f"[Payment] 결제 성공 리다이렉트: {success_url}")
+                
                 return RedirectResponse(
-                    url=f'{SERVICE_DOMAIN}/campaigns/disease-prediction/?page=result&status=success&oid={p_oid}',
+                    url=success_url,
                     status_code=303
                 )
             
@@ -353,8 +359,9 @@ async def payment_callback(
             else:
                 logger.info(f"⚠️ [Payment] 데이터 부족({metric_count}개) -> 틸코 인증 유도")
                 update_pipeline_step(p_oid, 'TILKO_READY')
-                # return_to 경로 설정 (인증 완료 후 다시 돌아올 주소 - page=result로 변경)
-                return_path = f"/campaigns/disease-prediction?page=result&status=success&oid={p_oid}"
+                # return_to 경로 설정 (인증 완료 후 다시 돌아올 주소)
+                # 틸코 완료 후 바로 리포트 페이지로 이동하도록 변경
+                return_path = f"/disease-report?oid={p_oid}"
                 
                 # 이름 추출 (복호화된 데이터 또는 order_data에서)
                 # 이름은 틸코 인증 후 저장되므로, 여기서는 없을 수 있음
@@ -366,6 +373,9 @@ async def payment_callback(
                 else:
                     # order_data에서 user_name 가져오기
                     user_name = order_data.get('user_name')
+                
+                # 동적 도메인 감지 (로컬/배포 자동 구분)
+                dynamic_domain = get_dynamic_domain(request)
                 
                 # 틸코 인증 페이지로 리다이렉트 (이름은 틸코 인증 후 저장됨)
                 # uuid와 partner_id를 URL에 포함하여 세션 시작 시 patient_uuid로 사용
@@ -387,7 +397,9 @@ async def payment_callback(
                 if user_name:
                     redirect_params['name'] = user_name.replace(' ', '+')
                 
-                redirect_url = f'{SERVICE_DOMAIN}/login?{urlencode(redirect_params)}'
+                redirect_url = f'{dynamic_domain}/login?{urlencode(redirect_params)}'
+                
+                logger.info(f"[Payment] 틸코 리다이렉트: {redirect_url}")
                 
                 return RedirectResponse(
                     url=redirect_url,
@@ -395,8 +407,13 @@ async def payment_callback(
                 )
         else:
             update_payment_status(p_oid, 'FAILED', error_msg=final_msg)
+            
+            # 동적 도메인 사용
+            fail_url = f'{get_frontend_domain(request)}/campaigns/disease-prediction/?page=result&status=fail&message={final_msg}&oid={p_oid}'
+            logger.info(f"[Payment] 결제 실패 리다이렉트: {fail_url}")
+            
             return RedirectResponse(
-                url=f'{SERVICE_DOMAIN}/campaigns/disease-prediction/?page=result&status=fail&message={final_msg}&oid={p_oid}',
+                url=fail_url,
                 status_code=303 # 405 Not Allowed 방지를 위해 303(See Other) 사용
             )
 
@@ -419,7 +436,7 @@ async def payment_callback(
         
         update_payment_status(p_oid, 'FAILED', error_msg=str(e))
         return RedirectResponse(
-            url=f'{SERVICE_DOMAIN}/campaigns/disease-prediction/?page=result&status=fail&message=Approval+Error&oid={p_oid}',
+            url=f'{get_frontend_domain(request)}/campaigns/disease-prediction/?page=result&status=fail&message=Approval+Error&oid={p_oid}',
             status_code=303 # 405 Not Allowed 방지를 위해 303(See Other) 사용
         )
 
