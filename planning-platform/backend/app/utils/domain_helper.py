@@ -27,12 +27,12 @@ def get_dynamic_domain(request: Optional[Request] = None) -> str:
     if request:
         host = request.headers.get('host', 'localhost:9282')
         
-        # 로컬 환경 감지 패턴
+        # 로컬 환경 감지 패턴 (배포 서버 IP 제외)
         local_indicators = [
             'localhost',
             '127.0.0.1', 
             '10.0.0.',
-            '192.168.',
+            # '192.168.',  # 배포 서버 IP와 충돌하므로 제거
             '172.16.',
             '172.17.',  # Docker 네트워크
             '172.22.'   # Docker Compose 네트워크
@@ -71,8 +71,8 @@ def get_frontend_domain(request: Optional[Request] = None) -> str:
     if request:
         host = request.headers.get('host', 'localhost:9282')
         
-        # 로컬 환경 감지
-        local_indicators = ['localhost', '127.0.0.1', '10.0.0.', '192.168.']
+        # 로컬 환경 감지 (배포 서버 IP 제외)
+        local_indicators = ['localhost', '127.0.0.1', '10.0.0.']
         is_local = any(indicator in host for indicator in local_indicators)
         
         if is_local:
@@ -106,7 +106,7 @@ def is_local_environment(request: Optional[Request] = None) -> bool:
     # 요청 헤더 확인
     if request:
         host = request.headers.get('host', '')
-        local_indicators = ['localhost', '127.0.0.1', '10.0.0.', '192.168.']
+        local_indicators = ['localhost', '127.0.0.1', '10.0.0.']
         return any(indicator in host for indicator in local_indicators)
     
     return False
