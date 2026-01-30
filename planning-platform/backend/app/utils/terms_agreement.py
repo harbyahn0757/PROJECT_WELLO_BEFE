@@ -42,11 +42,23 @@ async def verify_terms_agreement(
             "missing_terms": List[str]  # 미동의 약관 목록
         }
     """
+    # hospital_id와 uuid로 먼저 시도
     row = await conn.fetchrow("""
         SELECT terms_agreement, terms_agreement_detail, terms_agreed_at, terms_all_required_agreed_at
         FROM welno.welno_patients
         WHERE uuid = $1 AND hospital_id = $2
     """, uuid, hospital_id)
+    
+    # 못 찾으면 uuid만으로 재시도 (hospital_id 불일치 대응)
+    if not row:
+        logger.info(f"[약관검증] hospital_id={hospital_id}로 찾지 못함, uuid만으로 재시도")
+        row = await conn.fetchrow("""
+            SELECT terms_agreement, terms_agreement_detail, terms_agreed_at, terms_all_required_agreed_at
+            FROM welno.welno_patients
+            WHERE uuid = $1
+            ORDER BY updated_at DESC
+            LIMIT 1
+        """, uuid)
     
     if not row:
         return {

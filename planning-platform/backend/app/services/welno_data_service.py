@@ -24,6 +24,92 @@ class WelnoDataService:
     # 공통 헬퍼 함수들
     # ========================================
     
+    def _extract_key_value_mapping(self, item: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        인덱스 기반 Inspections 구조를 키값 매핑 구조로 변환
+        
+        Args:
+            item: Tilko 검진 데이터 (Inspections 포함)
+            
+        Returns:
+            키값 매핑 딕셔너리 {"height": 181.3, "weight": 82.2, ...}
+        """
+        key_value_mapping = {}
+        
+        inspections = item.get('Inspections', [])
+        for inspection in inspections:
+            illnesses = inspection.get('Illnesses', [])
+            for illness in illnesses:
+                items = illness.get('Items', [])
+                for health_item in items:
+                    name = health_item.get('Name', '')
+                    value_str = health_item.get('Value', '')
+                    unit = health_item.get('Unit', '')
+                    
+                    if not value_str or value_str.strip() == '':
+                        continue
+                    
+                    # 표준 키명으로 매핑
+                    standard_key = self._get_standard_key_name(name)
+                    if standard_key:
+                        try:
+                            # 혈압 특수 처리
+                            if '혈압' in name and '/' in value_str:
+                                parts = value_str.split('/')
+                                if len(parts) == 2:
+                                    key_value_mapping['sbp'] = float(parts[0].strip())
+                                    key_value_mapping['dbp'] = float(parts[1].strip())
+                                continue
+                            
+                            # 숫자 값 변환
+                            if value_str.replace('.', '').replace('-', '').isdigit():
+                                key_value_mapping[standard_key] = float(value_str.strip())
+                            else:
+                                # 문자열 값 그대로 저장
+                                key_value_mapping[standard_key] = value_str.strip()
+                                
+                        except (ValueError, TypeError):
+                            # 변환 실패 시 문자열로 저장
+                            key_value_mapping[standard_key] = value_str.strip()
+        
+        return key_value_mapping
+    
+    def _get_standard_key_name(self, tilko_name: str) -> str:
+        """
+        Tilko 항목명을 표준 키명으로 변환
+        
+        Args:
+            tilko_name: Tilko API의 항목명
+            
+        Returns:
+            표준 키명 (예: "height", "weight", "bmi")
+        """
+        # 표준 키명 매핑 테이블
+        key_mapping = {
+            '신장': 'height',
+            '체중': 'weight', 
+            '체질량지수': 'bmi',
+            'BMI': 'bmi',
+            '허리둘레': 'waist',
+            '혈압(최고/최저)': 'blood_pressure',  # 특수 처리
+            '수축기혈압': 'sbp',
+            '이완기혈압': 'dbp',
+            '공복혈당': 'fbs',
+            '총콜레스테롤': 'tc',
+            'HDL콜레스테롤': 'hdl',
+            'LDL콜레스테롤': 'ldl',
+            '중성지방': 'tg',
+            'AST': 'ast',
+            'ALT': 'alt',
+            '혈청크레아티닌': 'scr',
+            '혈색소': 'hgb',
+            '헤모글로빈': 'hgb',
+            '요단백': 'up',
+            '흉부X선': 'chest_xray'
+        }
+        
+        return key_mapping.get(tilko_name, None)
+    
     async def _fetch_patient_base(
         self,
         conn: asyncpg.Connection,
@@ -538,6 +624,7 @@ class WelnoDataService:
             partner_id: 파트너사 ID (partner 출처인 경우)
             partner_oid: 파트너사 주문번호 (partner 출처인 경우)
         """
+        conn = None
         try:
             conn = await asyncpg.connect(**self.db_config)
             
@@ -550,66 +637,84 @@ class WelnoDataService:
             if data_source == 'indexeddb':
                 indexeddb_synced_at = datetime.now()
             
-            await conn.execute("DELETE FROM welno.welno_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2", 
-                             patient_uuid, hospital_id)
-            
-            result_list = health_data.get('ResultList', [])
-            saved_count = 0
-            
-            for item in result_list:
-                year = item.get('Year')
-                checkup_date = item.get('CheckUpDate')
-                location = item.get('Location')
-                code = item.get('Code')
-                description = item.get('Description', '')
+            # 트랜잭션 시작 - 데이터 안전성 보장
+            async with conn.transaction():
+                await conn.execute("DELETE FROM welno.welno_checkup_data WHERE patient_uuid = $1 AND hospital_id = $2", 
+                                 patient_uuid, hospital_id)
                 
-                # 타입 변환 (None 처리 및 문자열 변환)
-                year = str(year) if year else None
-                checkup_date = str(checkup_date) if checkup_date else None
-                location = str(location) if location else None
-                code = str(code) if code else None
-                description = str(description) if description else None
+                result_list = health_data.get('ResultList', [])
+                saved_count = 0
                 
-                # raw_data를 JSONB로 변환 (asyncpg는 자동 변환하지만 명시적으로 처리)
-                raw_data_json = json.dumps(item, ensure_ascii=False)
-                
-                # 수치 추출 (생략 가능)
-                height = weight = bmi = bp_high = blood_sugar = cholesterol = None
-                
+                # 스키마에 맞춰 모든 컬럼 포함 (asyncpg가 자동으로 dict → JSONB 변환)
                 insert_query = """
                     INSERT INTO welno.welno_checkup_data 
                     (patient_uuid, hospital_id, raw_data, year, checkup_date, location, code, description,
                      data_source, indexeddb_synced_at, partner_id, partner_oid)
-                    VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 """
                 
-                await conn.execute(
-                    insert_query,
-                    patient_uuid, hospital_id, raw_data_json,
-                    year, checkup_date, location, code, description,
-                    data_source, indexeddb_synced_at, partner_id, partner_oid
-                )
-                saved_count += 1
+                for item in result_list:
+                    year = item.get('Year')
+                    checkup_date = item.get('CheckUpDate')
+                    location = item.get('Location')
+                    code = item.get('Code')
+                    description = item.get('Description', '')
+                    
+                    # 타입 변환 (None 처리 및 문자열 변환)
+                    year = str(year) if year else None
+                    checkup_date = str(checkup_date) if checkup_date else None
+                    location = str(location) if location else ''  # None 대신 빈 문자열
+                    code = str(code) if code else ''  # None 대신 빈 문자열
+                    description = str(description) if description else ''  # None 대신 빈 문자열
+                    
+                    # raw_data를 JSON 문자열로 변환 (DB 컬럼이 text/varchar → JSONB 자동 변환)
+                    raw_data_json = json.dumps(item, ensure_ascii=False)
+                    
+                    # 키값 매핑 구조 생성 (인덱스 기반 → 키값 매핑 변환)
+                    key_value_mapping = self._extract_key_value_mapping(item)
+                    
+                    # 수치 추출 (생략 가능) - 기존 방식 유지
+                    height = weight = bmi = bp_high = blood_sugar = cholesterol = None
+                    
+                    await conn.execute(
+                        insert_query,
+                        patient_uuid, hospital_id, raw_data_json,
+                        year, checkup_date, location, code, description,
+                        data_source, indexeddb_synced_at, partner_id, partner_oid
+                    )
+                    
+                    # 키값 매핑 데이터를 별도 테이블이나 컬럼에 저장 (선택적)
+                    if key_value_mapping:
+                        print(f"🔄 [키값 매핑] 생성 완료: {len(key_value_mapping)}개 지표")
+                        for key, value in list(key_value_mapping.items())[:5]:  # 처음 5개만 로그
+                            print(f"   - {key}: {value}")
+                        if len(key_value_mapping) > 5:
+                            print(f"   - ... 총 {len(key_value_mapping)}개")
+                    saved_count += 1
+                
+            # 환자 테이블 업데이트 (새 연결로 실행 - 파라미터 타입 충돌 방지)
+            update_conn = await asyncpg.connect(**self.db_config)
+            try:
+                await update_conn.execute("""
+                    UPDATE welno.welno_patients 
+                    SET has_health_data = TRUE, 
+                        last_data_update = NOW(),
+                        data_source = $1
+                    WHERE uuid = $2 AND hospital_id = $3
+                """, data_source, patient_uuid, hospital_id)
+            finally:
+                await update_conn.close()
             
-            # 환자 테이블 업데이트 (데이터 출처 및 동기화 시간 포함)
-            update_patient_query = """
-                UPDATE welno.welno_patients 
-                SET has_health_data = TRUE, 
-                    last_data_update = NOW(),
-                    data_source = $3,
-                    last_indexeddb_sync_at = CASE WHEN $3 = 'indexeddb' THEN NOW() ELSE last_indexeddb_sync_at END,
-                    last_partner_sync_at = CASE WHEN $3 = 'partner' THEN NOW() ELSE last_partner_sync_at END
-                WHERE uuid = $1 AND hospital_id = $2
-            """
-            await conn.execute(update_patient_query, patient_uuid, hospital_id, data_source)
-            
-            await conn.close()
             print(f"✅ [건강검진저장] {saved_count}건 저장 완료 (출처: {data_source})")
             return True
             
         except Exception as e:
             print(f"❌ [건강검진저장] 오류: {e}")
+            # 트랜잭션 자동 롤백됨
             return False
+        finally:
+            if conn and not conn.is_closed():
+                await conn.close()
     
     async def save_prescription_data(self, patient_uuid: str, hospital_id: str, prescription_data: Dict[str, Any], 
                                    session_id: str, data_source: str = 'tilko',
@@ -625,6 +730,7 @@ class WelnoDataService:
             partner_id: 파트너사 ID (partner 출처인 경우)
             partner_oid: 파트너사 주문번호 (partner 출처인 경우)
         """
+        conn = None
         try:
             conn = await asyncpg.connect(**self.db_config)
             
@@ -637,27 +743,15 @@ class WelnoDataService:
             if data_source == 'indexeddb':
                 indexeddb_synced_at = datetime.now()
             
-            await conn.execute("DELETE FROM welno.welno_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2", 
-                             patient_uuid, hospital_id)
-            
-            result_list = prescription_data.get('ResultList', [])
-            saved_count = 0
-            
-            for item in result_list:
-                idx = item.get('Idx')
-                page = item.get('Page')
-                hospital_name = item.get('ByungEuiwonYakGukMyung')
-                address = item.get('Address')
-                treatment_date_str = item.get('JinRyoGaesiIl')
-                treatment_type = item.get('JinRyoHyungTae')
+            # 트랜잭션 시작 - 데이터 안전성 보장
+            async with conn.transaction():
+                await conn.execute("DELETE FROM welno.welno_prescription_data WHERE patient_uuid = $1 AND hospital_id = $2", 
+                                 patient_uuid, hospital_id)
                 
-                treatment_date = None
-                if treatment_date_str:
-                    try:
-                        treatment_date = datetime.strptime(treatment_date_str, '%Y-%m-%d').date()
-                    except:
-                        pass
+                result_list = prescription_data.get('ResultList', [])
+                saved_count = 0
                 
+                # 스키마에 맞춰 모든 컬럼 포함 (asyncpg가 자동으로 dict → JSONB 변환)
                 insert_query = """
                     INSERT INTO welno.welno_prescription_data 
                     (patient_uuid, hospital_id, raw_data, idx, page, hospital_name, address, treatment_date, treatment_type,
@@ -665,33 +759,52 @@ class WelnoDataService:
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                 """
                 
-                await conn.execute(
-                    insert_query,
-                    patient_uuid, hospital_id, json.dumps(item, ensure_ascii=False),
-                    idx, page, hospital_name, address, treatment_date, treatment_type,
-                    data_source, indexeddb_synced_at, partner_id, partner_oid
-                )
-                saved_count += 1
+                for item in result_list:
+                    idx = item.get('Idx')
+                    page = item.get('Page')
+                    hospital_name = item.get('ByungEuiwonYakGukMyung')
+                    address = item.get('Address')
+                    treatment_date_str = item.get('JinRyoGaesiIl')
+                    treatment_type = item.get('JinRyoHyungTae')
+                    
+                    treatment_date = None
+                    if treatment_date_str:
+                        try:
+                            treatment_date = datetime.strptime(treatment_date_str, '%Y-%m-%d').date()
+                        except:
+                            pass
+                    
+                    await conn.execute(
+                        insert_query,
+                        patient_uuid, hospital_id, json.dumps(item, ensure_ascii=False),
+                        idx, page, hospital_name, address, treatment_date, treatment_type,
+                        data_source, indexeddb_synced_at, partner_id, partner_oid
+                    )
+                    saved_count += 1
+                
+            # 환자 테이블 업데이트 (새 연결로 실행 - 파라미터 타입 충돌 방지)
+            update_conn = await asyncpg.connect(**self.db_config)
+            try:
+                await update_conn.execute("""
+                    UPDATE welno.welno_patients 
+                    SET has_prescription_data = TRUE, 
+                        last_data_update = NOW(),
+                        data_source = $1
+                    WHERE uuid = $2 AND hospital_id = $3
+                """, data_source, patient_uuid, hospital_id)
+            finally:
+                await update_conn.close()
             
-            # 환자 테이블 업데이트 (데이터 출처 및 동기화 시간 포함)
-            update_patient_query = """
-                UPDATE welno.welno_patients 
-                SET has_prescription_data = TRUE, 
-                    last_data_update = NOW(),
-                    data_source = $3,
-                    last_indexeddb_sync_at = CASE WHEN $3 = 'indexeddb' THEN NOW() ELSE last_indexeddb_sync_at END,
-                    last_partner_sync_at = CASE WHEN $3 = 'partner' THEN NOW() ELSE last_partner_sync_at END
-                WHERE uuid = $1 AND hospital_id = $2
-            """
-            await conn.execute(update_patient_query, patient_uuid, hospital_id, data_source)
-            
-            await conn.close()
             print(f"✅ [처방전저장] {saved_count}건 저장 완료 (출처: {data_source})")
             return True
             
         except Exception as e:
             print(f"❌ [처방전저장] 오류: {e}")
+            # 트랜잭션 자동 롤백됨
             return False
+        finally:
+            if conn and not conn.is_closed():
+                await conn.close()
     
     async def load_checkup_design_survey(
         self, 
@@ -1416,6 +1529,11 @@ class WelnoDataService:
         try:
             conn = await asyncpg.connect(**self.db_config)
             
+            # 🔧 hospital_id 정규화 (빈 문자열 → None)
+            if hospital_id == '' or hospital_id is None:
+                hospital_id = None
+                logger.info(f"[통합상태] hospital_id 빈 값, uuid만으로 조회: {uuid}")
+            
             # 1. 환자 정보 조회
             patient_row = await self._fetch_patient_base(conn, uuid=uuid, hospital_id=hospital_id)
             if not patient_row:
@@ -1441,16 +1559,29 @@ class WelnoDataService:
                 }
             
             # 2. 데이터 출처별 건수 및 타임스탬프 조회 (data_source 컬럼 사용)
-            data_sources_query = """
-                SELECT 
-                    data_source, 
-                    COUNT(*) as count, 
-                    MAX(updated_at) as last_synced_at
-                FROM welno.welno_checkup_data
-                WHERE patient_uuid = $1 AND hospital_id = $2
-                GROUP BY data_source
-            """
-            source_rows = await conn.fetch(data_sources_query, uuid, hospital_id)
+            # hospital_id가 None이면 uuid만으로 조회
+            if hospital_id:
+                data_sources_query = """
+                    SELECT 
+                        data_source, 
+                        COUNT(*) as count, 
+                        MAX(updated_at) as last_synced_at
+                    FROM welno.welno_checkup_data
+                    WHERE patient_uuid = $1 AND hospital_id = $2
+                    GROUP BY data_source
+                """
+                source_rows = await conn.fetch(data_sources_query, uuid, hospital_id)
+            else:
+                data_sources_query = """
+                    SELECT 
+                        data_source, 
+                        COUNT(*) as count, 
+                        MAX(updated_at) as last_synced_at
+                    FROM welno.welno_checkup_data
+                    WHERE patient_uuid = $1
+                    GROUP BY data_source
+                """
+                source_rows = await conn.fetch(data_sources_query, uuid)
             
             # 기본 구조 초기화 (welno_patients의 타임스탬프 사용)
             data_sources = {
@@ -1497,15 +1628,27 @@ class WelnoDataService:
             metric_count = 0
             
             if has_checkup_data:
-                latest_checkup_query = """
-                    SELECT raw_data, height, weight, bmi, blood_pressure_high, blood_pressure_low,
-                           blood_sugar, cholesterol, hdl_cholesterol, ldl_cholesterol, triglyceride
-                    FROM welno.welno_checkup_data
-                    WHERE patient_uuid = $1 AND hospital_id = $2
-                    ORDER BY checkup_date DESC, updated_at DESC
-                    LIMIT 1
-                """
-                latest_row = await conn.fetchrow(latest_checkup_query, uuid, hospital_id)
+                # hospital_id가 None이면 uuid만으로 조회
+                if hospital_id:
+                    latest_checkup_query = """
+                        SELECT raw_data, height, weight, bmi, blood_pressure_high, blood_pressure_low,
+                               blood_sugar, cholesterol, hdl_cholesterol, ldl_cholesterol, triglyceride
+                        FROM welno.welno_checkup_data
+                        WHERE patient_uuid = $1 AND hospital_id = $2
+                        ORDER BY checkup_date DESC, updated_at DESC
+                        LIMIT 1
+                    """
+                    latest_row = await conn.fetchrow(latest_checkup_query, uuid, hospital_id)
+                else:
+                    latest_checkup_query = """
+                        SELECT raw_data, height, weight, bmi, blood_pressure_high, blood_pressure_low,
+                               blood_sugar, cholesterol, hdl_cholesterol, ldl_cholesterol, triglyceride
+                        FROM welno.welno_checkup_data
+                        WHERE patient_uuid = $1
+                        ORDER BY checkup_date DESC, updated_at DESC
+                        LIMIT 1
+                    """
+                    latest_row = await conn.fetchrow(latest_checkup_query, uuid)
                 
                 if latest_row:
                     # raw_data에서 지표 개수 계산
@@ -1515,7 +1658,13 @@ class WelnoDataService:
                         if isinstance(raw_data, str):
                             import json
                             raw_data = json.loads(raw_data)
-                        metric_count = get_metric_count(raw_data)
+                        
+                        # Tilko 데이터 구조인 경우 전용 함수 사용
+                        from app.utils.health_metrics import get_metric_count_from_tilko
+                        if 'Inspections' in raw_data:
+                            metric_count = get_metric_count_from_tilko(raw_data)
+                        else:
+                            metric_count = get_metric_count(raw_data)
                     
                     # raw_data가 없거나 metric_count가 0인 경우, 직접 컬럼에서 확인
                     if metric_count == 0:
@@ -1534,23 +1683,42 @@ class WelnoDataService:
             is_sufficient = metric_count >= 5
             
             # 5. 처방전 데이터 확인
-            prescription_count_query = """
-                SELECT COUNT(*) FROM welno.welno_prescription_data
-                WHERE patient_uuid = $1 AND hospital_id = $2
-            """
-            prescription_count = await conn.fetchval(prescription_count_query, uuid, hospital_id) or 0
+            if hospital_id:
+                prescription_count_query = """
+                    SELECT COUNT(*) FROM welno.welno_prescription_data
+                    WHERE patient_uuid = $1 AND hospital_id = $2
+                """
+                prescription_count = await conn.fetchval(prescription_count_query, uuid, hospital_id) or 0
+            else:
+                prescription_count_query = """
+                    SELECT COUNT(*) FROM welno.welno_prescription_data
+                    WHERE patient_uuid = $1
+                """
+                prescription_count = await conn.fetchval(prescription_count_query, uuid) or 0
             has_prescription_data = prescription_count > 0
             
             # 6. 리포트 존재 여부 확인 (+ 플래그 검증)
-            report_query = """
-                SELECT report_url, analyzed_at, updated_at
-                FROM welno.welno_mediarc_reports
-                WHERE patient_uuid = $1 AND hospital_id = $2
-                ORDER BY created_at DESC
-                LIMIT 1
-            """
-            report_row = await conn.fetchrow(report_query, uuid, hospital_id)
-            has_report_actual = bool(report_row and report_row['report_url'])
+            if hospital_id:
+                report_query = """
+                    SELECT report_url, analyzed_at, updated_at
+                    FROM welno.welno_mediarc_reports
+                    WHERE patient_uuid = $1 AND hospital_id = $2
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """
+                report_row = await conn.fetchrow(report_query, uuid, hospital_id)
+            else:
+                report_query = """
+                    SELECT report_url, analyzed_at, updated_at
+                    FROM welno.welno_mediarc_reports
+                    WHERE patient_uuid = $1
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """
+                report_row = await conn.fetchrow(report_query, uuid)
+            
+            # 🔧 [중요] report_url이 없어도 분석 데이터(bodyage, disease_data 등)가 있으면 리포트로 인정
+            has_report_actual = bool(report_row)  # report_url 체크 제거
             
             # ✅ 플래그 검증 및 자동 보정
             if patient_row['has_mediarc_report'] != has_report_actual:
@@ -1559,12 +1727,19 @@ class WelnoDataService:
                     f"but actual_report={has_report_actual}. 자동 보정 중..."
                 )
                 
-                # 플래그 자동 보정
-                await conn.execute("""
-                    UPDATE welno.welno_patients
-                    SET has_mediarc_report = $1, updated_at = NOW()
-                    WHERE uuid = $2 AND hospital_id = $3
-                """, has_report_actual, uuid, hospital_id)
+                # 플래그 자동 보정 (hospital_id 유무에 따라 분기)
+                if hospital_id:
+                    await conn.execute("""
+                        UPDATE welno.welno_patients
+                        SET has_mediarc_report = $1, updated_at = NOW()
+                        WHERE uuid = $2 AND hospital_id = $3
+                    """, has_report_actual, uuid, hospital_id)
+                else:
+                    await conn.execute("""
+                        UPDATE welno.welno_patients
+                        SET has_mediarc_report = $1, updated_at = NOW()
+                        WHERE uuid = $2
+                    """, has_report_actual, uuid)
             
             has_report = has_report_actual  # 실제 데이터 기준 사용
             

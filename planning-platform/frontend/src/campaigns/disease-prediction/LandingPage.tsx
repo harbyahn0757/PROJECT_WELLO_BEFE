@@ -123,6 +123,20 @@ const LandingPage: React.FC<Props> = ({ status }) => {
   };
 
   const handlePayment = useCallback(async () => {
+    // ✅ [중요] status 로딩 전에는 처리하지 않음
+    if (!status) {
+      console.log('[LandingPage] ⚠️ 상태 로딩 중, 잠시 후 다시 시도해주세요');
+      alert('상태를 확인 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    
+    // ✅ 결제 완료 상태 체크 (중복 결제 방지)
+    if (status.has_payment) {
+      console.log('[LandingPage] ⚠️ 이미 결제 완료됨, 결제 초기화 건너뛰기');
+      alert('이미 결제가 완료되었습니다. 리포트 생성 중입니다.');
+      return;
+    }
+    
     // 약관 체크 추가 (partner가 없으면 status에서 가져오거나 기본값 사용)
     const uuid = userData.uuid;
     // status가 로드되었으면 status의 partner_id 사용, 없으면 userData의 partner_id 또는 기본값
@@ -155,6 +169,17 @@ const LandingPage: React.FC<Props> = ({ status }) => {
       });
 
       const data = await response.json();
+
+      if (!data.success) {
+        // ✅ 이미 결제 완료 시
+        if (data.error === 'ALREADY_PAID') {
+          console.log('[LandingPage] 이미 결제 완료됨:', data.existing_oid);
+          alert('이미 결제가 완료되었습니다. 리포트 생성 중입니다.');
+          return;
+        }
+        alert('결제 준비 중 오류가 발생했습니다: ' + (data.message || data.error));
+        return;
+      }
 
       if (data.success) {
         // 2. 이니시스 결제창 호출을 위한 FORM 생성 및 제출

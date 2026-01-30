@@ -39,14 +39,27 @@ def map_checkup_to_twobecon(
     
     # 2. 생년월일 변환
     birth_date = patient_info.get('birth_date', '')
-    if isinstance(birth_date, str) and len(birth_date) == 10:
-        birth = birth_date  # YYYY-MM-DD 형식
-    else:
-        # date 객체인 경우
-        try:
-            birth = birth_date.isoformat() if hasattr(birth_date, 'isoformat') else str(birth_date)
-        except:
-            birth = "1990-01-01"  # 기본값
+    birth = None
+    
+    if birth_date:
+        if isinstance(birth_date, str):
+            if len(birth_date) == 10 and '-' in birth_date:
+                birth = birth_date  # YYYY-MM-DD 형식
+            elif len(birth_date) == 8 and birth_date.isdigit():
+                # YYYYMMDD 형식을 YYYY-MM-DD로 변환
+                birth = f"{birth_date[:4]}-{birth_date[4:6]}-{birth_date[6:8]}"
+        elif hasattr(birth_date, 'isoformat'):
+            # date 객체인 경우
+            birth = birth_date.isoformat()
+        else:
+            try:
+                birth = str(birth_date)
+            except:
+                pass
+    
+    # 생년월일이 여전히 없거나 "None" 문자열인 경우 기본값 사용 안 함 (메디아크 API 에러 방지)
+    if not birth or birth == "None" or birth == "null":
+        birth = None  # 기본값 대신 None으로 설정하여 메디아크 API에서 에러 발생시키기
     
     # 3. 성별 변환
     gender_str = patient_info.get('gender', 'M')

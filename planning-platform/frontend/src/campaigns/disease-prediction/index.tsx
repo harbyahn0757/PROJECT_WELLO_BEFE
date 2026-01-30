@@ -5,8 +5,92 @@ import { checkAllTermsAgreement, saveTermsAgreement } from '../../utils/termsAgr
 import TermsAgreementModal from '../../components/terms/TermsAgreementModal';
 import LandingPage from './LandingPage';
 import IntroLandingPage from './IntroLandingPage';
+import ReadyModal from './ReadyModal';
 
 type PageType = 'landing' | 'result' | 'intro' | 'payment' | 'terms';
+
+// 리포트 생성 중 컴포넌트
+const ReportGeneratingPage: React.FC<{ status: PartnerStatus | null; onMount?: () => void }> = ({ status, onMount }) => {
+  const location = useLocation();
+  
+  useEffect(() => {
+    // 마운트 시 콜백 호출 (ReadyModal 닫기 용도)
+    if (onMount) {
+      onMount();
+    }
+  }, [onMount]);
+  
+  useEffect(() => {
+    if (status?.has_report && status?.redirect_url) {
+      console.log('[DiseasePrediction] 리포트 생성 완료, 리다이렉트:', status.redirect_url);
+      window.location.href = status.redirect_url;
+      return;
+    }
+    
+    // 3초마다 상태 체크
+    const checkInterval = setInterval(async () => {
+      try {
+        const urlParams = new URLSearchParams(location.search);
+        const uuid = urlParams.get('uuid');
+        const partner = urlParams.get('partner');
+        const apiKey = urlParams.get('api_key');
+        
+        if (!uuid || !partner) return;
+        
+        const checkUrl = `${API_ENDPOINTS.CHECK_PARTNER_STATUS}?uuid=${uuid}&partner=${partner}${apiKey ? `&api_key=${apiKey}` : ''}`;
+        const response = await fetch(checkUrl);
+        const result: PartnerStatus = await response.json();
+        
+        console.log('[DiseasePrediction] 상태 재체크:', result);
+        
+        if (result.has_report && result.redirect_url) {
+          clearInterval(checkInterval);
+          console.log('[DiseasePrediction] 리포트 생성 완료, 리다이렉트:', result.redirect_url);
+          window.location.href = result.redirect_url;
+        }
+      } catch (error) {
+        console.error('[DiseasePrediction] 상태 체크 오류:', error);
+      }
+    }, 3000);
+    
+    return () => clearInterval(checkInterval);
+  }, [status, location.search]);
+  
+  return (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      minHeight: '100vh',
+      padding: '20px',
+      textAlign: 'center'
+    }}>
+      <div style={{ fontSize: '24px', marginBottom: '20px' }}>🔄</div>
+      <h2 style={{ fontSize: '20px', marginBottom: '10px', color: '#333' }}>
+        AI 질병예측 리포트 생성 중...
+      </h2>
+      <p style={{ fontSize: '14px', color: '#666', marginBottom: '30px' }}>
+        잠시만 기다려주세요.<br />
+        곧 완성된 리포트 화면으로 이동합니다.
+      </p>
+      <div className="loading-spinner" style={{
+        width: '40px',
+        height: '40px',
+        border: '4px solid #f3f3f3',
+        borderTop: '4px solid #8B7355',
+        borderRadius: '50%',
+        animation: 'spin 1s linear infinite'
+      }} />
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
+    </div>
+  );
+};
 
 export interface PartnerStatus {
   case_id: string;
@@ -19,6 +103,8 @@ export interface PartnerStatus {
   payment_amount?: number; // 파트너별 결제 금액 (DB에서 조회)
   partner_id?: string;     // 식별된 파트너 ID
   is_welno_user: boolean;
+  error_message?: string;  // 결제 실패 에러 메시지
+  failed_oid?: string;     // 실패한 결제 OID
 }
 
 const DiseasePredictionCampaign: React.FC = () => {
@@ -26,6 +112,7 @@ const DiseasePredictionCampaign: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<PartnerStatus | null>(null);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showReadyModal, setShowReadyModal] = useState(false);  // ✅ 생성 준비 모달
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -72,17 +159,6 @@ const DiseasePredictionCampaign: React.FC = () => {
         apiKey: !!apiKey,
         currentPage_before: currentPage
       });
-
-      // page 파라미터가 있으면 바로 페이지 설정 (상태 체크 생략)
-      const validPages: PageType[] = ['payment', 'landing', 'terms', 'intro'];
-      if (page && validPages.includes(page as PageType)) {
-        console.log('[DiseasePrediction] page 파라미터 있음, 바로 설정:', page, '현재 currentPage:', currentPage);
-        // currentPage가 이미 올바른 값이어도 강제로 설정 (navigate 후 재실행 방지)
-        console.log('[DiseasePrediction] currentPage 강제 설정:', currentPage, '->', page);
-        setCurrentPage(page as PageType);
-        setLoading(false);
-        return; // 상태 체크 생략하고 바로 반환
-      }
       
       // page 파라미터가 없을 때 처리
       if (!page) {
@@ -92,11 +168,10 @@ const DiseasePredictionCampaign: React.FC = () => {
           setLoading(false);
           return;
         }
-        // 그 외의 경우 intro로 설정
-        console.log('[DiseasePrediction] page 파라미터 없음, intro 페이지로 설정');
+        // ✅ page 없어도 intro로 설정은 하되, 상태 체크는 계속 진행
+        console.log('[DiseasePrediction] page 파라미터 없음, intro로 설정하고 상태 체크 진행');
         setCurrentPage('intro');
-        setLoading(false);
-        return;
+        // return 제거 - 아래 상태 체크 로직 계속 실행
       }
 
       // 1. 약관 동의 체크는 플로팅 버튼 클릭 시에만 수행
@@ -104,8 +179,8 @@ const DiseasePredictionCampaign: React.FC = () => {
 
       // result 페이지는 제거됨 - 리포트 생성 중에는 intro 페이지에서 스피너 표시
 
-      // 2. 파트너 또는 API Key & UUID가 있는 경우 상태 체크 API 호출
-      if ((partner || apiKey) && uuid) {
+      // 2. UUID가 있으면 상태 체크 API 호출 (partner는 빈 문자열일 수 있음)
+      if (uuid) {
         try {
           const response = await fetch(API_ENDPOINTS.CHECK_PARTNER_STATUS, {
             method: 'POST',
@@ -126,7 +201,26 @@ const DiseasePredictionCampaign: React.FC = () => {
 
           // action에 따라 분기
           if (result.action === 'show_report') {
-            navigate(result.redirect_url);
+            console.log('[DiseasePrediction] 리포트 있음, 결과 페이지로 이동:', result.redirect_url);
+            window.location.href = result.redirect_url;
+            return;
+          }
+
+          // ✅ 결제 실패 건 안내
+          if (result.action === 'show_payment_failed') {
+            console.log('[DiseasePrediction] 결제 실패 안내:', result.error_message);
+            alert(`결제 실패\n\n사유: ${result.error_message}\n\n다시 시도해주세요.`);
+            setCurrentPage('intro');
+            setLoading(false);
+            return;
+          }
+
+          // ✅ 생성 준비 완료 모달 표시
+          if (result.action === 'show_ready_modal') {
+            console.log('[DiseasePrediction] 생성 준비 완료, 모달 표시');
+            setShowReadyModal(true);
+            setCurrentPage('intro');
+            setLoading(false);
             return;
           }
 
@@ -255,7 +349,10 @@ const DiseasePredictionCampaign: React.FC = () => {
   console.log('[DiseasePrediction] 렌더링:', { currentPage, loading, hasStatus: !!status });
   
   let content;
-  if (currentPage === 'payment') {
+  if (currentPage === 'result') {
+    console.log('🟣 [DiseasePrediction] ===== 리포트 생성 중 화면 =====');
+    content = <ReportGeneratingPage status={status} onMount={() => setShowReadyModal(false)} />;
+  } else if (currentPage === 'payment') {
     console.log('🔵 [DiseasePrediction] ===== LandingPage 렌더링 (payment) =====');
     console.log('🔵 [DiseasePrediction] 이 컴포넌트는 혜택 리스트가 "✅ 10대 주요 질환..."이고, 하단에 "기업정보" 섹션이 있어야 함');
     content = <LandingPage key="payment-page" status={status} />;
@@ -339,6 +436,58 @@ const DiseasePredictionCampaign: React.FC = () => {
         />
       )}
       
+      {/* ✅ 생성 준비 완료 모달 */}
+      {showReadyModal && status && (
+        <ReadyModal
+          onGenerate={async () => {
+            try {
+              const query = new URLSearchParams(location.search);
+              const uuid = query.get('uuid');
+              const partner = query.get('partner');
+              const oid = query.get('oid');
+              const apiKey = query.get('api_key');
+
+              // oid 없어도 uuid + partner로 조회 가능
+              console.log('[ReadyModal] 리포트 생성 시작:', { oid, uuid, partner, hasApiKey: !!apiKey });
+
+              // 직접 생성 API 호출 (oid 없어도 uuid + partner로 조회)
+              const response = await fetch(API_ENDPOINTS.GENERATE_REPORT, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  oid: oid || undefined,
+                  uuid,
+                  partner_id: partner,
+                  api_key: apiKey || undefined
+                })
+              });
+
+              const result = await response.json();
+
+              if (result.success) {
+                console.log('[ReadyModal] 리포트 생성 시작 성공');
+                setShowReadyModal(false);
+                
+                // 결과 페이지로 직접 이동 (분석 데이터는 이미 DB에 저장됨)
+                const resultUrl = oid 
+                  ? `/disease-report?oid=${oid}`
+                  : `/disease-report?uuid=${uuid}&hospital_id=PEERNINE`;
+                
+                console.log('[ReadyModal] 결과 페이지로 이동:', resultUrl);
+                window.location.href = resultUrl;
+              } else {
+                alert('리포트 생성 시작 실패: ' + result.detail);
+              }
+            } catch (error) {
+              console.error('[ReadyModal] 리포트 생성 오류:', error);
+              alert('서버 통신 오류가 발생했습니다.');
+            }
+          }}
+          onClose={() => setShowReadyModal(false)}
+          userName={status?.partner_id}
+        />
+      )}
+
       {/* 전역 로딩 오버레이 (마운트 해제 없이 위에 덮음) */}
       {loading && !status && (
         <div style={{ 

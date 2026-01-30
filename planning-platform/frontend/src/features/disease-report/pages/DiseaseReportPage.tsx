@@ -50,8 +50,8 @@ const DiseaseReportPage: React.FC = () => {
   const navigate = useNavigate();
   const { skinType, skinConfig, changeSkin } = useCampaignSkin();
   const { actions } = useWelnoData();
-  // 기본값을 브라운 모드로 설정 (기존 skinType이 'Br'이 아니면 브라운으로 초기화)
-  const [isBrownMode, setIsBrownMode] = useState(skinType === 'Br' || skinType !== 'G');
+  // isBrownMode는 현재 스킨 타입을 반영
+  const [isBrownMode, setIsBrownMode] = useState(skinType === 'Br');
 
   // 색상 모드 변경 핸들러
   const handleSkinChange = useCallback((newMode: 'default' | 'brown') => {
@@ -60,18 +60,14 @@ const DiseaseReportPage: React.FC = () => {
     setIsBrownMode(newMode === 'brown');
   }, [changeSkin]);
 
-  // 컴포넌트 마운트 시 기본값을 브라운으로 설정
+  // skinType 변경 시 isBrownMode 동기화
   useEffect(() => {
-    if (skinType !== 'Br') {
-      changeSkin('Br');
-      setIsBrownMode(true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // 최초 마운트 시에만 실행
+    setIsBrownMode(skinType === 'Br');
+  }, [skinType]);
   
   // ⭐ URL 파라미터에서 uuid, hospital, sessionId, oid 가져오기
   const uuid = searchParams.get('uuid') || StorageManager.getItem(STORAGE_KEYS.PATIENT_UUID) || '';
-  const hospitalId = searchParams.get('hospital') || StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID) || '';
+  const hospitalId = searchParams.get('hospital_id') || searchParams.get('hospital') || StorageManager.getItem(STORAGE_KEYS.HOSPITAL_ID) || '';
   const sessionId = searchParams.get('sessionId') || null;
   const shouldGenerate = searchParams.get('generate') === 'true';
   const oid = searchParams.get('oid') || null;  // 파트너 결제 주문번호
@@ -496,6 +492,16 @@ const DiseaseReportPage: React.FC = () => {
           );
           setLoading(false);
           setDataSource('db');
+          return;
+        } else if (data.should_redirect_to_landing) {
+          // 리포트 생성 실패 - 랜딩 페이지로 리다이렉트
+          console.error('[리포트 조회] 리포트 생성 실패:', data.error_message);
+          alert(data.error_message || '리포트 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+          
+          // 랜딩 페이지로 리다이렉트 (원래 URL 파라미터 유지)
+          const urlParams = new URLSearchParams(window.location.search);
+          const redirectUrl = `/campaigns/disease-prediction/?${urlParams.toString()}`;
+          window.location.href = redirectUrl;
           return;
         } else {
           setError('리포트를 찾을 수 없습니다.');
@@ -1607,25 +1613,22 @@ const DiseaseReportPage: React.FC = () => {
           <div className="report-header-content">
             <div className="report-header-left">
               {customerName && (
-                <p className="customer-name">{customerName}님의 건강 분석 결과</p>
-              )}
+                <p className="customer-name">{customerName}님의 건강분석결과</p>
+              )} 
             </div>
             <div className="report-header-badges">
               {isTestMode && (
                 <span className="report-badge report-badge-test">TEST MODE</span>
               )}
-              {dataSource && (
-                <span className={`report-badge report-badge-source report-badge-${dataSource}`}>
-                  {dataSource === 'db' ? 'DB' : '지연조회'}
-                </span>
-              )}
             </div>
           </div>
         </header>
 
-        {/* 건강나이 vs 실제나이 비교 */}
-        {reportData && (
-          <HealthAgeSection
+        {/* 스크롤 가능한 컨텐츠 영역 */}
+        <div className="report-content">
+          {/* 건강나이 vs 실제나이 비교 */}
+          {reportData && (
+            <HealthAgeSection
             healthAge={reportData.bodyage}
             actualAge={currentAge}
             variant="card"
@@ -2127,6 +2130,7 @@ const DiseaseReportPage: React.FC = () => {
             )}
           </div>
         </section>
+        </div> {/* report-content 끝 */}
       </div>
       
       {/* 디버그 삭제 모달 */}

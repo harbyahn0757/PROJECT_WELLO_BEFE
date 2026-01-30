@@ -58,6 +58,54 @@ def get_metric_count(data: Dict[str, Any]) -> int:
         if data.get(field) not in [None, '', 0, 0.0]
     )
 
+def get_metric_count_from_tilko(raw_data: Dict[str, Any]) -> int:
+    """
+    틸코 raw_data에서 직접 건강 지표 개수 계산 (키값 매핑 활용)
+    
+    인덱스 기반 Inspections 구조를 키값 매핑으로 변환하여 빠르게 계산합니다.
+    
+    Args:
+        raw_data: 틸코 검진 데이터 (Inspections 포함)
+        
+    Returns:
+        유효한 지표의 개수
+        
+    Example:
+        >>> raw_data = {"Inspections": [...]}
+        >>> get_metric_count_from_tilko(raw_data)
+        12
+    """
+    from ..services.welno_data_service import WelnoDataService
+    
+    service = WelnoDataService()
+    key_value_mapping = service._extract_key_value_mapping(raw_data)
+    
+    # 유효한 지표 개수 계산
+    return sum(
+        1 for value in key_value_mapping.values()
+        if value not in [None, '', 0, 0.0, '음성', '정상', 'N/A']
+    )
+
+def get_key_value_mapping_from_tilko(raw_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    틸코 raw_data를 키값 매핑 구조로 변환
+    
+    Args:
+        raw_data: 틸코 검진 데이터 (Inspections 포함)
+        
+    Returns:
+        키값 매핑 딕셔너리 {"height": 181.3, "weight": 82.2, ...}
+        
+    Example:
+        >>> raw_data = {"Inspections": [...]}
+        >>> mapping = get_key_value_mapping_from_tilko(raw_data)
+        >>> print(mapping["height"])  # 181.3
+    """
+    from ..services.welno_data_service import WelnoDataService
+    
+    service = WelnoDataService()
+    return service._extract_key_value_mapping(raw_data)
+
 def is_data_sufficient(data: Dict[str, Any], threshold: int = 5) -> bool:
     """
     데이터 충족 여부 판단

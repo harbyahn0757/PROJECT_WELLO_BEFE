@@ -118,9 +118,27 @@ async def init_payment(request: Request):
         chkfake = base64.b64encode(hashlib.sha512(hash_str.encode('utf-8')).digest()).decode('utf-8')
         
         # DB에 주문 정보 저장 (READY 상태, partner_id 포함)
-        # 기존 READY 상태의 결제 데이터가 있으면 업데이트, 없으면 새로 생성
+        # ✅ [중요] COMPLETED 건이 있으면 새 결제 생성 방지
         with db_manager.get_connection() as conn:
             with conn.cursor() as cur:
+                # 기존 COMPLETED 상태 확인 (중복 결제 방지)
+                cur.execute("""
+                    SELECT oid, status FROM welno.tb_campaign_payments
+                    WHERE uuid = %s AND partner_id = %s AND status = 'COMPLETED'
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """, (uuid, partner_id))
+                completed_payment = cur.fetchone()
+                
+                if completed_payment:
+                    logger.warning(f"⚠️ [결제초기화] 이미 결제 완료 건 존재: oid={completed_payment[0]}, 새 결제 생성 중단")
+                    return JSONResponse({
+                        'success': False,
+                        'error': 'ALREADY_PAID',
+                        'message': '이미 결제가 완료되었습니다.',
+                        'existing_oid': completed_payment[0]
+                    }, status_code=400)
+                
                 # 기존 READY 상태의 결제 데이터 확인
                 cur.execute("""
                     SELECT oid FROM welno.tb_campaign_payments
@@ -168,7 +186,7 @@ async def init_payment(request: Request):
         
         # 디버깅: 실제 콜백 URL 로깅 (return 이전에 실행)
         dynamic_domain = get_dynamic_domain(request)
-        callback_url = f"{dynamic_domain}/api/v1/campaigns/disease-prediction/payment-callback/"
+        callback_url = f"{dynamic_domain}/api/v1/campaigns/pay-cb/"  # 짧은 URL 사용
         logger.info(f"🔗 [결제초기화] get_dynamic_domain 반환값: {dynamic_domain}")
         logger.info(f"🔗 [결제초기화] 이니시스 콜백 URL 설정: {callback_url}")
         logger.info(f"🔗 [결제초기화] 요청 헤더 host: {request.headers.get('host', 'None')}")
@@ -188,6 +206,23 @@ async def init_payment(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# 짧은 콜백 URL (Inicis URL 길이 제한 대응)
+@router.post("/pay-cb/")
+async def payment_callback_short(
+    request: Request,
+    P_STATUS: str = Form(...),
+    P_RMESG1: str = Form(default=''),
+    P_TID: str = Form(...),
+    P_REQ_URL: str = Form(...),
+    P_NOTI: str = Form(...)  # oid
+):
+    """
+    이니시스 모바일 결제 콜백 (짧은 URL)
+    """
+    return await _handle_payment_callback(
+        request, P_STATUS, P_RMESG1, P_TID, P_REQ_URL, P_NOTI
+    )
+
 @router.post("/disease-prediction/payment-callback/")
 async def payment_callback(
     request: Request,
@@ -198,7 +233,22 @@ async def payment_callback(
     P_NOTI: str = Form(...)  # oid
 ):
     """
-    이니시스 결제 인증 콜백: 인증 결과를 받고 최종 승인 요청 수행
+    이니시스 결제 인증 콜백: 인증 결과를 받고 최종 승인 요청 수행 (기존 긴 URL)
+    """
+    return await _handle_payment_callback(
+        request, P_STATUS, P_RMESG1, P_TID, P_REQ_URL, P_NOTI
+    )
+
+async def _handle_payment_callback(
+    request: Request,
+    P_STATUS: str,
+    P_RMESG1: str,
+    P_TID: str,
+    P_REQ_URL: str,
+    P_NOTI: str
+):
+    """
+    결제 콜백 공통 처리 로직
     """
     p_oid = P_NOTI
     
@@ -702,6 +752,17 @@ async def trigger_report_generation(order_data: Dict[str, Any]):
                     # 환자 정보 조회
                     patient_info = health_data_result.get('patient', {})
                     if patient_info and raw_data:
+                        # 🔧 [생년월일 보정] patient_info의 birth_date가 없으면 파트너 데이터에서 가져오기
+                        birth_date = patient_info.get('birth_date', '')
+                        if not birth_date or birth_date in [None, '', 'None', 'null']:
+                            # order_data의 user_data에서 birth 추출 시도
+                            user_data = order_data.get('user_data', {})
+                            if isinstance(user_data, dict):
+                                partner_birth = user_data.get('birth') or user_data.get('birth_date')
+                                if partner_birth:
+                                    logger.info(f"🔄 [Campaign] 생년월일 보정: patient={birth_date} -> partner={partner_birth}")
+                                    birth_date = partner_birth
+                        
                         # Tilko 데이터 형식으로 변환
                         tilko_checkup_data = {
                             'Inspections': raw_data.get('Inspections', []),
@@ -713,7 +774,7 @@ async def trigger_report_generation(order_data: Dict[str, Any]):
                             checkup_data=tilko_checkup_data,
                             patient_info={
                                 'name': patient_info.get('name', user_name),
-                                'birth_date': patient_info.get('birth_date', ''),
+                                'birth_date': birth_date,
                                 'gender': patient_info.get('gender', 'M')
                             }
                         )
@@ -778,6 +839,21 @@ async def trigger_report_generation(order_data: Dict[str, Any]):
                             "birth_date": patient_data.get('birth_date', ''),
                             "gender": patient_data.get('gender', 'M')
                         }
+                        
+                        # 🔧 [중요] Tilko 데이터를 사용하더라도 birth_date/phone이 없으면 파트너 데이터에서 보정
+                        user_data = order_data.get('user_data', {})
+                        if isinstance(user_data, dict):
+                            if not patient_info['birth_date']:
+                                partner_birth = user_data.get('birth') or user_data.get('birth_date')
+                                if partner_birth:
+                                    logger.info(f"🔄 [환자저장] 생년월일 보정: {patient_info['birth_date']} -> {partner_birth}")
+                                    patient_info['birth_date'] = partner_birth
+                            
+                            if not patient_info['phone_number']:
+                                partner_phone = user_data.get('phone') or user_data.get('phone_number')
+                                if partner_phone:
+                                    logger.info(f"🔄 [환자저장] 전화번호 보정: {patient_info['phone_number']} -> {partner_phone}")
+                                    patient_info['phone_number'] = partner_phone
                 
                 # Tilko 데이터가 없으면 파트너 데이터 사용
                 if not patient_info:
@@ -794,14 +870,44 @@ async def trigger_report_generation(order_data: Dict[str, Any]):
                             "gender": 'M' if gender in ['male', 'M'] else 'F' if gender in ['female', 'F'] else 'M'
                         }
                 
+                # 🔧 [중요] 환자가 이미 존재하는지 확인하고, 없는 경우에만 저장
+                # 기존 환자 정보를 덮어쓰지 않도록 보호
                 if patient_info:
-                    await welno_data_service.save_patient_data(
-                        uuid=uuid,
-                        hospital_id="PEERNINE",
-                        user_info=patient_info,
-                        session_id=f"CAMPAIGN_{oid}"
+                    # DB에서 환자 존재 여부 확인
+                    import asyncpg
+                    from ....core.config import settings
+                    
+                    check_conn = await asyncpg.connect(
+                        host=settings.DB_HOST if hasattr(settings, 'DB_HOST') else '10.0.1.10',
+                        port=settings.DB_PORT if hasattr(settings, 'DB_PORT') else 5432,
+                        database=settings.DB_NAME if hasattr(settings, 'DB_NAME') else 'p9_mkt_biz',
+                        user=settings.DB_USER if hasattr(settings, 'DB_USER') else 'peernine',
+                        password=settings.DB_PASSWORD if hasattr(settings, 'DB_PASSWORD') else 'autumn3334!'
                     )
-                    logger.info(f"✅ [Campaign] 정식 환자 등록 완료: {uuid}")
+                    
+                    existing_patient = await check_conn.fetchrow(
+                        "SELECT uuid, birth_date, terms_agreement FROM welno.welno_patients WHERE uuid = $1",
+                        uuid
+                    )
+                    await check_conn.close()
+                    
+                    if existing_patient:
+                        existing_birth = existing_patient['birth_date']
+                        existing_terms = existing_patient['terms_agreement']
+                        
+                        logger.info(f"✅ [Campaign] 환자 이미 존재 - 기존 데이터 보호 (uuid={uuid})")
+                        logger.info(f"   - 기존 birth_date: {existing_birth}")
+                        logger.info(f"   - 기존 terms_agreement: {'있음' if existing_terms else '없음'}")
+                        logger.info(f"   - 덮어쓰기 방지: 환자 정보 저장 건너뜀")
+                    else:
+                        # 환자가 없는 경우에만 저장
+                        await welno_data_service.save_patient_data(
+                            uuid=uuid,
+                            hospital_id="PEERNINE",
+                            user_info=patient_info,
+                            session_id=f"CAMPAIGN_{oid}"
+                        )
+                        logger.info(f"✅ [Campaign] 신규 환자 등록 완료: {uuid}")
                 else:
                     logger.warning(f"⚠️ [Campaign] 환자 정보 부족으로 등록 건너뜀: uuid={uuid}")
             except Exception as e:
@@ -870,6 +976,18 @@ async def get_campaign_report(oid: str):
                         # response.data가 있으면 data만 반환 (하위 호환성 유지)
                         if "data" in mediarc_response and isinstance(mediarc_response.get("data"), dict):
                             mediarc_response = mediarc_response["data"]
+                    
+                    # REPORT_FAILED 상태인 경우 에러 정보 반환
+                    if row[1] == 'REPORT_FAILED':
+                        return {
+                            "success": False,
+                            "oid": row[0],
+                            "status": row[1],
+                            "error_message": row[3] or "리포트 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+                            "updated_at": row[4],
+                            "user_name": row[6],
+                            "should_redirect_to_landing": True  # 랜딩 페이지로 리다이렉트 플래그
+                        }
                     
                     return {
                         "success": True,

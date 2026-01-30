@@ -137,11 +137,43 @@ async def check_partner_status(request: Request):
                         "is_active": partner_row['is_active']
                     }
             
-            # 파트너 설정이 없으면 에러 처리
+            # 파트너 설정이 없으면 UUID만으로 조회 시도
             if not partner_config:
-                await conn.close()
-                logger.warning(f"[상태체크] 파트너 식별 실패: partner={partner_id}, api_key={api_key}")
-                raise HTTPException(status_code=404, detail="유효하지 않은 파트너 정보입니다.")
+                logger.info(f"[상태체크] 파트너 없음, UUID만으로 조회: uuid={uuid}")
+                # UUID로 WELNO 환자 조회
+                welno_row = await conn.fetchrow("""
+                    SELECT id, has_mediarc_report, name, phone_number, birth_date, gender,
+                           terms_agreement, terms_agreed_at
+                    FROM welno.welno_patients
+                    WHERE uuid = $1
+                    LIMIT 1
+                """, uuid)
+                
+                if welno_row and welno_row['has_mediarc_report']:
+                    # 리포트 있으면 바로 결과 페이지로
+                    await conn.close()
+                    logger.info(f"[상태체크] 케이스 UUID전용: WELNO 리포트 있음")
+                    response_data = {
+                        "case_id": "UUID_ONLY",
+                        "action": "show_report",
+                        "redirect_url": f"/disease-report?uuid={uuid}&hospital_id=PEERNINE&skin=G",
+                        "message": "이미 생성된 리포트가 있습니다",
+                        "has_report": True,
+                        "has_checkup_data": True,
+                        "has_payment": False,
+                        "requires_payment": False,
+                        "payment_amount": 0,
+                        "partner_id": None,
+                        "is_welno_user": True,
+                        "is_recorded_user": True
+                    }
+                    logger.info(f"[상태체크] 📤 응답 데이터: action={response_data['action']}, redirect={response_data['redirect_url']}")
+                    return response_data
+                else:
+                    # 리포트 없으면 에러
+                    await conn.close()
+                    logger.warning(f"[상태체크] 파트너 식별 실패 & 리포트 없음: partner={partner_id}, uuid={uuid}")
+                    raise HTTPException(status_code=404, detail="유효하지 않은 파트너 정보입니다.")
             
             # config가 dict인지 확인 (안전장치)
             config_dict = partner_config.get("config")
@@ -215,22 +247,37 @@ async def check_partner_status(request: Request):
                 welno_patient = dict(welno_row)
                 patient_id = welno_patient['id']
                 has_mediarc_report = welno_patient['has_mediarc_report']
+                
+                # 🔧 [중요] 플래그만 확인하지 말고, 실제 report_url이 있는지 확인
                 if has_mediarc_report:
-                    await conn.close()
-                    logger.info(f"[상태체크] 케이스 A2: WELNO 리포트 있음 (uuid={uuid})")
-                    return {
-                        "case_id": "A2",
-                        "action": "show_report",
-                        "redirect_url": get_final_url(f"/disease-report?uuid={uuid}&hospital_id=PEERNINE"),
-                        "has_report": True,
-                        "has_checkup_data": True,
-                        "has_payment": True,
-                        "requires_payment": False,
-                        "payment_amount": payment_amount,
-                        "partner_id": partner_id,
-                        "is_welno_user": True,
-                        "is_recorded_user": True
-                    }
+                    # welno_mediarc_reports에서 실제 report_url 확인
+                    report_check = await conn.fetchrow("""
+                        SELECT report_url FROM welno.welno_mediarc_reports
+                        WHERE patient_uuid = $1 AND hospital_id = 'PEERNINE'
+                        ORDER BY created_at DESC LIMIT 1
+                    """, uuid)
+                    
+                    if report_check and report_check['report_url']:
+                        # 실제로 report_url이 있는 경우에만 show_report
+                        await conn.close()
+                        logger.info(f"[상태체크] 케이스 A2: WELNO 리포트 있음 + URL 존재 (uuid={uuid})")
+                        return {
+                            "case_id": "A2",
+                            "action": "show_report",
+                            "redirect_url": get_final_url(f"/disease-report?uuid={uuid}&hospital_id=PEERNINE"),
+                            "has_report": True,
+                            "has_checkup_data": True,
+                            "has_payment": True,
+                            "requires_payment": False,
+                            "payment_amount": payment_amount,
+                            "partner_id": partner_id,
+                            "is_welno_user": True,
+                            "is_recorded_user": True
+                        }
+                    else:
+                        # report_url이 없으면 플래그를 False로 보정하고 계속 진행
+                        logger.warning(f"[상태체크] has_mediarc_report=True but report_url=None. 플래그 보정 후 계속 진행")
+                        has_mediarc_report = False
 
             # 1-3. 유입 기록이 없다면 생성 (404 방지용 임시 기록)
             if not is_recorded_user:
@@ -347,6 +394,37 @@ async def check_partner_status(request: Request):
                 f"report={has_report}, payment={has_payment}/{requires_payment}"
             )
             
+            # ===== 4-0. 결제 실패 건 체크 (최우선) =====
+            if payment_row and payment_row['status'] == 'FAILED':
+                error_message = await conn.fetchval("""
+                    SELECT error_message FROM welno.tb_campaign_payments
+                    WHERE oid = $1
+                """, payment_row['oid']) or '알 수 없는 오류'
+                
+                logger.info(f"[상태체크] ❌ 결제 실패 건 발견: {error_message}")
+                
+                # 파트너 결제 필요 여부 확인
+                payment_required = payment_config.get("required", True)
+                
+                await conn.close()
+                return {
+                    "case_id": "PAYMENT_FAILED",
+                    "action": "show_payment_failed",
+                    "status": "PAYMENT_FAILED",
+                    "error_message": error_message,
+                    "failed_oid": payment_row['oid'],
+                    "redirect_url": f"/campaigns/disease-prediction?page=intro&partner={partner_id}&uuid={uuid}",
+                    "has_report": False,
+                    "has_checkup_data": has_checkup_data,
+                    "has_payment": False,
+                    "requires_payment": payment_required,
+                    "payment_amount": payment_amount,
+                    "partner_id": partner_id,
+                    "is_welno_user": False,
+                    "is_recorded_user": True,
+                    "terms_agreed": False
+                }
+            
             # ===== 4-1. 재접근 시 복구 로직 (결제 완료 + 중단된 경우) =====
             if payment_row and payment_row['status'] == 'COMPLETED':
                 pipeline_step = payment_row.get('pipeline_step')
@@ -360,26 +438,14 @@ async def check_partner_status(request: Request):
                 
                 logger.info(f"[상태체크] 검진데이터 확인 - count: {health_data_count}")
                 
-                # 레포트 없고 검진데이터 있으면 레포트 생성 시도
+                # ✅ 레포트 없고 검진데이터 있으면 → 생성 준비 완료 상태 반환 (자동 트리거 제거)
                 if not payment_row.get('report_url') and health_data_count > 0:
-                    logger.info(f"[상태체크] 레포트 없음 + 검진데이터 있음 → 레포트 생성 트리거")
-                    try:
-                        from .campaign_payment import trigger_report_generation
-                        import asyncio
-                        
-                        order_data = {
-                            'oid': payment_row['oid'],
-                            'uuid': uuid,
-                            'partner_id': partner_id,
-                            'user_name': payment_row.get('user_name', '고객'),
-                            'email': None
-                        }
-                        
-                        # 백그라운드에서 레포트 생성 트리거
-                        asyncio.create_task(trigger_report_generation(order_data))
-                        logger.info(f"[상태체크] 레포트 생성 트리거 완료: oid={payment_row['oid']}")
-                    except Exception as report_err:
-                        logger.error(f"[상태체크] 레포트 생성 트리거 실패: {report_err}")
+                    logger.info(f"[상태체크] 레포트 없음 + 검진데이터 있음 → 생성 준비 완료 상태 반환")
+                    # 사용자에게 확인 후 생성하도록 상태 변경
+                    # status는 REPORT_PENDING 유지하되, action을 변경
+                    if status == 'REPORT_PENDING':
+                        status = 'READY_TO_GENERATE'  # 새로운 상태
+                        logger.info(f"[상태체크] 상태 변경: READY_TO_GENERATE (사용자 확인 대기)")
                 
                 # 처방전 데이터 확인
                 prescription_data_count = await conn.fetchval("""
@@ -405,6 +471,7 @@ async def check_partner_status(request: Request):
                 "REPORT_READY": "show_report",
                 "REPORT_EXPIRED": "show_expired_message",
                 "REPORT_PENDING": "show_loading",
+                "READY_TO_GENERATE": "show_ready_modal",  # ✅ 새로운 액션
                 "PAYMENT_REQUIRED": "show_payment",
                 "ACTION_REQUIRED": "redirect_to_auth",
                 "ACTION_REQUIRED_PAID": "redirect_to_auth_auto",
@@ -421,6 +488,8 @@ async def check_partner_status(request: Request):
                 case_id = "A_EXPIRED"
             elif status == "REPORT_PENDING":
                 case_id = "B1"
+            elif status == "READY_TO_GENERATE":
+                case_id = "B1_READY"  # ✅ 새로운 케이스
             elif status == "PAYMENT_REQUIRED":
                 case_id = "B2"
             elif status == "ACTION_REQUIRED":
@@ -448,6 +517,12 @@ async def check_partner_status(request: Request):
             elif status == "REPORT_PENDING":
                 # 로딩 페이지
                 redirect_url = f"/campaigns/disease-prediction?page=loading&oid={payment_record['oid']}" if payment_record else f"/disease-report?uuid={uuid}"
+                
+            elif status == "READY_TO_GENERATE":
+                # ✅ 생성 준비 완료 - intro 페이지에 모달 표시
+                redirect_url = f"/campaigns/disease-prediction?page=intro&partner={partner_id}&uuid={uuid}&ready=true"
+                if payment_record:
+                    redirect_url += f"&oid={payment_record['oid']}"
                 
             elif status == "PAYMENT_REQUIRED":
                 # 결제 페이지

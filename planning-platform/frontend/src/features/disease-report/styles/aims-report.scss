@@ -96,15 +96,14 @@ html:has(.aims-report-page) {
     background: var(--report-panel-bg, #4a4a4a);
     border-top-left-radius: 24px;
     border-top-right-radius: 24px;
-    padding: 4px 20px 24px 20px; // 상단 패딩 더 줄이기
+    padding: 4px 20px 0 20px; // 하단 패딩 제거 (report-content에서 처리)
     max-height: 90vh;
     width: 100%;
     max-width: 100%;
     display: flex;
     flex-direction: column;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden; // 스크롤 제거, report-content에서 처리
     position: relative;
     
     &.hide {
@@ -353,9 +352,10 @@ html:has(.aims-report-page) {
     }
   }
 
-  // 헤더
+  // 헤더 (고정)
   .report-header {
-    margin-bottom: 20px;
+    flex-shrink: 0; // 헤더 고정
+    margin-bottom: 0; // report-content에서 상단 여백 처리
     padding-bottom: 12px;
     padding-top: 0; // 상단 여백 제거
     margin-top: 0; // 상단 마진 제거
@@ -602,6 +602,32 @@ html:has(.aims-report-page) {
       background: rgba(245, 158, 11, 0.2);
       color: var(--report-warning-color, #f59e0b);
       border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+  }
+
+  // 스크롤 가능한 컨텐츠 영역
+  .report-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 20px 0 24px 0; // 상하 여백
+    
+    // 스크롤바 스타일
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: var(--report-border-color, rgba(255, 255, 255, 0.2));
+      border-radius: 3px;
+      
+      &:hover {
+        background: var(--report-border-color, rgba(255, 255, 255, 0.3));
+      }
     }
   }
 

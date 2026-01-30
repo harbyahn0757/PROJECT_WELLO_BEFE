@@ -6,6 +6,7 @@ import asyncpg
 import httpx
 import json
 import logging
+from datetime import datetime
 from typing import Dict, Any, Optional
 from .constants import DEFAULT_RETURN_TYPE, MEDIARC_API_URL, MEDIARC_API_KEY
 from ...core.database import DatabaseManager
@@ -104,11 +105,12 @@ async def run_disease_report_pipeline(
             """, 
                 patient_uuid, hospital_id, report_url,
                 report_data.get('bodyage'), report_data.get('rank'),
-                report_data.get('disease_data', []),  # asyncpg가 자동으로 jsonb 변환
-                report_data.get('cancer_data', []),
+                json.dumps(report_data.get('disease_data', []), ensure_ascii=False),  # JSON 문자열로 변환
+                json.dumps(report_data.get('cancer_data', []), ensure_ascii=False),   # JSON 문자열로 변환
                 report_data.get('provider', 'twobecon'),
-                report_data.get('analyzed_at'),
-                response  # dict → jsonb 자동 변환
+                # analyzed_at을 datetime 객체로 변환
+                datetime.fromisoformat(report_data.get('analyzed_at').replace('Z', '+00:00')) if report_data.get('analyzed_at') else None,
+                json.dumps(response, ensure_ascii=False)  # JSON 문자열로 변환
             )
             
             logger.info(f"✅ [Pipeline] welno_mediarc_reports 저장 완료")
@@ -121,7 +123,7 @@ async def run_disease_report_pipeline(
                         mediarc_response = $2,
                         updated_at = NOW()
                     WHERE oid = $3
-                """, report_url, response, oid)
+                """, report_url, json.dumps(response, ensure_ascii=False), oid)
                 logger.info(f"✅ [Pipeline] tb_campaign_payments 업데이트 완료: oid={oid}")
                 
             # 2-4. WELNO 환자 플래그 업데이트 (환자 테이블에 존재할 때만)
@@ -250,11 +252,17 @@ async def call_mediarc_api(
         # 응답 데이터 파싱
         response_data = response.json()
         
+        # 🔍 [디버깅] 전체 응답 구조 확인
+        print(f"🔍 [Mediarc API] 전체 응답 구조:")
+        print(json.dumps(response_data, indent=2, ensure_ascii=False))
+        
         # mediarC 객체에서 분석 데이터 추출
         mediarc = response_data.get('mediarC', {})
         
-        print(f"✅ [Mediarc API] 응답 성공:")
+        print(f"\n✅ [Mediarc API] 응답 성공:")
         print(f"   - mkt_uuid: {response_data.get('mkt_uuid')}")
+        print(f"   - report_url (최상위): {response_data.get('report_url')}")
+        print(f"   - report_url (mediarC): {mediarc.get('report_url')}")
         print(f"   - bodyage: {mediarc.get('bodyage')}")
         print(f"   - rank: {mediarc.get('rank')}")
         print(f"   - analyzed_at: {mediarc.get('analyzed_at')}")

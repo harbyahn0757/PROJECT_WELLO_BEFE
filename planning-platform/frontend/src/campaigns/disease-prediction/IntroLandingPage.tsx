@@ -32,6 +32,7 @@ const IntroLandingPage: React.FC<Props> = ({ status }) => {
   const apiKey = query.get('api_key') || '';
   const oid = query.get('oid') || '';
   const autoTrigger = query.get('auto_trigger') === 'true';
+  const ready = query.get('ready') === 'true';  // ✅ 생성 준비 완료 플래그
   
   // 리포트 생성 중 상태
   const [isGenerating, setIsGenerating] = useState(false);
@@ -203,8 +204,14 @@ const IntroLandingPage: React.FC<Props> = ({ status }) => {
     return () => {
       console.log('🗑️ [IntroLanding] 이벤트 리스너 제거됨');
       window.removeEventListener('welno-campaign-click', onCampaignClick);
+      // ✅ 언마운트 시 플로팅 버튼 다시 표시
+      if (ready) {
+        window.dispatchEvent(new CustomEvent('welno-campaign-button-hide', { 
+          detail: { hide: false } 
+        }));
+      }
     };
-  }, [handleButtonClick, buttonConfig.text]);
+  }, [handleButtonClick, buttonConfig.text, ready]);
 
   return (
     <div className="dp-landing" data-page="intro" key="intro-page-root">

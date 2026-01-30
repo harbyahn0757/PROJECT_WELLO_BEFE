@@ -795,11 +795,16 @@ async def confirm_auth_and_fetch_data_sync(session_id: str) -> Dict[str, Any]:
                 from ....services.welno_data_service import WelnoDataService
                 welno_service = WelnoDataService()
                 
+                # 틸코 인증 응답에서 실제 생년월일 추출
+                tilko_birth_date = auth_data.get("birthDate", user_info.get("birthdate", ""))
+                tilko_user_name = auth_data.get("userName", user_info.get("name", ""))
+                tilko_phone_number = auth_data.get("userCellphoneNumber", user_info.get("phone_no", ""))
+                
                 # user_info 키 이름 변환 (phone_no → phone_number, birthdate → birth_date)
                 user_info_for_save = {
-                    "name": user_info.get("name"),
-                    "phone_number": user_info.get("phone_no"),  # phone_no → phone_number
-                    "birth_date": user_info.get("birthdate"),   # birthdate → birth_date
+                    "name": tilko_user_name,  # 틸코 인증 응답의 실제 이름 사용
+                    "phone_number": tilko_phone_number,  # 틸코 인증 응답의 실제 전화번호 사용
+                    "birth_date": tilko_birth_date,   # 틸코 인증 응답의 실제 생년월일 사용
                     "gender": user_info.get("gender")
                 }
                 
@@ -937,10 +942,15 @@ async def fetch_health_data_after_auth(session_id: str):
                     print(f"   - user_info.get('name'): {user_name}")
                     # 이름이 없어도 저장은 진행하되 경고 로그 출력
                 
+                # 틸코 인증 응답에서 실제 데이터 추출 (백그라운드)
+                auth_data = session_data.get("auth_data", {})
+                tilko_birth_date = auth_data.get("birthDate", user_info.get("birthdate", ""))
+                tilko_phone_number = auth_data.get("userCellphoneNumber", user_info.get("phone_no", ""))
+                
                 user_info_for_save = {
                     "name": user_name or "",  # None이면 빈 문자열로 저장
-                    "phone_number": user_info.get("phone_no"),  # phone_no → phone_number
-                    "birth_date": user_info.get("birthdate"),   # birthdate → birth_date
+                    "phone_number": tilko_phone_number,  # 틸코 인증 응답의 실제 전화번호 사용
+                    "birth_date": tilko_birth_date,   # 틸코 인증 응답의 실제 생년월일 사용
                     "gender": user_info.get("gender")
                 }
                 
@@ -1839,7 +1849,7 @@ async def collect_health_data_background_task(session_id: str):
                     with db_manager.get_connection() as conn:
                         with conn.cursor() as cur:
                             cur.execute("""
-                                SELECT uuid, partner_id
+                                SELECT uuid, partner_id, user_data, user_name
                                 FROM welno.tb_campaign_payments
                                 WHERE oid = %s
                                 LIMIT 1
@@ -1848,34 +1858,91 @@ async def collect_health_data_background_task(session_id: str):
                             if campaign_row:
                                 campaign_uuid = campaign_row[0]
                                 partner_id = campaign_row[1]
+                                user_data_str = campaign_row[2]
+                                user_name = campaign_row[3]
                                 print(f"✅ [백그라운드-식별] 캠페인 UUID 발견: {campaign_uuid}")
+                                
+                                # 파트너 데이터에서 생년월일 추출
+                                partner_birth_date = None
+                                partner_phone = None
+                                partner_name = user_name
+                                
+                                if user_data_str:
+                                    try:
+                                        import json
+                                        if isinstance(user_data_str, str):
+                                            partner_data = json.loads(user_data_str)
+                                        else:
+                                            partner_data = user_data_str
+                                        
+                                        partner_birth_date = partner_data.get("birth")
+                                        partner_phone = partner_data.get("phone")
+                                        if not partner_name:
+                                            partner_name = partner_data.get("name")
+                                        
+                                        print(f"📋 [백그라운드-식별] 파트너 데이터 추출:")
+                                        print(f"   - 이름: {partner_name}")
+                                        print(f"   - 생년월일: {partner_birth_date}")
+                                        print(f"   - 전화번호: {partner_phone[:3] if partner_phone else None}*** (마스킹)")
+                                    except Exception as e:
+                                        print(f"⚠️ [백그라운드-식별] 파트너 데이터 파싱 실패: {e}")
                                 
                                 # 캠페인 UUID로 welno_patients 확인
                                 try:
                                     existing_campaign_patient = await welno_service.get_patient_by_uuid(campaign_uuid)
                                     if existing_campaign_patient and not existing_campaign_patient.get("error"):
-                                        # 이미 캠페인 UUID로 등록되어 있음
+                                        # 이미 캠페인 UUID로 등록되어 있음 - 틸코 데이터로 업데이트
                                         patient_uuid = campaign_uuid
                                         hospital_id = existing_campaign_patient.get("hospital_id", "PEERNINE")
                                         print(f"✅ [백그라운드-식별] 캠페인 UUID로 기존 환자 발견: {patient_uuid}")
+                                        
+                                        # 틸코 인증 데이터로 환자 정보 업데이트
+                                        tilko_birth_date = auth_data.get("birthDate", partner_birth_date)
+                                        tilko_user_name = auth_data.get("userName", partner_name)
+                                        tilko_phone_number = auth_data.get("userCellphoneNumber", partner_phone)
+                                        
+                                        user_info_for_update = {
+                                            "name": tilko_user_name,
+                                            "phone_number": tilko_phone_number,
+                                            "birth_date": tilko_birth_date,
+                                            "gender": user_info.get("gender", "M")
+                                        }
+                                        
+                                        print(f"🔄 [백그라운드-식별] 환자 정보 업데이트:")
+                                        print(f"   - 이름: {user_info_for_update['name']}")
+                                        print(f"   - 생년월일: {user_info_for_update['birth_date']}")
+                                        print(f"   - 전화번호: {user_info_for_update['phone_number'][:3] if user_info_for_update['phone_number'] else None}*** (마스킹)")
+                                        
+                                        await welno_service.save_patient_data(
+                                            uuid=campaign_uuid,
+                                            hospital_id=hospital_id,
+                                            user_info=user_info_for_update,
+                                            session_id=f"CAMPAIGN_{oid}"
+                                        )
                                     else:
                                         # 캠페인 UUID로 새로 등록
                                         patient_uuid = campaign_uuid
                                         hospital_id = "PEERNINE"  # 캠페인 기본 병원
                                         
-                                        # 환자 정보 준비
-                                        phone_no = user_info.get("phone_no")
-                                        birthdate = user_info.get("birthdate")
-                                        name = user_info.get("name")
+                                        # 틸코 + 파트너 데이터 결합
+                                        tilko_birth_date = auth_data.get("birthDate", partner_birth_date)
+                                        tilko_user_name = auth_data.get("userName", partner_name)
+                                        tilko_phone_number = auth_data.get("userCellphoneNumber", partner_phone)
                                         
-                                        if phone_no and birthdate and name:
-                                            user_info_for_save = {
-                                                "name": name,
-                                                "phone_number": phone_no,
-                                                "birth_date": birthdate,
-                                                "gender": user_info.get("gender", "M")
-                                            }
-                                            
+                                        # 환자 정보 준비 (틸코 데이터 우선, 파트너 데이터 보조)
+                                        user_info_for_save = {
+                                            "name": tilko_user_name or partner_name,
+                                            "phone_number": tilko_phone_number or partner_phone,
+                                            "birth_date": tilko_birth_date or partner_birth_date,
+                                            "gender": user_info.get("gender", "M")
+                                        }
+                                        
+                                        print(f"🆕 [백그라운드-식별] 새 환자 등록:")
+                                        print(f"   - 이름: {user_info_for_save['name']}")
+                                        print(f"   - 생년월일: {user_info_for_save['birth_date']}")
+                                        print(f"   - 전화번호: {user_info_for_save['phone_number'][:3] if user_info_for_save['phone_number'] else None}*** (마스킹)")
+                                        
+                                        if user_info_for_save['name'] and user_info_for_save['birth_date']:
                                             patient_id = await welno_service.save_patient_data(
                                                 uuid=campaign_uuid,
                                                 hospital_id=hospital_id,
@@ -1888,7 +1955,7 @@ async def collect_health_data_background_task(session_id: str):
                                             else:
                                                 print(f"⚠️ [백그라운드-식별] 캠페인 UUID 환자 등록 실패, 계속 진행")
                                         else:
-                                            print(f"⚠️ [백그라운드-식별] 캠페인 UUID 사용하지만 환자 정보 부족, 나중에 등록 예정")
+                                            print(f"⚠️ [백그라운드-식별] 필수 정보 부족 (이름: {user_info_for_save['name']}, 생년월일: {user_info_for_save['birth_date']})")
                                 except Exception as e:
                                     print(f"⚠️ [백그라운드-식별] 캠페인 UUID 환자 조회 실패, 새로 등록: {e}")
                                     patient_uuid = campaign_uuid

@@ -19,11 +19,7 @@ def get_dynamic_domain(request: Optional[Request] = None) -> str:
         str: 환경에 맞는 도메인 (http://localhost:9282 또는 https://report.kindhabit.com)
     """
     
-    # 1. 환경변수 우선 (배포 시 명시적 설정)
-    if domain := os.getenv('SERVICE_DOMAIN'):
-        return domain
-    
-    # 2. 요청 헤더에서 추출
+    # 1. 요청 헤더에서 추출 (동적 도메인 감지)
     if request:
         host = request.headers.get('host', 'localhost:9282')
         
@@ -48,6 +44,10 @@ def get_dynamic_domain(request: Optional[Request] = None) -> str:
             # 배포 환경: HTTPS 강제
             return f"https://{host}"
     
+    # 2. 환경변수 fallback (요청 없을 때)
+    if domain := os.getenv('SERVICE_DOMAIN'):
+        return domain
+        
     # 3. 기본값 (운영 환경)
     return "https://report.kindhabit.com"
 
@@ -63,11 +63,7 @@ def get_frontend_domain(request: Optional[Request] = None) -> str:
         str: 프론트엔드 도메인
     """
     
-    # 환경변수 우선
-    if domain := os.getenv('FRONTEND_DOMAIN'):
-        return domain
-    
-    # 요청 기반 감지
+    # 요청 기반 감지 (동적 도메인 우선)
     if request:
         host = request.headers.get('host', 'localhost:9282')
         
@@ -84,6 +80,10 @@ def get_frontend_domain(request: Optional[Request] = None) -> str:
             # 배포: 동일 도메인
             return f"https://{host}"
     
+    # 환경변수 fallback
+    if domain := os.getenv('FRONTEND_DOMAIN'):
+        return domain
+        
     # 기본값
     return "https://report.kindhabit.com"
 
