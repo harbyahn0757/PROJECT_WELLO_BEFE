@@ -115,8 +115,8 @@ async def run_disease_report_pipeline(
             
             logger.info(f"✅ [Pipeline] welno_mediarc_reports 저장 완료")
             
-            # 2-3. 파트너사인 경우 tb_campaign_payments 업데이트
-            if partner_id and oid:
+            # 2-3. 캠페인 결제 케이스인 경우 tb_campaign_payments 업데이트
+            if oid:  # ⭐ OID만 있으면 업데이트 (partner_id 조건 제거)
                 await conn.execute("""
                     UPDATE welno.tb_campaign_payments
                     SET report_url = $1,
@@ -124,7 +124,7 @@ async def run_disease_report_pipeline(
                         updated_at = NOW()
                     WHERE oid = $3
                 """, report_url, json.dumps(response, ensure_ascii=False), oid)
-                logger.info(f"✅ [Pipeline] tb_campaign_payments 업데이트 완료: oid={oid}")
+                logger.info(f"✅ [Pipeline] tb_campaign_payments 업데이트 완료: oid={oid}, report_url={report_url[:80] if report_url else None}...")
                 
             # 2-4. WELNO 환자 플래그 업데이트 (환자 테이블에 존재할 때만)
             if patient_row:

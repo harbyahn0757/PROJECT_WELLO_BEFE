@@ -133,6 +133,9 @@ const DiseaseReportPage: React.FC = () => {
   // 최소 스와이프 거리
   const minSwipeDistance = 50;
   
+  // 아이프레임 여부 감지
+  const [isInIframe, setIsInIframe] = useState(false);
+  
   // 나이 박스 클릭 핸들러 (디버그 모달용)
   const handleAgeBoxClick = useCallback(() => {
     ageClickCountRef.current += 1;
@@ -379,6 +382,13 @@ const DiseaseReportPage: React.FC = () => {
     setDiseaseTouchEndX(null);
   };
   const [reportUpdatedAt, setReportUpdatedAt] = useState<string | null>(null); // 리포트 업데이트 시간
+
+  // ⭐ 아이프레임 여부 감지
+  useEffect(() => {
+    const inIframe = window.self !== window.top;
+    setIsInIframe(inIframe);
+    console.log(`[DiseaseReportPage] 아이프레임 환경: ${inIframe ? 'YES' : 'NO'}`);
+  }, []);
 
   // ⭐ BNR 레거시: 고객 정보 조회 - Mediarc에서는 Storage에서 가져옴
   useEffect(() => {
@@ -1527,34 +1537,37 @@ const DiseaseReportPage: React.FC = () => {
         {/* 헤더 */}
         <header className="report-header">
           <div className="report-header-top">
-            <button
-              className="report-back-button"
-              onClick={() => {
-                // 페이드 아웃 효과 추가
-                const pageElement = document.querySelector('.aims-report-page');
-                if (pageElement) {
-                  pageElement.classList.add('fade-out');
-                  setTimeout(() => {
-                    // UUID와 hospital_id 유지하면서 메인 페이지로 이동
+            {/* ⭐ 아이프레임이 아닐 때만 뒤로가기 버튼 표시 */}
+            {!isInIframe && (
+              <button
+                className="report-back-button"
+                onClick={() => {
+                  // 페이드 아웃 효과 추가
+                  const pageElement = document.querySelector('.aims-report-page');
+                  if (pageElement) {
+                    pageElement.classList.add('fade-out');
+                    setTimeout(() => {
+                      // UUID와 hospital_id 유지하면서 메인 페이지로 이동
+                      if (uuid && hospitalId) {
+                        navigate(`/?uuid=${uuid}&hospital=${hospitalId}`);
+                      } else {
+                        navigate('/');
+                      }
+                    }, 400); // 0.4초 페이드 아웃
+                  } else {
+                    // 페이드 아웃 효과 없이 바로 메인으로 이동
                     if (uuid && hospitalId) {
                       navigate(`/?uuid=${uuid}&hospital=${hospitalId}`);
                     } else {
                       navigate('/');
                     }
-                  }, 400); // 0.4초 페이드 아웃
-                } else {
-                  // 페이드 아웃 효과 없이 바로 메인으로 이동
-                  if (uuid && hospitalId) {
-                    navigate(`/?uuid=${uuid}&hospital=${hospitalId}`);
-                  } else {
-                    navigate('/');
                   }
-                }
-              }}
-              aria-label="뒤로가기"
-            >
-              ←
-            </button>
+                }}
+                aria-label="뒤로가기"
+              >
+                ←
+              </button>
+            )}
             <div className="report-title-wrapper">
               <h1 className="report-title">질병예측 리포트</h1>
               {/* 색상 모드 토글 버튼 */}

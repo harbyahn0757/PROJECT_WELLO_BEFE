@@ -4,6 +4,7 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from typing import Dict, Any, Optional
 import os
+import json
 from datetime import datetime
 from app.utils.tilko_utils import (
     get_public_key,
@@ -2144,12 +2145,15 @@ async def collect_health_data_background_task(session_id: str):
                                 
                                 print(f"🎨 [패러럴] 건강검진 데이터 수집 완료 → 레포트 생성 시작 (처방전 수집과 병렬)")
                                 import asyncio
+                                # ⭐ OID 추출 (캠페인 결제 연동을 위해)
+                                campaign_oid = final_session_data.get("oid")
                                 asyncio.create_task(
                                     _generate_mediarc_with_notification(
                                         patient_uuid=patient_uuid,
                                         hospital_id=hospital_id,
                                         session_id=session_id,
-                                        service=welno_service
+                                        service=welno_service,
+                                        oid=campaign_oid
                                     )
                                 )
                             else:
@@ -2212,7 +2216,6 @@ async def collect_health_data_background_task(session_id: str):
                             existing_remarks = row[2] if row and row[2] else ''
                             
                             if isinstance(current_user_data, str):
-                                import json
                                 current_user_data = json.loads(current_user_data)
                             
                             # 히스토리 기록 생성
@@ -2293,7 +2296,7 @@ async def collect_health_data_background_task(session_id: str):
 
                         from app.services.mediarc import generate_mediarc_report_async
                         
-                        print(f"🚀 [Tilko → Mediarc] 백그라운드 태스크 등록 (session_id={session_id})")
+                        print(f"🚀 [Tilko → Mediarc] 백그라운드 태스크 등록 (session_id={session_id}, oid={oid})")
                         
                         # asyncio.create_task()로 독립 실행
                         import asyncio
@@ -2302,7 +2305,8 @@ async def collect_health_data_background_task(session_id: str):
                                 patient_uuid=patient_uuid,
                                 hospital_id=hospital_id,
                                 session_id=session_id,  # ✅ session_id 전달 (WebSocket 알림용)
-                                service=welno_service
+                                service=welno_service,
+                                oid=oid  # ⭐ OID 전달 (캠페인 결제 연동)
                             )
                         )
                         
@@ -2755,7 +2759,8 @@ async def _generate_mediarc_with_notification(
     patient_uuid: str,
     hospital_id: str,
     session_id: str,
-    service
+    service,
+    oid: str = None
 ):
     """Mediarc 생성 및 WebSocket 알림"""
     try:
@@ -2774,7 +2779,8 @@ async def _generate_mediarc_with_notification(
             patient_uuid=patient_uuid,
             hospital_id=hospital_id,
             session_id=session_id,
-            service=service
+            service=service,
+            oid=oid
         )
         
         if result:

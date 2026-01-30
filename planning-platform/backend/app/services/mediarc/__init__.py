@@ -129,7 +129,8 @@ async def generate_mediarc_report_async(
                 "email": patient.get('email') # 웰노 유저 이메일 정보 포함
             },
             hospital_id=hospital_id,
-            session_id=session_id
+            session_id=session_id,
+            oid=oid  # ⭐ OID 전달 (캠페인 결제 테이블 업데이트용)
         )
         
         # 6. 최종 상태 업데이트 (캠페인인 경우)

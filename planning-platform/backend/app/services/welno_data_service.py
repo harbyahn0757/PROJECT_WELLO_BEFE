@@ -556,8 +556,10 @@ class WelnoDataService:
                 print(f"   - partner_id: {partner_id}")
             
             birth_date = None
-            if user_info.get('birth_date'):
-                birth_str = user_info['birth_date']
+            # ⭐ birthdate와 birth_date 둘 다 지원 (틸코 파일 호환성)
+            birth_str_raw = user_info.get('birth_date') or user_info.get('birthdate')
+            if birth_str_raw:
+                birth_str = birth_str_raw
                 try:
                     if len(birth_str) == 8:
                         birth_date = datetime.date(int(birth_str[:4]), int(birth_str[4:6]), int(birth_str[6:8]))
@@ -568,7 +570,8 @@ class WelnoDataService:
                 except Exception as e:
                     print(f"❌ [환자저장] 생년월일 파싱 실패: {e}, 원본: {birth_str}")
             
-            phone_number = user_info.get('phone_number')
+            # ⭐ phone_number와 phone_no 둘 다 지원 (틸코 파일 호환성)
+            phone_number = user_info.get('phone_number') or user_info.get('phone_no')
             name = user_info.get('name')
             gender = user_info.get('gender')
             
