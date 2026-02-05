@@ -248,6 +248,41 @@ async def check_partner_status(request: Request):
                 patient_id = welno_patient['id']
                 has_mediarc_report = welno_patient['has_mediarc_report']
                 
+                # ✅ WELNO 회원은 welno_internal 파트너로 처리 (DB 기준)
+                if not partner_id or partner_id == 'None':
+                    partner_id = 'welno_internal'
+                    logger.info(f"[상태체크] WELNO 회원 발견 → partner_id = 'welno_internal' 설정")
+                    # partner_config 다시 로드
+                    partner_row = await conn.fetchrow("""
+                        SELECT partner_id, partner_name, config, is_active
+                        FROM welno.tb_partner_config
+                        WHERE partner_id = $1 AND is_active = true
+                        LIMIT 1
+                    """, partner_id)
+                    if partner_row:
+                        config_data = partner_row['config']
+                        if isinstance(config_data, str):
+                            import json
+                            try:
+                                config_data = json.loads(config_data)
+                            except:
+                                config_data = {}
+                        elif config_data is None:
+                            config_data = {}
+                        partner_config = {
+                            "partner_id": partner_row['partner_id'],
+                            "partner_name": partner_row['partner_name'],
+                            "config": config_data,
+                            "is_active": partner_row['is_active']
+                        }
+                        config_dict = partner_config.get("config", {})
+                        payment_config = config_dict.get("payment", {})
+                        if not isinstance(payment_config, dict):
+                            payment_config = {}
+                        payment_required = payment_config.get("required", True)
+                        payment_amount = payment_config.get("amount", 7900)
+                        logger.info(f"[상태체크] welno_internal 설정 로드: amount={payment_amount}, required={payment_required}")
+                
                 # 🔧 [중요] 플래그만 확인하지 말고, 실제 report_url이 있는지 확인
                 if has_mediarc_report:
                     # welno_mediarc_reports에서 실제 report_url 확인
@@ -268,7 +303,7 @@ async def check_partner_status(request: Request):
                             "has_report": True,
                             "has_checkup_data": True,
                             "has_payment": True,
-                            "requires_payment": False,
+                            "requires_payment": False,  # ✅ 리포트 이미 있으면 무료
                             "payment_amount": payment_amount,
                             "partner_id": partner_id,
                             "is_welno_user": True,

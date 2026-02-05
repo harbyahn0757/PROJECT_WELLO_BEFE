@@ -4,7 +4,8 @@
 서브커맨드:
   all                    - 모든 유저 삭제
   test                   - 테스트 데이터 삭제
-  patient <uuid> [hospital_id]  - 특정 환자 삭제
+  patient <uuid> [hospital_id]  - 특정 환자 삭제 (환자 행 있을 때만)
+  uuid <uuid> [hospital_id]    - UUID 기준 전체 삭제 (환자 없어도 실행, 재테스트용)
   health <uuid> [hospital_id]  - 건강데이터만 삭제
   payment                - 모든 결제 데이터 삭제
 """
@@ -405,6 +406,48 @@ async def cmd_payment():
         await conn.close()
 
 
+async def cmd_uuid(uuid: str, hospital_id: str = "PEERNINE"):
+    """UUID 기준으로 모든 관련 데이터 삭제 (환자 행 없어도 실행 가능, 재테스트용)"""
+    db_config = get_db_config()
+    conn = await asyncpg.connect(**db_config)
+    try:
+        print("=" * 80)
+        print(f"🗑️  UUID 기준 데이터 삭제: UUID={uuid}, Hospital={hospital_id}")
+        print("=" * 80)
+        print()
+        checkup_deleted = await conn.execute("""
+            DELETE FROM welno.welno_checkup_data
+            WHERE patient_uuid = $1 AND hospital_id = $2
+        """, uuid, hospital_id)
+        prescription_deleted = await conn.execute("""
+            DELETE FROM welno.welno_prescription_data
+            WHERE patient_uuid = $1 AND hospital_id = $2
+        """, uuid, hospital_id)
+        mediarc_deleted = await conn.execute("""
+            DELETE FROM welno.welno_mediarc_reports
+            WHERE patient_uuid = $1 AND hospital_id = $2
+        """, uuid, hospital_id)
+        payment_deleted = await conn.execute("""
+            DELETE FROM welno.tb_campaign_payments
+            WHERE uuid = $1
+        """, uuid)
+        patient_deleted = await conn.execute("""
+            DELETE FROM welno.welno_patients
+            WHERE uuid = $1 AND hospital_id = $2
+        """, uuid, hospital_id)
+        print(f"✅ 건강검진: {checkup_deleted}")
+        print(f"✅ 처방전: {prescription_deleted}")
+        print(f"✅ 예측리포트: {mediarc_deleted}")
+        print(f"✅ 결제: {payment_deleted}")
+        print(f"✅ 환자: {patient_deleted}")
+        print()
+        print("=" * 80)
+        print("✅ UUID 기준 삭제 완료 (재테스트 가능)")
+        print("=" * 80)
+    finally:
+        await conn.close()
+
+
 def main():
     parser = argparse.ArgumentParser(description='삭제 작업 통합 스크립트')
     subparsers = parser.add_subparsers(dest='command', help='서브커맨드')
@@ -416,9 +459,14 @@ def main():
     subparsers.add_parser('test', help='테스트 데이터 삭제')
     
     # patient 명령
-    patient_parser = subparsers.add_parser('patient', help='특정 환자 삭제')
+    patient_parser = subparsers.add_parser('patient', help='특정 환자 삭제 (환자 행 있을 때만)')
     patient_parser.add_argument('uuid', help='환자 UUID')
     patient_parser.add_argument('hospital_id', nargs='?', default='PEERNINE', help='병원 ID (기본값: PEERNINE)')
+    
+    # uuid 명령 (환자 없어도 UUID 기준 전체 삭제)
+    uuid_parser = subparsers.add_parser('uuid', help='UUID 기준 전체 삭제 (재테스트용)')
+    uuid_parser.add_argument('uuid', help='환자 UUID')
+    uuid_parser.add_argument('hospital_id', nargs='?', default='PEERNINE', help='병원 ID (기본값: PEERNINE)')
     
     # health 명령
     health_parser = subparsers.add_parser('health', help='건강데이터만 삭제')
@@ -445,6 +493,8 @@ def main():
         asyncio.run(cmd_test())
     elif args.command == 'patient':
         asyncio.run(cmd_patient(args.uuid, args.hospital_id))
+    elif args.command == 'uuid':
+        asyncio.run(cmd_uuid(args.uuid, args.hospital_id))
     elif args.command == 'health':
         asyncio.run(cmd_health(args.uuid, args.hospital_id))
     elif args.command == 'payment':

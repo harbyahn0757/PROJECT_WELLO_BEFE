@@ -1759,6 +1759,12 @@ class WelnoDataService:
             has_payment = False
             requires_payment_flag = False
             
+            # ✅ WELNO 회원이면서 partner_id가 없으면 welno_internal로 설정
+            if not partner_id and patient_row:
+                # welno_patients에 있으면 WELNO 회원
+                partner_id = 'welno_internal'
+                logger.info(f"[통합상태] WELNO 회원 → partner_id = 'welno_internal' 자동 설정")
+            
             if partner_id:
                 payment_query = """
                     SELECT status FROM welno.tb_campaign_payments

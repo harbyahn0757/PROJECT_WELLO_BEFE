@@ -2,219 +2,154 @@
 
 이 디렉토리는 백엔드 개발 및 운영을 위한 유틸리티 스크립트들을 포함합니다.
 
-## 통합 스크립트
+## 📁 폴더 구조
 
-### 1. patient_manager.py - 환자 조회/관리
+```
+scripts/
+├── managers/          # 통합 관리 스크립트 (환자 조회, 삭제 등)
+├── checkup/          # 검진 항목 관리 (외부 검진 포함)
+├── database/         # DB 스키마, 마이그레이션, 데이터 관리
+├── dev-tools/        # 개발/디버그용 확인 도구
+└── archive/          # 일회성/폐기 대상 스크립트
+```
+
+---
+
+## 🚀 주요 스크립트
+
+### 1. 환자 관리 (`managers/`)
+
+#### patient_manager.py - 환자 조회/관리
 
 환자 정보 조회 및 관리를 위한 통합 스크립트입니다.
 
 **사용법:**
 ```bash
 # UUID로 환자 정보 조회
-python scripts/patient_manager.py check <uuid> [hospital_id]
+python scripts/managers/patient_manager.py check <uuid> [hospital_id]
 
 # 전체 환자 목록 조회
-python scripts/patient_manager.py list [--welno|--partner]
+python scripts/managers/patient_manager.py list [--welno|--partner]
 
 # 약관 동의 데이터 확인
-python scripts/patient_manager.py terms <uuid> [hospital_id]
+python scripts/managers/patient_manager.py terms <uuid> [hospital_id]
 
 # 건강데이터 확인
-python scripts/patient_manager.py health <uuid> [hospital_id]
+python scripts/managers/patient_manager.py health <uuid> [hospital_id]
 
 # 검진 설계 데이터 확인
-python scripts/patient_manager.py design <uuid> [hospital_id]
+python scripts/managers/patient_manager.py design <uuid> [hospital_id]
 
-# 파트너 상태 확인 (어떤 화면으로 가야 하는지)
-python scripts/patient_manager.py status <uuid> [--api-key KEY] [--data DATA]
+# 파트너 상태 확인
+python scripts/managers/patient_manager.py status <uuid> [--api-key KEY] [--data DATA]
 ```
 
 **예시:**
 ```bash
 # 환자 정보 조회
-python scripts/patient_manager.py check ea2dce7e-c599-4b8f-8725-98d7dda7611b KIM_HW_CLINIC
+python scripts/managers/patient_manager.py check ea2dce7e-c599-4b8f-8725-98d7dda7611b KIM_HW_CLINIC
 
 # 웰노 유저만 조회
-python scripts/patient_manager.py list --welno
-
-# 약관 동의 확인
-python scripts/patient_manager.py terms ea2dce7e-c599-4b8f-8725-98d7dda7611b KIM_HW_CLINIC
-
-# 파트너 상태 확인
-python scripts/patient_manager.py status bbfba40ee649d172c1cee9471249a535 --api-key 5a9bb40b5108ecd8ef864658d5a2d5ab --data "암호화된데이터"
+python scripts/managers/patient_manager.py list --welno
 ```
 
 ---
 
-### 2. delete_manager.py - 삭제 작업
+#### delete_manager.py - 삭제 작업
 
 데이터 삭제 작업을 위한 통합 스크립트입니다.
 
 **사용법:**
 ```bash
 # 모든 유저 삭제 (주의: 되돌릴 수 없음)
-python scripts/delete_manager.py all
+python scripts/managers/delete_manager.py all
 
 # 테스트 데이터 삭제
-python scripts/delete_manager.py test
+python scripts/managers/delete_manager.py test
 
 # 특정 환자 삭제
-python scripts/delete_manager.py patient <uuid> [hospital_id]
+python scripts/managers/delete_manager.py patient <uuid> [hospital_id]
 
 # 건강데이터만 삭제 (환자 정보는 유지)
-python scripts/delete_manager.py health <uuid> [hospital_id]
-```
-
-**예시:**
-```bash
-# 테스트 데이터 삭제
-python scripts/delete_manager.py test
-
-# 특정 환자 삭제
-python scripts/delete_manager.py patient ea2dce7e-c599-4b8f-8725-98d7dda7611b KIM_HW_CLINIC
-
-# 건강데이터만 삭제
-python scripts/delete_manager.py health ea2dce7e-c599-4b8f-8725-98d7dda7611b KIM_HW_CLINIC
+python scripts/managers/delete_manager.py health <uuid> [hospital_id]
 ```
 
 **주의사항:**
-- `all` 명령은 모든 유저 데이터를 삭제합니다. 되돌릴 수 없으므로 신중하게 사용하세요.
-- 삭제 전에 백업을 권장합니다.
+- 삭제 작업은 되돌릴 수 없습니다. 실행 전에 백업을 권장합니다.
 
 ---
 
-### 3. test_rag.py - RAG 테스트
-
-RAG 시스템 테스트를 위한 통합 스크립트입니다.
-
-**사용법:**
-```bash
-# 간단한 RAG 테스트
-python scripts/test_rag.py simple [--limit N]
-
-# 빠른 RAG 테스트 (복잡한 로직은 test_rag_quick.py 참고)
-python scripts/test_rag.py quick [--limit N]
-
-# 실제 데이터로 RAG 테스트 (복잡한 로직은 test_rag_with_real_data.py 참고)
-python scripts/test_rag.py real [--limit N]
-
-# 실제 환자 데이터로 RAG 테스트 (복잡한 로직은 test_rag_with_real_patients.py 참고)
-python scripts/test_rag.py patients [--limit N]
-```
-
-**참고:**
-- `quick`, `real`, `patients` 명령은 복잡한 로직이 필요하므로 기존 개별 스크립트를 직접 사용하는 것을 권장합니다.
-
----
-
-### 4. test_terms_agreement_pipeline.py - 약관 저장 통합 테스트
-
-약관 저장 수정 관련 모든 Phase 테스트를 통합한 스크립트입니다.
-
-**사용법:**
-```bash
-python scripts/test_terms_agreement_pipeline.py
-```
-
-**테스트 내용:**
-- Phase 0: verify_terms_agreement 함수 테스트
-- Phase 2+3: register-patient API 통합 테스트
-- Phase 3-1: save_patient_data 함수 필드 저장 테스트
-
----
-
-### 5. check_terms_agreement.py - 약관 동의 데이터 확인
-
-특정 UUID의 약관 동의 데이터를 상세히 조회하는 스크립트입니다.
-
-**사용법:**
-```bash
-python scripts/check_terms_agreement.py <uuid> [hospital_id]
-```
-
-**예시:**
-```bash
-python scripts/check_terms_agreement.py ea2dce7e-c599-4b8f-8725-98d7dda7611b KIM_HW_CLINIC
-```
-
-**출력 내용:**
-- 환자 기본 정보
-- 약관 동의 정보 (terms_agreement, terms_agreement_detail)
-- 약관 동의 시각
-- verify_terms_agreement 함수 검증 결과
-- 파트너 결제 정보 (파트너사 유저인 경우)
-
----
-
-### 6. delete_all_users.py - 모든 유저 삭제
+#### delete_all_users.py - 모든 유저 삭제
 
 모든 웰노/파트너사 유저를 삭제하는 스크립트입니다.
 
-**사용법:**
 ```bash
-python scripts/delete_all_users.py
+python scripts/managers/delete_all_users.py
 ```
-
-**주의사항:**
-- 모든 유저 데이터를 삭제합니다. 되돌릴 수 없습니다.
-- 삭제 전에 백업을 권장합니다.
 
 ---
 
-## 카테고리별 스크립트 목록
+### 2. 검진 항목 관리 (`checkup/`)
 
-### 환자 조회 관련
-- `patient_manager.py` - 통합 환자 조회/관리 스크립트
-- `check_terms_agreement.py` - 약관 동의 데이터 확인
+외부 검진 항목을 기준 테이블로 관리하고 병원별로 매핑하는 시스템입니다.
 
-### 삭제 관련
-- `delete_manager.py` - 통합 삭제 스크립트
-- `delete_all_users.py` - 모든 유저 삭제
+자세한 사용법은 `checkup/README.md`를 참고하세요.
 
-### 테스트 관련
-- `test_terms_agreement_pipeline.py` - 약관 저장 통합 테스트
-- `test_rag.py` - RAG 테스트 통합 스크립트
-- `test_rag_quick.py` - RAG 빠른 테스트 (복잡한 로직)
-- `test_rag_with_real_data.py` - RAG 실제 데이터 테스트 (복잡한 로직)
-- `test_rag_with_real_patients.py` - RAG 실제 환자 테스트 (복잡한 로직)
-- `test_checkup_design_api.py` - 검진 설계 API 테스트
-- `test_get_patient_health_data.py` - 환자 건강데이터 조회 테스트
-- `test_mediarc_fields.py` - Mediarc 필드 테스트
-- `test_password_verify.py` - 비밀번호 검증 테스트
-- `test_questionnaire_mapping.py` - 설문지 매핑 테스트
-
-### 확인 스크립트
-- `check_db_structure.py` - DB 구조 확인
-- `check_categories.py` - 카테고리 확인
-- `check_design_result.py` - 설계 결과 확인
-- `check_hospital_table.py` - 병원 테이블 확인
-- `check_password_and_birthday.py` - 비밀번호/생년월일 확인
-- `check_prescription_data.py` - 처방전 데이터 확인
-- `check_raw_data_structure.py` - 원시 데이터 구조 확인
-- `check_session_data.py` - 세션 데이터 확인
-- `check_tilko_data_simple.py` - Tilko 데이터 간단 확인
-- `check_tilko_save_time.py` - Tilko 저장 시간 확인
-- `check_unused_files.py` - 미사용 파일 확인
-
-### 데이터 관리
-- `reset_patient_flags.py` - 환자 플래그 리셋
-- `update_patient_height_weight.py` - 환자 키/몸무게 업데이트
-- `migrate_data_source.py` - 데이터 출처 마이그레이션
-
-### 검진 설계 관련
+**주요 스크립트:**
+- `insert_external_checkup_items.py` - 외부 검진 항목 초기 데이터 삽입
+- `map_hospital_external_checkup.py` - 병원별 검진 항목 매핑
+- `list_hospital_checkup_items.py` - 병원 검진 항목 목록 조회
 - `verify_hospital_checkup_items.py` - 병원 검진 항목 검증
-- `list_hospital_checkup_items.py` - 병원 검진 항목 목록
-- `list_database_checkup_items.py` - DB 검진 항목 목록
-- `list_optional_checkup_items.py` - 선택 검진 항목 목록
-- `list_all_external_checkup_table.py` - 외부 검진 테이블 목록
-- `insert_external_checkup_items.py` - 외부 검진 항목 삽입
-- `execute_hospital_checkup_items.py` - 병원 검진 항목 실행
-- `map_hospital_external_checkup.py` - 병원-외부 검진 매핑
 
-### 기타
-- `show_completed_prompt.py` - 완료 프롬프트 표시
-- `verify_model_usage.py` - 모델 사용량 검증
+**SQL 스크립트:**
+- `sql/create_external_checkup_items_table.sql` - 외부 검진 항목 테이블 생성
+- `sql/create_checkup_design_table.sql` - 검진 설계 테이블 생성
+- `sql/enhance_external_checkup_table.sql` - 외부 검진 테이블 개선
+
+---
+
+### 3. 데이터베이스 관리 (`database/`)
+
+DB 스키마 확인, 마이그레이션, 데이터 관리 스크립트입니다.
+
+**스키마 확인:**
+- `check_current_db.py` - 현재 DB 상태 확인
+- `check_db_schema.py` - DB 스키마 상세 확인
+- `check_welno_schema.py` - 웰노 스키마 확인
+- `check_column_types.py` - 컬럼 타입 확인
+
+**데이터 관리:**
+- `migrate_data_source.py` - 데이터 출처 마이그레이션
+- `update_patient_height_weight.py` - 환자 키/몸무게 업데이트
+- `reset_patient_flags.py` - 환자 플래그 리셋
+- `rebuild_welno_vector_db_ai.py` - 웰노 벡터 DB AI 재구축
 - `generate_elama_cloud_dataset.py` - Elama Cloud 데이터셋 생성
+
+**SQL 스크립트:**
+- `sql/check_hospital_table.sql` - 병원 테이블 확인 쿼리
+
+---
+
+### 4. 개발 도구 (`dev-tools/`)
+
+개발 및 디버깅용 확인 도구입니다.
+
+- `check_actual_function.py` - 실제 실행 함수 코드 확인
+- `check_actual_query.py` - 실제 실행 쿼리 확인
+- `show_full_function.py` - 전체 함수 코드 표시
+- `verify_model_usage.py` - 모델 사용량 검증
+
+---
+
+### 5. 아카이브 (`archive/`)
+
+일회성 디버그/테스트 스크립트 및 폐기 대상 스크립트입니다.
+
+**포함 내용:**
+- 디버그 스크립트 (debug_*.py)
+- 테스트 스크립트 (test_*.py)
+- 임시 수정 스크립트 (fix_*.py)
+- 레거시 마이그레이션 폴더 (04_migration/)
 
 ---
 
