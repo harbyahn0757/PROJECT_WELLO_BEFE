@@ -34,22 +34,45 @@ const ReportGeneratingPage: React.FC<{ status: PartnerStatus | null; onMount?: (
         const uuid = urlParams.get('uuid');
         const partner = urlParams.get('partner');
         const apiKey = urlParams.get('api_key');
+        const oid = urlParams.get('oid');
         
-        if (!uuid || !partner) return;
+        // 1. oid가 있으면 우선적으로 리포트 API 폴링
+        if (oid) {
+          console.log('[ReportGeneratingPage] oid 기반 리포트 폴링 중:', oid);
+          const response = await fetch(API_ENDPOINTS.GET_REPORT(oid));
+          const result = await response.json();
+          
+          if (result.success && (result.report_url || result.mediarc_response)) {
+            clearInterval(checkInterval);
+            if (result.report_url) {
+              console.log('[ReportGeneratingPage] 리포트 생성 완료 (oid), 리다이렉트');
+            } else if (result.mediarc_response) {
+              console.log('⚠️ [ReportGeneratingPage] PDF 없음, 데이터만으로 리다이렉트:', {
+                oid: oid,
+                has_mediarc_data: !!result.mediarc_response
+              });
+            }
+            window.location.href = `/disease-report?oid=${oid}`;
+            return;
+          }
+        }
         
-        const checkUrl = `${API_ENDPOINTS.CHECK_PARTNER_STATUS}?uuid=${uuid}&partner=${partner}${apiKey ? `&api_key=${apiKey}` : ''}`;
-        const response = await fetch(checkUrl);
-        const result: PartnerStatus = await response.json();
-        
-        console.log('[DiseasePrediction] 상태 재체크:', result);
-        
-        if (result.has_report && result.redirect_url) {
-          clearInterval(checkInterval);
-          console.log('[DiseasePrediction] 리포트 생성 완료, 리다이렉트:', result.redirect_url);
-          window.location.href = result.redirect_url;
+        // 2. uuid/partner가 있으면 상태 체크 API 폴링 (기존 로직)
+        if (uuid && partner) {
+          const checkUrl = `${API_ENDPOINTS.CHECK_PARTNER_STATUS}?uuid=${uuid}&partner=${partner}${apiKey ? `&api_key=${apiKey}` : ''}`;
+          const response = await fetch(checkUrl);
+          const result: PartnerStatus = await response.json();
+          
+          console.log('[ReportGeneratingPage] 상태 재체크 (uuid):', result);
+          
+          if (result.has_report && result.redirect_url) {
+            clearInterval(checkInterval);
+            console.log('[ReportGeneratingPage] 리포트 생성 완료 (uuid), 리다이렉트:', result.redirect_url);
+            window.location.href = result.redirect_url;
+          }
         }
       } catch (error) {
-        console.error('[DiseasePrediction] 상태 체크 오류:', error);
+        console.error('[ReportGeneratingPage] 상태 체크 오류:', error);
       }
     }, 3000);
     
@@ -126,7 +149,7 @@ const DiseasePredictionCampaign: React.FC = () => {
       
       console.log('[DiseasePrediction] 브라우저 뒤로가기/앞으로가기 감지:', { page, location: location.search });
       
-      if (page && ['payment', 'landing', 'terms', 'intro'].includes(page)) {
+      if (page && ['payment', 'landing', 'terms', 'intro', 'result'].includes(page)) {
         setCurrentPage(page as PageType);
         setLoading(false);
         console.log('[DiseasePrediction] 페이지 변경:', page);
@@ -149,16 +172,25 @@ const DiseasePredictionCampaign: React.FC = () => {
       const page = urlParams.get('page'); // string | null
       const partner = urlParams.get('partner');
       const uuid = urlParams.get('uuid');
+      const oid = urlParams.get('oid');
       const data = urlParams.get('data');
       const apiKey = urlParams.get('api_key');
       
       console.log('[DiseasePrediction] URL 파라미터 확인:', { 
-        page, partner, uuid, 
+        page, partner, uuid, oid,
         data_exists: !!data, 
         data_length: data?.length || 0,
         apiKey: !!apiKey,
         currentPage_before: currentPage
       });
+      
+      // ✅ page=result이고 oid가 있으면 uuid 없어도 결과 페이지로 진입 허용
+      if (page === 'result' && oid) {
+        console.log('[DiseasePrediction] page=result & oid 감지, 결과 페이지로 설정');
+        setCurrentPage('result');
+        setLoading(false);
+        return;
+      }
       
       // page 파라미터가 없을 때 처리
       if (!page) {
@@ -241,8 +273,7 @@ const DiseasePredictionCampaign: React.FC = () => {
           }
           
           // URL 파라미터에 page가 있으면 해당 페이지로, 없으면 intro
-          // result 페이지는 제거됨
-          const validPages: PageType[] = ['payment', 'landing', 'terms', 'intro'];
+          const validPages: PageType[] = ['payment', 'landing', 'terms', 'intro', 'result'];
           if (page && validPages.includes(page as PageType)) {
             console.log('[DiseasePrediction] currentPage 설정 (상태 체크 후):', page, '현재 currentPage:', currentPage);
             // page 파라미터가 있으면 무조건 설정 (navigate 후 재실행 방지)

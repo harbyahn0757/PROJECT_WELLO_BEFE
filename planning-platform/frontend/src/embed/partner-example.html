@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>파트너사 웹사이트 - Welno RAG 채팅 통합 예제</title>
+    <style>
+        /* 파트너사 기존 스타일 (예시) */
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .header .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .nav {
+            display: flex;
+            gap: 30px;
+        }
+        
+        .nav a {
+            text-decoration: none;
+            color: #333;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .nav a:hover {
+            color: #667eea;
+        }
+        
+        .hero {
+            padding: 80px 0;
+            text-align: center;
+            color: white;
+        }
+        
+        .hero h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+        
+        .hero p {
+            font-size: 20px;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: 600;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .features {
+            padding: 80px 0;
+            background: white;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            margin-top: 50px;
+        }
+        
+        .feature-card {
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .feature-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .feature-card h3 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .feature-card p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .health-section {
+            padding: 80px 0;
+            background: #f8f9fa;
+        }
+        
+        .health-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+        
+        .health-text h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+        
+        .health-text p {
+            font-size: 18px;
+            line-height: 1.6;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .health-image {
+            text-align: center;
+            font-size: 120px;
+            color: #667eea;
+        }
+        
+        .footer {
+            background: #333;
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+        }
+        
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 36px;
+            }
+            
+            .hero p {
+                font-size: 18px;
+            }
+            
+            .health-content {
+                grid-template-columns: 1fr;
+                gap: 40px;
+            }
+            
+            .nav {
+                display: none;
+            }
+        }
+        
+        /* 채팅 위젯 통합 알림 */
+        .chat-notice {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            background: #fff;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 250px;
+            font-size: 14px;
+            color: #333;
+            border-left: 4px solid #667eea;
+            animation: slideIn 0.5s ease-out;
+            z-index: 9998;
+        }
+        
+        .chat-notice.hidden {
+            display: none;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .close-notice {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <!-- 헤더 -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">MediLinx</div>
+            <nav class="nav">
+                <a href="#home">홈</a>
+                <a href="#services">서비스</a>
+                <a href="#about">소개</a>
+                <a href="#contact">연락처</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- 히어로 섹션 -->
+    <section class="hero">
+        <div class="container">
+            <h1>건강한 삶의 시작</h1>
+            <p>MediLinx와 함께 더 나은 건강 관리를 경험하세요</p>
+            <a href="#services" class="btn">서비스 알아보기</a>
+        </div>
+    </section>
+
+    <!-- 특징 섹션 -->
+    <section class="features">
+        <div class="container">
+            <h2 style="text-align: center; font-size: 36px; margin-bottom: 20px;">우리의 서비스</h2>
+            <p style="text-align: center; font-size: 18px; color: #666;">전문적이고 신뢰할 수 있는 건강 관리 서비스를 제공합니다</p>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🏥</div>
+                    <h3>종합 건강검진</h3>
+                    <p>최신 의료 장비와 전문의의 정확한 진단으로 건강 상태를 종합적으로 점검합니다.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">💊</div>
+                    <h3>맞춤 건강 관리</h3>
+                    <p>개인별 건강 상태에 맞춘 맞춤형 건강 관리 프로그램을 제공합니다.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>AI 건강 상담</h3>
+                    <p>최신 AI 기술을 활용한 24시간 건강 상담 서비스로 언제든지 전문적인 조언을 받으세요.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 건강 관리 섹션 -->
+    <section class="health-section">
+        <div class="container">
+            <div class="health-content">
+                <div class="health-text">
+                    <h2>AI 기반 건강 상담</h2>
+                    <p>
+                        MediLinx의 AI 건강 상담 서비스는 최신 의학 지식과 개인 건강 데이터를 바탕으로 
+                        정확하고 개인화된 건강 조언을 제공합니다.
+                    </p>
+                    <p>
+                        우측 하단의 채팅 버튼을 클릭하여 지금 바로 AI 건강 상담을 시작해보세요. 
+                        검진 결과 분석, 건강 관리 방법, 영양 상담 등 다양한 건강 관련 질문에 답변해드립니다.
+                    </p>
+                    <a href="#" class="btn" onclick="openHealthChat()">건강 상담 시작</a>
+                </div>
+                <div class="health-image">
+                    🩺
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 푸터 -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 MediLinx. All rights reserved. | Powered by Welno RAG Chat</p>
+        </div>
+    </footer>
+
+    <!-- 채팅 위젯 알림 -->
+    <div id="chatNotice" class="chat-notice">
+        <button class="close-notice" onclick="hideChatNotice()">×</button>
+        <strong>💬 AI 건강 상담</strong><br>
+        궁금한 건강 정보를 AI에게 물어보세요!
+    </div>
+
+    <!-- Welno RAG Chat Widget 로드 -->
+    <script src="WelnoRagChatWidget.js"></script>
+    
+    <script>
+        // 파트너 설정 (실제 환경에서는 서버에서 안전하게 관리)
+        const PARTNER_CONFIG = {
+            apiKey: '5a9bb40b5108ecd8ef864658d5a2d5ab', // MediLinx API Key
+            baseUrl: 'http://localhost:8082',
+            uuid: 'medilinx_user_' + Date.now(),
+            hospitalId: 'medilinx_clinic',
+            
+            // 파트너 검진 데이터 (실제로는 서버에서 가져옴)
+            partnerData: {
+                patient: {
+                    name: '김건강',
+                    birth_date: '1985-03-15',
+                    sex: 'M',
+                    phone: '010-1234-5678'
+                },
+                checkup_results: {
+                    height: 172,
+                    weight: 75,
+                    bmi: 25.3,
+                    systolic_bp: 135,
+                    diastolic_bp: 85,
+                    fasting_glucose: 105,
+                    total_cholesterol: 220,
+                    exam_date: '2024-01-20'
+                },
+                medical_history: [
+                    '2023년 고혈압 진단',
+                    '2022년 당뇨 전단계 진단'
+                ]
+            }
+        };
+
+        let chatWidget = null;
+
+        // 페이지 로드 시 위젯 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeChatWidget();
+            
+            // 5초 후 채팅 알림 표시
+            setTimeout(showChatNotice, 5000);
+        });
+
+        // 채팅 위젯 초기화
+        function initializeChatWidget() {
+            try {
+                chatWidget = new WelnoRagChatWidget({
+                    ...PARTNER_CONFIG,
+                    
+                    // UI 설정
+                    position: 'bottom-right',
+                    buttonColor: '#667eea',
+                    
+                    // 콜백 설정
+                    onOpen: function() {
+                        console.log('[MediLinx] 채팅 위젯 열림');
+                        hideChatNotice();
+                        
+                        // 구글 애널리틱스 등 추적 코드
+                        if (typeof gtag !== 'undefined') {
+                            gtag('event', 'chat_opened', {
+                                event_category: 'engagement',
+                                event_label: 'ai_health_chat'
+                            });
+                        }
+                    },
+                    
+                    onClose: function() {
+                        console.log('[MediLinx] 채팅 위젯 닫힘');
+                    },
+                    
+                    onMessage: function(message) {
+                        console.log('[MediLinx] 메시지:', message.role, message.content.substring(0, 50));
+                        
+                        // 사용자 메시지 추적
+                        if (message.role === 'user' && typeof gtag !== 'undefined') {
+                            gtag('event', 'chat_message_sent', {
+                                event_category: 'engagement',
+                                event_label: 'ai_health_chat'
+                            });
+                        }
+                    },
+                    
+                    onError: function(error) {
+                        console.error('[MediLinx] 채팅 오류:', error);
+                        
+                        // 사용자에게 친화적인 오류 메시지 표시
+                        alert('채팅 서비스에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.');
+                    }
+                });
+
+                // 위젯 초기화
+                chatWidget.init();
+                
+                console.log('[MediLinx] AI 건강 상담 위젯이 성공적으로 로드되었습니다.');
+                
+            } catch (error) {
+                console.error('[MediLinx] 채팅 위젯 초기화 실패:', error);
+            }
+        }
+
+        // 건강 상담 시작 (버튼 클릭 시)
+        function openHealthChat() {
+            if (chatWidget) {
+                chatWidget.open();
+            } else {
+                alert('채팅 서비스를 준비 중입니다. 잠시 후 다시 시도해주세요.');
+            }
+        }
+
+        // 채팅 알림 표시
+        function showChatNotice() {
+            const notice = document.getElementById('chatNotice');
+            if (notice && !chatWidget.state.isOpen) {
+                notice.classList.remove('hidden');
+                
+                // 10초 후 자동 숨김
+                setTimeout(hideChatNotice, 10000);
+            }
+        }
+
+        // 채팅 알림 숨김
+        function hideChatNotice() {
+            const notice = document.getElementById('chatNotice');
+            if (notice) {
+                notice.classList.add('hidden');
+            }
+        }
+
+        // 스크롤 이벤트로 채팅 알림 트리거
+        let hasShownScrollNotice = false;
+        window.addEventListener('scroll', function() {
+            if (!hasShownScrollNotice && window.scrollY > 500) {
+                hasShownScrollNotice = true;
+                setTimeout(showChatNotice, 2000);
+            }
+        });
+
+        // 페이지 나가기 전 채팅 세션 정리 (선택사항)
+        window.addEventListener('beforeunload', function() {
+            if (chatWidget && chatWidget.state.messages.length > 1) {
+                // 채팅 요약 API 호출 (백그라운드)
+                navigator.sendBeacon(`${PARTNER_CONFIG.baseUrl}/api/v1/rag-chat/partner/summarize`, 
+                    JSON.stringify({
+                        uuid: PARTNER_CONFIG.uuid,
+                        hospital_id: PARTNER_CONFIG.hospitalId
+                    })
+                );
+            }
+        });
+    </script>
+</body>
+</html>

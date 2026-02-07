@@ -69,5 +69,13 @@ export function useMatrixAutoRedirect(
       return;
     }
 
+    // 7. READY_TO_GENERATE → 인트로 페이지 (생성 모달)
+    if (status === 'READY_TO_GENERATE') {
+      console.log('[리다이렉트] → 생성 준비 완료 (인트로 페이지)');
+      const readyUrl = `/campaigns/disease-prediction?page=intro&uuid=${uuid}&partner=${partnerId || ''}&ready=true`;
+      navigate(readyUrl, { replace: true });
+      return;
+    }
+
   }, [unifiedStatus, navigate, uuid, partnerId]);
 }

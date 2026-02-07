@@ -10,6 +10,10 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from .constants import DEFAULT_RETURN_TYPE, MEDIARC_API_URL, MEDIARC_API_KEY
 from ...core.database import DatabaseManager
+from ...utils.logging.structured_logger import get_structured_logger
+from ...utils.logging.domain_log_builders import ReportLogBuilder
+from ...services.slack_service import get_slack_service
+from ...core.config import settings
 
 logger = logging.getLogger(__name__)
 db_manager = DatabaseManager()
@@ -47,6 +51,7 @@ async def run_disease_report_pipeline(
     email = user_info.get('email')
     
     logger.info(f"🚀 [Pipeline] 시작: uuid={patient_uuid}, name={user_name}, partner={partner_id}")
+    start_time = datetime.now()
     
     try:
         # 1. Mediarc API 호출 (표준 규격 사용)
@@ -164,11 +169,51 @@ async def run_disease_report_pipeline(
             except Exception as e:
                 logger.warning(f"⚠️ [Pipeline] 이메일 발송 실패: {e}")
                 
+        # 슬랙 알림: 리포트 생성 성공
+        if settings.slack_enabled and settings.slack_webhook_url:
+            try:
+                duration = int((datetime.now() - start_time).total_seconds()) if 'start_time' in locals() else 0
+                data_source = "Tilko" if "tilko" in str(mapped_data).lower() else "파트너"
+                
+                slack_service = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
+                structured_logger = get_structured_logger(slack_service)
+                
+                report_log = ReportLogBuilder.build_report_success_log(
+                    oid=oid or "N/A",
+                    uuid=user_info.get('uuid', 'N/A'),
+                    duration=duration,
+                    data_source=data_source
+                )
+                
+                await structured_logger.log_report_event(report_log)
+            except Exception as e:
+                logger.warning(f"⚠️ [리포트성공] 슬랙 알림 실패: {e}")
+        
         logger.info(f"✅ [Pipeline] 전체 프로세스 성공: oid={oid}")
         return {"success": True, "report_url": report_url, "data": report_data}
         
     except Exception as e:
         logger.error(f"❌ [Pipeline] 예외 발생: {str(e)}", exc_info=True)
+        
+        # 슬랙 알림: 리포트 생성 실패
+        if settings.slack_enabled and settings.slack_webhook_url:
+            try:
+                duration = int((datetime.now() - start_time).total_seconds()) if 'start_time' in locals() else 0
+                
+                slack_service = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
+                structured_logger = get_structured_logger(slack_service)
+                
+                report_log = ReportLogBuilder.build_report_failed_log(
+                    oid=oid or "N/A",
+                    uuid=user_info.get('uuid', 'N/A'),
+                    error_message=str(e),
+                    duration=duration
+                )
+                
+                await structured_logger.log_report_event(report_log)
+            except Exception as slack_e:
+                logger.warning(f"⚠️ [리포트실패] 슬랙 알림 실패: {slack_e}")
+        
         return {"success": False, "error": str(e)}
 
 
@@ -292,6 +337,24 @@ async def call_mediarc_api(
     except httpx.TimeoutException:
         error_msg = f"API 호출 타임아웃 ({timeout}초 초과)"
         print(f"⏱️ [Mediarc API] {error_msg}")
+        
+        # 슬랙 알림: API 타임아웃 에러
+        if settings.slack_enabled and settings.slack_webhook_url:
+            try:
+                from ...utils.logging.domain_log_builders import ErrorLogBuilder
+                slack_service = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
+                structured_logger = get_structured_logger(slack_service)
+                
+                error_log = ErrorLogBuilder.build_api_error_log(
+                    error_message=error_msg,
+                    location="mediarc/report_service.py:call_mediarc_api",
+                    error_code="API_TIMEOUT"
+                )
+                
+                await structured_logger.log_error_event(error_log)
+            except Exception as slack_e:
+                logger.warning(f"⚠️ [API타임아웃] 슬랙 알림 실패: {slack_e}")
+        
         return {
             "success": False,
             "error": error_msg
@@ -300,6 +363,24 @@ async def call_mediarc_api(
     except httpx.RequestError as e:
         error_msg = f"API 호출 네트워크 오류: {str(e)}"
         print(f"🌐 [Mediarc API] {error_msg}")
+        
+        # 슬랙 알림: API 네트워크 에러
+        if settings.slack_enabled and settings.slack_webhook_url:
+            try:
+                from ...utils.logging.domain_log_builders import ErrorLogBuilder
+                slack_service = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
+                structured_logger = get_structured_logger(slack_service)
+                
+                error_log = ErrorLogBuilder.build_api_error_log(
+                    error_message=error_msg,
+                    location="mediarc/report_service.py:call_mediarc_api",
+                    error_code="API_NETWORK_ERROR"
+                )
+                
+                await structured_logger.log_error_event(error_log)
+            except Exception as slack_e:
+                logger.warning(f"⚠️ [API네트워크] 슬랙 알림 실패: {slack_e}")
+        
         return {
             "success": False,
             "error": error_msg

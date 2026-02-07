@@ -28,8 +28,15 @@ const PaymentResult: React.FC = () => {
           const response = await fetch(API_ENDPOINTS.GET_REPORT(oid));
           const data = await response.json();
           
-          if (data.success && data.report_url) {
-            console.log('✅ 리포트 생성 확인됨 -> 이동');
+          if (data.success && (data.report_url || data.mediarc_response)) {
+            if (data.report_url) {
+              console.log('✅ 리포트 생성 확인됨 -> 이동');
+            } else if (data.mediarc_response) {
+              console.log('⚠️ [PaymentResult] PDF 없음, 데이터만으로 이동:', {
+                oid: oid,
+                has_mediarc_data: !!data.mediarc_response
+              });
+            }
             setIsPolling(false);
             navigate(`/disease-report?oid=${oid}`);
             return true;

@@ -137,6 +137,8 @@ class Settings(BaseSettings):
     slack_bot_token: Optional[str] = Field(None, env="SLACK_BOT_TOKEN")
     slack_channel: str = Field(default="#p9-api-alerts", env="SLACK_CHANNEL")
     slack_alert_channel: str = Field(default="#p9-api-alerts", env="SLACK_ALERT_CHANNEL")
+    slack_channel_id: str = Field(default="C0ADYBAN9PA", env="SLACK_CHANNEL_ID")
+    slack_enabled: bool = Field(default=False, env="SLACK_ENABLED")
     
     model_config = {
         "env_file": [".env.local", "config.env", ".env"],

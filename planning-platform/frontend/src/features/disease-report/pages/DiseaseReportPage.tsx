@@ -72,6 +72,11 @@ const DiseaseReportPage: React.FC = () => {
   const shouldGenerate = searchParams.get('generate') === 'true';
   const oid = searchParams.get('oid') || null;  // 파트너 결제 주문번호
   const partnerId = searchParams.get('partner') || null;  // 파트너 ID
+  const apiKey = searchParams.get('api_key') || null;  // 파트너 API 키
+  const data = searchParams.get('data') || null;  // 암호화된 데이터
+  
+  // ⭐ 파트너 케이스 구분: api_key가 있거나 oid가 있으면 파트너 케이스
+  const isPartnerCase = !!(apiKey || oid);
   
   // ⭐ BNR 레거시 코드 호환성: mktUuid → uuid 매핑
   const mktUuid = uuid;
@@ -465,8 +470,20 @@ const DiseaseReportPage: React.FC = () => {
   // 리포트 조회 함수 (3초 간격으로 3번만 호출)
   // ⭐ 신규: Mediarc 리포트 조회 함수 (WELNO 또는 파트너)
   const fetchReport = useCallback(async () => {
-    // 파트너 케이스: oid로 조회
-    if (oid) {
+    console.log('[fetchReport] 시작 - 현재 상태:', {
+      oid,
+      uuid,
+      hospitalId,
+      unifiedStatus: unifiedStatus?.status,
+      hasReportData: !!reportData,
+      loading,
+      statusLoading
+    });
+    
+    // 파트너 케이스 처리
+    if (isPartnerCase) {
+      // Case 1: oid가 있으면 직접 리포트 조회 (기존 로직)
+      if (oid) {
       try {
         console.log(`[리포트 조회] 파트너 케이스 - oid: ${oid}`);
         
@@ -474,8 +491,16 @@ const DiseaseReportPage: React.FC = () => {
         const response = await fetch(`/api/v1/campaigns/disease-prediction/report?oid=${oid}`);
         const data = await response.json();
         
-        if (data.success && data.report_url) {
-          console.log('[리포트 조회] 파트너 리포트 발견! URL:', data.report_url.substring(0, 100) + '...');
+        if (data.success && (data.report_url || data.mediarc_response)) {
+          if (data.report_url) {
+            console.log('[리포트 조회] 파트너 리포트 발견! URL:', data.report_url.substring(0, 100) + '...');
+          } else if (data.mediarc_response) {
+            console.log('⚠️ [리포트] PDF URL 없음, 데이터만으로 표시:', {
+              oid: data.oid,
+              has_mediarc_data: !!data.mediarc_response,
+              report_url: data.report_url
+            });
+          }
           
           // 리포트 URL 저장 (백엔드에서 이미 URL 만료 확인을 했으므로 바로 사용)
           setReportUrl(data.report_url);
@@ -524,6 +549,86 @@ const DiseaseReportPage: React.FC = () => {
         setLoading(false);
         return;
       }
+      }
+      
+      // Case 2: api_key만 있으면 상태 체크 후 분기 처리
+      if (apiKey && uuid) {
+        try {
+          console.log(`[리포트 조회] 파트너 케이스 - api_key 기반 상태 체크`);
+          
+          const statusResponse = await fetch('/api/v1/disease-report/check-partner-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              partner_id: partnerId,
+              api_key: apiKey,
+              uuid: uuid,
+              encrypted_data: data
+            })
+          });
+          
+          const statusData = await statusResponse.json();
+          console.log('[리포트 조회] 파트너 상태 체크 결과:', statusData);
+          
+          if (statusData.action === 'show_report' && statusData.oid) {
+            // 리포트 준비 완료 → oid로 리포트 조회
+            console.log(`[리포트 조회] 리포트 준비 완료 - oid: ${statusData.oid}`);
+            const reportResponse = await fetch(`/api/v1/campaigns/disease-prediction/report?oid=${statusData.oid}`);
+            const reportData = await reportResponse.json();
+            
+            if (reportData.success && reportData.report_url) {
+              console.log('[리포트 조회] 파트너 리포트 발견! URL:', reportData.report_url.substring(0, 100) + '...');
+              
+              setReportUrl(reportData.report_url);
+              
+              const medarcResponse = reportData.mediarc_response || {};
+              const diseaseData = medarcResponse.disease_data || [];
+              const cancerData = medarcResponse.cancer_data || [];
+              const combinedData = [...diseaseData, ...cancerData];
+              
+              const aimsData: AIMSResponse = {
+                bodyage: medarcResponse.bodyage || 0,
+                rank: medarcResponse.rank || 0,
+                data: combinedData
+              };
+              
+              setReportDataWithInfo(aimsData, 'db', {
+                name: reportData.user_name,
+                birthday: ''
+              });
+              setLoading(false);
+              setDataSource('db');
+              return;
+            }
+          } else if (statusData.action === 'show_loading') {
+            // 리포트 생성 중 → 로딩 상태 유지 및 폴링
+            console.log('[리포트 조회] 리포트 생성 중 - 3초 후 재시도');
+            setLoading(true);
+            setTimeout(() => fetchReport(), 3000);
+            return;
+          } else if (statusData.action === 'redirect_to_auth_auto') {
+            // 데이터 부족 → 틸코 인증 필요
+            console.log('[리포트 조회] 데이터 부족 - 틸코 인증 필요');
+            setError('추가 건강검진 데이터가 필요합니다. 간편인증을 진행해주세요.');
+            setLoading(false);
+            return;
+          } else {
+            setError('리포트 상태를 확인할 수 없습니다.');
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          console.error('[리포트 조회] 파트너 상태 체크 오류:', err);
+          setError('파트너 상태 확인 중 오류가 발생했습니다.');
+          setLoading(false);
+          return;
+        }
+      }
+      
+      // 파트너 케이스이지만 oid도 api_key도 없는 경우
+      setError('파트너 정보가 부족합니다.');
+      setLoading(false);
+      return;
     }
     
     // WELNO 케이스: uuid + hospital_id로 조회
@@ -640,7 +745,7 @@ const DiseaseReportPage: React.FC = () => {
       setError('리포트 조회 중 오류가 발생했습니다.');
       setLoading(false);
     }
-  }, [uuid, hospitalId, oid, shouldGenerate, setReportDataWithInfo]);
+  }, [isPartnerCase, oid, apiKey, uuid, data, partnerId, hospitalId, shouldGenerate, setReportDataWithInfo]);
 
   // 카운트다운 시작 함수
   const startCountdown = useCallback(() => {
@@ -709,9 +814,9 @@ const DiseaseReportPage: React.FC = () => {
 
   // ⭐ 리포트 조회 useEffect
   useEffect(() => {
-    // 캠페인 케이스: oid만 있는 경우 허용
-    if (oid && !uuid && !hospitalId) {
-      console.log('[DiseaseReportPage] 캠페인 모드 (oid 기반 조회)');
+    // 파트너 케이스: api_key가 있거나 oid가 있으면 파트너 케이스
+    if (isPartnerCase) {
+      console.log('[DiseaseReportPage] 파트너 케이스 감지');
       fetchReport();
       return;
     }
@@ -725,7 +830,24 @@ const DiseaseReportPage: React.FC = () => {
 
     // 리포트 조회
     fetchReport();
-  }, [uuid, hospitalId, oid, fetchReport]);
+  }, [isPartnerCase, uuid, hospitalId, fetchReport]);
+
+  // ⭐ REPORT_READY 상태에서 자동 리포트 조회 useEffect
+  useEffect(() => {
+    // REPORT_READY 상태인데 reportData가 없고 로딩 중이 아닐 때 자동 조회
+    if (unifiedStatus?.status === 'REPORT_READY' && !reportData && !loading && !statusLoading) {
+      console.log('[DiseaseReportPage] REPORT_READY 상태 감지 - 리포트 자동 조회 시작');
+      console.log('[DiseaseReportPage] 상태 상세:', {
+        status: unifiedStatus.status,
+        hasReportData: !!reportData,
+        loading,
+        statusLoading,
+        oid,
+        uuid
+      });
+      fetchReport();
+    }
+  }, [unifiedStatus?.status, reportData, loading, statusLoading, fetchReport, oid, uuid]);
 
   // 카카오톡 메시지 표시 시 카운트다운 시작 (한 번만)
   useEffect(() => {
@@ -1437,8 +1559,17 @@ const DiseaseReportPage: React.FC = () => {
     );
   }
 
-  // ⭐⭐⭐ 매트릭스 통합: 통합 로딩 상태 (statusLoading + 기존 loading)
+  // ⭐⭐⭐ 매트릭스 통합: 통합 로딩 상태 (statusLoading + 기존 loading + reportData 부재)
   if (statusLoading || loading || !reportData) {
+    console.log('[DiseaseReportPage] 렌더링 상태:', { 
+      status: unifiedStatus?.status, 
+      loading, 
+      statusLoading, 
+      hasReportData: !!reportData,
+      oid,
+      uuid
+    });
+    
     // 매트릭스 상태 확인 중
     if (statusLoading) {
       return (
@@ -1446,6 +1577,79 @@ const DiseaseReportPage: React.FC = () => {
           <div className="loading-spinner">
             <div className="spinner"></div>
             <p>상태를 확인하는 중...</p>
+          </div>
+        </div>
+      );
+    }
+    
+    // ⭐ 파트너 케이스 전용 UI 처리
+    if (isPartnerCase && loading && !reportData) {
+      return (
+        <div className="aims-report-page loading">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+            <p>파트너 리포트를 확인하는 중입니다...</p>
+            <p style={{ fontSize: '14px', color: '#888', marginTop: '10px' }}>
+              잠시만 기다려주세요.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    
+    // ⭐ 리포트 만료 상태 (REPORT_EXPIRED) - 데이터 로드 전이라도 우선 처리
+    if (unifiedStatus?.status === 'REPORT_EXPIRED') {
+      return (
+        <div className="aims-report-page error">
+          <div className="error-message">
+            <h2>⚠️ 리포트가 만료되었습니다</h2>
+            <p>리포트 URL이 만료되었습니다. 다시 분석을 요청해주세요.</p>
+          </div>
+        </div>
+      );
+    }
+
+    // ⭐ 데이터 부족 상태 (ACTION_REQUIRED) - 데이터 로드 전이라도 우선 처리
+    if (unifiedStatus?.status === 'ACTION_REQUIRED' || unifiedStatus?.status === 'ACTION_REQUIRED_PAID') {
+      return (
+        <div className="aims-report-page error">
+          <div className="error-message">
+            <h2>건강검진 데이터가 필요합니다</h2>
+            <p>질병예측 리포트를 생성하기 위해서는 건강검진 데이터가 필요합니다.</p>
+            <p style={{ fontSize: '14px', color: '#888', marginTop: '10px' }}>
+              데이터 출처: {unifiedStatus?.primary_source || '없음'}<br />
+              지표 개수: {unifiedStatus?.metric_count || 0}개 (최소 5개 필요)
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // ⭐ 리포트 생성 준비 완료 (READY_TO_GENERATE) - 데이터 로드 전이라도 우선 처리
+    if (unifiedStatus?.status === 'READY_TO_GENERATE') {
+      return (
+        <div className="aims-report-page loading">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+            <p>리포트를 생성할 준비가 되었습니다.</p>
+            <p style={{ fontSize: '14px', color: '#888', marginTop: '10px' }}>
+              잠시 후 리포트 생성 페이지로 이동합니다.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // ⭐ 리포트 준비 완료 (REPORT_READY) - reportData가 아직 없는 경우
+    if (unifiedStatus?.status === 'REPORT_READY' && !reportData) {
+      return (
+        <div className="aims-report-page loading">
+          <div className="loading-spinner">
+            <div className="spinner"></div>
+            <p>리포트를 불러오는 중입니다...</p>
+            <p style={{ fontSize: '14px', color: '#888', marginTop: '10px' }}>
+              생성된 리포트를 조회하고 있습니다.
+            </p>
           </div>
         </div>
       );
@@ -1478,43 +1682,42 @@ const DiseaseReportPage: React.FC = () => {
   }
 
   // ⭐⭐⭐ 매트릭스 통합: 에러 처리 (statusError + 기존 error)
-  if (statusError || error) {
-    const errorMessage = statusError || error;
+  if (statusError || error || unifiedStatus?.status === 'REPORT_FAILED') {
+    const errorMessage = statusError || error || (unifiedStatus?.status === 'REPORT_FAILED' ? '리포트 생성에 실패했습니다. 다시 시도해주세요.' : null);
     
-    // 리포트 만료 상태
-    if (unifiedStatus?.status === 'REPORT_EXPIRED') {
+    // 리포트 생성 실패 상태
+    if (unifiedStatus?.status === 'REPORT_FAILED') {
       return (
         <div className="aims-report-page error">
           <div className="error-message">
-            <h2>⚠️ 리포트가 만료되었습니다</h2>
-            <p>리포트 URL이 만료되었습니다. 다시 분석을 요청해주세요.</p>
+            <h2>리포트 생성 실패</h2>
+            <p>{errorMessage}</p>
+            <button 
+              className="error-retry-button"
+              onClick={() => window.location.reload()}
+              style={{
+                marginTop: '20px',
+                padding: '10px 20px',
+                backgroundColor: '#8B7355',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+            >
+              다시 시도하기
+            </button>
           </div>
         </div>
       );
     }
-    
-    // 데이터 부족 상태
-    if (unifiedStatus?.status === 'ACTION_REQUIRED' || unifiedStatus?.status === 'ACTION_REQUIRED_PAID') {
-      return (
-        <div className="aims-report-page error">
-          <div className="error-message">
-            <h2>건강검진 데이터가 필요합니다</h2>
-            <p>질병예측 리포트를 생성하기 위해서는 건강검진 데이터가 필요합니다.</p>
-            <p style={{ fontSize: '14px', color: '#888', marginTop: '10px' }}>
-              데이터 출처: {unifiedStatus?.primary_source || '없음'}<br />
-              지표 개수: {unifiedStatus?.metric_count || 0}개 (최소 5개 필요)
-            </p>
-          </div>
-        </div>
-      );
-    }
-    
-    // 일반 에러
+
+    // 일반 에러 (이미 위에서 처리되지 않은 만료/데이터부족 등은 위 블록에서 return됨)
     return (
       <div className="aims-report-page error">
         <div className="error-message">
           <h2>리포트를 불러올 수 없습니다</h2>
-          <p>{errorMessage}</p>
+          <p>{errorMessage || '알 수 없는 오류가 발생했습니다.'}</p>
         </div>
       </div>
     );

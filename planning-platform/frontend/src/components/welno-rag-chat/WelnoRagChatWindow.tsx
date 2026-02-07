@@ -217,9 +217,9 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
         const lines = chunk.split('\n');
 
         for (const line of lines) {
-          if (!line.trim()) continue;
+          if (!line.trim() || !line.startsWith('data: ')) continue;
           try {
-            const data = JSON.parse(line);
+            const data = JSON.parse(line.slice(6));
             
             if (data.answer) {
               assistantContent += data.answer;

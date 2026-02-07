@@ -165,7 +165,8 @@ class WelnoRagChatService:
         uuid: str,
         hospital_id: str,
         message: str,
-        session_id: str
+        session_id: str,
+        trace_data: Optional[Dict[str, Any]] = None # 추적 데이터 파라미터 추가
     ) -> AsyncGenerator[str, None]:
         """
         사용자 메시지 처리 및 RAG 응답 스트리밍 생성 (단계별 상담 로직 포함)
@@ -344,11 +345,20 @@ class WelnoRagChatService:
             rag_engine_time = time.time() - rag_engine_start
             logger.info(f"⏱️  [RAG 채팅] RAG 엔진 초기화: {rag_engine_time:.3f}초")
             
+            if trace_data:
+                trace_data["timings"]["rag_engine_init_ms"] = rag_engine_time * 1000
+            
             if query_engine:
                 # RAG 검색 실행 타이밍
                 rag_search_start = time.time()
                 nodes = await query_engine.aretrieve(search_query)
                 rag_search_time = time.time() - rag_search_start
+                
+                if trace_data:
+                    trace_data["timings"]["rag_search_ms"] = rag_search_time * 1000
+                    trace_data["rag_query"] = search_query
+                    trace_data["retrieved_nodes_count"] = len(nodes)
+                    trace_data["retrieved_nodes"] = [n.node.get_content()[:200] for n in nodes]
                 
                 context_str = "\n".join([n.node.get_content() for n in nodes])
                 context_length = len(context_str)
@@ -434,6 +444,11 @@ class WelnoRagChatService:
                     enhanced_prompt += "\n\n**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요."
                     
                     prompt = enhanced_prompt.format(context_str=context_str, query_str=message)
+                    
+                    if trace_data:
+                        trace_data["final_prompt"] = prompt
+                        trace_data["is_first_message"] = True
+                    
                     gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", chat_history=None)
                 else:
                     # 이후 메시지: 히스토리 + 검진/복약/문진 데이터 요약 포함
@@ -478,6 +493,10 @@ class WelnoRagChatService:
                     # 히스토리와 검진/복약/문진 데이터 요약을 함께 전달
                     prompt = f"{data_summary}{past_survey_info_subsequent}[의학 지식 문서 (참고 문헌)]\n{context_str}\n\n사용자 질문: {message}\n전문가 답변:"
                     
+                    if trace_data:
+                        trace_data["final_prompt"] = prompt
+                        trace_data["is_first_message"] = False
+                    
                     # 프롬프트 구성 로깅
                     prompt_length = len(prompt)
                     data_summary_length = len(data_summary) if data_summary else 0
@@ -517,7 +536,13 @@ class WelnoRagChatService:
                 
                 # Gemini API 호출 타이밍
                 gemini_start = time.time()
+                first_token_received = False
                 async for chunk in gemini_service.stream_api(gemini_req, session_id=session_id):
+                    if not first_token_received:
+                        first_token_received = True
+                        if trace_data:
+                            trace_data["timings"]["gemini_ttfb_ms"] = (time.time() - gemini_start) * 1000
+                    
                     full_answer += chunk
                     display_chunk = chunk
                     
@@ -534,7 +559,7 @@ class WelnoRagChatService:
                         display_chunk = ""
                         
                     if display_chunk:
-                        yield json.dumps({"answer": display_chunk, "done": False}, ensure_ascii=False) + "\n"
+                        yield f"data: {json.dumps({'answer': display_chunk, 'done': False}, ensure_ascii=False)}\n\n"
                 
                 # Gemini API 응답 시간 계산
                 gemini_time = time.time() - gemini_start
@@ -553,7 +578,7 @@ class WelnoRagChatService:
                     except:
                         pass
             else:
-                yield json.dumps({"answer": "죄송합니다. 엔진 초기화에 실패했습니다.", "done": False}, ensure_ascii=False) + "\n"
+                yield f"data: {json.dumps({'answer': '죄송합니다. 엔진 초기화에 실패했습니다.', 'done': False}, ensure_ascii=False)}\n\n"
 
             # 5. 마무리 및 메타데이터 업데이트
             self.chat_manager.add_message(uuid, hospital_id, "assistant", full_answer)
@@ -584,23 +609,24 @@ class WelnoRagChatService:
             if self.redis_client:
                 self.redis_client.setex(meta_key, 86400, json.dumps(metadata, ensure_ascii=False))
             
-            yield json.dumps({
-                "answer": "",
-                "done": True,
-                "sources": sources,
-                "suggestions": suggestions,
-                "session_id": session_id,
-                "message_count": message_count,
-                "trigger_survey": trigger_pnt,
-                "suggest_pnt": suggest_pnt  # PNT 문진 시작 제안
-            }, ensure_ascii=False) + "\n"
+            done_data = {
+                'answer': '',
+                'done': True,
+                'sources': sources,
+                'suggestions': suggestions,
+                'session_id': session_id,
+                'message_count': message_count,
+                'trigger_survey': trigger_pnt,
+                'suggest_pnt': suggest_pnt  # PNT 문진 시작 제안
+            }
+            yield f"data: {json.dumps(done_data, ensure_ascii=False)}\n\n"
 
         except Exception as e:
             logger.error(f"❌ [RAG 채팅 서비스] 스트리밍 실패: {str(e)}")
             import traceback
             traceback.print_exc()
             error_data = {"answer": f"\n\n상담 중 오류가 발생했습니다. ({str(e)[:50]})", "done": True, "error": str(e)}
-            yield json.dumps(error_data, ensure_ascii=False) + "\n"
+            yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
 
         except Exception as e:
             logger.error(f"❌ [RAG 채팅 서비스] 스트리밍 실패: {str(e)}")
@@ -612,7 +638,7 @@ class WelnoRagChatService:
                 "done": True, 
                 "error": str(e)
             }
-            yield json.dumps(error_data, ensure_ascii=False) + "\n"
+            yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
 
     def _calculate_age(self, birth_date_str: Optional[str]) -> int:
         if not birth_date_str: return 40

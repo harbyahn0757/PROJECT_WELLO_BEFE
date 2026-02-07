@@ -1,13 +1,14 @@
 """
 웰노 RAG 채팅 API
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 import logging
 
 from ....services.welno_rag_chat_service import WelnoRagChatService
+from ....middleware.partner_auth import verify_partner_api_key, PartnerAuthInfo
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -34,12 +35,18 @@ class ChatMessageResponse(BaseModel):
 
 
 @router.post("/message")
-async def send_message(request: ChatMessageRequest):
+async def send_message(
+    request: ChatMessageRequest,
+    partner_info: PartnerAuthInfo = Depends(verify_partner_api_key)
+):
     """
     사용자 메시지 전송 및 RAG 응답 스트리밍 생성
     """
     try:
-        session_id = request.session_id or f"{request.uuid}_{request.hospital_id}_{int(__import__('time').time())}"
+        # 파트너 정보를 세션 ID에 포함
+        session_id = request.session_id or f"{partner_info.partner_id}_{request.uuid}_{request.hospital_id}_{int(__import__('time').time())}"
+        
+        logger.info(f"📨 [RAG 채팅] 파트너 요청 - {partner_info.partner_id} ({partner_info.partner_name})")
         
         return StreamingResponse(
             rag_chat_service.handle_user_message_stream(
@@ -63,7 +70,10 @@ class SurveyTriggerCheckRequest(BaseModel):
 
 
 @router.post("/check-survey-trigger")
-async def check_survey_trigger(request: SurveyTriggerCheckRequest):
+async def check_survey_trigger(
+    request: SurveyTriggerCheckRequest,
+    partner_info: PartnerAuthInfo = Depends(verify_partner_api_key)
+):
     """
     문진 트리거 여부 확인
     """
@@ -92,7 +102,10 @@ class SummarizeRequest(BaseModel):
 
 
 @router.post("/summarize")
-async def summarize_chat(request: SummarizeRequest):
+async def summarize_chat(
+    request: SummarizeRequest,
+    partner_info: PartnerAuthInfo = Depends(verify_partner_api_key)
+):
     """
     채팅 종료 시 요약 및 페르소나 저장
     """
@@ -114,7 +127,10 @@ class PNTStartRequest(BaseModel):
 
 
 @router.post("/pnt/start")
-async def start_pnt_survey(request: PNTStartRequest):
+async def start_pnt_survey(
+    request: PNTStartRequest,
+    partner_info: PartnerAuthInfo = Depends(verify_partner_api_key)
+):
     """
     PNT 문진 시작 - 첫 질문 반환
     """
@@ -140,7 +156,10 @@ class PNTAnswerRequest(BaseModel):
 
 
 @router.post("/pnt/answer")
-async def submit_pnt_answer(request: PNTAnswerRequest):
+async def submit_pnt_answer(
+    request: PNTAnswerRequest,
+    partner_info: PartnerAuthInfo = Depends(verify_partner_api_key)
+):
     """
     PNT 답변 제출 - 다음 질문 또는 추천 반환
     """

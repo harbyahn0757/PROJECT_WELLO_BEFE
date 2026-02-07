@@ -26,6 +26,7 @@ from .api.v1.endpoints import (
     debug,
     rag_test,
     welno_rag_chat,
+    partner_rag_chat,
     campaign_payment,
     disease_report_unified,
     welno_unified_status,
@@ -43,11 +44,14 @@ app = FastAPI(
 )
 
 # CORS 설정
+# 환경변수에서 허용 도메인 읽기, 기본값은 개발용
+allowed_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:9282,http://localhost:3000,http://localhost:9000").split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 운영환경에서는 실제 도메인으로 변경
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -75,6 +79,7 @@ app.include_router(surveys.router, prefix="/api/v1", tags=["surveys"])
 app.include_router(debug.router, prefix="/api/v1/debug", tags=["debug"])
 app.include_router(rag_test.router, prefix="/api/v1", tags=["rag-test"])
 app.include_router(welno_rag_chat.router, prefix="/api/v1/welno-rag-chat", tags=["welno-rag-chat"])
+app.include_router(partner_rag_chat.router, prefix="/api/v1/rag-chat", tags=["partner-rag-chat"])
 app.include_router(campaign_payment.router, prefix="/api/v1/campaigns", tags=["campaigns"])
 app.include_router(disease_report_unified.router, prefix="/api/v1", tags=["disease-report"])
 app.include_router(terms_agreement.router, prefix="/api/v1/terms", tags=["terms-agreement"])
@@ -95,6 +100,7 @@ app.include_router(health_analysis.router, prefix="/welno-api/v1/health-analysis
 app.include_router(sync.router, prefix="/welno-api/v1", tags=["sync-welno"])
 app.include_router(surveys.router, prefix="/welno-api/v1", tags=["surveys-welno"])
 app.include_router(welno_rag_chat.router, prefix="/welno-api/v1/welno-rag-chat", tags=["welno-rag-chat-welno"])
+app.include_router(partner_rag_chat.router, prefix="/welno-api/v1/rag-chat", tags=["partner-rag-chat-welno"])
 app.include_router(debug.router, prefix="/welno-api/v1/debug", tags=["debug-welno"])
 app.include_router(rag_test.router, prefix="/welno-api/v1/rag-test", tags=["rag-test-welno"])
 app.include_router(campaign_payment.router, prefix="/welno-api/v1/campaigns", tags=["campaigns-welno"])

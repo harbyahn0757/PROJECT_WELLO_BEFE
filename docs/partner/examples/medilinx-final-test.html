@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>최종 통합 테스트 - MediLinx 파트너</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .test-section h2 {
+            margin-top: 0;
+            color: #fff;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background: rgba(40, 167, 69, 0.8);
+            color: white;
+        }
+        
+        .status.error {
+            background: rgba(220, 53, 69, 0.8);
+            color: white;
+        }
+        
+        .status.info {
+            background: rgba(23, 162, 184, 0.8);
+            color: white;
+        }
+        
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .log {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .highlight {
+            background: rgba(255, 255, 0, 0.2);
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏥 MediLinx × Welno RAG 최종 통합 테스트</h1>
+        
+        <div class="test-section">
+            <h2>📋 테스트 시나리오</h2>
+            <p>실제 파트너사(MediLinx) 환경을 시뮬레이션하여 위젯 통합을 테스트합니다.</p>
+            <ul>
+                <li>✅ MediLinx API Key 사용</li>
+                <li>✅ 실제 검진 데이터 포함</li>
+                <li>✅ 파트너 매뉴얼 가이드 준수</li>
+                <li>✅ 실시간 채팅 기능 테스트</li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎯 테스트 제어</h2>
+            <button onclick="runFullTest()">전체 테스트 실행</button>
+            <button onclick="testApiConnection()">API 연결 테스트</button>
+            <button onclick="initializeWidget()">위젯 초기화</button>
+            <button onclick="openWidget()">위젯 열기</button>
+            <button onclick="sendTestMessage()">테스트 메시지 전송</button>
+            <button onclick="clearLog()">로그 지우기</button>
+            
+            <div id="status" class="status info">
+                테스트 준비 완료. "전체 테스트 실행" 버튼을 클릭하세요.
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📊 테스트 결과</h2>
+            <div id="results">
+                <div class="status info">테스트 결과가 여기에 표시됩니다.</div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📋 실시간 로그</h2>
+            <div id="log" class="log">
+                <div class="log-entry">[INFO] 페이지 로드 완료 - MediLinx 파트너 테스트 환경</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Welno RAG Chat Widget 로드 -->
+    <script src="WelnoRagChatWidget.js"></script>
+    
+    <script>
+        // MediLinx 파트너 설정 (실제 API Key 사용)
+        const MEDILINX_CONFIG = {
+            apiKey: '5a9bb40b5108ecd8ef864658d5a2d5ab',
+            baseUrl: 'http://localhost:8082',
+            uuid: 'medilinx_final_test_' + Date.now(),
+            hospitalId: 'medilinx_clinic',
+            
+            // MediLinx 검진 데이터 (실제 형식)
+            partnerData: {
+                patient: {
+                    name: '김최종테스트',
+                    birth_date: '1985-03-15',
+                    sex: 'M',
+                    phone: '010-1234-5678'
+                },
+                checkup_results: {
+                    height: 172,
+                    weight: 75,
+                    bmi: 25.3,
+                    systolic_bp: 135,
+                    diastolic_bp: 85,
+                    fasting_glucose: 105,
+                    total_cholesterol: 220,
+                    exam_date: '2024-01-20'
+                },
+                medical_history: [
+                    '2023년 고혈압 진단',
+                    '2022년 당뇨 전단계 진단'
+                ]
+            }
+        };
+
+        let widget = null;
+        let testResults = {
+            apiConnection: false,
+            widgetInit: false,
+            widgetOpen: false,
+            messageTest: false
+        };
+
+        // 로그 함수
+        function addLog(message, type = 'INFO') {
+            const log = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `[${type}] ${new Date().toLocaleTimeString()} - ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // 상태 업데이트
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+
+        // 결과 업데이트
+        function updateResults() {
+            const results = document.getElementById('results');
+            const passed = Object.values(testResults).filter(Boolean).length;
+            const total = Object.keys(testResults).length;
+            
+            let html = `<div class="status ${passed === total ? 'success' : 'info'}">`;
+            html += `테스트 진행률: ${passed}/${total} (${Math.round(passed/total*100)}%)</div>`;
+            
+            html += '<ul>';
+            html += `<li>API 연결: ${testResults.apiConnection ? '✅ 성공' : '❌ 실패'}</li>`;
+            html += `<li>위젯 초기화: ${testResults.widgetInit ? '✅ 성공' : '❌ 실패'}</li>`;
+            html += `<li>위젯 열기: ${testResults.widgetOpen ? '✅ 성공' : '❌ 실패'}</li>`;
+            html += `<li>메시지 테스트: ${testResults.messageTest ? '✅ 성공' : '❌ 실패'}</li>`;
+            html += '</ul>';
+            
+            results.innerHTML = html;
+        }
+
+        // API 연결 테스트
+        async function testApiConnection() {
+            addLog('API 연결 테스트 시작...', 'INFO');
+            updateStatus('API 연결 테스트 중...', 'info');
+            
+            try {
+                const response = await fetch(`${MEDILINX_CONFIG.baseUrl}/api/v1/rag-chat/partner/status`, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${MEDILINX_CONFIG.apiKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    testResults.apiConnection = true;
+                    addLog(`API 연결 성공: ${data.partner_info.partner_name}`, 'SUCCESS');
+                    updateStatus(`API 연결 성공! 파트너: ${data.partner_info.partner_name}`, 'success');
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `HTTP ${response.status}`);
+                }
+                
+            } catch (error) {
+                testResults.apiConnection = false;
+                addLog(`API 연결 실패: ${error.message}`, 'ERROR');
+                updateStatus(`API 연결 실패: ${error.message}`, 'error');
+            }
+            
+            updateResults();
+        }
+
+        // 위젯 초기화
+        function initializeWidget() {
+            addLog('위젯 초기화 시작...', 'INFO');
+            updateStatus('위젯 초기화 중...', 'info');
+            
+            try {
+                if (widget) {
+                    widget.destroy();
+                }
+                
+                widget = new WelnoRagChatWidget({
+                    ...MEDILINX_CONFIG,
+                    
+                    // UI 설정
+                    position: 'bottom-right',
+                    buttonColor: '#667eea',
+                    
+                    // 콜백 설정
+                    onOpen: function() {
+                        testResults.widgetOpen = true;
+                        addLog('위젯이 열렸습니다.', 'SUCCESS');
+                        updateResults();
+                    },
+                    
+                    onClose: function() {
+                        addLog('위젯이 닫혔습니다.', 'INFO');
+                    },
+                    
+                    onMessage: function(message) {
+                        addLog(`메시지 ${message.role}: ${message.content.substring(0, 50)}...`, 'INFO');
+                        if (message.role === 'assistant') {
+                            testResults.messageTest = true;
+                            updateResults();
+                        }
+                    },
+                    
+                    onError: function(error) {
+                        addLog(`위젯 오류: ${error.message}`, 'ERROR');
+                        updateStatus(`위젯 오류: ${error.message}`, 'error');
+                    }
+                });
+                
+                widget.init();
+                testResults.widgetInit = true;
+                
+                addLog('위젯 초기화 완료', 'SUCCESS');
+                updateStatus('위젯 초기화 성공! 우측 하단에 채팅 버튼이 표시됩니다.', 'success');
+                
+            } catch (error) {
+                testResults.widgetInit = false;
+                addLog(`위젯 초기화 실패: ${error.message}`, 'ERROR');
+                updateStatus(`위젯 초기화 실패: ${error.message}`, 'error');
+            }
+            
+            updateResults();
+        }
+
+        // 위젯 열기
+        function openWidget() {
+            if (!widget) {
+                updateStatus('먼저 위젯을 초기화해주세요.', 'error');
+                return;
+            }
+            
+            addLog('위젯 열기 시도...', 'INFO');
+            widget.open();
+        }
+
+        // 테스트 메시지 전송
+        async function sendTestMessage() {
+            if (!widget || !widget.state.isOpen) {
+                updateStatus('먼저 위젯을 열어주세요.', 'error');
+                return;
+            }
+            
+            addLog('테스트 메시지 전송 중...', 'INFO');
+            updateStatus('테스트 메시지 전송 중...', 'info');
+            
+            // 위젯의 입력창에 메시지 입력
+            const testMessage = 'BMI 25.3이고 혈압이 135/85인데 건강 상태가 어떤가요?';
+            
+            if (widget.elements.input) {
+                widget.elements.input.value = testMessage;
+                await widget.sendMessage();
+                addLog('테스트 메시지 전송 완료', 'SUCCESS');
+            } else {
+                addLog('위젯 입력창을 찾을 수 없습니다.', 'ERROR');
+            }
+        }
+
+        // 전체 테스트 실행
+        async function runFullTest() {
+            addLog('=== 전체 테스트 시작 ===', 'INFO');
+            updateStatus('전체 테스트 실행 중...', 'info');
+            
+            // 1. API 연결 테스트
+            await testApiConnection();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // 2. 위젯 초기화
+            if (testResults.apiConnection) {
+                initializeWidget();
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // 3. 위젯 열기
+                if (testResults.widgetInit) {
+                    openWidget();
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // 4. 메시지 테스트는 수동으로 진행하도록 안내
+                    if (testResults.widgetOpen) {
+                        addLog('위젯이 열렸습니다. 수동으로 메시지를 입력해서 테스트해보세요.', 'INFO');
+                        updateStatus('테스트 완료! 위젯에서 직접 메시지를 입력해보세요.', 'success');
+                    }
+                }
+            }
+            
+            addLog('=== 전체 테스트 완료 ===', 'INFO');
+        }
+
+        // 로그 지우기
+        function clearLog() {
+            const log = document.getElementById('log');
+            log.innerHTML = '<div class="log-entry">[INFO] 로그가 지워졌습니다.</div>';
+        }
+
+        // 페이지 로드 시 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('MediLinx 파트너 테스트 환경 준비 완료', 'INFO');
+            addLog(`API Key: ${MEDILINX_CONFIG.apiKey.substring(0, 20)}...`, 'INFO');
+            addLog(`Base URL: ${MEDILINX_CONFIG.baseUrl}`, 'INFO');
+            updateResults();
+        });
+    </script>
+</body>
+</html>

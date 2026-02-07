@@ -28,6 +28,10 @@ from ....config.payment_config import (
     SERVICE_DOMAIN
 )
 from ....utils.domain_helper import get_dynamic_domain, get_frontend_domain
+from ....utils.logging.structured_logger import get_structured_logger
+from ....utils.logging.domain_log_builders import PaymentLogBuilder
+from ....services.slack_service import get_slack_service
+from ....core.config import settings
 from ....utils.partner_config import (
     get_payment_amount, 
     get_partner_encryption_keys,
@@ -132,6 +136,24 @@ async def init_payment(request: Request):
                 
                 if completed_payment:
                     logger.warning(f"⚠️ [결제초기화] 이미 결제 완료 건 존재: oid={completed_payment[0]}, 새 결제 생성 중단")
+                    
+                    # 슬랙 알림: 중복 결제 시도 (이탈)
+                    if settings.slack_enabled and settings.slack_webhook_url:
+                        try:
+                            slack_service = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
+                            structured_logger = get_structured_logger(slack_service)
+                            
+                            payment_log = PaymentLogBuilder.build_payment_dropout_log(
+                                uuid=uuid,
+                                dropout_point="결제초기화",
+                                reason=f"중복 결제 시도 - 기존 완료건: {completed_payment[0]}",
+                                partner_id=partner_id
+                            )
+                            
+                            await structured_logger.log_payment_event(payment_log)
+                        except Exception as e:
+                            logger.warning(f"⚠️ [중복결제] 슬랙 알림 실패: {e}")
+                    
                     return JSONResponse({
                         'success': False,
                         'error': 'ALREADY_PAID',
@@ -183,6 +205,23 @@ async def init_payment(request: Request):
                     """, (oid, uuid, partner_id, user_name, json.dumps(user_info), payment_amount, 'READY', email))
                     logger.info(f"✅ [결제초기화] 새 결제 데이터 생성: oid={oid}, uuid={uuid}")
                 conn.commit()
+                
+                # 슬랙 알림: 결제 시작
+                if settings.slack_enabled and settings.slack_webhook_url:
+                    try:
+                        slack_service = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
+                        structured_logger = get_structured_logger(slack_service)
+                        
+                        payment_log = PaymentLogBuilder.build_payment_start_log(
+                            oid=oid,
+                            uuid=uuid,
+                            partner_id=partner_id,
+                            amount=payment_amount
+                        )
+                        
+                        await structured_logger.log_payment_event(payment_log)
+                    except Exception as e:
+                        logger.warning(f"⚠️ [결제초기화] 슬랙 알림 실패: {e}")
         
         # 디버깅: 실제 콜백 URL 로깅 (return 이전에 실행)
         dynamic_domain = get_dynamic_domain(request)
@@ -256,6 +295,27 @@ async def _handle_payment_callback(
 
     if P_STATUS != '00':
         update_payment_status(p_oid, 'FAILED', error_msg=P_RMESG1)
+        
+        # 슬랙 알림: 결제 실패
+        if settings.slack_enabled and settings.slack_webhook_url:
+            try:
+                # 결제 데이터 조회
+                payment_data = get_payment_data(p_oid)
+                if payment_data:
+                    slack_service = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
+                    structured_logger = get_structured_logger(slack_service)
+                    
+                    payment_log = PaymentLogBuilder.build_payment_failed_log(
+                        oid=p_oid,
+                        uuid=payment_data.get('uuid', 'N/A'),
+                        error_message=P_RMESG1,
+                        partner_id=payment_data.get('partner_id')
+                    )
+                    
+                    await structured_logger.log_payment_event(payment_log)
+            except Exception as e:
+                logger.warning(f"⚠️ [결제실패] 슬랙 알림 실패: {e}")
+        
         # 결제 실패/취소 시 랜딩 페이지(intro)로 리다이렉트
         # URL 파라미터에서 uuid, partner, api_key 등을 추출하여 유지
         from urllib.parse import urlencode
@@ -401,6 +461,25 @@ async def _handle_payment_callback(
                     logger.error(f"⚠️ [Payment] 정식 등록 실패 (무시): {reg_err}")
 
                 update_pipeline_step(p_oid, 'REPORT_WAITING')
+                
+                # 슬랙 알림: 결제 성공 (데이터 충분)
+                if settings.slack_enabled and settings.slack_webhook_url:
+                    try:
+                        slack_service = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
+                        structured_logger = get_structured_logger(slack_service)
+                        
+                        payment_log = PaymentLogBuilder.build_payment_success_log(
+                            oid=p_oid,
+                            uuid=uuid,
+                            amount=approved_amount,
+                            branch_type="리포트생성",
+                            partner_id=order_data.get('partner_id')
+                        )
+                        
+                        await structured_logger.log_payment_event(payment_log)
+                    except Exception as e:
+                        logger.warning(f"⚠️ [결제성공] 슬랙 알림 실패: {e}")
+                
                 import asyncio
                 asyncio.create_task(trigger_report_generation(order_data))
                 # 동적 도메인 사용
@@ -430,6 +509,24 @@ async def _handle_payment_callback(
                 else:
                     # order_data에서 user_name 가져오기
                     user_name = order_data.get('user_name')
+                
+                # 슬랙 알림: 결제 성공 (데이터 부족 - 틸코 인증)
+                if settings.slack_enabled and settings.slack_webhook_url:
+                    try:
+                        slack_service = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
+                        structured_logger = get_structured_logger(slack_service)
+                        
+                        payment_log = PaymentLogBuilder.build_payment_success_log(
+                            oid=p_oid,
+                            uuid=uuid,
+                            amount=approved_amount,
+                            branch_type="틸코인증",
+                            partner_id=order_data.get('partner_id')
+                        )
+                        
+                        await structured_logger.log_payment_event(payment_log)
+                    except Exception as e:
+                        logger.warning(f"⚠️ [결제성공-틸코] 슬랙 알림 실패: {e}")
                 
                 # 동적 도메인 감지 (로컬/배포 자동 구분)
                 dynamic_domain = get_dynamic_domain(request)
@@ -488,8 +585,46 @@ async def _handle_payment_callback(
             )
             if cancel_success:
                 logger.info(f"✅ [Cancel] 망취소 완료: oid={p_oid}")
+                
+                # 슬랙 알림: 망취소 성공
+                if settings.slack_enabled and settings.slack_webhook_url:
+                    try:
+                        payment_data = get_payment_data(p_oid)
+                        if payment_data:
+                            slack_service = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
+                            structured_logger = get_structured_logger(slack_service)
+                            
+                            payment_log = PaymentLogBuilder.build_payment_cancelled_log(
+                                oid=p_oid,
+                                uuid=payment_data.get('uuid', 'N/A'),
+                                reason=f"시스템 에러 후 자동 망취소 성공: {str(e)}",
+                                partner_id=payment_data.get('partner_id')
+                            )
+                            
+                            await structured_logger.log_payment_event(payment_log)
+                    except Exception as slack_e:
+                        logger.warning(f"⚠️ [망취소성공] 슬랙 알림 실패: {slack_e}")
             else:
                 logger.error(f"❌ [Cancel] 망취소 실패: oid={p_oid} (수동 처리 필요)")
+                
+                # 슬랙 알림: 망취소 실패 (긴급)
+                if settings.slack_enabled and settings.slack_webhook_url:
+                    try:
+                        payment_data = get_payment_data(p_oid)
+                        if payment_data:
+                            slack_service = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
+                            structured_logger = get_structured_logger(slack_service)
+                            
+                            payment_log = PaymentLogBuilder.build_payment_failed_log(
+                                oid=p_oid,
+                                uuid=payment_data.get('uuid', 'N/A'),
+                                error_message=f"🚨 망취소 실패 - 수동 처리 필요: TID={P_TID}, 금액={approved_amount}원",
+                                partner_id=payment_data.get('partner_id')
+                            )
+                            
+                            await structured_logger.log_payment_event(payment_log)
+                    except Exception as slack_e:
+                        logger.warning(f"⚠️ [망취소실패] 슬랙 알림 실패: {slack_e}")
         
         update_payment_status(p_oid, 'FAILED', error_msg=str(e))
         return RedirectResponse(
@@ -988,6 +1123,11 @@ async def get_campaign_report(oid: str):
                             "user_name": row[6],
                             "should_redirect_to_landing": True  # 랜딩 페이지로 리다이렉트 플래그
                         }
+                    
+                    # PDF 없지만 데이터 있는 경우 로그
+                    if mediarc_response and not report_url:
+                        logger.warning(f"📊 [Campaign] PDF 생성 실패했지만 리포트 데이터 존재: oid={row[0]}, "
+                                     f"mediarc_data=True, pdf_url=None")
                     
                     return {
                         "success": True,

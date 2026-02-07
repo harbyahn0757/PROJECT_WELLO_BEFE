@@ -1,7 +1,7 @@
 {
   "files": {
     "main.css": "/static/css/main.07e9275c.css",
-    "main.js": "/static/js/main.f57ccca1.js",
+    "main.js": "/static/js/main.b9bee6d6.js",
     "static/media/check_2 1.png": "/static/media/check_2 1.ea1a1f3695073d984b80.png",
     "static/media/doc_nobg.png": "/static/media/doc_nobg.777d6a56e64ed09e0ed9.png",
     "static/media/healthy_potato_nobg.png": "/static/media/healthy_potato_nobg.6382d3f877e453c1c65a.png",
@@ -20,10 +20,10 @@
     "static/media/pass.png": "/static/media/pass.203049a9f19b1e505577.png",
     "index.html": "/index.html",
     "main.07e9275c.css.map": "/static/css/main.07e9275c.css.map",
-    "main.f57ccca1.js.map": "/static/js/main.f57ccca1.js.map"
+    "main.b9bee6d6.js.map": "/static/js/main.b9bee6d6.js.map"
   },
   "entrypoints": [
     "static/css/main.07e9275c.css",
-    "static/js/main.f57ccca1.js"
+    "static/js/main.b9bee6d6.js"
   ]
 }
