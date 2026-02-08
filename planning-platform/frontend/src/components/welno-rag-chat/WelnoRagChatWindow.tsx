@@ -528,7 +528,6 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
         })}
         {isLoading && (
           <div className="loading-indicator">
-            <div className="loading-text">답변을 작성중이에요</div>
             <div className="loading-spinner">
               <span className="spinner-dot"></span>
               <span className="spinner-dot"></span>

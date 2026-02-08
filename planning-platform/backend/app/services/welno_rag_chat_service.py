@@ -326,6 +326,32 @@ class WelnoRagChatService:
                     logger.warning(f"⚠️ [브리핑] 데이터 로드 실패: {e}")
                     logger.warning(f"⚠️ [검진데이터] 조회 실패: {str(e)}")
 
+            # 파트너 세션: Redis에 주입된 파트너 컨텍스트를 briefing_context로 사용 (내부 DB에 검진 데이터 없을 때)
+            is_partner_session = False
+            if is_first_message and not briefing_context and self.redis_client:
+                try:
+                    mapping_key = f"welno:partner_rag:mapping:{session_id}:context"
+                    context_key = self.redis_client.get(mapping_key)
+                    if context_key:
+                        partner_ctx = self.redis_client.get(context_key)
+                        if partner_ctx:
+                            is_partner_session = True
+                            briefing_context = f"\n[파트너 제공 검진/환자 정보]\n{partner_ctx}\n"
+                            logger.info(f"✅ [파트너 컨텍스트] Redis에서 로드: {len(briefing_context)}자")
+                            # 이후 메시지에서도 참조할 수 있도록 data_summary에 저장
+                            summary_key = f"welno:rag_chat:data_summary:{uuid}:{hospital_id}:{session_id}"
+                            summary_data = {
+                                "patient_name": "파트너 환자",
+                                "health_summary": briefing_context,
+                                "filtered_health_count": 0,
+                                "filtered_prescription_count": 0,
+                                "is_stale_data": False,
+                                "stale_year": None
+                            }
+                            self.redis_client.setex(summary_key, 86400, json.dumps(summary_data, ensure_ascii=False))
+                except Exception as e:
+                    logger.warning(f"⚠️ [파트너 컨텍스트] Redis 로드 실패: {e}")
+
             # 4. 응답 생성 분기
             # 일반 RAG 스트리밍
             search_query = message
@@ -427,8 +453,13 @@ class WelnoRagChatService:
                     
                     # 단계별 지침 추가
                     stage_instruction = ""
-                    logger.info(f"🔍 [PNT] 첫 메시지 chat_stage: {chat_stage}, message: {message[:50]}")
-                    if chat_stage == "awaiting_current_concerns":
+                    msg_stripped = (message or "").strip()
+                    is_greeting_or_short = len(msg_stripped) <= 4 or msg_stripped in ("안녕", "하이", "안녕하세요", "hello", "hi", "?", "ㅇ", "응")
+                    logger.info(f"🔍 [PNT] 첫 메시지 chat_stage: {chat_stage}, message: {message[:50]}, is_greeting_or_short: {is_greeting_or_short}")
+                    if is_greeting_or_short:
+                        stage_instruction = "\n\n**상담 지침**: 사용자가 인사나 짧은 말만 한 경우, 참고 문헌을 요약·나열하지 말고, 친절히 인사한 뒤 이 환자의 검진/건강 관련해 무엇을 도와드릴지 짧게 물어보세요."
+                        chat_stage = "normal"
+                    elif chat_stage == "awaiting_current_concerns":
                         stage_instruction = "\n\n**상담 단계**: 간략히 조언 후 '최근 걱정되거나 불편한 곳이 있는지' 질문하세요."
                     elif any(kw in message for kw in ["영양제", "건기식", "비타민", "추천"]):
                         # 첫 메시지에서 영양제 관련 질문 시 PNT 유도
@@ -438,6 +469,12 @@ class WelnoRagChatService:
                     else:
                         stage_instruction = "\n추이, 패턴을 분석하되 상담사 연결을 유도하세요."
                         chat_stage = "normal"
+                    if is_partner_session:
+                        stage_instruction += (
+                            "\n\n**파트너 위젯 모드**: (1) 검진 결과 설명·해석에 집중하고, 자료 대비 비교보다는 '이 검진에서 무엇이 중요한지'를 읽어주는 데 초점을 맞추세요. "
+                            "(2) ###, * 목록 같은 긴 보고서 형식은 쓰지 말고, 짧은 문단과 줄바꿈으로 읽기 쉽게 답하세요. "
+                            "(3) 강조는 **단어**처럼 짧게만 사용하세요."
+                        )
                     logger.info(f"🔍 [PNT] 최종 chat_stage: {chat_stage}")
                     
                     enhanced_prompt += stage_instruction
@@ -475,6 +512,19 @@ class WelnoRagChatService:
                             logger.warning(f"⚠️ [검진데이터] data_summary 조회 결과: 존재=no - Redis에 저장된 검진 데이터 요약 없음")
                     else:
                         logger.warning(f"⚠️ [검진데이터] Redis 클라이언트 없음 - data_summary 조회 불가")
+                    
+                    # 파트너 세션: data_summary가 없으면 Redis 파트너 컨텍스트로 보강
+                    if not data_summary and self.redis_client:
+                        try:
+                            mapping_key = f"welno:partner_rag:mapping:{session_id}:context"
+                            context_key = self.redis_client.get(mapping_key)
+                            if context_key:
+                                partner_ctx = self.redis_client.get(context_key)
+                                if partner_ctx:
+                                    data_summary = f"\n[환자 건강 데이터 요약 (과거 내역 참고용)]\n[파트너 제공 검진/환자 정보]\n{partner_ctx}\n\n"
+                                    logger.info(f"✅ [파트너 컨텍스트] 이후 메시지에서 Redis 로드: {len(data_summary)}자")
+                        except Exception as e:
+                            logger.warning(f"⚠️ [파트너 컨텍스트] Redis 로드 실패: {e}")
                     
                     # 문진 내역도 함께 전달 (이후 메시지에서도)
                     past_survey_info_subsequent = ""

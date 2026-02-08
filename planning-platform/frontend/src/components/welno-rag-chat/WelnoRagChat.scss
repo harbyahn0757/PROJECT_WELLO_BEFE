@@ -327,14 +327,6 @@
       flex-direction: row;
       align-items: center;
       align-self: flex-start;
-      gap: 8px;
-
-      .loading-text {
-        font-size: 13px;
-        color: #4A3A34;
-        font-weight: 500;
-        animation: blinkSmooth 2s infinite ease-in-out;
-      }
 
       .loading-spinner {
         display: flex;
