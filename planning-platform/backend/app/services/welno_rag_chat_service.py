@@ -358,14 +358,25 @@ class WelnoRagChatService:
             if current_keywords:
                 search_query = f"{', '.join(current_keywords)} 관련: {message}"
             
-            from .checkup_design.rag_service import init_rag_engine, CHAT_SYSTEM_PROMPT
+            from .checkup_design.rag_service import init_rag_engine, CHAT_SYSTEM_PROMPT, search_hospital_knowledge
             
             # 타이밍 변수 초기화
             rag_engine_time = 0.0
             rag_search_time = 0.0
             gemini_time = 0.0
             
-            # RAG 엔진 초기화 타이밍
+            # 병원 RAG 우선: 해당 hospital_id 전용 인덱스가 있으면 먼저 검색
+            hospital_rag_sources = []
+            if hospital_id:
+                try:
+                    hospital_rag = await search_hospital_knowledge(hospital_id, search_query)
+                    if hospital_rag.get("success") and hospital_rag.get("sources"):
+                        hospital_rag_sources = hospital_rag["sources"]
+                        logger.info(f"📚 [RAG 채팅] 병원 RAG 우선 반영 - hospital_id={hospital_id}, 소스 {len(hospital_rag_sources)}개")
+                except Exception as e:
+                    logger.warning(f"⚠️ [RAG 채팅] 병원 RAG 검색 스킵: {e}")
+            
+            # RAG 엔진 초기화 타이밍 (전역 인덱스, 기존 동작 유지)
             rag_engine_start = time.time()
             query_engine = await init_rag_engine(use_local_vector_db=True)
             rag_engine_time = time.time() - rag_engine_start
@@ -387,26 +398,39 @@ class WelnoRagChatService:
                     trace_data["retrieved_nodes"] = [n.node.get_content()[:200] for n in nodes]
                 
                 context_str = "\n".join([n.node.get_content() for n in nodes])
+                # 병원 RAG가 있으면 컨텍스트 앞에 우선 배치
+                if hospital_rag_sources:
+                    hospital_context = "\n".join([s.get("text", "") for s in hospital_rag_sources])
+                    context_str = f"[병원 전용 참고 문헌]\n{hospital_context}\n\n[공통 의학 지식]\n{context_str}"
                 context_length = len(context_str)
                 
                 logger.info(f"⏱️  [RAG 채팅] RAG 검색 실행: {rag_search_time:.3f}초")
                 logger.info(f"📊 [RAG 채팅] RAG 검색 결과 - {len(nodes)}개 노드, {context_length}자 컨텍스트")
                 logger.info(f"🔍 [RAG 채팅] 검색 쿼리: {search_query[:100]}...")
                 
-                # 소스 추출 강화 (메타데이터 포함, 중복 제거)
+                # 소스 추출: 병원 RAG 우선, 그다음 전역 RAG (중복 제거)
                 sources = []
-                seen_sources = set()  # 중복 제거용 (file_name + page)
+                seen_sources = set()
+                for s in hospital_rag_sources:
+                    title = (s.get("metadata") or {}).get("file_name") or (s.get("metadata") or {}).get("title") or "병원 문서"
+                    source_key = f"hospital|{title}"
+                    if source_key in seen_sources:
+                        continue
+                    seen_sources.add(source_key)
+                    sources.append({
+                        "text": (s.get("text") or "")[:500],
+                        "score": s.get("score"),
+                        "title": title,
+                        "page": ""
+                    })
                 for n in nodes:
                     meta = n.node.metadata or {}
                     file_name = meta.get("file_name") or meta.get("title") or "참고 문헌"
                     page = meta.get("page_label") or meta.get("page") or ""
-                    
-                    # 중복 체크 (file_name + page 조합)
                     source_key = f"{file_name}|{page}"
                     if source_key in seen_sources:
-                        continue  # 이미 추가된 소스는 건너뛰기
+                        continue
                     seen_sources.add(source_key)
-                    
                     score = float(n.score) if hasattr(n, 'score') else None
                     sources.append({
                         "text": clean_html_content(n.node.get_content())[:500],

@@ -30,6 +30,10 @@ from llama_index.vector_stores.faiss import FaissVectorStore
 # Excel/CSV
 import pandas as pd
 
+# 임베딩 상수 (rag_service와 동일 유지)
+EMBEDDING_MODEL = "text-embedding-ada-002"
+EMBEDDING_DIMENSION = 1536
+
 
 class WelnoAIVectorDBManager:
     """AI 모델 기반 벡터 DB 통합 관리자"""
@@ -62,9 +66,9 @@ class WelnoAIVectorDBManager:
             parsing_instruction="This document contains medical guidelines and health data tables. Please extract all tables accurately in markdown format and describe images or charts if possible."
         )
         
-        # 임베딩 모델 설정
+        # 임베딩 모델 설정 (차원 호환 유지)
         self.embed_model = OpenAIEmbedding(
-            model="text-embedding-ada-002",
+            model=EMBEDDING_MODEL,
             api_key=self.openai_api_key
         )
         Settings.embed_model = self.embed_model
@@ -79,7 +83,7 @@ class WelnoAIVectorDBManager:
 
     def _load_env(self):
         """환경변수 로드"""
-        env_path = Path("/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/config.env")
+        env_path = Path(os.environ.get("PROJECT_ROOT", "/home/workspace/PROJECT_WELNO_BEFE")) / "planning-platform/backend/config.env"
         if env_path.exists():
             with open(env_path, 'r') as f:
                 for line in f:
@@ -279,7 +283,7 @@ class WelnoAIVectorDBManager:
             self.log("DB", f"기존 인덱스 로드 성공 (노드 수: {len(index.docstore.docs)})", "SUCCESS")
         except Exception as e:
             self.log("WARNING", f"기존 인덱스 로드 실패({e}), 새로 생성합니다.", "WARNING")
-            faiss_index = faiss.IndexFlatL2(1536)
+            faiss_index = faiss.IndexFlatL2(EMBEDDING_DIMENSION)
             vector_store = FaissVectorStore(faiss_index=faiss_index)
             storage_context = StorageContext.from_defaults(vector_store=vector_store)
             index = VectorStoreIndex([], storage_context=storage_context)

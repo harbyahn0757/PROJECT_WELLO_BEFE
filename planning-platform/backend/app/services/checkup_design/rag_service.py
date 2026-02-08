@@ -71,6 +71,13 @@ LOCAL_FAISS_DIR = "/data/vector_db/welno/faiss_db"
 LOCAL_FAISS_INDEX_PATH = f"{LOCAL_FAISS_DIR}/faiss.index"
 LOCAL_FAISS_METADATA_PATH = f"{LOCAL_FAISS_DIR}/metadata.pkl"
 
+# 임베딩 모델·차원 (병원별 확장 시 동일 값 유지로 호환)
+EMBEDDING_MODEL = "text-embedding-ada-002"
+EMBEDDING_DIMENSION = 1536
+
+# 병원별 FAISS 루트 (전역과 분리, 병원 RAG 우선용)
+LOCAL_FAISS_BY_HOSPITAL = os.environ.get("LOCAL_FAISS_BY_HOSPITAL", "/data/vector_db/welno/faiss_db_by_hospital")
+
 # 전역 RAG 엔진 캐시 (기존 플로우용)
 _rag_engine_cache: Optional[Any] = None
 # 테스트용 RAG 엔진 캐시 (엘라마 클라우드 스타일)
@@ -230,7 +237,7 @@ async def init_rag_engine(use_elama_model: bool = False, use_local_vector_db: bo
                             use_local_vector_db = False
                         else:
                             embed_model = OpenAIEmbedding(
-                                model="text-embedding-ada-002",
+                                model=EMBEDDING_MODEL,
                                 api_key=openai_api_key
                             )
                             Settings.embed_model = embed_model
@@ -548,3 +555,61 @@ async def search_checkup_knowledge(query: str, use_local_vector_db: bool = True)
             "answer": None,
             "sources": []
         }
+
+
+async def search_hospital_knowledge(hospital_id: str, query: str) -> Dict[str, Any]:
+    """
+    병원별 RAG 검색 (병원 전용 인덱스가 있으면 우선 사용).
+    전역 인덱스·캐시는 건드리지 않음.
+    """
+    if not hospital_id or not query:
+        return {"success": False, "sources": []}
+    hospital_dir = PathLib(LOCAL_FAISS_BY_HOSPITAL) / hospital_id
+    index_file = hospital_dir / "faiss.index"
+    if not index_file.exists():
+        return {"success": False, "sources": []}
+    if not FAISS_AVAILABLE:
+        return {"success": False, "sources": []}
+    openai_api_key = os.environ.get("OPENAI_API_KEY") or settings.openai_api_key
+    if not openai_api_key or openai_api_key == "dev-openai-key":
+        return {"success": False, "sources": []}
+    try:
+        embed_model = OpenAIEmbedding(model=EMBEDDING_MODEL, api_key=openai_api_key)
+        Settings.embed_model = embed_model
+        vector_store = FaissVectorStore.from_persist_dir(str(hospital_dir))
+        from llama_index.core.storage.docstore import SimpleDocumentStore
+        from llama_index.core.storage.index_store import SimpleIndexStore
+        docstore = SimpleDocumentStore.from_persist_dir(str(hospital_dir))
+        index_store = SimpleIndexStore.from_persist_dir(str(hospital_dir))
+        storage_context = StorageContext.from_defaults(
+            vector_store=vector_store,
+            docstore=docstore,
+            index_store=index_store,
+        )
+        try:
+            index = load_index_from_storage(storage_context)
+        except ValueError as e:
+            if "Please specify index_id" in str(e):
+                index_structs = storage_context.index_store.index_structs()
+                index_ids = list(index_structs.keys()) if isinstance(index_structs, dict) else [getattr(s, "index_id", None) for s in (index_structs or []) if hasattr(s, "index_id")]
+                if index_ids and index_ids[0]:
+                    index = load_index_from_storage(storage_context, index_id=index_ids[0])
+                else:
+                    return {"success": False, "sources": []}
+            else:
+                return {"success": False, "sources": []}
+        query_engine = index.as_query_engine(similarity_top_k=5, response_mode="compact")
+        response = await query_engine.aquery(query)
+        sources = []
+        if hasattr(response, 'source_nodes'):
+            for node in response.source_nodes:
+                source_info = {
+                    "text": clean_html_content(node.text)[:500],
+                    "score": float(node.score) if hasattr(node, 'score') else None,
+                    "metadata": node.metadata if hasattr(node, 'metadata') else {},
+                }
+                sources.append(source_info)
+        return {"success": True, "answer": str(response), "sources": sources, "query": query}
+    except Exception as e:
+        print(f"[ERROR] 병원 RAG 검색 실패 (hospital_id={hospital_id}): {e}")
+        return {"success": False, "sources": []}

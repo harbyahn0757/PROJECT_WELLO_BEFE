@@ -19,6 +19,7 @@ import AppointmentPage from './pages/AppointmentPage';
 import ResultsTrendPage from './pages/ResultsTrendPage';
 import DiseaseReportPage from './features/disease-report/pages/DiseaseReportPage';
 import DiseasePredictionCampaign from './campaigns/disease-prediction';
+import AdminEmbeddingPage from './pages/AdminEmbeddingPage';
 // import RagTestPage from './pages/RagTestPage';
 import AppointmentModal from './components/appointment/AppointmentModal';
 import { LayoutType } from './constants/layoutTypes';
@@ -527,6 +528,8 @@ const AppContent: React.FC = () => {
         <Route path="/prescription-history" element={<PrescriptionHistory />} />
         <Route path="/comparison" element={<HealthComparison />} />
         <Route path="/appointment" element={<AppointmentPage />} />
+        <Route path="/backoffice" element={<AdminEmbeddingPage />} />
+        <Route path="/backoffice/embedding" element={<AdminEmbeddingPage />} />
         {/* <Route path="/kindhait" element={<RagTestPage />} /> */}
         <Route path="/health-comparison" element={<HealthComparison />} />
         <Route path="*" element={<Navigate to="/" replace />} />

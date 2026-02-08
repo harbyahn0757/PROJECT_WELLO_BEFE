@@ -19,6 +19,7 @@ from .api.v1.endpoints import (
     websocket_auth,
     welno_data,
     file_management,
+    embedding_management,
     health_analysis,
     password,
     sync,
@@ -72,6 +73,7 @@ app.include_router(checkup_design.router, prefix="/api/v1/checkup-design", tags=
 app.include_router(welno_data.router, prefix="/api/v1/welno", tags=["welno"])
 app.include_router(welno_unified_status.router, prefix="/api/v1/welno", tags=["welno-unified-status"])
 app.include_router(file_management.router, prefix="/api/v1/admin", tags=["admin"])
+app.include_router(embedding_management.router, prefix="/api/v1/admin", tags=["admin-embedding"])
 app.include_router(password.router, prefix="/api/v1", tags=["password"])
 app.include_router(health_analysis.router, prefix="/api/v1/health-analysis", tags=["health-analysis"])
 app.include_router(sync.router, prefix="/api/v1", tags=["sync"])
@@ -95,6 +97,7 @@ app.include_router(checkup_design.router, prefix="/welno-api/v1/checkup-design",
 app.include_router(welno_data.router, prefix="/welno-api/v1/welno", tags=["welno-welno"])
 app.include_router(welno_unified_status.router, prefix="/welno-api/v1/welno", tags=["welno-unified-status-welno"])
 app.include_router(file_management.router, prefix="/welno-api/v1/admin", tags=["admin-welno"])
+app.include_router(embedding_management.router, prefix="/welno-api/v1/admin", tags=["admin-embedding-welno"])
 app.include_router(password.router, prefix="/welno-api/v1", tags=["password-welno"])
 app.include_router(health_analysis.router, prefix="/welno-api/v1/health-analysis", tags=["health-analysis-welno"])
 app.include_router(sync.router, prefix="/welno-api/v1", tags=["sync-welno"])

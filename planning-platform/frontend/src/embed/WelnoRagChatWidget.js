@@ -313,25 +313,49 @@ class WelnoRagChatWidget {
         background: rgba(255, 255, 255, 0.1);
       }
 
-      /* 웰컴 버블 - 파트너 화면 너비의 80% 기준 줄바꿈 */
+      /* 웰컴 버블 - 뷰포트 기준 고정 위치로 가로 너비 활용 (!important 추가로 강제 적용) */
       .${this.cssPrefix}-welcome-bubble {
-        position: absolute;
-        bottom: 70px;
-        right: 0;
-        background: white;
-        padding: 12px 18px;
-        border-radius: 16px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        border: 1px solid #7B5E4F;
-        max-width: 80vw;
-        white-space: normal;
-        word-break: keep-all;
+        position: fixed !important;
+        background: white !important;
+        padding: 12px 18px !important;
+        border-radius: 16px !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
+        border: 1px solid #7B5E4F !important;
+        width: max-content !important;
+        min-width: 240px !important;
+        max-width: min(80vw, 320px) !important;
+        white-space: normal !important;
+        word-break: normal !important;
         opacity: 0;
         transform: translateY(10px);
         transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         pointer-events: none;
         cursor: pointer;
-        z-index: 9998;
+        z-index: 9998 !important;
+      }
+      .${this.cssPrefix}-container.position-bottom-right .${this.cssPrefix}-welcome-bubble {
+        right: 24px !important;
+        bottom: 96px !important;
+        left: auto !important;
+        top: auto !important;
+      }
+      .${this.cssPrefix}-container.position-bottom-left .${this.cssPrefix}-welcome-bubble {
+        left: 24px !important;
+        bottom: 96px !important;
+        right: auto !important;
+        top: auto !important;
+      }
+      .${this.cssPrefix}-container.position-top-right .${this.cssPrefix}-welcome-bubble {
+        right: 24px !important;
+        top: 96px !important;
+        bottom: auto !important;
+        left: auto !important;
+      }
+      .${this.cssPrefix}-container.position-top-left .${this.cssPrefix}-welcome-bubble {
+        left: 24px !important;
+        top: 96px !important;
+        right: auto !important;
+        bottom: auto !important;
       }
 
       .${this.cssPrefix}-welcome-bubble.visible {
@@ -373,7 +397,8 @@ class WelnoRagChatWidget {
       }
       @media (max-width: 480px) {
         .${this.cssPrefix}-welcome-bubble {
-          max-width: 80vw;
+          min-width: 200px;
+          max-width: min(80vw, 320px);
         }
       }
 
