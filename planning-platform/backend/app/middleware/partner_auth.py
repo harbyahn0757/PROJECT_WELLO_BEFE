@@ -210,7 +210,7 @@ async def verify_domain_whitelist(referer: str, allowed_domains: list, partner_i
                 break
         
         if not domain_allowed:
-            logger.warning(f"[도메인 검증] 허용되지 않은 도메인 - {partner_id}: {domain}")
+            logger.warning(f"[도메인 검증] 허용되지 않은 도메인 - {partner_id}: domain={domain} | referer={referer}")
             raise HTTPException(
                 status_code=403,
                 detail=f"허용되지 않은 도메인에서의 요청입니다: {domain}"
@@ -231,14 +231,45 @@ def get_partner_from_request(request: Request) -> Optional[PartnerAuthInfo]:
     return getattr(request.state, 'partner', None)
 
 
+# 일반 웰노 도메인 (API Key 없이 채팅 허용)
+WELNO_ALLOWED_REFERER_HOSTS = ("welno.kindhabit.com", "welno.xog.co.kr")
+
+
 async def verify_partner_api_key_optional(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ) -> Optional[PartnerAuthInfo]:
     """
-    선택적 파트너 API Key 검증 (실패해도 요청 진행)
+    선택적 파트너 API Key 검증.
+    - API Key 있으면: 파트너로 검증 후 PartnerAuthInfo 반환.
+    - API Key 없으면: Referer가 welno 도메인(welno.kindhabit.com, welno.xog.co.kr)일 때만 None 반환(일반 웰노 모드), 아니면 401.
     """
+    api_key = None
+    if credentials and credentials.credentials:
+        api_key = credentials.credentials
+    if not api_key:
+        api_key = request.headers.get("X-API-Key")
+
+    if api_key:
+        try:
+            return await verify_partner_api_key(request, credentials)
+        except HTTPException:
+            raise
+
+    # API Key 없음 → Referer가 welno 도메인일 때만 통과 (일반 웰노 채팅)
+    referer = request.headers.get("referer") or request.headers.get("Referer") or ""
     try:
-        return await verify_partner_api_key(request, credentials)
-    except HTTPException:
-        return None
+        from urllib.parse import urlparse
+        parsed = urlparse(referer)
+        host = (parsed.netloc or "").lower().split(":")[0]
+        if host in WELNO_ALLOWED_REFERER_HOSTS:
+            logger.info(f"[파트너 인증] API Key 없음, Welno 도메인 허용 - Referer host: {host}")
+            return None
+    except Exception as e:
+        logger.warning(f"[파트너 인증] Referer 파싱 실패: {e}")
+
+    logger.warning(f"[파트너 인증] API Key 없음, Welno 도메인 아님 - Referer: {referer[:80]}")
+    raise HTTPException(
+        status_code=401,
+        detail="API Key가 필요합니다. Authorization 헤더 또는 X-API-Key 헤더에 포함해주세요."
+    )

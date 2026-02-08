@@ -1,5 +1,11 @@
 # raw_agr_list vs mdx_agr_list 필드 비교 및 매핑 요약
 
+**생성일**: 2026-01-10  
+**작업일자**: 2026-01-10  
+**작업내용**: raw_agr_list와 mdx_agr_list 필드 비교 및 매핑 요약
+
+---
+
 ## 필드 매핑 테이블
 
 | raw_agr_list | mdx_agr_list | 매핑 방식 | 비고 |

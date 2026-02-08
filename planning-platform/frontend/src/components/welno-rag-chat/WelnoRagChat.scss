@@ -154,7 +154,7 @@
           border-radius: 12px;
           border: 1px solid rgba(123, 94, 79, 0.1);
           box-shadow: 0 2px 6px rgba(0,0,0,0.02);
-          
+
           .sources-title {
             font-size: 11px;
             font-weight: 700;
@@ -188,6 +188,40 @@
 
               &:last-child { border-bottom: none; }
               &:hover { color: #7B5E4F; }
+            }
+          }
+
+          /* 아코디언: 기본 접힌 상태 */
+          &.message-sources--accordion {
+            .sources-title {
+              margin-bottom: 0;
+              width: 100%;
+              justify-content: space-between;
+              padding: 4px 0;
+              cursor: pointer;
+              border: none;
+              background: none;
+              text-align: left;
+              font: inherit;
+            }
+            .sources-chevron {
+              font-size: 10px;
+              color: #8B6F5E;
+              display: inline-block;
+              transition: transform 0.2s;
+              transform: rotate(-90deg); /* 접힌 상태: 오른쪽 ▶ */
+            }
+            &.is-open .sources-chevron {
+              transform: rotate(0deg); /* 펼친 상태: 아래 ▼ */
+            }
+            .sources-list {
+              max-height: 0;
+              overflow: hidden;
+              transition: max-height 0.2s ease-out;
+            }
+            &.is-open .sources-list {
+              max-height: 500px;
+              margin-top: 8px;
             }
           }
         }

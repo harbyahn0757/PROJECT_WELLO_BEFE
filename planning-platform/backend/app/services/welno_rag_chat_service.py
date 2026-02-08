@@ -473,7 +473,11 @@ class WelnoRagChatService:
                         stage_instruction += (
                             "\n\n**파트너 위젯 모드**: (1) 검진 결과 설명·해석에 집중하고, 자료 대비 비교보다는 '이 검진에서 무엇이 중요한지'를 읽어주는 데 초점을 맞추세요. "
                             "(2) ###, * 목록 같은 긴 보고서 형식은 쓰지 말고, 짧은 문단과 줄바꿈으로 읽기 쉽게 답하세요. "
-                            "(3) 강조는 **단어**처럼 짧게만 사용하세요."
+                            "(3) 강조는 **단어**처럼 짧게만 사용하세요.\n"
+                            "**클라이언트(결과지) 우선**: [Context]의 '파트너 제공 검진 데이터'에 있는 *_abnormal(판정), *_range(정상범위)가 참고 문헌(RAG)보다 우선합니다. "
+                            "클라이언트 판정과 참고 문헌이 크게 다르면, 답변에서 '이런 부분은 주의 깊게 봐야 해요' 정도로 짧게 언급하고, '검진 받으신 병원에도 한 번 여쭤보시면 좋겠어요'처럼 부드럽게 병원 문의를 권한 뒤, 반드시 답변 안에 정확히 한 번만 [CLIENT_RAG_DISCREPANCY] 를 포함하세요.\n"
+                            "**출처 명시**: '표준에 따르면', '가이드라인에 따르면', '다른 사항은 이렇다' 등으로 말할 때는 반드시 [Context]에 있는 참고 문헌의 정확한 출처(문서명 등)를 밝리세요. 벡터 데이터가 있을 때만 그렇게 서술하세요.\n"
+                            "**위험 소견**: 위험하거나 확정적인 의견은 삼가고, 어려운 부분은 '진료받신 병원에 연락해 상세한 답변을 듣는 것'을 유도하세요."
                         )
                     logger.info(f"🔍 [PNT] 최종 chat_stage: {chat_stage}")
                     
@@ -596,16 +600,23 @@ class WelnoRagChatService:
                     full_answer += chunk
                     display_chunk = chunk
                     
+                    # [CLIENT_RAG_DISCREPANCY] 파트너 전용: 태그는 클라이언트에 노출하지 않음
+                    if "[CLIENT_RAG_DISCREPANCY]" in full_answer:
+                        display_chunk = ""
+                    elif "[CLIENT_RAG" in full_answer:
+                        display_chunk = ""  # 태그 구성 중인 청크는 전부 숨김
+                    elif "[CLIENT_RAG_DISCREPANCY]" in chunk:
+                        display_chunk = chunk.split("[CLIENT_RAG_DISCREPANCY]")[0]
+                    elif "[CLIENT_RAG" in chunk:
+                        display_chunk = chunk.split("[CLIENT_RAG")[0]
                     # [SUGGESTIONS] 태그 및 불완전한 [SUGGEST 태그 감지
-                    if "[SUGGESTIONS]" in full_answer and "[SUGGESTIONS]" in chunk:
+                    elif "[SUGGESTIONS]" in full_answer and "[SUGGESTIONS]" in chunk:
                         display_chunk = chunk.split("[SUGGESTIONS]")[0]
                     elif "[SUGGESTIONS]" in full_answer:
                         display_chunk = ""
                     elif "[SUGGEST" in full_answer and "[SUGGEST" in chunk:
-                        # 불완전한 태그가 chunk에 포함된 경우
                         display_chunk = chunk.split("[SUGGEST")[0]
                     elif "[SUGGEST" in full_answer:
-                        # 불완전한 태그가 이미 full_answer에 있는 경우 더 이상 출력하지 않음
                         display_chunk = ""
                         
                     if display_chunk:
@@ -615,6 +626,28 @@ class WelnoRagChatService:
                 gemini_time = time.time() - gemini_start
                 logger.info(f"⏱️  [RAG 채팅] Gemini API 응답 생성: {gemini_time:.3f}초")
                 logger.info(f"📝 [RAG 채팅] 최종 답변 길이: {len(full_answer)}자")
+                
+                # 파트너 위젯: 클라이언트 vs RAG 불일치 태그 제거 후 Slack 알림
+                had_rag_discrepancy = "[CLIENT_RAG_DISCREPANCY]" in full_answer
+                full_answer = full_answer.replace("[CLIENT_RAG_DISCREPANCY]", "").strip()
+                if is_partner_session and had_rag_discrepancy:
+                    try:
+                        from ..core.config import settings
+                        from .slack_service import SlackService
+                        if getattr(settings, "slack_enabled", False) and getattr(settings, "slack_webhook_url", None):
+                            async with SlackService(
+                                settings.slack_webhook_url,
+                                getattr(settings, "slack_channel_id", "C0ADYBAN9PA")
+                            ) as slack:
+                                await slack.send_rag_discrepancy_alert({
+                                    "session_id": session_id,
+                                    "uuid": uuid,
+                                    "hospital_id": hospital_id,
+                                    "message_preview": message[:200] if message else None
+                                })
+                            logger.info("📋 [파트너 RAG] 클라이언트-RAG 불일치 Slack 알림 전송")
+                    except Exception as slack_err:
+                        logger.warning(f"⚠️ [파트너 RAG] Slack 알림 전송 실패: {slack_err}")
                 
                 # 불완전한 태그 제거 (정규식으로 [SUGGEST로 시작하는 모든 패턴 제거)
                 full_answer = re.sub(r'\[SUGGEST[^\]]*\]?.*', '', full_answer, flags=re.DOTALL).strip()

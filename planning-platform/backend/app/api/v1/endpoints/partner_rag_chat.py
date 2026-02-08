@@ -62,6 +62,12 @@ async def warmup_partner_session(
     위젯 로드 시 세션 웜업 및 개인화된 인사말 생성
     """
     client_ip = http_request.client.host if http_request else "unknown"
+    referer = (http_request.headers.get("referer") or http_request.headers.get("origin") or "").strip() or None if http_request else None
+
+    # 위젯 모드 점검: 병원 ID 수신 여부 로그
+    logger.info(
+        f"🟢 [파트너 RAG API] 웜업 요청(위젯) partner_id={partner_info.partner_id} uuid={request.uuid} hospital_id={request.hospital_id}"
+    )
     
     try:
         # 보안 세션 ID 생성
@@ -88,14 +94,14 @@ async def warmup_partner_session(
             partner_health_data=partner_health_data
         )
         
-        # 감사 로그
+        # 감사 로그 (위젯 모드 점검: hospital_id 포함)
         log_partner_access(
             partner_id=partner_info.partner_id,
             action="warmup",
             session_id=session_id,
             client_ip=client_ip,
             success=True,
-            additional_info={"uuid": request.uuid}
+            additional_info={"uuid": request.uuid, "hospital_id": request.hospital_id, "referer": referer}
         )
         
         return {
@@ -136,6 +142,7 @@ async def send_partner_message(
     Authorization 헤더 또는 X-API-Key 헤더에 파트너 API Key를 포함해야 합니다.
     """
     client_ip = http_request.client.host if http_request else "unknown"
+    referer = (http_request.headers.get("referer") or http_request.headers.get("origin") or "").strip() or None if http_request else None
     
     try:
         # 보안 강화된 세션 ID 생성
@@ -146,7 +153,9 @@ async def send_partner_message(
             existing_session_id=request.session_id
         )
         
-        logger.info(f"📨 [파트너 RAG API] 메시지 요청 - {partner_info.partner_id}: {request.message[:50]}...")
+        logger.info(
+            f"📨 [파트너 RAG API] 메시지 요청 partner_id={partner_info.partner_id} hospital_id={request.hospital_id} msg={request.message[:50]}..."
+        )
         
         # 감사 로그 기록
         log_partner_access(
@@ -158,7 +167,8 @@ async def send_partner_message(
             additional_info={
                 "uuid": request.uuid,
                 "hospital_id": request.hospital_id,
-                "has_health_data": bool(request.health_data)
+                "has_health_data": bool(request.health_data),
+                "referer": referer
             }
         )
         
@@ -200,7 +210,7 @@ async def send_partner_message(
             session_id=session_id if 'session_id' in locals() else "unknown",
             client_ip=client_ip,
             success=False,
-            additional_info={"error": str(e)}
+            additional_info={"error": str(e), "referer": referer}
         )
         
         raise HTTPException(status_code=500, detail=str(e))
@@ -287,8 +297,11 @@ async def send_partner_message_legacy(request: Request):
             hospital_id=hospital_id,
             existing_session_id=session_id
         )
-        
-        logger.info(f"📨 [파트너 RAG API Legacy] 메시지 요청 - {partner_info.partner_id}: {message[:50]}...")
+
+        # 위젯 모드 점검: 병원 ID 수신 여부 로그 (Legacy 경로)
+        logger.info(
+            f"📨 [파트너 RAG API Legacy] 메시지 요청 partner_id={partner_info.partner_id} hospital_id={hospital_id} msg={message[:50]}..."
+        )
         
         # 스트리밍 응답 생성
         return StreamingResponse(
@@ -330,6 +343,7 @@ async def get_partner_session_info(
     파트너 세션 정보 조회 (보안 강화)
     """
     client_ip = http_request.client.host if http_request else "unknown"
+    referer = (http_request.headers.get("referer") or http_request.headers.get("origin") or "").strip() or None if http_request else None
     
     try:
         session_metadata = partner_rag_service.get_partner_session_metadata(request.session_id)
@@ -342,7 +356,7 @@ async def get_partner_session_info(
                 session_id=request.session_id,
                 client_ip=client_ip,
                 success=False,
-                additional_info={"error": "session_not_found"}
+                additional_info={"error": "session_not_found", "referer": referer}
             )
             raise HTTPException(
                 status_code=404,
@@ -358,7 +372,7 @@ async def get_partner_session_info(
                 session_id=request.session_id,
                 client_ip=client_ip,
                 success=False,
-                additional_info={"error": "unauthorized_access", "session_owner": session_metadata.get("partner_id")}
+                additional_info={"error": "unauthorized_access", "session_owner": session_metadata.get("partner_id"), "referer": referer}
             )
             raise HTTPException(
                 status_code=403,
@@ -371,7 +385,8 @@ async def get_partner_session_info(
             action="get_session_info",
             session_id=request.session_id,
             client_ip=client_ip,
-            success=True
+            success=True,
+            additional_info={"referer": referer}
         )
         
         return {

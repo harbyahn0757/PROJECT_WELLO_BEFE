@@ -28,6 +28,7 @@ class AlertType(str, Enum):
     REPORT_FAILED = "report_failed"
     SYSTEM_ERROR = "system_error"
     API_ERROR = "api_error"
+    RAG_DISCREPANCY = "rag_discrepancy"  # 파트너 위젯: 클라이언트 판정과 RAG 참고문헌 간 큰 차이
 
 
 class SlackColor(str, Enum):
@@ -129,6 +130,11 @@ class SlackService:
                 "emoji": "⚠",
                 "title": "API 에러",
                 "color": SlackColor.DANGER
+            },
+            AlertType.RAG_DISCREPANCY: {
+                "emoji": "📋",
+                "title": "파트너 RAG 불일치",
+                "color": SlackColor.WARNING
             }
         }
         return configs.get(alert_type, {
@@ -293,6 +299,36 @@ class SlackService:
             ]
         )
         
+        return await self._send_message(message)
+    
+    async def send_rag_discrepancy_alert(self, data: Dict[str, Any]) -> bool:
+        """
+        파트너 위젯 RAG 불일치 알림 (클라이언트 판정 vs 참고문헌 차이 큼)
+        
+        Args:
+            data: session_id, uuid, hospital_id, message_preview(선택)
+        """
+        config = self._get_alert_config(AlertType.RAG_DISCREPANCY)
+        fields = [
+            SlackField(title="세션", value=data.get("session_id", "N/A")[:16], short=True),
+            SlackField(title="사용자", value=data.get("uuid", "N/A")[:8], short=True),
+            SlackField(title="병원/파트너", value=str(data.get("hospital_id", "N/A")), short=True),
+            SlackField(title="설명", value="클라이언트(결과지) 판정과 RAG 참고문헌 간 차이가 커서 확인이 필요합니다.", short=False)
+        ]
+        if data.get("message_preview"):
+            fields.append(SlackField(title="질문 일부", value=str(data["message_preview"])[:200], short=False))
+        message = SlackMessage(
+            channel=self.channel_id,
+            text=f"{config['emoji']} {config['title']}",
+            attachments=[
+                SlackAttachment(
+                    color=config["color"],
+                    fields=fields,
+                    footer="WELNO 파트너 RAG",
+                    ts=int(datetime.now().timestamp())
+                )
+            ]
+        )
         return await self._send_message(message)
     
     async def _send_message(self, message: SlackMessage) -> bool:

@@ -1,15 +1,29 @@
 # 스크립트 가이드
 
-이 폴더는 프로젝트의 테스트 및 유틸리티 스크립트를 포함합니다.
+**생성일**: 2026-01-25  
+**작업일자**: 2026-02-08  
+**작업내용**: 테스트·유틸리티 스크립트 통합 가이드 (사용법 정리)
+
+이 폴더는 프로젝트의 **테스트·유틸리티 스크립트**를 한곳에 모아 두었습니다.  
+백엔드 전용 스크립트(환자/DB/검진 관리)는 `planning-platform/backend/scripts/`를 참조하세요.
 
 ---
 
 ## 📂 폴더 구조
 
 ```
-scripts/
-├── test_scripts/          # 테스트 스크립트
-└── utility_scripts/       # 유틸리티 스크립트
+docs/scripts/
+├── test_scripts/          # API·성능·리포트 테스트
+│   ├── test_checkup_design_*.py   # 검진 설계 API/성능
+│   ├── test_rag_*.py              # RAG 테스트
+│   ├── test_report_download.py    # 리포트 다운로드 API (통합)
+│   ├── verify_report_system.py   # 리포트 시스템 검증 (Redis·DB·API)
+│   ├── twobecon_report_example.py # 투비콘 레포트 API 예제
+│   └── find_test_patient.py       # 테스트 환자 검색
+├── utility_scripts/      # 유틸리티
+│   ├── check_mediarc_reports.py   # Mediarc 리포트 DB 조회
+│   └── test_decryption.py         # 암호화/복호화 테스트
+└── README.md             # 이 파일
 ```
 
 ---
@@ -171,43 +185,78 @@ python docs/scripts/test_scripts/test_checkup_design_api.py
 #### `find_test_patient.py`
 **목적**: 테스트용 환자 데이터 검색
 
-**기능**:
-- 데이터베이스에서 환자 검색
-- UUID로 환자 정보 조회
-- 테스트 데이터 준비
+**사용법**:
+```bash
+cd /home/workspace/PROJECT_WELNO_BEFE
+python docs/scripts/test_scripts/find_test_patient.py [--uuid UUID] [--name 이름]
+```
+
+---
+
+### 리포트·Mediarc 테스트
+
+#### `test_report_download.py` (통합)
+**목적**: 리포트 다운로드 API 테스트 (정상 + 에러 케이스)
 
 **사용법**:
 ```bash
 cd /home/workspace/PROJECT_WELNO_BEFE
-python docs/scripts/test_scripts/find_test_patient.py
+# 종합 테스트 (정상 + 404 UUID + 잘못된 hospital_id)
+python docs/scripts/test_scripts/test_report_download.py
+
+# 기본만 (다운로드 + 파일 저장)
+python docs/scripts/test_scripts/test_report_download.py --quick
+
+# API URL 지정
+python docs/scripts/test_scripts/test_report_download.py --base-url http://localhost:8082
 ```
 
-**옵션**:
-- `--uuid`: 특정 환자 UUID 검색
-- `--name`: 환자 이름으로 검색
+**요구사항**: DB 연결(환경 변수 또는 `planning-platform/backend/.env.local`), API 서버 실행
+
+---
+
+#### `verify_report_system.py`
+**목적**: 리포트 시스템 전반 검증 (Redis, DB 리포트 URL, API)
+
+**사용법**:
+```bash
+cd /home/workspace/PROJECT_WELNO_BEFE
+python docs/scripts/test_scripts/verify_report_system.py
+```
+또는 백엔드 디렉터리에서:
+```bash
+cd planning-platform/backend
+python ../../../docs/scripts/test_scripts/verify_report_system.py
+```
+
+**출력**: Redis 연결, 최근 5건 리포트 URL 유효성, Health/Mediarc API 상태
+
+---
+
+#### `twobecon_report_example.py`
+**목적**: 투비콘(Mediarc) 레포트 생성·다운로드 API 사용 예제
+
+**사용법**:
+```bash
+cd /home/workspace/PROJECT_WELNO_BEFE
+python docs/scripts/test_scripts/twobecon_report_example.py
+```
 
 ---
 
 ## 🛠️ 유틸리티 스크립트 (utility_scripts/)
 
-### `delete_ahn_kwangsu_data.py`
-**목적**: 테스트 환자 "안광수" 데이터 삭제
-
-**기능**:
-- 안광수 테스트 데이터 완전 삭제
-- 관련 테이블 정리
-- 안전한 삭제 확인
+### `check_mediarc_reports.py`
+**목적**: DB에 저장된 Mediarc 리포트 목록 조회
 
 **사용법**:
 ```bash
 cd /home/workspace/PROJECT_WELNO_BEFE
-python docs/scripts/utility_scripts/delete_ahn_kwangsu_data.py
+python docs/scripts/utility_scripts/check_mediarc_reports.py
+python docs/scripts/utility_scripts/check_mediarc_reports.py --limit 20
 ```
 
-**⚠️ 주의**:
-- 프로덕션 데이터베이스에서 실행 금지
-- 삭제 전 백업 권장
-- 실행 전 환경 확인 필수
+**환경**: `DB_*` 환경 변수 또는 `planning-platform/backend/.env.local`
 
 ---
 
@@ -280,7 +329,37 @@ uvicorn app.main:app --reload --port 8082
 
 ### "테스트 데이터를 관리하고 싶다면"
 1. **환자 찾기**: `find_test_patient.py`
-2. **데이터 삭제**: `delete_ahn_kwangsu_data.py`
+2. **데이터 삭제**: 백엔드 통합 스크립트 사용 — `planning-platform/backend/scripts/managers/delete_manager.py` (테스트 데이터/특정 환자/건강데이터만 삭제 등)
+
+---
+
+## 📁 프로젝트 루트 scripts/ (실행용)
+
+프로젝트 루트의 `scripts/` 폴더에는 **서버·배포 실행 스크립트**만 두었습니다.
+
+| 스크립트 | 용도 |
+|----------|------|
+| `scripts/backend/start_wello.sh` | 웰로 백엔드 시작 |
+| `scripts/frontend/frontend_dev.sh` | 프론트엔드 개발 서버 |
+| `scripts/deploy_improved.sh` | 배포 스크립트 |
+
+**테스트·유틸** Python 스크립트는 모두 `docs/scripts/`로 통합되어 있습니다.
+
+---
+
+## 📁 백엔드 전용 스크립트 (planning-platform/backend/scripts/)
+
+환자·DB·검진 항목 관리 등 백엔드 운영용 스크립트는 아래 경로를 사용합니다.
+
+| 폴더 | 용도 |
+|------|------|
+| `managers/` | 환자 조회(`patient_manager.py`), 삭제(`delete_manager.py`, `delete_all_users.py`) |
+| `database/` | DB 스키마 확인, 마이그레이션, 벡터 DB 재구축 등 |
+| `checkup/` | 검진 항목 관리, 병원별 매핑 |
+| `dev-tools/` | 디버그·쿼리/함수 확인 |
+| `archive/` | 일회성·폐기 대상 스크립트 |
+
+**상세 사용법**: [planning-platform/backend/scripts/README.md](../../planning-platform/backend/scripts/README.md)
 
 ---
 
@@ -355,8 +434,8 @@ if __name__ == "__main__":
 
 - [문서 인덱스](../INDEX.md)
 - [성능 개선 보고서](../2026-01-13_검진설계_성능개선/README.md)
-- [RAG API 가이드](../RAG_API_구축_가이드.md)
+- [RAG API 가이드](../참조/기술/RAG_API_구축_가이드.md)
 
 ---
 
-*이 가이드는 프로젝트 문서 정리 작업(2026-01-25)의 일환으로 생성되었습니다.*
+*이 가이드는 2026-02-08 스크립트 통합·고도화 시 사용법을 갱신하였습니다.*

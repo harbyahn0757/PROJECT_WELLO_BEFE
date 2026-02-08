@@ -1,5 +1,9 @@
 # 🏥 Welno RAG Chat 파트너 통합 완전 가이드
 
+**생성일**: 2026-02-07  
+**작업일자**: 2026-02-07  
+**작업내용**: Welno RAG Chat 파트너 통합 완전 가이드 (운영·API·위젯)
+
 > **실제 운영 환경**: `welno.kindhabit.com` | **최종 업데이트**: 2026년 2월 7일
 
 ---
@@ -97,24 +101,26 @@ graph TB
     <h1>MediLinx 건강 관리 서비스</h1>
     
     <!-- Welno RAG Chat Widget -->
-    <script src="https://welno.kindhabit.com/static/welno-rag-chat-widget.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const widget = new WelnoRagChatWidget({
-                apiKey: '5a9bb40b5108ecd8ef864658d5a2d5ab',
-                baseUrl: 'https://welno.kindhabit.com',
-                uuid: 'medilinx_' + Date.now(),
-                hospitalId: 'medilinx_clinic',
-                
-                // MediLinx 브랜딩
-                position: 'bottom-right',
-                buttonColor: '#2E7D32',
-                theme: 'light',
-                welcomeMessage: '안녕하세요! MediLinx 건강 상담 서비스입니다. 궁금한 점을 물어보세요. 🏥'
-            });
-            
-            widget.init();
-        });
+        (function() {
+            var script = document.createElement('script');
+            script.src = "https://welno.kindhabit.com/welno-api/static/welno-rag-chat-widget.min.js";
+            script.async = true;
+            script.onload = function() {
+                const widget = new WelnoRagChatWidget({
+                    apiKey: '5a9bb40b5108ecd8ef864658d5a2d5ab',
+                    baseUrl: 'https://welno.kindhabit.com',
+                    uuid: 'medilinx_' + Date.now(),
+                    hospitalId: 'medilinx_clinic',
+                    position: 'bottom-right',
+                    buttonColor: '#2E7D32',
+                    theme: 'light',
+                    welcomeMessage: '안녕하세요! MediLinx 건강 상담 서비스입니다. 궁금한 점을 물어보세요. 🏥'
+                });
+                widget.init();
+            };
+            document.body.appendChild(script);
+        })();
     </script>
 </body>
 </html>
@@ -131,13 +137,13 @@ graph TB
 - **메인 도메인**: `welno.kindhabit.com`
 - **프로토콜**: HTTPS (HTTP는 자동 리다이렉트)
 - **파트너 API 엔드포인트**: `https://welno.kindhabit.com/welno-api/v1/rag-chat/partner/message`
-- **위젯 스크립트 경로**: `https://welno.kindhabit.com/static/welno-rag-chat-widget.min.js`
+- **위젯 스크립트 경로**: `https://welno.kindhabit.com/welno-api/static/welno-rag-chat-widget.min.js`
 
 ### NGINX 설정 현황
 - **SSL 인증서**: Let's Encrypt 적용 완료
 - **라우팅**: Referer 기반 동적 라우팅 (기본: 8082 포트)
 - **보안 헤더**: CSP, HSTS, X-Frame-Options 설정 완료
-- **정적 파일**: `/static/` 경로로 직접 서빙
+- **정적 파일**: `/welno-api/static/` 경로로 직접 서빙 (추천)
 
 ### API 테스트 결과
 - ✅ HTTPS 접속 정상
@@ -163,6 +169,7 @@ graph TB
 |------|------|--------|------|
 | `position` | string | `'bottom-right'` | 위젯 위치 (`'bottom-left'`, `'top-right'`, `'top-left'`) |
 | `buttonColor` | string | `'#A69B8F'` | 채팅 버튼 색상 (HEX 코드) |
+| `chatIconUrl` | string | (없음, 기본 말풍선 아이콘) | **채팅 아이콘 이미지 URL** – 파트너가 지정한 이미지를 우측 하단 채팅 버튼에 사용 (권장: 24×24 또는 정사각형, PNG/SVG). **MediLinx** API Key 사용 시 미지정이면 메디링스 전용 아이콘(`mdx_icon.png`)이 자동 적용됩니다. |
 | `theme` | string | `'default'` | UI 테마 (`'light'`, `'dark'`, `'custom'`) |
 | `autoOpen` | boolean | `false` | 페이지 로드 시 자동으로 채팅창 열기 |
 | `welcomeMessage` | string | 기본 메시지 | 채팅창을 열 때 표시할 환영 메시지 |
@@ -180,6 +187,7 @@ const welnoChat = new WelnoRagChatWidget({
     // UI 커스터마이징
     position: 'bottom-left',
     buttonColor: '#2E7D32',
+    chatIconUrl: 'https://your-cdn.com/chat-icon.png', // 파트너 지정 채팅 아이콘 (선택)
     theme: 'light',
     autoOpen: false,
     welcomeMessage: '안녕하세요! 건강에 대해 궁금한 점을 물어보세요. 🏥',
@@ -336,9 +344,11 @@ partnerData: {
 
 #### 1. 파트너 상태 확인
 ```http
-GET /api/v1/rag-chat/partner/status
+GET /welno-api/v1/rag-chat/partner/status
 X-API-Key: YOUR_API_KEY
 ```
+**전체 URL 예**: `https://welno.kindhabit.com/welno-api/v1/rag-chat/partner/status`  
+(외부/위젯 호출 시에는 반드시 `baseUrl` + `/welno-api/v1/rag-chat/...` 사용)
 
 **응답 예시**:
 ```json
@@ -360,10 +370,11 @@ X-API-Key: YOUR_API_KEY
 
 #### 2. 채팅 메시지 전송
 ```http
-POST /api/v1/rag-chat/partner/message
+POST /welno-api/v1/rag-chat/partner/message
 X-API-Key: YOUR_API_KEY
 Content-Type: application/json
 ```
+**전체 URL 예**: `https://welno.kindhabit.com/welno-api/v1/rag-chat/partner/message`
 
 **요청 본문 (MediLinx 예제)**:
 ```json
@@ -392,10 +403,11 @@ Content-Type: application/json
 
 #### 3. 세션 정보 조회
 ```http
-POST /api/v1/rag-chat/partner/session/info
+POST /welno-api/v1/rag-chat/partner/session/info
 X-API-Key: YOUR_API_KEY
 Content-Type: application/json
 ```
+**전체 URL 예**: `https://welno.kindhabit.com/welno-api/v1/rag-chat/partner/session/info`
 
 **요청 본문**:
 ```json
@@ -436,41 +448,40 @@ curl -X POST "https://welno.kindhabit.com/welno-api/v1/rag-chat/partner/message"
 
 ## 🎨 위젯 커스터마이징
 
-### CSS 변수를 통한 스타일링
+### CSS 클래스명 (실제 위젯 클래스)
 
-위젯은 CSS 변수를 사용하여 쉽게 커스터마이징할 수 있습니다:
+위젯은 네임스페이스 `welno-rag-widget`을 사용합니다. 오버라이드 시 아래 클래스명을 사용하세요:
 
 ```css
-/* 위젯 스타일 커스터마이징 */
-:root {
-    --welno-primary-color: #2E7D32;
-    --welno-secondary-color: #4CAF50;
-    --welno-text-color: #333333;
-    --welno-background-color: #ffffff;
-    --welno-border-radius: 12px;
-    --welno-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-    --welno-font-family: 'Noto Sans KR', sans-serif;
-}
+/* 채팅 버튼 */
+.welno-rag-widget-button { ... }
 
-/* 채팅 버튼 커스터마이징 */
-.welno-chat-button {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3) !important;
-}
+/* 채팅창 */
+.welno-rag-widget-window { ... }
 
-/* 채팅창 헤더 커스터마이징 */
-.welno-chat-header {
-    background: var(--welno-primary-color) !important;
-    color: white !important;
-}
+/* 채팅창 헤더 */
+.welno-rag-widget-header { ... }
+
+/* 닫기 버튼 */
+.welno-rag-widget-close-button { ... }
+
+/* 메시지 영역 */
+.welno-rag-widget-messages { ... }
+.welno-rag-widget-message-bubble { ... }
+
+/* 입력 영역 */
+.welno-rag-widget-input-area { ... }
+.welno-rag-widget-send-button { ... }
 ```
+
+(위젯은 현재 CSS 변수로 테마를 노출하지 않습니다. 버튼 색상은 `buttonColor` 옵션으로 지정하세요.)
 
 ### 반응형 디자인
 
 ```css
-/* 모바일 최적화 */
+/* 모바일 최적화 (실제 클래스명: welno-rag-widget-window) */
 @media (max-width: 768px) {
-    .welno-chat-window {
+    .welno-rag-widget-window {
         width: 100% !important;
         height: 100% !important;
         border-radius: 0 !important;
@@ -531,9 +542,9 @@ curl -X POST "https://welno.kindhabit.com/welno-api/v1/rag-chat/partner/message"
 
 2. **API 연결 테스트**
    ```bash
-   # 파트너 상태 확인
+   # 파트너 상태 확인 (외부 호출 시 welno-api 경로 사용)
    curl -H "X-API-Key: YOUR_API_KEY" \
-        "https://welno.kindhabit.com/api/v1/rag-chat/partner/status"
+        "https://welno.kindhabit.com/welno-api/v1/rag-chat/partner/status"
    ```
 
 3. **채팅 기능 테스트**
@@ -542,7 +553,7 @@ curl -X POST "https://welno.kindhabit.com/welno-api/v1/rag-chat/partner/message"
    - 스트리밍 응답 확인
    - 세션 유지 확인
 
-### 디버깅 모드
+### 디버깅 및 오류 처리
 
 ```javascript
 const welnoChat = new WelnoRagChatWidget({
@@ -551,12 +562,9 @@ const welnoChat = new WelnoRagChatWidget({
     uuid: 'test_user',
     hospitalId: 'test_hospital',
     
-    // 디버그 모드 활성화
-    debug: true,
-    
+    // 오류 시 상세 로그 (위젯에는 debug 옵션 없음, onError로 처리)
     onError: function(error) {
         console.error('Welno 위젯 오류:', error);
-        console.error('Error details:', error.details);
     }
 });
 ```
@@ -604,8 +612,8 @@ Access to fetch at 'https://welno.kindhabit.com' from origin 'https://yourdomain
 
 ### 성능 최적화
 
-- **위젯 번들 크기**: ~50KB (minified + gzipped)
-- **로드 시간**: < 1초 (CDN 사용 시)
+- **위젯 번들 크기**: ~24KB (minified, welno-rag-chat-widget.min.js 기준)
+- **로드 시간**: < 1초 (동일 오리진/CDN 사용 시)
 - **메모리 사용량**: < 5MB
 
 ---
@@ -626,11 +634,13 @@ Access to fetch at 'https://welno.kindhabit.com' from origin 'https://yourdomain
 
 #### 🔌 파트너 전용 API 엔드포인트
 - **파일**: `backend/app/api/v1/endpoints/partner_rag_chat.py`
-- **엔드포인트들**:
-  - `POST /api/v1/rag-chat/partner/message` - 새로운 형식
-  - `POST /api/v1/rag-chat/partner/message/legacy` - 레거시 지원
-  - `GET /api/v1/rag-chat/partner/status` - 파트너 상태 확인
-  - `POST /api/v1/rag-chat/partner/session/info` - 세션 정보 조회
+- **외부 호출 시 경로** (baseUrl + 아래 경로):
+  - `POST /welno-api/v1/rag-chat/partner/message` - 메시지 전송(스트리밍)
+  - `POST /welno-api/v1/rag-chat/partner/warmup` - 세션 웜업
+  - `POST /welno-api/v1/rag-chat/partner/message/legacy` - 레거시 지원
+  - `GET /welno-api/v1/rag-chat/partner/status` - 파트너 상태 확인
+  - `POST /welno-api/v1/rag-chat/partner/session/info` - 세션 정보 조회
+  - `POST /welno-api/v1/rag-chat/partner/summarize` - 대화 요약
 
 ### 프론트엔드 임베드 위젯
 

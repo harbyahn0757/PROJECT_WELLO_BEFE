@@ -1,5 +1,11 @@
 # 🔐 비밀번호 시스템 구체적 구현 계획
 
+**생성일**: 미상  
+**작업일자**: 미상  
+**작업내용**: 비밀번호 시스템 구체적 구현 계획 (MainPage·API·DB)
+
+---
+
 ## 📍 **1. MainPage.tsx 수정 위치**
 
 **파일**: `/home/workspace/PROJECT_WELLO_BEFE/planning-platform/frontend/src/pages/MainPage.tsx`

@@ -19,12 +19,30 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# 2b. 파트너 임베드 위젯 빌드 (동적 로드 시 window.WelnoRagChatWidget 노출용)
+echo "📦 파트너 위젯 빌드 중..."
+cd "$PROJECT_ROOT/planning-platform/frontend"
+npx webpack --config webpack.embed.config.js
+if [ $? -ne 0 ]; then
+  echo "❌ 파트너 위젯 빌드 실패!"
+  exit 1
+fi
+
 # 3. 빌드 파일을 백엔드 static 폴더로 복사
 echo "📁 정적 파일 복사 중..."
 cd "$PROJECT_ROOT/planning-platform/backend"
 mkdir -p static
 rm -rf static/* 2>/dev/null || true
 cp -r ../frontend/build/* static/
+# 파트너 위젯 및 메디링스 아이콘 유지
+if [ -f "../frontend/dist/embed/welno-rag-chat-widget.min.js" ]; then
+  cp ../frontend/dist/embed/welno-rag-chat-widget.min.js static/
+  echo "   ✅ welno-rag-chat-widget.min.js 복사"
+fi
+if [ -f "../frontend/mdx_icon.png" ]; then
+  cp ../frontend/mdx_icon.png static/
+  echo "   ✅ mdx_icon.png 복사"
+fi
 
 # 4. PM2로 백엔드 재시작
 echo "🔄 백엔드 서버 재시작 중..."

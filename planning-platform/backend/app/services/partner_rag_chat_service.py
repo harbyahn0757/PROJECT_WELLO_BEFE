@@ -202,8 +202,13 @@ class PartnerRagChatService(WelnoRagChatService):
             }
         
         if "checkup_results" in data:
-            results = data["checkup_results"]
-            processed["health_metrics"] = {
+            raw_results = data["checkup_results"]
+            # API가 list로 보낼 수 있음: [ { ... } ] → 첫 번째 레코드 사용
+            results = raw_results[0] if isinstance(raw_results, list) and raw_results else raw_results
+            if not isinstance(results, dict):
+                results = {}
+            # 기존 수치 필드 + 규격 추가 분(판정/정상범위) 반영
+            base_metrics = {
                 "height": results.get("height"),
                 "weight": results.get("weight"),
                 "bmi": results.get("bmi"),
@@ -211,8 +216,24 @@ class PartnerRagChatService(WelnoRagChatService):
                 "diastolic_bp": results.get("diastolic_bp"),
                 "fasting_glucose": results.get("fasting_glucose"),
                 "total_cholesterol": results.get("total_cholesterol"),
-                "checkup_date": results.get("exam_date")
+                "hdl_cholesterol": results.get("hdl_cholesterol"),
+                "ldl_cholesterol": results.get("ldl_cholesterol"),
+                "triglycerides": results.get("triglycerides"),
+                "creatinine": results.get("creatinine"),
+                "gfr": results.get("gfr"),
+                "sgot_ast": results.get("sgot_ast"),
+                "sgpt_alt": results.get("sgpt_alt"),
+                "gamma_gtp": results.get("gamma_gtp"),
+                "hemoglobin": results.get("hemoglobin"),
+                "checkup_date": results.get("exam_date"),
             }
+            # *_abnormal, *_range 등 선택 필드 통과 (RAG 컨텍스트용)
+            for key, value in results.items():
+                if value is None or key in base_metrics:
+                    continue
+                if key.endswith("_abnormal") or key.endswith("_range"):
+                    base_metrics[key] = value
+            processed["health_metrics"] = {k: v for k, v in base_metrics.items() if v is not None}
         
         if "medical_history" in data:
             processed["medical_history"] = data["medical_history"]
@@ -542,7 +563,9 @@ class PartnerRagChatService(WelnoRagChatService):
                 save_log=False
             )
             if res.success:
-                return res.content.strip().replace('"', '')
+                # 말풍선에서 과도한 줄바꿈 방지: 줄바꿈을 공백으로 정규화
+                raw = res.content.strip().replace('"', '')
+                return ' '.join(raw.split())
         except: pass
         
         return f"안녕하세요 {name}님, {concern_keyword} 결과가 도착했습니다. 궁금한 점을 제가 바로 읽어드릴까요?"

@@ -20,6 +20,30 @@ interface RagChatMessageProps {
   onTypingComplete?: () => void;
 }
 
+const SourcesAccordion: React.FC<{ sources: any[] }> = ({ sources }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`message-sources message-sources--accordion ${open ? 'is-open' : ''}`}>
+      <button
+        type="button"
+        className="sources-title"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
+        <span>참고 문헌</span>
+        <span className="sources-chevron" aria-hidden>▼</span>
+      </button>
+      <ul className="sources-list">
+        {sources.map((source, idx) => (
+          <li key={idx} className="source-item" title={source.text}>
+            {source.title || `문서 ${idx + 1}`} {source.page ? `(p.${source.page})` : ''}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 const RagChatMessage: React.FC<RagChatMessageProps> = ({ message, onTypingUpdate, onTypingComplete }) => {
   const isUser = message.role === 'user';
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
@@ -188,16 +212,7 @@ const RagChatMessage: React.FC<RagChatMessageProps> = ({ message, onTypingUpdate
       )}
 
       {!isUser && !isTyping && message.sources && message.sources.length > 0 && (
-        <div className="message-sources">
-          <div className="sources-title">📚 참고 문헌</div>
-          <ul className="sources-list">
-            {message.sources.map((source, idx) => (
-              <li key={idx} className="source-item" title={source.text}>
-                {source.title || `문서 ${idx + 1}`} {source.page && `(p.${source.page})`}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <SourcesAccordion sources={message.sources} />
       )}
     </div>
   );

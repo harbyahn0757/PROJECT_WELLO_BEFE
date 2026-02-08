@@ -8,7 +8,8 @@ from typing import Dict, Any, Optional
 import logging
 
 from ....services.welno_rag_chat_service import WelnoRagChatService
-from ....middleware.partner_auth import verify_partner_api_key, PartnerAuthInfo
+from ....middleware.partner_auth import verify_partner_api_key_optional, verify_partner_api_key, PartnerAuthInfo
+import time
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -37,17 +38,20 @@ class ChatMessageResponse(BaseModel):
 @router.post("/message")
 async def send_message(
     request: ChatMessageRequest,
-    partner_info: PartnerAuthInfo = Depends(verify_partner_api_key)
+    partner_info: Optional[PartnerAuthInfo] = Depends(verify_partner_api_key_optional)
 ):
     """
-    사용자 메시지 전송 및 RAG 응답 스트리밍 생성
+    사용자 메시지 전송 및 RAG 응답 스트리밍 생성.
+    - X-API-Key 있으면 파트너 모드, 없으면 Referer가 welno 도메인일 때 일반 웰노 모드.
     """
     try:
-        # 파트너 정보를 세션 ID에 포함
-        session_id = request.session_id or f"{partner_info.partner_id}_{request.uuid}_{request.hospital_id}_{int(__import__('time').time())}"
-        
-        logger.info(f"📨 [RAG 채팅] 파트너 요청 - {partner_info.partner_id} ({partner_info.partner_name})")
-        
+        if partner_info:
+            session_id = request.session_id or f"{partner_info.partner_id}_{request.uuid}_{request.hospital_id}_{int(time.time())}"
+            logger.info(f"📨 [RAG 채팅] 파트너 요청 - {partner_info.partner_id} ({partner_info.partner_name})")
+        else:
+            session_id = request.session_id or f"welno_{request.uuid}_{request.hospital_id}_{int(time.time())}"
+            logger.info(f"📨 [RAG 채팅] 일반 웰노 요청 - uuid={request.uuid}")
+
         return StreamingResponse(
             rag_chat_service.handle_user_message_stream(
                 uuid=request.uuid,
@@ -57,7 +61,8 @@ async def send_message(
             ),
             media_type="text/event-stream"
         )
-    
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ [RAG 채팅] 메시지 처리 실패: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

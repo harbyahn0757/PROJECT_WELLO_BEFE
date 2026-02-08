@@ -205,12 +205,15 @@ def log_partner_access(
             "additional_info": additional_info or {}
         }
         
-        # 구조화된 로그 출력
+        # 구조화된 로그 출력 (referer 있으면 포함 — 파트너 도메인 확인용)
         log_message = (
             f"[AUDIT] {partner_id} | {action} | "
             f"{'SUCCESS' if success else 'FAILED'} | "
             f"{client_ip} | {session_hash}"
         )
+        referer = (additional_info or {}).get("referer")
+        if referer:
+            log_message += f" | referer: {referer}"
         
         if success:
             logger.info(log_message)

@@ -539,20 +539,49 @@ class WelnoRagChatWidget {
         }
       }
 
-      /* 소스 표시 */
+      /* 소스 아코디언 */
       .${this.cssPrefix}-sources {
         margin-top: 8px;
         font-size: 12px;
         color: #666;
       }
-
-      .${this.cssPrefix}-source {
-        display: inline-block;
-        background: #F0F0F0;
-        padding: 2px 6px;
-        border-radius: 4px;
-        margin: 2px 4px 2px 0;
+      .${this.cssPrefix}-sources-header {
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 0;
+        user-select: none;
       }
+      .${this.cssPrefix}-sources-header:hover { opacity: 0.85; }
+      .${this.cssPrefix}-sources-chevron {
+        font-size: 10px;
+        display: inline-block;
+        transition: transform 0.2s;
+        transform: rotate(-90deg);
+      }
+      .${this.cssPrefix}-sources.is-open .${this.cssPrefix}-sources-chevron {
+        transform: rotate(0deg);
+      }
+      .${this.cssPrefix}-sources-list {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.2s ease-out;
+      }
+      .${this.cssPrefix}-sources.is-open .${this.cssPrefix}-sources-list {
+        max-height: 400px;
+      }
+      .${this.cssPrefix}-source {
+        display: block;
+        background: #F0F0F0;
+        padding: 6px 8px;
+        border-radius: 4px;
+        margin: 4px 0 0 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .${this.cssPrefix}-source:first-of-type { margin-top: 6px; }
 
       /* 제안 질문 */
       .${this.cssPrefix}-suggestions {
@@ -941,20 +970,34 @@ class WelnoRagChatWidget {
   }
 
   /**
-   * 소스 추가
+   * 소스 추가 (아코디언: 참고 자료 클릭 시 목록 열기/접기)
    */
   addSources(messageElement, sources) {
+    if (!sources || sources.length === 0) return;
     const sourcesElement = document.createElement('div');
     sourcesElement.className = `${this.cssPrefix}-sources`;
-    
-    sources.slice(0, 3).forEach(source => { // 최대 3개만 표시
-      const sourceElement = document.createElement('span');
-      sourceElement.className = `${this.cssPrefix}-source`;
-      sourceElement.textContent = source.title || '참고자료';
-      sourceElement.title = source.text.substring(0, 100) + '...';
-      sourcesElement.appendChild(sourceElement);
+
+    const header = document.createElement('button');
+    header.type = 'button';
+    header.className = `${this.cssPrefix}-sources-header`;
+    header.innerHTML = `<span>참고 문헌</span><span class="${this.cssPrefix}-sources-chevron" aria-hidden="true">▼</span>`;
+    header.addEventListener('click', () => {
+      sourcesElement.classList.toggle('is-open');
     });
-    
+
+    const listWrap = document.createElement('div');
+    listWrap.className = `${this.cssPrefix}-sources-list`;
+
+    sources.forEach(source => {
+      const sourceEl = document.createElement('div');
+      sourceEl.className = `${this.cssPrefix}-source`;
+      sourceEl.textContent = source.title || '참고자료';
+      sourceEl.title = (source.text || '').substring(0, 200);
+      listWrap.appendChild(sourceEl);
+    });
+
+    sourcesElement.appendChild(header);
+    sourcesElement.appendChild(listWrap);
     messageElement.appendChild(sourcesElement);
   }
 
