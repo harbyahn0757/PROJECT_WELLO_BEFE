@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState, useCallback } from 'react';
+import React, { useMemo, useEffect, useState, useCallback, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PartnerStatus } from './index';
 import { API_ENDPOINTS } from '../../config/api';
@@ -17,6 +17,137 @@ const LandingPage: React.FC<Props> = ({ status }) => {
   const query = useMemo(() => new URLSearchParams(search), [search]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
+  
+  // localStorage 정리를 위한 클릭 카운터
+  const debugClickCount = useRef(0);
+  const debugClickTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // 🔧 localStorage 정리 함수 (AI 질병예측 리포트 텍스트 5번 클릭)
+  const handleTitleDebugClick = (e: React.MouseEvent) => {
+    e.preventDefault(); // 기본 동작 방지
+    
+    // 기존 타이머 클리어
+    if (debugClickTimer.current) {
+      clearTimeout(debugClickTimer.current);
+    }
+
+    debugClickCount.current += 1;
+    console.log(`[디버그] AI 질병예측 리포트 클릭 횟수: ${debugClickCount.current}/5`);
+
+    // 3초 내에 5번 클릭했는지 확인
+    if (debugClickCount.current >= 5) {
+      debugClickCount.current = 0;
+      
+      // 플로팅 버튼 디버깅 정보 수집
+      const debugInfo = {
+        // 현재 상태
+        currentPath: window.location.pathname,
+        currentSearch: window.location.search,
+        
+        // localStorage 상태
+        localStorage: {
+          welno_tilko_manual_collect: localStorage.getItem('welno_tilko_manual_collect'),
+          welno_tilko_collecting_status: localStorage.getItem('welno_tilko_collecting_status'),
+          welno_password_modal_open: localStorage.getItem('welno_password_modal_open'),
+          checkup_survey_panel_open: localStorage.getItem('checkup_survey_panel_open'),
+          welno_tilko_auth_waiting: localStorage.getItem('welno_tilko_auth_waiting'),
+          welno_tilko_auth_method_selection: localStorage.getItem('welno_tilko_auth_method_selection'),
+          welno_tilko_info_confirming: localStorage.getItem('welno_tilko_info_confirming'),
+          welno_patient_uuid: localStorage.getItem('welno_patient_uuid'),
+          welno_hospital_id: localStorage.getItem('welno_hospital_id')
+        },
+        
+        // DOM 상태
+        floatingButtonExists: !!document.querySelector('[class*="floating"]'),
+        ragChatButtonExists: !!document.querySelector('[class*="rag-chat"]'),
+        
+        // 전역 상태 (있다면)
+        matrixButtonConfig: (window as any).matrixButtonConfig || null,
+        unifiedStatus: (window as any).unifiedStatus || null
+      };
+      
+      console.log('🔧 [플로팅 버튼 디버깅] 현재 상태:', debugInfo);
+      
+      // 사용자에게 선택지 제공
+      const action = window.confirm(
+        '🔧 플로팅 버튼 디버깅\n\n' +
+        '"AI 질병예측 리포트" 텍스트를 5번 클릭하셨습니다!\n\n' +
+        '선택하세요:\n' +
+        '✅ 확인: localStorage 정리 후 새로고침\n' +
+        '❌ 취소: 디버깅 정보만 콘솔에 출력'
+      );
+      
+      if (action) {
+        try {
+          // 플로팅 버튼 관련 localStorage 키들 정리 (확장된 목록)
+          const keysToRemove = [
+            'welno_tilko_manual_collect',
+            'welno_tilko_collecting_status',
+            'welno_password_modal_open',
+            'checkup_survey_panel_open',
+            'welno_tilko_auth_waiting',
+            'welno_tilko_auth_method_selection',
+            'welno_tilko_info_confirming',
+            'collectingStatus', // 레거시
+            'manualCollect' // 레거시
+          ];
+          
+          let removedCount = 0;
+          const removedKeys: string[] = [];
+          
+          keysToRemove.forEach(key => {
+            if (localStorage.getItem(key)) {
+              localStorage.removeItem(key);
+              removedCount++;
+              removedKeys.push(key);
+            }
+          });
+          
+          console.log('[랜딩페이지 디버그] localStorage 정리 완료:', { 
+            removedCount, 
+            removedKeys,
+            beforeState: debugInfo
+          });
+          
+          // 매트릭스 이벤트 강제 발생 (플로팅 버튼 재설정)
+          window.dispatchEvent(new CustomEvent('floating-button-config', {
+            detail: {
+              visible: true,
+              text: '건강검진 데이터 수집하기',
+              action: () => console.log('플로팅 버튼 클릭됨')
+            }
+          }));
+          
+          alert(
+            `🔧 localStorage 정리 완료!\n\n` +
+            `삭제된 항목: ${removedCount}개\n` +
+            `${removedKeys.length > 0 ? removedKeys.join(', ') : '(삭제할 항목 없음)'}\n\n` +
+            `플로팅 버튼 재설정 이벤트 발생\n` +
+            `페이지를 새로고침합니다.`
+          );
+          
+          // 페이지 새로고침
+          window.location.reload();
+          
+        } catch (error) {
+          console.error('[랜딩페이지 디버그] localStorage 정리 오류:', error);
+          alert('localStorage 정리 중 오류가 발생했습니다.');
+        }
+      } else {
+        // 취소 선택 시 디버깅 정보만 출력
+        alert(
+          '🔧 디버깅 정보 출력됨\n\n' +
+          '콘솔을 확인하여 플로팅 버튼 상태를 확인하세요.\n' +
+          'F12 → Console 탭에서 "[플로팅 버튼 디버깅]" 로그를 찾아보세요.'
+        );
+      }
+    } else {
+      // 3초 후 카운트 리셋
+      debugClickTimer.current = setTimeout(() => {
+        debugClickCount.current = 0;
+      }, 3000);
+    }
+  };
 
   // 마운트 시 스크롤을 맨 위로 이동 및 카운트다운 시작
   useEffect(() => {
@@ -259,7 +390,14 @@ const LandingPage: React.FC<Props> = ({ status }) => {
         {/* 결제 페이지에서는 이미지 섹션 제거 */}
         <section className="payment-guide" style={{ marginBottom: '15px' }}>
           <div className="price-box">
-            <span className="item-name">AI 질병예측 리포트 (PDF)</span>
+            <span 
+              className="item-name"
+              onClick={handleTitleDebugClick}
+              style={{ cursor: 'pointer', userSelect: 'none' }}
+              title="5번 클릭하면 localStorage 정리"
+            >
+              AI 질병예측 리포트 (PDF)
+            </span>
             <span className="price">7,900원</span>
           </div>
           <ul className="benefits">

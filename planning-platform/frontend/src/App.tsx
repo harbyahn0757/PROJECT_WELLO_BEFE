@@ -1,25 +1,25 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import Button from './components/Button';
-import MainPage from './pages/MainPage';
-import CheckupDesignPage from './pages/CheckupDesignPage';
-import CheckupRecommendationsPage from './pages/CheckupRecommendationsPage';
-import HealthHabitsPage from './pages/HealthHabitsPage';
-import HealthQuestionnaireComplete from './pages/HealthQuestionnaireComplete';
-import HealthQuestionnairePage from './pages/HealthQuestionnairePage';
-import SurveyPage from './pages/SurveyPage';
-import AuthPage from './pages/AuthPage';
-import CollectingDataPage from './pages/CollectingDataPage';
+import MainPage from './features/main/MainPage';
+import CheckupDesignPage from './features/checkup/CheckupDesignPage';
+import CheckupRecommendationsPage from './features/checkup/CheckupRecommendationsPage';
+import HealthHabitsPage from './features/survey/HealthHabitsPage';
+import HealthQuestionnaireComplete from './features/survey/HealthQuestionnaireComplete';
+import HealthQuestionnairePage from './features/survey/HealthQuestionnairePage';
+import SurveyPage from './features/survey/SurveyPage';
+import AuthPage from './features/auth/AuthPage';
+import CollectingDataPage from './features/checkup/CollectingDataPage';
 import { HealthDataViewer } from './components/health/HealthDataViewer';
-import HealthDashboard from './pages/HealthDashboard';
-import HealthTrends from './pages/HealthTrends';
-import PrescriptionHistory from './pages/PrescriptionHistory';
-import HealthComparison from './pages/HealthComparison';
-import AppointmentPage from './pages/AppointmentPage';
-import ResultsTrendPage from './pages/ResultsTrendPage';
+import HealthDashboard from './features/health/HealthDashboard';
+import HealthTrends from './features/health/HealthTrends';
+import PrescriptionHistory from './features/health/PrescriptionHistory';
+import HealthComparison from './features/health/HealthComparison';
+import AppointmentPage from './features/appointment/AppointmentPage';
+import ResultsTrendPage from './features/results/ResultsTrendPage';
 import DiseaseReportPage from './features/disease-report/pages/DiseaseReportPage';
 import DiseasePredictionCampaign from './campaigns/disease-prediction';
-import AdminEmbeddingPage from './pages/AdminEmbeddingPage';
+import PartnerManagementPage from './features/admin/PartnerManagementPage';
 // import RagTestPage from './pages/RagTestPage';
 import AppointmentModal from './components/appointment/AppointmentModal';
 import { LayoutType } from './constants/layoutTypes';
@@ -27,6 +27,7 @@ import { WelnoDataProvider, useWelnoData } from './contexts/WelnoDataContext';
 import { STORAGE_KEYS, StorageManager } from './constants/storage';
 import { WelnoRagChatButton } from './components/welno-rag-chat';
 import NotificationContainer from './components/common/NotificationContainer';
+import { sendFrontendStateToServer, sendStateOnPageLoad } from './utils/debugLogger';
 import './App.scss';
 
 // 전역 함수 타입 선언
@@ -162,6 +163,17 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       // 데이터 수집 중이거나 비밀번호 모달이 열려있거나 메인 페이지 또는 특수 페이지이면 숨김
       // 단, 캠페인 페이지는 예외 (항상 표시)
       const shouldHide = !isCampaignPage && (isManualCollecting || isCollectingPath || passwordModalOpen || isMainPage || isSpecialPage);
+      
+      console.warn('[플로팅_진단] checkHideStatus:', { 
+        isCampaignPage, 
+        isManualCollecting, 
+        isCollectingPath, 
+        passwordModalOpen, 
+        isMainPage, 
+        isAuthWaiting: authWaiting,
+        shouldHide 
+      });
+
       setHideFloatingButton(shouldHide);
       setIsAuthWaiting(authWaiting);
       setIsAuthMethodSelection(authMethodSelection);
@@ -178,6 +190,13 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
         isInfoConfirming: infoConfirming,
         shouldHide 
       });
+      
+      // 🔧 디버깅: 플로팅 버튼 상태를 서버로 전송
+      if (isCampaignPage || shouldHide) {
+        sendFrontendStateToServer({
+          page_path: `${location.pathname} (플로팅 버튼 판단: ${shouldHide ? '숨김' : '표시'})`
+        });
+      }
     };
     
     // 초기 상태 확인
@@ -216,7 +235,7 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       }>;
       
       if (customEvent.detail) {
-        console.log('[매트릭스 플로팅 버튼] 설정 수신:', customEvent.detail);
+        console.warn('[플로팅_진단] 매트릭스 설정 수신:', customEvent.detail);
         setMatrixButtonConfig(customEvent.detail);
       }
     };
@@ -239,6 +258,18 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       window.removeEventListener('floating-button-config', handleFloatingButtonConfig as EventListener); // 매트릭스 이벤트
     };
   }, [location.pathname, buttonUpdateTrigger]);
+
+  // 🔧 디버깅: 페이지 변경 시 상태 전송
+  useEffect(() => {
+    // 페이지 변경 후 1초 뒤에 상태 전송 (컴포넌트 초기화 완료 대기)
+    const timer = setTimeout(() => {
+      sendFrontendStateToServer({
+        page_path: `${location.pathname} (페이지 변경)`
+      });
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [location.pathname]);
   
   // 캠페인 페이지가 아닐 때 campaignButtonText 초기화
   useEffect(() => {
@@ -304,25 +335,36 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
     }
   }, [navigate]);
 
-  if (hideFloatingButton) return null;
+  if (hideFloatingButton) {
+    console.warn('[플로팅_진단] 최종 렌더링 중단: hideFloatingButton이 true입니다.');
+    return null;
+  }
   
   // ⭐⭐⭐ 매트릭스 통합: DiseaseReportPage에서 버튼 숨김 요청 시
   if (matrixButtonConfig && location.pathname === '/disease-report' && !matrixButtonConfig.visible) {
-    console.log('[플로팅 버튼] 매트릭스에서 버튼 숨김 요청');
+    console.warn('[플로팅_진단] 최종 렌더링 중단: 매트릭스에서 visible: false 요청');
     return null;
   }
 
   const getButtonContent = () => {
-    // ⭐⭐⭐ 매트릭스 통합: DiseaseReportPage에서 설정한 매트릭스 버튼이 있으면 우선 사용
-    if (matrixButtonConfig && location.pathname === '/disease-report') {
-      console.log('[플로팅 버튼] 매트릭스 버튼 사용:', matrixButtonConfig.text);
-      return matrixButtonConfig.text;
-    }
-    
     const searchParams = new URLSearchParams(location.search);
     const isCampaignModeFromUrl = searchParams.get('mode') === 'campaign';
     const isCampaignPath = location.pathname.includes('/campaigns/disease-prediction');
     const isCampaignMode = isCampaignPath || isCampaignModeFromUrl;
+
+    console.warn('[플로팅_진단] getButtonContent 시작:', {
+      pathname: location.pathname,
+      isCampaignPath,
+      isCampaignModeFromUrl,
+      isCampaignMode,
+      matrixConfig: matrixButtonConfig ? { visible: matrixButtonConfig.visible, text: matrixButtonConfig.text } : 'none'
+    });
+
+    // ⭐⭐⭐ 매트릭스 통합: DiseaseReportPage에서 설정한 매트릭스 버튼이 있으면 우선 사용
+    if (matrixButtonConfig && location.pathname === '/disease-report') {
+      console.warn('[플로팅_진단] 매트릭스 버튼 적용:', matrixButtonConfig.text);
+      return matrixButtonConfig.text;
+    }
 
     // 1. 캠페인 모드 우선 처리
     if (isCampaignMode) {
@@ -377,7 +419,12 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
   };
 
   const buttonText = getButtonContent();
-  if (!buttonText) return null;
+  if (!buttonText) {
+    console.warn('[플로팅_진단] 최종 렌더링 중단: buttonText가 null입니다.');
+    return null;
+  }
+
+  console.warn('[플로팅_진단] 최종 렌더링 실행:', { buttonText });
 
   const handleClick = () => {
     // ⭐⭐⭐ 매트릭스 통합: DiseaseReportPage의 매트릭스 액션이 있으면 우선 실행
@@ -445,9 +492,84 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
 
 const AppContent: React.FC = () => {
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
+  const [isIframe, setIsIframe] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { state, actions } = useWelnoData();
+  
+  // 전역 localStorage 정리를 위한 클릭 카운터
+  const globalDebugClickCount = useRef(0);
+  const globalDebugClickTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // 🔧 전역 localStorage 정리 함수
+  const handleGlobalDebugClick = () => {
+    // 기존 타이머 클리어
+    if (globalDebugClickTimer.current) {
+      clearTimeout(globalDebugClickTimer.current);
+    }
+
+    globalDebugClickCount.current += 1;
+
+    // 3초 내에 7번 클릭했는지 확인 (전역은 좀 더 많이)
+    if (globalDebugClickCount.current >= 7) {
+      globalDebugClickCount.current = 0;
+      
+      // localStorage 정리 확인
+      if (window.confirm('🔧 전역 localStorage 정리\n\n플로팅 버튼 및 상태 문제를 해결하기 위해 localStorage를 정리하시겠습니까?\n\n현재 페이지: ' + location.pathname)) {
+        try {
+          // 플로팅 버튼 관련 localStorage 키들 정리
+          const keysToRemove = [
+            'collectingStatus',
+            'welno_password_modal_open',
+            'welno_tilko_auth_waiting',
+            'welno_tilko_auth_method_selection',
+            'welno_tilko_info_confirming',
+            'manualCollect'
+          ];
+          
+          let removedCount = 0;
+          const removedKeys: string[] = [];
+          
+          keysToRemove.forEach(key => {
+            if (localStorage.getItem(key)) {
+              localStorage.removeItem(key);
+              removedCount++;
+              removedKeys.push(key);
+            }
+          });
+          
+          console.log('[전역 디버그] localStorage 정리 완료:', { 
+            페이지: location.pathname,
+            removedCount, 
+            removedKeys 
+          });
+          
+          alert(`🔧 전역 localStorage 정리 완료!\n\n페이지: ${location.pathname}\n삭제된 항목: ${removedCount}개\n${removedKeys.join(', ')}\n\n페이지를 새로고침합니다.`);
+          
+          // 페이지 새로고침
+          window.location.reload();
+          
+        } catch (error) {
+          console.error('[전역 디버그] localStorage 정리 오류:', error);
+          alert('localStorage 정리 중 오류가 발생했습니다.');
+        }
+      }
+    } else {
+      // 3초 후 카운트 리셋
+      globalDebugClickTimer.current = setTimeout(() => {
+        globalDebugClickCount.current = 0;
+      }, 3000);
+    }
+  };
+
+  // iframe 여부 감지
+  useEffect(() => {
+    try {
+      setIsIframe(window.self !== window.top);
+    } catch (e) {
+      setIsIframe(true);
+    }
+  }, []);
   const { patient } = state;
 
   const handleOpenAppointmentModal = () => setIsAppointmentModalOpen(true);
@@ -462,11 +584,22 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const cParam = searchParams.get('c');
+    const hospitalParam = searchParams.get('hospital') || searchParams.get('hospital_id');
     
     if (cParam) {
       StorageManager.setItem('welno_query_params', location.search);
+      // 파트너 및 병원 동적 설정 로드
+      actions.loadFrontendConfig(cParam, hospitalParam || undefined);
     } else {
       const savedParams = StorageManager.getItem<string>('welno_query_params');
+      if (savedParams) {
+        const savedSearchParams = new URLSearchParams(savedParams);
+        const savedCParam = savedSearchParams.get('c');
+        const savedHospitalParam = savedSearchParams.get('hospital') || savedSearchParams.get('hospital_id');
+        if (savedCParam) {
+          actions.loadFrontendConfig(savedCParam, savedHospitalParam || undefined);
+        }
+      }
       // basename이 /welno이므로 실제 pathname은 / 또는 /welno
       if (savedParams && location.pathname === '/') {
         navigate({
@@ -475,7 +608,7 @@ const AppContent: React.FC = () => {
         }, { replace: true });
       }
     }
-  }, [location, navigate]);
+  }, [location, navigate, actions]);
 
   // 도메인별 브라우저 타이틀 및 파비콘 동적 변경
   useEffect(() => {
@@ -525,17 +658,18 @@ const AppContent: React.FC = () => {
         <Route path="/disease-report" element={<DiseaseReportPage />} />
         {/* ⭐ 외부 파트너 연동 캠페인 페이지 (결제 포함) */}
         <Route path="/campaigns/disease-prediction" element={<DiseasePredictionCampaign />} />
+        {/* ⭐ 파트너 관리 페이지 */}
+        <Route path="/partner-management" element={<PartnerManagementPage />} />
         <Route path="/prescription-history" element={<PrescriptionHistory />} />
         <Route path="/comparison" element={<HealthComparison />} />
         <Route path="/appointment" element={<AppointmentPage />} />
-        <Route path="/backoffice" element={<AdminEmbeddingPage />} />
-        <Route path="/backoffice/embedding" element={<AdminEmbeddingPage />} />
+        {/* 백오피스는 독립 앱으로 /backoffice 경로에서 서빙됨 */}
         {/* <Route path="/kindhait" element={<RagTestPage />} /> */}
         <Route path="/health-comparison" element={<HealthComparison />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       
-      <FloatingButton onOpenAppointmentModal={handleOpenAppointmentModal} />
+      {!isIframe && <FloatingButton onOpenAppointmentModal={handleOpenAppointmentModal} />}
       
       <AppointmentModal 
         isOpen={isAppointmentModalOpen} 
@@ -543,7 +677,45 @@ const AppContent: React.FC = () => {
       />
       
       <NotificationContainer />
-      <WelnoRagChatButton />
+      {!isIframe && <WelnoRagChatButton />}
+      
+      {/* 🔧 전역 localStorage 정리 디버그 버튼 (투명, 우상단) */}
+      {!isIframe && (
+        <div
+          onClick={handleGlobalDebugClick}
+          style={{
+            position: 'fixed',
+            top: 0,
+            right: 0,
+            width: '50px',
+            height: '50px',
+            backgroundColor: 'transparent',
+            zIndex: 9999,
+            cursor: 'pointer'
+          }}
+          title="7번 클릭하면 전역 localStorage 정리"
+        />
+      )}
+      
+      {/* 🔧 전역 페이지 정보 표시 (개발/디버그용) */}
+      {!isIframe && (
+        <div style={{
+          position: 'fixed',
+          bottom: 10,
+          right: 10,
+          padding: '5px 10px',
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          color: 'white',
+          fontSize: '11px',
+          borderRadius: '4px',
+          zIndex: 9998,
+          fontFamily: 'monospace',
+          maxWidth: '200px',
+          textAlign: 'right'
+        }}>
+          🌐 {location.pathname} | 우상단 7번클릭 = 전역localStorage정리
+        </div>
+      )}
     </div>
   );
 };
