@@ -29,6 +29,8 @@ class MonitoringService:
         # 알림 쿨다운 (같은 알림 반복 방지)
         self._last_alerts: Dict[str, datetime] = {}
         self._alert_cooldown = timedelta(minutes=10)
+        # PM2 재시작 횟수 추적 (이전 값과 비교하여 증가 시에만 알림)
+        self._last_restarts: Dict[str, int] = {}
 
     def _should_alert(self, alert_key: str) -> bool:
         """쿨다운 기간 내에 동일 알림을 보냈는지 확인"""
@@ -74,15 +76,19 @@ class MonitoringService:
                         ]
                     )
 
-                # 재시작 횟수가 급증한 경우
+                # 재시작 횟수가 실제로 증가한 경우에만 알림
                 restarts = pm2_env.get("restart_time", 0)
-                if restarts > 5 and self._should_alert(f"pm2_{name}_restarts_{restarts // 5}"):
+                prev_restarts = self._last_restarts.get(name, restarts)
+                self._last_restarts[name] = restarts
+                restart_delta = restarts - prev_restarts
+                if restart_delta > 0 and self._should_alert(f"pm2_{name}_restarts"):
                     await self._send_alert(
                         color=SlackColor.WARNING,
-                        title=f"PM2 재시작 횟수 증가: {name}",
+                        title=f"PM2 재시작 감지: {name}",
                         fields=[
                             SlackField(title="프로세스", value=name, short=True),
-                            SlackField(title="재시작 횟수", value=str(restarts), short=True),
+                            SlackField(title="새 재시작", value=f"+{restart_delta}", short=True),
+                            SlackField(title="누적 횟수", value=str(restarts), short=True),
                         ]
                     )
 
