@@ -2,9 +2,10 @@
 Mediarc/Twobecon API 상수 및 코드 매핑
 """
 
-# Mediarc API 설정
+# Mediarc API 설정 (기본값 - 동적 조회로 대체됨)
+# 실제 사용 시에는 dynamic_config_service에서 파트너별로 조회
 MEDIARC_API_URL = "https://xogxog.com/api/external/mediarc/report/"
-MEDIARC_API_KEY = "welno_5a9bb40b5108ecd8ef864658d5a2d5ab"  # WELNO 파트너 키
+MEDIARC_API_KEY = "welno_5a9bb40b5108ecd8ef864658d5a2d5ab"  # 기본값
 
 # 음주 코드 (Drink Codes)
 DRINK_CODES = {

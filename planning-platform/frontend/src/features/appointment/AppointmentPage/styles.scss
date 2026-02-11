@@ -1,0 +1,58 @@
+/**
+ * AppointmentPage 스타일
+ */
+@use '../../../styles/variables' as *;
+
+.appointment-page {
+  width: 100%;
+  
+  // 안내 텍스트
+  &__instruction {
+    font-size: $font-base; // 랜딩페이지 참고: 16px
+    color: $brand-brown-darker; // #55433B (브라운 다커)
+    font-weight: $font-weight-normal;
+    line-height: 1.4; // 간격 최소화
+    margin-bottom: $spacing-sm; // 간격 최소화
+    text-align: center;
+    font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+    padding: 0 $spacing-xs; // 좌우 패딩 최소화
+  }
+  
+  // 캘린더 영역
+  &__calendar {
+    margin-bottom: $spacing-sm; // 간격 최소화
+    
+    .calendar-placeholder {
+      background: $white;
+      border: 1px solid $border-beige;
+      border-radius: $border-radius-lg;
+      padding: $spacing-xl;
+      text-align: center;
+      color: $gray-600;
+      font-size: $font-sm;
+    }
+  }
+  
+  // 범례 영역
+  &__legend {
+    margin-bottom: $spacing-xs; // 간격 최소화
+    
+    .legend-placeholder {
+      text-align: center;
+      color: $gray-600;
+      font-size: $font-sm;
+    }
+  }
+  
+  // 안내 문구
+  &__notice {
+    font-size: $font-xs; // 랜딩페이지 참고: 12px
+    color: $black;
+    line-height: 1.4; // 간격 최소화
+    text-align: center;
+    margin-bottom: $spacing-xs; // 간격 최소화
+    font-family: var(--font-family-greeting, 'Noto Sans KR', sans-serif);
+    padding: 0 $spacing-xs; // 좌우 패딩 최소화
+  }
+}
+

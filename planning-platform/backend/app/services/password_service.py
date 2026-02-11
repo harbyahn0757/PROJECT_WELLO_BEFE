@@ -7,7 +7,7 @@ import bcrypt
 import asyncpg
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
-from app.core.config import settings
+from ..core.config import settings
 
 class PasswordService:
     """비밀번호 관리 서비스"""

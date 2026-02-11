@@ -1,277 +1,222 @@
--- WELNO 건강정보 데이터베이스 스키마
--- 생성일: 2025-10-18
--- 목적: Tilko API로 수집한 건강정보 저장 및 관리
+-- 웰노 통합 데이터베이스 스키마
+-- 생성일: 2026-02-09
+-- 설명: 모든 웰노 관련 테이블을 welno 스키마로 통합
 
--- 1. 환자 기본정보 테이블
+CREATE SCHEMA IF NOT EXISTS welno;
+
+-- 1. 파트너 설정 테이블
+CREATE TABLE IF NOT EXISTS welno.tb_partner_config (
+    partner_id VARCHAR(50) PRIMARY KEY,
+    partner_name VARCHAR(100) NOT NULL,
+    config JSONB NOT NULL DEFAULT '{}',
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- 2. 병원 RAG 설정 테이블
+CREATE TABLE IF NOT EXISTS welno.tb_hospital_rag_config (
+    id SERIAL PRIMARY KEY,
+    partner_id VARCHAR(50) NOT NULL,
+    hospital_id VARCHAR(255) NOT NULL,
+    hospital_name VARCHAR(200),
+    config JSONB NOT NULL DEFAULT '{}',
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    UNIQUE(partner_id, hospital_id),
+    FOREIGN KEY (partner_id) REFERENCES welno.tb_partner_config(partner_id)
+);
+
+-- 3. 병원 정보 테이블
+CREATE TABLE IF NOT EXISTS welno.welno_hospitals (
+    hospital_id VARCHAR(255) PRIMARY KEY,
+    partner_id VARCHAR(50) DEFAULT 'welno' NOT NULL,
+    hospital_name VARCHAR(200),
+    hospital_code VARCHAR(50),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    FOREIGN KEY (partner_id) REFERENCES welno.tb_partner_config(partner_id)
+);
+
+-- 4. 환자 기본정보 테이블
 CREATE TABLE IF NOT EXISTS welno.welno_patients (
-    -- 기본 식별자
     id SERIAL PRIMARY KEY,
-    uuid VARCHAR(36) UNIQUE NOT NULL,  -- URL 파라미터의 UUID
-    hospital_id VARCHAR(20) NOT NULL,  -- URL 파라미터의 병원 ID
-    
-    -- 개인정보 (Tilko 인증 시 사용)
-    name VARCHAR(50) NOT NULL,
-    phone_number VARCHAR(20) NOT NULL,
-    birth_date DATE NOT NULL,
-    gender CHAR(1) CHECK (gender IN ('M', 'F')),
-    
-    -- 인증 관련
-    last_auth_at TIMESTAMPTZ,  -- 마지막 인증 시간
-    tilko_session_id VARCHAR(100),  -- 마지막 Tilko 세션 ID
-    
-    -- 데이터 수집 상태
-    has_health_data BOOLEAN DEFAULT FALSE,
-    has_prescription_data BOOLEAN DEFAULT FALSE,
-    has_mediarc_report BOOLEAN DEFAULT FALSE,  -- Mediarc 질병예측 리포트 존재 여부
-    has_questionnaire_data BOOLEAN DEFAULT FALSE,  -- 문진 데이터 포함 여부
-    last_data_update TIMESTAMPTZ,  -- 마지막 데이터 업데이트 시간
-    
-    -- 메타데이터
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    
-    -- 파트너/가입 출처 관련 플래그 추가
-    registration_source VARCHAR(20) DEFAULT 'DIRECT', -- DIRECT, PARTNER, HOSPITAL 등
-    partner_id VARCHAR(50), -- 가입 시 식별된 파트너 ID (예: medilinx)
-    
-    -- 데이터 출처 추적
-    data_source VARCHAR(20) DEFAULT 'tilko' CHECK (data_source IN ('tilko', 'indexeddb', 'partner')), -- 데이터 출처
-    last_indexeddb_sync_at TIMESTAMPTZ, -- IndexedDB에서 마지막 동기화 시간
-    last_partner_sync_at TIMESTAMPTZ, -- 파트너사에서 마지막 동기화 시간
-    
-    -- 인덱스
-    UNIQUE(uuid, hospital_id)
+    uuid VARCHAR(36) UNIQUE NOT NULL,
+    hospital_id VARCHAR(255) NOT NULL,
+    partner_id VARCHAR(50) DEFAULT 'welno' NOT NULL,
+    name VARCHAR(100),
+    birth_date DATE,
+    gender CHAR(1),
+    phone VARCHAR(20),
+    email VARCHAR(255),
+    address TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    FOREIGN KEY (hospital_id) REFERENCES welno.welno_hospitals(hospital_id),
+    FOREIGN KEY (partner_id) REFERENCES welno.tb_partner_config(partner_id)
 );
 
--- 2. 건강검진 데이터 테이블 (모든 필드 저장)
+-- 5. 건강검진 데이터 테이블
 CREATE TABLE IF NOT EXISTS welno.welno_checkup_data (
-    -- 기본 식별자
     id SERIAL PRIMARY KEY,
     patient_id INTEGER REFERENCES welno.welno_patients(id) ON DELETE CASCADE,
-    
-    -- 원본 데이터 전체 저장 (JSON) - 메인 저장소
-    raw_data JSONB NOT NULL,  -- Tilko API 원본 응답 전체 (Year, CheckUpDate, Code, Location, Description, Inspections 등 모든 필드)
-    
-    -- 자주 검색되는 필드만 별도 컬럼 (인덱싱용)
-    year VARCHAR(10),  -- raw_data->>'Year'
-    checkup_date VARCHAR(20),  -- raw_data->>'CheckUpDate'
-    location VARCHAR(100),  -- raw_data->>'Location'
-    code VARCHAR(20),  -- raw_data->>'Code'
-    description TEXT,  -- raw_data->>'Description'
-    
-    -- 주요 검사 결과 (빠른 조회용) - Inspections 배열에서 추출
-    height DECIMAL(5,2),  -- 신장 (cm)
-    weight DECIMAL(5,2),  -- 체중 (kg)
-    bmi DECIMAL(4,1),     -- 체질량지수 (kg/m2)
-    waist_circumference DECIMAL(4,1),  -- 허리둘레 (cm)
-    blood_pressure_high INTEGER,  -- 최고혈압 (mmHg)
-    blood_pressure_low INTEGER,   -- 최저혈압 (mmHg)
-    blood_sugar INTEGER,  -- 공복혈당 (mg/dL)
-    cholesterol INTEGER,  -- 총콜레스테롤 (mg/dL)
-    hdl_cholesterol INTEGER,  -- HDL 콜레스테롤 (mg/dL)
-    ldl_cholesterol INTEGER,  -- LDL 콜레스테롤 (mg/dL)
-    triglyceride INTEGER,  -- 중성지방 (mg/dL)
-    hemoglobin DECIMAL(3,1),  -- 혈색소 (g/dL)
-    
-    -- 메타데이터
-    collected_at TIMESTAMPTZ DEFAULT NOW(),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    checkup_date DATE,
+    height DECIMAL(5,2),
+    weight DECIMAL(5,2),
+    bmi DECIMAL(5,2),
+    systolic_bp INTEGER,
+    diastolic_bp INTEGER,
+    blood_sugar INTEGER,
+    cholesterol INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- 건강검진 데이터 인덱스
-CREATE INDEX IF NOT EXISTS idx_checkup_patient_date ON welno.welno_checkup_data(patient_id, year, checkup_date);
-CREATE INDEX IF NOT EXISTS idx_checkup_location ON welno.welno_checkup_data(location);
-CREATE INDEX IF NOT EXISTS idx_checkup_code ON welno.welno_checkup_data(code);
-CREATE INDEX IF NOT EXISTS idx_checkup_raw_data ON welno.welno_checkup_data USING GIN (raw_data);
-CREATE INDEX IF NOT EXISTS idx_checkup_vital_signs ON welno.welno_checkup_data(height, weight, bmi, blood_pressure_high, blood_pressure_low);
-CREATE INDEX IF NOT EXISTS idx_checkup_data_source ON welno.welno_checkup_data(data_source);
-CREATE INDEX IF NOT EXISTS idx_checkup_patient_uuid ON welno.welno_checkup_data(patient_uuid, hospital_id);
-CREATE INDEX IF NOT EXISTS idx_checkup_partner ON welno.welno_checkup_data(partner_id, partner_oid) WHERE partner_id IS NOT NULL;
-
--- 3. 처방전 데이터 테이블 (모든 필드 저장)
+-- 6. 처방전 데이터 테이블
 CREATE TABLE IF NOT EXISTS welno.welno_prescription_data (
-    -- 기본 식별자
     id SERIAL PRIMARY KEY,
     patient_id INTEGER REFERENCES welno.welno_patients(id) ON DELETE CASCADE,
-    
-    -- 원본 데이터 전체 저장 (JSON) - 메인 저장소
-    raw_data JSONB NOT NULL,  -- Tilko API 원본 응답 전체 (Idx, Page, ByungEuiwonYakGukMyung, Address, JinRyoGaesiIl, JinRyoHyungTae, BangMoonIpWonIlsoo, CheoBangHoiSoo, TuYakYoYangHoiSoo, RetrieveTreatmentInjectionInformationPersonDetailList 등 모든 필드)
-    
-    -- 자주 검색되는 필드만 별도 컬럼 (인덱싱용)
-    idx VARCHAR(10),  -- raw_data->>'Idx'
-    page VARCHAR(10), -- raw_data->>'Page'
-    hospital_name VARCHAR(100),  -- raw_data->>'ByungEuiwonYakGukMyung'
-    address VARCHAR(200),  -- raw_data->>'Address'
-    treatment_date DATE,  -- raw_data->>'JinRyoGaesiIl'
-    treatment_type VARCHAR(50),  -- raw_data->>'JinRyoHyungTae'
-    visit_count INTEGER,  -- raw_data->>'BangMoonIpWonIlsoo'
-    prescription_count INTEGER,  -- raw_data->>'CheoBangHoiSoo'
-    medication_count INTEGER,  -- raw_data->>'TuYakYoYangHoiSoo'
-    
-    -- 처방 상세 정보 (RetrieveTreatmentInjectionInformationPersonDetailList 배열 길이)
-    detail_records_count INTEGER DEFAULT 0,
-    
-    -- 메타데이터
-    collected_at TIMESTAMPTZ DEFAULT NOW(),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    
-    -- 데이터 출처 추적
-    patient_uuid VARCHAR(36), -- 환자 UUID (인덱싱 및 조회용)
-    hospital_id VARCHAR(20), -- 병원 ID (인덱싱 및 조회용)
-    data_source VARCHAR(20) DEFAULT 'tilko' CHECK (data_source IN ('tilko', 'indexeddb', 'partner')), -- 데이터 출처
-    indexeddb_synced_at TIMESTAMPTZ, -- IndexedDB에서 업로드된 시간
-    partner_id VARCHAR(50), -- 파트너사 ID (partner 출처인 경우)
-    partner_oid VARCHAR(50) -- 파트너사 주문번호 (partner 출처인 경우)
+    prescription_date DATE,
+    doctor_name VARCHAR(100),
+    hospital_name VARCHAR(200),
+    medication_name VARCHAR(200),
+    dosage VARCHAR(100),
+    frequency VARCHAR(100),
+    duration_days INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- 처방전 데이터 인덱스
-CREATE INDEX IF NOT EXISTS idx_prescription_patient_date ON welno.welno_prescription_data(patient_id, treatment_date);
-CREATE INDEX IF NOT EXISTS idx_prescription_hospital ON welno.welno_prescription_data(hospital_name);
-CREATE INDEX IF NOT EXISTS idx_prescription_type ON welno.welno_prescription_data(treatment_type);
-CREATE INDEX IF NOT EXISTS idx_prescription_raw_data ON welno.welno_prescription_data USING GIN (raw_data);
-CREATE INDEX IF NOT EXISTS idx_prescription_counts ON welno.welno_prescription_data(visit_count, prescription_count, medication_count);
-CREATE INDEX IF NOT EXISTS idx_prescription_data_source ON welno.welno_prescription_data(data_source);
-CREATE INDEX IF NOT EXISTS idx_prescription_patient_uuid ON welno.welno_prescription_data(patient_uuid, hospital_id);
-CREATE INDEX IF NOT EXISTS idx_prescription_partner ON welno.welno_prescription_data(partner_id, partner_oid) WHERE partner_id IS NOT NULL;
-
--- 3-1. Mediarc 질병예측 리포트 테이블
+-- 7. 메디아크 리포트 테이블
 CREATE TABLE IF NOT EXISTS welno.welno_mediarc_reports (
-    -- 기본 식별자
     id SERIAL PRIMARY KEY,
     patient_id INTEGER REFERENCES welno.welno_patients(id) ON DELETE CASCADE,
-    patient_uuid VARCHAR(36) NOT NULL,
-    hospital_id VARCHAR(20) NOT NULL,
-    
-    -- 원본 응답 전체 저장 (JSONB) - 메인 저장소
-    raw_response JSONB NOT NULL,  -- Mediarc/Twobecon API 원본 응답 전체
-    
-    -- 자주 사용되는 필드 (빠른 조회용)
-    mkt_uuid VARCHAR(50) UNIQUE,  -- 마케팅 UUID (BNR 캠페인 ID)
-    report_url TEXT,  -- PDF 리포트 URL
-    provider VARCHAR(20) DEFAULT 'twobecon',  -- 제공자 (twobecon, mediarc 등)
-    
-    -- 분석 결과 핵심 정보
-    analyzed_at TIMESTAMPTZ,  -- 분석 완료 시각
-    bodyage INTEGER,  -- 체질 나이 (건강 나이)
-    rank INTEGER,  -- 등수 (상위 몇%)
-    
-    -- 질병 및 암 예측 데이터 (JSONB)
-    disease_data JSONB,  -- 질병 예측 결과 (name, score, label 등)
-    cancer_data JSONB,  -- 암 예측 결과 (name, score, label 등)
-    
-    -- 문진 데이터 포함 여부
-    has_questionnaire BOOLEAN DEFAULT FALSE,
-    questionnaire_data JSONB,  -- 문진 응답 데이터 (drink, smoke, family, disease, cancer)
-    
-    -- 메타데이터
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    
-    -- 인덱스 및 제약조건
-    UNIQUE(patient_uuid, hospital_id)  -- 환자별 최신 리포트만 저장
+    hospital_id VARCHAR(255) NOT NULL,
+    partner_id VARCHAR(50) DEFAULT 'welno' NOT NULL,
+    bodyage INTEGER,
+    report_data JSONB,
+    analyzed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    UNIQUE(patient_id, hospital_id, partner_id),
+    FOREIGN KEY (hospital_id) REFERENCES welno.welno_hospitals(hospital_id),
+    FOREIGN KEY (partner_id) REFERENCES welno.tb_partner_config(partner_id)
 );
 
--- Mediarc 리포트 인덱스
-CREATE INDEX IF NOT EXISTS idx_mediarc_patient ON welno.welno_mediarc_reports(patient_id);
-CREATE INDEX IF NOT EXISTS idx_mediarc_uuid ON welno.welno_mediarc_reports(mkt_uuid);
-CREATE INDEX IF NOT EXISTS idx_mediarc_analyzed ON welno.welno_mediarc_reports(analyzed_at);
-CREATE INDEX IF NOT EXISTS idx_mediarc_raw ON welno.welno_mediarc_reports USING GIN (raw_response);
-CREATE INDEX IF NOT EXISTS idx_mediarc_disease ON welno.welno_mediarc_reports USING GIN (disease_data);
-CREATE INDEX IF NOT EXISTS idx_mediarc_cancer ON welno.welno_mediarc_reports USING GIN (cancer_data);
+-- 8. 캠페인 결제 테이블 (통합)
+CREATE TABLE IF NOT EXISTS welno.tb_campaign_payments (
+    oid VARCHAR(50) PRIMARY KEY,
+    uuid VARCHAR(100) NOT NULL,
+    partner_id VARCHAR(50) DEFAULT 'kindhabit',
+    user_name VARCHAR(100),
+    user_data JSONB,
+    email VARCHAR(255),
+    amount INTEGER NOT NULL,
+    status VARCHAR(20) DEFAULT 'READY',
+    tid VARCHAR(100),
+    payment_method VARCHAR(20),
+    auth_date VARCHAR(20),
+    error_message TEXT,
+    report_url TEXT,
+    mediarc_response JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    pipeline_step VARCHAR(30) DEFAULT 'INIT',
+    tilko_session_id VARCHAR(100),
+    remarks TEXT,
+    test_mode BOOLEAN DEFAULT false,
+    FOREIGN KEY (partner_id) REFERENCES welno.tb_partner_config(partner_id)
+);
 
--- Mediarc 리포트 updated_at 트리거
-CREATE TRIGGER update_welno_mediarc_reports_updated_at 
-    BEFORE UPDATE ON welno.welno_mediarc_reports 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- 4. 데이터 수집 이력 테이블 (선택사항)
+-- 9. 데이터 수집 이력 테이블 (통합)
 CREATE TABLE IF NOT EXISTS welno.welno_collection_history (
     id SERIAL PRIMARY KEY,
-    patient_id INTEGER REFERENCES welno.welno_patients(id) ON DELETE CASCADE,
-    
-    -- 수집 정보
-    collection_type VARCHAR(20) CHECK (collection_type IN ('health', 'prescription', 'both')),
+    patient_id INTEGER,
+    collection_type VARCHAR(20),
     tilko_session_id VARCHAR(100),
-    
-    -- 수집 결과
-    success BOOLEAN DEFAULT FALSE,
+    success BOOLEAN DEFAULT false,
     health_records_count INTEGER DEFAULT 0,
     prescription_records_count INTEGER DEFAULT 0,
     error_message TEXT,
-    
-    -- 메타데이터
-    started_at TIMESTAMPTZ DEFAULT NOW(),
-    completed_at TIMESTAMPTZ,
-    
-    -- 인덱스
-    INDEX idx_collection_patient (patient_id),
-    INDEX idx_collection_session (tilko_session_id)
+    started_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    completed_at TIMESTAMP WITH TIME ZONE,
+    FOREIGN KEY (patient_id) REFERENCES welno.welno_patients(id) ON DELETE CASCADE
 );
 
--- 인덱스 생성
-CREATE INDEX IF NOT EXISTS idx_patients_uuid_hospital ON welno.welno_patients(uuid, hospital_id);
-CREATE INDEX IF NOT EXISTS idx_patients_phone ON welno.welno_patients(phone_number);
-CREATE INDEX IF NOT EXISTS idx_patients_last_auth ON welno.welno_patients(last_auth_at);
-CREATE INDEX IF NOT EXISTS idx_patients_data_source ON welno.welno_patients(data_source);
-
--- 트리거: updated_at 자동 업데이트
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-CREATE TRIGGER update_welno_patients_updated_at 
-    BEFORE UPDATE ON welno.welno_patients 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_welno_checkup_data_updated_at 
-    BEFORE UPDATE ON welno.welno_checkup_data 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_welno_prescription_data_updated_at 
-    BEFORE UPDATE ON welno.welno_prescription_data 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
--- 5. 검진 설계 요청 테이블 (업셀링용 데이터 저장)
+-- 10. 검진 설계 요청 테이블
 CREATE TABLE IF NOT EXISTS welno.welno_checkup_design_requests (
     id SERIAL PRIMARY KEY,
     patient_id INTEGER REFERENCES welno.welno_patients(id) ON DELETE CASCADE,
-    
-    -- 선택한 염려 항목 (JSONB)
-    selected_concerns JSONB NOT NULL,
-    
-    -- 설문 응답 (JSONB)
-    survey_responses JSONB,
-    
-    -- 추가 고민사항 (텍스트)
-    additional_concerns TEXT,
-    
-    -- 검진 설계 결과 (JSONB) - Perplexity/GPT 응답
-    design_result JSONB,
-    
-    -- 메타데이터
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    request_data JSONB,
+    response_data JSONB,
+    status VARCHAR(20) DEFAULT 'PENDING',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
 
--- 검진 설계 요청 인덱스
-CREATE INDEX IF NOT EXISTS idx_design_requests_patient ON welno.welno_checkup_design_requests(patient_id);
-CREATE INDEX IF NOT EXISTS idx_design_requests_created ON welno.welno_checkup_design_requests(created_at);
-CREATE INDEX IF NOT EXISTS idx_design_requests_concerns ON welno.welno_checkup_design_requests USING GIN (selected_concerns);
-CREATE INDEX IF NOT EXISTS idx_design_requests_survey ON welno.welno_checkup_design_requests USING GIN (survey_responses);
+-- 11. 외부 검진 항목 테이블
+CREATE TABLE IF NOT EXISTS welno.welno_external_checkup_items (
+    id SERIAL PRIMARY KEY,
+    item_code VARCHAR(50) UNIQUE NOT NULL,
+    item_name VARCHAR(200) NOT NULL,
+    category VARCHAR(100),
+    description TEXT,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
 
--- 트리거: updated_at 자동 업데이트
-CREATE TRIGGER update_welno_checkup_design_requests_updated_at 
-    BEFORE UPDATE ON welno.welno_checkup_design_requests 
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+-- 12. 병원-외부검진 매핑 테이블
+CREATE TABLE IF NOT EXISTS welno.welno_hospital_external_checkup_mapping (
+    id SERIAL PRIMARY KEY,
+    hospital_id VARCHAR(255) NOT NULL,
+    external_item_id INTEGER NOT NULL,
+    hospital_item_code VARCHAR(100),
+    hospital_item_name VARCHAR(200),
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    FOREIGN KEY (hospital_id) REFERENCES welno.welno_hospitals(hospital_id),
+    FOREIGN KEY (external_item_id) REFERENCES welno.welno_external_checkup_items(id)
+);
 
--- 샘플 데이터 (테스트용)
-INSERT INTO welno.welno_patients (uuid, hospital_id, name, phone_number, birth_date, gender) 
-VALUES 
-    ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'KHW001', '테스트환자', '01012345678', '1990-01-01', 'M')
-ON CONFLICT (uuid, hospital_id) DO NOTHING;
+-- 13. 비밀번호 세션 테이블
+CREATE TABLE IF NOT EXISTS welno.welno_password_sessions (
+    id SERIAL PRIMARY KEY,
+    session_id VARCHAR(100) UNIQUE NOT NULL,
+    user_data JSONB,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- 14. 파트너 RAG 채팅 로그 테이블
+CREATE TABLE IF NOT EXISTS welno.tb_partner_rag_chat_log (
+    id SERIAL PRIMARY KEY,
+    partner_id VARCHAR(50) NOT NULL,
+    hospital_id VARCHAR(255),
+    user_id VARCHAR(100),
+    session_id VARCHAR(100),
+    message_type VARCHAR(20), -- 'user', 'assistant', 'system'
+    message_content TEXT,
+    metadata JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    FOREIGN KEY (partner_id) REFERENCES welno.tb_partner_config(partner_id)
+);
+
+-- 인덱스 생성
+CREATE INDEX IF NOT EXISTS idx_welno_patients_uuid ON welno.welno_patients(uuid);
+CREATE INDEX IF NOT EXISTS idx_welno_patients_hospital_id ON welno.welno_patients(hospital_id);
+CREATE INDEX IF NOT EXISTS idx_welno_patients_partner_id ON welno.welno_patients(partner_id);
+CREATE INDEX IF NOT EXISTS idx_tb_campaign_payments_uuid ON welno.tb_campaign_payments(uuid);
+CREATE INDEX IF NOT EXISTS idx_tb_campaign_payments_partner_id ON welno.tb_campaign_payments(partner_id);
+CREATE INDEX IF NOT EXISTS idx_welno_mediarc_reports_patient_hospital_partner ON welno.welno_mediarc_reports(patient_id, hospital_id, partner_id);
+CREATE INDEX IF NOT EXISTS idx_tb_hospital_rag_config_partner_hospital ON welno.tb_hospital_rag_config(partner_id, hospital_id);
+CREATE INDEX IF NOT EXISTS idx_welno_collection_history_patient_id ON welno.welno_collection_history(patient_id);
+CREATE INDEX IF NOT EXISTS idx_welno_collection_history_tilko_session_id ON welno.welno_collection_history(tilko_session_id);
+
+-- 코멘트 추가
+COMMENT ON SCHEMA welno IS '웰노 통합 스키마 - 모든 웰노 관련 테이블 통합 관리';
+COMMENT ON TABLE welno.tb_partner_config IS '파트너 설정 정보 (결제, 암호화, RAG 등 모든 설정 통합)';
+COMMENT ON TABLE welno.tb_hospital_rag_config IS '병원별 RAG 채팅 설정 (LLM 페르소나, 테마, 환영메시지 등)';
+COMMENT ON TABLE welno.tb_campaign_payments IS '캠페인 결제 정보 (3개 테이블 통합: welno, p9_mkt_biz, public)';
+COMMENT ON TABLE welno.welno_collection_history IS '데이터 수집 이력 (public.wello_collection_history에서 이동)';

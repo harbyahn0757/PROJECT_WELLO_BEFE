@@ -290,3 +290,52 @@ class WelnoHealthDataSummary(BaseModel):
     
     class Config:
         from_attributes = True
+
+class PartnerRagChatLog(Base):
+    """파트너 RAG 채팅 대화 로그 테이블"""
+    __tablename__ = "tb_partner_rag_chat_log"
+    __table_args__ = {"schema": "welno"}
+    
+    id = Column(BigInteger, primary_key=True, index=True)
+    partner_id = Column(String(50), nullable=False)
+    hospital_id = Column(String(255), nullable=False)
+    user_uuid = Column(String(128), nullable=False)
+    session_id = Column(String(255), nullable=False)
+    client_info = Column(JSON, nullable=True)
+    initial_data = Column(JSON, nullable=True)
+    conversation = Column(JSON, nullable=False, default=[])
+    message_count = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+class HospitalRagConfig(Base):
+    """병원별 RAG/LLM 설정 관리 테이블"""
+    __tablename__ = "tb_hospital_rag_config"
+    __table_args__ = {"schema": "welno"}
+    
+    id = Column(Integer, primary_key=True, index=True)
+    partner_id = Column(String(50), nullable=False)
+    hospital_id = Column(String(255), nullable=False)
+    hospital_name = Column(String(255), nullable=True) # 추가된 컬럼
+    
+    persona_prompt = Column(Text, nullable=True)
+    welcome_message = Column(Text, nullable=True)
+    
+    llm_config = Column(JSON, nullable=True, default={
+        "model": "gemini-3-flash-preview",
+        "temperature": 0.7,
+        "max_tokens": 2000
+    })
+    embedding_config = Column(JSON, nullable=True, default={
+        "model": "text-embedding-ada-002",
+        "index_name": "faiss_db"
+    })
+    theme_config = Column(JSON, nullable=True, default={
+        "theme": "default",
+        "logo_url": None,
+        "primary_color": "#7B5E4F"
+    })
+    
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

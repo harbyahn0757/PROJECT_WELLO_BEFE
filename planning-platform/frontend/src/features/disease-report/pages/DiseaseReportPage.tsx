@@ -791,7 +791,7 @@ const DiseaseReportPage: React.FC = () => {
   // ✅ [Phase 4] sessionId가 있으면 WebSocket 연결, 없으면 skip
   useWebSocketAuth({
     sessionId,
-    onDataCollectionProgress: (type, message, data) => {
+    onDataCollectionProgress: (type: any, message: any, data: any) => {
       console.log(`📨 [DiseaseReportPage WebSocket] 이벤트: ${type}, sessionId=${sessionId || '없음'}`);
       
       if (type === 'mediarc_report_completed') {
@@ -1498,12 +1498,12 @@ const DiseaseReportPage: React.FC = () => {
   // 암 데이터 필터링 및 정렬
   const filteredCancerData = reportData?.data
     ? [...reportData.data]
-        .filter((item) => {
+        .filter((item: any) => {
           if (item.type !== 'cancer') return false;
           if (cancerLabelFilter !== 'ALL' && normalizeLabel(item.label) !== cancerLabelFilter) return false;
           return true;
         })
-        .sort((a, b) => {
+        .sort((a: any, b: any) => {
           const labelOrder: Record<string, number> = { 'ABNORMAL': 3, 'BOUNDARY': 2, 'NORMAL': 1 };
           const orderDiff = (labelOrder[normalizeLabel(b.label)] || 0) - (labelOrder[normalizeLabel(a.label)] || 0);
           if (orderDiff !== 0) return orderDiff;
@@ -1514,12 +1514,12 @@ const DiseaseReportPage: React.FC = () => {
   // 질병 데이터 필터링 및 정렬
   const filteredDiseaseData = reportData?.data
     ? [...reportData.data]
-        .filter((item) => {
+        .filter((item: any) => {
           if (item.type !== 'disease') return false;
           if (diseaseLabelFilter !== 'ALL' && normalizeLabel(item.label) !== diseaseLabelFilter) return false;
           return true;
         })
-        .sort((a, b) => {
+        .sort((a: any, b: any) => {
           const labelOrder: Record<string, number> = { 'ABNORMAL': 3, 'BOUNDARY': 2, 'NORMAL': 1 };
           const orderDiff = (labelOrder[normalizeLabel(b.label)] || 0) - (labelOrder[normalizeLabel(a.label)] || 0);
           if (orderDiff !== 0) return orderDiff;
@@ -1529,7 +1529,7 @@ const DiseaseReportPage: React.FC = () => {
 
   // 기존 sortedData는 호환성을 위해 유지 (다른 섹션에서 사용)
   const sortedData = reportData?.data
-    ? [...reportData.data].sort((a, b) => {
+    ? [...reportData.data].sort((a: any, b: any) => {
         // ABNORMAL > BOUNDARY > NORMAL 순서
         const labelOrder: Record<string, number> = { 'ABNORMAL': 3, 'BOUNDARY': 2, 'NORMAL': 1 };
         const orderDiff = (labelOrder[normalizeLabel(b.label)] || 0) - (labelOrder[normalizeLabel(a.label)] || 0);
@@ -2155,7 +2155,7 @@ const DiseaseReportPage: React.FC = () => {
                           <div className="disease-influence">
                             <h4 className="influence-title">영향 요인</h4>
                             <div className="influence-list">
-                              {item.influence.map((inf) => (
+                              {item.influence.map((inf: any) => (
                                 <div key={`${item.code}-influence-${inf.code}`} className="influence-item">
                                   <span className="influence-name">{inf.name}</span>
                                   {inf.label && (
@@ -2314,7 +2314,7 @@ const DiseaseReportPage: React.FC = () => {
                           <div className="disease-influence">
                             <h4 className="influence-title">영향 요인</h4>
                             <div className="influence-list">
-                              {item.influence.map((inf) => (
+                              {item.influence.map((inf: any) => (
                                 <div key={`${item.code}-influence-${inf.code}`} className="influence-item">
                                   <span className="influence-name">{inf.name}</span>
                                   {inf.label && (

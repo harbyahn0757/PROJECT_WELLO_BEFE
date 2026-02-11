@@ -7,6 +7,7 @@ import PNTInlineSurvey from './PNTInlineSurvey';
 import AuthPromptBubble from './AuthPromptBubble';
 import CategoryCardsGrid from '../health/CategoryView/CategoryCardsGrid';
 import apiConfig from '../../config/api';
+import { useWelnoData } from '../../contexts/WelnoDataContext';
 
 interface Source {
   text: string;
@@ -65,11 +66,27 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
   const chatMessagesRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const location = useLocation();
+  const { state } = useWelnoData();
+  const { frontendConfig } = state;
 
   // URL에서 uuid와 hospital_id 추출
   const searchParams = new URLSearchParams(location.search);
   const uuid = searchParams.get('uuid') || 'guest';
   const hospitalId = searchParams.get('hospital') || searchParams.get('hospital_id') || 'default';
+
+  useEffect(() => {
+    // 테마 색상 적용 (브라우저 최상단 및 위젯 로컬)
+    if (frontendConfig?.primaryColor) {
+      document.documentElement.style.setProperty('--brand-color', frontendConfig.primaryColor);
+      
+      // RGB 변수도 생성 (투명도 조절용)
+      const hex = frontendConfig.primaryColor.replace('#', '');
+      const r = parseInt(hex.substring(0, 2), 16);
+      const g = parseInt(hex.substring(2, 4), 16);
+      const b = parseInt(hex.substring(4, 6), 16);
+      document.documentElement.style.setProperty('--brand-color-rgb', `${r}, ${g}, ${b}`);
+    }
+  }, [frontendConfig?.primaryColor]);
 
   useEffect(() => {
     // 세션 ID 생성
@@ -81,12 +98,12 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
       if (messages.length === 0) {
         setMessages([{
           role: 'assistant',
-          content: '안녕하세요! 건강과 영양에 대해 궁금한 점을 물어보세요. 😊',
+          content: frontendConfig?.welcomeMessage || '안녕하세요! 건강과 영양에 대해 궁금한 점을 물어보세요. 😊',
           timestamp: new Date().toISOString()
         }]);
       }
     }
-  }, [uuid, hospitalId, sessionId, messages.length]);
+  }, [uuid, hospitalId, sessionId, messages.length, frontendConfig?.welcomeMessage]);
 
   useEffect(() => {
     // 데이터 유무 확인 (게스트가 아니고 기본 hospital이 아닐 때만)
@@ -465,7 +482,12 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
     <div className="welno-rag-chat-window">
       {/* 헤더 */}
       <div className="chat-header">
-        <h3>웰로 건강 상담</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {frontendConfig?.iconUrl && (
+            <img src={frontendConfig.iconUrl} alt="Logo" style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '4px' }} />
+          )}
+          <h3>{frontendConfig?.partnerName || '웰로'} 건강 상담</h3>
+        </div>
         <button onClick={handleClose} className="close-button">✕</button>
       </div>
 

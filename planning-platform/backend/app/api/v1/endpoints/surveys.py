@@ -80,6 +80,7 @@ async def submit_survey(request: Dict[str, Any]) -> Dict[str, Any]:
     try:
         uuid = request.get("uuid")
         hospital_id = request.get("hospital_id")
+        partner_id = request.get("partner_id", "welno")  # 파트너 ID 추가 (기본값: welno)
         session_id = request.get("sessionId") or request.get("session_id")
         answers = request.get("answers", [])
         survey_id = request.get("surveyId") or request.get("survey_id")
@@ -210,6 +211,7 @@ async def submit_survey(request: Dict[str, Any]) -> Dict[str, Any]:
                         patient_uuid=uuid,
                         hospital_id=hospital_id,
                         session_id=session_id,
+                        partner_id=partner_id,  # ⭐ 파트너 ID 전달 (보안 강화)
                         service=welno_data_service,
                         questionnaire_data=questionnaire_codes  # 문진 데이터 추가
                     )

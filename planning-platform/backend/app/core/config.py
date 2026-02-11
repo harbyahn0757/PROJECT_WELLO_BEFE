@@ -129,8 +129,8 @@ class Settings(BaseSettings):
     MEDIARC_API_URL: str = Field(default="https://xogxog.com/api/external/mediarc/report/", env="MEDIARC_API_URL")
     MEDIARC_API_KEY: str = Field(default="welno_5a9bb40b5108ecd8ef864658d5a2d5ab", env="MEDIARC_API_KEY")
     
-    # WELNO 기본 설정
-    welno_default_hospital_id: str = Field(default="PEERNINE", env="WELNO_DEFAULT_HOSPITAL_ID")  # 직접 접속 유저용 기본 병원 ID
+    # WELNO 기본 설정 (동적 조회로 대체 예정)
+    welno_default_hospital_id: str = Field(default="PEERNINE", env="WELNO_DEFAULT_HOSPITAL_ID")  # 레거시 호환용, 실제로는 dynamic_config_service 사용
 
     # Slack 설정
     slack_webhook_url: Optional[str] = Field(None, env="SLACK_WEBHOOK_URL")

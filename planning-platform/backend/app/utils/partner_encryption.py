@@ -2,7 +2,6 @@ import base64
 import json
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad, pad
-from ..config.payment_config import AES_SECRET_KEY, AES_IV
 
 def decrypt_user_data(encrypted_data_base64, aes_key=None, aes_iv=None):
     """
@@ -10,16 +9,23 @@ def decrypt_user_data(encrypted_data_base64, aes_key=None, aes_iv=None):
     
     Args:
         encrypted_data_base64: Base64 인코딩된 암호화 데이터
-        aes_key: AES 암호화 키 (None이면 기본값 사용)
-        aes_iv: AES IV (None이면 기본값 사용)
+        aes_key: AES 암호화 키 (필수)
+        aes_iv: AES IV (필수)
+    
+    Raises:
+        ValueError: aes_key 또는 aes_iv가 None인 경우
     """
     try:
+        # 파라미터 검증
+        if not aes_key or not aes_iv:
+            raise ValueError("aes_key와 aes_iv는 필수 파라미터입니다. 파트너별 암호화 키를 사용해야 합니다.")
+        
         # Base64 디코딩
         encrypted_data = base64.b64decode(encrypted_data_base64)
         
-        # 키와 IV 설정 (파라미터 우선, 없으면 기본값)
-        key = (aes_key or AES_SECRET_KEY).encode('utf-8')
-        iv = (aes_iv or AES_IV).encode('utf-8')
+        # 키와 IV 설정
+        key = aes_key.encode('utf-8')
+        iv = aes_iv.encode('utf-8')
         
         # IV 길이 조정 (16바이트가 아닐 경우 대비)
         if len(iv) < 16:
@@ -75,16 +81,37 @@ def decrypt_user_data(encrypted_data_base64, aes_key=None, aes_iv=None):
             pass
         return None
 
-def encrypt_user_data(data_dict):
+def encrypt_user_data(data_dict, aes_key, aes_iv):
     """
-    (테스트용) JSON 데이터를 AES-256-CBC 방식으로 암호화하여 Base64로 반환
+    JSON 데이터를 AES-256-CBC 방식으로 암호화하여 Base64로 반환
+    
+    Args:
+        data_dict: 암호화할 데이터 딕셔너리
+        aes_key: AES 암호화 키 (필수)
+        aes_iv: AES IV (필수)
+    
+    Returns:
+        Base64 인코딩된 암호화 데이터 또는 None (오류 시)
+    
+    Raises:
+        ValueError: aes_key 또는 aes_iv가 None인 경우
     """
     try:
-        data_str = json.dumps(data_dict).encode('utf-8')
-        key = AES_SECRET_KEY.encode('utf-8')
-        iv = AES_IV.encode('utf-8')
-        cipher = AES.new(key, AES.MODE_CBC, iv)
+        # 파라미터 검증
+        if not aes_key or not aes_iv:
+            raise ValueError("aes_key와 aes_iv는 필수 파라미터입니다. 파트너별 암호화 키를 사용해야 합니다.")
         
+        data_str = json.dumps(data_dict).encode('utf-8')
+        key = aes_key.encode('utf-8')
+        iv = aes_iv.encode('utf-8')
+        
+        # IV 길이 조정 (16바이트가 아닐 경우 대비)
+        if len(iv) < 16:
+            iv = iv.ljust(16, b' ')
+        elif len(iv) > 16:
+            iv = iv[:16]
+        
+        cipher = AES.new(key, AES.MODE_CBC, iv)
         encrypted_data = cipher.encrypt(pad(data_str, AES.block_size))
         return base64.b64encode(encrypted_data).decode('utf-8')
     except Exception as e:

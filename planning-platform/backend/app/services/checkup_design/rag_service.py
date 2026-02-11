@@ -3,14 +3,13 @@ RAG (Retrieval-Augmented Generation) 서비스 모듈
 LlamaIndex 및 Gemini LLM 기반 의료 지식 검색 엔진
 
 **로컬 FAISS 벡터 DB 지원 추가**
-- LlamaCloud API (기본값)
 - 로컬 FAISS 벡터 DB (비용 절감, 빠른 응답)
 """
 import os
 import json
 import re
 from typing import List, Dict, Any, Optional
-from app.core.config import settings
+from ...core.config import settings
 
 # LlamaIndex RAG 관련 임포트
 try:
@@ -18,7 +17,6 @@ try:
     from llama_index.core.llms import CustomLLM
     from llama_index.core.llms.llm import LLM
     from llama_index.core.llms import ChatMessage, MessageRole, CompletionResponse, LLMMetadata
-    from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
     from llama_index.llms.openai import OpenAI
     from llama_index.embeddings.openai import OpenAIEmbedding
     # FAISS 벡터 스토어 임포트
@@ -44,8 +42,6 @@ except ImportError as e:
     FAISS_AVAILABLE = False
     genai = None
     # 개발 환경에서 라이브러리가 없을 경우를 대비한 더미 클래스
-    class LlamaCloudIndex:
-        pass
     class OpenAI:
         pass
     class CustomLLM:
@@ -60,11 +56,6 @@ except ImportError as e:
         pass
 
 # 상수 정의
-LLAMACLOUD_INDEX_NAME = "Dr.Welno"
-LLAMACLOUD_PROJECT_NAME = "Default"
-LLAMACLOUD_INDEX_ID = "1bcef115-bb95-4d14-9c29-d38bb097a39c"
-LLAMACLOUD_PROJECT_ID = "45c4d9d4-ce6b-4f62-ad88-9107fe6de8cc"
-LLAMACLOUD_ORGANIZATION_ID = "e4024539-3d26-48b5-8051-9092380c84d2"
 
 # 로컬 FAISS 벡터 DB 경로
 LOCAL_FAISS_DIR = "/data/vector_db/welno/faiss_db"
@@ -78,10 +69,6 @@ EMBEDDING_DIMENSION = 1536
 # 병원별 FAISS 루트 (전역과 분리, 병원 RAG 우선용)
 LOCAL_FAISS_BY_HOSPITAL = os.environ.get("LOCAL_FAISS_BY_HOSPITAL", "/data/vector_db/welno/faiss_db_by_hospital")
 
-# 전역 RAG 엔진 캐시 (기존 플로우용)
-_rag_engine_cache: Optional[Any] = None
-# 테스트용 RAG 엔진 캐시 (엘라마 클라우드 스타일)
-_rag_engine_test_cache: Optional[Any] = None
 # 로컬 FAISS 엔진 캐시
 _rag_engine_local_cache: Optional[Any] = None
 
@@ -135,8 +122,8 @@ class GeminiLLM(CustomLLM):
 # 프롬프트 템플릿 정의
 from llama_index.core import PromptTemplate
 
-CHAT_SYSTEM_PROMPT = (
-    "당신은 전문적이고 친절한 건강 상담가 'Dr. Welno'입니다.\n"
+CHAT_SYSTEM_PROMPT_TEMPLATE = (
+    "당신은 전문적이고 친절한 {persona_name}입니다.\n"
     "\n"
     "⚠️ **핵심 규칙**:\n"
     "1. [Context]에 없는 정보는 생성하지 마세요\n"
@@ -173,30 +160,21 @@ CHAT_SYSTEM_PROMPT = (
     "전문가 답변:"
 )
 
-async def init_rag_engine(use_elama_model: bool = False, use_local_vector_db: bool = True):
+async def init_rag_engine(use_local_vector_db: bool = True):
     """
     RAG Query Engine 초기화
     
     Args:
-        use_elama_model: True면 엘라마 클라우드의 모델 설정 사용 (테스트용)
-                        False면 GeminiLLM 사용 (기존 검진 설계 플로우용)
         use_local_vector_db: True면 로컬 FAISS 벡터 DB 사용 (비용 절감, 빠른 응답, 기본값)
-                            False면 LlamaCloud API 사용
+                            False면 로컬 FAISS API 사용
     """
-    global _rag_engine_cache, _rag_engine_test_cache, _rag_engine_local_cache
+    global _rag_engine_local_cache
     
     # 캐시 확인
     if use_local_vector_db:
         if _rag_engine_local_cache is not None:
             print("[INFO] 로컬 FAISS 엔진 캐시 사용")
             return _rag_engine_local_cache
-    elif use_elama_model:
-        if _rag_engine_test_cache is not None:
-            return _rag_engine_test_cache
-    else:
-        if _rag_engine_cache is not None:
-            return _rag_engine_cache
-    
     if not LLAMAINDEX_AVAILABLE:
         print("[WARN] LlamaIndex 라이브러리가 설치되지 않았습니다.")
         return None
@@ -205,16 +183,16 @@ async def init_rag_engine(use_elama_model: bool = False, use_local_vector_db: bo
         # ===== 로컬 FAISS 벡터 DB 사용 =====
         if use_local_vector_db:
             if not FAISS_AVAILABLE:
-                print("[WARN] FAISS 라이브러리가 설치되지 않았습니다. LlamaCloud로 fallback합니다.")
-                use_local_vector_db = False  # Fallback to cloud
+                print("[WARN] 로컬 FAISS를 사용할 수 없습니다.")
+                return None
             else:
                 print("[INFO] 로컬 FAISS 벡터 DB 초기화 중...")
                 
                 # FAISS 인덱스 로드
                 if not PathLib(LOCAL_FAISS_INDEX_PATH).exists():
                     print(f"[WARN] FAISS 인덱스 파일을 찾을 수 없습니다: {LOCAL_FAISS_INDEX_PATH}")
-                    print("[INFO] LlamaCloud로 fallback합니다.")
-                    use_local_vector_db = False
+                    print("[WARN] 로컬 FAISS를 사용할 수 없습니다.")
+                    return None
                 else:
                     faiss_index = faiss.read_index(LOCAL_FAISS_INDEX_PATH)
                     print(f"[INFO] FAISS 인덱스 로드 완료: {faiss_index.ntotal}개 벡터")
@@ -233,8 +211,8 @@ async def init_rag_engine(use_elama_model: bool = False, use_local_vector_db: bo
                         openai_api_key = os.environ.get("OPENAI_API_KEY") or settings.openai_api_key
                         if not openai_api_key or openai_api_key == "dev-openai-key":
                             print("[WARN] OPENAI_API_KEY가 설정되지 않았습니다.")
-                            print("[INFO] LlamaCloud로 fallback합니다.")
-                            use_local_vector_db = False
+                            print("[WARN] 로컬 FAISS를 사용할 수 없습니다.")
+                            return None
                         else:
                             embed_model = OpenAIEmbedding(
                                 model=EMBEDDING_MODEL,
@@ -246,12 +224,12 @@ async def init_rag_engine(use_elama_model: bool = False, use_local_vector_db: bo
                             gemini_api_key = os.environ.get("GOOGLE_GEMINI_API_KEY") or settings.google_gemini_api_key
                             if not gemini_api_key or gemini_api_key == "dev-gemini-key":
                                 print("[WARN] Google Gemini API 키가 설정되지 않았습니다.")
-                                print("[INFO] LlamaCloud로 fallback합니다.")
-                                use_local_vector_db = False
+                                print("[WARN] 로컬 FAISS를 사용할 수 없습니다.")
+                                return None
                             elif not GEMINI_AVAILABLE or not genai:
                                 print("[WARN] Google Gemini가 사용 불가능합니다.")
-                                print("[INFO] LlamaCloud로 fallback합니다.")
-                                use_local_vector_db = False
+                                print("[WARN] 로컬 FAISS를 사용할 수 없습니다.")
+                                return None
                             else:
                                 llm = GeminiLLM(api_key=gemini_api_key, model="gemini-3-flash-preview")
                                 Settings.llm = llm
@@ -300,64 +278,25 @@ async def init_rag_engine(use_elama_model: bool = False, use_local_vector_db: bo
                                         raise
                                 
                                 # 쿼리 엔진 생성 (성능 최적화 및 커스텀 프롬프트 적용)
+                                # 파트너 정보를 위해 persona_name을 기본값으로 채운 템플릿 사용
+                                # (나중에 query 시점에 다시 바꿀 수도 있지만 초기화 시점에 기본 설정)
+                                default_persona = "건강 상담가 AI"
+                                system_prompt = CHAT_SYSTEM_PROMPT_TEMPLATE.format(
+                                    persona_name=default_persona,
+                                    context_str="{context_str}",
+                                    query_str="{query_str}"
+                                )
+                                
                                 query_engine = index.as_query_engine(
                                     similarity_top_k=5,
                                     response_mode="compact",
-                                    text_qa_template=PromptTemplate(CHAT_SYSTEM_PROMPT)
+                                    text_qa_template=PromptTemplate(system_prompt)
                                 )
                                 
                                 _rag_engine_local_cache = query_engine
                                 print(f"[INFO] ✅ 로컬 FAISS RAG 엔진 초기화 완료 (벡터: {faiss_index.ntotal}개, 문서: {total_docs}개)")
                                 
                                 return query_engine
-        
-        # ===== LlamaCloud API 사용 (기존 로직 또는 Fallback) =====
-        if not use_local_vector_db:
-            llamaindex_api_key = os.environ.get("LLAMAINDEX_API_KEY") or settings.llamaindex_api_key
-            
-            if not llamaindex_api_key:
-                print("[WARN] LlamaIndex API 키가 설정되지 않았습니다.")
-                return None
-            
-            index = LlamaCloudIndex(
-                index_id=LLAMACLOUD_INDEX_ID,
-                api_key=llamaindex_api_key
-            )
-            
-            # GeminiLLM은 항상 필요 (LlamaCloudIndex가 기본적으로 OpenAI를 찾으려고 함)
-            gemini_api_key = os.environ.get("GOOGLE_GEMINI_API_KEY") or settings.google_gemini_api_key
-            
-            if not gemini_api_key:
-                print("[WARN] Google Gemini API 키가 설정되지 않았습니다.")
-                return None
-            
-            if not GEMINI_AVAILABLE or not genai:
-                return None
-            
-            llm = GeminiLLM(api_key=gemini_api_key, model="gemini-3-flash-preview")
-            
-            if use_elama_model:
-                # 테스트용: GeminiLLM 사용
-                query_engine = index.as_query_engine(
-                    llm=llm,
-                    similarity_top_k=5,
-                    response_mode="tree_summarize"
-                )
-                _rag_engine_test_cache = query_engine
-                print(f"[INFO] RAG 엔진 초기화 완료 (테스트용 - GeminiLLM, LlamaCloud Index ID: {LLAMACLOUD_INDEX_ID})")
-            else:
-                # 기존 플로우: GeminiLLM 사용 + Settings.llm 설정
-                Settings.llm = llm
-                
-                query_engine = index.as_query_engine(
-                    similarity_top_k=5,
-                    response_mode="tree_summarize"
-                )
-                
-                _rag_engine_cache = query_engine
-                print(f"[INFO] RAG 엔진 초기화 완료 (LlamaCloud Index ID: {LLAMACLOUD_INDEX_ID})")
-            
-            return query_engine
         
     except Exception as e:
         print(f"[ERROR] RAG 엔진 초기화 중 오류: {str(e)}")
@@ -407,7 +346,6 @@ def extract_evidence_from_source_nodes(response) -> List[Dict[str, Any]]:
                 "year": "2024"
             })
     return evidences
-
 
 async def get_medical_evidence_from_rag(query_engine, patient_context: Dict, concerns: List[Dict]) -> Dict[str, Any]:
     """
@@ -504,14 +442,13 @@ async def get_medical_evidence_from_rag(query_engine, patient_context: Dict, con
         print(f"[ERROR] RAG 검색 실행 실패: {str(e)}")
         return {"context_text": "", "structured_evidences": []}
 
-
 async def search_checkup_knowledge(query: str, use_local_vector_db: bool = True) -> Dict[str, Any]:
     """
     검진 지식 검색 (RAG)
     
     Args:
         query: 검색 쿼리
-        use_local_vector_db: True면 로컬 FAISS 사용, False면 LlamaCloud 사용
+        use_local_vector_db: True면 로컬 FAISS 사용, 로컬 FAISS 벡터 DB 사용 여부
     """
     query_engine = await init_rag_engine(use_local_vector_db=use_local_vector_db)
     
@@ -524,23 +461,21 @@ async def search_checkup_knowledge(query: str, use_local_vector_db: bool = True)
         }
     
     try:
-        # 비동기 검색으로 변경
-        response = await query_engine.aquery(query)
+        # 검색만 수행 (LLM 응답 합성 없이 소스만 반환 → 속도 대폭 개선)
+        nodes = await query_engine.aretrieve(query)
         
-        # 소스 추출
         sources = []
-        if hasattr(response, 'source_nodes'):
-            for node in response.source_nodes:
-                source_info = {
-                    "text": clean_html_content(node.text)[:500],
-                    "score": float(node.score) if hasattr(node, 'score') else None,
-                    "metadata": node.metadata if hasattr(node, 'metadata') else {}
-                }
-                sources.append(source_info)
+        for node in nodes:
+            source_info = {
+                "text": clean_html_content(node.text)[:500] if hasattr(node, 'text') else "",
+                "score": float(node.score) if hasattr(node, 'score') else None,
+                "metadata": node.metadata if hasattr(node, 'metadata') else {}
+            }
+            sources.append(source_info)
         
         return {
             "success": True,
-            "answer": str(response),
+            "answer": None,
             "sources": sources,
             "query": query
         }
@@ -556,23 +491,64 @@ async def search_checkup_knowledge(query: str, use_local_vector_db: bool = True)
             "sources": []
         }
 
+async def search_hospital_knowledge(hospital_id: str, query: str, partner_id: str = "welno") -> Dict[str, Any]:
+    """
+    병원별 RAG 검색 — 병원 전용 인덱스 + 글로벌 인덱스 양쪽 검색.
+    병원 인덱스가 있으면 우선 사용하고, 글로벌 인덱스는 항상 검색.
+    결과를 score 기반으로 병합하여 반환.
+    """
+    if not query:
+        return {"success": False, "sources": []}
 
-async def search_hospital_knowledge(hospital_id: str, query: str) -> Dict[str, Any]:
-    """
-    병원별 RAG 검색 (병원 전용 인덱스가 있으면 우선 사용).
-    전역 인덱스·캐시는 건드리지 않음.
-    """
-    if not hospital_id or not query:
+    results = []
+
+    # 1. 병원별 인덱스 검색 (있으면)
+    if hospital_id:
+        hospital_results = await _search_hospital_faiss(hospital_id, query)
+        if hospital_results:
+            results.extend(hospital_results)
+
+    # 2. 글로벌 인덱스 검색 (항상)
+    global_results = await search_checkup_knowledge(query)
+    if global_results.get("success") and global_results.get("sources"):
+        for src in global_results["sources"]:
+            results.append({
+                "text": src.get("text", ""),
+                "score": src.get("score", 0.0),
+                "metadata": src.get("metadata", {}),
+                "source_type": "global"
+            })
+
+    if not results:
         return {"success": False, "sources": []}
+
+    # 3. 점수 기반 정렬 + 상위 10개 반환
+    results.sort(key=lambda x: x.get("score") or 0, reverse=True)
+    top_results = results[:10]
+
+    return {
+        "success": True,
+        "answer": None,  # answer는 호출자가 LLM으로 생성
+        "sources": top_results,
+        "query": query
+    }
+
+
+async def _search_hospital_faiss(hospital_id: str, query: str) -> List[Dict[str, Any]]:
+    """병원 전용 FAISS 인덱스 검색 (내부 헬퍼)"""
+    if not hospital_id:
+        return []
     hospital_dir = PathLib(LOCAL_FAISS_BY_HOSPITAL) / hospital_id
-    index_file = hospital_dir / "faiss.index"
-    if not index_file.exists():
-        return {"success": False, "sources": []}
+    # faiss 바이너리 또는 LlamaIndex 메타데이터 존재 확인
+    faiss_binary = hospital_dir / "faiss.index"
+    index_store = hospital_dir / "index_store.json"
+    if not faiss_binary.exists() and not index_store.exists():
+        return []
     if not FAISS_AVAILABLE:
-        return {"success": False, "sources": []}
+        return []
     openai_api_key = os.environ.get("OPENAI_API_KEY") or settings.openai_api_key
     if not openai_api_key or openai_api_key == "dev-openai-key":
-        return {"success": False, "sources": []}
+        return []
     try:
         embed_model = OpenAIEmbedding(model=EMBEDDING_MODEL, api_key=openai_api_key)
         Settings.embed_model = embed_model
@@ -595,21 +571,20 @@ async def search_hospital_knowledge(hospital_id: str, query: str) -> Dict[str, A
                 if index_ids and index_ids[0]:
                     index = load_index_from_storage(storage_context, index_id=index_ids[0])
                 else:
-                    return {"success": False, "sources": []}
+                    return []
             else:
-                return {"success": False, "sources": []}
-        query_engine = index.as_query_engine(similarity_top_k=5, response_mode="compact")
-        response = await query_engine.aquery(query)
-        sources = []
-        if hasattr(response, 'source_nodes'):
-            for node in response.source_nodes:
-                source_info = {
-                    "text": clean_html_content(node.text)[:500],
-                    "score": float(node.score) if hasattr(node, 'score') else None,
-                    "metadata": node.metadata if hasattr(node, 'metadata') else {},
-                }
-                sources.append(source_info)
-        return {"success": True, "answer": str(response), "sources": sources, "query": query}
+                return []
+        retriever = index.as_retriever(similarity_top_k=5)
+        nodes = await retriever.aretrieve(query)
+        results = []
+        for node in nodes:
+            results.append({
+                "text": clean_html_content(node.text)[:500] if hasattr(node, 'text') else "",
+                "score": float(node.score) if hasattr(node, 'score') else 0.0,
+                "metadata": node.metadata if hasattr(node, 'metadata') else {},
+                "source_type": "hospital"
+            })
+        return results
     except Exception as e:
         print(f"[ERROR] 병원 RAG 검색 실패 (hospital_id={hospital_id}): {e}")
-        return {"success": False, "sources": []}
+        return []

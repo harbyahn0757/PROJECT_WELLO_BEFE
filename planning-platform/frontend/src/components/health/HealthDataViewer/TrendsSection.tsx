@@ -9,7 +9,7 @@ import { TilkoHealthCheckupRaw, TilkoPrescriptionRaw } from '../../../types/heal
 import { WELNO_LOGO_IMAGE } from '../../../constants/images';
 import { getTrendsItems, getItemConfig } from '../../../utils/healthItemsConfig';
 import { isInRange } from '../../../utils/rangeUtils';
-import '../../../pages/ComprehensiveAnalysisPage/styles.scss';
+import '../../../features/health/ComprehensiveAnalysisPage/styles.scss';
 // 이미지 import
 import healthyPotatoImage from '../../../assets/images/gamgam/healthy_potato_nobg.png';
 import tiredPotatoImage from '../../../assets/images/gamgam/tired_potato_nobg.png';

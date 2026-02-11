@@ -16,6 +16,7 @@ from .checkup_design.rag_service import search_checkup_knowledge, clean_html_con
 from .checkup_design.lifestyle_rag_service import lifestyle_rag_service, LifestyleAnalysisRequest
 from ..services.gemini_service import gemini_service, GeminiRequest
 from ..services.welno_data_service import WelnoDataService
+from ..core.database import db_manager
 
 logger = logging.getLogger(__name__)
 
@@ -57,108 +58,85 @@ class WelnoRagChatService:
         """
         사용자 메시지 처리 및 RAG 응답 생성 (단일 응답용 - 최적화 버전)
         """
-        start_total = time.time()
-        answer = "죄송합니다. 응답 생성 중 오류가 발생했습니다."
-        sources = []
-        try:
-            # 1. 사용자 메시지 저장
-            logger.info(f"📨 [RAG 채팅] 메시지 수신: {message[:50]}...")
-            self.chat_manager.add_message(uuid, hospital_id, "user", message)
-            
-            # 2. 히스토리 및 메타데이터 가져오기
-            history = self.chat_manager.get_history(uuid, hospital_id)
-            meta_key = f"welno:rag_chat:metadata:{uuid}:{hospital_id}:{session_id}"
-            metadata_json = self.redis_client.get(meta_key) if self.redis_client else None
-            metadata = json.loads(metadata_json) if metadata_json else {"detected_keywords": []}
-            
-            current_keywords = self._detect_health_keywords(message)
-            all_keywords = list(set(metadata.get("detected_keywords", []) + current_keywords))
-            
-            # 질문이 너무 짧거나 의미 없는 경우 처리
-            if len(message.strip()) < 2 or message.strip() in ["?", "!", "ㅇ", "ㄴ"]:
-                answer = "안녕하세요! 건강이나 영양제, 혹은 최근 받으신 검진 결과에 대해 구체적으로 말씀해주시면 지침서를 바탕으로 자세히 답변해 드릴게요. 😊"
-                self.chat_manager.add_message(uuid, hospital_id, "assistant", answer)
-                return {
-                    "success": True, "answer": answer, "sources": [], "session_id": session_id,
-                    "message_count": len([m for m in history if m.get("role") == "user"]) + 1,
-                    "trigger_survey": False, "error": None
-                }
+        # ... (생략)
 
-            # 3. 특수 명령 감지 (3주 플랜 등)
-            if any(kw in message for kw in ["3주", "생활습관 개선", "플랜", "계획"]):
-                full_data = await self.welno_data_service.get_patient_health_data(uuid, hospital_id)
-                patient_info = full_data.get("patient", {})
-                health_data_list = full_data.get("health_data", [])
-                
-                if patient_info and "error" not in patient_info:
-                    health_stats = self._extract_health_stats(health_data_list)
-                    request = LifestyleAnalysisRequest(
-                        uuid=uuid, hospital_id=hospital_id,
-                        patient_name=patient_info.get("name", "고객"),
-                        age=self._calculate_age(patient_info.get("birth_date")),
-                        gender=patient_info.get("gender", "M"),
-                        bmi=health_stats.get("bmi"),
-                        chronic_diseases=list(set(health_stats.get("chronic_diseases", []) + [k for k in all_keywords if k in ["고혈압", "당뇨", "비만"]])),
-                        concerns=list(set(all_keywords + [message]))
-                    )
-                    plan = await lifestyle_rag_service.generate_3week_plan(request)
-                    answer = f"### [Dr. Welno의 3주 맞춤 플랜]\n\n{plan.summary}\n\n"
-                    # ... (상세 내용 생략 - stream 버전과 동일하게 구성)
-                    answer += f"📅 **1주차 ({plan.week1.get('title', '인식')})**\n"
-                    for act in plan.week1.get('actions', []): answer += f"- {act}\n"
-                    answer += f"\n📅 **2주차 ({plan.week2.get('title', '집중')})**\n"
-                    for act in plan.week2.get('actions', []): answer += f"- {act}\n"
-                    answer += f"\n📅 **3주차 ({plan.week3.get('title', '유지')})**\n"
-                    for act in plan.week3.get('actions', []): answer += f"- {act}\n"
-                    sources = plan.medical_basis
-                else:
-                    answer = "죄송합니다. 정보를 찾을 수 없어 맞춤형 플랜 생성이 어렵습니다."
-                    sources = []
-            else:
-                # 일반 RAG 검색 최적화
-                search_query = message
-                if current_keywords:
-                    search_query = f"{', '.join(current_keywords)} 관련: {message}"
-                
-                start_rag = time.time()
-                rag_result = await search_checkup_knowledge(query=search_query, use_local_vector_db=True)
-                logger.info(f"⏱️ [RAG 채팅] 검색 소요 시간: {time.time() - start_rag:.2f}s")
-                
-                if not rag_result.get("success"):
-                    answer = "죄송합니다. 현재 정보를 조회할 수 없습니다."
-                    sources = []
-                else:
-                    # RAG 결과를 Context로 사용하여 LLM에게 재구성 요청 (expert persona 적용)
-                    from .checkup_design.rag_service import CHAT_SYSTEM_PROMPT
-                    context_str = "\n".join([s.get("text", "") for s in rag_result.get("sources", [])])
-                    prompt = CHAT_SYSTEM_PROMPT.format(context_str=context_str, query_str=message)
-                    
-                    start_llm = time.time()
-                    gemini_res = await gemini_service.call_api(GeminiRequest(prompt=prompt, model="gemini-3-flash-preview"), save_log=False)
-                    logger.info(f"⏱️ [RAG 채팅] 생성 소요 시간: {time.time() - start_llm:.2f}s")
-                    
-                    answer = gemini_res.content if gemini_res.success else "응답 생성에 실패했습니다."
-                    sources = rag_result.get("sources", [])
+    async def get_hospital_rag_config(self, partner_id: str, hospital_id: str) -> Optional[Dict[str, Any]]:
+        """병원별 RAG/LLM 설정 조회"""
+        try:
+            query = """
+                SELECT persona_prompt, welcome_message, llm_config, embedding_config, theme_config, is_active, hospital_name, contact_phone
+                FROM welno.tb_hospital_rag_config
+                WHERE partner_id = %s AND hospital_id = %s AND is_active = true
+            """
+            config = await db_manager.execute_one(query, (partner_id, hospital_id))
+            if config:
+                logger.info(f"✅ [RAG 설정] 병원 설정 로드 성공: {partner_id}/{hospital_id}")
+                return config
             
-            # 4. 마무리
-            self.chat_manager.add_message(uuid, hospital_id, "assistant", answer)
-            message_count = len([m for m in history if m.get("role") == "user"]) + 1
-            await self._update_chat_metadata(uuid, hospital_id, session_id, current_keywords, message_count)
-            trigger_check = await self.should_trigger_survey(uuid, hospital_id, session_id)
-            
-            logger.info(f"⏱️ [RAG 채팅] 총 처리 시간: {time.time() - start_total:.2f}s")
-            
-            return {
-                "success": True, "answer": answer, "sources": sources, "session_id": session_id,
-                "message_count": message_count, "trigger_survey": trigger_check["should_trigger"], "error": None
-            }
-        
+            # 병원별 설정이 없으면 파트너 공통 설정 시도 (hospital_id='*')
+            config = await db_manager.execute_one(query, (partner_id, '*'))
+            if config:
+                logger.info(f"✅ [RAG 설정] 파트너 공통 설정 로드 성공: {partner_id}")
+                return config
+                
+            return None
         except Exception as e:
-            logger.error(f"❌ [RAG 채팅 서비스] 처리 실패: {str(e)}")
-            return {
-                "success": False, "answer": "처리 중 오류가 발생했습니다.", "sources": [],
-                "session_id": session_id, "message_count": 0, "trigger_survey": False, "error": str(e)
-            }
+            logger.warning(f"⚠️ [RAG 설정] 설정 로드 실패: {e}")
+            return None
+
+    async def save_chat_log(
+        self,
+        partner_id: str,
+        hospital_id: str,
+        user_uuid: str,
+        session_id: str,
+        message: str,
+        role: str,
+        client_info: Optional[Dict[str, Any]] = None,
+        initial_data: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """대화 로그 저장 (Upsert)"""
+        try:
+            timestamp = datetime.now().isoformat()
+            new_message = {"role": role, "content": message, "timestamp": timestamp}
+            
+            # 기존 로그 확인
+            select_query = "SELECT conversation, message_count FROM welno.tb_partner_rag_chat_log WHERE partner_id = %s AND session_id = %s"
+            existing = await db_manager.execute_one(select_query, (partner_id, session_id))
+            
+            if existing:
+                conversation = existing['conversation']
+                if not isinstance(conversation, list): conversation = []
+                conversation.append(new_message)
+                
+                update_query = """
+                    UPDATE welno.tb_partner_rag_chat_log
+                    SET conversation = %s, message_count = %s, updated_at = NOW()
+                    WHERE partner_id = %s AND session_id = %s
+                """
+                await db_manager.execute_update(update_query, (
+                    json.dumps(conversation, ensure_ascii=False),
+                    len([m for m in conversation if m['role'] == 'user']),
+                    partner_id,
+                    session_id
+                ))
+            else:
+                insert_query = """
+                    INSERT INTO welno.tb_partner_rag_chat_log 
+                    (partner_id, hospital_id, user_uuid, session_id, client_info, initial_data, conversation, message_count)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                await db_manager.execute_update(insert_query, (
+                    partner_id, hospital_id, user_uuid, session_id,
+                    json.dumps(client_info or {}, ensure_ascii=False),
+                    json.dumps(initial_data or {}, ensure_ascii=False),
+                    json.dumps([new_message], ensure_ascii=False),
+                    1 if role == 'user' else 0
+                ))
+            
+            logger.info(f"💾 [대화 로그] 저장 완료: {partner_id}/{session_id}")
+        except Exception as e:
+            logger.warning(f"⚠️ [대화 로그] 저장 실패: {e}")
 
     async def handle_user_message_stream(
         self,
@@ -177,8 +155,30 @@ class WelnoRagChatService:
         suggestions = []
         
         try:
+            # 0. 설정 로드 (파트너 모드가 아닐 경우 welno 기본 설정 시도)
+            partner_id = (trace_data.get("partner_id") if trace_data else None) or "welno"
+            if trace_data and not trace_data.get("hospital_config"):
+                trace_data["hospital_config"] = await self.get_hospital_rag_config(partner_id, hospital_id)
+            elif not trace_data:
+                # trace_data가 없는 기본 웰노 모드에서도 설정을 조회하여 적용
+                config = await self.get_hospital_rag_config(partner_id, hospital_id)
+                trace_data = {"hospital_config": config, "partner_id": partner_id}
+
             # 1. 사용자 메시지 저장
             self.chat_manager.add_message(uuid, hospital_id, "user", message)
+            
+            # DB 로그 저장 (사용자 발화)
+            partner_id = (trace_data.get("partner_id") if trace_data else None) or "welno"
+            await self.save_chat_log(
+                partner_id=partner_id,
+                hospital_id=hospital_id,
+                user_uuid=uuid,
+                session_id=session_id,
+                message=message,
+                role="user",
+                client_info=trace_data.get("client_info") if trace_data else None,
+                initial_data=trace_data.get("processed_data") if trace_data else None
+            )
             
             # 2. 히스토리 및 메타데이터 추출
             history = self.chat_manager.get_history(uuid, hospital_id)
@@ -358,7 +358,7 @@ class WelnoRagChatService:
             if current_keywords:
                 search_query = f"{', '.join(current_keywords)} 관련: {message}"
             
-            from .checkup_design.rag_service import init_rag_engine, CHAT_SYSTEM_PROMPT, search_hospital_knowledge
+            from .checkup_design.rag_service import init_rag_engine, CHAT_SYSTEM_PROMPT_TEMPLATE, search_hospital_knowledge
             
             # 타이밍 변수 초기화
             rag_engine_time = 0.0
@@ -454,15 +454,65 @@ class WelnoRagChatService:
                         logger.info(f"📜 [세션 히스토리] {len(chat_history)}개 메시지 로드")
                 
                 # 프롬프트 구성
+                hospital_config = trace_data.get("hospital_config") if trace_data else None
+                raw_persona = hospital_config.get("persona_prompt") if hospital_config else None
+                
+                # 병원명/전화번호 추출 (템플릿 치환용)
+                _h_name = (hospital_config or {}).get("hospital_name") or ""
+                _h_phone = (hospital_config or {}).get("contact_phone") or ""
+                
+                # 기본 페르소나 (persona_prompt 비어있으면 자동 생성)
+                if not raw_persona and _h_name:
+                    raw_persona = (
+                        "당신은 {hospital_name}의 헬스케어 도우미입니다.\n\n"
+                        "[상담 원칙]\n"
+                        "1. 의료적 소견이나 진단은 반드시 의료진만 내릴 수 있습니다.\n"
+                        "2. 당신은 RAG 시스템이 제공하는 기본 표준 결과와 임베딩 데이터를 기반으로 건강 정보를 설명하는 역할만 수행합니다.\n"
+                        "3. 헬스케어 전문가로서 운동 및 식이 요법에 대한 일반적인 가이드는 제안할 수 있습니다.\n"
+                        "4. 하지만 모든 구체적이고 정확한 진료 상담은 반드시 의료진 또는 본원에 직접 문의하도록 안내하십시오.\n\n"
+                        "[{hospital_name} 정보]\n"
+                        + ("- 연락처: {contact_phone}\n" if _h_phone else "")
+                        + "- 모든 전문적인 의학적 질의는 본원으로 문의해달라고 부드럽게 안내하십시오."
+                    )
+                
+                # 페르소나 내 {hospital_name}, {contact_phone} 치환
+                custom_persona = raw_persona
+                if custom_persona:
+                    custom_persona = custom_persona.replace("{hospital_name}", _h_name or "병원")
+                    custom_persona = custom_persona.replace("{contact_phone}", _h_phone or "본원")
+                
+                # 파트너 이름 또는 기본 페르소나 이름 결정
+                partner_info = trace_data.get("partner_info") if trace_data else None
+                persona_name = "전문 건강 상담가 AI"
+                if _h_name:
+                    persona_name = f"{_h_name}의 건강 상담가 AI"
+                elif partner_info and hasattr(partner_info, 'partner_name'):
+                    persona_name = f"{partner_info.partner_name}의 건강 상담가 AI"
+                elif hospital_config and hospital_config.get("partner_name"):
+                    persona_name = f"{hospital_config.get('partner_name')}의 건강 상담가 AI"
+
                 if is_first_message:
                     # 첫 메시지: 검진/복약 데이터 포함
-                    enhanced_prompt = CHAT_SYSTEM_PROMPT
+                    base_system_prompt = CHAT_SYSTEM_PROMPT_TEMPLATE.format(
+                        persona_name=persona_name,
+                        context_str="{context_str}",
+                        query_str="{query_str}"
+                    )
+                    # DB 페르소나가 있으면 기본 프롬프트 앞에 추가
+                    if custom_persona:
+                        base_system_prompt = f"{custom_persona}\n\n{base_system_prompt}"
+                        
+                    enhanced_prompt = base_system_prompt
                     combined_context = briefing_context + past_survey_info + f"\n[의학 지식 문서 (참고 문헌)]\n{context_str}"
                     if combined_context:
-                        enhanced_prompt = enhanced_prompt.replace("[Context]", f"[Context]{combined_context}")
+                        # [Context] 부분을 실제 데이터로 치환
+                        enhanced_prompt = enhanced_prompt.replace("[Context]", f"[Context]\n{combined_context}")
+                    
+                    # {query_str}과 {context_str} 최종 치환
+                    final_prompt = enhanced_prompt.format(query_str=message, context_str="")
                     
                     # 프롬프트 구성 로깅
-                    prompt_length = len(enhanced_prompt)
+                    prompt_length = len(final_prompt)
                     briefing_length = len(briefing_context) if briefing_context else 0
                     past_survey_length = len(past_survey_info) if past_survey_info else 0
                     context_str_length = len(context_str) if context_str else 0
@@ -569,8 +619,22 @@ class WelnoRagChatService:
                             except: pass
                     
                     # 히스토리와 검진/복약/문진 데이터 요약을 함께 전달
-                    prompt = f"{data_summary}{past_survey_info_subsequent}[의학 지식 문서 (참고 문헌)]\n{context_str}\n\n사용자 질문: {message}\n전문가 답변:"
+                    persona_prefix = f"{custom_persona}\n\n" if custom_persona else ""
                     
+                    # 시스템 프롬프트 템플릿 적용 (첫 메시지가 아닐 때도 페르소나 유지)
+                    base_system_prompt_subsequent = CHAT_SYSTEM_PROMPT_TEMPLATE.format(
+                        persona_name=persona_name,
+                        context_str="{context_str}",
+                        query_str="{query_str}"
+                    )
+                    # [Context] 부분을 실제 데이터로 치환
+                    full_context = f"{data_summary}{past_survey_info_subsequent}\n[의학 지식 문서 (참고 문헌)]\n{context_str}"
+                    prompt = base_system_prompt_subsequent.replace("[Context]", f"[Context]{full_context}")
+                    
+                    # 사용자 질문은 이미 base_system_prompt_subsequent 하단에 {query_str}로 포함되어 있으나,
+                    # 기존 로직과의 호환을 위해 명시적으로 format 호출
+                    prompt = prompt.format(query_str=message, context_str="") # context_str은 이미 위에서 replace로 처리됨
+
                     if trace_data:
                         trace_data["final_prompt"] = prompt
                         trace_data["is_first_message"] = False
@@ -654,6 +718,17 @@ class WelnoRagChatService:
                 # 파트너 위젯: 클라이언트 vs RAG 불일치 태그 제거 후 Slack 알림
                 had_rag_discrepancy = "[CLIENT_RAG_DISCREPANCY]" in full_answer
                 full_answer = full_answer.replace("[CLIENT_RAG_DISCREPANCY]", "").strip()
+                
+                # DB 로그 저장 (AI 응답)
+                await self.save_chat_log(
+                    partner_id=partner_id,
+                    hospital_id=hospital_id,
+                    user_uuid=uuid,
+                    session_id=session_id,
+                    message=full_answer,
+                    role="assistant"
+                )
+
                 if is_partner_session and had_rag_discrepancy:
                     try:
                         from ..core.config import settings

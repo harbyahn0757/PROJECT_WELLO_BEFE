@@ -74,7 +74,22 @@ class PartnerRagChatService(WelnoRagChatService):
             trace_data["timings"]["preprocess_ms"] = (time.time() - pre_start) * 1000
             trace_data["processed_data"] = processed_data
             
-            # 2. 세션 메타데이터에 파트너 정보 저장
+            # 2. 병원별 RAG/LLM 설정 로드
+            config_start = time.time()
+            hospital_config = await self.get_hospital_rag_config(
+                partner_info.partner_id, hospital_id
+            )
+            trace_data["hospital_config"] = hospital_config
+            trace_data["partner_info"] = {
+                "partner_id": partner_info.partner_id,
+                "partner_name": partner_info.partner_name,
+                "api_key": partner_info.api_key[:10] + "..." if partner_info.api_key else None,
+                "iframe_allowed": partner_info.iframe_allowed,
+                "allowed_domains": partner_info.allowed_domains
+            }
+            trace_data["timings"]["load_config_ms"] = (time.time() - config_start) * 1000
+            
+            # 3. 세션 메타데이터에 파트너 정보 저장
             meta_start = time.time()
             await self._store_partner_session_metadata(
                 session_id, partner_info, processed_data

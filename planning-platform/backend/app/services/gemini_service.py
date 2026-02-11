@@ -10,7 +10,7 @@ import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
 from google.generativeai import caching
 
-from app.core.config import settings
+from ..core.config import settings
 
 # 로거 설정
 logger = logging.getLogger(__name__)
@@ -185,7 +185,7 @@ class GeminiService:
             
             # 로깅 저장
             if save_log and patient_uuid:
-                from app.services.session_logger import get_session_logger
+                from .session_logger import get_session_logger
                 session_logger = get_session_logger()
                 
                 # 로그에 저장할 요청 데이터 구성
@@ -305,10 +305,11 @@ class GeminiService:
                     stream=True
                 )
             
-            # 스트리밍 응답
+            # 스트리밍 응답 (각 청크 후 이벤트 루프에 제어권 반환하여 SSE 즉시 전송)
             for chunk in response:
                 if chunk.text:
                     yield chunk.text
+                    await asyncio.sleep(0)
 
         except Exception as e:
             logger.error(f"❌ [Gemini] 호출 실패: {str(e)}")

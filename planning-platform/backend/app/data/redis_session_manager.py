@@ -3,6 +3,8 @@ Redis 기반 틸코 인증 세션 데이터 관리
 """
 import json
 import redis
+import secrets
+import hashlib
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 from uuid import uuid4
@@ -36,11 +38,44 @@ class RedisSessionManager:
         """Redis 키 생성"""
         return f"tilko_session:{session_id}"
     
-    def create_session(self, user_info: Dict[str, Any]) -> str:
-        """새 세션 생성"""
-        session_id = str(uuid4())
+    def _generate_secure_session_id(self, partner_id: str = "welno", user_uuid: str = None) -> str:
+        """
+        보안 강화된 세션 ID 생성
+        
+        Args:
+            partner_id: 파트너 ID (세션 격리용)
+            user_uuid: 사용자 UUID (충돌 방지용)
+            
+        Returns:
+            str: 보안 강화된 세션 ID
+        """
+        # 1. 암호학적으로 안전한 랜덤 바이트 생성 (32바이트 = 256비트)
+        random_bytes = secrets.token_bytes(32)
+        
+        # 2. 타임스탬프 추가 (재현 불가능성 보장)
+        timestamp = str(datetime.now().timestamp()).encode('utf-8')
+        
+        # 3. 파트너 ID 추가 (파트너별 격리)
+        partner_bytes = partner_id.encode('utf-8')
+        
+        # 4. 사용자 UUID 추가 (있는 경우)
+        user_bytes = user_uuid.encode('utf-8') if user_uuid else b''
+        
+        # 5. 모든 요소를 결합하여 해시 생성
+        combined = random_bytes + timestamp + partner_bytes + user_bytes
+        session_hash = hashlib.sha256(combined).hexdigest()
+        
+        # 6. 파트너 접두사 추가 (세션 소유권 식별용)
+        return f"{partner_id}_{session_hash[:32]}"
+    
+    def create_session(self, user_info: Dict[str, Any], partner_id: str = "welno") -> str:
+        """새 세션 생성 (보안 강화)"""
+        user_uuid = user_info.get('uuid') if isinstance(user_info, dict) else None
+        session_id = self._generate_secure_session_id(partner_id=partner_id, user_uuid=user_uuid)
+        
         session_data = {
             "session_id": session_id,
+            "partner_id": partner_id,  # 파트너 ID 저장 (소유권 검증용)
             "user_info": user_info,
             "status": "initiated",
             "created_at": datetime.now().isoformat(),
@@ -69,8 +104,14 @@ class RedisSessionManager:
         self._save_session(session_id, session_data)
         return session_id
     
-    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """세션 데이터 조회"""
+    def get_session(self, session_id: str, requesting_partner_id: str = None) -> Optional[Dict[str, Any]]:
+        """세션 데이터 조회 (보안 강화)"""
+        # 파트너 소유권 검증 (요청한 파트너 ID가 있는 경우)
+        if requesting_partner_id:
+            if not self.verify_session_ownership(session_id, requesting_partner_id):
+                print(f"⚠️ [세션 보안] 접근 거부: session={session_id[:20]}..., partner={requesting_partner_id}")
+                return None
+        
         if self.redis_client is None:
             # 파일 기반 폴백
             return self._get_session_from_file(session_id)
@@ -93,6 +134,56 @@ class RedisSessionManager:
         except Exception:
             # Redis 실패시 조용히 파일 기반 폴백
             return self._get_session_from_file(session_id)
+    
+    def verify_session_ownership(self, session_id: str, partner_id: str) -> bool:
+        """
+        세션 소유권 검증 (보안 강화)
+        
+        Args:
+            session_id: 검증할 세션 ID
+            partner_id: 요청한 파트너 ID
+            
+        Returns:
+            bool: 소유권 검증 결과
+        """
+        # 1. 세션 ID 형식 검증 (파트너 접두사 확인)
+        if not session_id.startswith(f"{partner_id}_"):
+            print(f"⚠️ [세션 보안] 잘못된 세션 ID 형식: {session_id[:20]}... (파트너: {partner_id})")
+            return False
+        
+        # 2. 세션 데이터 조회
+        session_data = self.get_session(session_id)
+        if not session_data:
+            print(f"⚠️ [세션 보안] 세션 데이터 없음: {session_id[:20]}...")
+            return False
+        
+        # 3. 저장된 파트너 ID와 비교
+        stored_partner_id = session_data.get('partner_id')
+        if stored_partner_id != partner_id:
+            print(f"⚠️ [세션 보안] 파트너 ID 불일치: 요청={partner_id}, 저장={stored_partner_id}")
+            return False
+        
+        # 4. 세션 만료 시간 재확인
+        expires_at = datetime.fromisoformat(session_data["expires_at"])
+        if datetime.now() > expires_at:
+            print(f"⚠️ [세션 보안] 만료된 세션: {session_id[:20]}...")
+            return False
+        
+        return True
+    
+    def extract_partner_from_session_id(self, session_id: str) -> Optional[str]:
+        """
+        세션 ID에서 파트너 ID 추출
+        
+        Args:
+            session_id: 세션 ID (형식: partner_id_hash)
+            
+        Returns:
+            str: 파트너 ID 또는 None
+        """
+        if '_' in session_id:
+            return session_id.split('_')[0]
+        return None
     
     def _save_session(self, session_id: str, session_data: Dict[str, Any]) -> bool:
         """세션 데이터 저장"""

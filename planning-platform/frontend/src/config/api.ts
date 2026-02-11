@@ -21,8 +21,44 @@ const CAMPAIGN_REDIRECT_URL = IS_DEVELOPMENT
   ? 'http://localhost:3012'
   : `${window.location.origin}/campaigns/bnr_planning_XogXAims`;
 
-// 웰노 파트너 API 키
+// 동적 설정 (서버에서 조회)
+let DYNAMIC_CONFIG: {
+  partner_id: string;
+  default_hospital_id: string;
+  api_key: string;
+  mediarc_enabled: boolean;
+} | null = null;
+
+// 동적 설정 조회 함수
+const fetchDynamicConfig = async (partnerId: string = 'welno'): Promise<typeof DYNAMIC_CONFIG> => {
+  if (DYNAMIC_CONFIG && DYNAMIC_CONFIG.partner_id === partnerId) {
+    return DYNAMIC_CONFIG;
+  }
+  
+  try {
+    const response = await fetch(createApiUrl(`/api/v1/admin/embedding/config/frontend?partner_id=${partnerId}`));
+    if (response.ok) {
+      DYNAMIC_CONFIG = await response.json();
+      return DYNAMIC_CONFIG;
+    }
+  } catch (error) {
+    console.warn('동적 설정 조회 실패, 기본값 사용:', error);
+  }
+  
+  // 기본값 fallback
+  DYNAMIC_CONFIG = {
+    partner_id: partnerId,
+    default_hospital_id: 'PEERNINE',
+    api_key: 'welno_5a9bb40b5108ecd8ef864658d5a2d5ab',
+    mediarc_enabled: true
+  };
+  
+  return DYNAMIC_CONFIG;
+};
+
+// 레거시 호환용 상수 (deprecated)
 const WELNO_PARTNER_API_KEY = 'welno_5a9bb40b5108ecd8ef864658d5a2d5ab';
+const WELNO_DEFAULT_HOSPITAL_ID = 'PEERNINE';
 
 // API URL 생성
 const createApiUrl = (path: string): string => {
@@ -119,6 +155,11 @@ export const API_ENDPOINTS = {
       createApiUrl(`/api/v1/patients/${uuid}/sessions?hospital_id=${hospitalId}`),
     CLEANUP_SESSIONS: () => 
       createApiUrl(`/api/v1/sessions/cleanup`)
+  },
+  
+  // 디버깅 관련 API
+  DEBUG: {
+    FRONTEND_STATE: createApiUrl('/api/v1/debug/frontend-state')
   }
 };
 
@@ -139,5 +180,9 @@ export default {
   // 파트너 마케팅 관련 상수
   PARTNER_MARKETING_API_BASE,
   CAMPAIGN_REDIRECT_URL,
+  // 동적 설정 관련
+  fetchDynamicConfig,
+  // 레거시 호환용 (deprecated)
   WELNO_PARTNER_API_KEY,
+  WELNO_DEFAULT_HOSPITAL_ID,
 };

@@ -170,7 +170,7 @@ graph TB
 | `position` | string | `'bottom-right'` | 위젯 위치 (`'bottom-left'`, `'top-right'`, `'top-left'`) |
 | `buttonColor` | string | `'#A69B8F'` | 채팅 버튼 색상 (HEX 코드) |
 | `chatIconUrl` | string | (없음, 기본 말풍선 아이콘) | **채팅 아이콘 이미지 URL** – 파트너가 지정한 이미지를 우측 하단 채팅 버튼에 사용 (권장: 24×24 또는 정사각형, PNG/SVG). **MediLinx** API Key 사용 시 미지정이면 메디링스 전용 아이콘(`mdx_icon.png`)이 자동 적용됩니다. |
-| `theme` | string | `'default'` | UI 테마 (`'light'`, `'dark'`, `'custom'`) |
+| `theme` | string | `'default'` | UI 테마: `'default'`(브라운), `'navy'`(남색/파랑). 채팅창 헤더·버튼·강조색이 테마별 토큰으로 적용됩니다. |
 | `autoOpen` | boolean | `false` | 페이지 로드 시 자동으로 채팅창 열기 |
 | `welcomeMessage` | string | 기본 메시지 | 채팅창을 열 때 표시할 환영 메시지 |
 
@@ -474,7 +474,7 @@ curl -X POST "https://welno.kindhabit.com/welno-api/v1/rag-chat/partner/message"
 .welno-rag-widget-send-button { ... }
 ```
 
-(위젯은 현재 CSS 변수로 테마를 노출하지 않습니다. 버튼 색상은 `buttonColor` 옵션으로 지정하세요.)
+(테마는 `theme: 'default'`(브라운) 또는 `theme: 'navy'`(남색)로 선택할 수 있으며, 채팅창 헤더·버튼·강조색이 토큰으로 적용됩니다. `buttonColor`로 FAB 색만 따로 지정할 수도 있습니다.)
 
 ### 반응형 디자인
 

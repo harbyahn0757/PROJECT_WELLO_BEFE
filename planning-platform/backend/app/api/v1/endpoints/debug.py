@@ -3,16 +3,28 @@
 개발자 전용 로그 다운로드 등
 """
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import os
 import zipfile
 import io
 from pathlib import Path
 from datetime import datetime
+from pydantic import BaseModel
+import json
 
 router = APIRouter()
+
+
+class FrontendStateLog(BaseModel):
+    """프론트엔드 상태 로그 모델"""
+    page_path: str
+    user_agent: Optional[str] = None
+    localStorage_state: Dict[str, Any]
+    session_storage_state: Optional[Dict[str, Any]] = None
+    url_params: Optional[Dict[str, str]] = None
+    timestamp: Optional[str] = None
 
 @router.get("/download-logs")
 async def download_recent_logs(
@@ -200,4 +212,100 @@ async def get_log_statistics() -> Dict[str, Any]:
     except Exception as e:
         print(f"❌ [로그 통계] 오류: {e}")
         raise HTTPException(status_code=500, detail=f"로그 통계 조회 실패: {str(e)}")
+
+
+@router.post("/frontend-state")
+async def log_frontend_state(
+    state_data: FrontendStateLog,
+    request: Request
+) -> Dict[str, Any]:
+    """
+    프론트엔드 상태를 서버 로그에 기록
+    모바일 디버깅용
+    """
+    try:
+        # 클라이언트 IP 가져오기
+        client_ip = request.client.host
+        
+        # User-Agent 헤더에서 가져오기 (요청 데이터에 없으면)
+        if not state_data.user_agent:
+            state_data.user_agent = request.headers.get("user-agent", "Unknown")
+        
+        # 타임스탬프 설정 (요청 데이터에 없으면)
+        if not state_data.timestamp:
+            state_data.timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # 로그 메시지 구성
+        log_data = {
+            "type": "FRONTEND_STATE_DEBUG",
+            "timestamp": state_data.timestamp,
+            "client_ip": client_ip,
+            "user_agent": state_data.user_agent,
+            "page_path": state_data.page_path,
+            "url_params": state_data.url_params,
+            "localStorage": state_data.localStorage_state,
+            "sessionStorage": state_data.session_storage_state
+        }
+        
+        # 플로팅 버튼 관련 핵심 상태값들 추출
+        floating_button_states = {}
+        ls = state_data.localStorage_state
+        
+        # 플로팅 버튼 숨김 관련 상태들
+        floating_related_keys = [
+            'collectingStatus', 'passwordModalOpen', 'tilko_auth_waiting',
+            'isDataCollectionCompleted', 'showPasswordModal', 'authFlow',
+            'welno_patient_uuid', 'welno_hospital_id', 'campaign_mode'
+        ]
+        
+        for key in floating_related_keys:
+            if key in ls:
+                floating_button_states[key] = ls[key]
+        
+        # 상세 로그 출력
+        print(f"\n🔍 [FRONTEND_DEBUG] {state_data.timestamp}")
+        print(f"📍 페이지: {state_data.page_path}")
+        print(f"🌐 IP: {client_ip}")
+        print(f"📱 UA: {state_data.user_agent[:100]}...")
+        
+        if state_data.url_params:
+            print(f"🔗 URL 파라미터: {json.dumps(state_data.url_params, ensure_ascii=False)}")
+        
+        print(f"🎯 플로팅 버튼 관련 상태:")
+        for key, value in floating_button_states.items():
+            print(f"   - {key}: {value}")
+        
+        # localStorage 전체 키 목록
+        all_keys = list(ls.keys()) if ls else []
+        print(f"💾 localStorage 전체 키 ({len(all_keys)}개): {all_keys}")
+        
+        # 특별히 주의깊게 봐야 할 상태들
+        critical_states = []
+        if ls.get('collectingStatus') == 'true':
+            critical_states.append("⚠️ collectingStatus=true (데이터 수집 중)")
+        if ls.get('passwordModalOpen') == 'true':
+            critical_states.append("⚠️ passwordModalOpen=true (패스워드 모달 열림)")
+        if ls.get('tilko_auth_waiting') == 'true':
+            critical_states.append("⚠️ tilko_auth_waiting=true (틸코 인증 대기)")
+        
+        if critical_states:
+            print(f"🚨 주의 상태:")
+            for state in critical_states:
+                print(f"   {state}")
+        else:
+            print(f"✅ 플로팅 버튼 숨김 상태 없음")
+        
+        print(f"─" * 80)
+        
+        return {
+            "success": True,
+            "message": "프론트엔드 상태가 서버 로그에 기록되었습니다",
+            "logged_keys": len(all_keys),
+            "floating_button_states": floating_button_states,
+            "critical_states": critical_states
+        }
+        
+    except Exception as e:
+        print(f"❌ [프론트엔드 상태 로깅] 오류: {e}")
+        raise HTTPException(status_code=500, detail=f"상태 로깅 실패: {str(e)}")
 

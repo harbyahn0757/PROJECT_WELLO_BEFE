@@ -186,6 +186,90 @@ def get_payment_amount(partner_id: str, conn=None) -> int:
     return payment.get("amount", 7900)
 
 
+def get_payment_mid(partner_id: str, conn=None) -> str:
+    """
+    파트너의 결제 MID 조회
+    
+    Args:
+        partner_id: 파트너 ID
+        conn: DB 커넥션 (선택사항)
+        
+    Returns:
+        결제 MID (기본값: COCkkhabit)
+    """
+    config = get_partner_config(partner_id, conn)
+    
+    if not config:
+        # 기본값: COCkkhabit
+        return "COCkkhabit"
+    
+    payment = config.get("config", {}).get("payment", {})
+    return payment.get("mid", "COCkkhabit")
+
+
+def get_payment_hash_key(partner_id: str, conn=None) -> str:
+    """
+    파트너의 결제 해시키 조회
+    
+    Args:
+        partner_id: 파트너 ID
+        conn: DB 커넥션 (선택사항)
+        
+    Returns:
+        결제 해시키 (기본값: 3CB8183A4BE283555ACC8363C0360223)
+    """
+    config = get_partner_config(partner_id, conn)
+    
+    if not config:
+        # 기본값
+        return "3CB8183A4BE283555ACC8363C0360223"
+    
+    payment = config.get("config", {}).get("payment", {})
+    return payment.get("hash_key", "3CB8183A4BE283555ACC8363C0360223")
+
+
+def get_payment_iniapi_key(partner_id: str, conn=None) -> str:
+    """
+    파트너의 INIAPI 키 조회
+    
+    Args:
+        partner_id: 파트너 ID
+        conn: DB 커넥션 (선택사항)
+        
+    Returns:
+        INIAPI 키 (기본값: oAOMaMsnwnSvlu4l)
+    """
+    config = get_partner_config(partner_id, conn)
+    
+    if not config:
+        # 기본값
+        return "oAOMaMsnwnSvlu4l"
+    
+    payment = config.get("config", {}).get("payment", {})
+    return payment.get("iniapi_key", "oAOMaMsnwnSvlu4l")
+
+
+def get_payment_iniapi_iv(partner_id: str, conn=None) -> str:
+    """
+    파트너의 INIAPI IV 조회
+    
+    Args:
+        partner_id: 파트너 ID
+        conn: DB 커넥션 (선택사항)
+        
+    Returns:
+        INIAPI IV (기본값: 4PqCmQ0Fn0kSJQ==)
+    """
+    config = get_partner_config(partner_id, conn)
+    
+    if not config:
+        # 기본값
+        return "4PqCmQ0Fn0kSJQ=="
+    
+    payment = config.get("config", {}).get("payment", {})
+    return payment.get("iniapi_iv", "4PqCmQ0Fn0kSJQ==")
+
+
 def is_iframe_allowed(partner_id: str, conn=None) -> bool:
     """
     파트너의 iframe 허용 여부 확인

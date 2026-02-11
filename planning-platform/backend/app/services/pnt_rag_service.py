@@ -4,7 +4,7 @@ PNT RAG 서비스
 """
 import asyncio
 from typing import Dict, Any, Optional
-from app.services.checkup_design.rag_service import init_rag_engine
+from .checkup_design.rag_service import init_rag_engine
 
 
 class PNTRagService:

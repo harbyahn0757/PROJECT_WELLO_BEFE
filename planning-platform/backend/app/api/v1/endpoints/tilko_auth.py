@@ -13,7 +13,9 @@ from app.utils.tilko_utils import (
     get_prescription_data,
     check_auth_status
 )
+from app.core.config import settings
 from app.data.redis_session_manager import redis_session_manager as session_manager
+from app.services.partner_identification_service import partner_identification_service
 from pydantic import BaseModel
 import asyncio
 from datetime import datetime
@@ -34,6 +36,7 @@ class SimpleAuthWithSessionRequest(BaseModel):
     birthdate: str
     phone_no: str
     gender: str = "M"
+    partner_id: str = "welno"  # 파트너 ID 추가 (기본값: welno)
     patient_uuid: Optional[str] = None  # 환자 UUID
     hospital_id: Optional[str] = None   # 병원 ID
     oid: Optional[str] = None           # 캠페인 주문번호 추가
@@ -222,7 +225,7 @@ async def start_auth_session(request: SimpleAuthWithSessionRequest) -> Dict[str,
         print(f"   - gender: {user_info['gender']}")
         print(f"   - private_auth_type: '{user_info['private_auth_type']}' (타입: {type(user_info['private_auth_type'])})")
         
-        session_id = session_manager.create_session(user_info)
+        session_id = session_manager.create_session(user_info, partner_id=request.partner_id)
         
         # 세션 데이터 가져오기
         session_data = session_manager.get_session(session_id)
@@ -293,7 +296,13 @@ async def session_simple_auth(
     세션 기반 카카오 간편인증 요청 (중복 요청 방지)
     """
     try:
-        session_data = session_manager.get_session(session_id)
+        # 파트너 식별 및 세션 소유권 검증
+        partner_id = partner_identification_service.identify_partner_from_session_id(session_id)
+        if not partner_id:
+            partner_id = "welno"  # 기본값
+        
+        # 세션 소유권 검증과 함께 데이터 조회
+        session_data = session_manager.get_session(session_id, requesting_partner_id=partner_id)
         if not session_data:
             raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
         
@@ -1561,9 +1570,11 @@ async def collect_health_data_background_task(session_id: str):
                 # [삭제] 이 위치에서는 patient_uuid가 없을 수 있음 (환자 식별 로직 뒤로 이동)
                 """
                 try:
-                    # MEDIARC_ENABLED 플래그 확인
-                    from app.core.config import settings
-                    MEDIARC_ENABLED = getattr(settings, 'MEDIARC_ENABLED', False)
+                    # 파트너별 Mediarc 설정 확인
+                    from app.services.dynamic_config_service import dynamic_config
+                    partner_id = request.headers.get("X-Partner-ID", "welno")  # 요청 헤더에서 파트너 ID 추출
+                    mediarc_config = await dynamic_config.get_mediarc_config(partner_id)
+                    MEDIARC_ENABLED = mediarc_config["enabled"]
                     
                     if MEDIARC_ENABLED and health_count > 0:
                         print(f"🔄 [Mediarc] 리포트 생성 백그라운드 시작")
@@ -1582,6 +1593,7 @@ async def collect_health_data_background_task(session_id: str):
                                 patient_uuid=patient_uuid,
                                 hospital_id=hospital_id,
                                 session_id=session_id,
+                                partner_id=partner_id,  # ⭐ 파트너 ID 전달 (보안 강화)
                                 service=welno_service
                             )
                         )
@@ -1894,7 +1906,7 @@ async def collect_health_data_background_task(session_id: str):
                                     if existing_campaign_patient and not existing_campaign_patient.get("error"):
                                         # 이미 캠페인 UUID로 등록되어 있음 - 틸코 데이터로 업데이트
                                         patient_uuid = campaign_uuid
-                                        hospital_id = existing_campaign_patient.get("hospital_id", "PEERNINE")
+                                        hospital_id = existing_campaign_patient.get("hospital_id", settings.welno_default_hospital_id)
                                         print(f"✅ [백그라운드-식별] 캠페인 UUID로 기존 환자 발견: {patient_uuid}")
                                         
                                         # 틸코 인증 데이터로 환자 정보 업데이트
@@ -1923,7 +1935,7 @@ async def collect_health_data_background_task(session_id: str):
                                     else:
                                         # 캠페인 UUID로 새로 등록
                                         patient_uuid = campaign_uuid
-                                        hospital_id = "PEERNINE"  # 캠페인 기본 병원
+                                        hospital_id = settings.welno_default_hospital_id  # 캠페인 기본 병원
                                         
                                         # 틸코 + 파트너 데이터 결합
                                         tilko_birth_date = auth_data.get("birthDate", partner_birth_date)
@@ -1960,7 +1972,7 @@ async def collect_health_data_background_task(session_id: str):
                                 except Exception as e:
                                     print(f"⚠️ [백그라운드-식별] 캠페인 UUID 환자 조회 실패, 새로 등록: {e}")
                                     patient_uuid = campaign_uuid
-                                    hospital_id = "PEERNINE"
+                                    hospital_id = settings.welno_default_hospital_id
                 
                 # 캠페인 UUID가 없거나 설정되지 않은 경우에만 기존 환자 조회
                 if not patient_uuid or not hospital_id:
@@ -2042,10 +2054,10 @@ async def collect_health_data_background_task(session_id: str):
                             
                             if hosp_exists == 0:
                                 print(f"⚠️ [백그라운드-식별] 설정된 기본 병원 ID '{default_hosp}'가 DB에 없습니다. 대체 ID 조회.")
-                                # 'PEERNINE' 시도
-                                peernine_exists = await conn.fetchval("SELECT COUNT(*) FROM welno.welno_hospitals WHERE hospital_id = 'PEERNINE'")
+                                # 기본 병원 시도
+                                peernine_exists = await conn.fetchval(f"SELECT COUNT(*) FROM welno.welno_hospitals WHERE hospital_id = '{settings.welno_default_hospital_id}'")
                                 if peernine_exists > 0:
-                                    default_hosp = 'PEERNINE'
+                                    default_hosp = settings.welno_default_hospital_id
                                 else:
                                     # DB에 있는 아무 병원 ID나 가져옴
                                     first_hosp = await conn.fetchval("SELECT hospital_id FROM welno.welno_hospitals LIMIT 1")
@@ -2056,7 +2068,7 @@ async def collect_health_data_background_task(session_id: str):
                         except Exception as hosp_check_error:
                             print(f"⚠️ [백그라운드-식별] 병원 유효성 체크 실패 (계속 진행): {hosp_check_error}")
                             if not default_hosp:
-                                default_hosp = "PEERNINE"
+                                default_hosp = settings.welno_default_hospital_id
 
                         print(f"🆕 [백그라운드-식별] 새 환자 생성 시도 - UUID: {new_uuid}, Hospital: {default_hosp}")
                         
@@ -2261,8 +2273,10 @@ async def collect_health_data_background_task(session_id: str):
             try:
                 # 중복 방지: 이미 레포트 생성이 시작되었는지 확인
                 if not final_session_data.get("mediarc_generation_started"):
-                    from app.core.config import settings
-                    MEDIARC_ENABLED = getattr(settings, 'MEDIARC_ENABLED', False)
+                    from app.services.dynamic_config_service import dynamic_config
+                    partner_id = request.headers.get("X-Partner-ID", "welno")
+                    mediarc_config = await dynamic_config.get_mediarc_config(partner_id)
+                    MEDIARC_ENABLED = mediarc_config["enabled"]
                     
                     # 수집된 건강검진 기록 확인
                     health_data_obj = final_session_data.get("health_data", {})
@@ -2305,6 +2319,7 @@ async def collect_health_data_background_task(session_id: str):
                                 patient_uuid=patient_uuid,
                                 hospital_id=hospital_id,
                                 session_id=session_id,  # ✅ session_id 전달 (WebSocket 알림용)
+                                partner_id=partner_id,  # ⭐ 파트너 ID 전달 (보안 강화)
                                 service=welno_service,
                                 oid=oid  # ⭐ OID 전달 (캠페인 결제 연동)
                             )

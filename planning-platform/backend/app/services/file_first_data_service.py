@@ -12,7 +12,7 @@ from pathlib import Path
 import asyncio
 import shutil
 
-from app.services.welno_data_service import WelnoDataService
+from .welno_data_service import WelnoDataService
 
 
 class FileFirstDataService:

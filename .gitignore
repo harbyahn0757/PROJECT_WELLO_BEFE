@@ -150,3 +150,20 @@ test-images/
 temp/
 planning-platform/backend/config.env
 planning-platform/backend/logs_backup/
+
+# ============================================================================
+# 백업 및 시크릿 파일 추가 제외
+# ============================================================================
+# Backup files
+*.bak
+*.bak.*
+*.backup
+*.bak2
+planning-platform/backend/schema_integration_backups/
+planning-platform/backend/database_schema_backup*
+planning-platform/backend/.env
+planning-platform/backend/.env.*
+planning-platform/backend/config.env.bak*
+planning-platform/backoffice/src/**/*.bak*
+planning-platform/backoffice/src/**/*.backup
+

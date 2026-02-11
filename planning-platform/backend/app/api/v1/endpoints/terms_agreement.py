@@ -10,6 +10,7 @@ import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 
+from ....core.config import settings
 from ....core.database import db_manager
 
 router = APIRouter()
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 @router.get("/check")
 async def check_terms_agreement(
     uuid: str = Query(..., description="사용자 UUID"),
-    partner_id: str = Query(default="kindhabit", description="파트너 ID")
+    partner_id: str = Query(default="welno", description="파트너 ID")
 ):
     """
     약관 동의 여부 및 각 약관별 타임스탬프 확인
@@ -42,7 +43,7 @@ async def check_terms_agreement(
         
         result = await db_manager.execute_one(
             query, 
-            (uuid, "PEERNINE")
+            (uuid, settings.welno_default_hospital_id)
         )
         
         if not result:
@@ -112,7 +113,10 @@ async def get_terms_status(
         WHERE uuid = %s AND hospital_id = %s
         """
         
-        result = await db_manager.execute_one(query, (uuid, "PEERNINE"))
+        # 파트너별 기본 병원 ID 조회
+        from ....services.dynamic_config_service import dynamic_config
+        default_hospital_id = await dynamic_config.get_default_hospital_id(partner_id)
+        result = await db_manager.execute_one(query, (uuid, default_hospital_id))
         
         if not result:
             raise HTTPException(

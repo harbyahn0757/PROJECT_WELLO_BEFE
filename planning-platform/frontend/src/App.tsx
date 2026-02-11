@@ -20,6 +20,7 @@ import ResultsTrendPage from './features/results/ResultsTrendPage';
 import DiseaseReportPage from './features/disease-report/pages/DiseaseReportPage';
 import DiseasePredictionCampaign from './campaigns/disease-prediction';
 import PartnerManagementPage from './features/admin/PartnerManagementPage';
+import AdminEmbeddingPage from "./features/admin/AdminEmbeddingPage";
 // import RagTestPage from './pages/RagTestPage';
 import AppointmentModal from './components/appointment/AppointmentModal';
 import { LayoutType } from './constants/layoutTypes';
@@ -570,6 +571,9 @@ const AppContent: React.FC = () => {
       setIsIframe(true);
     }
   }, []);
+
+  // 캠페인 경로는 iframe이어도 플로팅 버튼 표시
+  const isCampaignIframe = isIframe && location.pathname.includes('/campaigns/');
   const { patient } = state;
 
   const handleOpenAppointmentModal = () => setIsAppointmentModalOpen(true);
@@ -661,6 +665,7 @@ const AppContent: React.FC = () => {
         {/* ⭐ 파트너 관리 페이지 */}
         <Route path="/partner-management" element={<PartnerManagementPage />} />
         <Route path="/prescription-history" element={<PrescriptionHistory />} />
+        <Route path="/admin-embedding" element={<AdminEmbeddingPage />} />
         <Route path="/comparison" element={<HealthComparison />} />
         <Route path="/appointment" element={<AppointmentPage />} />
         {/* 백오피스는 독립 앱으로 /backoffice 경로에서 서빙됨 */}
@@ -669,7 +674,7 @@ const AppContent: React.FC = () => {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       
-      {!isIframe && <FloatingButton onOpenAppointmentModal={handleOpenAppointmentModal} />}
+      {(!isIframe || isCampaignIframe) && <FloatingButton onOpenAppointmentModal={handleOpenAppointmentModal} />}
       
       <AppointmentModal 
         isOpen={isAppointmentModalOpen} 

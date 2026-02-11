@@ -4,6 +4,7 @@ WELNO 건강정보 데이터 저장 및 관리 서비스
 
 import json
 from datetime import datetime, date
+from ..core.config import settings
 from typing import Dict, Any, Optional, List, Tuple
 from decimal import Decimal
 import asyncpg
@@ -340,7 +341,7 @@ class WelnoDataService:
                     patient_dict = {
                         "id": -1, # 가상 ID
                         "uuid": uuid,
-                        "hospital_id": "PEERNINE", # 캠페인 기본 병원
+                        "hospital_id": settings.welno_default_hospital_id, # 캠페인 기본 병원
                         "name": campaign_row.get('user_name') or user_data.get('name', '고객'),
                         "phone_number": user_data.get('phone') or user_data.get('phone_number', ''),
                         "birth_date": user_data.get('birth') or user_data.get('birth_date'),
@@ -847,7 +848,7 @@ class WelnoDataService:
         
         if survey:
             # 문진 데이터 변환
-            from app.services.mediarc.questionnaire_mapper import map_checkup_design_survey_to_mediarc
+            from .mediarc.questionnaire_mapper import map_checkup_design_survey_to_mediarc
             questionnaire_codes = map_checkup_design_survey_to_mediarc(survey)
             
             # Mediarc 생성 시 포함
@@ -1522,9 +1523,9 @@ class WelnoDataService:
             }
         """
         import logging
-        from app.utils.health_metrics import get_metric_count
-        from app.utils.partner_utils import requires_payment as check_payment_required
-        from app.utils.partner_config import get_partner_config
+        from ..utils.health_metrics import get_metric_count
+        from ..utils.partner_config import requires_payment as check_payment_required
+        from ..utils.partner_config import get_partner_config
         from datetime import datetime, timedelta
         
         logger = logging.getLogger(__name__)
@@ -1760,10 +1761,11 @@ class WelnoDataService:
             requires_payment_flag = False
             
             # ✅ WELNO 회원이면서 partner_id가 없으면 welno_internal로 설정
+            from ..utils.partner_constants import PartnerIDs
             if not partner_id and patient_row:
                 # welno_patients에 있으면 WELNO 회원
-                partner_id = 'welno_internal'
-                logger.info(f"[통합상태] WELNO 회원 → partner_id = 'welno_internal' 자동 설정")
+                partner_id = PartnerIDs.WELNO_INTERNAL
+                logger.info(f"[통합상태] WELNO 회원 → partner_id = '{PartnerIDs.WELNO_INTERNAL}' 자동 설정")
             
             if partner_id:
                 payment_query = """

@@ -62,11 +62,13 @@ class DatabaseManager:
                 return [dict(row) for row in cursor.fetchall()]
     
     async def execute_one(self, query: str, params: Optional[tuple] = None) -> Optional[Dict[str, Any]]:
-        """단일 결과 SELECT 쿼리 실행"""
+        """단일 결과 쿼리 실행 (INSERT RETURNING 포함)"""
         with self.get_connection() as conn:
             with self.get_cursor(conn) as cursor:
                 cursor.execute(query, params or ())
                 row = cursor.fetchone()
+                # INSERT/UPDATE/DELETE RETURNING 쿼리를 위한 커밋
+                conn.commit()
                 return dict(row) if row else None
     
     async def execute_update(self, query: str, params: Optional[tuple] = None) -> int:

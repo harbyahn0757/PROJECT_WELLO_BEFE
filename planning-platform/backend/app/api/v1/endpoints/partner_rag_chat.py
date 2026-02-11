@@ -274,9 +274,16 @@ async def send_partner_message_legacy(request: Request):
                 # 암호화된 데이터인 경우 복호화 시도
                 try:
                     from ....utils.partner_encryption import decrypt_user_data
-                    decrypted_data = decrypt_user_data(data, partner_info.partner_id)
-                    if decrypted_data:
-                        partner_health_data = decrypted_data
+                    from ....utils.partner_config import get_partner_encryption_keys
+                    
+                    # 파트너별 암호화 키 조회
+                    aes_key, aes_iv = get_partner_encryption_keys(partner_info.partner_id)
+                    if aes_key and aes_iv:
+                        decrypted_data = decrypt_user_data(data, aes_key, aes_iv)
+                        if decrypted_data:
+                            partner_health_data = decrypted_data
+                    else:
+                        logger.warning(f"⚠️ [파트너 RAG API] 파트너 {partner_info.partner_id}의 암호화 키를 찾을 수 없음")
                 except Exception as e:
                     logger.warning(f"⚠️ [파트너 RAG API] 데이터 복호화 실패: {e}")
             else:

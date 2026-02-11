@@ -301,6 +301,7 @@ async def login_patient(
 async def upload_health_data(
     uuid: str = Query(..., description="환자 UUID"),
     hospital_id: str = Query(..., description="병원 ID"),
+    partner_id: str = Query("welno", description="파트너 ID"),  # 파트너 ID 추가
     health_record: Dict[str, Any] = Body(..., description="건강 데이터 레코드")
 ) -> Dict[str, Any]:
     """IndexedDB의 데이터를 서버로 업로드"""
@@ -382,6 +383,7 @@ async def upload_health_data(
                         patient_uuid=uuid,
                         hospital_id=hospital_id,
                         session_id=None,
+                        partner_id=partner_id,  # ⭐ 파트너 ID 전달 (보안 강화)
                         service=welno_data_service
                     )
                 )
@@ -834,6 +836,7 @@ async def get_mediarc_report(
 async def generate_mediarc_report(
     uuid: str = Query(..., description="환자 UUID"),
     hospital_id: str = Query(..., description="병원 ID"),
+    partner_id: str = Query("welno", description="파트너 ID"),  # 파트너 ID 추가
     session_id: Optional[str] = Query(None, description="세션 ID (WebSocket 알림용, 선택)")
 ) -> Dict[str, Any]:
     """
@@ -861,8 +864,11 @@ async def generate_mediarc_report(
         print(f"  - session_id: {session_id or '없음 (WebSocket 알림 skip)'}")
         print(f"{'='*80}\n")
         
-        # 1. MEDIARC_ENABLED 플래그 확인
-        MEDIARC_ENABLED = getattr(settings, 'MEDIARC_ENABLED', False)
+        # 1. 파트너별 Mediarc 설정 확인
+        from app.services.dynamic_config_service import dynamic_config
+        partner_id = request.headers.get("X-Partner-ID", "welno")
+        mediarc_config = await dynamic_config.get_mediarc_config(partner_id)
+        MEDIARC_ENABLED = mediarc_config["enabled"]
         
         if not MEDIARC_ENABLED:
             print(f"⚠️ [Mediarc 생성 요청] 기능 비활성화 (MEDIARC_ENABLED=False)")
@@ -941,6 +947,7 @@ async def generate_mediarc_report(
                 patient_uuid=uuid,
                 hospital_id=hospital_id,
                 session_id=session_id,  # ✅ session_id 전달 (있으면 WebSocket, 없으면 skip)
+                partner_id=partner_id,  # ⭐ 파트너 ID 전달 (보안 강화)
                 service=welno_data_service,
                 questionnaire_data=questionnaire_codes  # 문진 데이터 포함
             )

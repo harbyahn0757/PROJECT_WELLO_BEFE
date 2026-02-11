@@ -62,6 +62,10 @@ async def verify_partner_api_key(
         HTTPException: 인증 실패 시
     """
     
+    # 0. OPTIONS 요청은 인증 절차를 건너뜀 (CORS 프리플라이트 지원)
+    if request.method == "OPTIONS":
+        return None
+    
     # 1. API Key 추출
     api_key = None
     

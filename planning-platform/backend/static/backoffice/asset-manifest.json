@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/backoffice/static/css/main.6c8cd473.css",
+    "main.js": "/backoffice/static/js/main.4ccb0664.js",
+    "index.html": "/backoffice/index.html",
+    "main.6c8cd473.css.map": "/backoffice/static/css/main.6c8cd473.css.map",
+    "main.4ccb0664.js.map": "/backoffice/static/js/main.4ccb0664.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.6c8cd473.css",
+    "static/js/main.4ccb0664.js"
+  ]
+}

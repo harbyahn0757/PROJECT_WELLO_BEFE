@@ -20,6 +20,7 @@ from .api.v1.endpoints import (
     welno_data,
     file_management,
     embedding_management,
+    partner_management,
     health_analysis,
     password,
     sync,
@@ -32,6 +33,7 @@ from .api.v1.endpoints import (
     disease_report_unified,
     welno_unified_status,
     terms_agreement,
+    slack_bot,
 )
 from .core.config import settings
 from .data.redis_session_manager import redis_session_manager as session_manager
@@ -45,15 +47,13 @@ app = FastAPI(
 )
 
 # CORS 설정
-# 환경변수에서 허용 도메인 읽기, 기본값은 개발용
-allowed_origins = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:9282,http://localhost:3000,http://localhost:9000").split(",")
-
+# 파트너 위젯 임베드를 위해 모든 Origin 허용 (Credentials 지원을 위해 Regex 사용)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origin_regex=r"https?://.*",  # 모든 http/https 도메인 허용
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["*", "X-API-Key", "Authorization"],
 )
 
 # 정적 파일 서빙 (React 빌드 파일)
@@ -82,9 +82,11 @@ app.include_router(debug.router, prefix="/api/v1/debug", tags=["debug"])
 app.include_router(rag_test.router, prefix="/api/v1", tags=["rag-test"])
 app.include_router(welno_rag_chat.router, prefix="/api/v1/welno-rag-chat", tags=["welno-rag-chat"])
 app.include_router(partner_rag_chat.router, prefix="/api/v1/rag-chat", tags=["partner-rag-chat"])
+app.include_router(partner_management.router, prefix="/api/v1", tags=["partner-management"])
 app.include_router(campaign_payment.router, prefix="/api/v1/campaigns", tags=["campaigns"])
 app.include_router(disease_report_unified.router, prefix="/api/v1", tags=["disease-report"])
 app.include_router(terms_agreement.router, prefix="/api/v1/terms", tags=["terms-agreement"])
+app.include_router(slack_bot.router, prefix="/api/v1/slack", tags=["slack-bot"])
 
 # 배포환경을 위한 welno-api 경로 추가 (프록시 없이 직접 접근)
 app.include_router(health.router, prefix="/welno-api/v1/health", tags=["health-welno"])
@@ -109,6 +111,25 @@ app.include_router(rag_test.router, prefix="/welno-api/v1/rag-test", tags=["rag-
 app.include_router(campaign_payment.router, prefix="/welno-api/v1/campaigns", tags=["campaigns-welno"])
 app.include_router(disease_report_unified.router, prefix="/welno-api/v1", tags=["disease-report-welno"])
 app.include_router(terms_agreement.router, prefix="/welno-api/v1/terms", tags=["terms-agreement-welno"])
+app.include_router(slack_bot.router, prefix="/welno-api/v1/slack", tags=["slack-bot-welno"])
+
+# 백오피스 SPA (독립 앱) 서빙
+backoffice_dir = os.path.join(static_dir, "backoffice")
+backoffice_index = os.path.join(backoffice_dir, "index.html")
+
+@app.api_route("/backoffice", methods=["GET", "HEAD"])
+@app.api_route("/backoffice/", methods=["GET", "HEAD"])
+@app.api_route("/backoffice/{full_path:path}", methods=["GET", "HEAD"])
+async def serve_backoffice(full_path: str = ""):
+    """백오피스 독립 앱 서빙 (React SPA)"""
+    if full_path:
+        file_path = os.path.join(backoffice_dir, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+    if os.path.isfile(backoffice_index):
+        return FileResponse(backoffice_index)
+    from fastapi import HTTPException
+    raise HTTPException(status_code=404, detail="Backoffice app not found")
 
 # React Router를 위한 catch-all 라우트 (모든 API 라우터 등록 후에 추가)
 # GET과 HEAD 메서드 모두 지원
@@ -195,6 +216,20 @@ async def startup_event():
     except Exception as e:
         print(f"⚠️ [RAG 엔진] 사전 로드 실패: {e}")
     
+    # 서버 모니터링 + Slack 알림 시작
+    try:
+        if settings.slack_enabled and settings.slack_webhook_url:
+            from .services.slack_service import get_slack_service
+            from .services.monitoring_service import get_monitoring_service
+            slack_svc = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
+            monitor = get_monitoring_service(slack_svc)
+            await monitor.start(interval_seconds=300)  # 5분 간격
+            print("✅ [모니터링] Slack 연동 모니터링 시작 (5분 간격)")
+        else:
+            print("ℹ️ [모니터링] Slack 미설정, 모니터링 알림 비활성")
+    except Exception as e:
+        print(f"⚠️ [모니터링] 시작 실패: {e}")
+
     print("✅ [시스템] 서버 시작 완료")
 
 def custom_openapi():

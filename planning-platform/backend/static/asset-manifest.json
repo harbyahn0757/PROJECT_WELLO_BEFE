@@ -1,7 +1,7 @@
 {
   "files": {
-    "main.css": "/static/css/main.95192b13.css",
-    "main.js": "/static/js/main.68645707.js",
+    "main.css": "/static/css/main.9367ea09.css",
+    "main.js": "/static/js/main.cfba60fb.js",
     "static/media/check_2 1.png": "/static/media/check_2 1.ea1a1f3695073d984b80.png",
     "static/media/doc_nobg.png": "/static/media/doc_nobg.777d6a56e64ed09e0ed9.png",
     "static/media/healthy_potato_nobg.png": "/static/media/healthy_potato_nobg.6382d3f877e453c1c65a.png",
@@ -19,11 +19,11 @@
     "static/media/chart.png": "/static/media/chart.cee666cd2eea33c3fb5f.png",
     "static/media/pass.png": "/static/media/pass.203049a9f19b1e505577.png",
     "index.html": "/index.html",
-    "main.95192b13.css.map": "/static/css/main.95192b13.css.map",
-    "main.68645707.js.map": "/static/js/main.68645707.js.map"
+    "main.9367ea09.css.map": "/static/css/main.9367ea09.css.map",
+    "main.cfba60fb.js.map": "/static/js/main.cfba60fb.js.map"
   },
   "entrypoints": [
-    "static/css/main.95192b13.css",
-    "static/js/main.68645707.js"
+    "static/css/main.9367ea09.css",
+    "static/js/main.cfba60fb.js"
   ]
 }

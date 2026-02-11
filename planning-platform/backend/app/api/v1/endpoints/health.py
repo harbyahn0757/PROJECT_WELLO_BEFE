@@ -134,5 +134,42 @@ async def data_status():
         raise HTTPException(status_code=500, detail=f"데이터 상태 확인 실패: {str(e)}")
 
 
+@router.get("/monitoring")
+async def server_monitoring():
+    """서버 모니터링 전체 상태 (PM2, 시스템 리소스, API 헬스)"""
+    try:
+        from ....services.monitoring_service import get_monitoring_service
+        from ....services.slack_service import get_slack_service
+        from ....core.config import settings as app_settings
+
+        slack_svc = None
+        if app_settings.slack_enabled and app_settings.slack_webhook_url:
+            slack_svc = get_slack_service(app_settings.slack_webhook_url, app_settings.slack_channel_id)
+
+        monitor = get_monitoring_service(slack_svc)
+        return await monitor.get_full_status()
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"모니터링 조회 실패: {str(e)}")
+
+
+@router.post("/monitoring/test-alert")
+async def test_slack_alert():
+    """Slack 알림 테스트 전송"""
+    try:
+        from ....core.config import settings as app_settings
+
+        if not app_settings.slack_enabled or not app_settings.slack_webhook_url:
+            return {"success": False, "message": "Slack이 설정되지 않았습니다. .env에 SLACK_WEBHOOK_URL과 SLACK_ENABLED=true를 설정하세요."}
+
+        from ....services.slack_service import get_slack_service
+        slack_svc = get_slack_service(app_settings.slack_webhook_url, app_settings.slack_channel_id)
+        result = await slack_svc.send_test_message()
+        return {"success": result, "message": "테스트 메시지 전송 완료" if result else "전송 실패"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"테스트 알림 실패: {str(e)}")
+
+
 # 더미 데이터 초기화 기능 제거됨 - 실제 데이터베이스 사용
 

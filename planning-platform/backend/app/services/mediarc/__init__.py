@@ -12,6 +12,7 @@ async def generate_mediarc_report_async(
     patient_uuid: str,
     hospital_id: str,
     session_id: str,
+    partner_id: str = "welno",  # 파트너 ID 추가 (기본값: welno)
     service: 'WelnoDataService' = None,
     questionnaire_data: Optional[Dict[str, Any]] = None,
     oid: str = None
@@ -146,7 +147,7 @@ async def generate_mediarc_report_async(
                 user=settings.DB_USER if hasattr(settings, 'DB_USER') else 'peernine',
                 password=settings.DB_PASSWORD if hasattr(settings, 'DB_PASSWORD') else 'autumn3334!'
             )
-            oid = await conn.fetchval("SELECT oid FROM welno.tb_campaign_payments WHERE uuid = $1 AND status = 'COMPLETED' ORDER BY created_at DESC LIMIT 1", patient_uuid)
+            oid = await conn.fetchval("SELECT oid FROM welno.tb_campaign_payments WHERE uuid = $1 AND partner_id = $2 AND status = 'COMPLETED' ORDER BY created_at DESC LIMIT 1", patient_uuid, partner_id)
             await conn.close()
             
             if oid:

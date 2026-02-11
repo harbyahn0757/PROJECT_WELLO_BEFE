@@ -59,12 +59,25 @@ export interface WelnoDataState {
   
   // 네트워크 상태
   isOffline: boolean;
+  
+  // 프론트엔드 동적 설정 (테마, 연락처 등)
+  frontendConfig: {
+    partnerName: string;
+    phoneNumber: string;
+    welcomeMessage: string;
+    primaryColor: string;
+    iconUrl?: string;
+    theme: any;
+  } | null;
 }
 
 // Context Actions 인터페이스
 export interface WelnoDataActions {
   // 데이터 로딩
   loadPatientData: (uuid: string, hospital: string, options?: { force?: boolean }) => Promise<void>;
+  
+  // 설정 로딩
+  loadFrontendConfig: (partnerId: string, hospitalId?: string) => Promise<void>;
   
   // 캐시 관리
   refreshData: () => Promise<void>;
@@ -103,6 +116,7 @@ const initialState: WelnoDataState = {
   cacheExpiresAt: null,
   notifications: [],
   isOffline: false,
+  frontendConfig: null,
 };
 
 // 캐시 관리 클래스
@@ -1336,9 +1350,41 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
     }, 1500);
   }, [addNotification]);
 
+  // 프론트엔드 동적 설정 로딩
+  const loadFrontendConfig = useCallback(async (partnerId: string, hospitalId?: string) => {
+    try {
+      console.log(`[FrontendConfig] 로딩 시작: ${partnerId}, ${hospitalId}`);
+      const hospitalParam = hospitalId ? `&hospital_id=${hospitalId}` : '';
+      const response = await fetch(`/welno-api/v1/admin/config/frontend?partner_id=${partnerId}${hospitalParam}`);
+      if (response.ok) {
+        const data = await response.json();
+        const primaryColor = data.theme?.primary_color || '#7B5E4F';
+        
+        setState(prev => ({
+          ...prev,
+          frontendConfig: {
+            partnerName: data.partner_name,
+            phoneNumber: data.phone_number,
+            welcomeMessage: data.welcome_message,
+            primaryColor: primaryColor,
+            iconUrl: data.theme?.icon_url, // 아이콘 URL 추가
+            theme: data.theme
+          }
+        }));
+
+        // CSS 변수 업데이트
+        document.documentElement.style.setProperty('--brand-color', primaryColor);
+        console.log(`[FrontendConfig] 테마 적용 완료: ${primaryColor}`);
+      }
+    } catch (error) {
+      console.error('[FrontendConfig] 로딩 실패:', error);
+    }
+  }, []);
+
   // Actions 객체 메모화
   const actions: WelnoDataActions = useMemo(() => ({
     loadPatientData,
+    loadFrontendConfig,
     refreshData,
     clearCache,
     addNotification,

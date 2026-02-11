@@ -193,6 +193,7 @@ class CheckupDesignRequest(BaseModel):
     """검진 설계 요청 모델 (GPT 기반)"""
     uuid: str = Field(..., description="환자 UUID")
     hospital_id: str = Field(..., description="병원 ID")
+    partner_id: str = Field("welno", description="파트너 ID")  # 파트너 ID 추가
     selected_concerns: List[ConcernItem] = Field(..., description="선택한 염려 항목 리스트")
     survey_responses: Optional[Dict[str, Any]] = Field(None, description="설문 응답 (체중 변화, 운동, 가족력 등)")
     additional_info: Optional[Dict[str, Any]] = Field(None, description="추가 정보")
@@ -596,8 +597,10 @@ async def create_checkup_design(
         # - 검진설계 문진 데이터를 즉시 활용하여 정확도 향상
         # ─────────────────────────────────────────────────────────────────
         try:
-            from ....core.config import settings
-            MEDIARC_ENABLED = getattr(settings, 'MEDIARC_ENABLED', False)
+            from ....services.dynamic_config_service import dynamic_config
+            partner_id = request.headers.get("X-Partner-ID", "welno")
+            mediarc_config = await dynamic_config.get_mediarc_config(partner_id)
+            MEDIARC_ENABLED = mediarc_config["enabled"]
             
             if MEDIARC_ENABLED:
                 import asyncpg
@@ -632,6 +635,7 @@ async def create_checkup_design(
                             patient_uuid=request.uuid,
                             hospital_id=request.hospital_id,
                             session_id=request.session_id,
+                            partner_id=request.partner_id,  # ⭐ 파트너 ID 전달 (보안 강화)
                             service=welno_data_service,
                             questionnaire_data=questionnaire_codes  # 검진설계 문진 포함
                         )

@@ -6,7 +6,7 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import BarChart from '../../charts/BarChart';
 import { TilkoPrescriptionRaw } from '../../../types/health';
 import { WELNO_LOGO_IMAGE } from '../../../constants/images';
-import '../../../pages/ComprehensiveAnalysisPage/styles.scss';
+import '../../../features/health/ComprehensiveAnalysisPage/styles.scss';
 import './styles.scss';
 
 interface VisitTrendsChartProps {
