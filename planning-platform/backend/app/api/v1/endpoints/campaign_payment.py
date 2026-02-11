@@ -21,11 +21,9 @@ from fastapi.responses import RedirectResponse, JSONResponse
 from typing import Dict, Any, Optional
 from datetime import datetime
 
-from ....config.payment_config import (
-    INICIS_MOBILE_MID,
-    INICIS_MOBILE_HASH_KEY,
-    PAYMENT_AMOUNT,  # 기본값으로 사용
-    SERVICE_DOMAIN
+from ....core.payment_config import (
+    PAYMENT_AMOUNT,  # 기본값으로 사용 (향후 제거 예정)
+    SERVICE_DOMAIN   # 기본값으로 사용 (향후 제거 예정)
 )
 from ....utils.domain_helper import get_dynamic_domain, get_frontend_domain
 from ....utils.logging.structured_logger import get_structured_logger
@@ -36,10 +34,15 @@ from ....utils.partner_config import (
     get_payment_amount, 
     get_partner_encryption_keys,
     get_partner_config_by_api_key,
-    get_partner_config
+    get_partner_config,
+    get_payment_mid,
+    get_payment_hash_key,
+    get_payment_iniapi_key,
+    get_payment_iniapi_iv
 )
 from ....utils.partner_encryption import decrypt_user_data
 from ....core.database import DatabaseManager
+from ....services.partner_identification_service import partner_identification_service
 from ....services.mediarc.report_service import run_disease_report_pipeline
 from ....services.mediarc.data_mapper import map_partner_data_to_twobecon
 from ....services.campaigns.email_service import send_disease_prediction_report_email
@@ -73,7 +76,9 @@ async def init_payment(request: Request):
             partner_config = get_partner_config(partner_id)
             
         if not partner_config:
-            partner_id = 'kindhabit'  # 최후의 보루
+            # 동적 설정에서 기본 파트너 조회
+            from ....services.dynamic_config_service import dynamic_config
+            partner_id = 'welno'  # 기본 파트너로 변경
             
         # 2. 암호화된 데이터 복호화
         logger.info(f"🔍 [결제초기화] 데이터 확인: uuid={uuid}, partner={partner_id}, encrypted_data 존재={bool(encrypted_data)}, encrypted_data 길이={len(encrypted_data) if encrypted_data else 0}")
@@ -109,16 +114,18 @@ async def init_payment(request: Request):
         user_name = user_info.get('name') if isinstance(user_info, dict) else None
         email = user_info.get('email', '') if isinstance(user_info, dict) else ''
         
-        # 3. 파트너별 결제 금액 조회
+        # 3. 파트너별 결제 설정 조회
         payment_amount = get_payment_amount(partner_id)
-        logger.info(f"파트너 {partner_id} 결제 금액: {payment_amount}원")
+        payment_mid = get_payment_mid(partner_id)
+        payment_hash_key = get_payment_hash_key(partner_id)
+        logger.info(f"파트너 {partner_id} 결제 설정 - 금액: {payment_amount}원, MID: {payment_mid}")
         
         # 주문번호 생성 (MID + timestamp)
-        oid = f"{INICIS_MOBILE_MID}_{int(time.time() * 1000)}"
+        oid = f"{payment_mid}_{int(time.time() * 1000)}"
         timestamp = str(int(time.time() * 1000))
         
         # P_CHKFAKE 생성: BASE64_ENCODE(SHA512(P_AMT+P_OID+P_TIMESTAMP+HashKey))
-        hash_str = f"{payment_amount}{oid}{timestamp}{INICIS_MOBILE_HASH_KEY}"
+        hash_str = f"{payment_amount}{oid}{timestamp}{payment_hash_key}"
         chkfake = base64.b64encode(hashlib.sha512(hash_str.encode('utf-8')).digest()).decode('utf-8')
         
         # DB에 주문 정보 저장 (READY 상태, partner_id 포함)
@@ -131,6 +138,7 @@ async def init_payment(request: Request):
                     WHERE uuid = %s AND partner_id = %s AND status = 'COMPLETED'
                     ORDER BY created_at DESC
                     LIMIT 1
+                    FOR UPDATE  -- HIGH-3 fix: Race condition 방지
                 """, (uuid, partner_id))
                 completed_payment = cur.fetchone()
                 
@@ -232,7 +240,7 @@ async def init_payment(request: Request):
         
         return JSONResponse({
             'success': True,
-            'P_MID': INICIS_MOBILE_MID,
+            'P_MID': payment_mid,  # 파트너별 MID
             'P_OID': oid,
             'P_AMT': str(payment_amount),  # 파트너별 금액
             'P_TIMESTAMP': timestamp,
@@ -290,6 +298,9 @@ async def _handle_payment_callback(
     결제 콜백 공통 처리 로직
     """
     p_oid = P_NOTI
+    
+    # TODO: [MEDIUM-3] Inicis 콜백 서명 검증 추가 필요 (P_CHKFAKE 검증)
+    # 현재 콜백이 실제 이니시스에서 온 것인지 검증하지 않음
     
     logger.info(f"payment_callback received: status={P_STATUS}, oid={p_oid}, tid={P_TID}")
 
@@ -418,7 +429,7 @@ async def _handle_payment_callback(
                     with conn.cursor() as cur:
                         cur.execute("SELECT partner_id FROM welno.tb_campaign_payments WHERE oid = %s", (p_oid,))
                         p_row = cur.fetchone()
-                        p_id = p_row[0] if p_row else 'kindhabit'
+                        p_id = p_row[0] if p_row else 'welno'
                 
                 from ....utils.partner_encryption import get_partner_encryption_keys, decrypt_user_data
                 keys = get_partner_encryption_keys(p_id)
@@ -450,12 +461,13 @@ async def _handle_payment_callback(
                     }
                     
                     import asyncio
-                    asyncio.create_task(welno_data_service.save_patient_data(
+                    _reg_task = asyncio.create_task(welno_data_service.save_patient_data(
                         uuid=uuid,
-                        hospital_id="PEERNINE",
+                        hospital_id=settings.welno_default_hospital_id,
                         user_info=user_info_for_reg,
                         session_id=f"CAMPAIGN_{p_oid}"
                     ))
+                    _reg_task.add_done_callback(lambda t: logger.error(f"❌ [Payment] 환자등록 비동기 실패: {t.exception()}") if t.exception() else None)  # HIGH-1 fix
                     logger.info(f"✅ [Payment] 데이터 충분 유저 즉시 정식 등록 완료: {uuid}")
                 except Exception as reg_err:
                     logger.error(f"⚠️ [Payment] 정식 등록 실패 (무시): {reg_err}")
@@ -481,7 +493,8 @@ async def _handle_payment_callback(
                         logger.warning(f"⚠️ [결제성공] 슬랙 알림 실패: {e}")
                 
                 import asyncio
-                asyncio.create_task(trigger_report_generation(order_data))
+                _report_task = asyncio.create_task(trigger_report_generation(order_data))
+                _report_task.add_done_callback(lambda t: logger.error(f"❌ [Payment] 리포트생성 비동기 실패: {t.exception()}") if t.exception() else None)  # HIGH-1 fix
                 # 동적 도메인 사용
                 success_url = f'{get_frontend_domain(request)}/campaigns/disease-prediction/?page=result&status=success&oid={p_oid}'
                 logger.info(f"[Payment] 결제 성공 리다이렉트: {success_url}")
@@ -549,7 +562,7 @@ async def _handle_payment_callback(
                 
                 # 이름이 있으면 URL에 포함
                 if user_name:
-                    redirect_params['name'] = user_name.replace(' ', '+')
+                    redirect_params['name'] = urllib.parse.quote(user_name or '')
                 
                 redirect_url = f'{dynamic_domain}/login?{urlencode(redirect_params)}'
                 
@@ -645,6 +658,7 @@ async def update_email_and_send(request: Request):
         oid = data.get('oid')
         uuid = data.get('uuid')
         hospital_id = data.get('hospital_id')
+        partner_id = data.get('partner_id', 'welno')  # 파트너 ID 추가 (기본값: welno)
         email = data.get('email')
         
         if not email:
@@ -683,20 +697,20 @@ async def update_email_and_send(request: Request):
                 port=settings.DB_PORT if hasattr(settings, 'DB_PORT') else 5432,
                 database=settings.DB_NAME if hasattr(settings, 'DB_NAME') else 'p9_mkt_biz',
                 user=settings.DB_USER if hasattr(settings, 'DB_USER') else 'peernine',
-                password=settings.DB_PASSWORD if hasattr(settings, 'DB_PASSWORD') else 'autumn3334!'
+                password=settings.DB_PASSWORD
             )
             
             # welno_mediarc_reports에서 리포트 조회
             query = """
                 SELECT report_url, 
-                       (SELECT name FROM welno.welno_patients WHERE uuid = $1 LIMIT 1) as user_name
+                       (SELECT name FROM welno.welno_patients WHERE uuid = $1 AND partner_id = $3 LIMIT 1) as user_name
                 FROM welno.welno_mediarc_reports
                 WHERE patient_uuid = $1 AND hospital_id = $2
                 ORDER BY created_at DESC
                 LIMIT 1
             """
             
-            row = await conn.fetchrow(query, uuid, hospital_id)
+            row = await conn.fetchrow(query, uuid, hospital_id, partner_id)
             await conn.close()
             
             if not row:
@@ -757,7 +771,7 @@ def get_payment_data(oid: str) -> Optional[Dict[str, Any]]:
         with db_manager.get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT oid, uuid, user_name, user_data, email
+                    SELECT oid, uuid, user_name, user_data, email, partner_id
                     FROM welno.tb_campaign_payments
                     WHERE oid = %s
                 """, (oid,))
@@ -769,7 +783,8 @@ def get_payment_data(oid: str) -> Optional[Dict[str, Any]]:
                         'uuid': row[1],
                         'user_name': row[2],
                         'user_data': row[3],
-                        'email': row[4]
+                        'email': row[4],
+                        'partner_id': row[5]
                     }
         return None
     except Exception as e:
@@ -862,9 +877,12 @@ async def trigger_report_generation(order_data: Dict[str, Any]):
     try:
         oid = order_data['oid']
         uuid = order_data['uuid']
-        partner_id = order_data.get('partner_id', 'kindhabit')
         user_name = order_data['user_name']
         email = order_data.get('email')
+        
+        # 통합 파트너 식별 서비스 사용
+        partner_id = await partner_identification_service.identify_partner_from_campaign_data(oid=oid, uuid=uuid)
+        logger.info(f"🔍 [Campaign] 통합 파트너 식별 결과: {partner_id}")
         
         logger.info(f"🔄 [Campaign] 리포트 생성 시작: oid={oid}, partner={partner_id}")
         
@@ -876,7 +894,7 @@ async def trigger_report_generation(order_data: Dict[str, Any]):
         from ....services.mediarc.data_mapper import map_checkup_to_twobecon
         
         try:
-            health_data_result = await welno_data_service.get_patient_health_data(uuid, "PEERNINE")
+            health_data_result = await welno_data_service.get_patient_health_data(uuid, settings.welno_default_hospital_id)
             if health_data_result and not health_data_result.get('error'):
                 health_data_list = health_data_result.get('health_data', [])
                 if health_data_list and len(health_data_list) > 0:
@@ -950,7 +968,7 @@ async def trigger_report_generation(order_data: Dict[str, Any]):
                 "name": user_name,
                 "email": email
             },
-            hospital_id="PEERNINE", # 캠페인 기본 병원 ID
+            hospital_id=settings.welno_default_hospital_id, # 캠페인 기본 병원 ID
             partner_id=partner_id,
             oid=oid
         )
@@ -1017,12 +1035,12 @@ async def trigger_report_generation(order_data: Dict[str, Any]):
                         port=settings.DB_PORT if hasattr(settings, 'DB_PORT') else 5432,
                         database=settings.DB_NAME if hasattr(settings, 'DB_NAME') else 'p9_mkt_biz',
                         user=settings.DB_USER if hasattr(settings, 'DB_USER') else 'peernine',
-                        password=settings.DB_PASSWORD if hasattr(settings, 'DB_PASSWORD') else 'autumn3334!'
+                        password=settings.DB_PASSWORD
                     )
                     
                     existing_patient = await check_conn.fetchrow(
-                        "SELECT uuid, birth_date, terms_agreement FROM welno.welno_patients WHERE uuid = $1",
-                        uuid
+                        "SELECT uuid, birth_date, terms_agreement FROM welno.welno_patients WHERE uuid = $1 AND partner_id = $2",
+                        uuid, partner_id
                     )
                     await check_conn.close()
                     
@@ -1038,7 +1056,7 @@ async def trigger_report_generation(order_data: Dict[str, Any]):
                         # 환자가 없는 경우에만 저장
                         await welno_data_service.save_patient_data(
                             uuid=uuid,
-                            hospital_id="PEERNINE",
+                            hospital_id=settings.welno_default_hospital_id,
                             user_info=patient_info,
                             session_id=f"CAMPAIGN_{oid}"
                         )
@@ -1179,7 +1197,7 @@ async def download_campaign_report(
                 
                 # 결제 상태 확인 (접근 제어)
                 payment_status = row[5]  # status
-                if payment_status != 'paid' and payment_status != 'completed':
+                if payment_status not in ('COMPLETED', 'REPORT_WAITING', 'TILKO_READY'):  # CRITICAL-1 fix: 대문자 상태값으로 수정
                     logger.warning(f"⚠️ [Campaign 다운로드] 접근 거부: 결제 미완료 (oid={oid}, status={payment_status})")
                     raise HTTPException(
                         status_code=403,
@@ -1302,7 +1320,7 @@ async def register_patient_on_terms_agreement(request: Request):
                 partner_id = partner_config["partner_id"]
         
         if not partner_id:
-            partner_id = 'kindhabit'
+            partner_id = 'welno'  # 기본 파트너로 변경
         
         logger.info(f"🚀 [환자등록] 약관동의 완료 시 등록: uuid={uuid}, oid={oid}, partner={partner_id}")
         
@@ -1361,7 +1379,7 @@ async def register_patient_on_terms_agreement(request: Request):
         registration_source = 'PARTNER' if partner_id else None
         patient_id = await welno_data_service.save_patient_data(
             uuid=uuid,
-            hospital_id="PEERNINE",
+            hospital_id=settings.welno_default_hospital_id,
             user_info=patient_info,
             session_id=session_id,
             registration_source=registration_source,
@@ -1375,7 +1393,7 @@ async def register_patient_on_terms_agreement(request: Request):
                 try:
                     await welno_data_service.save_terms_agreement_detail(
                         uuid=uuid,
-                        hospital_id="PEERNINE",
+                        hospital_id=settings.welno_default_hospital_id,
                         terms_agreement_detail=terms_agreement_detail
                     )
                     logger.info(f"✅ [환자등록] 약관동의 상세 정보 저장 완료: uuid={uuid}")
@@ -1386,7 +1404,7 @@ async def register_patient_on_terms_agreement(request: Request):
                 try:
                     await welno_data_service.save_terms_agreement(
                         uuid=uuid,
-                        hospital_id="PEERNINE",
+                        hospital_id=settings.welno_default_hospital_id,
                         terms_agreement=terms_agreement
                     )
                     logger.info(f"✅ [환자등록] 약관동의 정보 저장 완료 (기존 형식): uuid={uuid}")
@@ -1427,7 +1445,7 @@ async def trigger_generation_directly(request: Request):
                 partner_id = partner_config["partner_id"]
         
         if not partner_id:
-            partner_id = 'kindhabit'
+            partner_id = 'welno'  # 기본 파트너로 변경
             
         logger.info(f"🚀 [Direct Generate] 시작: oid={oid}, uuid={uuid}, partner={partner_id}")
         
@@ -1452,7 +1470,8 @@ async def trigger_generation_directly(request: Request):
 
         # 2. 비동기로 리포트 생성 트리거
         import asyncio
-        asyncio.create_task(trigger_report_generation(order_data))
+        _gen_task = asyncio.create_task(trigger_report_generation(order_data))
+        _gen_task.add_done_callback(lambda t: logger.error(f"❌ [Direct Generate] 리포트생성 비동기 실패: {t.exception()}") if t.exception() else None)  # HIGH-1 fix
         
         return {"success": True, "message": "리포트 생성이 시작되었습니다.", "oid": order_data['oid']}
         

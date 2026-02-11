@@ -8,21 +8,14 @@ from pydantic import BaseModel
 
 from ....core.database import db_manager
 from ....core.config import settings
-from ....utils.partner_config import get_partner_config_by_api_key, get_partner_config
+from ....utils.partner_config import get_partner_config_by_api_key, get_partner_config, get_payment_amount
 from ....utils.partner_encryption import decrypt_user_data
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-def get_payment_amount(partner_id: str) -> int:
-    """파트너별 결제 금액 조회 (기본 7,900원)"""
-    try:
-        config = get_partner_config(partner_id)
-        if config and "config" in config:
-            return config["config"].get("payment", {}).get("amount", 7900)
-    except:
-        pass
-    return 7900
+# get_payment_amount 함수는 partner_config.py로 통합됨
+# from ....utils.partner_config import get_payment_amount 사용
 
 @router.post("/disease-report/check-partner-status")
 async def check_partner_status(request: Request):
@@ -156,7 +149,7 @@ async def check_partner_status(request: Request):
                     response_data = {
                         "case_id": "UUID_ONLY",
                         "action": "show_report",
-                        "redirect_url": f"/disease-report?uuid={uuid}&hospital_id=PEERNINE&skin=G",
+                        "redirect_url": f"/disease-report?uuid={uuid}&hospital_id={settings.welno_default_hospital_id}&skin=G",
                         "message": "이미 생성된 리포트가 있습니다",
                         "has_report": True,
                         "has_checkup_data": True,
@@ -249,9 +242,10 @@ async def check_partner_status(request: Request):
                 has_mediarc_report = welno_patient['has_mediarc_report']
                 
                 # ✅ WELNO 회원은 welno_internal 파트너로 처리 (DB 기준)
+                from ....utils.partner_constants import PartnerIDs
                 if not partner_id or partner_id == 'None':
-                    partner_id = 'welno_internal'
-                    logger.info(f"[상태체크] WELNO 회원 발견 → partner_id = 'welno_internal' 설정")
+                    partner_id = PartnerIDs.WELNO_INTERNAL
+                    logger.info(f"[상태체크] WELNO 회원 발견 → partner_id = '{PartnerIDs.WELNO_INTERNAL}' 설정")
                     # partner_config 다시 로드
                     partner_row = await conn.fetchrow("""
                         SELECT partner_id, partner_name, config, is_active
@@ -281,16 +275,16 @@ async def check_partner_status(request: Request):
                             payment_config = {}
                         payment_required = payment_config.get("required", True)
                         payment_amount = payment_config.get("amount", 7900)
-                        logger.info(f"[상태체크] welno_internal 설정 로드: amount={payment_amount}, required={payment_required}")
+                        logger.info(f"[상태체크] {PartnerIDs.WELNO_INTERNAL} 설정 로드: amount={payment_amount}, required={payment_required}")
                 
                 # 🔧 [중요] 플래그만 확인하지 말고, 실제 report_url이 있는지 확인
                 if has_mediarc_report:
                     # welno_mediarc_reports에서 실제 report_url 확인
                     report_check = await conn.fetchrow("""
                         SELECT report_url FROM welno.welno_mediarc_reports
-                        WHERE patient_uuid = $1 AND hospital_id = 'PEERNINE'
+                        WHERE patient_uuid = $1 AND hospital_id = $2
                         ORDER BY created_at DESC LIMIT 1
-                    """, uuid)
+                    """, uuid, settings.welno_default_hospital_id)  # CRITICAL-2 fix: SQL 파라미터화
                     
                     if report_check and report_check['report_url']:
                         # 실제로 report_url이 있는 경우에만 show_report
@@ -299,7 +293,7 @@ async def check_partner_status(request: Request):
                         return {
                             "case_id": "A2",
                             "action": "show_report",
-                            "redirect_url": get_final_url(f"/disease-report?uuid={uuid}&hospital_id=PEERNINE"),
+                            "redirect_url": get_final_url(f"/disease-report?uuid={uuid}&hospital_id={settings.welno_default_hospital_id}"),
                             "has_report": True,
                             "has_checkup_data": True,
                             "has_payment": True,
@@ -384,11 +378,8 @@ async def check_partner_status(request: Request):
                             logger.error(f"[상태체크] ❌ 복호화 실패 (데이터 파싱 불가능)")
                             logger.error(f"   - UUID: {uuid}")
                             logger.error(f"   - Partner: {partner_id}")
-                            if aes_key:
-                                logger.error(f"   - Key: {aes_key[:4]}...{aes_key[-4:]}")
-                            else:
-                                logger.error(f"   - Key: None")
-                            logger.error(f"   - IV: {aes_iv if aes_iv else 'None'}")
+                            logger.error(f"   - Key 존재: {bool(aes_key)}, Key 길이: {len(aes_key) if aes_key else 0}")  # MEDIUM-6 fix: 키 값 로깅 제거
+                            logger.error(f"   - IV 존재: {bool(aes_iv)}")
                             logger.error(f"   - Encrypted Data Length: {len(encrypted_data)}")
                     except Exception as e:
                         logger.error(f"[상태체크] ❌ 복호화 중 예외 발생: {str(e)}")
@@ -411,7 +402,7 @@ async def check_partner_status(request: Request):
             
             unified_status = await welno_data_service.get_unified_status(
                 uuid=uuid,
-                hospital_id=config_dict.get('default_hospital_id', 'PEERNINE'),
+                hospital_id=config_dict.get('default_hospital_id', settings.welno_default_hospital_id),
                 partner_id=partner_id
             )
             
@@ -543,11 +534,11 @@ async def check_partner_status(request: Request):
                     
             elif status == "REPORT_READY":
                 # 리포트 표시
-                redirect_url = f"/disease-report?oid={payment_record['oid']}" if payment_record else f"/disease-report?uuid={uuid}&hospital=PEERNINE"
+                redirect_url = f"/disease-report?oid={payment_record['oid']}" if payment_record else f"/disease-report?uuid={uuid}&hospital={settings.welno_default_hospital_id}"
                 
             elif status == "REPORT_EXPIRED":
                 # 만료 메시지 + 새로고침 옵션
-                redirect_url = f"/disease-report?uuid={uuid}&hospital=PEERNINE&expired=true"
+                redirect_url = f"/disease-report?uuid={uuid}&hospital={settings.welno_default_hospital_id}&expired=true"
                 
             elif status == "REPORT_PENDING":
                 # 로딩 페이지
