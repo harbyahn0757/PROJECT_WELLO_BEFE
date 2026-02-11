@@ -15,7 +15,29 @@
 
 // 파트너별 기본 채팅 아이콘 (API Key로 자동 매핑)
 var PARTNER_DEFAULT_ICON = {
-  '5a9bb40b5108ecd8ef864658d5a2d5ab': '/welno-api/static/mdx_icon.png'  // MediLinx
+  '5a9bb40b5108ecd8ef864658d5a2d5ab': '/welno-api/static/mdx_icon.png'
+};
+
+// 테마별 색상 토큰 (위젯 설정 theme: 'default' | 'navy')
+var THEME_TOKENS = {
+  default: {
+    headerBg: '#7B5E4F',
+    accent: '#7B5E4F',
+    accentHover: '#6B4E3F',
+    welcomeText: '#7B5E4F',
+    userBubble: '#7B5E4F',
+    buttonColor: '#A69B8F',
+    borderSubtle: 'rgba(123, 94, 79, 0.1)'
+  },
+  navy: {
+    headerBg: '#1e3a5f',
+    accent: '#2c5282',
+    accentHover: '#234a75',
+    welcomeText: '#1e3a5f',
+    userBubble: '#2c5282',
+    buttonColor: '#2c5282',
+    borderSubtle: 'rgba(30, 58, 95, 0.12)'
+  }
 };
 
 class WelnoRagChatWidget {
@@ -25,7 +47,7 @@ class WelnoRagChatWidget {
       throw new Error('WelnoRagChatWidget: apiKey is required');
     }
 
-    var baseUrl = config.baseUrl || 'http://localhost:8082';
+    var baseUrl = config.baseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
     var chatIconUrl = config.chatIconUrl || null;
     if (!chatIconUrl && config.apiKey && PARTNER_DEFAULT_ICON[config.apiKey]) {
       chatIconUrl = (baseUrl.replace(/\/$/, '')) + PARTNER_DEFAULT_ICON[config.apiKey];
@@ -85,14 +107,17 @@ class WelnoRagChatWidget {
   /**
    * 위젯 초기화 및 DOM에 추가
    */
-  init() {
+  async init() {
     if (this.state.isInitialized) {
       console.warn('[WelnoRagChatWidget] 이미 초기화됨');
       return;
     }
 
     try {
-      // CSS 스타일 주입
+      // 0. 서버에서 동적 설정 로드 (파트너 테마 적용)
+      await this.fetchRemoteConfig();
+
+      // 1. CSS 스타일 주입
       this.injectStyles();
       
       // DOM 구조 생성
@@ -119,8 +144,59 @@ class WelnoRagChatWidget {
       console.log('[WelnoRagChatWidget] 초기화 완료');
       
     } catch (error) {
-      console.error('[WelnoRagChatWidget] 초기화 실패:', error);
-      this.handleError('위젯 초기화에 실패했습니다.', error);
+      console.warn('[WelnoRagChatWidget] 위젯 활성화 조건 미충족 (등록되지 않은 파트너/병원):', error.message);
+      // 에러 시 위젯 생성을 중단하고 아무것도 렌더링하지 않음
+      this.destroy(); 
+    }
+  }
+
+  /**
+   * 서버에서 동적 설정 로드 (파트너/병원별 테마 및 메시지)
+   */
+  async fetchRemoteConfig() {
+    try {
+      // API Key 기반 파트너 ID 조회 (간소화를 위해 medilinx 전용 처리 또는 파라미터 활용)
+      // 현재는 hospitalId가 이미 medilinx 정보를 포함하고 있으므로 이를 활용
+      var partnerId = 'welno';
+      if (this.config.apiKey === '5a9bb40b5108ecd8ef864658d5a2d5ab') {
+        partnerId = 'medilinx';
+      }
+
+      var url = `${this.config.baseUrl}/welno-api/v1/admin/embedding/config/frontend?partner_id=${partnerId}`;
+      if (this.config.hospitalId) {
+        url += `&hospital_id=${this.config.hospitalId}`;
+      }
+
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[WelnoRagChatWidget] 서버 설정 로드 성공:', data);
+
+        // 1. 테마 색상 덮어쓰기 (DB 설정이 최우선)
+        if (data.theme && data.theme.primary_color) {
+          this.config.buttonColor = data.theme.primary_color;
+          this.config.themeData = data.theme; // 상세 테마 데이터 저장
+        }
+
+        // 2. 아이콘 URL 덮어쓰기
+        if (data.theme && data.theme.icon_url) {
+          this.config.chatIconUrl = data.theme.icon_url;
+        }
+
+        // 3. 인사말 및 파트너명 덮어쓰기
+        if (data.welcome_message) {
+          this.config.welcomeMessage = data.welcome_message;
+        }
+        if (data.partner_name) {
+          this.config.partnerName = data.partner_name;
+        }
+      } else {
+        // 등록되지 않은 병원/파트너인 경우 (404 등)
+        throw new Error(`등록되지 않은 병원 또는 파트너입니다. (HTTP ${response.status})`);
+      }
+    } catch (err) {
+      console.error('[WelnoRagChatWidget] 서버 설정 로드 실패:', err);
+      throw err; // 에러를 다시 던져서 init()에서 위젯 생성을 중단하게 함
     }
   }
 
@@ -134,6 +210,13 @@ class WelnoRagChatWidget {
     if (document.getElementById(styleId)) {
       return;
     }
+
+    var themeName = (this.config.theme === 'navy' ? 'navy' : 'default');
+    var t = THEME_TOKENS[themeName];
+    
+    // DB에서 가져온 색상이 있으면 최우선 적용, 없으면 설정값, 그것도 없으면 테마 기본값
+    var primaryColor = this.config.buttonColor || t.buttonColor;
+    var headerColor = (this.config.themeData && this.config.themeData.primary_color) || t.headerBg;
 
     const styles = `
       /* Welno RAG Chat Widget Styles */
@@ -183,7 +266,7 @@ class WelnoRagChatWidget {
         padding: 0;
         border: none;
         border-radius: 50%;
-        background: ${this.config.buttonColor};
+        background: ${primaryColor};
         color: white;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         cursor: pointer;
@@ -237,15 +320,15 @@ class WelnoRagChatWidget {
         position: absolute;
         bottom: 70px;
         right: 0;
-        width: 360px;
-        height: 550px;
+        width: 400px; /* 360px -> 400px */
+        height: 650px; /* 550px -> 650px */
         background: #FFFAF2;
         border-radius: 20px;
         box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
         display: none;
         flex-direction: column;
         overflow: hidden;
-        border: 1px solid rgba(123, 94, 79, 0.1);
+        border: 1px solid ${t.borderSubtle};
         animation: slideInUp 0.3s ease-out;
       }
 
@@ -283,9 +366,9 @@ class WelnoRagChatWidget {
 
       /* 헤더 */
       .${this.cssPrefix}-header {
-        background: #7B5E4F;
+        background: ${headerColor};
         color: white;
-        padding: 18px 20px;
+        padding: 12px 16px;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -293,7 +376,7 @@ class WelnoRagChatWidget {
 
       .${this.cssPrefix}-header h3 {
         margin: 0;
-        font-size: 17px;
+        font-size: 15px;
         font-weight: 600;
         letter-spacing: -0.5px;
       }
@@ -320,7 +403,7 @@ class WelnoRagChatWidget {
         padding: 12px 18px !important;
         border-radius: 16px !important;
         box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !important;
-        border: 1px solid #7B5E4F !important;
+        border: 1px solid ${primaryColor} !important;
         width: max-content !important;
         min-width: 240px !important;
         max-width: min(80vw, 320px) !important;
@@ -373,7 +456,7 @@ class WelnoRagChatWidget {
         height: 0;
         border-left: 8px solid transparent;
         border-right: 8px solid transparent;
-        border-top: 8px solid #7B5E4F;
+        border-top: 8px solid ${primaryColor};
       }
 
       .${this.cssPrefix}-welcome-bubble::before {
@@ -391,7 +474,7 @@ class WelnoRagChatWidget {
 
       .${this.cssPrefix}-welcome-bubble-text {
         font-weight: 500;
-        color: #7B5E4F;
+        color: ${primaryColor};
         font-size: 13px;
         line-height: 1.4;
       }
@@ -434,35 +517,43 @@ class WelnoRagChatWidget {
       }
 
       .${this.cssPrefix}-message-bubble {
-        max-width: 80%;
+        max-width: 85%;
         padding: 12px 16px;
         border-radius: 18px;
         word-wrap: break-word;
-        line-height: 1.4;
+        line-height: 1.6;
+        font-size: 13.5px;
       }
 
       .${this.cssPrefix}-message.user .${this.cssPrefix}-message-bubble {
-        background: #7B5E4F;
+        background: ${primaryColor};
         color: white;
-        border-bottom-right-radius: 6px;
+        border-bottom-right-radius: 2px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       }
 
       .${this.cssPrefix}-message.assistant .${this.cssPrefix}-message-bubble {
-        background: white;
-        color: #333;
-        border: 1px solid #E5E5E5;
-        border-bottom-left-radius: 6px;
+        background: #F8EDDA;
+        color: #4A3A34;
+        border-bottom-left-radius: 2px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
       }
 
-      .${this.cssPrefix}-message-bubble strong {
-        font-weight: 700;
+      .${this.cssPrefix}-message-footer {
+        margin-top: 4px;
+        padding: 0 4px;
+      }
+
+      .${this.cssPrefix}-message-footer-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
       }
 
       .${this.cssPrefix}-message-time {
-        font-size: 11px;
+        font-size: 10px;
         color: #999;
-        margin-top: 4px;
-        padding: 0 4px;
       }
 
       /* 로딩 인디케이터 (말풍선 없이 점 세 개만) */
@@ -522,14 +613,14 @@ class WelnoRagChatWidget {
       }
 
       .${this.cssPrefix}-input:focus {
-        border-color: #7B5E4F;
+        border-color: ${primaryColor};
       }
 
       .${this.cssPrefix}-send-button {
         width: 40px;
         height: 40px;
         border-radius: 50%;
-        background: #7B5E4F;
+        background: ${primaryColor};
         color: white;
         border: none;
         cursor: pointer;
@@ -541,7 +632,7 @@ class WelnoRagChatWidget {
       }
 
       .${this.cssPrefix}-send-button:hover {
-        background: #6B4E3F;
+        filter: brightness(0.9);
       }
 
       .${this.cssPrefix}-send-button:disabled {
@@ -554,59 +645,115 @@ class WelnoRagChatWidget {
         height: 16px;
       }
 
-      /* 반응형 */
+      /* 반응형: 모바일에서 전체 화면 꽉 채우기 */
       @media (max-width: 480px) {
         .${this.cssPrefix}-window {
-          width: calc(100vw - 24px);
-          height: calc(100vh - 100px);
-          max-width: 360px;
-          max-height: 550px;
+          width: 100% !important;
+          height: 100% !important;
+          bottom: 0 !important;
+          right: 0 !important;
+          border-radius: 0 !important;
+          max-width: none !important;
+          max-height: none !important;
+        }
+        
+        .${this.cssPrefix}-container {
+          bottom: 0 !important;
+          right: 0 !important;
+          width: 100% !important;
+          height: 100% !important;
+          pointer-events: none; /* 컨테이너 자체는 클릭 통과 */
+        }
+
+        .${this.cssPrefix}-container > * {
+          pointer-events: auto; /* 자식 요소는 클릭 가능 */
+        }
+
+        .${this.cssPrefix}-button {
+          bottom: 24px !important;
+          right: 24px !important;
+          position: fixed !important;
+          z-index: 10001;
+        }
+
+        /* 채팅창이 열렸을 때 하단 플로팅 버튼 숨기기 (컨테이너 클래스 기준) */
+        .${this.cssPrefix}-container.is-open .${this.cssPrefix}-button {
+          display: none !important;
         }
       }
 
-      /* 소스 아코디언 */
-      .${this.cssPrefix}-sources {
-        margin-top: 8px;
-        font-size: 12px;
-        color: #666;
+      /* 헤더 고정 및 메시지 영역 독립 스크롤 강화 */
+      .${this.cssPrefix}-window {
+        display: none;
+        flex-direction: column;
+        height: 650px;
+        position: relative; /* 자식 요소 포지셔닝 기준 */
       }
-      .${this.cssPrefix}-sources-header {
+      .${this.cssPrefix}-window.open {
+        display: flex !important;
+      }
+      .${this.cssPrefix}-header {
+        flex-shrink: 0;
+        z-index: 2;
+      }
+      .${this.cssPrefix}-messages {
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: 20px;
+      }
+      .${this.cssPrefix}-input-area {
+        flex-shrink: 0;
+        z-index: 2;
+        background: white;
+      }
+
+      /* 소스 아코디언: 시간 옆 토글 + 아래에 리스트 확장 */
+      .${this.cssPrefix}-sources-toggle {
         cursor: pointer;
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        justify-content: space-between;
-        padding: 6px 0;
-        user-select: none;
-      }
-      .${this.cssPrefix}-sources-header:hover { opacity: 0.85; }
-      .${this.cssPrefix}-sources-chevron {
+        gap: 3px;
+        padding: 0;
+        border: none;
+        background: none;
         font-size: 10px;
+        font-weight: 600;
+        color: ${primaryColor};
+        user-select: none;
+        white-space: nowrap;
+      }
+      .${this.cssPrefix}-sources-toggle:hover { opacity: 0.7; }
+      .${this.cssPrefix}-sources-chevron {
+        font-size: 7px;
         display: inline-block;
         transition: transform 0.2s;
-        transform: rotate(-90deg);
       }
-      .${this.cssPrefix}-sources.is-open .${this.cssPrefix}-sources-chevron {
-        transform: rotate(0deg);
+      .${this.cssPrefix}-sources-toggle.is-open .${this.cssPrefix}-sources-chevron {
+        transform: rotate(180deg);
       }
       .${this.cssPrefix}-sources-list {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.2s ease-out;
+        margin: 6px 0 0;
+        padding: 0;
+        display: none;
+        flex-direction: column;
+        gap: 4px;
       }
-      .${this.cssPrefix}-sources.is-open .${this.cssPrefix}-sources-list {
-        max-height: 400px;
+      .${this.cssPrefix}-sources-list.is-open {
+        display: flex;
       }
       .${this.cssPrefix}-source {
         display: block;
-        background: #F0F0F0;
+        font-size: 11px;
+        color: #555;
         padding: 6px 8px;
-        border-radius: 4px;
-        margin: 4px 0 0 0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+        background: rgba(0,0,0,0.04);
+        border-radius: 6px;
+        border-left: 2px solid ${primaryColor};
+        white-space: normal;
+        word-break: break-word;
+        line-height: 1.4;
       }
-      .${this.cssPrefix}-source:first-of-type { margin-top: 6px; }
 
       /* 제안 질문 */
       .${this.cssPrefix}-suggestions {
@@ -627,9 +774,9 @@ class WelnoRagChatWidget {
       }
 
       .${this.cssPrefix}-suggestion:hover {
-        background: #7B5E4F;
+        background: ${primaryColor};
         color: white;
-        border-color: #7B5E4F;
+        border-color: ${primaryColor};
       }
     `;
 
@@ -761,6 +908,7 @@ class WelnoRagChatWidget {
 
     this.state.isOpen = true;
     this.elements.window.classList.add('open');
+    this.elements.container.classList.add('is-open'); // 컨테이너에 상태 추가
     this.elements.button.classList.add('active');
     this.elements.button.innerHTML = this.getCloseIcon();
 
@@ -790,6 +938,7 @@ class WelnoRagChatWidget {
 
     this.state.isOpen = false;
     this.elements.window.classList.remove('open');
+    this.elements.container.classList.remove('is-open'); // 컨테이너 상태 제거
     this.elements.button.classList.remove('active');
     this.elements.button.innerHTML = this.getChatIcon();
 
@@ -961,6 +1110,12 @@ class WelnoRagChatWidget {
     bubbleElement.className = `${this.cssPrefix}-message-bubble`;
     bubbleElement.innerHTML = this._renderMessageHtml(content);
     
+    const footerElement = document.createElement('div');
+    footerElement.className = `${this.cssPrefix}-message-footer`;
+
+    const footerRow = document.createElement('div');
+    footerRow.className = `${this.cssPrefix}-message-footer-row`;
+
     const timeElement = document.createElement('div');
     timeElement.className = `${this.cssPrefix}-message-time`;
     timeElement.textContent = new Date().toLocaleTimeString('ko-KR', { 
@@ -968,8 +1123,11 @@ class WelnoRagChatWidget {
       minute: '2-digit' 
     });
     
+    footerRow.appendChild(timeElement);
+    footerElement.appendChild(footerRow);
+    
     messageElement.appendChild(bubbleElement);
-    messageElement.appendChild(timeElement);
+    messageElement.appendChild(footerElement);
     
     this.elements.messagesContainer.appendChild(messageElement);
     this.scrollToBottom();
@@ -991,7 +1149,19 @@ class WelnoRagChatWidget {
   updateMessageContent(messageElement, content) {
     const bubbleElement = messageElement.querySelector(`.${this.cssPrefix}-message-bubble`);
     bubbleElement.innerHTML = this._renderMessageHtml(content);
-    this.scrollToBottom();
+    // 스트리밍 중 스크롤을 throttle (매 청크마다 스크롤하면 버벅임)
+    if (!this._scrollRAF) {
+      this._scrollRAF = requestAnimationFrame(() => {
+        this._scrollRAF = null;
+        const el = this.elements.messagesContainer;
+        if (!el) return;
+        // 사용자가 위로 스크롤했으면 자동 스크롤 안 함
+        const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        if (isNearBottom) {
+          el.scrollTop = el.scrollHeight;
+        }
+      });
+    }
   }
 
   /**
@@ -999,17 +1169,14 @@ class WelnoRagChatWidget {
    */
   addSources(messageElement, sources) {
     if (!sources || sources.length === 0) return;
-    const sourcesElement = document.createElement('div');
-    sourcesElement.className = `${this.cssPrefix}-sources`;
 
-    const header = document.createElement('button');
-    header.type = 'button';
-    header.className = `${this.cssPrefix}-sources-header`;
-    header.innerHTML = `<span>참고 문헌</span><span class="${this.cssPrefix}-sources-chevron" aria-hidden="true">▼</span>`;
-    header.addEventListener('click', () => {
-      sourcesElement.classList.toggle('is-open');
-    });
+    // 토글 버튼: footer-row 안에 시간 옆
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = `${this.cssPrefix}-sources-toggle`;
+    toggleBtn.innerHTML = `<span>참고 문헌</span><span class="${this.cssPrefix}-sources-chevron" aria-hidden="true">▼</span>`;
 
+    // 소스 리스트: footer 안 (footer-row 아래)
     const listWrap = document.createElement('div');
     listWrap.className = `${this.cssPrefix}-sources-list`;
 
@@ -1021,9 +1188,25 @@ class WelnoRagChatWidget {
       listWrap.appendChild(sourceEl);
     });
 
-    sourcesElement.appendChild(header);
-    sourcesElement.appendChild(listWrap);
-    messageElement.appendChild(sourcesElement);
+    toggleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleBtn.classList.toggle('is-open');
+      listWrap.classList.toggle('is-open');
+    });
+
+    // footer-row에 토글 버튼 추가
+    const footerRow = messageElement.querySelector(`.${this.cssPrefix}-message-footer-row`);
+    const footer = messageElement.querySelector(`.${this.cssPrefix}-message-footer`);
+    if (footerRow) {
+      footerRow.appendChild(toggleBtn);
+    }
+    // footer에 리스트 추가 (footer-row 아래)
+    if (footer) {
+      footer.appendChild(listWrap);
+    } else {
+      messageElement.appendChild(listWrap);
+    }
   }
 
   /**
@@ -1083,9 +1266,11 @@ class WelnoRagChatWidget {
    * 하단으로 스크롤
    */
   scrollToBottom() {
-    setTimeout(() => {
-      this.elements.messagesContainer.scrollTop = this.elements.messagesContainer.scrollHeight;
-    }, 100);
+    requestAnimationFrame(() => {
+      const el = this.elements.messagesContainer;
+      if (!el) return;
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    });
   }
 
   /**

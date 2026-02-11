@@ -18,136 +18,10 @@ const LandingPage: React.FC<Props> = ({ status }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
   
-  // localStorage 정리를 위한 클릭 카운터
-  const debugClickCount = useRef(0);
-  const debugClickTimer = useRef<NodeJS.Timeout | null>(null);
+  // 결제 중복 방지
+  const paymentInProgress = useRef(false);
+  
 
-  // 🔧 localStorage 정리 함수 (AI 질병예측 리포트 텍스트 5번 클릭)
-  const handleTitleDebugClick = (e: React.MouseEvent) => {
-    e.preventDefault(); // 기본 동작 방지
-    
-    // 기존 타이머 클리어
-    if (debugClickTimer.current) {
-      clearTimeout(debugClickTimer.current);
-    }
-
-    debugClickCount.current += 1;
-    console.log(`[디버그] AI 질병예측 리포트 클릭 횟수: ${debugClickCount.current}/5`);
-
-    // 3초 내에 5번 클릭했는지 확인
-    if (debugClickCount.current >= 5) {
-      debugClickCount.current = 0;
-      
-      // 플로팅 버튼 디버깅 정보 수집
-      const debugInfo = {
-        // 현재 상태
-        currentPath: window.location.pathname,
-        currentSearch: window.location.search,
-        
-        // localStorage 상태
-        localStorage: {
-          welno_tilko_manual_collect: localStorage.getItem('welno_tilko_manual_collect'),
-          welno_tilko_collecting_status: localStorage.getItem('welno_tilko_collecting_status'),
-          welno_password_modal_open: localStorage.getItem('welno_password_modal_open'),
-          checkup_survey_panel_open: localStorage.getItem('checkup_survey_panel_open'),
-          welno_tilko_auth_waiting: localStorage.getItem('welno_tilko_auth_waiting'),
-          welno_tilko_auth_method_selection: localStorage.getItem('welno_tilko_auth_method_selection'),
-          welno_tilko_info_confirming: localStorage.getItem('welno_tilko_info_confirming'),
-          welno_patient_uuid: localStorage.getItem('welno_patient_uuid'),
-          welno_hospital_id: localStorage.getItem('welno_hospital_id')
-        },
-        
-        // DOM 상태
-        floatingButtonExists: !!document.querySelector('[class*="floating"]'),
-        ragChatButtonExists: !!document.querySelector('[class*="rag-chat"]'),
-        
-        // 전역 상태 (있다면)
-        matrixButtonConfig: (window as any).matrixButtonConfig || null,
-        unifiedStatus: (window as any).unifiedStatus || null
-      };
-      
-      console.log('🔧 [플로팅 버튼 디버깅] 현재 상태:', debugInfo);
-      
-      // 사용자에게 선택지 제공
-      const action = window.confirm(
-        '🔧 플로팅 버튼 디버깅\n\n' +
-        '"AI 질병예측 리포트" 텍스트를 5번 클릭하셨습니다!\n\n' +
-        '선택하세요:\n' +
-        '✅ 확인: localStorage 정리 후 새로고침\n' +
-        '❌ 취소: 디버깅 정보만 콘솔에 출력'
-      );
-      
-      if (action) {
-        try {
-          // 플로팅 버튼 관련 localStorage 키들 정리 (확장된 목록)
-          const keysToRemove = [
-            'welno_tilko_manual_collect',
-            'welno_tilko_collecting_status',
-            'welno_password_modal_open',
-            'checkup_survey_panel_open',
-            'welno_tilko_auth_waiting',
-            'welno_tilko_auth_method_selection',
-            'welno_tilko_info_confirming',
-            'collectingStatus', // 레거시
-            'manualCollect' // 레거시
-          ];
-          
-          let removedCount = 0;
-          const removedKeys: string[] = [];
-          
-          keysToRemove.forEach(key => {
-            if (localStorage.getItem(key)) {
-              localStorage.removeItem(key);
-              removedCount++;
-              removedKeys.push(key);
-            }
-          });
-          
-          console.log('[랜딩페이지 디버그] localStorage 정리 완료:', { 
-            removedCount, 
-            removedKeys,
-            beforeState: debugInfo
-          });
-          
-          // 매트릭스 이벤트 강제 발생 (플로팅 버튼 재설정)
-          window.dispatchEvent(new CustomEvent('floating-button-config', {
-            detail: {
-              visible: true,
-              text: '건강검진 데이터 수집하기',
-              action: () => console.log('플로팅 버튼 클릭됨')
-            }
-          }));
-          
-          alert(
-            `🔧 localStorage 정리 완료!\n\n` +
-            `삭제된 항목: ${removedCount}개\n` +
-            `${removedKeys.length > 0 ? removedKeys.join(', ') : '(삭제할 항목 없음)'}\n\n` +
-            `플로팅 버튼 재설정 이벤트 발생\n` +
-            `페이지를 새로고침합니다.`
-          );
-          
-          // 페이지 새로고침
-          window.location.reload();
-          
-        } catch (error) {
-          console.error('[랜딩페이지 디버그] localStorage 정리 오류:', error);
-          alert('localStorage 정리 중 오류가 발생했습니다.');
-        }
-      } else {
-        // 취소 선택 시 디버깅 정보만 출력
-        alert(
-          '🔧 디버깅 정보 출력됨\n\n' +
-          '콘솔을 확인하여 플로팅 버튼 상태를 확인하세요.\n' +
-          'F12 → Console 탭에서 "[플로팅 버튼 디버깅]" 로그를 찾아보세요.'
-        );
-      }
-    } else {
-      // 3초 후 카운트 리셋
-      debugClickTimer.current = setTimeout(() => {
-        debugClickCount.current = 0;
-      }, 3000);
-    }
-  };
 
   // 마운트 시 스크롤을 맨 위로 이동 및 카운트다운 시작
   useEffect(() => {
@@ -254,6 +128,12 @@ const LandingPage: React.FC<Props> = ({ status }) => {
   };
 
   const handlePayment = useCallback(async () => {
+    // ✅ 중복 결제 방지 (form.submit 이후 재호출 차단)
+    if (paymentInProgress.current) {
+      console.log('[LandingPage] ⚠️ 결제 진행 중, 중복 호출 무시');
+      return;
+    }
+    
     // ✅ [중요] status 로딩 전에는 처리하지 않음
     if (!status) {
       console.log('[LandingPage] ⚠️ 상태 로딩 중, 잠시 후 다시 시도해주세요');
@@ -265,6 +145,13 @@ const LandingPage: React.FC<Props> = ({ status }) => {
     if (status.has_payment) {
       console.log('[LandingPage] ⚠️ 이미 결제 완료됨, 결제 초기화 건너뛰기');
       alert('이미 결제가 완료되었습니다. 리포트 생성 중입니다.');
+      return;
+    }
+    
+    // ✅ 검진 데이터 품질 체크 (insufficient면 결제 차단)
+    if (status.data_quality === 'insufficient') {
+      console.log('[LandingPage] ⚠️ 데이터 품질 부족, 결제 차단');
+      alert(status.data_quality_message || '검진 데이터가 충분하지 않아 질병 예측 분석이 어렵습니다.');
       return;
     }
     
@@ -318,6 +205,10 @@ const LandingPage: React.FC<Props> = ({ status }) => {
         form.method = 'POST';
         form.action = 'https://mobile.inicis.com/smart/payment/';
         form.acceptCharset = 'euc-kr'; // 매뉴얼 표준에 따라 euc-kr로 설정
+        // iframe 안에서 실행될 때 CSP 차단 방지: 최상위 윈도우에서 이니시스 페이지 열기
+        if (window.top !== window.self) {
+          form.target = '_top';
+        }
 
         const params: Record<string, string> = {
           P_INI_PAYMENT: 'CARD', 
@@ -349,8 +240,24 @@ const LandingPage: React.FC<Props> = ({ status }) => {
         const currentUrl = window.location.href;
         const landingUrl = currentUrl.replace(/[?&]page=payment/, '').replace(/page=payment[&]?/, '');
         
+        paymentInProgress.current = true;
+        console.log('💳 [LandingPage] 이니시스 결제 폼 제출 시작', { action: form.action, params: Object.keys(params) });
         document.body.appendChild(form);
         form.submit();
+        console.log('💳 [LandingPage] form.submit() 호출 완료');
+        // 5초 후에도 페이지 이동 안 되면 가드 해제 + 사용자 알림
+        setTimeout(() => {
+          if (paymentInProgress.current) {
+            console.log('⚠️ [LandingPage] 5초 경과 후에도 페이지 이동 안 됨, 가드 해제');
+            paymentInProgress.current = false;
+            // 사용자에게 토스트 알림
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:14px 24px;border-radius:12px;font-size:14px;z-index:99999;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.3);max-width:90vw;animation:fadeIn 0.3s ease';
+            toast.textContent = '결제 페이지 연결에 문제가 발생했습니다. 다시 시도해주세요.';
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 4000);
+          }
+        }, 5000);
       } else {
         alert('결제 준비 중 오류가 발생했습니다: ' + data.error);
       }
@@ -360,15 +267,33 @@ const LandingPage: React.FC<Props> = ({ status }) => {
     }
   }, [userData, status, query, navigate]);
 
-  // 카운트다운 완료 시 자동 결제 진행
+  // 카운트다운 완료 시 버튼 텍스트만 업데이트 (자동 결제 제거 - iOS Safari 호환성)
   useEffect(() => {
     if (countdown === 0) {
-      // 카운트다운이 0이 되었을 때 (3초 경과 후)
-      console.log('🔵 [LandingPage] 카운트다운 완료, 자동으로 결제 진행');
-      setCountdown(null); // 카운트다운 UI 숨김
-      handlePayment();
+      console.log('🔵 [LandingPage] 카운트다운 완료, 결제 버튼 활성화 (사용자 클릭 대기)');
+      setCountdown(null);
+      const text = status?.requires_payment === false ? 'AI 리포트 즉시 생성하기' : '결제하기';
+      window.dispatchEvent(new CustomEvent('welno-campaign-button-text', { 
+        detail: { text } 
+      }));
     }
-  }, [countdown, handlePayment]);
+  }, [countdown, status]);
+  
+  // 데이터 품질 경고 토스트
+  useEffect(() => {
+    if (!status) return;
+    if (status.data_quality === 'insufficient' || status.data_quality === 'partial') {
+      const toast = document.createElement('div');
+      toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#d4380d;color:#fff;padding:14px 24px;border-radius:12px;font-size:13px;z-index:99999;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.3);max-width:90vw;line-height:1.5';
+      toast.textContent = status.data_quality_message || '검진 데이터 품질에 문제가 있습니다.';
+      document.body.appendChild(toast);
+      if (status.data_quality === 'partial') {
+        // partial은 5초 후 사라짐
+        setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity 0.5s'; setTimeout(() => toast.remove(), 500); }, 5000);
+      }
+      // insufficient는 계속 표시
+    }
+  }, [status]);
 
   // ✅ 전역 플로팅 버튼 클릭 이벤트 구독
   useEffect(() => {
@@ -390,12 +315,7 @@ const LandingPage: React.FC<Props> = ({ status }) => {
         {/* 결제 페이지에서는 이미지 섹션 제거 */}
         <section className="payment-guide" style={{ marginBottom: '15px' }}>
           <div className="price-box">
-            <span 
-              className="item-name"
-              onClick={handleTitleDebugClick}
-              style={{ cursor: 'pointer', userSelect: 'none' }}
-              title="5번 클릭하면 localStorage 정리"
-            >
+            <span className="item-name">
               AI 질병예측 리포트 (PDF)
             </span>
             <span className="price">7,900원</span>

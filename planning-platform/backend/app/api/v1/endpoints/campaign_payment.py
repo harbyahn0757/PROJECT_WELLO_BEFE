@@ -474,6 +474,20 @@ async def _handle_payment_callback(
 
                 update_pipeline_step(p_oid, 'REPORT_WAITING')
                 
+                # 데이터 품질 검증 로그 (슬랙 알림에 포함)
+                try:
+                    from app.utils.health_metrics import validate_data_quality
+                    _ud = order_data.get('user_data') if isinstance(order_data, dict) else None
+                    if isinstance(_ud, str):
+                        import json as _j
+                        _ud = _j.loads(_ud)
+                    if isinstance(_ud, dict):
+                        _dq = validate_data_quality(_ud)
+                        if _dq['quality'] != 'good':
+                            logger.warning(f"⚠️ [결제콜백] 데이터 품질 경고 (oid={p_oid}): {_dq['quality']} - 유효 {_dq['valid_count']}/{_dq['total_count']}, 비정상 필드: {[f['field'] for f in _dq['invalid_fields']]}")
+                except Exception:
+                    pass
+                
                 # 슬랙 알림: 결제 성공 (데이터 충분)
                 if settings.slack_enabled and settings.slack_webhook_url:
                     try:
@@ -1028,7 +1042,7 @@ async def trigger_report_generation(order_data: Dict[str, Any]):
                 if patient_info:
                     # DB에서 환자 존재 여부 확인
                     import asyncpg
-                    from ....core.config import settings
+                    # settings는 모듈 상단에서 이미 import됨 (line 32)
                     
                     check_conn = await asyncpg.connect(
                         host=settings.DB_HOST if hasattr(settings, 'DB_HOST') else '10.0.1.10',

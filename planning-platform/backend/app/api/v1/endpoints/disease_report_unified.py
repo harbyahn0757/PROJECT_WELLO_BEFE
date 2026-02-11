@@ -356,10 +356,14 @@ async def check_partner_status(request: Request):
                                     pass
 
                             # 지표 분석 로직 (공통 유틸 사용)
-                            from app.utils.health_metrics import get_metric_count, is_data_sufficient
+                            from app.utils.health_metrics import get_metric_count, is_data_sufficient, validate_data_quality
                             
                             metric_count = get_metric_count(decrypted)
                             has_checkup_data = is_data_sufficient(decrypted, threshold=5)
+                            
+                            # 데이터 품질 검증 (비해당, 경계, 비대상 등 비숫자 값 감지)
+                            data_quality_result = validate_data_quality(decrypted)
+                            logger.info(f"[상태체크] 데이터 품질: {data_quality_result['quality']} (유효 {data_quality_result['valid_count']}/{data_quality_result['total_count']}, 비정상: {[f['field'] for f in data_quality_result['invalid_fields']]})")
                             
                             # 데이터 업데이트
                             user_name = decrypted.get('name', '고객')
@@ -594,6 +598,9 @@ async def check_partner_status(request: Request):
             # ===== 6. 최종 응답 생성 =====
             logger.info(f"[상태체크] 최종: case={case_id}, action={action}, redirect={redirect_url[:50]}...")
             
+            # data_quality 결과 (복호화 데이터가 있을 때만)
+            dq = data_quality_result if 'data_quality_result' in dir() else None
+            
             base_response = {
                 "has_report": has_report,
                 "has_checkup_data": has_checkup_data,
@@ -603,7 +610,12 @@ async def check_partner_status(request: Request):
                 "partner_id": partner_id,
                 "is_welno_user": bool(welno_patient),
                 "is_recorded_user": is_recorded_user,
-                "terms_agreed": terms_agreed
+                "terms_agreed": terms_agreed,
+                "data_quality": dq["quality"] if dq else None,
+                "data_quality_message": dq["message"] if dq else None,
+                "data_quality_valid_count": dq["valid_count"] if dq else None,
+                "data_quality_total_count": dq["total_count"] if dq else None,
+                "data_quality_invalid_fields": [f["field"] for f in dq["invalid_fields"]] if dq else None,
             }
             
             await conn.close()

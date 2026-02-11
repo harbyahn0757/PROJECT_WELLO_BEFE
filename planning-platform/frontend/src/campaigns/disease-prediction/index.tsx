@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { API_ENDPOINTS } from '../../config/api';
 import { checkAllTermsAgreement, saveTermsAgreement } from '../../utils/termsAgreement';
@@ -27,8 +27,21 @@ const ReportGeneratingPage: React.FC<{ status: PartnerStatus | null; onMount?: (
       return;
     }
     
-    // 3초마다 상태 체크
+    // 3초마다 상태 체크 (최대 3분)
+    const pollingStartTime = Date.now();
+    const MAX_POLLING_MS = 3 * 60 * 1000; // 3분
     const checkInterval = setInterval(async () => {
+      // 3분 타임아웃 체크
+      if (Date.now() - pollingStartTime > MAX_POLLING_MS) {
+        clearInterval(checkInterval);
+        console.log('[ReportGeneratingPage] 3분 폴링 타임아웃');
+        // 토스트 알림
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:14px 24px;border-radius:12px;font-size:14px;z-index:99999;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,0.3);max-width:90vw;line-height:1.5';
+        toast.innerHTML = '리포트 생성에 시간이 걸리고 있습니다.<br/>잠시 후 다시 접속해주세요.';
+        document.body.appendChild(toast);
+        return;
+      }
       try {
         const urlParams = new URLSearchParams(location.search);
         const uuid = urlParams.get('uuid');
@@ -128,6 +141,11 @@ export interface PartnerStatus {
   is_welno_user: boolean;
   error_message?: string;  // 결제 실패 에러 메시지
   failed_oid?: string;     // 실패한 결제 OID
+  data_quality?: 'good' | 'partial' | 'insufficient';  // 검진데이터 품질
+  data_quality_message?: string;  // 품질 안내 메시지
+  data_quality_valid_count?: number;
+  data_quality_total_count?: number;
+  data_quality_invalid_fields?: string[];
 }
 
 const DiseasePredictionCampaign: React.FC = () => {
@@ -302,6 +320,45 @@ const DiseasePredictionCampaign: React.FC = () => {
     checkUserStatus();
   }, [navigate, location.search]);
 
+  // 🔧 URL 파라미터로 localStorage 정리 기능
+  useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const clearStorage = urlParams.get('clear_storage');
+    
+    if (clearStorage === 'true') {
+      console.log('[디버그] URL 파라미터로 localStorage 정리 요청됨');
+      
+      const keysToRemove = [
+        'collectingStatus',
+        'welno_password_modal_open',
+        'welno_tilko_auth_waiting',
+        'welno_tilko_auth_method_selection',
+        'welno_tilko_info_confirming',
+        'manualCollect'
+      ];
+      
+      let removedCount = 0;
+      keysToRemove.forEach(key => {
+        if (localStorage.getItem(key)) {
+          localStorage.removeItem(key);
+          removedCount++;
+        }
+      });
+      
+      console.log('[디버그] URL 파라미터 localStorage 정리 완료:', { removedCount });
+      
+      // URL에서 clear_storage 파라미터 제거
+      urlParams.delete('clear_storage');
+      const newUrl = `${window.location.pathname}${urlParams.toString() ? '?' + urlParams.toString() : ''}`;
+      window.history.replaceState({}, '', newUrl);
+      
+      // 잠시 후 페이지 새로고침
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    }
+  }, [location.search]);
+
   useEffect(() => {
     document.title = 'Xog: 쏙 - AI 질병예측 리포트';
   }, []);
@@ -429,7 +486,7 @@ const DiseasePredictionCampaign: React.FC = () => {
             if (data) params.set('data', data);
             navigate(`/campaigns/disease-prediction?${params.toString()}`);
           }}
-          onConfirm={async (agreedTerms, termsAgreement) => {
+          onConfirm={async (agreedTerms: any, termsAgreement: any) => {
             // 약관 저장
             if (uuid && termsAgreement && partner) {
               await saveTermsAgreement(
@@ -542,7 +599,7 @@ const DiseasePredictionCampaign: React.FC = () => {
           top: 10,
           right: 10,
           padding: '10px',
-          backgroundColor: 'rgange',
+          backgroundColor: 'orange',
           color: 'white',
           zIndex: 10000,
           fontSize: '12px'
@@ -550,6 +607,7 @@ const DiseasePredictionCampaign: React.FC = () => {
           ⚠️ loading=true, status 있음 (스피너 안 보임)
         </div>
       )}
+      
     </div>
   );
 };

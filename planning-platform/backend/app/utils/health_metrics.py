@@ -126,3 +126,109 @@ def is_data_sufficient(data: Dict[str, Any], threshold: int = 5) -> bool:
         True
     """
     return get_metric_count(data) >= threshold
+
+
+# 질병예측 리포트에 필수적인 핵심 지표 (숫자여야 의미 있는 분석 가능)
+CRITICAL_NUMERIC_FIELDS = {
+    'blds': '공복혈당',
+    'fbs': '공복혈당',
+    'totchole': '총콜레스테롤',
+    'tc': '총콜레스테롤',
+    'hdlchole': 'HDL콜레스테롤',
+    'hdl': 'HDL콜레스테롤',
+    'triglyceride': '중성지방',
+    'tg': '중성지방',
+    'bphigh': '수축기혈압',
+    'sbp': '수축기혈압',
+    'bplwst': '이완기혈압',
+    'dbp': '이완기혈압',
+    'sgotast': 'AST',
+    'ast': 'AST',
+    'sgptalt': 'ALT',
+    'alt': 'ALT',
+    'creatinine': '크레아티닌',
+    'scr': '크레아티닌',
+}
+
+# 숫자가 아닌 값으로 판정되는 패턴
+INVALID_VALUE_PATTERNS = ['비해당', '비대상', '경계', '해당없음', '미실시', '검사안함', '정상', '이상']
+
+
+def _is_valid_numeric(value) -> bool:
+    """값이 유효한 숫자인지 검사"""
+    if value is None or value == '':
+        return False
+    try:
+        v = float(str(value).strip())
+        return v > 0  # 0 이하는 무효
+    except (ValueError, TypeError):
+        return False
+
+
+def validate_data_quality(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    검진데이터 품질을 검증하여 결과를 반환.
+    
+    Returns:
+        {
+            "quality": "good" | "partial" | "insufficient",
+            "valid_count": int,       # 유효한 핵심 지표 수
+            "total_count": int,       # 전체 핵심 지표 수 (중복 제거)
+            "invalid_fields": [...],  # 비정상 값이 있는 필드 목록
+            "message": str            # 사용자에게 보여줄 메시지
+        }
+    """
+    # 중복 필드(대체명) 그룹핑: 하나라도 유효하면 OK
+    field_groups = {
+        '공복혈당': ['blds', 'fbs'],
+        '총콜레스테롤': ['totchole', 'tc'],
+        'HDL콜레스테롤': ['hdlchole', 'hdl'],
+        '중성지방': ['triglyceride', 'tg'],
+        '수축기혈압': ['bphigh', 'sbp'],
+        '이완기혈압': ['bplwst', 'dbp'],
+        'AST': ['sgotast', 'ast'],
+        'ALT': ['sgptalt', 'alt'],
+        '크레아티닌': ['creatinine', 'scr'],
+    }
+    
+    valid_count = 0
+    total_count = len(field_groups)
+    invalid_fields = []
+    
+    for label, fields in field_groups.items():
+        group_valid = False
+        group_has_invalid = False
+        for field in fields:
+            val = data.get(field)
+            if val is not None and val != '':
+                if _is_valid_numeric(val):
+                    group_valid = True
+                    break
+                else:
+                    group_has_invalid = True
+        
+        if group_valid:
+            valid_count += 1
+        elif group_has_invalid:
+            # 값은 있는데 숫자가 아닌 경우
+            raw_vals = [str(data.get(f, '')) for f in fields if data.get(f)]
+            invalid_fields.append({"field": label, "values": raw_vals})
+    
+    # 품질 판정
+    if valid_count >= 7:
+        quality = "good"
+        message = ""
+    elif valid_count >= 4:
+        quality = "partial"
+        message = f"일부 검진 항목({total_count - valid_count}개)의 데이터가 부족하여 분석 정확도가 낮을 수 있습니다."
+    else:
+        quality = "insufficient"
+        message = "검진 데이터가 충분하지 않아 질병 예측 분석이 어렵습니다. 검진 결과를 확인 후 다시 시도해주세요."
+    
+    return {
+        "quality": quality,
+        "valid_count": valid_count,
+        "total_count": total_count,
+        "invalid_fields": invalid_fields,
+        "message": message
+    }

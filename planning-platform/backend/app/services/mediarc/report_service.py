@@ -8,7 +8,7 @@ import json
 import logging
 from datetime import datetime
 from typing import Dict, Any, Optional
-from .constants import DEFAULT_RETURN_TYPE, MEDIARC_API_URL, MEDIARC_API_KEY
+from .constants import DEFAULT_RETURN_TYPE
 from ...core.database import DatabaseManager
 from ...utils.logging.structured_logger import get_structured_logger
 from ...utils.logging.domain_log_builders import ReportLogBuilder
@@ -22,7 +22,7 @@ db_manager = DatabaseManager()
 async def run_disease_report_pipeline(
     mapped_data: Dict[str, Any],
     user_info: Dict[str, Any],
-    hospital_id: str = "PEERNINE",
+    hospital_id: str = settings.welno_default_hospital_id,
     partner_id: Optional[str] = None,
     oid: Optional[str] = None,
     session_id: Optional[str] = None
@@ -54,10 +54,13 @@ async def run_disease_report_pipeline(
     start_time = datetime.now()
     
     try:
-        # 1. Mediarc API 호출 (표준 규격 사용)
+        # 1. Mediarc API 호출 (표준 규격 사용) - 파트너별 동적 설정
+        from ...services.dynamic_config_service import dynamic_config
+        mediarc_config = await dynamic_config.get_mediarc_config(partner_id or "welno")
+        
         response = await call_mediarc_api(
-            api_url=MEDIARC_API_URL,
-            api_key=MEDIARC_API_KEY,
+            api_url=mediarc_config["api_url"],
+            api_key=mediarc_config["api_key"],
             user_name=user_name,
             twobecon_data=mapped_data,
             return_type='both'
@@ -66,6 +69,20 @@ async def run_disease_report_pipeline(
         if not response.get('success'):
             error_msg = response.get('error', 'API 호출 실패')
             logger.error(f"❌ [Pipeline] API 실패: {error_msg}")
+            # pipeline_step 업데이트 (실패 상태)
+            if oid:
+                try:
+                    from ..core.database import db_manager
+                    with db_manager.get_connection() as _conn:
+                        with _conn.cursor() as _cur:
+                            _cur.execute(
+                                "UPDATE welno.tb_campaign_payments SET pipeline_step = 'REPORT_FAILED', updated_at = NOW() WHERE oid = %s",
+                                (oid,)
+                            )
+                        _conn.commit()
+                    logger.info(f"📊 [Pipeline] pipeline_step -> REPORT_FAILED: oid={oid}")
+                except Exception as pe:
+                    logger.error(f"❌ [Pipeline] pipeline_step 업데이트 실패: {pe}")
             return {"success": False, "error": error_msg}
             
         report_data = response.get('data', {})
@@ -96,9 +113,9 @@ async def run_disease_report_pipeline(
                 INSERT INTO welno.welno_mediarc_reports (
                     patient_uuid, hospital_id, report_url, 
                     bodyage, rank, disease_data, cancer_data,
-                    provider, analyzed_at, raw_response
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                ON CONFLICT (patient_uuid, hospital_id) DO UPDATE SET
+                    provider, analyzed_at, raw_response, partner_id
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                ON CONFLICT (partner_id, patient_uuid, hospital_id) DO UPDATE SET
                     report_url = EXCLUDED.report_url,
                     bodyage = EXCLUDED.bodyage,
                     rank = EXCLUDED.rank,
@@ -115,7 +132,8 @@ async def run_disease_report_pipeline(
                 report_data.get('provider', 'twobecon'),
                 # analyzed_at을 datetime 객체로 변환
                 datetime.fromisoformat(report_data.get('analyzed_at').replace('Z', '+00:00')) if report_data.get('analyzed_at') else None,
-                json.dumps(response, ensure_ascii=False)  # JSON 문자열로 변환
+                json.dumps(response, ensure_ascii=False),  # JSON 문자열로 변환
+                partner_id or 'welno'  # partner_id 추가
             )
             
             logger.info(f"✅ [Pipeline] welno_mediarc_reports 저장 완료")
@@ -130,6 +148,11 @@ async def run_disease_report_pipeline(
                     WHERE oid = $3
                 """, report_url, json.dumps(response, ensure_ascii=False), oid)
                 logger.info(f"✅ [Pipeline] tb_campaign_payments 업데이트 완료: oid={oid}, report_url={report_url[:80] if report_url else None}...")
+                # pipeline_step도 업데이트
+                await conn.execute(
+                    "UPDATE welno.tb_campaign_payments SET pipeline_step = 'REPORT_COMPLETED' WHERE oid = $1",
+                    oid
+                )
                 
             # 2-4. WELNO 환자 플래그 업데이트 (환자 테이블에 존재할 때만)
             if patient_row:
@@ -223,7 +246,7 @@ async def call_mediarc_api(
     user_name: str,
     twobecon_data: Dict[str, Any],
     return_type: str = DEFAULT_RETURN_TYPE,
-    timeout: int = 30
+    timeout: int = 90
 ) -> Dict[str, Any]:
     """
     Mediarc API 호출
