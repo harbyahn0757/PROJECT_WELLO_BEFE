@@ -180,6 +180,11 @@ class PartnerRagChatService(WelnoRagChatService):
                 "height": user_info.get("height"),
                 "weight": user_info.get("weight")
             }
+            # 파트너가 전달한 병원명/전화번호
+            if user_info.get("hospital_name"):
+                processed["partner_hospital_name"] = user_info["hospital_name"]
+            if user_info.get("hospital_tel"):
+                processed["partner_hospital_tel"] = user_info["hospital_tel"]
         
         if "health_data" in data:
             health_data = data["health_data"]
@@ -215,6 +220,11 @@ class PartnerRagChatService(WelnoRagChatService):
                 "gender": patient.get("sex"),
                 "contact": patient.get("phone")
             }
+            # 파트너가 전달한 병원명/전화번호 (페르소나 치환에 우선 사용)
+            if patient.get("hospital_name"):
+                processed["partner_hospital_name"] = patient["hospital_name"]
+            if patient.get("hospital_tel"):
+                processed["partner_hospital_tel"] = patient["hospital_tel"]
         
         if "checkup_results" in data:
             raw_results = data["checkup_results"]
@@ -269,7 +279,20 @@ class PartnerRagChatService(WelnoRagChatService):
         # 표준 필드 매핑 시도
         if "patient_info" in data:
             processed["patient_info"] = data["patient_info"]
-        
+            # 파트너가 전달한 병원명/전화번호 (patient 또는 최상위 레벨)
+            patient = data.get("patient") or data.get("patient_info") or {}
+            if isinstance(patient, dict):
+                if patient.get("hospital_name"):
+                    processed["partner_hospital_name"] = patient["hospital_name"]
+                if patient.get("hospital_tel"):
+                    processed["partner_hospital_tel"] = patient["hospital_tel"]
+
+        # 최상위 레벨에서도 병원 정보 확인
+        if data.get("hospital_name") and not processed.get("partner_hospital_name"):
+            processed["partner_hospital_name"] = data["hospital_name"]
+        if data.get("hospital_tel") and not processed.get("partner_hospital_tel"):
+            processed["partner_hospital_tel"] = data["hospital_tel"]
+
         if "health_metrics" in data:
             processed["health_metrics"] = data["health_metrics"]
         

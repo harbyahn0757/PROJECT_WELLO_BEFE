@@ -304,27 +304,63 @@ class SlackService:
     async def send_rag_discrepancy_alert(self, data: Dict[str, Any]) -> bool:
         """
         파트너 위젯 RAG 불일치 알림 (클라이언트 판정 vs 참고문헌 차이 큼)
-        
+
         Args:
-            data: session_id, uuid, hospital_id, message_preview(선택)
+            data: session_id, uuid, hospital_id, message_preview,
+                  patient_name, patient_gender, patient_birth, patient_contact,
+                  partner_name, hospital_name, checkup_date, abnormal_items,
+                  ai_response_excerpt
         """
         config = self._get_alert_config(AlertType.RAG_DISCREPANCY)
+
+        # 접수자 정보 조합
+        patient_name = data.get("patient_name") or "N/A"
+        patient_gender = data.get("patient_gender", "")
+        patient_birth = data.get("patient_birth", "")
+        patient_contact = data.get("patient_contact", "")
+        checkup_date = data.get("checkup_date", "")
+
+        patient_summary = patient_name
+        if patient_gender:
+            patient_summary += f" | {'여성' if patient_gender == 'F' else '남성'}"
+        if patient_birth:
+            patient_summary += f" | {patient_birth}"
+
+        # 파트너/병원 정보
+        partner_name = data.get("partner_name") or "N/A"
+        hospital_name = data.get("hospital_name", "")
+        location_info = partner_name
+        if hospital_name:
+            location_info += f" | {hospital_name}"
+
+        # 이상 소견 항목 포맷
+        abnormal_items = data.get("abnormal_items", {})
+        abnormal_text = "\n".join(f"• {k}: {v}" for k, v in abnormal_items.items()) if abnormal_items else "없음"
+
+        # AI 응답 발췌
+        ai_excerpt = (data.get("ai_response_excerpt") or "")[:300]
+        if ai_excerpt and len(ai_excerpt) == 300:
+            ai_excerpt += "..."
+
         fields = [
-            SlackField(title="세션", value=data.get("session_id", "N/A")[:16], short=True),
-            SlackField(title="사용자", value=data.get("uuid", "N/A")[:8], short=True),
-            SlackField(title="병원/파트너", value=str(data.get("hospital_id", "N/A")), short=True),
-            SlackField(title="설명", value="클라이언트(결과지) 판정과 RAG 참고문헌 간 차이가 커서 확인이 필요합니다.", short=False)
+            SlackField(title="접수자", value=patient_summary, short=True),
+            SlackField(title="연락처", value=patient_contact or "N/A", short=True),
+            SlackField(title="검진일", value=checkup_date or "N/A", short=True),
+            SlackField(title="파트너/병원", value=location_info, short=True),
+            SlackField(title="이상 소견 항목", value=abnormal_text, short=False),
+            SlackField(title="사용자 질문", value=str(data.get("message_preview") or "N/A")[:200], short=False),
+            SlackField(title="AI 응답 요약", value=ai_excerpt or "N/A", short=False),
+            SlackField(title="불일치 사유", value="클라이언트(결과지) 판정과 RAG 참고문헌 간 차이가 커서 확인이 필요합니다.", short=False),
         ]
-        if data.get("message_preview"):
-            fields.append(SlackField(title="질문 일부", value=str(data["message_preview"])[:200], short=False))
+
         message = SlackMessage(
             channel=self.channel_id,
-            text=f"{config['emoji']} {config['title']}",
+            text=f"{config['emoji']} {config['title']} - {patient_name}",
             attachments=[
                 SlackAttachment(
                     color=config["color"],
                     fields=fields,
-                    footer="WELNO 파트너 RAG",
+                    footer=f"WELNO 파트너 RAG | 세션: {str(data.get('session_id') or 'N/A')[:16]}",
                     ts=int(datetime.now().timestamp())
                 )
             ]

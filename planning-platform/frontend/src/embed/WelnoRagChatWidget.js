@@ -211,6 +211,15 @@ class WelnoRagChatWidget {
       return;
     }
 
+    // Noto Sans KR 폰트 로드 (없으면 주입)
+    if (!document.getElementById('welno-noto-sans-kr')) {
+      const fontLink = document.createElement('link');
+      fontLink.id = 'welno-noto-sans-kr';
+      fontLink.rel = 'stylesheet';
+      fontLink.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap';
+      document.head.appendChild(fontLink);
+    }
+
     var themeName = (this.config.theme === 'navy' ? 'navy' : 'default');
     var t = THEME_TOKENS[themeName];
     
@@ -223,8 +232,8 @@ class WelnoRagChatWidget {
       .${this.cssPrefix}-container {
         position: fixed;
         z-index: 9999;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        font-size: 14px;
+        font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 15px;
         line-height: 1.4;
         color: #333;
         box-sizing: border-box;
@@ -376,7 +385,7 @@ class WelnoRagChatWidget {
 
       .${this.cssPrefix}-header h3 {
         margin: 0;
-        font-size: 15px;
+        font-size: 16px;
         font-weight: 600;
         letter-spacing: -0.5px;
       }
@@ -475,7 +484,7 @@ class WelnoRagChatWidget {
       .${this.cssPrefix}-welcome-bubble-text {
         font-weight: 500;
         color: ${primaryColor};
-        font-size: 13px;
+        font-size: 14px;
         line-height: 1.4;
       }
       @media (max-width: 480px) {
@@ -494,12 +503,20 @@ class WelnoRagChatWidget {
         animation: bubbleBounce 3s infinite ease-in-out;
       }
 
-      /* 메시지 영역 */
+      /* 메시지 영역 - 메시지가 적을 때 하단부터 쌓임 (채팅 UX) */
       .${this.cssPrefix}-messages {
         flex: 1;
         overflow-y: auto;
         padding: 20px;
         background: #FFFAF2;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* 메시지가 적을 때 빈 공간을 위쪽으로 밀어 메시지를 입력창 가까이 배치 */
+      .${this.cssPrefix}-messages::before {
+        content: '';
+        flex: 1 1 auto;
       }
 
       .${this.cssPrefix}-message {
@@ -522,7 +539,7 @@ class WelnoRagChatWidget {
         border-radius: 18px;
         word-wrap: break-word;
         line-height: 1.6;
-        font-size: 13.5px;
+        font-size: 14.5px;
       }
 
       .${this.cssPrefix}-message.user .${this.cssPrefix}-message-bubble {
@@ -552,7 +569,7 @@ class WelnoRagChatWidget {
       }
 
       .${this.cssPrefix}-message-time {
-        font-size: 10px;
+        font-size: 11px;
         color: #999;
       }
 
@@ -604,7 +621,7 @@ class WelnoRagChatWidget {
         border: 1px solid #E5E5E5;
         border-radius: 20px;
         padding: 10px 16px;
-        font-size: 14px;
+        font-size: 15px;
         outline: none;
         resize: none;
         min-height: 20px;
@@ -649,14 +666,40 @@ class WelnoRagChatWidget {
       @media (max-width: 480px) {
         .${this.cssPrefix}-window {
           width: 100% !important;
-          height: 100% !important;
+          height: 100dvh !important;
+          height: 100vh !important;
+          height: -webkit-fill-available !important;
           bottom: 0 !important;
           right: 0 !important;
+          top: 0 !important;
+          left: 0 !important;
           border-radius: 0 !important;
           max-width: none !important;
           max-height: none !important;
+          position: fixed !important;
         }
-        
+
+        .${this.cssPrefix}-window .${this.cssPrefix}-header {
+          padding-top: max(12px, env(safe-area-inset-top));
+          flex-shrink: 0;
+        }
+
+        .${this.cssPrefix}-window .${this.cssPrefix}-messages {
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .${this.cssPrefix}-window .${this.cssPrefix}-input-area {
+          flex-shrink: 0;
+          padding-bottom: max(16px, env(safe-area-inset-bottom));
+          position: sticky;
+          bottom: 0;
+          z-index: 10;
+          background: white;
+        }
+
         .${this.cssPrefix}-container {
           bottom: 0 !important;
           right: 0 !important;
@@ -717,7 +760,7 @@ class WelnoRagChatWidget {
         padding: 0;
         border: none;
         background: none;
-        font-size: 10px;
+        font-size: 11px;
         font-weight: 600;
         color: ${primaryColor};
         user-select: none;
@@ -744,7 +787,7 @@ class WelnoRagChatWidget {
       }
       .${this.cssPrefix}-source {
         display: block;
-        font-size: 11px;
+        font-size: 12px;
         color: #555;
         padding: 6px 8px;
         background: rgba(0,0,0,0.04);
@@ -768,7 +811,7 @@ class WelnoRagChatWidget {
         border: 1px solid #E5E5E5;
         border-radius: 16px;
         padding: 6px 12px;
-        font-size: 12px;
+        font-size: 13px;
         cursor: pointer;
         transition: all 0.2s;
       }
@@ -898,6 +941,34 @@ class WelnoRagChatWidget {
         // this.close();
       }
     });
+
+    // 모바일 키보드 대응: Visual Viewport API
+    if (window.innerWidth <= 480 && window.visualViewport) {
+      this._handleViewportResize = () => {
+        if (!this.state.isOpen) return;
+        const viewportHeight = window.visualViewport.height;
+        const windowHeight = window.innerHeight;
+        const keyboardHeight = windowHeight - viewportHeight;
+
+        if (keyboardHeight > 50) {
+          // 키보드가 올라옴 → 창 높이를 뷰포트에 맞춤
+          this.elements.window.style.height = `${viewportHeight}px`;
+          this.elements.window.style.top = `${window.visualViewport.offsetTop}px`;
+          this.scrollToBottom();
+        } else {
+          // 키보드 내려감 → 원래 높이로 복원
+          this.elements.window.style.height = '';
+          this.elements.window.style.top = '';
+        }
+      };
+      window.visualViewport.addEventListener('resize', this._handleViewportResize);
+      window.visualViewport.addEventListener('scroll', this._handleViewportResize);
+    }
+
+    // 입력 포커스 시 마지막 메시지로 즉시 스크롤
+    this.elements.input.addEventListener('focus', () => {
+      setTimeout(() => this.scrollToBottom(), 300);
+    });
   }
 
   /**
@@ -915,6 +986,12 @@ class WelnoRagChatWidget {
     // 채팅창이 열리면 웰컴 버블 숨기기
     if (this.elements.welcomeBubble) {
       this.elements.welcomeBubble.classList.remove('visible');
+    }
+
+    // 모바일: 배경 스크롤 방지
+    if (window.innerWidth <= 480) {
+      this._prevBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
     }
 
     // 입력창에 포커스
@@ -941,6 +1018,13 @@ class WelnoRagChatWidget {
     this.elements.container.classList.remove('is-open'); // 컨테이너 상태 제거
     this.elements.button.classList.remove('active');
     this.elements.button.innerHTML = this.getChatIcon();
+
+    // 모바일: 배경 스크롤 복원 + 키보드 높이 초기화
+    if (window.innerWidth <= 480) {
+      document.body.style.overflow = this._prevBodyOverflow || '';
+      this.elements.window.style.height = '';
+      this.elements.window.style.top = '';
+    }
 
     // 콜백 호출
     if (this.config.onClose) {
@@ -1183,7 +1267,20 @@ class WelnoRagChatWidget {
     sources.forEach(source => {
       const sourceEl = document.createElement('div');
       sourceEl.className = `${this.cssPrefix}-source`;
-      sourceEl.textContent = source.title || '참고자료';
+
+      // 출처 라벨 구성: [카테고리] 파일명 (p.페이지)
+      let label = '';
+      if (source.category) {
+        label += `[${source.category}] `;
+      } else if (source.source_type === 'hospital') {
+        label += '[병원 자료] ';
+      }
+      label += source.title || '참고자료';
+      if (source.page) {
+        label += ` (p.${source.page})`;
+      }
+
+      sourceEl.textContent = label;
       sourceEl.title = (source.text || '').substring(0, 200);
       listWrap.appendChild(sourceEl);
     });
@@ -1374,16 +1471,27 @@ class WelnoRagChatWidget {
    * 위젯 제거
    */
   destroy() {
+    // Visual Viewport 리스너 정리
+    if (this._handleViewportResize && window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', this._handleViewportResize);
+      window.visualViewport.removeEventListener('scroll', this._handleViewportResize);
+    }
+
+    // 모바일 배경 스크롤 복원
+    if (window.innerWidth <= 480) {
+      document.body.style.overflow = this._prevBodyOverflow || '';
+    }
+
     if (this.elements.container && this.elements.container.parentNode) {
       this.elements.container.parentNode.removeChild(this.elements.container);
     }
-    
+
     // 스타일 제거 (다른 위젯이 없을 때만)
     const styleElement = document.getElementById(`${this.cssPrefix}-styles`);
     if (styleElement && !document.querySelector(`.${this.cssPrefix}-container`)) {
       styleElement.remove();
     }
-    
+
     this.state.isInitialized = false;
     console.log('[WelnoRagChatWidget] 위젯 제거됨');
   }

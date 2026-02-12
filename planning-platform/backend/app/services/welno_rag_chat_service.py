@@ -412,7 +412,8 @@ class WelnoRagChatService:
                 sources = []
                 seen_sources = set()
                 for s in hospital_rag_sources:
-                    title = (s.get("metadata") or {}).get("file_name") or (s.get("metadata") or {}).get("title") or "병원 문서"
+                    s_meta = s.get("metadata") or {}
+                    title = s_meta.get("file_name") or s_meta.get("title") or "병원 문서"
                     source_key = f"hospital|{title}"
                     if source_key in seen_sources:
                         continue
@@ -421,7 +422,9 @@ class WelnoRagChatService:
                         "text": (s.get("text") or "")[:500],
                         "score": s.get("score"),
                         "title": title,
-                        "page": ""
+                        "page": "",
+                        "category": s_meta.get("category", ""),
+                        "source_type": "hospital"
                     })
                 for n in nodes:
                     meta = n.node.metadata or {}
@@ -436,7 +439,9 @@ class WelnoRagChatService:
                         "text": clean_html_content(n.node.get_content())[:500],
                         "score": score,
                         "title": file_name,
-                        "page": page
+                        "page": page,
+                        "category": meta.get("category", ""),
+                        "source_type": meta.get("doc_type", "")
                     })
                 
                 logger.info(f"📚 [RAG 채팅] 소스 추출 완료 - {len(sources)}개 고유 소스")
@@ -457,10 +462,13 @@ class WelnoRagChatService:
                 hospital_config = trace_data.get("hospital_config") if trace_data else None
                 raw_persona = hospital_config.get("persona_prompt") if hospital_config else None
                 
-                # 병원명/전화번호 추출 (템플릿 치환용)
-                _h_name = (hospital_config or {}).get("hospital_name") or ""
-                _h_phone = (hospital_config or {}).get("contact_phone") or ""
-                
+                # 병원명/전화번호 추출 (파트너 전달 데이터 우선 → DB 설정 보조)
+                processed_data_for_persona = trace_data.get("processed_data", {}) if trace_data else {}
+                _partner_h_name = processed_data_for_persona.get("partner_hospital_name", "") if isinstance(processed_data_for_persona, dict) else ""
+                _partner_h_tel = processed_data_for_persona.get("partner_hospital_tel", "") if isinstance(processed_data_for_persona, dict) else ""
+                _h_name = _partner_h_name or (hospital_config or {}).get("hospital_name") or ""
+                _h_phone = _partner_h_tel  # 파트너 전달 전화번호만 사용 (없으면 빈값 → 병원명으로 안내)
+
                 # 기본 페르소나 (persona_prompt 비어있으면 자동 생성)
                 if not raw_persona and _h_name:
                     raw_persona = (
@@ -472,14 +480,18 @@ class WelnoRagChatService:
                         "4. 하지만 모든 구체적이고 정확한 진료 상담은 반드시 의료진 또는 본원에 직접 문의하도록 안내하십시오.\n\n"
                         "[{hospital_name} 정보]\n"
                         + ("- 연락처: {contact_phone}\n" if _h_phone else "")
-                        + "- 모든 전문적인 의학적 질의는 본원으로 문의해달라고 부드럽게 안내하십시오."
+                        + "- 모든 전문적인 의학적 질의는 {hospital_name}으로 문의해달라고 부드럽게 안내하십시오."
                     )
-                
+
                 # 페르소나 내 {hospital_name}, {contact_phone} 치환
                 custom_persona = raw_persona
                 if custom_persona:
                     custom_persona = custom_persona.replace("{hospital_name}", _h_name or "병원")
-                    custom_persona = custom_persona.replace("{contact_phone}", _h_phone or "본원")
+                    if _h_phone:
+                        custom_persona = custom_persona.replace("{contact_phone}", _h_phone)
+                    else:
+                        # 전화번호 없으면 병원명으로 대체 (하드코딩 폴백 없음)
+                        custom_persona = custom_persona.replace("{contact_phone}", _h_name or "본원")
                 
                 # 파트너 이름 또는 기본 페르소나 이름 결정
                 partner_info = trace_data.get("partner_info") if trace_data else None
@@ -734,6 +746,20 @@ class WelnoRagChatService:
                         from ..core.config import settings
                         from .slack_service import SlackService
                         if getattr(settings, "slack_enabled", False) and getattr(settings, "slack_webhook_url", None):
+                            # trace_data에서 환자/병원/파트너 정보 추출
+                            processed_data = trace_data.get("processed_data", {}) if trace_data else {}
+                            patient_info = processed_data.get("patient_info", {}) if isinstance(processed_data, dict) else {}
+                            health_metrics = processed_data.get("health_metrics", {}) if isinstance(processed_data, dict) else {}
+                            partner_info = trace_data.get("partner_info", {}) if trace_data else {}
+                            hospital_config = trace_data.get("hospital_config", {}) if trace_data else {}
+
+                            # 이상 소견 항목 자동 추출 (*_abnormal 필드 중 "정상"이 아닌 것)
+                            abnormal_items = {}
+                            for key, val in health_metrics.items():
+                                if key.endswith("_abnormal") and val and val != "정상":
+                                    metric_name = key.replace("_abnormal", "")
+                                    abnormal_items[metric_name] = val
+
                             async with SlackService(
                                 settings.slack_webhook_url,
                                 getattr(settings, "slack_channel_id", "C0ADYBAN9PA")
@@ -742,9 +768,19 @@ class WelnoRagChatService:
                                     "session_id": session_id,
                                     "uuid": uuid,
                                     "hospital_id": hospital_id,
-                                    "message_preview": message[:200] if message else None
+                                    "message_preview": message[:200] if message else None,
+                                    # 구조화된 환자/병원/파트너 정보
+                                    "patient_name": patient_info.get("name", "") if isinstance(patient_info, dict) else "",
+                                    "patient_gender": patient_info.get("gender", "") if isinstance(patient_info, dict) else "",
+                                    "patient_birth": patient_info.get("birth_date", "") if isinstance(patient_info, dict) else "",
+                                    "patient_contact": patient_info.get("contact", "") if isinstance(patient_info, dict) else "",
+                                    "partner_name": partner_info.get("partner_name", "") if isinstance(partner_info, dict) else "",
+                                    "hospital_name": hospital_config.get("hospital_name", "") if isinstance(hospital_config, dict) else "",
+                                    "checkup_date": health_metrics.get("checkup_date", "") if isinstance(health_metrics, dict) else "",
+                                    "abnormal_items": abnormal_items,
+                                    "ai_response_excerpt": full_answer[:300] if full_answer else "",
                                 })
-                            logger.info("📋 [파트너 RAG] 클라이언트-RAG 불일치 Slack 알림 전송")
+                            logger.info("📋 [파트너 RAG] 클라이언트-RAG 불일치 Slack 알림 전송 (구조화)")
                     except Exception as slack_err:
                         logger.warning(f"⚠️ [파트너 RAG] Slack 알림 전송 실패: {slack_err}")
                 

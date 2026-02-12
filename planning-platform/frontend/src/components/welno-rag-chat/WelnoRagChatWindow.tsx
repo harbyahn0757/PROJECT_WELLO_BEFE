@@ -12,6 +12,10 @@ import { useWelnoData } from '../../contexts/WelnoDataContext';
 interface Source {
   text: string;
   score?: number;
+  title?: string;
+  page?: string;
+  category?: string;
+  source_type?: string;
   metadata?: any;
 }
 

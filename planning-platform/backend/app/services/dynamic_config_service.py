@@ -186,20 +186,18 @@ class DynamicConfigService:
                 if not config:
                     return {"is_not_found": True}
             
-            # DB에 설정된 전화번호 처리
-            phone = config.get('contact_phone') if config else None
-            if not phone:
-                phone = "02-780-8003" if partner_id == "medilinx" else "1588-1234"
-            
+            # DB에 설정된 전화번호 처리 (하드코딩 폴백 없음 → 없으면 빈값)
+            phone = config.get('contact_phone') if config else ""
+
             return {
                 "partner_name": config['hospital_name'] if config else partner_id,
-                "phone_number": phone,
+                "phone_number": phone or "",
                 "welcome_message": config['welcome_message'] if config else "안녕하세요.",
                 "theme": config['theme_config'] if config else {}
             }
         except Exception as e:
             logger.error(f"파트너 메타데이터 조회 실패: {e}")
-            return {"partner_name": partner_id, "phone_number": "1588-1234", "welcome_message": "안녕하세요.", "theme": {}}
+            return {"partner_name": partner_id, "phone_number": "", "welcome_message": "안녕하세요.", "theme": {}}
     
     @staticmethod
     def clear_cache():

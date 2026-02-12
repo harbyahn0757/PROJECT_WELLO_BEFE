@@ -40,7 +40,7 @@ const SourcesAccordion: React.FC<{ sources: any[] }> = ({ sources }) => {
         <ul className="sources-list">
           {sources.map((source, idx) => (
             <li key={idx} className="source-item" title={source.text}>
-              {source.title || `문서 ${idx + 1}`} {source.page ? `(p.${source.page})` : ''}
+              {source.category ? `[${source.category}] ` : source.source_type === 'hospital' ? '[병원 자료] ' : ''}{source.title || `문서 ${idx + 1}`}{source.page ? ` (p.${source.page})` : ''}
             </li>
           ))}
         </ul>
