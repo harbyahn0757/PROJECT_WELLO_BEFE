@@ -124,32 +124,29 @@ class DynamicConfigService:
     @staticmethod
     async def get_hospital_config(partner_id: str, hospital_id: str) -> Optional[Dict[str, Any]]:
         """
-        병원별 설정 조회 (비동기) - 전화번호 Fallback 로직 포함
-        
+        병원별 설정 조회 (비동기)
+
+        전화번호는 DB 폴백 없이 클라이언트(파트너 위젯)에서 전달된 값만 사용.
+        DB contact_phone 컬럼은 관리용 참조값일 뿐 AI 응답에는 사용하지 않음.
+
         Args:
             partner_id: 파트너 ID
             hospital_id: 병원 ID
-            
+
         Returns:
             병원 설정 딕셔너리 또는 None
         """
         try:
-            # 1. 특정 병원 설정 조회
             query = """
-                SELECT partner_id, hospital_id, hospital_name, persona_prompt, welcome_message, 
-                       llm_config, embedding_config, theme_config, contact_phone, is_active
+                SELECT partner_id, hospital_id, hospital_name, persona_prompt, welcome_message,
+                       llm_config, embedding_config, theme_config, is_active
                 FROM welno.tb_hospital_rag_config
                 WHERE partner_id = %s AND hospital_id = %s AND is_active = true
             """
             config = await db_manager.execute_one(query, (partner_id, hospital_id))
-            
-            # 2. 병원에 전화번호가 없으면 파트너 공통 설정('*')에서 가져옴
-            if config and not config.get('contact_phone'):
-                common_query = "SELECT contact_phone FROM welno.tb_hospital_rag_config WHERE partner_id = %s AND hospital_id = '*' AND is_active = true"
-                common_config = await db_manager.execute_one(common_query, (partner_id,))
-                if common_config:
-                    config['contact_phone'] = common_config['contact_phone']
-            
+
+            # DB contact_phone 폴백 제거 — 전화번호는 클라이언트 전달 데이터만 사용
+
             return config
         except Exception as e:
             logger.error(f"병원 설정 조회 실패: {e}")

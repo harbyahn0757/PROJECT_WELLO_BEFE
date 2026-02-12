@@ -442,7 +442,17 @@ class PartnerRagChatService(WelnoRagChatService):
         
         context_parts = []
         context_parts.append(f"=== {partner_info.partner_name} 제공 검진 데이터 ===")
-        
+
+        # 검진 병원 정보 (클라이언트 전달)
+        _hosp_name = partner_data.get("partner_hospital_name", "")
+        _hosp_tel = partner_data.get("partner_hospital_tel", "")
+        if _hosp_name or _hosp_tel:
+            context_parts.append("🏥 검진 병원:")
+            if _hosp_name:
+                context_parts.append(f"  - 병원명: {_hosp_name}")
+            if _hosp_tel:
+                context_parts.append(f"  - 연락처: {_hosp_tel}")
+
         # 환자 정보
         if "patient_info" in partner_data:
             patient_info = partner_data["patient_info"]

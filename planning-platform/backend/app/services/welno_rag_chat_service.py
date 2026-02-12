@@ -64,7 +64,7 @@ class WelnoRagChatService:
         """병원별 RAG/LLM 설정 조회"""
         try:
             query = """
-                SELECT persona_prompt, welcome_message, llm_config, embedding_config, theme_config, is_active, hospital_name, contact_phone
+                SELECT persona_prompt, welcome_message, llm_config, embedding_config, theme_config, is_active, hospital_name
                 FROM welno.tb_hospital_rag_config
                 WHERE partner_id = %s AND hospital_id = %s AND is_active = true
             """
