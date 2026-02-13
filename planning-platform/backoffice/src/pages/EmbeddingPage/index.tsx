@@ -2,7 +2,6 @@
  * 백오피스 - 병원별 RAG 임베딩 관리 (독립 앱)
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 import './styles.scss';
 
 const getEmbeddingApiBase = (): string => {
@@ -107,8 +106,6 @@ interface ChatDetail {
 }
 
 const EmbeddingPage: React.FC = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [hierarchy, setHierarchy] = useState<PartnerHierarchy[]>([]);
   const [pendingHospitals, setPendingHospitals] = useState<PendingHospital[]>([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
@@ -857,25 +854,11 @@ const EmbeddingPage: React.FC = () => {
 
   return (
     <div className={`admin-embedding-page${isEmbedMode ? ' admin-embedding-page--embed' : ''}`}>
-      <header className="admin-embedding-page__header">
-        <div className="admin-embedding-page__top-tabs">
-          <button
-            className="admin-embedding-page__top-tab active"
-            onClick={() => navigate(isEmbedMode ? `${window.location.pathname}${window.location.search}` : '/backoffice')}
-          >검진결과 상담 관리</button>
-          <button
-            className="admin-embedding-page__top-tab"
-            onClick={() => {
-              if (isEmbedMode) {
-                const params = new URLSearchParams(window.location.search);
-                navigate(`/backoffice/survey?${params.toString()}`);
-              } else {
-                navigate('/backoffice/survey');
-              }
-            }}
-          >만족도 조사</button>
-        </div>
-      </header>
+      {!isEmbedMode && (
+        <header className="admin-embedding-page__header">
+          <h1 className="admin-embedding-page__title">검진결과 상담 관리</h1>
+        </header>
+      )}
       {error && (
         <div className="admin-embedding-page__error" role="alert">{error}</div>
       )}

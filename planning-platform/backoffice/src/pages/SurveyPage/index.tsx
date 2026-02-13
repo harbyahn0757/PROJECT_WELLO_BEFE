@@ -242,19 +242,11 @@ const SurveyPage: React.FC = () => {
 
   return (
     <div className="survey-page">
-      <header className="survey-page__header">
-        <div className="survey-page__top-tabs">
-          <button className="survey-page__top-tab" onClick={() => {
-            if (isEmbedMode) {
-              const params = new URLSearchParams(window.location.search);
-              navigate(`/backoffice?${params.toString()}`);
-            } else {
-              navigate('/backoffice');
-            }
-          }}>검진결과 상담 관리</button>
-          <button className="survey-page__top-tab active">만족도 조사</button>
-        </div>
-      </header>
+      {!isEmbedMode && (
+        <header className="survey-page__header">
+          <h1 className="survey-page__title">만족도 조사</h1>
+        </header>
+      )}
 
       <div className="survey-page__layout">
         {/* Sidebar */}
