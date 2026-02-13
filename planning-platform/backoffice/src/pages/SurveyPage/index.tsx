@@ -72,6 +72,17 @@ const CHART_COLORS = ['#7c746a', '#e8927c', '#5b9bd5', '#70ad47', '#ffc000'];
 const SurveyPage: React.FC = () => {
   const navigate = useNavigate();
 
+  // embed 모드 감지 (iframe에서 쿼리 파라미터로 접속)
+  const urlParams = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return {
+      api_key: params.get('api_key'),
+      partner_id: params.get('partner_id'),
+      hospital_id: params.get('hospital_id'),
+    };
+  }, []);
+  const isEmbedMode = !!(urlParams.api_key && urlParams.partner_id);
+
   const [hierarchy, setHierarchy] = useState<PartnerHierarchy[]>([]);
   const [collapsedPartners, setCollapsedPartners] = useState<Set<string>>(new Set());
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
@@ -143,6 +154,10 @@ const SurveyPage: React.FC = () => {
   }, [dateFrom, dateTo]);
 
   useEffect(() => {
+    if (isEmbedMode && urlParams.partner_id && urlParams.hospital_id) {
+      setSelectedPartnerId(urlParams.partner_id);
+      setSelectedHospitalId(urlParams.hospital_id);
+    }
     fetchHierarchy();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -229,13 +244,21 @@ const SurveyPage: React.FC = () => {
     <div className="survey-page">
       <header className="survey-page__header">
         <div className="survey-page__top-tabs">
-          <button className="survey-page__top-tab" onClick={() => navigate('/backoffice')}>검진결과 상담</button>
+          <button className="survey-page__top-tab" onClick={() => {
+            if (isEmbedMode) {
+              const params = new URLSearchParams(window.location.search);
+              navigate(`/backoffice?${params.toString()}`);
+            } else {
+              navigate('/backoffice');
+            }
+          }}>검진결과 상담 관리</button>
           <button className="survey-page__top-tab active">만족도 조사</button>
         </div>
       </header>
 
       <div className="survey-page__layout">
         {/* Sidebar */}
+        {!isEmbedMode && (
         <aside className="survey-page__sidebar">
           <h2 className="survey-page__sidebar-title">병원 선택</h2>
           {hierarchy.map(partner => {
@@ -265,6 +288,7 @@ const SurveyPage: React.FC = () => {
             );
           })}
         </aside>
+        )}
 
         {/* Main */}
         <main className="survey-page__main">

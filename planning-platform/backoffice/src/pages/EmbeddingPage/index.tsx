@@ -857,20 +857,25 @@ const EmbeddingPage: React.FC = () => {
 
   return (
     <div className={`admin-embedding-page${isEmbedMode ? ' admin-embedding-page--embed' : ''}`}>
-      {!isEmbedMode && (
-        <header className="admin-embedding-page__header">
-          <div className="admin-embedding-page__top-tabs">
-            <button
-              className="admin-embedding-page__top-tab active"
-              onClick={() => navigate('/backoffice')}
-            >검진결과 상담</button>
-            <button
-              className="admin-embedding-page__top-tab"
-              onClick={() => navigate('/backoffice/survey')}
-            >만족도 조사</button>
-          </div>
-        </header>
-      )}
+      <header className="admin-embedding-page__header">
+        <div className="admin-embedding-page__top-tabs">
+          <button
+            className="admin-embedding-page__top-tab active"
+            onClick={() => navigate(isEmbedMode ? `${window.location.pathname}${window.location.search}` : '/backoffice')}
+          >검진결과 상담 관리</button>
+          <button
+            className="admin-embedding-page__top-tab"
+            onClick={() => {
+              if (isEmbedMode) {
+                const params = new URLSearchParams(window.location.search);
+                navigate(`/backoffice/survey?${params.toString()}`);
+              } else {
+                navigate('/backoffice/survey');
+              }
+            }}
+          >만족도 조사</button>
+        </div>
+      </header>
       {error && (
         <div className="admin-embedding-page__error" role="alert">{error}</div>
       )}
