@@ -881,7 +881,7 @@ const EmbeddingPage: React.FC = () => {
               </div>
             </div>
           )}
-          <h2 className="admin-embedding-page__sidebar-title">파트너 및 병원 목록</h2>
+          <h2 className="admin-embedding-page__sidebar-title">파트너 선택</h2>
           <div className="admin-embedding-page__partner-list">
             {/* 통합 보기 버튼 */}
             <button

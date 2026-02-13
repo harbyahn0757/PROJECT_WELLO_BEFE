@@ -252,8 +252,8 @@ const SurveyPage: React.FC = () => {
         {/* Sidebar */}
         {!isEmbedMode && (
         <aside className="survey-page__sidebar">
-          <h2 className="survey-page__sidebar-title">병원 선택</h2>
-          {hierarchy.map(partner => {
+          <h2 className="survey-page__sidebar-title">파트너 선택</h2>
+          {[...hierarchy].sort((a, b) => (a.hospitals.length > 0 ? 0 : 1) - (b.hospitals.length > 0 ? 0 : 1)).map(partner => {
             const isCollapsed = collapsedPartners.has(partner.partner_id);
             return (
               <div key={partner.partner_id} className="survey-page__partner-group">
