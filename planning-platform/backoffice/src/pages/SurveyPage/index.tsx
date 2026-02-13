@@ -291,9 +291,11 @@ const SurveyPage: React.FC = () => {
             </div>
           ) : (
             <>
+              {/* Hospital header */}
+              <h2 className="survey-page__hospital-title">{selectedHospitalName} 만족도 조사</h2>
+
               {/* Date filter */}
               <div className="survey-page__filters">
-                <span className="survey-page__filter-label">{selectedHospitalName} 만족도 조사</span>
                 <input type="date" className="survey-page__date-input" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
                 <span className="survey-page__filter-label">~</span>
                 <input type="date" className="survey-page__date-input" value={dateTo} onChange={e => setDateTo(e.target.value)} />
