@@ -273,6 +273,30 @@
   &:hover { background: $gray-50; }
 }
 
+/* Date presets */
+.survey-page__date-presets {
+  display: flex;
+  gap: 4px;
+}
+
+.survey-page__preset-btn {
+  padding: 5px 12px;
+  border: 1px solid $gray-300;
+  background: $white;
+  border-radius: $border-radius-md;
+  font-size: $font-xs;
+  color: $gray-700;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s;
+
+  &:hover {
+    background: $brand-brown;
+    color: $white;
+    border-color: $brand-brown;
+  }
+}
+
 /* Charts section */
 .survey-page__charts {
   display: grid;

@@ -2,11 +2,12 @@
  * 백오피스 - 병원 만족도 설문 통계 페이지
  */
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+// import { useNavigate } from 'react-router-dom';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, Legend,
+  PieChart, Pie, Cell,
 } from 'recharts';
 import './styles.scss';
 
@@ -70,8 +71,6 @@ const FIELD_LABELS: Record<string, string> = {
 const CHART_COLORS = ['#7c746a', '#e8927c', '#5b9bd5', '#70ad47', '#ffc000'];
 
 const SurveyPage: React.FC = () => {
-  const navigate = useNavigate();
-
   // embed 모드 감지 (iframe에서 쿼리 파라미터로 접속)
   const urlParams = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -96,7 +95,7 @@ const SurveyPage: React.FC = () => {
 
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [, setLoading] = useState(false);
 
   const [commentModal, setCommentModal] = useState<string | null>(null);
 
@@ -188,6 +187,14 @@ const SurveyPage: React.FC = () => {
     setDateTo('');
   };
 
+  const handleDatePreset = (days: number) => {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    setDateFrom(from.toISOString().slice(0, 10));
+    setDateTo(to.toISOString().slice(0, 10));
+  };
+
   const handlePageChange = (p: number) => {
     setPage(p);
     if (selectedHospitalId && selectedPartnerId) {
@@ -231,6 +238,24 @@ const SurveyPage: React.FC = () => {
       score: stats.averages[key] || 0,
     }));
   }, [stats]);
+
+  const PIE_COLORS = ['#c62828', '#e65100', '#f9a825', '#43a047', '#2e7d32'];
+
+  const pieData = useMemo(() => {
+    if (!responses || responses.length === 0) return [];
+    const dist = [0, 0, 0, 0, 0];
+    responses.forEach(r => {
+      const s = r.overall_satisfaction;
+      if (s >= 1 && s <= 5) dist[s - 1]++;
+    });
+    return [
+      { name: '1점', value: dist[0] },
+      { name: '2점', value: dist[1] },
+      { name: '3점', value: dist[2] },
+      { name: '4점', value: dist[3] },
+      { name: '5점', value: dist[4] },
+    ].filter(d => d.value > 0);
+  }, [responses]);
 
   const scoreClass = (score: number) => {
     if (score >= 4) return 'survey-page__score-cell--high';
@@ -296,6 +321,12 @@ const SurveyPage: React.FC = () => {
 
               {/* Date filter */}
               <div className="survey-page__filters">
+                <div className="survey-page__date-presets">
+                  <button className="survey-page__preset-btn" onClick={() => handleDatePreset(1)}>오늘</button>
+                  <button className="survey-page__preset-btn" onClick={() => handleDatePreset(7)}>1주일</button>
+                  <button className="survey-page__preset-btn" onClick={() => handleDatePreset(30)}>1개월</button>
+                  <button className="survey-page__preset-btn" onClick={() => handleDatePreset(90)}>3개월</button>
+                </div>
                 <input type="date" className="survey-page__date-input" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
                 <span className="survey-page__filter-label">~</span>
                 <input type="date" className="survey-page__date-input" value={dateTo} onChange={e => setDateTo(e.target.value)} />
@@ -349,6 +380,32 @@ const SurveyPage: React.FC = () => {
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
+
+                  {/* Pie Chart (만족도 분포) */}
+                  {pieData.length > 0 && (
+                    <div className="survey-page__chart-card">
+                      <h3 className="survey-page__chart-title">전반적 만족도 분포</h3>
+                      <ResponsiveContainer width="100%" height={280}>
+                        <PieChart>
+                          <Pie
+                            data={pieData}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={100}
+                            dataKey="value"
+                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                          >
+                            {pieData.map((entry, idx) => {
+                              const score = parseInt(entry.name) || (idx + 1);
+                              return <Cell key={idx} fill={PIE_COLORS[score - 1] || PIE_COLORS[idx]} />;
+                            })}
+                          </Pie>
+                          <Tooltip />
+                          <Legend wrapperStyle={{ fontSize: 12 }} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
 
                   {/* Line Chart (daily trend) */}
                   {stats.daily_trend.length > 1 && (
