@@ -34,6 +34,7 @@ from .api.v1.endpoints import (
     welno_unified_status,
     terms_agreement,
     slack_bot,
+    hospital_survey,
 )
 from .core.config import settings
 from .data.redis_session_manager import redis_session_manager as session_manager
@@ -62,6 +63,14 @@ static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
 # app.mount("/welno", StaticFiles(directory=static_dir, html=True), name="welno_static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
+# 위젯 JS 캐시 방지: 브라우저가 항상 최신 버전을 사용하도록 강제
+@app.middleware("http")
+async def add_cache_control_for_widget(request: Request, call_next):
+    response = await call_next(request)
+    if request.url.path.endswith(".min.js") and "/static/" in request.url.path:
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return response
+
 # API 라우터 등록 (기본 경로)
 app.include_router(health.router, prefix="/api/v1/health", tags=["health"])
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
@@ -87,6 +96,7 @@ app.include_router(campaign_payment.router, prefix="/api/v1/campaigns", tags=["c
 app.include_router(disease_report_unified.router, prefix="/api/v1", tags=["disease-report"])
 app.include_router(terms_agreement.router, prefix="/api/v1/terms", tags=["terms-agreement"])
 app.include_router(slack_bot.router, prefix="/api/v1/slack", tags=["slack-bot"])
+app.include_router(hospital_survey.router, prefix="/api/v1", tags=["hospital-survey"])
 
 # 배포환경을 위한 welno-api 경로 추가 (프록시 없이 직접 접근)
 app.include_router(health.router, prefix="/welno-api/v1/health", tags=["health-welno"])
@@ -112,6 +122,7 @@ app.include_router(campaign_payment.router, prefix="/welno-api/v1/campaigns", ta
 app.include_router(disease_report_unified.router, prefix="/welno-api/v1", tags=["disease-report-welno"])
 app.include_router(terms_agreement.router, prefix="/welno-api/v1/terms", tags=["terms-agreement-welno"])
 app.include_router(slack_bot.router, prefix="/welno-api/v1/slack", tags=["slack-bot-welno"])
+app.include_router(hospital_survey.router, prefix="/welno-api/v1", tags=["hospital-survey-welno"])
 
 # 백오피스 SPA (독립 앱) 서빙
 backoffice_dir = os.path.join(static_dir, "backoffice")

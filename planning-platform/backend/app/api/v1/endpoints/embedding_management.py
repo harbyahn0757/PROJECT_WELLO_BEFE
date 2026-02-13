@@ -260,37 +260,290 @@ async def get_hospital_chats(hospital_id: str, partner_id: str):
     try:
         query = """
             SELECT
-                session_id,
-                user_uuid,
-                message_count,
-                created_at,
-                updated_at,
-                COALESCE(initial_data->>'name', '테스트 (' || LEFT(session_id, 20) || ')') as user_name,
-                initial_data->>'phone' as user_phone
-            FROM welno.tb_partner_rag_chat_log
-            WHERE partner_id = %s AND hospital_id = %s
-            ORDER BY created_at DESC
+                l.session_id,
+                l.user_uuid,
+                l.message_count,
+                l.created_at,
+                l.updated_at,
+                COALESCE(
+                    l.initial_data->'patient_info'->>'name',
+                    l.client_info->>'patient_name',
+                    l.initial_data->>'name',
+                    ''
+                ) as user_name,
+                COALESCE(
+                    l.initial_data->'patient_info'->>'contact',
+                    l.client_info->>'patient_contact',
+                    l.initial_data->>'phone',
+                    ''
+                ) as user_phone,
+                COALESCE(
+                    l.initial_data->'patient_info'->>'gender', ''
+                ) as user_gender,
+                COALESCE(
+                    l.initial_data->'health_metrics'->>'checkup_date', ''
+                ) as checkup_date,
+                COALESCE(h.hospital_name, '') as hospital_name
+            FROM welno.tb_partner_rag_chat_log l
+            LEFT JOIN welno.tb_hospital_rag_config h
+                ON l.hospital_id = h.hospital_id AND l.partner_id = h.partner_id
+            WHERE l.partner_id = %s AND l.hospital_id = %s
+            ORDER BY l.created_at DESC
         """
         return await db_manager.execute_query(query, (partner_id, hospital_id))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"대화 목록 조회 실패: {str(e)}")
 
 
+@router.get("/chats/all")
+async def get_all_chats(partner_id: Optional[str] = None, limit: int = 200):
+    """전체 병원 통합 대화 세션 목록 조회 (태그 포함)"""
+    try:
+        if partner_id:
+            query = """
+                SELECT
+                    l.session_id,
+                    l.partner_id,
+                    l.hospital_id,
+                    l.user_uuid,
+                    l.message_count,
+                    l.created_at,
+                    l.updated_at,
+                    COALESCE(
+                        l.initial_data->'patient_info'->>'name',
+                        l.client_info->>'patient_name',
+                        ''
+                    ) as user_name,
+                    COALESCE(
+                        l.initial_data->'patient_info'->>'contact',
+                        l.client_info->>'patient_contact',
+                        ''
+                    ) as user_phone,
+                    COALESCE(
+                        l.initial_data->'patient_info'->>'gender', ''
+                    ) as user_gender,
+                    COALESCE(
+                        l.initial_data->'health_metrics'->>'checkup_date', ''
+                    ) as checkup_date,
+                    COALESCE(h.hospital_name, LEFT(l.hospital_id, 8) || '...') as hospital_name,
+                    t.interest_tags,
+                    t.risk_tags,
+                    t.sentiment,
+                    t.conversation_summary,
+                    t.data_quality_score
+                FROM welno.tb_partner_rag_chat_log l
+                LEFT JOIN welno.tb_hospital_rag_config h
+                    ON l.hospital_id = h.hospital_id AND l.partner_id = h.partner_id
+                LEFT JOIN welno.tb_chat_session_tags t
+                    ON l.session_id = t.session_id AND l.partner_id = t.partner_id
+                WHERE l.partner_id = %s
+                ORDER BY l.created_at DESC
+                LIMIT %s
+            """
+            return await db_manager.execute_query(query, (partner_id, limit))
+        else:
+            query = """
+                SELECT
+                    l.session_id,
+                    l.partner_id,
+                    l.hospital_id,
+                    l.user_uuid,
+                    l.message_count,
+                    l.created_at,
+                    l.updated_at,
+                    COALESCE(
+                        l.initial_data->'patient_info'->>'name',
+                        l.client_info->>'patient_name',
+                        ''
+                    ) as user_name,
+                    COALESCE(
+                        l.initial_data->'patient_info'->>'contact',
+                        l.client_info->>'patient_contact',
+                        ''
+                    ) as user_phone,
+                    COALESCE(
+                        l.initial_data->'patient_info'->>'gender', ''
+                    ) as user_gender,
+                    COALESCE(
+                        l.initial_data->'health_metrics'->>'checkup_date', ''
+                    ) as checkup_date,
+                    COALESCE(h.hospital_name, LEFT(l.hospital_id, 8) || '...') as hospital_name,
+                    t.interest_tags,
+                    t.risk_tags,
+                    t.sentiment,
+                    t.conversation_summary,
+                    t.data_quality_score
+                FROM welno.tb_partner_rag_chat_log l
+                LEFT JOIN welno.tb_hospital_rag_config h
+                    ON l.hospital_id = h.hospital_id AND l.partner_id = h.partner_id
+                LEFT JOIN welno.tb_chat_session_tags t
+                    ON l.session_id = t.session_id AND l.partner_id = t.partner_id
+                ORDER BY l.created_at DESC
+                LIMIT %s
+            """
+            return await db_manager.execute_query(query, (limit,))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"통합 대화 목록 조회 실패: {str(e)}")
+
+
+@router.get("/chats/export")
+async def export_chats_excel(partner_id: Optional[str] = None, limit: int = 500):
+    """대화 세션 목록을 엑셀(XLSX)로 내보내기"""
+    from fastapi.responses import StreamingResponse
+    import io
+
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+    except ImportError:
+        raise HTTPException(status_code=500, detail="openpyxl 라이브러리가 설치되지 않았습니다.")
+
+    try:
+        # 1. 세션 목록 조회 (태그 포함)
+        if partner_id:
+            query = """
+                SELECT
+                    l.session_id, l.partner_id, l.hospital_id, l.user_uuid,
+                    l.message_count, l.created_at, l.updated_at,
+                    l.conversation, l.initial_data,
+                    COALESCE(l.initial_data->'patient_info'->>'name', l.client_info->>'patient_name', '') as user_name,
+                    COALESCE(l.initial_data->'patient_info'->>'contact', l.client_info->>'patient_contact', '') as user_phone,
+                    COALESCE(l.initial_data->'patient_info'->>'gender', '') as user_gender,
+                    COALESCE(l.initial_data->'health_metrics'->>'checkup_date', '') as checkup_date,
+                    COALESCE(h.hospital_name, '') as hospital_name,
+                    t.interest_tags, t.risk_tags, t.sentiment,
+                    t.conversation_summary, t.data_quality_score
+                FROM welno.tb_partner_rag_chat_log l
+                LEFT JOIN welno.tb_hospital_rag_config h ON l.hospital_id = h.hospital_id AND l.partner_id = h.partner_id
+                LEFT JOIN welno.tb_chat_session_tags t ON l.session_id = t.session_id AND l.partner_id = t.partner_id
+                WHERE l.partner_id = %s
+                ORDER BY l.created_at DESC LIMIT %s
+            """
+            rows = await db_manager.execute_query(query, (partner_id, limit))
+        else:
+            query = """
+                SELECT
+                    l.session_id, l.partner_id, l.hospital_id, l.user_uuid,
+                    l.message_count, l.created_at, l.updated_at,
+                    l.conversation, l.initial_data,
+                    COALESCE(l.initial_data->'patient_info'->>'name', l.client_info->>'patient_name', '') as user_name,
+                    COALESCE(l.initial_data->'patient_info'->>'contact', l.client_info->>'patient_contact', '') as user_phone,
+                    COALESCE(l.initial_data->'patient_info'->>'gender', '') as user_gender,
+                    COALESCE(l.initial_data->'health_metrics'->>'checkup_date', '') as checkup_date,
+                    COALESCE(h.hospital_name, '') as hospital_name,
+                    t.interest_tags, t.risk_tags, t.sentiment,
+                    t.conversation_summary, t.data_quality_score
+                FROM welno.tb_partner_rag_chat_log l
+                LEFT JOIN welno.tb_hospital_rag_config h ON l.hospital_id = h.hospital_id AND l.partner_id = h.partner_id
+                LEFT JOIN welno.tb_chat_session_tags t ON l.session_id = t.session_id AND l.partner_id = t.partner_id
+                ORDER BY l.created_at DESC LIMIT %s
+            """
+            rows = await db_manager.execute_query(query, (limit,))
+
+        # 2. 워크북 생성 (단일 시트)
+        wb = openpyxl.Workbook()
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        wrap_align = Alignment(wrap_text=True, vertical="top")
+
+        ws = wb.active
+        ws.title = "상담 데이터"
+        headers = ["세션ID", "파트너", "병원", "환자명", "성별", "연락처", "검진일",
+                   "메시지수", "관심사 태그", "위험 태그", "감정", "요약", "데이터품질",
+                   "생성일", "검진 데이터(JSON)", "대화 내역(JSON)"]
+        for col, h in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+
+        for row_idx, r in enumerate(rows, 2):
+            interest = ", ".join(r.get("interest_tags") or []) if r.get("interest_tags") else ""
+            risk = ", ".join(r.get("risk_tags") or []) if r.get("risk_tags") else ""
+
+            # 검진 데이터 JSON
+            initial = r.get("initial_data") or {}
+            if isinstance(initial, str):
+                try:
+                    initial = json.loads(initial)
+                except:
+                    initial = {}
+            metrics = initial.get("health_metrics", {})
+            metrics_json = json.dumps(metrics, ensure_ascii=False) if metrics else ""
+
+            # 대화 내역 JSON
+            conversation = r.get("conversation") or []
+            if isinstance(conversation, str):
+                try:
+                    conversation = json.loads(conversation)
+                except:
+                    conversation = []
+            conv_json = json.dumps(conversation, ensure_ascii=False) if conversation else ""
+            # Excel 셀 최대 32767자 제한
+            if len(conv_json) > 32000:
+                conv_json = conv_json[:32000] + "...(truncated)"
+
+            ws.cell(row=row_idx, column=1, value=r.get("session_id", ""))
+            ws.cell(row=row_idx, column=2, value=r.get("partner_id", ""))
+            ws.cell(row=row_idx, column=3, value=r.get("hospital_name", ""))
+            ws.cell(row=row_idx, column=4, value=r.get("user_name", ""))
+            ws.cell(row=row_idx, column=5, value=r.get("user_gender", ""))
+            ws.cell(row=row_idx, column=6, value=r.get("user_phone", ""))
+            ws.cell(row=row_idx, column=7, value=r.get("checkup_date", ""))
+            ws.cell(row=row_idx, column=8, value=r.get("message_count", 0))
+            ws.cell(row=row_idx, column=9, value=interest)
+            ws.cell(row=row_idx, column=10, value=risk)
+            ws.cell(row=row_idx, column=11, value=r.get("sentiment", ""))
+            ws.cell(row=row_idx, column=12, value=r.get("conversation_summary", ""))
+            ws.cell(row=row_idx, column=13, value=r.get("data_quality_score") or 0)
+            ws.cell(row=row_idx, column=14, value=str(r.get("created_at", "")))
+            cell_metrics = ws.cell(row=row_idx, column=15, value=metrics_json)
+            cell_metrics.alignment = wrap_align
+            cell_conv = ws.cell(row=row_idx, column=16, value=conv_json)
+            cell_conv.alignment = wrap_align
+
+        # 3. 버퍼에 저장 후 반환
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        filename = f"welno_chats_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        return StreamingResponse(
+            buffer,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"엑셀 내보내기 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"엑셀 내보내기 실패: {str(e)}")
+
+
 @router.get("/chats/{session_id}")
 async def get_chat_detail(session_id: str):
-    """특정 세션의 대화 상세 내역 조회"""
+    """특정 세션의 대화 상세 내역 조회 (태그 포함)"""
     try:
         query = """
             SELECT
-                session_id,
-                partner_id,
-                hospital_id,
-                user_uuid,
-                conversation,
-                initial_data,
-                created_at
-            FROM welno.tb_partner_rag_chat_log
-            WHERE session_id = %s
+                l.session_id,
+                l.partner_id,
+                l.hospital_id,
+                l.user_uuid,
+                l.conversation,
+                l.initial_data,
+                l.created_at,
+                t.interest_tags,
+                t.risk_tags,
+                t.keyword_tags,
+                t.sentiment,
+                t.conversation_summary,
+                t.data_quality_score,
+                t.has_discrepancy
+            FROM welno.tb_partner_rag_chat_log l
+            LEFT JOIN welno.tb_chat_session_tags t
+                ON l.session_id = t.session_id AND l.partner_id = t.partner_id
+            WHERE l.session_id = %s
         """
         result = await db_manager.execute_one(query, (session_id,))
         if not result:

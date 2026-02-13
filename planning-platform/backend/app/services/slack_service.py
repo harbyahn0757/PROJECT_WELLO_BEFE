@@ -168,23 +168,33 @@ class SlackService:
             SlackField(title="이벤트", value=config["title"], short=True),
             SlackField(title="사용자", value=data.get("uuid", "N/A")[:8], short=True)
         ]
-        
+
+        # 환자 정보 (있는 경우)
+        if data.get("user_name"):
+            fields.append(SlackField(title="환자명", value=data["user_name"], short=True))
+
+        if data.get("user_phone"):
+            fields.append(SlackField(title="연락처", value=data["user_phone"], short=True))
+
+        if data.get("hospital_name"):
+            fields.append(SlackField(title="병원", value=data["hospital_name"], short=True))
+
         # 주문번호 (있는 경우)
         if data.get("oid"):
             fields.append(SlackField(title="주문번호", value=data["oid"], short=True))
-        
+
         # 파트너 정보
         if data.get("partner_id"):
             fields.append(SlackField(title="파트너", value=data["partner_id"], short=True))
-        
+
         # 결제 금액
         if data.get("amount"):
             fields.append(SlackField(title="금액", value=f"{data['amount']:,}원", short=True))
-        
+
         # 분기 타입 (성공 시)
         if alert_type == AlertType.PAYMENT_SUCCESS and data.get("branch_type"):
             fields.append(SlackField(title="분기", value=data["branch_type"], short=True))
-        
+
         # 에러 메시지 (실패 시)
         if data.get("error_message"):
             fields.append(SlackField(title="에러", value=data["error_message"], short=False))

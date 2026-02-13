@@ -71,6 +71,16 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# 2b-2. 설문 위젯 빌드
+echo "📦 설문 위젯 빌드 중..."
+cd "$PROJECT_ROOT/planning-platform/frontend"
+npx webpack --config webpack.survey.config.js
+if [ $? -ne 0 ]; then
+  echo "❌ 설문 위젯 빌드 실패!"
+  send_slack_notify "danger" "❌ 배포 실패" "설문 위젯 빌드에 실패했습니다."
+  exit 1
+fi
+
 # 2c. 백오피스 독립 앱 빌드
 echo "📦 백오피스 앱 빌드 중..."
 cd "$PROJECT_ROOT/planning-platform/backoffice"
@@ -91,6 +101,10 @@ cp -r ../frontend/build/* static/
 if [ -f "../frontend/dist/embed/welno-rag-chat-widget.min.js" ]; then
   cp ../frontend/dist/embed/welno-rag-chat-widget.min.js static/
   echo "   ✅ welno-rag-chat-widget.min.js 복사"
+fi
+if [ -f "../frontend/dist/embed/welno-survey-widget.min.js" ]; then
+  cp ../frontend/dist/embed/welno-survey-widget.min.js static/
+  echo "   ✅ welno-survey-widget.min.js 복사"
 fi
 if [ -f "../frontend/mdx_icon.png" ]; then
   cp ../frontend/mdx_icon.png static/

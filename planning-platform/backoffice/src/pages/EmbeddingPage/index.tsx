@@ -2,6 +2,7 @@
  * 백오피스 - 병원별 RAG 임베딩 관리 (독립 앱)
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import './styles.scss';
 
 const getEmbeddingApiBase = (): string => {
@@ -78,6 +79,17 @@ interface ChatSession {
   updated_at: string;
   user_name: string | null;
   user_phone: string | null;
+  user_gender: string | null;
+  checkup_date: string | null;
+  hospital_name: string | null;
+  partner_id?: string;
+  hospital_id?: string;
+  interest_tags?: string[];
+  risk_tags?: string[];
+  keyword_tags?: string[];
+  sentiment?: string;
+  conversation_summary?: string;
+  data_quality_score?: number;
 }
 
 interface ChatDetail {
@@ -85,9 +97,18 @@ interface ChatDetail {
   conversation: any[];
   initial_data: any;
   created_at: string;
+  interest_tags?: string[];
+  risk_tags?: string[];
+  keyword_tags?: string[];
+  sentiment?: string;
+  conversation_summary?: string;
+  data_quality_score?: number;
+  has_discrepancy?: boolean;
 }
 
 const EmbeddingPage: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [hierarchy, setHierarchy] = useState<PartnerHierarchy[]>([]);
   const [pendingHospitals, setPendingHospitals] = useState<PendingHospital[]>([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
@@ -104,7 +125,14 @@ const EmbeddingPage: React.FC = () => {
   const [newHospitalId, setNewHospitalId] = useState('');
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [selectedChat, setSelectedChat] = useState<ChatDetail | null>(null);
-  const [activeTab, setActiveTab] = useState<'config' | 'chats' | 'docs'>('config');
+  const [activeTab, setActiveTab] = useState<'config' | 'chats' | 'docs'>('chats');
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  // settingsTab removed - now using split panel layout
+  const [viewAllChats, setViewAllChats] = useState(false);
+  const [allChatSessions, setAllChatSessions] = useState<ChatSession[]>([]);
+  const [chatDetailTab, setChatDetailTab] = useState<'conversation' | 'health' | 'tags'>('conversation');
+  const [excelExporting, setExcelExporting] = useState(false);
+  const [collapsedPartners, setCollapsedPartners] = useState<Set<string>>(new Set());
 
   // 공통 문서 상태
   const [commonDocuments, setCommonDocuments] = useState<DocumentItem[]>([]);
@@ -317,11 +345,26 @@ const EmbeddingPage: React.FC = () => {
   const fetchChatDetail = async (sessionId: string) => {
     try {
       const res = await fetch(`${API_BASE}/chats/${sessionId}`);
-      if (res.ok) setSelectedChat(await res.json());
+      if (res.ok) {
+        setSelectedChat(await res.json());
+        setChatDetailTab('conversation');
+      }
     } catch (err) {
       console.error('대화 상세 조회 실패:', err);
     }
   };
+
+  const fetchAllChats = useCallback(async (partnerId?: string) => {
+    try {
+      const url = partnerId
+        ? `${API_BASE}/chats/all?partner_id=${partnerId}&limit=200`
+        : `${API_BASE}/chats/all?limit=200`;
+      const res = await fetch(url);
+      if (res.ok) setAllChatSessions(await res.json());
+    } catch (err) {
+      console.error('통합 대화 목록 조회 실패:', err);
+    }
+  }, []);
 
   const sendTestChat = useCallback(async () => {
     if (!chatInput.trim() || !selectedHospitalId || chatLoading) return;
@@ -469,11 +512,36 @@ const EmbeddingPage: React.FC = () => {
     }
   }, [selectedHospitalId, selectedPartnerId, fetchHospitalDetails, fetchCommonDocuments]);
 
+  // "전체 상담 통합 보기" 활성화 시 자동 데이터 로드
+  useEffect(() => {
+    if (viewAllChats) {
+      fetchAllChats();
+    }
+  }, [viewAllChats, fetchAllChats]);
+
   useEffect(() => {
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
     }
   }, [chatMessages]);
+
+  // 파트너 목록 정렬: 병원 있는 파트너 먼저, 없는 파트너는 하단
+  const sortedHierarchy = useMemo(() => {
+    return [...hierarchy].sort((a, b) => {
+      const aHas = a.hospitals.length > 0 ? 0 : 1;
+      const bHas = b.hospitals.length > 0 ? 0 : 1;
+      return aHas - bHas;
+    });
+  }, [hierarchy]);
+
+  const togglePartner = useCallback((partnerId: string) => {
+    setCollapsedPartners(prev => {
+      const next = new Set(prev);
+      if (next.has(partnerId)) next.delete(partnerId);
+      else next.add(partnerId);
+      return next;
+    });
+  }, []);
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedHospitalId || !e.target.files?.length) return;
@@ -632,11 +700,175 @@ const EmbeddingPage: React.FC = () => {
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }, []);
 
+  const handleExcelExport = async (partnerId?: string) => {
+    setExcelExporting(true);
+    try {
+      const url = partnerId
+        ? `${API_BASE}/chats/export?partner_id=${partnerId}&format=xlsx`
+        : `${API_BASE}/chats/export?format=xlsx`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('엑셀 내보내기 실패');
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `chats_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '엑셀 내보내기 실패');
+    } finally {
+      setExcelExporting(false);
+    }
+  };
+
+  const HEALTH_METRIC_LABELS: Record<string, string> = {
+    height: '신장(cm)', weight: '체중(kg)', bmi: 'BMI',
+    waist: '허리둘레(cm)', bp_systolic: '수축기혈압', bp_diastolic: '이완기혈압',
+    fasting_glucose: '공복혈당', total_cholesterol: '총콜레스테롤',
+    hdl_cholesterol: 'HDL', ldl_cholesterol: 'LDL', triglyceride: '중성지방',
+    hemoglobin: '혈색소', ast: 'AST(GOT)', alt: 'ALT(GPT)', ggt: 'γ-GTP',
+    creatinine: '크레아티닌', gfr: '사구체여과율(GFR)',
+    checkup_date: '검진일', checkup_place: '검진기관',
+  };
+
+  const renderHealthMetrics = (metrics: Record<string, any>) => {
+    const entries = Object.entries(metrics).filter(([k]) => !k.endsWith('_abnormal') && !k.endsWith('_range'));
+    return (
+      <table className="health-metrics-table">
+        <thead>
+          <tr><th>항목</th><th>수치</th><th>판정</th><th>참고범위</th></tr>
+        </thead>
+        <tbody>
+          {entries.map(([key, val]) => {
+            const abnormal = metrics[`${key}_abnormal`];
+            const range = metrics[`${key}_range`];
+            const isAbnormal = abnormal && abnormal !== '정상' && abnormal !== '';
+            return (
+              <tr key={key} className={isAbnormal ? 'is-abnormal' : ''}>
+                <td className="td-label">{HEALTH_METRIC_LABELS[key] || key}</td>
+                <td className="td-value">{val || '-'}</td>
+                <td className={`td-status ${isAbnormal ? 'td-status--warn' : ''}`}>{abnormal || '-'}</td>
+                <td className="td-range">{range || '-'}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    );
+  };
+
+  const renderTagChips = (tags: string[] | undefined, variant: 'interest' | 'risk' | 'keyword') => {
+    if (!tags || tags.length === 0) return <span className="admin-embedding-page__muted">-</span>;
+    return (
+      <div className="tag-chips">
+        {tags.map((t, i) => <span key={i} className={`tag-chip tag-chip--${variant}`}>{t}</span>)}
+      </div>
+    );
+  };
+
+  const renderChatDetailContent = (chat: ChatDetail) => {
+    if (chatDetailTab === 'conversation') {
+      return (
+        <div className="admin-embedding-page__chat-window">
+          {chat.initial_data && (
+            <div className="admin-embedding-page__chat-patient-info">
+              <strong>{chat.initial_data?.patient_info?.name || '환자 정보'}</strong>
+              <span>{chat.initial_data?.patient_info?.gender === 'F' ? '여성' : chat.initial_data?.patient_info?.gender === 'M' ? '남성' : ''}</span>
+              {chat.initial_data?.patient_info?.birth_date && <span>{chat.initial_data.patient_info.birth_date}</span>}
+              {chat.initial_data?.patient_info?.contact && <span>{chat.initial_data.patient_info.contact}</span>}
+              {chat.initial_data?.health_metrics?.checkup_date && <span>검진: {chat.initial_data.health_metrics.checkup_date}</span>}
+            </div>
+          )}
+          <div className="admin-embedding-page__chat-messages">
+            {chat.conversation.map((msg: any, idx: number) => (
+              <div key={idx} className={`admin-embedding-page__chat-msg ${msg.role}`}>
+                <div className="admin-embedding-page__chat-bubble">
+                  {msg.content}
+                  <div className="admin-embedding-page__chat-time">{new Date(msg.timestamp || chat.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    if (chatDetailTab === 'health') {
+      const metrics = chat.initial_data?.health_metrics;
+      if (!metrics || Object.keys(metrics).length === 0) {
+        return <div className="admin-embedding-page__empty-chat">검진 데이터가 없습니다.</div>;
+      }
+      return (
+        <div className="chat-detail-health">
+          <div className="chat-detail-health__header">
+            {metrics.checkup_date && <span>검진일: {metrics.checkup_date}</span>}
+            {metrics.checkup_place && <span>검진기관: {metrics.checkup_place}</span>}
+          </div>
+          {renderHealthMetrics(metrics)}
+        </div>
+      );
+    }
+    // tags tab
+    return (
+      <div className="chat-detail-tags">
+        {chat.conversation_summary && (
+          <div className="chat-detail-tags__summary">
+            <h4>대화 요약</h4>
+            <p>{chat.conversation_summary}</p>
+          </div>
+        )}
+        <div className="chat-detail-tags__grid">
+          <div className="chat-detail-tags__item">
+            <h4>관심사 태그</h4>
+            {renderTagChips(chat.interest_tags, 'interest')}
+          </div>
+          <div className="chat-detail-tags__item">
+            <h4>위험 태그</h4>
+            {renderTagChips(chat.risk_tags, 'risk')}
+          </div>
+          <div className="chat-detail-tags__item">
+            <h4>키워드 태그</h4>
+            {renderTagChips(chat.keyword_tags, 'keyword')}
+          </div>
+          <div className="chat-detail-tags__item">
+            <h4>감정 분석</h4>
+            <span className={`sentiment-badge sentiment-badge--${chat.sentiment || 'unknown'}`}>
+              {chat.sentiment === 'positive' ? '긍정' : chat.sentiment === 'negative' ? '부정' : chat.sentiment === 'confused' ? '혼란' : chat.sentiment === 'neutral' ? '중립' : '-'}
+            </span>
+          </div>
+          <div className="chat-detail-tags__item">
+            <h4>데이터 품질</h4>
+            <div className="data-quality">
+              <div className="data-quality__bar">
+                <div className="data-quality__fill" style={{ width: `${chat.data_quality_score || 0}%` }} />
+              </div>
+              <span className="data-quality__score">{chat.data_quality_score || 0}점</span>
+            </div>
+          </div>
+          {chat.has_discrepancy && (
+            <div className="chat-detail-tags__item chat-detail-tags__item--warn">
+              <h4>RAG 불일치</h4>
+              <span className="tag-chip tag-chip--risk">불일치 감지됨</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className={`admin-embedding-page${isEmbedMode ? ' admin-embedding-page--embed' : ''}`}>
       {!isEmbedMode && (
         <header className="admin-embedding-page__header">
-          <h1 className="admin-embedding-page__title">병원별 RAG 임베딩 관리</h1>
+          <div className="admin-embedding-page__top-tabs">
+            <button
+              className="admin-embedding-page__top-tab active"
+              onClick={() => navigate('/backoffice')}
+            >검진결과 상담</button>
+            <button
+              className="admin-embedding-page__top-tab"
+              onClick={() => navigate('/backoffice/survey')}
+            >만족도 조사</button>
+          </div>
         </header>
       )}
       {error && (
@@ -663,30 +895,55 @@ const EmbeddingPage: React.FC = () => {
           )}
           <h2 className="admin-embedding-page__sidebar-title">파트너 및 병원 목록</h2>
           <div className="admin-embedding-page__partner-list">
-            {hierarchy.map((partner) => (
-              <div key={partner.partner_id} className="admin-embedding-page__partner-group">
-                <div className="admin-embedding-page__partner-header">
-                  <h3 className="admin-embedding-page__partner-name">{partner.partner_name}</h3>
-                  {selectedPartnerId === partner.partner_id && (
-                    <button type="button" className="admin-embedding-page__add-hospital-btn" onClick={() => { setNewHospitalId(''); setNewHospitalName(''); setShowAddHospital(true); }}>+</button>
+            {/* 통합 보기 버튼 */}
+            <button
+              type="button"
+              className={`admin-embedding-page__hospital-btn admin-embedding-page__hospital-btn--all ${viewAllChats ? 'is-selected' : ''}`}
+              onClick={() => {
+                setViewAllChats(true);
+                setActiveTab('chats');
+                setSelectedChat(null);
+              }}
+            >
+              <span className="admin-embedding-page__hospital-name">전체 상담 통합 보기</span>
+              <span className="admin-embedding-page__hospital-meta">모든 병원 상담 내역</span>
+            </button>
+            {sortedHierarchy.map((partner) => {
+              const isCollapsed = collapsedPartners.has(partner.partner_id);
+              const hospitalCount = partner.hospitals.length;
+              return (
+                <div key={partner.partner_id} className={`admin-embedding-page__partner-group${hospitalCount === 0 ? ' admin-embedding-page__partner-group--empty' : ''}`}>
+                  <div
+                    className="admin-embedding-page__partner-header"
+                    onClick={() => togglePartner(partner.partner_id)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <span className="admin-embedding-page__partner-arrow">{hospitalCount > 0 ? (isCollapsed ? '\u25B6' : '\u25BC') : '\u25B6'}</span>
+                    <h3 className="admin-embedding-page__partner-name">{partner.partner_name}</h3>
+                    <span className="admin-embedding-page__partner-count">{hospitalCount}</span>
+                    {selectedPartnerId === partner.partner_id && (
+                      <button type="button" className="admin-embedding-page__add-hospital-btn" onClick={(e) => { e.stopPropagation(); setNewHospitalId(''); setNewHospitalName(''); setShowAddHospital(true); }}>+</button>
+                    )}
+                  </div>
+                  {!isCollapsed && hospitalCount > 0 && (
+                    <ul className="admin-embedding-page__hospital-list">
+                      {partner.hospitals.map((h) => (
+                        <li key={h.hospital_id}>
+                          <button
+                            type="button"
+                            className={`admin-embedding-page__hospital-btn ${!viewAllChats && selectedHospitalId === h.hospital_id && selectedPartnerId === partner.partner_id ? 'is-selected' : ''}`}
+                            onClick={() => { setViewAllChats(false); setSelectedPartnerId(partner.partner_id); setSelectedHospitalId(h.hospital_id); }}
+                          >
+                            <span className="admin-embedding-page__hospital-name">{h.hospital_name}</span>
+                            <span className="admin-embedding-page__hospital-meta">{h.has_embedding ? '✓ 인덱스' : ''} {h.document_count ? `문서 ${h.document_count}` : ''}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
-                <ul className="admin-embedding-page__hospital-list">
-                  {partner.hospitals.map((h) => (
-                    <li key={h.hospital_id}>
-                      <button
-                        type="button"
-                        className={`admin-embedding-page__hospital-btn ${selectedHospitalId === h.hospital_id && selectedPartnerId === partner.partner_id ? 'is-selected' : ''}`}
-                        onClick={() => { setSelectedPartnerId(partner.partner_id); setSelectedHospitalId(h.hospital_id); }}
-                      >
-                        <span className="admin-embedding-page__hospital-name">{h.hospital_name}</span>
-                        <span className="admin-embedding-page__hospital-meta">{h.has_embedding ? '✓ 인덱스' : ''} {h.document_count ? `문서 ${h.document_count}` : ''}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {showAddHospital && selectedPartnerId && (
             <div className="admin-embedding-page__modal">
@@ -714,107 +971,176 @@ const EmbeddingPage: React.FC = () => {
         </aside>
         )}
         <main className="admin-embedding-page__main">
-          {selectedHospitalId && selectedHospital ? (
+          {/* 통합 보기 모드 */}
+          {viewAllChats ? (
             <>
               <div className="admin-embedding-page__card">
-                <h2 className="admin-embedding-page__card-title">{selectedHospital.hospital_name}</h2>
-                <div className="admin-embedding-page__tabs">
-                  <button className={activeTab === 'config' ? 'active' : ''} onClick={() => setActiveTab('config')}>환경 설정</button>
-                  <button className={activeTab === 'chats' ? 'active' : ''} onClick={() => setActiveTab('chats')}>상담 내역 ({chatSessions.length})</button>
-                  <button className={activeTab === 'docs' ? 'active' : ''} onClick={() => setActiveTab('docs')}>지침 문서</button>
+                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                  <div>
+                    <h2 className="admin-embedding-page__card-title">전체 상담 통합 보기</h2>
+                    <p className="admin-embedding-page__muted" style={{marginTop: 4}}>모든 병원의 상담 내역을 한 곳에서 확인합니다. ({allChatSessions.length}건)</p>
+                  </div>
+                  <button
+                    className="excel-export-btn"
+                    onClick={() => handleExcelExport(selectedPartnerId || undefined)}
+                    disabled={excelExporting}
+                  >
+                    {excelExporting ? '내보내는 중...' : '엑셀 다운로드'}
+                  </button>
                 </div>
               </div>
-              {activeTab === 'config' && (
-                <div className="admin-embedding-page__card">
-                  <div className="admin-embedding-page__config-form">
-                    <div className="admin-embedding-page__form-row">
-                      <div className="admin-embedding-page__form-group">
-                        <label>병원 표시명</label>
-                        <input type="text" value={config?.hospital_name || ''} onChange={(e) => setConfig(prev => prev ? { ...prev, hospital_name: e.target.value } : null)} />
-                      </div>
-                      <div className="admin-embedding-page__form-group">
-                        <label>활성 상태</label>
-                        <select value={config?.is_active ? 'true' : 'false'} onChange={(e) => setConfig(prev => prev ? { ...prev, is_active: e.target.value === 'true' } : null)}>
-                          <option value="true">활성</option>
-                          <option value="false">비활성</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div className="admin-embedding-page__form-group">
-                      <label>LLM 페르소나 (System Prompt)</label>
-                      <textarea rows={6} value={config?.persona_prompt || ''} onChange={(e) => setConfig(prev => prev ? { ...prev, persona_prompt: e.target.value } : null)} />
-                    </div>
-                    <div className="admin-embedding-page__form-group">
-                      <label>초기 인사말</label>
-                      <input type="text" value={config?.welcome_message || ''} onChange={(e) => setConfig(prev => prev ? { ...prev, welcome_message: e.target.value } : null)} />
-                    </div>
-                    <button type="button" className="admin-embedding-page__save-btn" onClick={handleSaveConfig} disabled={saving}>{saving ? '저장 중...' : '설정 저장'}</button>
-                  </div>
-                </div>
-              )}
-              {activeTab === 'chats' && (
-                <div className="admin-embedding-page__chat-container">
-                  <div className="admin-embedding-page__chat-list-card">
-                    <h3 className="admin-embedding-page__card-title">대화 목록</h3>
-                    {chatSessions.length === 0 ? (
-                      <p className="admin-embedding-page__muted">대화 내역이 없습니다.</p>
-                    ) : (
-                      <div className="admin-embedding-page__table-wrapper">
-                        <table className="admin-embedding-page__table">
-                          <thead>
-                            <tr>
-                              <th>날짜</th>
-                              <th>이름</th>
-                              <th>메시지</th>
-                              <th></th>
+              <div className="admin-embedding-page__chat-container">
+                <div className="admin-embedding-page__chat-list-card">
+                  <h3 className="admin-embedding-page__card-title">상담 목록</h3>
+                  {allChatSessions.length === 0 ? (
+                    <p className="admin-embedding-page__muted">대화 내역이 없습니다.</p>
+                  ) : (
+                    <div className="admin-embedding-page__table-wrapper">
+                      <table className="admin-embedding-page__table admin-embedding-page__table--detailed">
+                        <thead>
+                          <tr>
+                            <th>날짜</th>
+                            <th>이름</th>
+                            <th>성별</th>
+                            <th>병원</th>
+                            <th>검진일</th>
+                            <th>연락처</th>
+                            <th>메시지</th>
+                            <th>관심사</th>
+                            <th>위험</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {allChatSessions.map(s => (
+                            <tr key={s.session_id} className={selectedChat?.session_id === s.session_id ? 'is-selected' : ''} onClick={() => fetchChatDetail(s.session_id)}>
+                              <td className="td-date">{new Date(s.created_at).toLocaleDateString('ko-KR', {month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'})}</td>
+                              <td className="td-name">{s.user_name || '-'}</td>
+                              <td className="td-gender">{s.user_gender === 'F' ? '여' : s.user_gender === 'M' ? '남' : '-'}</td>
+                              <td className="td-hospital">{s.hospital_name || '-'}</td>
+                              <td className="td-date">{s.checkup_date || '-'}</td>
+                              <td className="td-phone">{s.user_phone || '-'}</td>
+                              <td className="td-count">{s.message_count}회</td>
+                              <td className="td-tags">{renderTagChips(s.interest_tags, 'interest')}</td>
+                              <td className="td-tags">{renderTagChips(s.risk_tags, 'risk')}</td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {chatSessions.map(s => (
-                              <tr key={s.session_id} className={selectedChat?.session_id === s.session_id ? 'is-selected' : ''} onClick={() => fetchChatDetail(s.session_id)}>
-                                <td>{new Date(s.created_at).toLocaleDateString()}</td>
-                                <td>{s.user_name || '비회원'}</td>
-                                <td>{s.message_count}회</td>
-                                <td><button type="button" className="admin-embedding-page__view-btn">보기</button></td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+                <div className="admin-embedding-page__chat-detail-card">
+                  <div className="chat-detail-header">
+                    <h3 className="admin-embedding-page__card-title">대화 상세</h3>
+                    {selectedChat && (
+                      <div className="chat-detail-tabs">
+                        <button className={chatDetailTab === 'conversation' ? 'active' : ''} onClick={() => setChatDetailTab('conversation')}>대화 내역</button>
+                        <button className={chatDetailTab === 'health' ? 'active' : ''} onClick={() => setChatDetailTab('health')}>검진 데이터</button>
+                        <button className={chatDetailTab === 'tags' ? 'active' : ''} onClick={() => setChatDetailTab('tags')}>태그/분석</button>
                       </div>
                     )}
                   </div>
-                  <div className="admin-embedding-page__chat-detail-card">
-                    <h3 className="admin-embedding-page__card-title">대화 상세</h3>
-                    {selectedChat ? (
-                      <div className="admin-embedding-page__chat-window">
-                        <div className="admin-embedding-page__chat-messages">
-                          {selectedChat.conversation.map((msg: any, idx: number) => (
-                            <div key={idx} className={`admin-embedding-page__chat-msg ${msg.role}`}>
-                              <div className="admin-embedding-page__chat-bubble">
-                                {msg.content}
-                                <div className="admin-embedding-page__chat-time">{new Date(msg.timestamp || selectedChat.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="admin-embedding-page__empty-chat">왼쪽 목록에서 대화를 선택하세요.</div>
-                    )}
+                  {selectedChat ? renderChatDetailContent(selectedChat) : (
+                    <div className="admin-embedding-page__empty-chat">왼쪽 목록에서 대화를 선택하세요.</div>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : selectedHospitalId && selectedHospital ? (
+            <>
+              <div className="admin-embedding-page__card">
+                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                  <div>
+                    <h2 className="admin-embedding-page__card-title">{selectedHospital.hospital_name}</h2>
+                    <p className="admin-embedding-page__muted" style={{marginTop: 4}}>상담 내역 {chatSessions.length}건</p>
+                  </div>
+                  <div style={{display: 'flex', gap: 8}}>
+                    <button
+                      className="excel-export-btn excel-export-btn--sm"
+                      onClick={() => handleExcelExport(selectedPartnerId || undefined)}
+                      disabled={excelExporting}
+                    >
+                      {excelExporting ? '...' : '엑셀'}
+                    </button>
+                    <button
+                      className="admin-embedding-page__settings-btn"
+                      onClick={() => setShowSettingsModal(true)}
+                    >
+                      설정
+                    </button>
                   </div>
                 </div>
-              )}
-              {activeTab === 'docs' && (
+              </div>
+              {/* 상담 내역 (메인 영역) */}
+              <div className="admin-embedding-page__chat-container">
+                <div className="admin-embedding-page__chat-list-card">
+                  <h3 className="admin-embedding-page__card-title" style={{margin: 0, marginBottom: 8}}>대화 목록</h3>
+                  {chatSessions.length === 0 ? (
+                    <p className="admin-embedding-page__muted">대화 내역이 없습니다.</p>
+                  ) : (
+                    <div className="admin-embedding-page__table-wrapper">
+                      <table className="admin-embedding-page__table admin-embedding-page__table--detailed">
+                        <thead>
+                          <tr>
+                            <th>날짜</th>
+                            <th>이름</th>
+                            <th>성별</th>
+                            <th>검진일</th>
+                            <th>연락처</th>
+                            <th>메시지</th>
+                            <th>태그</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {chatSessions.map(s => (
+                            <tr key={s.session_id} className={selectedChat?.session_id === s.session_id ? 'is-selected' : ''} onClick={() => fetchChatDetail(s.session_id)}>
+                              <td className="td-date">{new Date(s.created_at).toLocaleDateString('ko-KR', {month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'})}</td>
+                              <td className="td-name">{s.user_name || '-'}</td>
+                              <td className="td-gender">{s.user_gender === 'F' ? '여' : s.user_gender === 'M' ? '남' : '-'}</td>
+                              <td className="td-date">{s.checkup_date || '-'}</td>
+                              <td className="td-phone">{s.user_phone || '-'}</td>
+                              <td className="td-count">{s.message_count}회</td>
+                              <td className="td-tags">{renderTagChips([...(s.interest_tags || []), ...(s.risk_tags || [])].slice(0, 3), s.risk_tags?.length ? 'risk' : 'interest')}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+                <div className="admin-embedding-page__chat-detail-card">
+                  <div className="chat-detail-header">
+                    <h3 className="admin-embedding-page__card-title" style={{margin: 0}}>대화 상세</h3>
+                    {selectedChat && (
+                      <div className="chat-detail-tabs">
+                        <button className={chatDetailTab === 'conversation' ? 'active' : ''} onClick={() => setChatDetailTab('conversation')}>대화 내역</button>
+                        <button className={chatDetailTab === 'health' ? 'active' : ''} onClick={() => setChatDetailTab('health')}>검진 데이터</button>
+                        <button className={chatDetailTab === 'tags' ? 'active' : ''} onClick={() => setChatDetailTab('tags')}>태그/분석</button>
+                      </div>
+                    )}
+                  </div>
+                  {selectedChat ? renderChatDetailContent(selectedChat) : (
+                    <div className="admin-embedding-page__empty-chat">왼쪽 목록에서 대화를 선택하세요.</div>
+                  )}
+                </div>
+              </div>
+              {/* 설정 모달 (좌: 지침문서, 우: 환경설정 + RAG 테스트) */}
+              {showSettingsModal && (
+                <div className="admin-embedding-page__modal admin-embedding-page__modal--settings">
+                  <div className="admin-embedding-page__modal-content admin-embedding-page__modal-content--wide">
+                    <div className="admin-embedding-page__modal-header">
+                      <h3>{selectedHospital.hospital_name} - 설정</h3>
+                      <button className="admin-embedding-page__modal-close" onClick={() => setShowSettingsModal(false)}>×</button>
+                    </div>
+                    <div className="admin-embedding-page__modal-body admin-embedding-page__modal-body--split">
+                      {/* 왼쪽 패널: 지침 문서 */}
+                      <div className="admin-embedding-page__settings-left">
+                        <div className="admin-embedding-page__panel-title">지침 문서</div>
                 <div className="docs-redesign">
-                  {/* 통계 요약 */}
                   <div className="docs-stats">
                     <div className="docs-stats__item">
                       <span className="docs-stats__value">{docStats.totalDocs}</span>
                       <span className="docs-stats__label">전체 문서</span>
-                    </div>
-                    <div className="docs-stats__item">
-                      <span className="docs-stats__value">{docStats.totalChunks.toLocaleString()}</span>
-                      <span className="docs-stats__label">인덱스 청크</span>
                     </div>
                     <div className="docs-stats__item">
                       <span className="docs-stats__value">{docStats.categories.length}</span>
@@ -826,7 +1152,6 @@ const EmbeddingPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* 검색 + 필터 + 액션 */}
                   <div className="docs-toolbar">
                     <input
                       className="docs-toolbar__search"
@@ -855,18 +1180,15 @@ const EmbeddingPage: React.FC = () => {
                           {uploading ? '...' : '+ 공통'}
                         </label>
                       )}
-
                     </div>
                   </div>
 
-                  {/* 스크롤 가능한 문서 목록 영역 */}
                   <div
                     className={`docs-scroll-area${isDragging ? ' docs-scroll-area--dragging' : ''}`}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={e => handleDrop(e, 'hospital')}
                   >
-                    {/* 드래그앤드랍 오버레이 */}
                     {isDragging && (
                       <div className="docs-drop-overlay">
                         <div className="docs-drop-overlay__content">
@@ -876,7 +1198,6 @@ const EmbeddingPage: React.FC = () => {
                       </div>
                     )}
 
-                    {/* 병원 전용 문서 (최상단) */}
                     <div
                       className={`docs-group docs-group--hospital${isDragging ? ' docs-group--drag-target' : ''}`}
                       onDragOver={handleDragOver}
@@ -892,7 +1213,6 @@ const EmbeddingPage: React.FC = () => {
                         </label>
                       </div>
 
-                      {/* 학습 진행 상태 바 */}
                       {rebuildProgress && (
                         <div className={`docs-progress ${rebuildProgress.status === 'completed' ? 'docs-progress--done' : rebuildProgress.status === 'failed' ? 'docs-progress--fail' : ''}`}>
                           <div className="docs-progress__bar">
@@ -904,7 +1224,6 @@ const EmbeddingPage: React.FC = () => {
 
                       {documents.length > 0 ? (
                         <div className="docs-group__body">
-                          {/* 전체선택 + 학습 버튼 */}
                           <div className="docs-select-bar">
                             <label className="docs-select-bar__check">
                               <input
@@ -978,7 +1297,6 @@ const EmbeddingPage: React.FC = () => {
                       )}
                     </div>
 
-                    {/* 카테고리별 기본/공통 문서 목록 */}
                     {groupedDocs.map(([category, docs]) => (
                       <div key={category} className="docs-group">
                         <button className="docs-group__header" onClick={() => toggleCategory(category)}>
@@ -1011,80 +1329,111 @@ const EmbeddingPage: React.FC = () => {
                     )}
                   </div>
                 </div>
+                      </div>
+
+                      {/* 가운데 패널: 환경설정 */}
+                      <div className="admin-embedding-page__settings-center">
+                        <div className="admin-embedding-page__panel-title">환경 설정</div>
+                        <div className="admin-embedding-page__config-form">
+                          <div className="admin-embedding-page__form-group">
+                            <label>병원 표시명</label>
+                            <input type="text" value={config?.hospital_name || ''} onChange={(e) => setConfig(prev => prev ? { ...prev, hospital_name: e.target.value } : null)} />
+                          </div>
+                          <div className="admin-embedding-page__form-group">
+                            <label>활성 상태</label>
+                            <select value={config?.is_active ? 'true' : 'false'} onChange={(e) => setConfig(prev => prev ? { ...prev, is_active: e.target.value === 'true' } : null)}>
+                              <option value="true">활성</option>
+                              <option value="false">비활성</option>
+                            </select>
+                          </div>
+                          <div className="admin-embedding-page__form-group">
+                            <label>LLM 페르소나 (System Prompt)</label>
+                            <textarea rows={6} value={config?.persona_prompt || ''} onChange={(e) => setConfig(prev => prev ? { ...prev, persona_prompt: e.target.value } : null)} />
+                          </div>
+                          <div className="admin-embedding-page__form-group">
+                            <label>초기 인사말</label>
+                            <input type="text" value={config?.welcome_message || ''} onChange={(e) => setConfig(prev => prev ? { ...prev, welcome_message: e.target.value } : null)} />
+                          </div>
+                          <button type="button" className="admin-embedding-page__save-btn" onClick={handleSaveConfig} disabled={saving}>{saving ? '저장 중...' : '설정 저장'}</button>
+                        </div>
+                      </div>
+
+                      {/* 오른쪽 패널: RAG 테스트 */}
+                      <div className="admin-embedding-page__settings-right">
+                        <div className="admin-embedding-page__panel-title">
+                          RAG 테스트
+                          <button className="admin-embedding-page__rag-reset-btn" onClick={() => { setChatMessages([]); setChatSessionId(null); }}>초기화</button>
+                        </div>
+                        <div className="admin-embedding-page__rag-chat-area">
+                          {chatMessages.length === 0 ? (
+                            <div className="admin-embedding-page__rag-panel-empty">
+                              질문을 입력하여 RAG 응답을 테스트하세요
+                            </div>
+                          ) : (
+                            <div className="admin-embedding-page__rag-chat-messages" ref={chatContainerRef}>
+                              {chatMessages.map((msg, i) => (
+                                <div key={i} className={`admin-embedding-page__chat-bubble admin-embedding-page__chat-bubble--${msg.role}`}>
+                                  <div className="admin-embedding-page__chat-content">
+                                    {msg.content || (chatLoading && i === chatMessages.length - 1 ? '...' : '')}
+                                  </div>
+                                  {msg.sources && msg.sources.length > 0 && (
+                                    <div className="admin-embedding-page__chat-sources">
+                                      <button
+                                        className={`admin-embedding-page__chat-sources-toggle ${expandedSources.has(i) ? 'admin-embedding-page__chat-sources-toggle--open' : ''}`}
+                                        onClick={() => setExpandedSources(prev => {
+                                          const next = new Set(prev);
+                                          if (next.has(i)) next.delete(i); else next.add(i);
+                                          return next;
+                                        })}
+                                      >
+                                        참고문헌 ({msg.sources.length}건)
+                                      </button>
+                                      {expandedSources.has(i) && (
+                                        <ul className="admin-embedding-page__chat-sources-list">
+                                          {msg.sources.map((src, si) => (
+                                            <li key={si} className="admin-embedding-page__chat-source-item">
+                                              <strong>{src.title}</strong>
+                                              {src.page && <span className="admin-embedding-page__chat-source-page">p.{src.page}</span>}
+                                              {src.score != null && <span className="admin-embedding-page__chat-source-score">{(src.score * 100).toFixed(0)}%</span>}
+                                              <p className="admin-embedding-page__chat-source-text">{src.text.substring(0, 200)}{src.text.length > 200 ? '...' : ''}</p>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                              <div ref={chatEndRef} />
+                            </div>
+                          )}
+                        </div>
+                        <div className="admin-embedding-page__rag-input-row">
+                          <input
+                            type="text"
+                            value={chatInput}
+                            onChange={e => setChatInput(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && sendTestChat()}
+                            placeholder="질문을 입력하세요..."
+                            disabled={chatLoading || !selectedHospitalId}
+                          />
+                          <button onClick={sendTestChat} disabled={chatLoading || !chatInput.trim() || !selectedHospitalId}>
+                            전송
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               )}
             </>
           ) : (
             <div className="admin-embedding-page__empty-state">
               <h3>병원을 선택하세요</h3>
-              <p className="admin-embedding-page__muted">왼쪽 사이드바에서 관리를 시작하세요.</p>
+              <p className="admin-embedding-page__muted">왼쪽 사이드바에서 병원을 선택하거나 "전체 상담 통합 보기"를 클릭하세요.</p>
             </div>
           )}
         </main>
-        {isEmbedMode && (
-          <aside className="admin-embedding-page__rag-panel">
-            <div className="admin-embedding-page__rag-panel-header">
-              <h3>RAG 테스트</h3>
-              <button onClick={() => { setChatMessages([]); setChatSessionId(null); }}>초기화</button>
-            </div>
-            <div className="admin-embedding-page__rag-panel-body">
-              {chatMessages.length === 0 ? (
-                <div className="admin-embedding-page__rag-panel-empty">
-                  질문을 입력하여 RAG 응답을 테스트하세요
-                </div>
-              ) : (
-                <div className="admin-embedding-page__rag-chat-messages" ref={chatContainerRef}>
-                  {chatMessages.map((msg, i) => (
-                    <div key={i} className={`admin-embedding-page__chat-bubble admin-embedding-page__chat-bubble--${msg.role}`}>
-                      <div className="admin-embedding-page__chat-content">
-                        {msg.content || (chatLoading && i === chatMessages.length - 1 ? '...' : '')}
-                      </div>
-                      {msg.sources && msg.sources.length > 0 && (
-                        <div className="admin-embedding-page__chat-sources">
-                          <button
-                            className={`admin-embedding-page__chat-sources-toggle ${expandedSources.has(i) ? 'admin-embedding-page__chat-sources-toggle--open' : ''}`}
-                            onClick={() => setExpandedSources(prev => {
-                              const next = new Set(prev);
-                              if (next.has(i)) next.delete(i); else next.add(i);
-                              return next;
-                            })}
-                          >
-                            참고문헌 ({msg.sources.length}건)
-                          </button>
-                          {expandedSources.has(i) && (
-                            <ul className="admin-embedding-page__chat-sources-list">
-                              {msg.sources.map((src, si) => (
-                                <li key={si} className="admin-embedding-page__chat-source-item">
-                                  <strong>{src.title}</strong>
-                                  {src.page && <span className="admin-embedding-page__chat-source-page">p.{src.page}</span>}
-                                  {src.score != null && <span className="admin-embedding-page__chat-source-score">{(src.score * 100).toFixed(0)}%</span>}
-                                  <p className="admin-embedding-page__chat-source-text">{src.text.substring(0, 200)}{src.text.length > 200 ? '...' : ''}</p>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  <div ref={chatEndRef} />
-                </div>
-              )}
-            </div>
-            <div className="admin-embedding-page__rag-panel-input">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && sendTestChat()}
-                placeholder="질문을 입력하세요..."
-                disabled={chatLoading || !selectedHospitalId}
-              />
-              <button onClick={sendTestChat} disabled={chatLoading || !chatInput.trim() || !selectedHospitalId}>
-                전송
-              </button>
-            </div>
-          </aside>
-        )}
       </div>
     </div>
   );

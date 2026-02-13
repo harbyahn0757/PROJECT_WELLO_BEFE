@@ -16,6 +16,33 @@
   flex-shrink: 0;
 }
 
+.admin-embedding-page__top-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.admin-embedding-page__top-tab {
+  padding: 8px 20px;
+  border: none;
+  background: $gray-200;
+  color: $gray-600;
+  border-radius: 8px 8px 0 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: $gray-300;
+    color: $gray-800;
+  }
+
+  &.active {
+    background: $brand-brown;
+    color: $white;
+  }
+}
+
 .admin-embedding-page__title {
   font-size: 1.5rem;
   font-weight: 700;
@@ -126,19 +153,36 @@
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid transparent;
+
+  &--empty {
+    opacity: 0.55;
+
+    .admin-embedding-page__partner-header {
+      background: $gray-50;
+    }
+  }
 }
 
 .admin-embedding-page__partner-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 10px 12px;
   background: $gray-50;
   transition: background 0.2s;
+  user-select: none;
 
   &:hover {
     background: $gray-100;
   }
+}
+
+.admin-embedding-page__partner-arrow {
+  font-size: 10px;
+  color: #adb5bd;
+  width: 12px;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .admin-embedding-page__partner-name {
@@ -147,6 +191,15 @@
   color: $brand-brown;
   margin: 0;
   flex: 1;
+}
+
+.admin-embedding-page__partner-count {
+  font-size: 11px;
+  color: #adb5bd;
+  background: #f1f3f5;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 600;
 }
 
 .admin-embedding-page__add-hospital-btn {
@@ -388,6 +441,207 @@
     font-weight: 700;
     color: $gray-800;
   }
+
+  &--wide {
+    width: 1400px;
+    max-width: 96vw;
+    max-height: 94vh;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+  }
+}
+
+.admin-embedding-page__modal-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 24px;
+  border-bottom: 1px solid $gray-200;
+  flex-shrink: 0;
+
+  h3 {
+    margin: 0;
+    flex: 1;
+    font-size: 1rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+}
+
+.admin-embedding-page__modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: $gray-500;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  &:hover {
+    background: $gray-100;
+    color: $gray-800;
+  }
+}
+
+.admin-embedding-page__modal-body {
+  padding: 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+
+  &--split {
+    display: flex;
+    gap: 20px;
+    padding: 0;
+    overflow: hidden;
+  }
+}
+
+.admin-embedding-page__panel-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: $gray-700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-embedding-page__settings-left {
+  flex: 0 0 24%;
+  max-width: 24%;
+  min-width: 0;
+  padding: 16px 16px;
+  overflow-y: auto;
+  border-right: 1px solid $gray-200;
+
+  .docs-redesign {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .docs-scroll-area {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+}
+
+.admin-embedding-page__settings-center {
+  flex: 0 0 34%;
+  max-width: 34%;
+  min-width: 0;
+  padding: 16px 20px;
+  overflow-y: auto;
+  border-right: 1px solid $gray-200;
+}
+
+.admin-embedding-page__settings-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px 12px;
+  overflow: hidden;
+
+  .admin-embedding-page__panel-title {
+    flex-shrink: 0;
+  }
+}
+
+.admin-embedding-page__rag-reset-btn {
+  margin-left: auto;
+  padding: 2px 10px;
+  border: 1px solid $gray-300;
+  background: $white;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  color: $gray-600;
+
+  &:hover {
+    background: $gray-50;
+    color: $gray-800;
+  }
+}
+
+.admin-embedding-page__rag-chat-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: $gray-50;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+}
+
+.admin-embedding-page__rag-input-row {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+
+  input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid $gray-300;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+
+    &:focus {
+      border-color: $brand-brown;
+    }
+
+    &:disabled {
+      background: $gray-50;
+    }
+  }
+
+  button {
+    padding: 8px 16px;
+    background: $brand-brown;
+    color: $white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:hover:not(:disabled) {
+      background: $brand-brown-hover;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+}
+
+.admin-embedding-page__settings-btn {
+  padding: 6px 14px;
+  border: 1px solid $gray-300;
+  background: $white;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  color: $gray-700;
+  transition: all 0.15s;
+
+  &:hover {
+    background: $gray-50;
+    border-color: $brand-brown;
+    color: $brand-brown;
+  }
 }
 
 .admin-embedding-page__modal-actions {
@@ -540,6 +794,111 @@
 
   &:hover {
     background: $gray-50;
+  }
+}
+
+/* 통합 보기 버튼 */
+.admin-embedding-page__hospital-btn--all {
+  margin-bottom: 12px;
+  border: 1px dashed $brand-brown;
+  background: rgba($brand-brown, 0.03);
+  border-radius: 8px;
+
+  .admin-embedding-page__hospital-name {
+    color: $brand-brown;
+    font-weight: 600;
+  }
+
+  &.is-selected {
+    background: $brand-brown;
+    border-style: solid;
+    .admin-embedding-page__hospital-name {
+      color: $white;
+    }
+    .admin-embedding-page__hospital-meta {
+      color: rgba($white, 0.8);
+    }
+  }
+}
+
+/* 상세 테이블 */
+.admin-embedding-page__table--detailed {
+  th {
+    font-size: 0.75rem;
+    white-space: nowrap;
+    padding: 8px 6px;
+    color: $gray-500;
+    text-transform: none;
+  }
+
+  td {
+    padding: 8px 6px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .td-name {
+    font-weight: 600;
+    color: $gray-800;
+    max-width: 80px;
+  }
+
+  .td-gender {
+    text-align: center;
+    color: $gray-600;
+    width: 36px;
+  }
+
+  .td-hospital {
+    max-width: 120px;
+    color: $gray-700;
+  }
+
+  .td-date {
+    color: $gray-500;
+    font-size: 0.75rem;
+  }
+
+  .td-phone {
+    color: $gray-500;
+    font-size: 0.75rem;
+    font-family: monospace;
+  }
+
+  .td-count {
+    text-align: center;
+    color: $brand-brown;
+    font-weight: 600;
+  }
+}
+
+/* 환자 정보 바 (대화 상세 상단) */
+.admin-embedding-page__chat-patient-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: rgba($brand-brown, 0.06);
+  border-radius: 8px;
+  border-left: 3px solid $brand-brown;
+  font-size: 0.8rem;
+  color: $gray-700;
+
+  strong {
+    font-size: 0.9rem;
+    color: $gray-900;
+  }
+
+  span {
+    &::before {
+      content: '|';
+      margin-right: 12px;
+      color: $gray-300;
+    }
   }
 }
 
@@ -1573,5 +1932,561 @@
   .docs-toolbar {
     gap: 6px;
     &__search { width: 140px; }
+  }
+}
+
+/* ===== 모바일 반응형 (< 768px) ===== */
+@media (max-width: 767px) {
+  .admin-embedding-page {
+    padding: 12px;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  .admin-embedding-page__title {
+    font-size: 1.2rem;
+  }
+
+  .admin-embedding-page__layout {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  /* 사이드바: 가로 스크롤 가능한 컴팩트 뷰 */
+  .admin-embedding-page__sidebar {
+    width: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  .admin-embedding-page__sidebar-title {
+    font-size: 0.8rem;
+  }
+
+  .admin-embedding-page__partner-header {
+    padding: 8px 10px;
+  }
+
+  .admin-embedding-page__hospital-item {
+    padding: 6px 10px 6px 24px;
+    font-size: 0.75rem;
+  }
+
+  /* 메인 콘텐츠: 전체 너비 */
+  .admin-embedding-page__main {
+    flex: none;
+    width: 100%;
+    overflow: visible;
+  }
+
+  .admin-embedding-page__content-card {
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  /* 탭 */
+  .admin-embedding-page__tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    gap: 0;
+
+    button {
+      font-size: 0.8rem;
+      padding: 8px 12px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+  }
+
+  /* 환경설정 폼: 1열 */
+  .admin-embedding-page__form-row {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .admin-embedding-page__form-group {
+    textarea {
+      min-height: 80px;
+      font-size: 0.85rem;
+    }
+
+    input, select {
+      font-size: 0.85rem;
+      padding: 8px 10px;
+    }
+  }
+
+  /* 상담 내역: 세로 스택 */
+  .admin-embedding-page__chat-container {
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .admin-embedding-page__chat-list-card {
+    min-width: 0;
+    max-height: 300px;
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  .admin-embedding-page__chat-detail-card {
+    min-width: 0;
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  .admin-embedding-page__table {
+    font-size: 0.8rem;
+
+    th, td {
+      padding: 8px 6px;
+    }
+  }
+
+  .admin-embedding-page__table--detailed {
+    .td-phone, .td-hospital {
+      display: none;
+    }
+    th:nth-child(4), th:nth-child(6) {
+      display: none;
+    }
+  }
+
+  .admin-embedding-page__chat-patient-info {
+    font-size: 0.75rem;
+    gap: 6px;
+    padding: 8px 10px;
+  }
+
+  /* 채팅 메시지 */
+  .admin-embedding-page__chat-messages {
+    max-height: 400px;
+  }
+
+  .admin-embedding-page__chat-message {
+    max-width: 90%;
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+
+  /* 문서 관리 */
+  .docs-stats {
+    flex-wrap: wrap;
+    gap: 6px;
+
+    &__item {
+      padding: 8px 6px;
+      min-width: calc(50% - 4px);
+      flex: none;
+    }
+
+    &__value { font-size: 1rem; }
+    &__label { font-size: 0.65rem; }
+  }
+
+  .docs-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+
+    &__search {
+      width: 100%;
+      order: -1;
+    }
+
+    &__category-chips {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      flex-wrap: nowrap;
+      max-width: 100%;
+    }
+  }
+
+  .docs-row {
+    padding: 10px 12px;
+    gap: 8px;
+
+    &__title { font-size: 0.8rem; }
+    &__meta { font-size: 0.7rem; flex-wrap: wrap; gap: 4px; }
+  }
+
+  /* RAG 패널 (embed 모드) */
+  .admin-embedding-page__rag-panel {
+    width: 100%;
+    max-height: 50vh;
+  }
+
+  /* 버튼 */
+  .admin-embedding-page__save-btn,
+  .admin-embedding-page__register-btn {
+    font-size: 0.8rem;
+    padding: 8px 14px;
+  }
+}
+
+/* ===== 태블릿 (768px ~ 1024px) ===== */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .admin-embedding-page {
+    padding: 16px;
+  }
+
+  .admin-embedding-page__sidebar {
+    width: 220px;
+  }
+
+  .admin-embedding-page__chat-list-card {
+    min-width: 240px;
+  }
+
+  .admin-embedding-page__rag-panel {
+    width: 280px;
+  }
+
+  .docs-toolbar__search {
+    width: 160px;
+  }
+}
+
+/* ========================================
+   Phase 3: 태그, 검진 데이터, 엑셀 내보내기
+   ======================================== */
+
+/* --- 엑셀 내보내기 버튼 --- */
+.excel-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #217346;
+  background: #fff;
+  border: 1px solid #217346;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+
+  &:hover:not(:disabled) {
+    background: #217346;
+    color: #fff;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &--sm {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+  }
+}
+
+/* --- 태그 칩 --- */
+.tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.tag-chip {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+
+  &--interest {
+    background: #e8f4fd;
+    color: #1976d2;
+  }
+
+  &--risk {
+    background: #fdecea;
+    color: #d32f2f;
+  }
+
+  &--keyword {
+    background: #f3e8fd;
+    color: #7b1fa2;
+  }
+}
+
+/* 테이블 태그 셀 */
+.td-tags {
+  max-width: 150px;
+  overflow: hidden;
+}
+
+/* --- 대화 상세 헤더 + 서브탭 --- */
+.chat-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.chat-detail-tabs {
+  display: flex;
+  gap: 4px;
+
+  button {
+    padding: 4px 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: $gray-600;
+    background: $gray-100;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    &:hover {
+      background: $gray-200;
+    }
+
+    &.active {
+      background: $brand-brown;
+      color: #fff;
+    }
+  }
+}
+
+/* --- 검진 데이터 탭 --- */
+.chat-detail-health {
+  flex: 1;
+  overflow-y: auto;
+
+  &__header {
+    display: flex;
+    gap: 16px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    background: rgba($brand-brown, 0.06);
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    color: $gray-700;
+
+    span {
+      &:not(:first-child)::before {
+        content: '|';
+        margin-right: 16px;
+        color: $gray-300;
+      }
+    }
+  }
+}
+
+.health-metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+
+  th {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 2px solid $gray-200;
+    color: $gray-600;
+    font-weight: 600;
+    font-size: 0.75rem;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 6px 10px;
+    border-bottom: 1px solid $gray-100;
+  }
+
+  tr:hover td {
+    background: $gray-50;
+  }
+
+  tr.is-abnormal {
+    td {
+      background: rgba(#d32f2f, 0.04);
+    }
+  }
+
+  .td-label {
+    font-weight: 600;
+    color: $gray-700;
+    white-space: nowrap;
+    width: 140px;
+  }
+
+  .td-value {
+    color: $gray-900;
+    font-weight: 500;
+    font-family: monospace;
+  }
+
+  .td-status {
+    font-size: 0.75rem;
+    color: #52c41a;
+
+    &--warn {
+      color: #d32f2f;
+      font-weight: 600;
+    }
+  }
+
+  .td-range {
+    font-size: 0.75rem;
+    color: $gray-500;
+  }
+}
+
+/* --- 태그/분석 탭 --- */
+.chat-detail-tags {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+
+  &__summary {
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    background: rgba($brand-brown, 0.06);
+    border-radius: 8px;
+    border-left: 3px solid $brand-brown;
+
+    h4 {
+      margin: 0 0 6px;
+      font-size: 0.8125rem;
+      color: $gray-700;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: $gray-800;
+      line-height: 1.5;
+    }
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  &__item {
+    padding: 12px;
+    background: $gray-50;
+    border-radius: 8px;
+    border: 1px solid $gray-200;
+
+    h4 {
+      margin: 0 0 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: $gray-600;
+      text-transform: uppercase;
+    }
+
+    &--warn {
+      background: rgba(#d32f2f, 0.04);
+      border-color: rgba(#d32f2f, 0.2);
+    }
+  }
+}
+
+/* --- 감정 분석 배지 --- */
+.sentiment-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+
+  &--positive {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  &--negative {
+    background: #fdecea;
+    color: #c62828;
+  }
+
+  &--neutral {
+    background: $gray-100;
+    color: $gray-600;
+  }
+
+  &--confused {
+    background: #fff3e0;
+    color: #e65100;
+  }
+
+  &--unknown {
+    background: $gray-100;
+    color: $gray-500;
+  }
+}
+
+/* --- 데이터 품질 바 --- */
+.data-quality {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  &__bar {
+    flex: 1;
+    height: 8px;
+    background: $gray-200;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  &__fill {
+    height: 100%;
+    background: $brand-brown;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+
+  &__score {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: $brand-brown;
+    white-space: nowrap;
+  }
+}
+
+/* --- 모바일 대응 (태그 관련) --- */
+@media (max-width: 767px) {
+  .td-tags {
+    display: none;
+  }
+
+  .admin-embedding-page__table--detailed {
+    th:nth-child(n+8) {
+      display: none;
+    }
+  }
+
+  .chat-detail-tabs {
+    button {
+      padding: 4px 8px;
+      font-size: 0.7rem;
+    }
+  }
+
+  .chat-detail-tags__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .excel-export-btn {
+    padding: 6px 10px;
+    font-size: 0.75rem;
   }
 }

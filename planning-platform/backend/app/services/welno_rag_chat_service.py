@@ -72,13 +72,21 @@ class WelnoRagChatService:
             if config:
                 logger.info(f"✅ [RAG 설정] 병원 설정 로드 성공: {partner_id}/{hospital_id}")
                 return config
-            
+
             # 병원별 설정이 없으면 파트너 공통 설정 시도 (hospital_id='*')
             config = await db_manager.execute_one(query, (partner_id, '*'))
             if config:
                 logger.info(f"✅ [RAG 설정] 파트너 공통 설정 로드 성공: {partner_id}")
+                # 미등록 병원 자동 등록 (병원명은 추후 웜업 데이터에서 업데이트)
+                if hospital_id and hospital_id != '*':
+                    try:
+                        from .dynamic_config_service import DynamicConfigService
+                        await DynamicConfigService.auto_register_hospital(partner_id, hospital_id)
+                        logger.info(f"📝 [RAG 설정] 미등록 병원 자동 등록: {partner_id}/{hospital_id[:16]}...")
+                    except Exception as reg_err:
+                        logger.warning(f"⚠️ [RAG 설정] 자동 등록 실패: {reg_err}")
                 return config
-                
+
             return None
         except Exception as e:
             logger.warning(f"⚠️ [RAG 설정] 설정 로드 실패: {e}")
@@ -472,15 +480,15 @@ class WelnoRagChatService:
                 # 기본 페르소나 (persona_prompt 비어있으면 자동 생성)
                 if not raw_persona and _h_name:
                     raw_persona = (
-                        "당신은 {hospital_name}의 헬스케어 도우미입니다.\n\n"
-                        "[상담 원칙]\n"
+                        "당신은 검진 결과지를 읽어 드리는 {hospital_name}의 에이전트입니다.\n\n"
+                        "[안내 원칙]\n"
                         "1. 의료적 소견이나 진단은 반드시 의료진만 내릴 수 있습니다.\n"
-                        "2. 당신은 RAG 시스템이 제공하는 기본 표준 결과와 임베딩 데이터를 기반으로 건강 정보를 설명하는 역할만 수행합니다.\n"
-                        "3. 헬스케어 전문가로서 운동 및 식이 요법에 대한 일반적인 가이드는 제안할 수 있습니다.\n"
-                        "4. 하지만 모든 구체적이고 정확한 진료 상담은 반드시 의료진 또는 본원에 직접 문의하도록 안내하십시오.\n\n"
+                        "2. 당신은 검진 결과지를 읽어 드리는 에이전트입니다. RAG 시스템이 제공하는 기본 표준 결과와 임베딩 데이터를 기반으로 건강 정보를 설명하는 역할만 수행합니다.\n"
+                        "3. 운동 및 식이 요법에 대한 일반적인 가이드는 제안할 수 있습니다.\n"
+                        "4. 하지만 모든 구체적이고 정확한 진료 상담은 반드시 담당 의료진에게 직접 문의하도록 안내하세요.\n\n"
                         "[{hospital_name} 정보]\n"
                         + ("- 연락처: {contact_phone}\n" if _h_phone else "")
-                        + "- 모든 전문적인 의학적 질의는 {hospital_name}으로 문의해달라고 부드럽게 안내하십시오."
+                        + "- 자세한 의학적 질의는 '{hospital_name}에 문의해 보시는 것도 좋을 것 같아요 😊'로 부드럽게 안내하세요."
                     )
 
                 # 페르소나 내 {hospital_name}, {contact_phone} 치환
@@ -495,13 +503,13 @@ class WelnoRagChatService:
                 
                 # 파트너 이름 또는 기본 페르소나 이름 결정
                 partner_info = trace_data.get("partner_info") if trace_data else None
-                persona_name = "전문 건강 상담가 AI"
+                persona_name = "검진 결과 에이전트"
                 if _h_name:
-                    persona_name = f"{_h_name}의 건강 상담가 AI"
+                    persona_name = f"{_h_name}의 에이전트"
                 elif partner_info and hasattr(partner_info, 'partner_name'):
-                    persona_name = f"{partner_info.partner_name}의 건강 상담가 AI"
+                    persona_name = f"{partner_info.partner_name}의 에이전트"
                 elif hospital_config and hospital_config.get("partner_name"):
-                    persona_name = f"{hospital_config.get('partner_name')}의 건강 상담가 AI"
+                    persona_name = f"{hospital_config.get('partner_name')}의 에이전트"
 
                 if is_first_message:
                     # 첫 메시지: 검진/복약 데이터 포함
@@ -540,20 +548,16 @@ class WelnoRagChatService:
                     # 단계별 지침 추가
                     stage_instruction = ""
                     msg_stripped = (message or "").strip()
-                    is_greeting_or_short = len(msg_stripped) <= 4 or msg_stripped in ("안녕", "하이", "안녕하세요", "hello", "hi", "?", "ㅇ", "응")
-                    logger.info(f"🔍 [PNT] 첫 메시지 chat_stage: {chat_stage}, message: {message[:50]}, is_greeting_or_short: {is_greeting_or_short}")
+                    is_greeting_or_short = len(msg_stripped) <= 4 or msg_stripped in ("안녕", "하이", "안녕하세요", "hello", "hi", "?", "ㅇ", "응", "네", "ㅇㅋ", "ㅎ")
+                    logger.info(f"🔍 [채팅] 첫 메시지 chat_stage: {chat_stage}, message: {message[:50]}, is_greeting_or_short: {is_greeting_or_short}")
                     if is_greeting_or_short:
-                        stage_instruction = "\n\n**상담 지침**: 사용자가 인사나 짧은 말만 한 경우, 참고 문헌을 요약·나열하지 말고, 친절히 인사한 뒤 이 환자의 검진/건강 관련해 무엇을 도와드릴지 짧게 물어보세요."
+                        stage_instruction = "\n\n**상담 지침**: 사용자가 인사나 짧은 말만 한 경우, 참고 문헌을 요약·나열하지 말고, 친절히 인사한 뒤 '어떤 부분이 궁금하세요? 😊' 라고 짧게 물어보세요."
                         chat_stage = "normal"
                     elif chat_stage == "awaiting_current_concerns":
                         stage_instruction = "\n\n**상담 단계**: 간략히 조언 후 '최근 걱정되거나 불편한 곳이 있는지' 질문하세요."
-                    elif any(kw in message for kw in ["영양제", "건기식", "비타민", "추천"]):
-                        # 첫 메시지에서 영양제 관련 질문 시 PNT 유도
-                        logger.info(f"✅ [PNT] 영양제 키워드 감지! chat_stage를 pnt_ready로 변경")
-                        stage_instruction = "\n\n**상담 지침**: 답변 끝에 PNT 문진 제안."
-                        chat_stage = "pnt_ready"
+                        chat_stage = "normal"
                     else:
-                        stage_instruction = "\n추이, 패턴을 분석하되 상담사 연결을 유도하세요."
+                        stage_instruction = "\n추이, 패턴을 분석하되 '자세한 내용은 담당 의료진과 상담하시길 권해요 😊'로 안내하세요."
                         chat_stage = "normal"
                     if is_partner_session:
                         stage_instruction += (
@@ -561,14 +565,18 @@ class WelnoRagChatService:
                             "(2) ###, * 목록 같은 긴 보고서 형식은 쓰지 말고, 짧은 문단과 줄바꿈으로 읽기 쉽게 답하세요. "
                             "(3) 강조는 **단어**처럼 짧게만 사용하세요.\n"
                             "**클라이언트(결과지) 우선**: [Context]의 '파트너 제공 검진 데이터'에 있는 *_abnormal(판정), *_range(정상범위)가 참고 문헌(RAG)보다 우선합니다. "
-                            "클라이언트 판정과 참고 문헌이 크게 다르면, 답변에서 '이런 부분은 주의 깊게 봐야 해요' 정도로 짧게 언급하고, '검진 받으신 병원에도 한 번 여쭤보시면 좋겠어요'처럼 부드럽게 병원 문의를 권한 뒤, 반드시 답변 안에 정확히 한 번만 [CLIENT_RAG_DISCREPANCY] 를 포함하세요.\n"
-                            "**출처 명시**: '표준에 따르면', '가이드라인에 따르면', '다른 사항은 이렇다' 등으로 말할 때는 반드시 [Context]에 있는 참고 문헌의 정확한 출처(문서명 등)를 밝리세요. 벡터 데이터가 있을 때만 그렇게 서술하세요.\n"
-                            "**위험 소견**: 위험하거나 확정적인 의견은 삼가고, 어려운 부분은 '진료받신 병원에 연락해 상세한 답변을 듣는 것'을 유도하세요."
+                            "클라이언트 판정과 참고 문헌이 크게 다르면, 답변에서 '이런 부분은 주의 깊게 봐야 해요' 정도로 짧게 언급하고, '검진 받으신 병원에도 한 번 여쭤보시면 좋겠어요 😊'처럼 부드럽게 병원 문의를 권한 뒤, 반드시 답변 안에 정확히 한 번만 [CLIENT_RAG_DISCREPANCY] 를 포함하세요.\n"
+                            "**출처 명시**: '표준에 따르면', '가이드라인에 따르면', '다른 사항은 이렇다' 등으로 말할 때는 반드시 [Context]에 있는 참고 문헌의 정확한 출처(문서명 등)를 밝히세요. 벡터 데이터가 있을 때만 그렇게 서술하세요.\n"
+                            "**위험 소견**: 위험하거나 확정적인 의견은 삼가고, 어려운 부분은 '담당 의료진과 상담하시길 권해요 😊'로 안내하세요.\n"
+                            "**면책 안내**: 병원에서 설정한 기준치와 일반적인 참고 범위를 기준으로 안내해 드려요."
                         )
-                    logger.info(f"🔍 [PNT] 최종 chat_stage: {chat_stage}")
+                    logger.info(f"🔍 [채팅] 최종 chat_stage: {chat_stage}")
                     
                     enhanced_prompt += stage_instruction
-                    enhanced_prompt += "\n\n**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요."
+                    if is_greeting_or_short:
+                        enhanced_prompt += "\n\n**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고 '[SUGGESTIONS] 전체 결과 요약해줘, 이상 있는 항목만 알려줘, 생활습관 조언해줘 [/SUGGESTIONS]' 형식으로 포함하세요."
+                    else:
+                        enhanced_prompt += "\n\n**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요."
                     
                     prompt = enhanced_prompt.format(context_str=context_str, query_str=message)
                     
@@ -668,24 +676,20 @@ class WelnoRagChatService:
                     # 단계별 지침 추가
                     stage_instruction = ""
                     if chat_stage == "awaiting_current_concerns":
-                        stage_instruction = "\n\n**상담 단계**: 현재 고민과 과거 데이터 연결, 상담사 유도."
-                        # 건기식 질문인 경우 PNT 유도 멘트 추가
-                        if any(kw in message for kw in ["영양제", "건기식", "비타민", "추천", "상담"]):
-                            stage_instruction += " 답변 끝에 PNT 문진 제안."
-                            chat_stage = "pnt_ready"
-                        else:
-                            chat_stage = "normal"
-                    elif any(kw in message for kw in ["영양제", "건기식", "비타민", "추천", "상담"]):
-                        stage_instruction = "\n\n**상담 지침**: 답변 끝에 PNT 문진 제안."
-                        chat_stage = "pnt_ready"
+                        stage_instruction = "\n\n**상담 단계**: 현재 고민과 과거 데이터 연결, '담당 의료진과 상담하시길 권해요 😊'로 안내."
+                        chat_stage = "normal"
                     else:
-                        # 복잡한 증상이나 의학적 판단이 필요한 경우 상담사 연결 유도
+                        # 복잡한 증상이나 의학적 판단이 필요한 경우 의료진 상담 안내
                         if any(kw in message for kw in ["피로", "통증", "증상", "아픔", "불편", "걱정"]):
-                            stage_instruction = "\n\n**상담 지침**: 답변 끝에 상담사 연결 권장."
+                            stage_instruction = "\n\n**상담 지침**: 답변 끝에 '자세한 내용은 담당 의료진과 상담하시길 권해요 😊'로 안내."
                     
                     prompt += stage_instruction
-                    prompt += "\n\n**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요."
-                    
+                    # 종료 의사 감지 시 SUGGESTIONS 비생성
+                    end_keywords = ["감사합니다", "고마워", "알겠습니다", "알겠어", "그만", "종료", "끝", "됐어", "괜찮아", "충분해", "다 들었어"]
+                    is_ending = any(kw in (message or "") for kw in end_keywords)
+                    if not is_ending:
+                        prompt += "\n\n**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요."
+
                     gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", chat_history=chat_history)
                 
                 # Gemini API 호출 타이밍
@@ -806,23 +810,13 @@ class WelnoRagChatService:
             logger.info(f"⏱️  [RAG 채팅] ========== 전체 소요 시간: {total_time:.3f}초 ==========")
             logger.info(f"📊 [RAG 채팅] 성능 요약 - RAG 엔진: {rag_engine_time:.3f}초, RAG 검색: {rag_search_time:.3f}초, Gemini: {gemini_time:.3f}초")
             
-            # PNT 문진 트리거 조건: pnt_ready 단계이거나 영양 관련 키워드가 포함된 3회 이상 대화 시
-            has_nutrition_kw = any(kw in all_keywords for kw in ["영양", "건기식", "비타민"])
-            trigger_pnt = (chat_stage == "pnt_ready") or (message_count >= 3 and has_nutrition_kw)
-            
-            # PNT 문진 시작 제안 플래그 추가 (영양제 관련 키워드 직접 체크)
-            has_nutrition_keyword_in_message = any(kw in message for kw in ["영양제", "건기식", "비타민", "추천", "상담"])
-            suggest_pnt = (chat_stage == "pnt_ready") or has_nutrition_keyword_in_message
-            print(f"🔍 DEBUG: chat_stage={chat_stage}, has_keyword={has_nutrition_keyword_in_message}, suggest_pnt={suggest_pnt}, message={message[:30]}")
-            
             # 메타데이터 업데이트
             metadata.update({
                 "detected_keywords": all_keywords,
                 "chat_stage": chat_stage,
                 "is_stale_data": is_stale_data,
                 "stale_year": stale_year,
-                "message_count": message_count,
-                "survey_triggered": metadata.get("survey_triggered", False) or trigger_pnt
+                "message_count": message_count
             })
             if self.redis_client:
                 self.redis_client.setex(meta_key, 86400, json.dumps(metadata, ensure_ascii=False))
@@ -833,27 +827,36 @@ class WelnoRagChatService:
                 'sources': sources,
                 'suggestions': suggestions,
                 'session_id': session_id,
-                'message_count': message_count,
-                'trigger_survey': trigger_pnt,
-                'suggest_pnt': suggest_pnt  # PNT 문진 시작 제안
+                'message_count': message_count
             }
             yield f"data: {json.dumps(done_data, ensure_ascii=False)}\n\n"
 
-        except Exception as e:
-            logger.error(f"❌ [RAG 채팅 서비스] 스트리밍 실패: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            error_data = {"answer": f"\n\n상담 중 오류가 발생했습니다. ({str(e)[:50]})", "done": True, "error": str(e)}
-            yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+            # 6. 비동기 태깅 (응답 완료 후)
+            try:
+                from .chat_tagging_service import tag_chat_session
+                all_messages = self.chat_manager.get_history(uuid, hospital_id)
+                tag_health_metrics = {}
+                if trace_data:
+                    pd = trace_data.get("processed_data", {})
+                    if isinstance(pd, dict):
+                        tag_health_metrics = pd.get("health_metrics", {})
+                await tag_chat_session(
+                    session_id=session_id,
+                    partner_id=partner_id,
+                    messages=all_messages,
+                    health_metrics=tag_health_metrics,
+                    has_discrepancy=had_rag_discrepancy if 'had_rag_discrepancy' in locals() else False,
+                )
+            except Exception as tag_err:
+                logger.warning(f"⚠️ [태깅] 비동기 태깅 실패: {tag_err}")
 
         except Exception as e:
             logger.error(f"❌ [RAG 채팅 서비스] 스트리밍 실패: {str(e)}")
             import traceback
             traceback.print_exc()
-            # ERR_EMPTY_RESPONSE 방지를 위해 최소한의 에러 메시지 전송
             error_data = {
-                "answer": f"\n\n상담 서비스 연결에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요. (오류: {str(e)[:50]})", 
-                "done": True, 
+                "answer": f"\n\n상담 서비스 연결에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해 주세요. (오류: {str(e)[:50]})",
+                "done": True,
                 "error": str(e)
             }
             yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
@@ -1068,7 +1071,7 @@ class WelnoRagChatService:
             # LLM 요약 요청
             await gemini_service.initialize()
             prompt = f"""
-다음은 사용자와 'Dr. Welno' 건강 봇의 대화 내용입니다. 
+다음은 사용자와 검진 결과 에이전트의 대화 내용입니다.
 사용자의 건강 관심사, 성향, 고민 지점을 분석하여 '페르소나 데이터'를 생성하세요.
 
 [대화 내용]

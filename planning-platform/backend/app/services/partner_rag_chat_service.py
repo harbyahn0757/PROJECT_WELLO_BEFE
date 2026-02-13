@@ -88,7 +88,29 @@ class PartnerRagChatService(WelnoRagChatService):
                 "allowed_domains": partner_info.allowed_domains
             }
             trace_data["timings"]["load_config_ms"] = (time.time() - config_start) * 1000
-            
+
+            # 2-0. client_info 구성 (채팅 로그에 환자 메타 정보 저장용)
+            patient_info = processed_data.get("patient_info", {})
+            trace_data["client_info"] = {
+                "patient_name": patient_info.get("name", ""),
+                "patient_gender": patient_info.get("gender", ""),
+                "patient_birth": patient_info.get("birth_date", ""),
+                "patient_contact": patient_info.get("contact", ""),
+                "hospital_name": processed_data.get("partner_hospital_name", ""),
+                "hospital_tel": processed_data.get("partner_hospital_tel", ""),
+            }
+
+            # 2-1. 파트너 데이터에 병원명이 있으면 자동 등록된 병원명 업데이트
+            partner_hospital_name = processed_data.get("partner_hospital_name")
+            if partner_hospital_name and hospital_id:
+                try:
+                    from .dynamic_config_service import DynamicConfigService
+                    await DynamicConfigService.update_hospital_name(
+                        partner_info.partner_id, hospital_id, partner_hospital_name
+                    )
+                except Exception:
+                    pass
+
             # 3. 세션 메타데이터에 파트너 정보 저장
             meta_start = time.time()
             await self._store_partner_session_metadata(
@@ -464,10 +486,24 @@ class PartnerRagChatService(WelnoRagChatService):
         # 건강 지표
         if "health_metrics" in partner_data:
             health_metrics = partner_data["health_metrics"]
-            context_parts.append("📊 건강 지표:")
-            for key, value in health_metrics.items():
-                if value:
-                    context_parts.append(f"  - {key}: {value}")
+            # 검진 데이터 부재 감지: 수치 필드가 전부 0이거나 비어있는지 체크
+            numeric_fields = ["height", "weight", "bmi", "systolic_bp", "diastolic_bp",
+                            "fasting_glucose", "total_cholesterol", "hemoglobin", "sgot_ast", "sgpt_alt"]
+            has_meaningful_data = any(
+                health_metrics.get(f) and health_metrics.get(f) not in (0, "0", "", None)
+                for f in numeric_fields
+            )
+            if not has_meaningful_data:
+                context_parts.append("⚠️ 이 환자의 검진 데이터가 수신되지 않았습니다. "
+                                   "일반론 대신 '검진 결과를 모두 불러오지 못했어요. 결과지를 검진기관에 요청해 보시면 좋겠어요 😊' 형태로 응답하세요.")
+            else:
+                context_parts.append("📊 건강 지표:")
+                for key, value in health_metrics.items():
+                    if value:
+                        context_parts.append(f"  - {key}: {value}")
+        else:
+            context_parts.append("⚠️ 이 환자의 검진 데이터가 수신되지 않았습니다. "
+                               "일반론 대신 '검진 결과를 모두 불러오지 못했어요. 결과지를 검진기관에 요청해 보시면 좋겠어요 😊' 형태로 응답하세요.")
         
         # 의료 이력
         if "medical_history" in partner_data:
@@ -580,7 +616,7 @@ class PartnerRagChatService(WelnoRagChatService):
         """개인화된 인사말 생성 (1문장)"""
         
         if not processed_data.get("has_data"):
-            return f"안녕하세요! {partner_info.partner_name} 검진 결과에 대해 무엇이든 물어보세요."
+            return f"안녕하세요! 😊 건강검진 결과에 대해 궁금한 점을 물어보세요."
             
         patient_info = processed_data.get("patient_info", {})
         name = patient_info.get("name", "고객")
@@ -594,14 +630,22 @@ class PartnerRagChatService(WelnoRagChatService):
         if sbp and sbp >= 140: concern_keyword = "혈압"
         elif bmi and bmi >= 25: concern_keyword = "체중 관리"
         
+        # 병원명 추출
+        hospital_name = partner_data.get("partner_hospital_name", "") or partner_info.partner_name or ""
+
         # Gemini에게 아주 짧은 인사말 생성 요청 (RAG 없이 데이터만으로)
         from .gemini_service import gemini_service, GeminiRequest
         prompt = f"""
-        당신은 건강 상담사 'Dr. Welno'입니다. 
+        당신은 '검진 결과지를 읽어 드리는 {hospital_name}의 에이전트'입니다.
         환자 {name}님의 {concern_keyword} 데이터를 방금 읽었습니다.
         사용자가 위젯을 클릭하고 싶게 만드는 매력적이고 친절한 첫 인사 1문장을 작성하세요.
-        
-        예: "안녕하세요 {name}님, 최근 검진에서 혈압이 조금 높게 나오셨네요. 제가 결과를 알기 쉽게 설명해 드릴까요?"
+
+        규칙:
+        - 반드시 '{hospital_name}'을 인사말에 포함하세요.
+        - '메디링스', 'MediLinx', 'Dr. Welno', '건강 상담가', '상담사', '전문가' 등 의료인 느낌 표현 금지.
+        - 이모지를 1개 사용하세요 (😊 등).
+
+        예: "안녕하세요 {name}님 😊 {hospital_name}에서 받으신 검진 결과를 알기 쉽게 읽어드릴게요!"
         """
         
         try:
@@ -616,7 +660,7 @@ class PartnerRagChatService(WelnoRagChatService):
                 return ' '.join(raw.split())
         except: pass
         
-        return f"안녕하세요 {name}님, {concern_keyword} 결과가 도착했습니다. 궁금한 점을 제가 바로 읽어드릴까요?"
+        return f"안녕하세요 {name}님 😊 {hospital_name} {concern_keyword} 결과가 도착했어요. 궁금한 점을 바로 읽어드릴게요!"
 
     async def _preload_rag_context_background(
         self, 
@@ -644,7 +688,7 @@ class PartnerRagChatService(WelnoRagChatService):
                 
                 # 3. Gemini Context Caching 수행
                 from .gemini_service import gemini_service
-                system_instruction = f"너는 Dr. Welno야. 아래 [Context]를 완벽히 숙지해.\n[Context]\n{partner_ctx}\n{medical_ctx}"
+                system_instruction = f"너는 검진 결과지를 읽어 드리는 에이전트야. 아래 [Context]를 완벽히 숙지해.\n[Context]\n{partner_ctx}\n{medical_ctx}"
                 
                 await gemini_service._get_or_create_cache(
                     system_prompt=system_instruction,

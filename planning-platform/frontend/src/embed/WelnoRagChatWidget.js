@@ -85,7 +85,8 @@ class WelnoRagChatWidget {
       messages: [],
       sessionId: null,
       suggestions: [],
-      isInitialized: false
+      isInitialized: false,
+      assistantMsgCount: 0
     };
 
     // DOM 요소들
@@ -101,7 +102,6 @@ class WelnoRagChatWidget {
     // 네임스페이스 접두사 (CSS 충돌 방지)
     this.cssPrefix = 'welno-rag-widget';
     
-    console.log('[WelnoRagChatWidget] 초기화 완료:', this.config);
   }
 
   /**
@@ -141,7 +141,6 @@ class WelnoRagChatWidget {
       }
       
       this.state.isInitialized = true;
-      console.log('[WelnoRagChatWidget] 초기화 완료');
       
     } catch (error) {
       console.warn('[WelnoRagChatWidget] 위젯 활성화 조건 미충족 (등록되지 않은 파트너/병원):', error.message);
@@ -170,8 +169,6 @@ class WelnoRagChatWidget {
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
-        console.log('[WelnoRagChatWidget] 서버 설정 로드 성공:', data);
-
         // 1. 테마 색상 덮어쓰기 (DB 설정이 최우선)
         if (data.theme && data.theme.primary_color) {
           this.config.buttonColor = data.theme.primary_color;
@@ -211,13 +208,16 @@ class WelnoRagChatWidget {
       return;
     }
 
-    // Noto Sans KR 폰트 로드 (없으면 주입)
+    // Noto Sans KR 폰트 로드 (파트너 CSP 차단 시 시스템 폰트로 자동 폴백)
     if (!document.getElementById('welno-noto-sans-kr')) {
-      const fontLink = document.createElement('link');
-      fontLink.id = 'welno-noto-sans-kr';
-      fontLink.rel = 'stylesheet';
-      fontLink.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap';
-      document.head.appendChild(fontLink);
+      try {
+        const fontLink = document.createElement('link');
+        fontLink.id = 'welno-noto-sans-kr';
+        fontLink.rel = 'stylesheet';
+        fontLink.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap';
+        fontLink.onerror = function() { /* CSP 차단 시 무시 — font-family 폴백 사용 */ };
+        document.head.appendChild(fontLink);
+      } catch (e) { /* CSP 차단 */ }
     }
 
     var themeName = (this.config.theme === 'navy' ? 'navy' : 'default');
@@ -556,6 +556,21 @@ class WelnoRagChatWidget {
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
       }
 
+      .${this.cssPrefix}-message-bubble ul,
+      .${this.cssPrefix}-message-bubble ol {
+        margin: 4px 0 !important;
+        padding-left: 20px !important;
+        list-style: disc !important;
+      }
+      .${this.cssPrefix}-message-bubble ol {
+        list-style: decimal !important;
+      }
+      .${this.cssPrefix}-message-bubble li {
+        margin: 2px 0 !important;
+        display: list-item !important;
+        line-height: 1.5 !important;
+      }
+
       .${this.cssPrefix}-message-footer {
         margin-top: 4px;
         padding: 0 4px;
@@ -776,26 +791,32 @@ class WelnoRagChatWidget {
         transform: rotate(180deg);
       }
       .${this.cssPrefix}-sources-list {
-        margin: 6px 0 0;
-        padding: 0;
-        display: none;
-        flex-direction: column;
-        gap: 4px;
+        margin: 6px 0 0 !important;
+        padding: 0 !important;
+        flex-direction: column !important;
+        gap: 4px !important;
       }
-      .${this.cssPrefix}-sources-list.is-open {
-        display: flex;
+      .${this.cssPrefix}-sources-list[data-open="false"] {
+        display: none !important;
+      }
+      .${this.cssPrefix}-sources-list[data-open="true"] {
+        display: flex !important;
       }
       .${this.cssPrefix}-source {
-        display: block;
-        font-size: 12px;
-        color: #555;
-        padding: 6px 8px;
-        background: rgba(0,0,0,0.04);
-        border-radius: 6px;
-        border-left: 2px solid ${primaryColor};
-        white-space: normal;
-        word-break: break-word;
-        line-height: 1.4;
+        display: block !important;
+        font-size: 12px !important;
+        color: #555 !important;
+        padding: 6px 8px !important;
+        background: rgba(0,0,0,0.04) !important;
+        border-radius: 6px !important;
+        border-left: 2px solid ${primaryColor} !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        line-height: 1.4 !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: auto !important;
+        overflow: visible !important;
       }
 
       /* 제안 질문 */
@@ -820,6 +841,17 @@ class WelnoRagChatWidget {
         background: ${primaryColor};
         color: white;
         border-color: ${primaryColor};
+      }
+
+      .${this.cssPrefix}-disclaimer {
+        text-align: center;
+        padding: 6px 12px;
+        margin: 4px 0 12px;
+        font-size: 11px;
+        color: #999;
+        background: #f5f5f5;
+        border-radius: 8px;
+        line-height: 1.5;
       }
     `;
 
@@ -1004,7 +1036,6 @@ class WelnoRagChatWidget {
       this.config.onOpen();
     }
 
-    console.log('[WelnoRagChatWidget] 채팅창 열림');
   }
 
   /**
@@ -1031,7 +1062,6 @@ class WelnoRagChatWidget {
       this.config.onClose();
     }
 
-    console.log('[WelnoRagChatWidget] 채팅창 닫힘');
   }
 
   /**
@@ -1044,14 +1074,14 @@ class WelnoRagChatWidget {
     try {
       // 사용자 메시지 추가
       this.addMessage('user', message);
-      
+
       // 입력창 초기화
       this.elements.input.value = '';
       this.elements.input.style.height = 'auto';
-      
+
       // 로딩 상태 시작
       this.setLoading(true);
-      
+
       // API 호출
       await this.callPartnerAPI(message);
       
@@ -1125,7 +1155,7 @@ class WelnoRagChatWidget {
       if (!line.startsWith('data: ')) return;
       try {
         const data = JSON.parse(line.slice(6));
-        
+
         if (data.answer) {
           assistantMessage += data.answer;
           if (!messageElement) {
@@ -1133,7 +1163,7 @@ class WelnoRagChatWidget {
           }
           this.updateMessageContent(messageElement, assistantMessage);
         }
-        
+
         if (data.done) {
           if (data.sources && data.sources.length > 0) {
             this.addSources(messageElement, data.sources);
@@ -1141,9 +1171,14 @@ class WelnoRagChatWidget {
           if (data.suggestions && data.suggestions.length > 0) {
             this.addSuggestions(messageElement, data.suggestions);
           }
+          // 면책 안내: 첫 응답 시 1회만
+          this.state.assistantMsgCount++;
+          if (this.state.assistantMsgCount === 1) {
+            this.addDisclaimer();
+          }
         }
       } catch (e) {
-        // 불완전한 JSON(스트리밍 중 잘린 줄)은 무시
+        console.error('[WelnoWidget] SSE 파싱 에러:', e.message, '| line:', line.substring(0, 200));
       }
     };
     
@@ -1170,17 +1205,52 @@ class WelnoRagChatWidget {
   }
 
   /**
-   * 채팅 말풍선용 간단 마크다운 렌더 (** → 볼드, 줄바꿈 → <br>). HTML 이스케이프 후 적용.
+   * 채팅 말풍선용 마크다운 렌더.
+   * 지원: **bold**, 줄바꿈, 리스트(* / - / 숫자.)
    */
   _renderMessageHtml(text) {
     if (text == null || text === '') return '';
-    const escaped = String(text)
+    var escaped = String(text)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;');
-    return escaped
-      .replace(/\n/g, '<br>')
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+    // bold 먼저 처리 (리스트 항목 내부에서도 적용)
+    escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+    var lines = escaped.split('\n');
+    var result = [];
+    var inUl = false;
+    var inOl = false;
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      var ulMatch = line.match(/^\s*[*\-]\s+(.+)$/);
+      var olMatch = !ulMatch ? line.match(/^\s*(\d+)[.)]\s+(.+)$/) : null;
+
+      if (ulMatch) {
+        if (inOl) { result.push('</ol>'); inOl = false; }
+        if (!inUl) { result.push('<ul>'); inUl = true; }
+        result.push('<li>' + ulMatch[1] + '</li>');
+      } else if (olMatch) {
+        if (inUl) { result.push('</ul>'); inUl = false; }
+        if (!inOl) { result.push('<ol>'); inOl = true; }
+        result.push('<li>' + olMatch[2] + '</li>');
+      } else {
+        if (inUl) { result.push('</ul>'); inUl = false; }
+        if (inOl) { result.push('</ol>'); inOl = false; }
+        // 빈 줄은 여백, 내용 있는 줄은 <br>
+        if (line.trim() === '') {
+          result.push('<br>');
+        } else {
+          result.push(line + '<br>');
+        }
+      }
+    }
+    if (inUl) result.push('</ul>');
+    if (inOl) result.push('</ol>');
+
+    return result.join('');
   }
 
   /**
@@ -1253,22 +1323,26 @@ class WelnoRagChatWidget {
    */
   addSources(messageElement, sources) {
     if (!sources || sources.length === 0) return;
+    if (!messageElement) return;
 
-    // 토글 버튼: footer-row 안에 시간 옆
-    const toggleBtn = document.createElement('button');
-    toggleBtn.type = 'button';
-    toggleBtn.className = `${this.cssPrefix}-sources-toggle`;
-    toggleBtn.innerHTML = `<span>참고 문헌</span><span class="${this.cssPrefix}-sources-chevron" aria-hidden="true">▼</span>`;
+    const prefix = this.cssPrefix;
 
-    // 소스 리스트: footer 안 (footer-row 아래)
+    // 토글 버튼
+    const toggleBtn = document.createElement('span');
+    toggleBtn.setAttribute('role', 'button');
+    toggleBtn.setAttribute('tabindex', '0');
+    toggleBtn.className = `${prefix}-sources-toggle`;
+    toggleBtn.innerHTML = `<span>참고 문헌</span><span class="${prefix}-sources-chevron" aria-hidden="true">▼</span>`;
+
+    // 소스 리스트 — 기본 열림
     const listWrap = document.createElement('div');
-    listWrap.className = `${this.cssPrefix}-sources-list`;
+    listWrap.className = `${prefix}-sources-list`;
+    listWrap.setAttribute('data-open', 'true');
+    toggleBtn.classList.add('is-open');
 
     sources.forEach(source => {
       const sourceEl = document.createElement('div');
-      sourceEl.className = `${this.cssPrefix}-source`;
-
-      // 출처 라벨 구성: [카테고리] 파일명 (p.페이지)
+      sourceEl.className = `${prefix}-source`;
       let label = '';
       if (source.category) {
         label += `[${source.category}] `;
@@ -1276,33 +1350,36 @@ class WelnoRagChatWidget {
         label += '[병원 자료] ';
       }
       label += source.title || '참고자료';
-      if (source.page) {
-        label += ` (p.${source.page})`;
-      }
-
+      if (source.page) label += ` (p.${source.page})`;
       sourceEl.textContent = label;
       sourceEl.title = (source.text || '').substring(0, 200);
       listWrap.appendChild(sourceEl);
     });
 
-    toggleBtn.addEventListener('click', (e) => {
+    // 토글 클릭: data-open 속성으로 제어 (CSS class 대신 — 파트너 CSS 충돌 방지)
+    toggleBtn.onclick = function(e) {
       e.preventDefault();
       e.stopPropagation();
+      var isOpen = listWrap.getAttribute('data-open') === 'true';
+      listWrap.setAttribute('data-open', isOpen ? 'false' : 'true');
       toggleBtn.classList.toggle('is-open');
-      listWrap.classList.toggle('is-open');
-    });
+      return false;
+    };
 
-    // footer-row에 토글 버튼 추가
-    const footerRow = messageElement.querySelector(`.${this.cssPrefix}-message-footer-row`);
-    const footer = messageElement.querySelector(`.${this.cssPrefix}-message-footer`);
-    if (footerRow) {
-      footerRow.appendChild(toggleBtn);
-    }
-    // footer에 리스트 추가 (footer-row 아래)
+    // footer-row에 토글, footer에 리스트 추가
+    const footerRow = messageElement.querySelector(`.${prefix}-message-footer-row`);
+    const footer = messageElement.querySelector(`.${prefix}-message-footer`);
+    if (footerRow) footerRow.appendChild(toggleBtn);
     if (footer) {
       footer.appendChild(listWrap);
     } else {
       messageElement.appendChild(listWrap);
+    }
+
+    // footer 너비를 말풍선 너비에 맞춤 (참고문헌 버튼이 풍선 오른쪽 끝에 위치)
+    const bubble = messageElement.querySelector(`.${prefix}-message-bubble`);
+    if (bubble && footer) {
+      footer.style.width = bubble.offsetWidth + 'px';
     }
   }
 
@@ -1328,6 +1405,18 @@ class WelnoRagChatWidget {
     
     messageElement.appendChild(suggestionsElement);
   }
+
+  /**
+   * 의료 면책 안내 삽입
+   */
+  addDisclaimer() {
+    const el = document.createElement('div');
+    el.className = `${this.cssPrefix}-disclaimer`;
+    el.textContent = '본 서비스는 참고용이며, 의학적 자문이나 진단을 대체하지 않습니다. 필요시 전문 의료진과 상담하세요.';
+    this.elements.messagesContainer.appendChild(el);
+    this.scrollToBottom();
+  }
+
 
   /**
    * 로딩 상태 설정
@@ -1445,7 +1534,6 @@ class WelnoRagChatWidget {
         // 백엔드에서 생성한 보안 세션 ID로 동기화 (캐시 활용의 핵심)
         if (data.session_id) {
           this.state.sessionId = data.session_id;
-          console.log('[WelnoRagChatWidget] 세션 동기화 완료:', this.state.sessionId);
         }
 
         if (data.greeting) {
@@ -1493,7 +1581,6 @@ class WelnoRagChatWidget {
     }
 
     this.state.isInitialized = false;
-    console.log('[WelnoRagChatWidget] 위젯 제거됨');
   }
 }
 
@@ -1507,9 +1594,4 @@ if (typeof module !== 'undefined' && module.exports) {
   define([], function() { return WelnoRagChatWidget; });
 } else {
   window.WelnoRagChatWidget = WelnoRagChatWidget;
-  if (typeof window !== 'undefined') {
-    console.log('[WelnoRagChatWidget] 전역 할당 직후 typeof window.WelnoRagChatWidget:', typeof window.WelnoRagChatWidget);
-  }
 }
-
-console.log('[WelnoRagChatWidget] 로드 완료');

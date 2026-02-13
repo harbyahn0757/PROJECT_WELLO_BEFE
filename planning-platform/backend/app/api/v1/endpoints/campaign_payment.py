@@ -224,7 +224,10 @@ async def init_payment(request: Request):
                             oid=oid,
                             uuid=uuid,
                             partner_id=partner_id,
-                            amount=payment_amount
+                            amount=payment_amount,
+                            user_name=user_name or '',
+                            user_phone=user_info.get('phone', '') if isinstance(user_info, dict) else '',
+                            hospital_name=partner_id
                         )
                         
                         await structured_logger.log_payment_event(payment_log)
@@ -499,9 +502,12 @@ async def _handle_payment_callback(
                             uuid=uuid,
                             amount=approved_amount,
                             branch_type="리포트생성",
-                            partner_id=order_data.get('partner_id')
+                            partner_id=order_data.get('partner_id'),
+                            user_name=order_data.get('user_name'),
+                            user_phone=(u_info.get('phone') or u_info.get('phone_number', '')) if isinstance(u_info, dict) else '',
+                            hospital_name=order_data.get('partner_id', ''),
                         )
-                        
+
                         await structured_logger.log_payment_event(payment_log)
                     except Exception as e:
                         logger.warning(f"⚠️ [결제성공] 슬랙 알림 실패: {e}")
@@ -543,14 +549,19 @@ async def _handle_payment_callback(
                         slack_service = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
                         structured_logger = get_structured_logger(slack_service)
                         
+                        _ud = order_data.get('user_data') if isinstance(order_data, dict) else None
+                        _ud = _ud if isinstance(_ud, dict) else {}
                         payment_log = PaymentLogBuilder.build_payment_success_log(
                             oid=p_oid,
                             uuid=uuid,
                             amount=approved_amount,
                             branch_type="틸코인증",
-                            partner_id=order_data.get('partner_id')
+                            partner_id=order_data.get('partner_id'),
+                            user_name=order_data.get('user_name'),
+                            user_phone=(_ud.get('phone') or _ud.get('phone_number', '')),
+                            hospital_name=order_data.get('partner_id', ''),
                         )
-                        
+
                         await structured_logger.log_payment_event(payment_log)
                     except Exception as e:
                         logger.warning(f"⚠️ [결제성공-틸코] 슬랙 알림 실패: {e}")

@@ -243,6 +243,39 @@ class DynamicConfigService:
         except Exception as e:
             logger.error(f"⚠️ [미등록 병원] 로그 기록 실패: {e}")
 
+    @staticmethod
+    async def update_hospital_name(partner_id: str, hospital_id: str, hospital_name: str):
+        """자동 등록된 병원의 이름을 파트너 데이터에서 추출한 실제 이름으로 업데이트"""
+        if not hospital_name or not hospital_id or hospital_id == '*':
+            return
+        try:
+            # 현재 이름이 해시 ID 그대로인 경우에만 업데이트 (수동 설정 보호)
+            result = await db_manager.execute_one("""
+                SELECT hospital_name FROM welno.tb_hospital_rag_config
+                WHERE partner_id = %s AND hospital_id = %s
+            """, (partner_id, hospital_id))
+            if result and result['hospital_name'] != hospital_name:
+                current_name = result['hospital_name']
+                # 자동 생성된 이름이면 파트너 데이터 기준으로 업데이트
+                is_auto_name = (
+                    current_name == hospital_id
+                    or len(current_name) >= 64
+                    or current_name.startswith('(미확인')
+                    or current_name.startswith('(병원코드')
+                )
+                if is_auto_name:
+                    await db_manager.execute_update("""
+                        UPDATE welno.tb_hospital_rag_config
+                        SET hospital_name = %s WHERE partner_id = %s AND hospital_id = %s
+                    """, (hospital_name, partner_id, hospital_id))
+                    await db_manager.execute_update("""
+                        UPDATE welno.welno_hospitals
+                        SET hospital_name = %s WHERE hospital_id = %s
+                    """, (hospital_name, hospital_id))
+                    logger.info(f"✅ [병원명 업데이트] {partner_id}/{hospital_id[:16]}... → {hospital_name}")
+        except Exception as e:
+            logger.warning(f"⚠️ [병원명 업데이트] 실패: {e}")
+
 
 # 전역 인스턴스
 dynamic_config = DynamicConfigService()

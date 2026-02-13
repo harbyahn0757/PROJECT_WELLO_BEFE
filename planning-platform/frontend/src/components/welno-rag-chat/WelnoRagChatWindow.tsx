@@ -229,92 +229,98 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
       let finalTriggerSurvey = false;
       let finalSuggestions: string[] = [];
       let hasReceivedAnswer = false;
+      let sseBuffer = ''; // SSE 버퍼: 청크 분할 시 불완전한 줄 보존
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      const processSSELine = (line: string) => {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data: ')) return;
+        try {
+          const data = JSON.parse(trimmed.slice(6));
 
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
+          if (data.answer) {
+            assistantContent += data.answer;
 
-        for (const line of lines) {
-          if (!line.trim() || !line.startsWith('data: ')) continue;
-          try {
-            const data = JSON.parse(line.slice(6));
-            
-            if (data.answer) {
-              assistantContent += data.answer;
-              
-              // 첫 답변이 올 때 버블 생성 및 로딩 숨김
-              if (!hasReceivedAnswer) {
-                setIsLoading(false); // 첫 답변이 올 때 로딩 숨김
-                hasReceivedAnswer = true;
-                // 첫 assistant 메시지 생성
-                setMessages(prev => [...prev, {
-                  role: 'assistant',
-                  content: assistantContent,
-                  timestamp: new Date().toISOString()
-                }]);
-              } else {
-                // 기존 메시지 업데이트
-                setMessages(prev => {
-                  const newMessages = [...prev];
-                  const lastIdx = newMessages.length - 1;
-                  if (newMessages[lastIdx].role === 'assistant') {
-                    newMessages[lastIdx] = {
-                      ...newMessages[lastIdx],
-                      content: assistantContent
-                    };
-                  }
-                  return newMessages;
-                });
-              }
-              
-              // 스크롤을 부드럽게 유지
-              setTimeout(() => {
-                if (messagesEndRef.current) {
-                  messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-                }
-              }, 50);
-            }
-
-            if (data.done) {
-              finalSources = data.sources || [];
-              finalTriggerSurvey = !!data.trigger_survey;
-              finalSuggestions = data.suggestions || [];
-              const suggestPNT = !!data.suggest_pnt;
-              
-              // 최종 메타데이터 업데이트 (sources만 즉시 업데이트)
+            // 첫 답변이 올 때 버블 생성 및 로딩 숨김
+            if (!hasReceivedAnswer) {
+              setIsLoading(false);
+              hasReceivedAnswer = true;
+              setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: assistantContent,
+                timestamp: new Date().toISOString()
+              }]);
+            } else {
               setMessages(prev => {
                 const newMessages = [...prev];
                 const lastIdx = newMessages.length - 1;
                 if (newMessages[lastIdx].role === 'assistant') {
                   newMessages[lastIdx] = {
                     ...newMessages[lastIdx],
-                    sources: finalSources
+                    content: assistantContent
                   };
                 }
                 return newMessages;
               });
-
-              // 인증 버블과 추가 질문은 타이핑 완료 후 처리하도록 pendingActions에 저장
-              setPendingActions({
-                suggestions: finalSuggestions,
-                needsAuth: hasHealthData === false && uuid !== 'guest'
-              });
-
-              // PNT 문진 시작 제안 (우선순위: PNT > 일반 문진)
-              if (suggestPNT && !showPNTPrompt) {
-                setShowPNTPrompt(true);
-                setShowSurveyPrompt(false); // PNT가 있으면 일반 문진 숨김
-              } else if (finalTriggerSurvey && !showSurveyPrompt && !showPNTPrompt) {
-                setShowSurveyPrompt(true);
-              }
             }
-          } catch (e) {
-            console.error('JSON 파싱 오류:', e, line);
+
+            setTimeout(() => {
+              if (messagesEndRef.current) {
+                messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+              }
+            }, 50);
           }
+
+          if (data.done) {
+            finalSources = data.sources || [];
+            finalTriggerSurvey = !!data.trigger_survey;
+            finalSuggestions = data.suggestions || [];
+            const suggestPNT = !!data.suggest_pnt;
+
+            setMessages(prev => {
+              const newMessages = [...prev];
+              const lastIdx = newMessages.length - 1;
+              if (newMessages[lastIdx].role === 'assistant') {
+                newMessages[lastIdx] = {
+                  ...newMessages[lastIdx],
+                  sources: finalSources
+                };
+              }
+              return newMessages;
+            });
+
+            setPendingActions({
+              suggestions: finalSuggestions,
+              needsAuth: hasHealthData === false && uuid !== 'guest'
+            });
+
+            if (suggestPNT && !showPNTPrompt) {
+              setShowPNTPrompt(true);
+              setShowSurveyPrompt(false);
+            } else if (finalTriggerSurvey && !showSurveyPrompt && !showPNTPrompt) {
+              setShowSurveyPrompt(true);
+            }
+          }
+        } catch (e) {
+          // 불완전한 JSON (스트리밍 중 잘린 줄)은 무시
         }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop() || ''; // 마지막 불완전한 줄은 버퍼에 보존
+
+        for (const line of lines) {
+          processSSELine(line);
+        }
+      }
+
+      // 스트림 종료 후 버퍼에 남은 데이터 처리
+      if (sseBuffer.trim()) {
+        processSSELine(sseBuffer);
       }
     } catch (error) {
       console.error('메시지 전송 실패:', error);

@@ -36,7 +36,7 @@ class InfraErrorLogBuilder:
         caller_frame = inspect.currentframe().f_back
         caller_info = f"{caller_frame.f_code.co_filename}:{caller_frame.f_lineno}"
         
-        return {
+        result = {
             "event_type": payment_data.get("event_type", "unknown"),
             "oid": payment_data.get("oid"),
             "uuid": payment_data.get("uuid"),
@@ -53,6 +53,14 @@ class InfraErrorLogBuilder:
                 "component": "payment_system"
             }
         }
+        # 환자 정보 전달
+        if payment_data.get("user_name"):
+            result["user_name"] = payment_data["user_name"]
+        if payment_data.get("user_phone"):
+            result["user_phone"] = payment_data["user_phone"]
+        if payment_data.get("hospital_name"):
+            result["hospital_name"] = payment_data["hospital_name"]
+        return result
     
     @staticmethod
     def build_report_log(report_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -182,22 +190,32 @@ class PaymentLogBuilder:
     """결제 전용 로그 빌더"""
     
     @staticmethod
-    def build_payment_start_log(oid: str, uuid: str, partner_id: Optional[str] = None, 
-                               amount: Optional[int] = None) -> Dict[str, Any]:
+    def build_payment_start_log(oid: str, uuid: str, partner_id: Optional[str] = None,
+                               amount: Optional[int] = None,
+                               user_name: Optional[str] = None,
+                               user_phone: Optional[str] = None,
+                               hospital_name: Optional[str] = None) -> Dict[str, Any]:
         """결제 시작 로그 생성"""
-        return InfraErrorLogBuilder.build_payment_log({
+        log_data = {
             "event_type": "start",
             "oid": oid,
             "uuid": uuid,
             "partner_id": partner_id,
             "amount": amount
-        })
-    
+        }
+        if user_name: log_data["user_name"] = user_name
+        if user_phone: log_data["user_phone"] = user_phone
+        if hospital_name: log_data["hospital_name"] = hospital_name
+        return InfraErrorLogBuilder.build_payment_log(log_data)
+
     @staticmethod
     def build_payment_success_log(oid: str, uuid: str, amount: int, branch_type: str,
-                                 partner_id: Optional[str] = None) -> Dict[str, Any]:
+                                 partner_id: Optional[str] = None,
+                                 user_name: Optional[str] = None,
+                                 user_phone: Optional[str] = None,
+                                 hospital_name: Optional[str] = None) -> Dict[str, Any]:
         """결제 성공 로그 생성"""
-        return InfraErrorLogBuilder.build_payment_log({
+        log_data = {
             "event_type": "success",
             "oid": oid,
             "uuid": uuid,
@@ -205,7 +223,11 @@ class PaymentLogBuilder:
             "amount": amount,
             "branch_type": branch_type,
             "status": "COMPLETED"
-        })
+        }
+        if user_name: log_data["user_name"] = user_name
+        if user_phone: log_data["user_phone"] = user_phone
+        if hospital_name: log_data["hospital_name"] = hospital_name
+        return InfraErrorLogBuilder.build_payment_log(log_data)
     
     @staticmethod
     def build_payment_failed_log(oid: str, uuid: str, error_message: str,
