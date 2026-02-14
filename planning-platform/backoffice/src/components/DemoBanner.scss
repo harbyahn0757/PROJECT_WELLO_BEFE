@@ -1,0 +1,86 @@
+@import '../styles/variables';
+
+// 토스트 알림
+.demo-toast {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  background: $gray-900;
+  color: $white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  font-size: $font-sm;
+  animation: demo-toast-in 0.3s ease-out;
+
+  &__text {
+    strong {
+      color: $accent-orange-light;
+      font-weight: $font-weight-bold;
+    }
+  }
+
+  &__close {
+    padding: 0;
+    border: none;
+    background: none;
+    color: $gray-400;
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+
+    &:hover {
+      color: $white;
+    }
+  }
+
+  // 만료 상태
+  &--expired {
+    background: $error;
+
+    .demo-toast__text strong {
+      color: $white;
+    }
+  }
+}
+
+// 남은 시간 뱃지
+.demo-badge {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 998;
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.65);
+  color: $white;
+  font-size: $font-xs;
+  font-weight: $font-weight-semibold;
+  border-radius: 20px;
+  pointer-events: none;
+
+  &--urgent {
+    background: $error;
+    animation: demo-pulse 1s ease-in-out infinite;
+  }
+}
+
+@keyframes demo-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes demo-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 1; }
+}
