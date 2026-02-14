@@ -878,7 +878,7 @@ class WelnoRagChatWidget {
     // 웰컴 버블 (말풍선)
     this.elements.welcomeBubble = document.createElement('div');
     this.elements.welcomeBubble.className = `${this.cssPrefix}-welcome-bubble`;
-    this.elements.welcomeBubble.innerHTML = `<div class="${this.cssPrefix}-welcome-bubble-text">분석 중...</div>`;
+    this.elements.welcomeBubble.innerHTML = `<div class="${this.cssPrefix}-welcome-bubble-text">검진 결과 확인하기 ✨</div>`;
     
     // 채팅 창
     this.elements.window = document.createElement('div');
@@ -1109,11 +1109,6 @@ class WelnoRagChatWidget {
       message: message,
       session_id: this.state.sessionId
     };
-
-    // 파트너 데이터가 있으면 포함
-    if (this.config.partnerData) {
-      requestData.health_data = this.config.partnerData;
-    }
 
     // AbortController로 타임아웃 설정 (30초)
     const controller = new AbortController();

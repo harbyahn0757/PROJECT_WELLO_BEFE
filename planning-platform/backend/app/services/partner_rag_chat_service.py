@@ -631,21 +631,29 @@ class PartnerRagChatService(WelnoRagChatService):
         elif bmi and bmi >= 25: concern_keyword = "체중 관리"
         
         # 병원명 추출
-        hospital_name = partner_data.get("partner_hospital_name", "") or partner_info.partner_name or ""
+        hospital_name = processed_data.get("partner_hospital_name", "") or partner_info.partner_name or ""
 
-        # Gemini에게 아주 짧은 인사말 생성 요청 (RAG 없이 데이터만으로)
+        # Gemini에게 호기심을 유발하는 후킹 인사말 생성 요청
         from .gemini_service import gemini_service, GeminiRequest
         prompt = f"""
-        당신은 '검진 결과지를 읽어 드리는 {hospital_name}의 에이전트'입니다.
-        환자 {name}님의 {concern_keyword} 데이터를 방금 읽었습니다.
-        사용자가 위젯을 클릭하고 싶게 만드는 매력적이고 친절한 첫 인사 1문장을 작성하세요.
+        당신은 '{hospital_name}'에서 검진 결과지를 읽어 드리는 에이전트입니다.
+        환자 {name}님의 {concern_keyword} 데이터를 분석했습니다.
+
+        사용자가 "어? 뭔데?" 하고 궁금해서 반드시 클릭하게 만드는 후킹 메시지 1문장을 작성하세요.
+        이 메시지는 채팅 아이콘 위 작은 말풍선에 표시됩니다.
 
         규칙:
-        - 반드시 '{hospital_name}'을 인사말에 포함하세요.
-        - '메디링스', 'MediLinx', 'Dr. Welno', '건강 상담가', '상담사', '전문가' 등 의료인 느낌 표현 금지.
-        - 이모지를 1개 사용하세요 (😊 등).
+        - 반드시 '{hospital_name}'을 포함하세요.
+        - 호기심과 궁금증을 유발하는 톤 (예: "눈에 띄는 부분이 있어요", "한번 확인해 보실래요?")
+        - 의학적 진단·조언·경고 절대 금지. 의료인 느낌 표현 금지 ('상담사', '전문가', 'Dr.' 등).
+        - 가볍고 친근한 말투, 반말X 존댓말O.
+        - 이모지 1개 사용.
+        - 25자~45자 이내로 짧게.
 
-        예: "안녕하세요 {name}님 😊 {hospital_name}에서 받으신 검진 결과를 알기 쉽게 읽어드릴게요!"
+        좋은 예시:
+        - "{name}님, {hospital_name} 검진 결과에서 눈에 띄는 부분이 있어요 👀"
+        - "{name}님! {hospital_name} 결과 읽어봤는데, 한번 보실래요? 😊"
+        - "{hospital_name} 검진 결과 정리됐어요, {name}님 확인해 보세요 ✨"
         """
         
         try:
@@ -660,7 +668,7 @@ class PartnerRagChatService(WelnoRagChatService):
                 return ' '.join(raw.split())
         except: pass
         
-        return f"안녕하세요 {name}님 😊 {hospital_name} {concern_keyword} 결과가 도착했어요. 궁금한 점을 바로 읽어드릴게요!"
+        return f"{name}님, {hospital_name} {concern_keyword} 결과에서 눈에 띄는 부분이 있어요 👀"
 
     async def _preload_rag_context_background(
         self, 
