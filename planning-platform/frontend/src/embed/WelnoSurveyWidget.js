@@ -196,7 +196,8 @@ class WelnoSurveyWidget {
   border-radius: 20px;\
   width: 420px; max-width: 92vw;\
   max-height: 90vh;\
-  overflow-y: auto;\
+  display: flex; flex-direction: column;\
+  overflow: hidden;\
   box-shadow: 0 20px 60px rgba(0,0,0,0.2);\
   animation: ' + p + '-slideUp 0.3s ease-out;\
 }\
@@ -217,7 +218,7 @@ class WelnoSurveyWidget {
   border-radius: 4px; line-height: 1;\
 }\
 .' + p + '-close:hover { background: rgba(255,255,255,0.15); }\
-.' + p + '-body { padding: 24px; }\
+.' + p + '-body { padding: 24px; overflow-y: auto; flex: 1; -webkit-overflow-scrolling: touch; }\
 .' + p + '-field { margin-bottom: 20px; }\
 .' + p + '-field-label {\
   font-size: 14px; font-weight: 600; color: #333;\
@@ -412,7 +413,6 @@ class WelnoSurveyWidget {
     border-radius: 16px 16px 0 0;\
     position: fixed; bottom: 0; left: 0; right: 0;\
     max-height: 88vh;\
-    -webkit-overflow-scrolling: touch;\
   }\
   .' + p + '-header {\
     border-radius: 16px 16px 0 0;\
