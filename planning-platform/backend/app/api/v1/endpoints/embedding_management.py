@@ -61,6 +61,8 @@ class HospitalEmbeddingItem(BaseModel):
     has_embedding: bool = False
     has_uploads: bool = False
     document_count: int = 0
+    chat_count_today: int = 0
+    survey_count_today: int = 0
 
 
 class DocumentItem(BaseModel):
@@ -141,6 +143,28 @@ async def list_partners():
         raise HTTPException(status_code=500, detail=f"파트너 목록 조회 실패: {str(e)}")
 
 
+@router.get("/summary-counts")
+async def get_summary_counts():
+    """사이드바 뱃지용 — 오늘 신규 상담 건수 + 설문 건수"""
+    try:
+        chat_row = await db_manager.execute_one(
+            "SELECT COUNT(*) as cnt FROM welno.tb_partner_rag_chat_log WHERE created_at::date = CURRENT_DATE"
+        )
+        survey_row = await db_manager.execute_one("""
+            SELECT
+                COALESCE((SELECT COUNT(*) FROM welno.tb_hospital_survey_responses WHERE created_at::date = CURRENT_DATE), 0)
+                + COALESCE((SELECT COUNT(*) FROM welno.tb_survey_responses_dynamic WHERE created_at::date = CURRENT_DATE), 0)
+            as cnt
+        """)
+        return {
+            "new_chats": chat_row["cnt"] if chat_row else 0,
+            "new_surveys": survey_row["cnt"] if survey_row else 0,
+        }
+    except Exception as e:
+        logger.warning(f"summary-counts 조회 실패: {e}")
+        return {"new_chats": 0, "new_surveys": 0}
+
+
 @router.get("/hierarchy", response_model=List[PartnerHierarchy])
 async def get_partner_hospital_hierarchy():
     """파트너-병원 계층 구조 조회 (Tree 형태)"""
@@ -157,6 +181,7 @@ async def get_partner_hospital_hierarchy():
         base = Path(LOCAL_FAISS_BY_HOSPITAL)
 
         for partner in partners:
+            pid = partner['partner_id']
             hospitals_query = """
                 SELECT
                     rc.partner_id,
@@ -170,7 +195,29 @@ async def get_partner_hospital_hierarchy():
                 WHERE rc.partner_id = %s AND rc.hospital_id != '*' AND rc.is_active = true
                 ORDER BY hospital_name
             """
-            hospitals_data = await db_manager.execute_query(hospitals_query, (partner['partner_id'],))
+            hospitals_data = await db_manager.execute_query(hospitals_query, (pid,))
+
+            # 오늘 병원별 채팅/설문 건수 일괄 조회
+            chat_counts = {}
+            survey_counts = {}
+            try:
+                chat_rows = await db_manager.execute_query(
+                    "SELECT hospital_id, COUNT(*) as cnt FROM welno.tb_partner_rag_chat_log WHERE partner_id = %s AND created_at::date = CURRENT_DATE GROUP BY hospital_id",
+                    (pid,)
+                )
+                chat_counts = {r['hospital_id']: r['cnt'] for r in chat_rows}
+
+                survey_rows = await db_manager.execute_query(
+                    """SELECT hospital_id, COUNT(*) as cnt FROM (
+                        SELECT hospital_id FROM welno.tb_hospital_survey_responses WHERE partner_id = %s AND created_at::date = CURRENT_DATE
+                        UNION ALL
+                        SELECT hospital_id FROM welno.tb_survey_responses_dynamic WHERE partner_id = %s AND created_at::date = CURRENT_DATE
+                    ) t GROUP BY hospital_id""",
+                    (pid, pid)
+                )
+                survey_counts = {r['hospital_id']: r['cnt'] for r in survey_rows}
+            except Exception:
+                pass
 
             hospitals = []
             for h in hospitals_data:
@@ -189,6 +236,8 @@ async def get_partner_hospital_hierarchy():
                     has_embedding=has_index,
                     has_uploads=has_uploads,
                     document_count=count,
+                    chat_count_today=chat_counts.get(hid, 0),
+                    survey_count_today=survey_counts.get(hid, 0),
                 ))
 
             result.append(PartnerHierarchy(
@@ -412,7 +461,10 @@ async def export_chats_excel(partner_id: Optional[str] = None, limit: int = 500)
                     COALESCE(l.initial_data->'health_metrics'->>'checkup_date', '') as checkup_date,
                     COALESCE(h.hospital_name, '') as hospital_name,
                     t.interest_tags, t.risk_tags, t.sentiment,
-                    t.conversation_summary, t.data_quality_score
+                    t.conversation_summary, t.data_quality_score,
+                    t.risk_level, t.key_concerns, t.follow_up_needed,
+                    t.counselor_recommendations, t.keyword_tags,
+                    t.conversation_depth, t.engagement_score, t.action_intent, t.nutrition_tags
                 FROM welno.tb_partner_rag_chat_log l
                 LEFT JOIN welno.tb_hospital_rag_config h ON l.hospital_id = h.hospital_id AND l.partner_id = h.partner_id
                 LEFT JOIN welno.tb_chat_session_tags t ON l.session_id = t.session_id AND l.partner_id = t.partner_id
@@ -432,7 +484,10 @@ async def export_chats_excel(partner_id: Optional[str] = None, limit: int = 500)
                     COALESCE(l.initial_data->'health_metrics'->>'checkup_date', '') as checkup_date,
                     COALESCE(h.hospital_name, '') as hospital_name,
                     t.interest_tags, t.risk_tags, t.sentiment,
-                    t.conversation_summary, t.data_quality_score
+                    t.conversation_summary, t.data_quality_score,
+                    t.risk_level, t.key_concerns, t.follow_up_needed,
+                    t.counselor_recommendations, t.keyword_tags,
+                    t.conversation_depth, t.engagement_score, t.action_intent, t.nutrition_tags
                 FROM welno.tb_partner_rag_chat_log l
                 LEFT JOIN welno.tb_hospital_rag_config h ON l.hospital_id = h.hospital_id AND l.partner_id = h.partner_id
                 LEFT JOIN welno.tb_chat_session_tags t ON l.session_id = t.session_id AND l.partner_id = t.partner_id
@@ -448,17 +503,76 @@ async def export_chats_excel(partner_id: Optional[str] = None, limit: int = 500)
 
         ws = wb.active
         ws.title = "상담 데이터"
-        headers = ["세션ID", "파트너", "병원", "환자명", "성별", "연락처", "검진일",
-                   "메시지수", "관심사 태그", "위험 태그", "감정", "요약", "데이터품질",
-                   "생성일", "검진 데이터(JSON)", "대화 내역(JSON)"]
+        headers = [
+            "세션ID", "파트너", "병원", "환자명", "성별", "연락처", "검진일",
+            "메시지수", "관심사 태그", "위험 태그", "위험도", "감정",
+            "대화깊이", "참여도점수", "행동의향", "식단·영양 관심",
+            "핵심 우려사항", "후속조치 필요", "상담사 권고사항",
+            "요약", "키워드 태그", "데이터품질",
+            "생성일", "검진 데이터(JSON)", "대화 내역(JSON)"
+        ]
         for col, h in enumerate(headers, 1):
             cell = ws.cell(row=1, column=col, value=h)
             cell.font = header_font
             cell.fill = header_fill
 
         for row_idx, r in enumerate(rows, 2):
-            interest = ", ".join(r.get("interest_tags") or []) if r.get("interest_tags") else ""
+            # interest_tags: [{topic, intensity}] → "혈압(high), 당뇨(medium)" 형식
+            raw_interest = r.get("interest_tags") or []
+            if isinstance(raw_interest, str):
+                try:
+                    raw_interest = json.loads(raw_interest)
+                except:
+                    raw_interest = []
+            if isinstance(raw_interest, list):
+                interest_parts = []
+                for item in raw_interest:
+                    if isinstance(item, dict) and "topic" in item:
+                        intensity = item.get("intensity", "medium")
+                        interest_parts.append(f"{item['topic']}({intensity})")
+                    elif isinstance(item, str):
+                        interest_parts.append(item)
+                interest = ", ".join(interest_parts)
+            else:
+                interest = ""
+
             risk = ", ".join(r.get("risk_tags") or []) if r.get("risk_tags") else ""
+
+            # key_concerns
+            raw_concerns = r.get("key_concerns") or []
+            if isinstance(raw_concerns, str):
+                try:
+                    raw_concerns = json.loads(raw_concerns)
+                except:
+                    raw_concerns = []
+            concerns_str = ", ".join(raw_concerns) if isinstance(raw_concerns, list) else ""
+
+            # counselor_recommendations
+            raw_recs = r.get("counselor_recommendations") or []
+            if isinstance(raw_recs, str):
+                try:
+                    raw_recs = json.loads(raw_recs)
+                except:
+                    raw_recs = []
+            recs_str = ", ".join(raw_recs) if isinstance(raw_recs, list) else ""
+
+            # keyword_tags
+            raw_kw = r.get("keyword_tags") or []
+            if isinstance(raw_kw, str):
+                try:
+                    raw_kw = json.loads(raw_kw)
+                except:
+                    raw_kw = []
+            kw_str = ", ".join(raw_kw) if isinstance(raw_kw, list) else ""
+
+            # nutrition_tags
+            raw_nutrition = r.get("nutrition_tags") or []
+            if isinstance(raw_nutrition, str):
+                try:
+                    raw_nutrition = json.loads(raw_nutrition)
+                except:
+                    raw_nutrition = []
+            nutrition_str = ", ".join(raw_nutrition) if isinstance(raw_nutrition, list) else ""
 
             # 검진 데이터 JSON
             initial = r.get("initial_data") or {}
@@ -482,23 +596,33 @@ async def export_chats_excel(partner_id: Optional[str] = None, limit: int = 500)
             if len(conv_json) > 32000:
                 conv_json = conv_json[:32000] + "...(truncated)"
 
-            ws.cell(row=row_idx, column=1, value=r.get("session_id", ""))
-            ws.cell(row=row_idx, column=2, value=r.get("partner_id", ""))
-            ws.cell(row=row_idx, column=3, value=r.get("hospital_name", ""))
-            ws.cell(row=row_idx, column=4, value=r.get("user_name", ""))
-            ws.cell(row=row_idx, column=5, value=r.get("user_gender", ""))
-            ws.cell(row=row_idx, column=6, value=r.get("user_phone", ""))
-            ws.cell(row=row_idx, column=7, value=r.get("checkup_date", ""))
-            ws.cell(row=row_idx, column=8, value=r.get("message_count", 0))
-            ws.cell(row=row_idx, column=9, value=interest)
-            ws.cell(row=row_idx, column=10, value=risk)
-            ws.cell(row=row_idx, column=11, value=r.get("sentiment", ""))
-            ws.cell(row=row_idx, column=12, value=r.get("conversation_summary", ""))
-            ws.cell(row=row_idx, column=13, value=r.get("data_quality_score") or 0)
-            ws.cell(row=row_idx, column=14, value=str(r.get("created_at", "")))
-            cell_metrics = ws.cell(row=row_idx, column=15, value=metrics_json)
+            col = 1
+            ws.cell(row=row_idx, column=col, value=r.get("session_id", "")); col += 1
+            ws.cell(row=row_idx, column=col, value=r.get("partner_id", "")); col += 1
+            ws.cell(row=row_idx, column=col, value=r.get("hospital_name", "")); col += 1
+            ws.cell(row=row_idx, column=col, value=r.get("user_name", "")); col += 1
+            ws.cell(row=row_idx, column=col, value=r.get("user_gender", "")); col += 1
+            ws.cell(row=row_idx, column=col, value=r.get("user_phone", "")); col += 1
+            ws.cell(row=row_idx, column=col, value=r.get("checkup_date", "")); col += 1
+            ws.cell(row=row_idx, column=col, value=r.get("message_count", 0)); col += 1
+            ws.cell(row=row_idx, column=col, value=interest); col += 1
+            ws.cell(row=row_idx, column=col, value=risk); col += 1
+            ws.cell(row=row_idx, column=col, value=r.get("risk_level", "")); col += 1
+            ws.cell(row=row_idx, column=col, value=r.get("sentiment", "")); col += 1
+            ws.cell(row=row_idx, column=col, value=r.get("conversation_depth", "")); col += 1
+            ws.cell(row=row_idx, column=col, value=r.get("engagement_score") or 0); col += 1
+            ws.cell(row=row_idx, column=col, value=r.get("action_intent", "")); col += 1
+            ws.cell(row=row_idx, column=col, value=nutrition_str); col += 1
+            ws.cell(row=row_idx, column=col, value=concerns_str); col += 1
+            ws.cell(row=row_idx, column=col, value="Y" if r.get("follow_up_needed") else "N"); col += 1
+            ws.cell(row=row_idx, column=col, value=recs_str); col += 1
+            ws.cell(row=row_idx, column=col, value=r.get("conversation_summary", "")); col += 1
+            ws.cell(row=row_idx, column=col, value=kw_str); col += 1
+            ws.cell(row=row_idx, column=col, value=r.get("data_quality_score") or 0); col += 1
+            ws.cell(row=row_idx, column=col, value=str(r.get("created_at", ""))); col += 1
+            cell_metrics = ws.cell(row=row_idx, column=col, value=metrics_json); col += 1
             cell_metrics.alignment = wrap_align
-            cell_conv = ws.cell(row=row_idx, column=16, value=conv_json)
+            cell_conv = ws.cell(row=row_idx, column=col, value=conv_json)
             cell_conv.alignment = wrap_align
 
         # 3. 버퍼에 저장 후 반환
@@ -539,7 +663,13 @@ async def get_chat_detail(session_id: str):
                 t.sentiment,
                 t.conversation_summary,
                 t.data_quality_score,
-                t.has_discrepancy
+                t.has_discrepancy,
+                t.risk_level,
+                t.key_concerns,
+                t.follow_up_needed,
+                t.tagging_model,
+                t.tagging_version,
+                t.counselor_recommendations
             FROM welno.tb_partner_rag_chat_log l
             LEFT JOIN welno.tb_chat_session_tags t
                 ON l.session_id = t.session_id AND l.partner_id = t.partner_id
@@ -553,6 +683,45 @@ async def get_chat_detail(session_id: str):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"대화 상세 조회 실패: {str(e)}")
+
+
+# ─── 재태깅 API ──────────────────────────────────────────────────
+
+class RetagRequest(BaseModel):
+    hospital_id: Optional[str] = None
+    force: bool = False
+
+@router.post("/retag-sessions")
+async def retag_sessions(body: RetagRequest = Body(...)):
+    """기존 세션 일괄 재태깅 (LLM 기반). force=true면 이미 LLM 태깅된 것도 재처리."""
+    try:
+        from ....services.chat_tagging_service import retag_all_sessions
+        result = await retag_all_sessions(
+            hospital_id=body.hospital_id,
+            force=body.force,
+        )
+        return {"success": True, **result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"재태깅 실패: {str(e)}")
+
+@router.post("/chats/{session_id}/retag")
+async def retag_single_session(session_id: str):
+    """단일 세션 재태깅 (LLM 기반)"""
+    try:
+        from ....services.chat_tagging_service import tag_chat_session
+        # 세션의 partner_id 조회
+        query = "SELECT partner_id FROM welno.tb_partner_rag_chat_log WHERE session_id = %s"
+        row = await db_manager.execute_one(query, (session_id,))
+        if not row:
+            raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+        result = await tag_chat_session(session_id=session_id, partner_id=row["partner_id"])
+        if result:
+            return {"success": True, "session_id": session_id, "tagging_model": result.get("tagging_model")}
+        raise HTTPException(status_code=500, detail="태깅 결과 없음")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"재태깅 실패: {str(e)}")
 
 
 # ─── 병원 목록 API ────────────────────────────────────────────────

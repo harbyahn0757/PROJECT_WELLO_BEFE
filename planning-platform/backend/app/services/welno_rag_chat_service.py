@@ -21,6 +21,57 @@ from ..core.database import db_manager
 logger = logging.getLogger(__name__)
 
 
+async def _background_tag_session(
+    session_id: str,
+    partner_id: str,
+    uuid: str,
+    hospital_id: str,
+    trace_data: Optional[Dict[str, Any]],
+):
+    """백그라운드에서 세션 태깅을 수행합니다. DB에서 대화를 로드하여 LLM 분석."""
+    try:
+        from .chat_tagging_service import tag_chat_session
+
+        tag_health_metrics = {}
+        if trace_data:
+            pd = trace_data.get("processed_data", {})
+            if isinstance(pd, dict):
+                tag_health_metrics = pd.get("health_metrics", {})
+
+        result = await tag_chat_session(
+            session_id=session_id,
+            partner_id=partner_id,
+            health_metrics=tag_health_metrics,
+            has_discrepancy=False,
+        )
+        if result is None:
+            logger.error(
+                f"[태깅] 태깅 결과 None 반환: session={session_id}, "
+                f"partner={partner_id}, hospital={hospital_id}"
+            )
+    except Exception as e:
+        error_type = type(e).__name__
+        logger.error(
+            f"[태깅] 백그라운드 태깅 실패: session={session_id}, "
+            f"partner={partner_id}, hospital={hospital_id}, "
+            f"error_type={error_type}, error={e}"
+        )
+        # Slack 알림 (설정된 경우)
+        try:
+            if settings.slack_enabled and settings.slack_webhook_url:
+                from .slack_service import get_slack_service
+                slack = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
+                await slack.send_tagging_alert({
+                    "session_id": session_id,
+                    "partner_id": partner_id,
+                    "hospital_id": hospital_id,
+                    "error_type": error_type,
+                    "error_message": str(e),
+                })
+        except Exception as slack_err:
+            logger.warning(f"[태깅] Slack 알림 전송 실패: {slack_err}")
+
+
 class WelnoRagChatService:
     """RAG 기반 채팅 서비스"""
     
@@ -829,26 +880,17 @@ class WelnoRagChatService:
                 'session_id': session_id,
                 'message_count': message_count
             }
-            yield f"data: {json.dumps(done_data, ensure_ascii=False)}\n\n"
 
-            # 6. 비동기 태깅 (응답 완료 후)
+            # 6. 백그라운드 태깅 (done yield 전에 create_task로 실행)
             try:
-                from .chat_tagging_service import tag_chat_session
-                all_messages = self.chat_manager.get_history(uuid, hospital_id)
-                tag_health_metrics = {}
-                if trace_data:
-                    pd = trace_data.get("processed_data", {})
-                    if isinstance(pd, dict):
-                        tag_health_metrics = pd.get("health_metrics", {})
-                await tag_chat_session(
-                    session_id=session_id,
-                    partner_id=partner_id,
-                    messages=all_messages,
-                    health_metrics=tag_health_metrics,
-                    has_discrepancy=had_rag_discrepancy if 'had_rag_discrepancy' in locals() else False,
-                )
+                import asyncio
+                asyncio.create_task(_background_tag_session(
+                    session_id, partner_id, uuid, hospital_id, trace_data
+                ))
             except Exception as tag_err:
-                logger.warning(f"⚠️ [태깅] 비동기 태깅 실패: {tag_err}")
+                logger.warning(f"[태깅] 백그라운드 태깅 시작 실패: {tag_err}")
+
+            yield f"data: {json.dumps(done_data, ensure_ascii=False)}\n\n"
 
         except Exception as e:
             logger.error(f"❌ [RAG 채팅 서비스] 스트리밍 실패: {str(e)}")

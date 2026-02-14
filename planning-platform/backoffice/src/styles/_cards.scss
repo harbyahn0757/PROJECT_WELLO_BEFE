@@ -1,0 +1,36 @@
+@import 'variables';
+
+.card {
+  background: $white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: $shadow-sm;
+
+  &--stat {
+    text-align: center;
+    min-width: 120px;
+
+    &-total {
+      border-left: 4px solid $brand-brown;
+      text-align: left;
+    }
+  }
+
+  &--chart {
+    padding: 18px 20px;
+
+    &-wide {
+      grid-column: 1 / -1;
+    }
+
+    &-full {
+      width: 100%;
+    }
+  }
+
+  &--funnel {
+    background: linear-gradient(135deg, $white 60%, rgba(237, 137, 54, 0.06));
+    border-left: 4px solid $accent-orange;
+    padding: 18px 20px;
+  }
+}

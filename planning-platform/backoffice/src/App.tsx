@@ -1,20 +1,50 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import PartnerOfficeLayout from './layouts/PartnerOfficeLayout';
+import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
 import EmbeddingPage from './pages/EmbeddingPage';
 import SurveyPage from './pages/SurveyPage';
 import './App.scss';
 
+/** /backoffice 인덱스: api_key 있으면 embedding, 없으면 dashboard */
+const BackofficeIndex: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const target = searchParams.has('api_key') ? 'embedding' : 'dashboard';
+  return <Navigate to={`${target}?${searchParams.toString()}`} replace />;
+};
+
 const App: React.FC = () => {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<EmbeddingPage />} />
-        <Route path="/backoffice" element={<EmbeddingPage />} />
-        <Route path="/backoffice/embedding" element={<EmbeddingPage />} />
-        <Route path="/backoffice/survey" element={<SurveyPage />} />
-        <Route path="/embedding" element={<EmbeddingPage />} />
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* 로그인 */}
+          <Route path="/backoffice/login" element={<LoginPage />} />
+
+          {/* 파트너오피스 (인증 필요 / api_key 있으면 데모 모드) */}
+          <Route
+            path="/backoffice"
+            element={
+              <ProtectedRoute>
+                <PartnerOfficeLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<BackofficeIndex />} />
+            <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="embedding" element={<EmbeddingPage />} />
+            <Route path="survey" element={<SurveyPage />} />
+          </Route>
+
+          {/* 기본 리다이렉트 */}
+          <Route path="/" element={<Navigate to="/backoffice/login" replace />} />
+          <Route path="*" element={<Navigate to="/backoffice/login" replace />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 };
 

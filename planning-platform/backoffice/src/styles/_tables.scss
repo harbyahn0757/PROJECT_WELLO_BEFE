@@ -1,0 +1,33 @@
+@import 'variables';
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+
+  th {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 2px solid $gray-200;
+    color: $gray-600;
+    font-weight: 600;
+    white-space: nowrap;
+    font-size: $font-xs;
+  }
+
+  td {
+    padding: 8px;
+    border-bottom: 1px solid $gray-100;
+    white-space: nowrap;
+  }
+
+  tr:hover td {
+    background: $gray-50;
+  }
+
+  &--sticky-header th {
+    position: sticky;
+    top: 0;
+    background: $gray-50;
+  }
+}

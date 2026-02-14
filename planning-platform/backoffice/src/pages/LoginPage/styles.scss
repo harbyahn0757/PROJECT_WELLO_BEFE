@@ -1,0 +1,91 @@
+@import '../../styles/variables';
+
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: $gray-100;
+  font-family: $font-family-base;
+
+  &__card {
+    width: 380px;
+    padding: 40px 36px;
+    background: $white;
+    border-radius: 16px;
+    box-shadow: $shadow-md;
+  }
+
+  &__title {
+    margin: 0 0 4px;
+    font-size: 1.5rem;
+    font-weight: $font-weight-bold;
+    color: $brand-brown;
+    text-align: center;
+  }
+
+  &__subtitle {
+    margin: 0 0 28px;
+    font-size: $font-sm;
+    color: $gray-600;
+    text-align: center;
+  }
+
+  &__error {
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: $border-radius-md;
+    background: rgba(245, 101, 101, 0.1);
+    color: $error;
+    font-size: $font-sm;
+  }
+
+  &__label {
+    display: block;
+    margin-bottom: 16px;
+    font-size: $font-sm;
+    font-weight: $font-weight-semibold;
+    color: $gray-700;
+  }
+
+  &__input {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 10px 14px;
+    border: 1px solid $gray-300;
+    border-radius: $border-radius-md;
+    font-size: $font-base;
+    outline: none;
+    transition: border-color 0.15s;
+
+    &:focus {
+      border-color: $brand-brown;
+      box-shadow: 0 0 0 3px $brand-brown-light;
+    }
+  }
+
+  &__btn {
+    display: block;
+    width: 100%;
+    margin-top: 24px;
+    padding: 12px;
+    border: none;
+    border-radius: $border-radius-md;
+    background: $brand-brown;
+    color: $white;
+    font-size: $font-base;
+    font-weight: $font-weight-semibold;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover:not(:disabled) {
+      background: $brand-brown-hover;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}

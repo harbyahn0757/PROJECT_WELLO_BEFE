@@ -120,6 +120,7 @@ class Settings(BaseSettings):
     google_gemini_api_key: str = Field(default="dev-gemini-key", env="GOOGLE_GEMINI_API_KEY")
     google_gemini_fast_model: str = Field(default="gemini-3-flash-preview", env="GOOGLE_GEMINI_FAST_MODEL")  # STEP 1용 빠른 모델
     google_gemini_model: str = Field(default="gemini-3-flash-preview", env="GOOGLE_GEMINI_MODEL")  # STEP 2용 강력한 모델
+    google_gemini_lite_model: str = Field(default="gemini-2.0-flash-lite", env="GOOGLE_GEMINI_LITE_MODEL")  # 태깅용 경량 모델
     
     # Perplexity 설정
     perplexity_api_key: str = Field(default="dev-perplexity-key", env="PERPLEXITY_API_KEY")
@@ -131,6 +132,12 @@ class Settings(BaseSettings):
     
     # WELNO 기본 설정 (동적 조회로 대체 예정)
     welno_default_hospital_id: str = Field(default="PEERNINE", env="WELNO_DEFAULT_HOSPITAL_ID")  # 레거시 호환용, 실제로는 dynamic_config_service 사용
+
+    # mediArc ES 서비스 (사용자 여정 분석)
+    mediarc_es_url: str = Field(default="http://localhost:8001", env="MEDIARC_ES_URL")
+
+    # Elasticsearch 직접 접근 (유입 퍼널 분석)
+    elasticsearch_url: str = Field(default="http://localhost:9200", env="ELASTICSEARCH_URL")
 
     # Slack 설정
     slack_webhook_url: Optional[str] = Field(None, env="SLACK_WEBHOOK_URL")

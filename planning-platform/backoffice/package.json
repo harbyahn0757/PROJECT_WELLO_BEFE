@@ -15,7 +15,8 @@
     "recharts": "^2.15.4",
     "sass": "^1.69.0",
     "typescript": "^4.9.5",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "xlsx": "^0.18.5"
   },
   "scripts": {
     "start": "PORT=9283 DANGEROUSLY_DISABLE_HOST_CHECK=true react-scripts start",

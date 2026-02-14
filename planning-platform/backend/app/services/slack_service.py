@@ -29,6 +29,7 @@ class AlertType(str, Enum):
     SYSTEM_ERROR = "system_error"
     API_ERROR = "api_error"
     RAG_DISCREPANCY = "rag_discrepancy"  # 파트너 위젯: 클라이언트 판정과 RAG 참고문헌 간 큰 차이
+    TAGGING_FAILURE = "tagging_failure"  # 채팅 세션 자동 태깅 실패
 
 
 class SlackColor(str, Enum):
@@ -135,6 +136,11 @@ class SlackService:
                 "emoji": "📋",
                 "title": "파트너 RAG 불일치",
                 "color": SlackColor.WARNING
+            },
+            AlertType.TAGGING_FAILURE: {
+                "emoji": "🏷",
+                "title": "채팅 태깅 실패",
+                "color": SlackColor.DANGER
             }
         }
         return configs.get(alert_type, {
@@ -377,6 +383,41 @@ class SlackService:
         )
         return await self._send_message(message)
     
+    async def send_tagging_alert(self, data: Dict[str, Any]) -> bool:
+        """
+        채팅 세션 태깅 실패 알림
+
+        Args:
+            data: session_id, partner_id, error_type, error_message, hospital_id
+        """
+        config = self._get_alert_config(AlertType.TAGGING_FAILURE)
+
+        fields = [
+            SlackField(title="세션", value=str(data.get("session_id", "N/A"))[:24], short=True),
+            SlackField(title="파트너", value=str(data.get("partner_id", "N/A")), short=True),
+            SlackField(title="에러타입", value=str(data.get("error_type", "UNKNOWN")), short=True),
+        ]
+
+        if data.get("hospital_id"):
+            fields.append(SlackField(title="병원", value=data["hospital_id"], short=True))
+
+        if data.get("error_message"):
+            fields.append(SlackField(title="에러메시지", value=str(data["error_message"])[:300], short=False))
+
+        message = SlackMessage(
+            channel=self.channel_id,
+            text=f"{config['emoji']} {config['title']} - {data.get('session_id', 'N/A')[:16]}",
+            attachments=[
+                SlackAttachment(
+                    color=config["color"],
+                    fields=fields,
+                    footer="WELNO 채팅 태깅 시스템",
+                    ts=int(datetime.now().timestamp())
+                )
+            ]
+        )
+        return await self._send_message(message)
+
     async def _send_message(self, message: SlackMessage) -> bool:
         """
         슬랙 메시지 전송

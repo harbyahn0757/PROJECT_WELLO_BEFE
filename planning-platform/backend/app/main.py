@@ -35,6 +35,7 @@ from .api.v1.endpoints import (
     terms_agreement,
     slack_bot,
     hospital_survey,
+    partner_office,
 )
 from .core.config import settings
 from .data.redis_session_manager import redis_session_manager as session_manager
@@ -69,6 +70,9 @@ async def add_cache_control_for_widget(request: Request, call_next):
     response = await call_next(request)
     if request.url.path.endswith(".min.js") and "/static/" in request.url.path:
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    # 백오피스 HTML도 캐시 방지 (JS 번들 해시가 바뀔 때 즉시 반영)
+    if request.url.path.startswith("/backoffice") and not request.url.path.startswith("/backoffice/static/"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     return response
 
 # API 라우터 등록 (기본 경로)
@@ -97,6 +101,7 @@ app.include_router(disease_report_unified.router, prefix="/api/v1", tags=["disea
 app.include_router(terms_agreement.router, prefix="/api/v1/terms", tags=["terms-agreement"])
 app.include_router(slack_bot.router, prefix="/api/v1/slack", tags=["slack-bot"])
 app.include_router(hospital_survey.router, prefix="/api/v1", tags=["hospital-survey"])
+app.include_router(partner_office.router, prefix="/api/v1", tags=["partner-office"])
 
 # 배포환경을 위한 welno-api 경로 추가 (프록시 없이 직접 접근)
 app.include_router(health.router, prefix="/welno-api/v1/health", tags=["health-welno"])
@@ -123,6 +128,7 @@ app.include_router(disease_report_unified.router, prefix="/welno-api/v1", tags=[
 app.include_router(terms_agreement.router, prefix="/welno-api/v1/terms", tags=["terms-agreement-welno"])
 app.include_router(slack_bot.router, prefix="/welno-api/v1/slack", tags=["slack-bot-welno"])
 app.include_router(hospital_survey.router, prefix="/welno-api/v1", tags=["hospital-survey-welno"])
+app.include_router(partner_office.router, prefix="/welno-api/v1", tags=["partner-office-welno"])
 
 # 백오피스 SPA (독립 앱) 서빙
 backoffice_dir = os.path.join(static_dir, "backoffice")
@@ -137,6 +143,16 @@ async def serve_backoffice(full_path: str = ""):
         file_path = os.path.join(backoffice_dir, full_path)
         if os.path.isfile(file_path):
             return FileResponse(file_path)
+    if os.path.isfile(backoffice_index):
+        return FileResponse(backoffice_index)
+    from fastapi import HTTPException
+    raise HTTPException(status_code=404, detail="Backoffice app not found")
+
+# iframe 임베드 데모 모드 — /survey, /embedding 직접 접근 시 백오피스 SPA 서빙
+@app.api_route("/survey", methods=["GET", "HEAD"])
+@app.api_route("/embedding", methods=["GET", "HEAD"])
+async def serve_backoffice_embed():
+    """iframe 임베드용 — 로그인 없이 백오피스 SPA 서빙 (데모 모드)"""
     if os.path.isfile(backoffice_index):
         return FileResponse(backoffice_index)
     from fastapi import HTTPException
@@ -240,6 +256,28 @@ async def startup_event():
             print("ℹ️ [모니터링] Slack 미설정, 모니터링 알림 비활성")
     except Exception as e:
         print(f"⚠️ [모니터링] 시작 실패: {e}")
+
+    # 미태깅 세션 자동 복구 스케줄러 (15분 간격)
+    try:
+        import asyncio
+
+        async def _tagging_recovery_loop():
+            """미태깅 세션을 주기적으로 찾아 태깅합니다."""
+            await asyncio.sleep(60)  # 서버 시작 후 1분 대기
+            while True:
+                try:
+                    from .services.chat_tagging_service import retag_all_sessions
+                    result = await retag_all_sessions(force=False)
+                    if result["total"] > 0:
+                        print(f"🏷 [태깅복구] 미태깅 세션 처리: {result}")
+                except Exception as e:
+                    print(f"⚠️ [태깅복구] 실행 실패: {e}")
+                await asyncio.sleep(900)  # 15분 대기
+
+        asyncio.create_task(_tagging_recovery_loop())
+        print("✅ [태깅복구] 미태깅 세션 자동 복구 스케줄러 시작 (15분 간격)")
+    except Exception as e:
+        print(f"⚠️ [태깅복구] 스케줄러 시작 실패: {e}")
 
     print("✅ [시스템] 서버 시작 완료")
 

@@ -2,13 +2,24 @@
  * 백오피스 - 병원 만족도 설문 통계 페이지
  */
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-// import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import { fetchWithAuth } from '../../utils/api';
+import { useEmbedParams } from '../../hooks/useEmbedParams';
+import { useHierarchy } from '../../hooks/useHierarchy';
+import { useDatePresets } from '../../hooks/useDatePresets';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, Legend,
   PieChart, Pie, Cell,
 } from 'recharts';
+import { downloadWorkbook, dateSuffix } from '../../utils/excelExport';
+import DemoBanner from '../../components/DemoBanner';
+import {
+  BRAND_BROWN, SATISFACTION_VERY_LOW, SATISFACTION_LOW, SATISFACTION_MID,
+  SATISFACTION_HIGH, SATISFACTION_VERY_HIGH, CHART_DEEP_BLUE, CHART_PURPLE,
+  TREND_PALETTE, GRAY_300, GRAY_700,
+} from '../../styles/colorTokens';
 import './styles.scss';
 
 const getApiBase = (): string => {
@@ -23,13 +34,6 @@ const EMBEDDING_API_BASE = (() => {
   if (window.location.hostname === 'welno.kindhabit.com') return '/welno-api/v1/admin/embedding';
   return '/api/v1/admin/embedding';
 })();
-
-interface PartnerHierarchy {
-  partner_id: string;
-  partner_name: string;
-  is_active: boolean;
-  hospitals: { partner_id: string; partner_name: string; hospital_id: string; hospital_name: string; chat_count_today: number; survey_count_today: number }[];
-}
 
 interface SurveyStats {
   total_count: number;
@@ -111,22 +115,24 @@ const DEFAULT_QUESTIONS: SurveyQuestion[] = [
 ];
 
 const SurveyPage: React.FC = () => {
-  // embed 모드 감지 (iframe에서 쿼리 파라미터로 접속)
-  const urlParams = useMemo(() => {
-    const params = new URLSearchParams(window.location.search);
-    return {
-      api_key: params.get('api_key'),
-      partner_id: params.get('partner_id'),
-      hospital_id: params.get('hospital_id'),
-    };
-  }, []);
-  const isEmbedMode = !!(urlParams.api_key && urlParams.partner_id);
+  const auth = useAuth();
 
-  const [hierarchy, setHierarchy] = useState<PartnerHierarchy[]>([]);
-  const [collapsedPartners, setCollapsedPartners] = useState<Set<string>>(new Set());
+  // embed 모드 감지 (iframe에서 쿼리 파라미터로 접속)
+  const { isEmbedMode, embedParams } = useEmbedParams();
+
+  // 파트너/병원 계층 구조
+  const {
+    hierarchy,
+    selectedPartnerId, setSelectedPartnerId,
+    selectedHospitalId, setSelectedHospitalId,
+    collapsedPartners, togglePartner,
+    fetchHierarchy, selectedHospitalName,
+  } = useHierarchy(EMBEDDING_API_BASE, isEmbedMode ? embedParams : undefined);
+
+  // 날짜 프리셋
+  const { dateFrom, dateTo, setPreset: handleDatePreset, setDateRange, resetDates } = useDatePresets();
+
   const [summaryCounts, setSummaryCounts] = useState<{new_chats: number; new_surveys: number}>({new_chats: 0, new_surveys: 0});
-  const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
-  const [selectedHospitalId, setSelectedHospitalId] = useState<string | null>(null);
 
   const [stats, setStats] = useState<SurveyStats | null>(null);
   const [responses, setResponses] = useState<SurveyResponse[]>([]);
@@ -134,8 +140,6 @@ const SurveyPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const pageSize = 30;
 
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
   const [, setLoading] = useState(false);
 
   const [commentModal, setCommentModal] = useState<string | null>(null);
@@ -160,25 +164,6 @@ const SurveyPage: React.FC = () => {
       questions: [] as SurveyQuestion[]
   });
   const [activeTemplate, setActiveTemplate] = useState<SurveyTemplate | null>(null);
-
-  // Fetch hierarchy
-  const fetchHierarchy = useCallback(async () => {
-    try {
-      const res = await fetch(`${EMBEDDING_API_BASE}/hierarchy`);
-      if (res.ok) {
-        const data: PartnerHierarchy[] = await res.json();
-        setHierarchy(data);
-        if (data.length > 0 && !selectedPartnerId) {
-          setSelectedPartnerId(data[0].partner_id);
-          if (data[0].hospitals.length > 0) {
-            setSelectedHospitalId(data[0].hospitals[0].hospital_id);
-          }
-        }
-      }
-    } catch (e) {
-      console.error('Hierarchy fetch failed:', e);
-    }
-  }, [selectedPartnerId]);
 
   // Persist per-question chart type to localStorage
   useEffect(() => {
@@ -353,9 +338,9 @@ const SurveyPage: React.FC = () => {
   }, [dateFrom, dateTo]);
 
   useEffect(() => {
-    if (isEmbedMode && urlParams.partner_id && urlParams.hospital_id) {
-      setSelectedPartnerId(urlParams.partner_id);
-      setSelectedHospitalId(urlParams.hospital_id);
+    if (isEmbedMode && embedParams.partnerId && embedParams.hospitalId) {
+      setSelectedPartnerId(embedParams.partnerId);
+      setSelectedHospitalId(embedParams.hospitalId);
     }
     fetchHierarchy();
     fetch(`${EMBEDDING_API_BASE}/summary-counts`).then(r => r.json()).then(setSummaryCounts).catch(() => {});
@@ -394,16 +379,74 @@ const SurveyPage: React.FC = () => {
   };
 
   const handleResetFilter = () => {
-    setDateFrom('');
-    setDateTo('');
+    resetDates();
   };
 
-  const handleDatePreset = (days: number) => {
-    const to = new Date();
-    const from = new Date();
-    from.setDate(from.getDate() - days);
-    setDateFrom(from.toISOString().slice(0, 10));
-    setDateTo(to.toISOString().slice(0, 10));
+  const handleExcelExport = () => {
+    const sheets: { name: string; data: Record<string, any>[] }[] = [];
+
+    // 1) 개별 응답 (전체 필드)
+    if (responses.length) {
+      sheets.push({
+        name: '개별응답',
+        data: responses.map(r => {
+          const row: Record<string, any> = {
+            응답일시: r.created_at,
+            파트너ID: r.partner_id,
+            병원ID: r.hospital_id,
+            응답자UUID: r.respondent_uuid || '',
+          };
+          // 각 문항 점수
+          ratingQuestions.forEach(q => {
+            const val = r.answers ? r.answers[q.question_key] : (r as any)[q.question_key];
+            row[q.question_label] = val ?? '';
+          });
+          // 텍스트 문항
+          currentQuestions.filter(q => q.question_type === 'text').forEach(q => {
+            row[q.question_label] = r.answers ? (r.answers[q.question_key] || '') : '';
+          });
+          row['자유의견'] = r.free_comment || '';
+          return row;
+        }),
+      });
+    }
+
+    // 2) 문항별 평균
+    if (stats?.averages) {
+      sheets.push({
+        name: '문항별평균',
+        data: ratingQuestions.map(q => ({
+          문항: q.question_label,
+          평균: stats.averages[q.question_key]?.toFixed(2) ?? '',
+        })),
+      });
+    }
+
+    // 3) 일별 추이
+    if (stats?.daily_trend?.length) {
+      sheets.push({
+        name: '일별추이',
+        data: stats.daily_trend.map((d: any) => {
+          const row: Record<string, any> = { 날짜: d.date, 응답수: d.count };
+          ratingQuestions.forEach(q => { row[q.question_label] = d[q.question_key] ?? ''; });
+          return row;
+        }),
+      });
+    }
+
+    // 4) 문항별 분포
+    ratingQuestions.forEach(q => {
+      const dist = questionDistMap[q.question_key];
+      if (dist?.length) {
+        sheets.push({
+          name: `분포_${q.question_label}`.slice(0, 31),
+          data: dist.map(d => ({ 응답: d.name, 건수: d.value })),
+        });
+      }
+    });
+
+    if (sheets.length === 0) return;
+    downloadWorkbook(sheets, `만족도조사_${selectedHospitalName || 'all'}_${dateSuffix()}.xlsx`);
   };
 
   const handlePageChange = (p: number) => {
@@ -412,25 +455,6 @@ const SurveyPage: React.FC = () => {
       fetchResponses(selectedHospitalId, selectedPartnerId, p, activeTemplate?.id || null);
     }
   };
-
-  const togglePartner = (id: string) => {
-    setCollapsedPartners(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-
-  const selectedHospitalName = useMemo(() => {
-    for (const p of hierarchy) {
-      for (const h of p.hospitals) {
-        if (h.hospital_id === selectedHospitalId && p.partner_id === selectedPartnerId) {
-          return h.hospital_name;
-        }
-      }
-    }
-    return '';
-  }, [hierarchy, selectedHospitalId, selectedPartnerId]);
 
   // Dynamic field labels: use stats.field_labels if available, otherwise default
   const dynamicLabels = useMemo(() => {
@@ -459,17 +483,17 @@ const SurveyPage: React.FC = () => {
     return ratingQuestions.filter(q => q.question_key !== (overallQuestion?.question_key));
   }, [ratingQuestions, overallQuestion]);
 
-  // 만족도별 고정 색상
+  // 만족도별 고정 색상 (디자인 토큰)
   const SATISFACTION_COLOR_MAP: Record<string, string> = {
-    '매우불만족': '#c62828',
-    '불만족': '#ef6c00',
-    '보통': '#fbc02d',
-    '만족': '#66bb6a',
-    '매우만족': '#2e7d32',
-    '전혀 아니다': '#c62828',
-    '아니다': '#ef6c00',
-    '그렇다': '#66bb6a',
-    '매우 그렇다': '#2e7d32',
+    '매우불만족': SATISFACTION_VERY_LOW,
+    '불만족': SATISFACTION_LOW,
+    '보통': SATISFACTION_MID,
+    '만족': SATISFACTION_HIGH,
+    '매우만족': SATISFACTION_VERY_HIGH,
+    '전혀 아니다': SATISFACTION_VERY_LOW,
+    '아니다': SATISFACTION_LOW,
+    '그렇다': SATISFACTION_HIGH,
+    '매우 그렇다': SATISFACTION_VERY_HIGH,
   };
 
   // Per-question distribution data (for pie/bar)
@@ -562,62 +586,38 @@ const SurveyPage: React.FC = () => {
   }, [responses]);
 
   // === 보고서: 일별 추이 (전 문항 오버레이) ===
-  const TREND_COLORS = ['#7c746a', '#c62828', '#ef6c00', '#2e7d32', '#1565c0', '#6a1b9a'];
+  const TREND_COLORS = TREND_PALETTE;
 
   const totalPages = Math.ceil(totalResponses / pageSize);
 
   return (
-    <div className="survey-page">
-      {!isEmbedMode && (
-        <header className="survey-page__header">
-          <h1 className="survey-page__title">만족도 조사</h1>
-        </header>
-      )}
+    <div className={`survey-page${isEmbedMode ? ' survey-page--embed' : ''}`}>
+      <DemoBanner />
 
       <div className="survey-page__layout">
-        {/* Sidebar */}
+        {/* 인라인 병원 선택 (파트너오피스 모드) */}
         {!isEmbedMode && (
-        <aside className="survey-page__sidebar">
-          <nav className="sidebar-nav">
-            <a href="/backoffice" className="sidebar-nav__item">
-              검진결과 상담
-              {summaryCounts.new_chats > 0 && <span className="sidebar-nav__badge">{summaryCounts.new_chats}</span>}
-            </a>
-            <a href="/backoffice/survey" className="sidebar-nav__item sidebar-nav__item--active">
-              만족도 조사
-              {summaryCounts.new_surveys > 0 && <span className="sidebar-nav__badge">{summaryCounts.new_surveys}</span>}
-            </a>
-          </nav>
-          <h2 className="survey-page__sidebar-title">파트너 선택</h2>
-          {[...hierarchy].sort((a, b) => (a.hospitals.length > 0 ? 0 : 1) - (b.hospitals.length > 0 ? 0 : 1)).map(partner => {
-            const isCollapsed = collapsedPartners.has(partner.partner_id);
-            return (
-              <div key={partner.partner_id} className="survey-page__partner-group">
-                <div className="survey-page__partner-header" onClick={() => togglePartner(partner.partner_id)}>
-                  <span className="survey-page__partner-arrow">{partner.hospitals.length > 0 ? (isCollapsed ? '\u25B6' : '\u25BC') : '\u25B6'}</span>
-                  <h3 className="survey-page__partner-name">{partner.partner_name}</h3>
-                  <span className="survey-page__partner-count">{partner.hospitals.length}</span>
-                </div>
-                {!isCollapsed && partner.hospitals.length > 0 && (
-                  <ul className="survey-page__hospital-list">
-                    {partner.hospitals.map(h => (
-                      <li key={h.hospital_id}>
-                        <button
-                          className={`survey-page__hospital-btn ${selectedHospitalId === h.hospital_id && selectedPartnerId === partner.partner_id ? 'is-selected' : ''}`}
-                          onClick={() => { setSelectedPartnerId(partner.partner_id); setSelectedHospitalId(h.hospital_id); }}
-                          title={h.hospital_name}
-                        >
-                          <span>{h.hospital_name === h.hospital_id && h.hospital_name.length > 20 ? h.hospital_name.substring(0, 12) + '...' : h.hospital_name}</span>
-                          {h.survey_count_today > 0 && <span className="hospital-badge hospital-badge--survey" title="오늘 설문">{h.survey_count_today}</span>}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            );
-          })}
-        </aside>
+          <div className="survey-page__inline-selector">
+            <select
+              className="survey-page__hospital-select"
+              value={selectedHospitalId || ''}
+              onChange={(e) => {
+                const hid = e.target.value;
+                if (hid) {
+                  for (const p of hierarchy) {
+                    const found = p.hospitals.find(h => h.hospital_id === hid);
+                    if (found) { setSelectedPartnerId(p.partner_id); break; }
+                  }
+                  setSelectedHospitalId(hid);
+                }
+              }}
+            >
+              <option value="">병원 선택</option>
+              {hierarchy.flatMap(p => p.hospitals).map(h => (
+                <option key={h.hospital_id} value={h.hospital_id}>{h.hospital_name}</option>
+              ))}
+            </select>
+          </div>
         )}
 
         {/* Main */}
@@ -625,13 +625,25 @@ const SurveyPage: React.FC = () => {
           {!selectedHospitalId ? (
             <div className="survey-page__empty">
               <h3>병원을 선택하세요</h3>
-              <p>왼쪽 사이드바에서 병원을 선택하면 설문 통계를 확인할 수 있습니다.</p>
+              {!isEmbedMode && <p>왼쪽 사이드바에서 병원을 선택하면 설문 통계를 확인할 수 있습니다.</p>}
             </div>
           ) : (
             <>
-              {/* Hospital header */}
-              <h2 className="survey-page__hospital-title">{selectedHospitalName} 만족도 조사</h2>
+              {/* Hospital header card — 임베딩 페이지와 동일 구조 */}
+              <div className="survey-page__card">
+                <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+                  <div>
+                    <h2 className="survey-page__card-title">{selectedHospitalName}</h2>
+                    <p className="survey-page__muted" style={{marginTop: 4}}>만족도 조사 · 총 응답 {stats?.total_count ?? 0}건</p>
+                  </div>
+                  <div style={{display: 'flex', gap: 8}}>
+                    <button className="btn-excel" onClick={handleExcelExport}>엑셀</button>
+                  </div>
+                </div>
+              </div>
 
+              {/* Content card — 탭 + 내용 */}
+              <div className="survey-page__content-card">
               {/* Top tabs */}
               <div className="survey-page__top-tabs">
                 <button
@@ -659,9 +671,9 @@ const SurveyPage: React.FC = () => {
                       <button className="survey-page__preset-btn" onClick={() => handleDatePreset(30)}>1개월</button>
                       <button className="survey-page__preset-btn" onClick={() => handleDatePreset(90)}>3개월</button>
                     </div>
-                    <input type="date" className="survey-page__date-input" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                    <input type="date" className="survey-page__date-input" value={dateFrom} onChange={e => setDateRange(e.target.value, dateTo)} />
                     <span className="survey-page__filter-label">~</span>
-                    <input type="date" className="survey-page__date-input" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                    <input type="date" className="survey-page__date-input" value={dateTo} onChange={e => setDateRange(dateFrom, e.target.value)} />
                     <button className="survey-page__filter-btn" onClick={handleFilter}>조회</button>
                     {(dateFrom || dateTo) && (
                       <button className="survey-page__filter-reset" onClick={handleResetFilter}>초기화</button>
@@ -733,10 +745,10 @@ const SurveyPage: React.FC = () => {
                         {radarData.length > 0 && (stats?.total_count ?? 0) > 0 ? (
                           <ResponsiveContainer width="100%" height={260}>
                             <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
-                              <PolarGrid stroke="#e2e8f0" />
-                              <PolarAngleAxis dataKey="field" tick={{ fontSize: 11, fill: '#4a5568' }} />
+                              <PolarGrid stroke={GRAY_300} />
+                              <PolarAngleAxis dataKey="field" tick={{ fontSize: 11, fill: GRAY_700 }} />
                               <PolarRadiusAxis angle={90} domain={[0, 5]} tick={{ fontSize: 10 }} tickCount={6} />
-                              <Radar name="평균" dataKey="score" stroke="#7c746a" fill="#7c746a" fillOpacity={0.25} strokeWidth={2} />
+                              <Radar name="평균" dataKey="score" stroke={BRAND_BROWN} fill={BRAND_BROWN} fillOpacity={0.25} strokeWidth={2} />
                             </RadarChart>
                           </ResponsiveContainer>
                         ) : (
@@ -800,7 +812,7 @@ const SurveyPage: React.FC = () => {
                                   <Tooltip />
                                   <Bar dataKey="value" name="응답수">
                                     {distFiltered.map((entry, idx) => (
-                                      <Cell key={idx} fill={SATISFACTION_COLOR_MAP[entry.name] || '#7c746a'} />
+                                      <Cell key={idx} fill={SATISFACTION_COLOR_MAP[entry.name] || BRAND_BROWN} />
                                     ))}
                                   </Bar>
                                 </BarChart>
@@ -821,7 +833,7 @@ const SurveyPage: React.FC = () => {
                                     style={{ fontSize: 10 }}
                                   >
                                     {distFiltered.map((entry, idx) => (
-                                      <Cell key={idx} fill={SATISFACTION_COLOR_MAP[entry.name] || '#7c746a'} />
+                                      <Cell key={idx} fill={SATISFACTION_COLOR_MAP[entry.name] || BRAND_BROWN} />
                                     ))}
                                   </Pie>
                                   <Tooltip />
@@ -836,7 +848,7 @@ const SurveyPage: React.FC = () => {
                                   <PolarGrid />
                                   <PolarAngleAxis dataKey="field" tick={{ fontSize: 11 }} />
                                   <PolarRadiusAxis angle={90} domain={[0, 5]} tick={{ fontSize: 10 }} />
-                                  <Radar name="평균" dataKey="score" stroke="#7c746a" fill="#7c746a" fillOpacity={0.3} />
+                                  <Radar name="평균" dataKey="score" stroke={BRAND_BROWN} fill={BRAND_BROWN} fillOpacity={0.3} />
                                 </RadarChart>
                               </ResponsiveContainer>
                             )}
@@ -852,7 +864,7 @@ const SurveyPage: React.FC = () => {
                                     type="monotone"
                                     dataKey={q.question_key}
                                     name={q.question_label}
-                                    stroke="#7c746a"
+                                    stroke={BRAND_BROWN}
                                     strokeWidth={2}
                                     dot={{ r: 3 }}
                                   />
@@ -885,7 +897,7 @@ const SurveyPage: React.FC = () => {
                         </thead>
                         <tbody>
                           {responses.length === 0 ? (
-                            <tr><td colSpan={Object.keys(dynamicLabels).length + 2} style={{ textAlign: 'center', color: '#a0aec0', padding: 32 }}>설문 응답이 없습니다.</td></tr>
+                            <tr><td colSpan={Object.keys(dynamicLabels).length + 2} style={{ textAlign: 'center', color: GRAY_300, padding: 32 }}>설문 응답이 없습니다.</td></tr>
                           ) : responses.map(r => (
                             <tr
                               key={r.id}
@@ -1284,6 +1296,7 @@ const SurveyPage: React.FC = () => {
                   )}
                 </>
               )}
+              </div>{/* end content-card */}
             </>
           )}
         </main>
