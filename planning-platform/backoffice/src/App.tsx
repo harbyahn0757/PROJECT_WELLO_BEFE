@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import EmbeddingPage from './pages/EmbeddingPage';
 import SurveyPage from './pages/SurveyPage';
+import PatientPage from './pages/PatientPage';
 import './App.scss';
 
 /** /backoffice 인덱스: api_key 있으면 embedding, 없으면 dashboard */
@@ -35,6 +36,7 @@ const App: React.FC = () => {
           >
             <Route index element={<BackofficeIndex />} />
             <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="patients" element={<PatientPage />} />
             <Route path="embedding" element={<EmbeddingPage />} />
             <Route path="survey" element={<SurveyPage />} />
           </Route>

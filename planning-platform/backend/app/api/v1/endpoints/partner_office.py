@@ -1,5 +1,5 @@
 """
-파트너오피스 API — 로그인, 대시보드, 사용자 여정 분석
+파트너오피스 API — 로그인, 대시보드, 환자 통합, 사용자 여정 분석
 로그인은 p9_mkt_biz.user_accounts 테이블 (Jerry 공용 계정 체계)
 """
 
@@ -43,6 +43,9 @@ class DashboardStatsRequest(BaseModel):
 class OverviewRequest(BaseModel):
     date_from: Optional[str] = None
     date_to: Optional[str] = None
+
+class PatientListRequest(BaseModel):
+    hospital_id: Optional[str] = None
 
 # ─── Auth helpers ─────────────────────────────────────────
 
@@ -461,3 +464,93 @@ def _empty_journey(warning: str = "") -> dict:
         "daily_visits": [],
         "warning": warning or "ES 서비스 연결 불가",
     }
+
+
+@router.post("/patients")
+async def patient_list(
+    req: PatientListRequest,
+    user: dict = Depends(get_current_user),
+):
+    """환자 통합 목록 — chat(user_uuid) + survey(respondent_uuid) merge by web_app_key"""
+
+    # ── 1) 상담 건수 by user_uuid ──
+    chat_where = ""
+    chat_params: tuple = ()
+    if req.hospital_id:
+        chat_where = "WHERE c.hospital_id = %s"
+        chat_params = (req.hospital_id,)
+
+    chat_rows = await db_manager.execute_query(f"""
+        SELECT c.user_uuid AS web_app_key,
+               COUNT(*) AS chat_count,
+               MAX(c.created_at) AS last_chat,
+               MAX(h.hospital_name) AS hospital_name
+        FROM welno.tb_partner_rag_chat_log c
+        LEFT JOIN welno.tb_hospital_rag_config h
+          ON h.hospital_id = c.hospital_id AND h.is_active = true
+        {chat_where}
+        GROUP BY c.user_uuid
+    """, chat_params)
+
+    # ── 2) 서베이 건수 by respondent_uuid (두 테이블 UNION) ──
+    survey_where = ""
+    survey_params: tuple = ()
+    if req.hospital_id:
+        survey_where = "WHERE hospital_id = %s"
+        survey_params = (req.hospital_id,)
+
+    survey_rows = await db_manager.execute_query(f"""
+        SELECT respondent_uuid AS web_app_key,
+               SUM(cnt) AS survey_count,
+               MAX(last_survey) AS last_survey
+        FROM (
+            SELECT respondent_uuid, hospital_id,
+                   COUNT(*) AS cnt, MAX(created_at) AS last_survey
+            FROM welno.tb_hospital_survey_responses
+            {survey_where}
+            GROUP BY respondent_uuid, hospital_id
+          UNION ALL
+            SELECT respondent_uuid, hospital_id,
+                   COUNT(*) AS cnt, MAX(created_at) AS last_survey
+            FROM welno.tb_survey_responses_dynamic
+            {survey_where}
+            GROUP BY respondent_uuid, hospital_id
+        ) sub
+        GROUP BY respondent_uuid
+    """, survey_params + survey_params)
+
+    # ── 3) Python merge by web_app_key ──
+    merged: Dict[str, dict] = {}
+    for row in chat_rows:
+        key = row["web_app_key"]
+        if not key:
+            continue
+        merged[key] = {
+            "web_app_key": key,
+            "chat_count": row["chat_count"],
+            "survey_count": 0,
+            "last_activity": str(row["last_chat"]) if row["last_chat"] else None,
+            "hospital_name": row["hospital_name"] or "",
+        }
+
+    for row in survey_rows:
+        key = row["web_app_key"]
+        if not key:
+            continue
+        if key in merged:
+            merged[key]["survey_count"] = row["survey_count"]
+            sr = str(row["last_survey"]) if row["last_survey"] else None
+            if sr and (not merged[key]["last_activity"] or sr > merged[key]["last_activity"]):
+                merged[key]["last_activity"] = sr
+        else:
+            merged[key] = {
+                "web_app_key": key,
+                "chat_count": 0,
+                "survey_count": row["survey_count"],
+                "last_activity": str(row["last_survey"]) if row["last_survey"] else None,
+                "hospital_name": "",
+            }
+
+    patients = sorted(merged.values(), key=lambda x: x["last_activity"] or "", reverse=True)
+
+    return {"patients": patients, "total": len(patients)}

@@ -29,13 +29,91 @@
     height: auto;
   }
 
-  &__user-name {
-    font-size: $font-sm;
-    font-weight: $font-weight-semibold;
-    color: $gray-700;
-    white-space: nowrap;
+  // ── 병원 선택 드롭다운 ──
+  &__hosp-select {
+    position: relative;
+    padding: 8px 14px;
+    border-bottom: 1px solid $gray-300;
+  }
+
+  &__hosp-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid $gray-300;
+    border-radius: 8px;
+    background: $white;
+    font-size: $font-xs;
+    color: $gray-800;
+    cursor: pointer;
+    transition: border-color 0.15s;
+
+    &:hover {
+      border-color: $brand-brown;
+    }
+  }
+
+  &__hosp-label {
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    text-align: left;
+  }
+
+  &__hosp-arrow {
+    font-size: 9px;
+    margin-left: 6px;
+    color: $gray-500;
+  }
+
+  &__hosp-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 14px;
+    right: 14px;
+    z-index: 100;
+    background: $white;
+    border: 1px solid $gray-300;
+    border-radius: 8px;
+    box-shadow: $shadow-md;
+    margin-top: 2px;
+  }
+
+  &__hosp-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-bottom: 1px solid $gray-200;
+    font-size: $font-xs;
+    outline: none;
+    box-sizing: border-box;
+    border-radius: 8px 8px 0 0;
+  }
+
+  &__hosp-list {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  &__hosp-item {
+    padding: 7px 10px;
+    font-size: $font-xs;
+    color: $gray-700;
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:hover {
+      background: $gray-100;
+    }
+
+    &--active {
+      background: $brand-brown-light;
+      color: $brand-brown;
+      font-weight: $font-weight-semibold;
+    }
   }
 
   &__nav {

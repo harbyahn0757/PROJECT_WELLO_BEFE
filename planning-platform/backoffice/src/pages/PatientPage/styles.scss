@@ -1,0 +1,52 @@
+@import '../../styles/variables';
+@import '../../styles/tables';
+
+.patient-page {
+  padding: 20px 28px;
+
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  &__search {
+    padding: 8px 12px;
+    border: 1px solid $gray-300;
+    border-radius: 8px;
+    font-size: $font-sm;
+    width: 280px;
+    outline: none;
+    transition: border-color 0.15s;
+
+    &:focus {
+      border-color: $brand-brown;
+    }
+  }
+
+  &__count {
+    font-size: $font-sm;
+    color: $gray-600;
+    font-weight: $font-weight-semibold;
+  }
+
+  &__loading {
+    font-size: $font-xs;
+    color: $accent-orange;
+  }
+
+  &__table-wrap {
+    background: $white;
+    border-radius: 10px;
+    border: 1px solid $gray-300;
+    overflow: auto;
+    max-height: calc(100vh - 180px);
+  }
+
+  &__key {
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: $font-xs;
+    color: $gray-700;
+  }
+}
