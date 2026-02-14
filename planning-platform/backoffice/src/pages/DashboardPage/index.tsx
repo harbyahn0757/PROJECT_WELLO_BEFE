@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { useAuth } from '../../contexts/AuthContext';
 import { getApiBase, fetchWithAuth } from '../../utils/api';
-import { downloadWorkbook, dateSuffix } from '../../utils/excelExport';
+import { downloadWorkbook, downloadJson, dateSuffix } from '../../utils/excelExport';
 import {
   PIE_PALETTE as PIE_COLORS,
   BRAND_BROWN as COLOR_BROWN,
@@ -171,6 +171,22 @@ const DashboardPage: React.FC = () => {
     downloadWorkbook(sheets, `대시보드_${dateSuffix()}.xlsx`);
   };
 
+  const handleJsonExport = async () => {
+    const now = new Date();
+    const preset = DATE_PRESETS[presetIdx];
+    const dateTo = fmt(now);
+    const dateFrom = preset.days === 0 ? dateTo : fmt(new Date(now.getTime() - preset.days * 86400000));
+    try {
+      const resp = await fetchWithAuth(`${API}/partner-office/export/json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hospital_id: hospitalId || null, date_from: dateFrom, date_to: dateTo }),
+      });
+      const data = await resp.json();
+      downloadJson(data, `welno_전체데이터_${dateSuffix()}.json`);
+    } catch {}
+  };
+
   const fmtNum = (n: any) => n != null ? Number(n).toLocaleString() : '-';
   const fmtDwell = (sec: number) => {
     if (!sec) return '0:00';
@@ -213,6 +229,7 @@ const DashboardPage: React.FC = () => {
           ))}
         </div>
         <button className="btn-excel" onClick={handleExcelExport} disabled={loading}>엑셀</button>
+        <button className="btn-excel" onClick={handleJsonExport} disabled={loading}>JSON</button>
         {loading && <span className="dashboard-page__loading">로딩...</span>}
       </div>
 

@@ -13,7 +13,7 @@ import {
   LineChart, Line, Legend,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { downloadWorkbook, dateSuffix } from '../../utils/excelExport';
+import { downloadWorkbook, downloadJson, dateSuffix } from '../../utils/excelExport';
 import DemoBanner from '../../components/DemoBanner';
 import {
   BRAND_BROWN, SATISFACTION_VERY_LOW, SATISFACTION_LOW, SATISFACTION_MID,
@@ -449,6 +449,17 @@ const SurveyPage: React.FC = () => {
     downloadWorkbook(sheets, `만족도조사_${selectedHospitalName || 'all'}_${dateSuffix()}.xlsx`);
   };
 
+  const handleJsonExport = () => {
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      hospital: selectedHospitalName || 'all',
+      stats,
+      responses,
+      question_distribution: questionDistMap,
+    };
+    downloadJson(exportData, `만족도조사_${selectedHospitalName || 'all'}_${dateSuffix()}.json`);
+  };
+
   const handlePageChange = (p: number) => {
     setPage(p);
     if (selectedHospitalId && selectedPartnerId) {
@@ -638,6 +649,7 @@ const SurveyPage: React.FC = () => {
                   </div>
                   <div style={{display: 'flex', gap: 8}}>
                     <button className="btn-excel" onClick={handleExcelExport}>엑셀</button>
+                    <button className="btn-excel" onClick={handleJsonExport}>JSON</button>
                   </div>
                 </div>
               </div>

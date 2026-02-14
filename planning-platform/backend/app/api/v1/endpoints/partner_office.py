@@ -47,6 +47,11 @@ class OverviewRequest(BaseModel):
 class PatientListRequest(BaseModel):
     hospital_id: Optional[str] = None
 
+class ExportJsonRequest(BaseModel):
+    hospital_id: Optional[str] = None
+    date_from: Optional[str] = None
+    date_to: Optional[str] = None
+
 # ─── Auth helpers ─────────────────────────────────────────
 
 def _hash_password(password: str) -> str:
@@ -554,3 +559,84 @@ async def patient_list(
     patients = sorted(merged.values(), key=lambda x: x["last_activity"] or "", reverse=True)
 
     return {"patients": patients, "total": len(patients)}
+
+
+@router.post("/export/json")
+async def export_all_json(
+    req: ExportJsonRequest,
+    user: dict = Depends(get_current_user),
+):
+    """전체 데이터 JSON 내보내기 — 상담 로그 + 설문 응답(legacy+dynamic) + 태깅 + 환자 목록"""
+    hospital_id = req.hospital_id
+    date_to = req.date_to or datetime.utcnow().strftime("%Y-%m-%d")
+    date_from = req.date_from or (datetime.utcnow() - timedelta(days=90)).strftime("%Y-%m-%d")
+
+    h_where = "AND t.hospital_id = %s" if hospital_id else ""
+    h_param = (hospital_id,) if hospital_id else ()
+
+    # ── 1) 상담 로그 ──
+    chat_logs = await db_manager.execute_query(f"""
+        SELECT t.id, t.user_uuid, t.hospital_id, t.partner_id,
+               t.user_message, t.assistant_message, t.created_at
+        FROM welno.tb_partner_rag_chat_log t
+        WHERE t.created_at >= %s::date AND t.created_at < (%s::date + interval '1 day')
+        {h_where}
+        ORDER BY t.created_at DESC
+    """, (date_from, date_to) + h_param)
+    for r in chat_logs:
+        if r.get("created_at"):
+            r["created_at"] = str(r["created_at"])
+
+    # ── 2) 태깅 데이터 ──
+    h_where_tag = "AND t.hospital_id = %s" if hospital_id else ""
+    tagging_data = await db_manager.execute_query(f"""
+        SELECT t.id, t.user_uuid, t.hospital_id, t.partner_id,
+               t.risk_level, t.sentiment, t.action_intent,
+               t.interest_tags, t.nutrition_tags,
+               t.engagement_score, t.created_at
+        FROM welno.tb_chat_session_tags t
+        WHERE t.created_at >= %s::date AND t.created_at < (%s::date + interval '1 day')
+        {h_where_tag}
+        ORDER BY t.created_at DESC
+    """, (date_from, date_to) + h_param)
+    for r in tagging_data:
+        if r.get("created_at"):
+            r["created_at"] = str(r["created_at"])
+
+    # ── 3) 설문 응답 — legacy (고정 필드) ──
+    h_where_s = "AND hospital_id = %s" if hospital_id else ""
+    survey_legacy = await db_manager.execute_query(f"""
+        SELECT id, partner_id, hospital_id,
+               reservation_process, facility_cleanliness, staff_kindness,
+               waiting_time, overall_satisfaction,
+               free_comment, respondent_uuid, created_at
+        FROM welno.tb_hospital_survey_responses
+        WHERE created_at >= %s::date AND created_at < (%s::date + interval '1 day')
+        {h_where_s}
+        ORDER BY created_at DESC
+    """, (date_from, date_to) + h_param)
+    for r in survey_legacy:
+        if r.get("created_at"):
+            r["created_at"] = str(r["created_at"])
+
+    # ── 4) 설문 응답 — dynamic (동적 템플릿) ──
+    survey_dynamic = await db_manager.execute_query(f"""
+        SELECT id, template_id, partner_id, hospital_id,
+               answers, free_comment, respondent_uuid, created_at
+        FROM welno.tb_survey_responses_dynamic
+        WHERE created_at >= %s::date AND created_at < (%s::date + interval '1 day')
+        {h_where_s}
+        ORDER BY created_at DESC
+    """, (date_from, date_to) + h_param)
+    for r in survey_dynamic:
+        if r.get("created_at"):
+            r["created_at"] = str(r["created_at"])
+
+    return {
+        "exported_at": datetime.utcnow().isoformat(),
+        "filters": {"hospital_id": hospital_id, "date_from": date_from, "date_to": date_to},
+        "chat_logs": {"count": len(chat_logs), "data": chat_logs},
+        "tagging": {"count": len(tagging_data), "data": tagging_data},
+        "survey_legacy": {"count": len(survey_legacy), "data": survey_legacy},
+        "survey_dynamic": {"count": len(survey_dynamic), "data": survey_dynamic},
+    }

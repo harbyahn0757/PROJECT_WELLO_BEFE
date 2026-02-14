@@ -16,6 +16,18 @@ export function downloadWorkbook(sheets: { name: string; data: Record<string, an
   XLSX.writeFile(wb, filename);
 }
 
+/** JSON 다운로드 */
+export function downloadJson(data: any, filename: string) {
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 /** 날짜 포맷 (파일명용) */
 export function dateSuffix(): string {
   return new Date().toISOString().slice(0, 10);
