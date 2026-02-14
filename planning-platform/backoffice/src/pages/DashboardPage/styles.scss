@@ -1,0 +1,235 @@
+@import '../../styles/variables';
+@import '../../styles/index';
+
+.dashboard-page {
+  padding: 24px 28px;
+  font-family: $font-family-base;
+
+  /* ── 필터 바 ── */
+  &__filters {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  &__select {
+    padding: 8px 12px;
+    border: 1px solid $gray-300;
+    border-radius: $border-radius-md;
+    font-size: $font-sm;
+    outline: none;
+    min-width: 180px;
+
+    &:focus {
+      border-color: $brand-brown;
+    }
+  }
+
+  &__presets {
+    display: flex;
+    gap: 4px;
+  }
+
+  &__preset {
+    padding: 6px 14px;
+    border: 1px solid $gray-300;
+    border-radius: 20px;
+    background: $white;
+    font-size: $font-xs;
+    font-weight: $font-weight-semibold;
+    color: $gray-700;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    &.active {
+      background: $accent-orange;
+      color: $white;
+      border-color: $accent-orange;
+    }
+
+    &:hover:not(.active) {
+      background: $gray-200;
+    }
+  }
+
+  &__export-btn {
+    padding: 6px 16px;
+    border: 1px solid $gray-300;
+    border-radius: 20px;
+    background: $white;
+    font-size: $font-xs;
+    font-weight: $font-weight-semibold;
+    color: $gray-700;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-left: auto;
+
+    &:hover {
+      background: $brand-brown;
+      color: $white;
+      border-color: $brand-brown;
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  &__loading {
+    font-size: $font-xs;
+    color: $gray-500;
+  }
+
+  /* ── 퍼널 카드 ── */
+  &__funnel-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  &__funnel-card {
+    background: linear-gradient(135deg, $white 60%, rgba(237, 137, 54, 0.06));
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: $shadow-sm;
+    border-left: 4px solid $accent-orange;
+  }
+
+  &__funnel-label {
+    font-size: $font-xs;
+    color: $gray-600;
+    margin-bottom: 4px;
+  }
+
+  &__funnel-value {
+    font-size: 1.6rem;
+    font-weight: $font-weight-bold;
+    color: $gray-900;
+  }
+
+  &__funnel-rate {
+    margin-top: 4px;
+    font-size: $font-xs;
+    font-weight: $font-weight-semibold;
+    color: $accent-orange;
+  }
+
+  /* ── 요약 카드 ── */
+  &__cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  &__card {
+    background: $white;
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: $shadow-sm;
+  }
+
+  &__card-label {
+    font-size: $font-xs;
+    color: $gray-600;
+    margin-bottom: 6px;
+  }
+
+  &__card-value {
+    font-size: $font-3xl;
+    font-weight: $font-weight-bold;
+    color: $gray-900;
+
+    &--danger {
+      color: $error-light;
+    }
+  }
+
+  /* ── 차트 그리드 ── */
+  &__grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  &__chart {
+    background: $white;
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: $shadow-sm;
+
+    &--wide {
+      // 이미 2fr 칸에 위치
+    }
+
+    &--full {
+      width: 100%;
+    }
+  }
+
+  &__chart-title {
+    margin: 0 0 12px;
+    font-size: $font-sm;
+    font-weight: $font-weight-semibold;
+    color: $gray-800;
+  }
+
+  /* ── 섹션 디바이더 ── */
+  &__section-divider {
+    margin: 28px 0 16px;
+    padding: 10px 0;
+    font-size: $font-sm;
+    font-weight: $font-weight-bold;
+    color: $gray-700;
+    border-top: 2px solid $gray-300;
+    border-bottom: 1px solid $gray-300;
+    text-align: center;
+    letter-spacing: 1px;
+  }
+
+  &__warning {
+    margin-bottom: 12px;
+    padding: 8px 14px;
+    border-radius: $border-radius-md;
+    background: rgba(239, 108, 0, 0.08);
+    color: $satisfaction-low;
+    font-size: $font-xs;
+  }
+
+  /* ── 테이블 ── */
+  &__table-wrap {
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  &__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: $font-xs;
+
+    th, td {
+      padding: 6px 8px;
+      text-align: left;
+      border-bottom: 1px solid $gray-200;
+    }
+
+    th {
+      font-weight: $font-weight-semibold;
+      color: $gray-600;
+      background: $gray-50;
+      position: sticky;
+      top: 0;
+    }
+  }
+
+  &__table-url {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}

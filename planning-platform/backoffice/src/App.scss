@@ -1,13 +1,141 @@
+@import './styles/variables';
+@import './styles/index';
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
+  font-family: $font-family-base;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 #root {
   height: 100%;
+}
+
+/* ── 공통 사이드바 네비게이션 ─────────────── */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid $gray-300;
+}
+
+.sidebar-nav__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: $font-sm;
+  font-weight: 600;
+  color: $gray-700;
+  background: transparent;
+  text-decoration: none;
+  transition: all 0.15s;
+
+  &:hover {
+    background: $gray-200;
+    color: $gray-900;
+  }
+
+  &--active {
+    background: $brand-brown;
+    color: $white;
+
+    &:hover {
+      background: $brand-brown-hover;
+      color: $white;
+    }
+
+    .sidebar-nav__badge {
+      background: rgba(255, 255, 255, 0.25);
+      color: $white;
+    }
+  }
+}
+
+.sidebar-nav__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  font-size: $font-xs;
+  font-weight: 700;
+  background: $brand-brown;
+  color: $white;
+  line-height: 1;
+}
+
+/* ── 병원별 뱃지 (채팅/설문 카운트) ──── */
+.hospital-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: $font-2xs;
+  font-weight: 700;
+  line-height: 1;
+  margin-left: 3px;
+
+  &--chat {
+    background: $chart-blue;
+    color: $white;
+  }
+
+  &--survey {
+    background: $success;
+    color: $white;
+  }
+}
+
+/* ── 공통 엑셀 내보내기 버튼 ─────────────── */
+.btn-excel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 16px;
+  border: 1px solid $gray-300;
+  border-radius: 20px;
+  background: $white;
+  font-size: $font-xs;
+  font-weight: $font-weight-semibold;
+  color: $gray-700;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: $brand-brown;
+    color: $white;
+    border-color: $brand-brown;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.admin-embedding-page__hospital-btn,
+.survey-page__hospital-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  &.admin-embedding-page__hospital-btn--all {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

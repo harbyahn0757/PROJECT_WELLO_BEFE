@@ -1,0 +1,32 @@
+@import 'variables';
+
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid $gray-200;
+  margin-bottom: 16px;
+
+  &__item {
+    padding: 10px 24px;
+    border: none;
+    background: transparent;
+    color: $gray-500;
+    border-radius: 0;
+    font-size: $font-md;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+    margin-bottom: -2px;
+    border-bottom: 2px solid transparent;
+
+    &:hover {
+      color: $gray-800;
+    }
+
+    &.active {
+      color: $brand-brown;
+      border-bottom: 2px solid $brand-brown;
+    }
+  }
+}
