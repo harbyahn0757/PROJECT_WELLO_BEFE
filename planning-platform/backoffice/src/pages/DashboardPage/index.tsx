@@ -33,6 +33,22 @@ const DATE_PRESETS = [
 
 const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
+/* 파이 차트 반응형 라벨: 텍스트가 영역 밖으로 나가지 않도록 축약 */
+const renderPieLabel = ({ name, percent, cx, outerRadius, midAngle, x, y }: any) => {
+  const pct = `${(percent * 100).toFixed(0)}%`;
+  // 라벨 영역이 좁으면 퍼센트만 표시
+  const RADIAN = Math.PI / 180;
+  const radius = outerRadius + 18;
+  const lx = cx + radius * Math.cos(-midAngle * RADIAN);
+  const anchor = lx > cx ? 'start' : 'end';
+  const displayName = name.length > 6 ? name.slice(0, 5) + '…' : name;
+  return (
+    <text x={x} y={y} textAnchor={anchor} dominantBaseline="central" style={{ fontSize: 11 }}>
+      {displayName} {pct}
+    </text>
+  );
+};
+
 const DashboardPage: React.FC = () => {
   useAuth(); // ensure authenticated
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -234,26 +250,37 @@ const DashboardPage: React.FC = () => {
       </div>
 
       {/* ── 유입 퍼널 ── */}
-      {overview && (
-        <>
+      {overview && (() => {
+        const users = Number(overview.total_users) || 0;
+        const events = Number(overview.total_events) || 0;
+        const chats = Number(overview.total_chats) || 0;
+        const surveys = Number(overview.total_surveys) || 0;
+        const eventRate = users ? ((events / users) * 100).toFixed(1) : '0';
+        const chatRate = events ? ((chats / events) * 100).toFixed(1) : '0';
+        const surveyRate = chats ? ((surveys / chats) * 100).toFixed(1) : '0';
+        return (<>
           <div className="dashboard-page__funnel-cards">
             <div className="dashboard-page__funnel-card">
               <div className="dashboard-page__funnel-label">총 유입</div>
-              <div className="dashboard-page__funnel-value">{fmtNum(overview.total_users)}명</div>
+              <div className="dashboard-page__funnel-value">{fmtNum(users)}명</div>
             </div>
             <div className="dashboard-page__funnel-card">
               <div className="dashboard-page__funnel-label">총 이벤트</div>
-              <div className="dashboard-page__funnel-value">{fmtNum(overview.total_events)}건</div>
+              <div className="dashboard-page__funnel-value">{fmtNum(events)}건</div>
+              <div className="dashboard-page__funnel-rate">전환 {eventRate}%</div>
+              <div className="dashboard-page__funnel-base">유입 대비</div>
             </div>
             <div className="dashboard-page__funnel-card">
               <div className="dashboard-page__funnel-label">상담</div>
-              <div className="dashboard-page__funnel-value">{fmtNum(overview.total_chats)}건</div>
-              <div className="dashboard-page__funnel-rate">전환 {overview.chat_rate}%</div>
+              <div className="dashboard-page__funnel-value">{fmtNum(chats)}건</div>
+              <div className="dashboard-page__funnel-rate">전환 {chatRate}%</div>
+              <div className="dashboard-page__funnel-base">이벤트 대비</div>
             </div>
             <div className="dashboard-page__funnel-card">
               <div className="dashboard-page__funnel-label">서베이</div>
-              <div className="dashboard-page__funnel-value">{fmtNum(overview.total_surveys)}건</div>
-              <div className="dashboard-page__funnel-rate">전환 {overview.survey_rate}%</div>
+              <div className="dashboard-page__funnel-value">{fmtNum(surveys)}건</div>
+              <div className="dashboard-page__funnel-rate">전환 {surveyRate}%</div>
+              <div className="dashboard-page__funnel-base">상담 대비</div>
             </div>
           </div>
 
@@ -275,8 +302,8 @@ const DashboardPage: React.FC = () => {
           </div>
 
           <div className="dashboard-page__section-divider">상담 분석</div>
-        </>
-      )}
+        </>);
+      })()}
 
       {/* 요약 카드 */}
       <div className="dashboard-page__cards">
@@ -319,7 +346,7 @@ const DashboardPage: React.FC = () => {
           <h3 className="dashboard-page__chart-title">위험도 분포</h3>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={riskDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              <Pie data={riskDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%" label={renderPieLabel}>
                 {riskDist.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
               <Tooltip />
@@ -346,7 +373,7 @@ const DashboardPage: React.FC = () => {
           <h3 className="dashboard-page__chart-title">감정 분포</h3>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={sentimentDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              <Pie data={sentimentDist} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%" label={renderPieLabel}>
                 {sentimentDist.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
               <Tooltip />
@@ -401,13 +428,13 @@ const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="dashboard-page__grid">
+      <div className="dashboard-page__grid dashboard-page__grid--journey">
         {/* 디바이스 분포 */}
         <div className="dashboard-page__chart">
           <h3 className="dashboard-page__chart-title">디바이스 분포</h3>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={journey?.device_distribution || []} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              <Pie data={journey?.device_distribution || []} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%" label={renderPieLabel}>
                 {(journey?.device_distribution || []).map((_: any, i: number) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
               <Tooltip />
@@ -420,7 +447,7 @@ const DashboardPage: React.FC = () => {
           <h3 className="dashboard-page__chart-title">액션 유형</h3>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={journey?.action_distribution || []} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              <Pie data={journey?.action_distribution || []} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%" label={renderPieLabel}>
                 {(journey?.action_distribution || []).map((_: any, i: number) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
               <Tooltip />
@@ -429,7 +456,7 @@ const DashboardPage: React.FC = () => {
         </div>
 
         {/* 일별 방문 추이 */}
-        <div className="dashboard-page__chart dashboard-page__chart--wide">
+        <div className="dashboard-page__chart dashboard-page__chart--journey-full">
           <h3 className="dashboard-page__chart-title">일별 이벤트 추이</h3>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={journey?.daily_visits || []}>
@@ -443,7 +470,7 @@ const DashboardPage: React.FC = () => {
         </div>
 
         {/* 병원별 활동 TOP 10 */}
-        <div className="dashboard-page__chart dashboard-page__chart--wide">
+        <div className="dashboard-page__chart dashboard-page__chart--journey-full">
           <h3 className="dashboard-page__chart-title">병원별 활동 TOP 10</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={journey?.top_hospitals || []} layout="vertical">
@@ -461,7 +488,7 @@ const DashboardPage: React.FC = () => {
           <h3 className="dashboard-page__chart-title">OS 분포</h3>
           <ResponsiveContainer width="100%" height={220}>
             <PieChart>
-              <Pie data={journey?.os_distribution || []} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              <Pie data={journey?.os_distribution || []} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius="70%" label={renderPieLabel}>
                 {(journey?.os_distribution || []).map((_: any, i: number) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
               <Tooltip />
