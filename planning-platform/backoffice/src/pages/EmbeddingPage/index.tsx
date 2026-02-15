@@ -22,6 +22,7 @@ const getEmbeddingApiBase = (): string => {
   return '/api/v1/admin/embedding';
 };
 const API_BASE = getEmbeddingApiBase();
+const MIN_EXPORT_BLOB_BYTES = 5000;
 
 interface HospitalItem {
   partner_id: string;
@@ -418,7 +419,9 @@ const EmbeddingPage: React.FC = () => {
               if (data.session_id) {
                 setChatSessionId(data.session_id);
               }
-            } catch {}
+            } catch (parseErr) {
+              console.warn('SSE JSON parse error:', parseErr);
+            }
           }
         }
       }
@@ -729,7 +732,7 @@ const EmbeddingPage: React.FC = () => {
           // 서버 엑셀이 정상이면 blob으로 직접 다운로드
           const blob = await res.blob();
           // blob 크기가 헤더만인지 확인 (대략 5KB 이하면 데이터 없음)
-          if (blob.size > 5000) {
+          if (blob.size > MIN_EXPORT_BLOB_BYTES) {
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = `상담데이터_전체_${dateSuffix()}.xlsx`;
