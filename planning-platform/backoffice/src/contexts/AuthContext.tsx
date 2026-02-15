@@ -20,8 +20,16 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [token, setToken] = useState<string | null>(() => sessionStorage.getItem('po_token'));
   const [user, setUser] = useState<UserInfo | null>(() => {
-    const raw = sessionStorage.getItem('po_user');
-    return raw ? JSON.parse(raw) : null;
+    try {
+      const raw = sessionStorage.getItem('po_user');
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.username === 'string') return parsed;
+      return null;
+    } catch {
+      sessionStorage.removeItem('po_user');
+      return null;
+    }
   });
 
   const login = useCallback(async (username: string, password: string) => {
