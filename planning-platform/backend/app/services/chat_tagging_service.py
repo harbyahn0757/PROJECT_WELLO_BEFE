@@ -67,6 +67,21 @@ NUTRITION_KEYWORDS: Dict[str, List[str]] = {
 ACTION_INTENT_ACTIVE = ["가볼게", "가봐야", "예약", "병원", "방문", "검사받", "해볼게", "시작", "실천", "바꿔"]
 ACTION_INTENT_CONSIDERING = ["고민", "생각", "고려", "해볼까", "할까", "괜찮을까", "어떨까"]
 
+# 구매 신호 키워드 (Commerce 파이프라인)
+BUYING_SIGNAL_HIGH = ["가격", "얼마", "어디서 사", "구매", "주문", "추천해", "제품", "살 수 있"]
+BUYING_SIGNAL_MID = ["영양제", "보충제", "밀크씨슬", "오메가", "프로바이오틱", "비교"]
+
+# 의학적 관심사 → 상품 카테고리 매핑
+COMMERCIAL_MAPPING = {
+    "간기능": {"category": "간건강", "product_hint": "밀크씨슬"},
+    "콜레스테롤": {"category": "심혈관", "product_hint": "오메가3"},
+    "당뇨": {"category": "혈당관리", "product_hint": "바나바잎추출물"},
+    "혈압": {"category": "혈압관리", "product_hint": "코엔자임Q10"},
+    "빈혈": {"category": "조혈", "product_hint": "철분제"},
+    "위장": {"category": "소화건강", "product_hint": "프로바이오틱"},
+    "다이어트": {"category": "체중관리", "product_hint": "가르시니아"},
+}
+
 
 # ─── 규칙 기반 함수 (폴백용으로 유지) ──────────────────────────────
 
@@ -177,6 +192,35 @@ def extract_keyword_tags(messages: List[Dict[str, str]]) -> List[str]:
     return list(matched)[:20]  # 최대 20개
 
 
+def extract_buying_signal(messages: List[Dict[str, str]]) -> str:
+    """구매 신호 규칙 기반 판별"""
+    user_text = " ".join(m.get("content", "") for m in messages if m.get("role") == "user")
+    if any(kw in user_text for kw in BUYING_SIGNAL_HIGH):
+        return "high"
+    if any(kw in user_text for kw in BUYING_SIGNAL_MID):
+        return "mid"
+    return "low"
+
+
+def extract_commercial_tags(interest_tags: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    """관심사 태그에서 상품 카테고리 매핑 (규칙 기반)"""
+    tags = []
+    seen = set()
+    for tag in interest_tags:
+        topic = tag.get("topic", "") if isinstance(tag, dict) else str(tag)
+        for key, mapping in COMMERCIAL_MAPPING.items():
+            if key in topic and mapping["category"] not in seen:
+                intensity = tag.get("intensity", "medium") if isinstance(tag, dict) else "medium"
+                segment = "고관여" if intensity == "high" else "일반"
+                tags.append({
+                    "category": mapping["category"],
+                    "product_hint": mapping["product_hint"],
+                    "segment": segment,
+                })
+                seen.add(mapping["category"])
+    return tags
+
+
 def detect_sentiment(messages: List[Dict[str, str]]) -> str:
     """사용자 마지막 메시지 기반 감정 판별"""
     user_messages = [m for m in messages if m.get("role") == "user"]
@@ -220,12 +264,15 @@ async def generate_conversation_summary(messages: List[Dict[str, str]]) -> str:
 async def llm_analyze_session(
     messages: List[Dict[str, str]],
     health_metrics: Optional[Dict[str, Any]] = None,
-) -> Optional[Dict[str, Any]]:
+) -> tuple[Optional[Dict[str, Any]], str]:
     """
     Gemini Flash Lite를 사용하여 대화 세션을 분석합니다.
 
     Returns:
-        {summary, sentiment, interest_tags, risk_level, key_concerns, follow_up_needed} 또는 실패 시 None
+        (result, error_reason) 튜플.
+        - result: {summary, sentiment, interest_tags, ...} 또는 실패 시 None
+        - error_reason: "" (성공), "api_key_missing", "json_parse_error",
+          "invalid_response", "api_error:{msg}"
     """
     try:
         import google.generativeai as genai
@@ -233,7 +280,7 @@ async def llm_analyze_session(
         api_key = settings.google_gemini_api_key
         if not api_key or api_key == "dev-gemini-key":
             logger.debug("[태깅-LLM] Gemini API 키 미설정, 스킵")
-            return None
+            return None, "api_key_missing"
 
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(settings.google_gemini_lite_model)
@@ -295,6 +342,13 @@ async def llm_analyze_session(
 - engagement_score: 환자 참여도 점수 0-100 (반복질문, 후속질문, 질문 수 종합)
 - action_intent: 환자 행동 의향 — active(병원방문/생활개선 의지 표현), considering(고민중), passive(특별한 의지 없음)
 - nutrition_interests: 환자가 관심 보인 식단/영양 주제 (식단관리, 영양제, 운동 등)
+- commercial_tags: 환자의 관심사를 상품/서비스 카테고리로 변환. 의학적 관심+위험도 조합으로 타겟 세그먼트 도출.
+  예: [간수치 high + 피로 관심] → [{{"category": "간건강", "product_hint": "밀크씨슬", "segment": "고관여"}}]
+  관심이 없거나 해당 없으면 빈 배열.
+- buying_signal: 대화 중 구매/소비 의향 신호 판단.
+  "high": 가격 문의, 제품 추천 요청, 어디서 사는지 질문
+  "mid": 영양제/보충제 언급, 비교 질문
+  "low": 구매 관련 언급 전혀 없음
 
 응답 JSON:
 {{
@@ -308,7 +362,9 @@ async def llm_analyze_session(
   "conversation_depth": "deep|moderate|shallow",
   "engagement_score": 0-100,
   "action_intent": "active|considering|passive",
-  "nutrition_interests": ["식단관리", "영양제"]
+  "nutrition_interests": ["식단관리", "영양제"],
+  "commercial_tags": [{{"category": "카테고리", "product_hint": "상품힌트", "segment": "고관여|일반"}}],
+  "buying_signal": "high|mid|low"
 }}"""
 
         response = await asyncio.to_thread(model.generate_content, prompt)
@@ -324,10 +380,10 @@ async def llm_analyze_session(
                     raw_text = candidate.content.parts[0].text.strip()
                 else:
                     logger.warning("[태깅-LLM] Gemini 응답 파싱 불가: 알 수 없는 응답 구조")
-                    return None
+                    return None, "invalid_response"
             else:
                 logger.warning("[태깅-LLM] Gemini 응답 파싱 불가: text/parts 없음")
-                return None
+                return None, "invalid_response"
 
         # JSON 파싱 (```json ... ``` 감싸기 대응)
         if raw_text.startswith("```"):
@@ -397,16 +453,38 @@ async def llm_analyze_session(
         raw_nutrition = result.get("nutrition_interests", [])
         result["nutrition_interests"] = [str(n) for n in raw_nutrition[:5]] if isinstance(raw_nutrition, list) else []
 
+        # commercial_tags 검증
+        raw_commercial = result.get("commercial_tags", [])
+        if not isinstance(raw_commercial, list):
+            raw_commercial = []
+        validated_commercial = []
+        for ct in raw_commercial[:10]:
+            if isinstance(ct, dict) and "category" in ct:
+                segment = ct.get("segment", "일반")
+                if segment not in ("고관여", "일반"):
+                    segment = "일반"
+                validated_commercial.append({
+                    "category": str(ct["category"]),
+                    "product_hint": str(ct.get("product_hint", "")),
+                    "segment": segment,
+                })
+        result["commercial_tags"] = validated_commercial
+
+        # buying_signal 검증
+        valid_signals = {"high", "mid", "low"}
+        if result.get("buying_signal") not in valid_signals:
+            result["buying_signal"] = "low"
+
         logger.info(f"[태깅-LLM] 분석 완료: sentiment={result['sentiment']}, "
                      f"tags={len(result['interest_tags'])}, risk={result['risk_level']}")
-        return result
+        return result, ""
 
     except json.JSONDecodeError as e:
         logger.warning(f"[태깅-LLM] JSON 파싱 실패: {e}")
-        return None
+        return None, "json_parse_error"
     except Exception as e:
         logger.warning(f"[태깅-LLM] Gemini 호출 실패: {e}")
-        return None
+        return None, f"api_error:{e}"
 
 
 # ─── DB에서 대화 메시지 로드 ────────────────────────────────────────
@@ -506,11 +584,24 @@ async def tag_chat_session(
 
         # LLM 분석 시도
         tagging_model = "rule-based"
-        llm_result = await llm_analyze_session(messages, health_metrics)
+        llm_attempted = False
+        llm_failed = False
+        llm_error = None
+
+        llm_result, llm_err = await llm_analyze_session(messages, health_metrics)
+
+        if llm_err == "api_key_missing":
+            llm_attempted = False
+        else:
+            llm_attempted = True
+            if not llm_result:
+                llm_failed = True
+                llm_error = llm_err
+                logger.warning(f"⚠️ [태깅] LLM 실패→규칙기반: session={session_id} error={llm_err}")
 
         if llm_result:
             # LLM 성공 — LLM 결과 사용 + 규칙 기반 최소 보장
-            tagging_model = f"gemini-{settings.google_gemini_lite_model}"
+            tagging_model = settings.google_gemini_lite_model
             interest_tags = llm_result["interest_tags"]  # [{topic, intensity}]
             sentiment = llm_result["sentiment"]
             summary = llm_result["summary"]
@@ -532,6 +623,15 @@ async def tag_chat_session(
             # 규칙 기반 nutrition_tags도 병합
             rule_nutrition = extract_nutrition_tags(messages)
             nutrition_tags = list(set(nutrition_tags) | set(rule_nutrition))
+            commercial_tags = llm_result.get("commercial_tags", [])
+            buying_signal = llm_result.get("buying_signal", "low")
+            # 규칙 기반으로 보충
+            if not commercial_tags:
+                commercial_tags = extract_commercial_tags(interest_tags)
+            rule_signal = extract_buying_signal(messages)
+            SIGNAL_ORDER = {"low": 0, "mid": 1, "high": 2}
+            if SIGNAL_ORDER.get(rule_signal, 0) > SIGNAL_ORDER.get(buying_signal, 0):
+                buying_signal = rule_signal
         else:
             # LLM 실패 — 규칙 기반 폴백
             raw_interest = extract_interest_tags(messages)
@@ -545,6 +645,8 @@ async def tag_chat_session(
             conversation_depth, engagement_score = calculate_engagement(messages)
             action_intent = detect_action_intent(messages)
             nutrition_tags = extract_nutrition_tags(messages)
+            commercial_tags = extract_commercial_tags(interest_tags)
+            buying_signal = extract_buying_signal(messages)
 
         tag_data = {
             "session_id": session_id,
@@ -565,6 +667,12 @@ async def tag_chat_session(
             "engagement_score": engagement_score,
             "action_intent": action_intent,
             "nutrition_tags": nutrition_tags,
+            "llm_attempted": llm_attempted,
+            "llm_failed": llm_failed,
+            "llm_error": llm_error,
+            "commercial_tags": commercial_tags,
+            "buying_signal": buying_signal,
+            "conversion_flag": False,
         }
 
         # DB 저장 (Upsert)
@@ -574,8 +682,10 @@ async def tag_chat_session(
              sentiment, conversation_summary, data_quality_score, has_discrepancy,
              risk_level, key_concerns, follow_up_needed, tagging_model, tagging_version,
              counselor_recommendations,
-             conversation_depth, engagement_score, action_intent, nutrition_tags)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 2, %s, %s, %s, %s, %s)
+             conversation_depth, engagement_score, action_intent, nutrition_tags,
+             llm_attempted, llm_failed, llm_error,
+             commercial_tags, buying_signal, conversion_flag)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 2, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (session_id, partner_id) DO UPDATE SET
                 interest_tags = EXCLUDED.interest_tags,
                 risk_tags = EXCLUDED.risk_tags,
@@ -594,6 +704,12 @@ async def tag_chat_session(
                 engagement_score = EXCLUDED.engagement_score,
                 action_intent = EXCLUDED.action_intent,
                 nutrition_tags = EXCLUDED.nutrition_tags,
+                llm_attempted = EXCLUDED.llm_attempted,
+                llm_failed = EXCLUDED.llm_failed,
+                llm_error = EXCLUDED.llm_error,
+                commercial_tags = EXCLUDED.commercial_tags,
+                buying_signal = EXCLUDED.buying_signal,
+                conversion_flag = EXCLUDED.conversion_flag,
                 updated_at = NOW()
         """
         await db_manager.execute_update(upsert_query, (
@@ -615,6 +731,12 @@ async def tag_chat_session(
             engagement_score,
             action_intent,
             json.dumps(nutrition_tags, ensure_ascii=False),
+            llm_attempted,
+            llm_failed,
+            llm_error,
+            json.dumps(commercial_tags, ensure_ascii=False),
+            buying_signal,
+            False,  # conversion_flag
         ))
 
         logger.info(f"[태깅] 세션 태깅 완료: {session_id} - "
@@ -764,6 +886,8 @@ async def get_session_tags(session_id: str, partner_id: str) -> Optional[Dict[st
                    risk_level, key_concerns, follow_up_needed,
                    tagging_model, tagging_version, counselor_recommendations,
                    conversation_depth, engagement_score, action_intent, nutrition_tags,
+                   commercial_tags, buying_signal, conversion_flag,
+                   llm_attempted, llm_failed, llm_error,
                    created_at, updated_at
             FROM welno.tb_chat_session_tags
             WHERE session_id = %s AND partner_id = %s

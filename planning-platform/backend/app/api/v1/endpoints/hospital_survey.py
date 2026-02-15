@@ -97,6 +97,7 @@ class DynamicSurveySubmitRequest(BaseModel):
     answers: dict
     free_comment: str = Field(default="", max_length=2000)
     respondent_uuid: Optional[str] = None
+    respondent_name: Optional[str] = None
 
 
 # ── 병원 자동 등록 (DynamicConfigService 재사용) ──
@@ -334,7 +335,7 @@ async def get_survey_stats(
         if avg_row:
             total_count = avg_row["total_count"]
             for f in LEGACY_SURVEY_FIELDS:
-                averages[f] = round(float(avg_row.get(f"avg_{f}", 0)), 2)
+                averages[f] = round(float(avg_row.get(f"avg_{f}") or 0), 2)
 
         # 일별 추이 (레거시 5개 필드)
         daily_avg_selects = ", ".join(
@@ -361,7 +362,7 @@ async def get_survey_stats(
                 "count": r["count"],
             }
             for f in LEGACY_SURVEY_FIELDS:
-                item[f] = float(r.get(f"avg_{f}", 0))
+                item[f] = float(r.get(f"avg_{f}") or 0)
             daily_trend.append(item)
 
         # 레거시 5개 필드만 라벨 반환
@@ -431,7 +432,7 @@ async def _get_dynamic_survey_stats(
         )
         if avg_row:
             for k in rating_keys:
-                averages[k] = round(float(avg_row.get(f"avg_{k}", 0)), 2)
+                averages[k] = round(float(avg_row.get(f"avg_{k}") or 0), 2)
 
     # 일별 추이
     daily_trend = []
@@ -459,7 +460,7 @@ async def _get_dynamic_survey_stats(
                 "count": r["count"],
             }
             for k in rating_keys:
-                item[k] = float(r.get(f"avg_{k}", 0))
+                item[k] = float(r.get(f"avg_{k}") or 0)
             daily_trend.append(item)
 
     return {
@@ -469,6 +470,90 @@ async def _get_dynamic_survey_stats(
         "daily_trend": daily_trend,
         "template_id": template_id,
     }
+
+
+# ── 오늘 요약 (카드 그리드용) ──────────────────────────────
+
+@router.get("/hospital-survey/today-summary")
+async def today_summary(target_date: Optional[str] = None):
+    """병원별 설문 요약 — 병원 미선택 시 카드 그리드용 (target_date 미지정 시 오늘)"""
+    try:
+        today_str = target_date or date.today().isoformat()
+
+        next_day = (datetime.strptime(today_str, "%Y-%m-%d") + __import__('datetime').timedelta(days=1)).strftime("%Y-%m-%d")
+
+        # 1) 해당 날짜 응답이 있는 병원 목록 (legacy + dynamic UNION)
+        hospitals = await db_manager.execute_query("""
+            WITH day_responses AS (
+                SELECT hospital_id, COUNT(*) AS cnt,
+                       COALESCE(AVG(overall_satisfaction), 0) AS avg_satisfaction
+                FROM welno.tb_hospital_survey_responses
+                WHERE created_at >= %s::date AND created_at < %s::date
+                GROUP BY hospital_id
+                UNION ALL
+                SELECT hospital_id, COUNT(*) AS cnt,
+                       COALESCE(AVG(
+                         COALESCE(
+                           (answers->>'overall_satisfaction')::numeric,
+                           (SELECT AVG(v::numeric) FROM jsonb_each_text(answers) AS kv(k,v)
+                            WHERE kv.k NOT IN ('free_text','free_comment')
+                              AND kv.v ~ '^\d+(\.\d+)?$')
+                         )
+                       ), 0) AS avg_satisfaction
+                FROM welno.tb_survey_responses_dynamic
+                WHERE created_at >= %s::date AND created_at < %s::date
+                GROUP BY hospital_id
+            )
+            SELECT
+                tr.hospital_id,
+                h.hospital_name,
+                SUM(tr.cnt)::int AS today_count,
+                ROUND(AVG(tr.avg_satisfaction)::numeric, 1) AS avg_satisfaction
+            FROM day_responses tr
+            LEFT JOIN welno.tb_hospital_rag_config h
+              ON h.hospital_id = tr.hospital_id AND h.is_active = true
+            GROUP BY tr.hospital_id, h.hospital_name
+            ORDER BY SUM(tr.cnt) DESC
+        """, (today_str, next_day, today_str, next_day))
+
+        # 2) 전체 요약 KPI
+        total_row = await db_manager.execute_one("""
+            WITH all_day AS (
+                SELECT overall_satisfaction AS score FROM welno.tb_hospital_survey_responses
+                WHERE created_at >= %s::date AND created_at < %s::date
+                UNION ALL
+                SELECT COALESCE(
+                  (answers->>'overall_satisfaction')::numeric,
+                  (SELECT AVG(v::numeric) FROM jsonb_each_text(answers) AS kv(k,v)
+                   WHERE kv.k NOT IN ('free_text','free_comment')
+                     AND kv.v ~ '^\d+(\.\d+)?$')
+                ) FROM welno.tb_survey_responses_dynamic
+                WHERE created_at >= %s::date AND created_at < %s::date
+            )
+            SELECT
+                COUNT(*) AS total_count,
+                COALESCE(ROUND(AVG(score)::numeric, 1), 0) AS avg_score
+            FROM all_day
+        """, (today_str, next_day, today_str, next_day))
+
+        # 3) 전체 병원 수
+        all_hospitals_row = await db_manager.execute_one(
+            "SELECT COUNT(*) AS cnt FROM welno.tb_hospital_rag_config WHERE is_active = true"
+        )
+
+        return {
+            "date": today_str,
+            "hospitals": hospitals,
+            "summary": {
+                "today_total": total_row["total_count"] if total_row else 0,
+                "today_avg_score": float(total_row["avg_score"]) if total_row else 0,
+                "active_hospitals": len(hospitals),
+                "total_hospitals": all_hospitals_row["cnt"] if all_hospitals_row else 0,
+            }
+        }
+    except Exception as e:
+        logger.error(f"[설문] today-summary 조회 실패: {e}")
+        raise HTTPException(status_code=500, detail="요약 조회에 실패했습니다.")
 
 
 # ── 동적 설문 템플릿 API ──────────────────────────────────
@@ -690,17 +775,64 @@ async def submit_dynamic_survey(
     body: DynamicSurveySubmitRequest,
     partner_info: PartnerAuthInfo = Depends(verify_partner_api_key)
 ):
-    """동적 설문 제출 (X-API-Key 인증) — template_id가 null이면 기본 설문으로 저장"""
+    """동적 설문 제출 (X-API-Key 인증) — template_id 없으면 병원 기본 템플릿 자동 매칭/생성"""
     # 병원 자동 등록
     await _ensure_hospital_registered(partner_info.partner_id, body.hospital_id, body.hospital_name)
 
-    # Verify template exists (only if template_id is provided)
-    if body.template_id is not None:
+    # template_id 결정: 명시 → 검증, 미전달 → 병원 기본 템플릿 조회/생성
+    template_id = body.template_id
+    if template_id is not None:
         template = await db_manager.execute_one(
-            "SELECT * FROM welno.tb_survey_templates WHERE id = %s", (body.template_id,)
+            "SELECT id FROM welno.tb_survey_templates WHERE id = %s", (template_id,)
         )
         if not template:
             raise HTTPException(status_code=404, detail="Template not found")
+    else:
+        # 병원 기본 템플릿 조회
+        template = await db_manager.execute_one(
+            """SELECT id FROM welno.tb_survey_templates
+               WHERE partner_id = %s AND hospital_id = %s AND is_active = true
+               ORDER BY created_at LIMIT 1""",
+            (partner_info.partner_id, body.hospital_id)
+        )
+        if template:
+            template_id = template["id"]
+        else:
+            # 기본 템플릿 자동 생성 (is_active=true + 기본 질문 등록)
+            hospital_name = body.hospital_name or body.hospital_id[:16]
+            new_tmpl = await db_manager.execute_one(
+                """INSERT INTO welno.tb_survey_templates
+                   (partner_id, hospital_id, template_name, description, is_active)
+                   VALUES (%s, %s, %s, %s, true) RETURNING id""",
+                (partner_info.partner_id, body.hospital_id,
+                 f"{hospital_name} 기본설문", "자동 생성된 기본 설문 템플릿")
+            )
+            template_id = new_tmpl["id"]
+            # 기본 질문 11개 등록 (config API 기본값과 동일)
+            rating_cfg = '{"min":1,"max":5,"labels":["매우불만족","불만족","보통","만족","매우만족"]}'
+            nps_cfg = '{"min":1,"max":5,"labels":["전혀 아니다","아니다","보통","그렇다","매우 그렇다"]}'
+            default_qs = [
+                ("overall_satisfaction", "전반적 만족도", "rating", True, None, 1,
+                 '{"min":1,"max":5,"labels":["매우불만족","불만족","보통","만족","매우만족"],"section":"overall"}'),
+                ("reservation_process", "예약 과정", "rating", True, None, 2, rating_cfg),
+                ("facility_cleanliness", "시설 청결", "rating", True, None, 3, rating_cfg),
+                ("staff_kindness", "직원 친절", "rating", True, None, 4, rating_cfg),
+                ("waiting_time", "대기 시간", "rating", True, None, 5, rating_cfg),
+                ("result_explanation", "검진 결과 설명", "rating", True, None, 6, rating_cfg),
+                ("revisit_intention", "재방문 의향", "rating", True, None, 7, nps_cfg),
+                ("recommendation", "추천 의향", "rating", True, None, 8, nps_cfg),
+                ("best_experience", "가장 좋았던 점", "text", False, None, 9, '{}'),
+                ("improvement_suggestion", "개선이 필요한 점", "text", False, None, 10, '{}'),
+                ("free_text", "기타 하실 말씀", "text", False, None, 11, '{}'),
+            ]
+            for qkey, qlabel, qtype, req, opts, order, cfg in default_qs:
+                await db_manager.execute_update(
+                    """INSERT INTO welno.tb_survey_template_questions
+                       (template_id, question_key, question_label, question_type, is_required, options, display_order, config)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb)""",
+                    (template_id, qkey, qlabel, qtype, req, opts, order, cfg)
+                )
+            logger.info(f"[서베이] 기본 템플릿 자동 생성: template_id={template_id}, hospital={body.hospital_id}")
 
     user_agent = request.headers.get("user-agent", "")[:500]
     forwarded = request.headers.get("x-forwarded-for", "")
@@ -708,10 +840,10 @@ async def submit_dynamic_survey(
 
     result = await db_manager.execute_one(
         """INSERT INTO welno.tb_survey_responses_dynamic
-           (template_id, partner_id, hospital_id, answers, free_comment, respondent_uuid, user_agent, ip_address)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id, created_at""",
-        (body.template_id, partner_info.partner_id, body.hospital_id,
-         json.dumps(body.answers), body.free_comment, body.respondent_uuid, user_agent, ip_address)
+           (template_id, partner_id, hospital_id, answers, free_comment, respondent_uuid, respondent_name, user_agent, ip_address)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id, created_at""",
+        (template_id, partner_info.partner_id, body.hospital_id,
+         json.dumps(body.answers), body.free_comment, body.respondent_uuid, body.respondent_name, user_agent, ip_address)
     )
 
     return {"success": True, "response_id": result["id"], "created_at": str(result["created_at"])}

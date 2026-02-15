@@ -72,8 +72,28 @@ class PartnerRagChatService(WelnoRagChatService):
                 partner_info, partner_health_data
             )
             trace_data["timings"]["preprocess_ms"] = (time.time() - pre_start) * 1000
+
+            # 1-1. health_data 미수신 시 Redis(warmup 저장분) 폴백
+            redis_fallback_used = False
+            if not processed_data.get("has_data") and self.redis_client:
+                try:
+                    data_mapping_key = f"welno:partner_rag:mapping:{session_id}:data"
+                    partner_data_key = self.redis_client.get(data_mapping_key)
+                    if partner_data_key:
+                        cached_json = self.redis_client.get(partner_data_key)
+                        if cached_json:
+                            processed_data = json.loads(cached_json)
+                            redis_fallback_used = True
+                            logger.info(
+                                f"♻️ [파트너 RAG] Redis 폴백 사용 - session={session_id} "
+                                f"source={processed_data.get('source')}"
+                            )
+                except Exception as e:
+                    logger.warning(f"⚠️ [파트너 RAG] Redis 폴백 실패: {e}")
+
             trace_data["processed_data"] = processed_data
-            
+            trace_data["redis_fallback"] = redis_fallback_used
+
             # 2. 병원별 RAG/LLM 설정 로드
             config_start = time.time()
             hospital_config = await self.get_hospital_rag_config(
@@ -111,11 +131,12 @@ class PartnerRagChatService(WelnoRagChatService):
                 except Exception:
                     pass
 
-            # 3. 세션 메타데이터에 파트너 정보 저장
+            # 3. 세션 메타데이터에 파트너 정보 저장 (Redis 폴백으로 복원한 경우 덮어쓰기 방지)
             meta_start = time.time()
-            await self._store_partner_session_metadata(
-                session_id, partner_info, processed_data
-            )
+            if not redis_fallback_used:
+                await self._store_partner_session_metadata(
+                    session_id, partner_info, processed_data
+                )
             trace_data["timings"]["metadata_storage_ms"] = (time.time() - meta_start) * 1000
             
             # 3. 기존 RAG 서비스 로직 활용하되 파트너 데이터 통합
@@ -161,8 +182,10 @@ class PartnerRagChatService(WelnoRagChatService):
         """
         
         if not health_data:
-            logger.info(f"[파트너 RAG] 검진 데이터 없음 - {partner_info.partner_id}")
-            return {"has_data": False, "source": "partner"}
+            logger.warning(
+                f"⚠️ [파트너 RAG] 검진 데이터 미수신 - partner={partner_info.partner_id}"
+            )
+            return {"has_data": False, "source": "partner", "data_missing_reason": "no_data_in_request"}
         
         logger.info(f"[파트너 RAG] 검진 데이터 처리 시작 - {partner_info.partner_id}")
         
@@ -192,6 +215,12 @@ class PartnerRagChatService(WelnoRagChatService):
             "recommendations": []
         }
         
+        # KindHabit 필드 누락 경고
+        if "user_info" not in data:
+            logger.warning("⚠️ [파트너 RAG] kindhabit: user_info 필드 누락")
+        if "health_data" not in data:
+            logger.warning("⚠️ [파트너 RAG] kindhabit: health_data 필드 누락")
+
         # KindHabit 특화 데이터 매핑
         if "user_info" in data:
             user_info = data["user_info"]
@@ -233,6 +262,12 @@ class PartnerRagChatService(WelnoRagChatService):
             "medical_history": []
         }
         
+        # MediLinx 필드 누락 경고
+        if "patient" not in data:
+            logger.warning("⚠️ [파트너 RAG] medilinx: patient 필드 누락")
+        if "checkup_results" not in data:
+            logger.warning("⚠️ [파트너 RAG] medilinx: checkup_results 필드 누락")
+
         # MediLinx 특화 데이터 매핑
         if "patient" in data:
             patient = data["patient"]
@@ -298,6 +333,12 @@ class PartnerRagChatService(WelnoRagChatService):
             "raw_data": data
         }
         
+        # 표준 필드 누락 경고
+        if "patient_info" not in data:
+            logger.warning("⚠️ [파트너 RAG] standard: patient_info 필드 누락")
+        if "health_metrics" not in data:
+            logger.warning("⚠️ [파트너 RAG] standard: health_metrics 필드 누락")
+
         # 표준 필드 매핑 시도
         if "patient_info" in data:
             processed["patient_info"] = data["patient_info"]

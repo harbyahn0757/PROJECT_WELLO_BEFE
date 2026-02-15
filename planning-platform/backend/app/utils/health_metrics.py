@@ -2,9 +2,117 @@
 건강 지표 관련 공통 유틸리티
 
 WELNO 프로젝트 전체에서 사용하는 건강 지표 필드 목록 및 계산 함수를 제공합니다.
+- 환자정보 파싱 (initial_data + client_info → 표준 구조)
+- 검진 메트릭스 추출
+- 지표 검증/품질 판정
 """
 
-from typing import Dict, Any
+import json
+import logging
+from typing import Dict, Any, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+
+# ─── 환자정보 + 검진데이터 파싱 (공통) ─────────────────────────
+
+# SQL COALESCE 프래그먼트 — 쿼리에서 재사용
+PATIENT_SELECT_COLUMNS = """
+    COALESCE(
+        l.initial_data->'patient_info'->>'name',
+        l.client_info->>'patient_name',
+        ''
+    ) AS user_name,
+    COALESCE(
+        l.initial_data->'patient_info'->>'contact',
+        l.client_info->>'patient_contact',
+        ''
+    ) AS user_phone,
+    COALESCE(
+        l.initial_data->'patient_info'->>'gender',
+        l.client_info->>'patient_gender',
+        ''
+    ) AS user_gender,
+    COALESCE(
+        l.initial_data->'patient_info'->>'birth_date',
+        l.client_info->>'patient_birth',
+        ''
+    ) AS user_birth,
+    COALESCE(
+        l.initial_data->'health_metrics'->>'checkup_date', ''
+    ) AS checkup_date
+""".strip()
+
+
+def _safe_json(raw) -> dict:
+    """JSONB 또는 문자열을 dict로 안전하게 파싱"""
+    if raw is None:
+        return {}
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except (json.JSONDecodeError, ValueError):
+            return {}
+    return {}
+
+
+def parse_patient_info(
+    initial_data, client_info
+) -> Tuple[str, Optional[Dict[str, Any]]]:
+    """
+    initial_data + client_info에서 환자정보 + 검진 메트릭스를 표준 구조로 추출.
+
+    Returns:
+        (patient_name, health_data_dict_or_None)
+        - patient_name: 환자 이름 (없으면 빈 문자열)
+        - health_data: {patient_name, gender, birth_date, contact, checkup_date,
+                        hospital_name, metrics} 또는 None
+    """
+    ci = _safe_json(client_info)
+    raw = _safe_json(initial_data)
+
+    # 환자 이름: client_info 우선 → initial_data 폴백
+    patient_name = (
+        ci.get("patient_name", "")
+        or (raw.get("patient_info") or {}).get("name", "")
+    )
+
+    # 검진 메트릭스
+    health_data = None
+    if isinstance(raw, dict) and raw.get("has_data"):
+        pi = raw.get("patient_info") or {}
+        metrics = raw.get("health_metrics") or raw.get("checkup_results") or {}
+        health_data = {
+            "patient_name": patient_name or pi.get("name", ""),
+            "gender": pi.get("gender", "") or ci.get("patient_gender", ""),
+            "birth_date": pi.get("birth_date", "") or ci.get("patient_birth", ""),
+            "contact": pi.get("contact", "") or ci.get("patient_contact", ""),
+            "checkup_date": metrics.get("checkup_date", ""),
+            "hospital_name": ci.get("hospital_name", ""),
+            "metrics": metrics,
+        }
+    elif patient_name:
+        # initial_data 없어도 client_info에서 기본 정보 제공
+        health_data = {
+            "patient_name": patient_name,
+            "gender": ci.get("patient_gender", ""),
+            "birth_date": ci.get("patient_birth", ""),
+            "contact": ci.get("patient_contact", ""),
+            "checkup_date": "",
+            "hospital_name": ci.get("hospital_name", ""),
+            "metrics": {},
+        }
+
+    return patient_name, health_data
+
+
+def extract_metrics_json(initial_data) -> str:
+    """initial_data에서 health_metrics를 JSON 문자열로 추출 (엑셀 내보내기용)"""
+    raw = _safe_json(initial_data)
+    metrics = raw.get("health_metrics", {})
+    return json.dumps(metrics, ensure_ascii=False) if metrics else ""
 
 # 건강 지표 필드 목록 (표준화된 필드명)
 HEALTH_METRICS_FIELDS = [

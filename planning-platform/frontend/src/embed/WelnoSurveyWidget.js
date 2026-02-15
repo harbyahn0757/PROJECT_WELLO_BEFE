@@ -45,15 +45,27 @@ class WelnoSurveyWidget {
 
     var baseUrl = config.baseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
 
+    // partnerData가 JSON 문자열인 경우 자동 파싱
+    var partnerData = config.partnerData || null;
+    if (typeof partnerData === 'string') {
+      try { partnerData = JSON.parse(partnerData); } catch(e) { partnerData = null; }
+    }
+
     // hospitalName: 직접 전달 또는 partnerData에서 추출 (채팅 위젯과 동일 키)
     var hospitalName = config.hospitalName
-      || (config.partnerData && config.partnerData.partner_hospital_name)
+      || (partnerData && partnerData.partner_hospital_name)
       || null;
+
+    // respondentName: partnerData.patient.name에서 추출
+    var respondentName = config.respondentName
+      || (partnerData && partnerData.patient && partnerData.patient.name)
+      || '';
 
     this.config = {
       apiKey: config.apiKey,
       hospitalId: config.hospitalId,
       hospitalName: hospitalName,
+      respondentName: respondentName,
       baseUrl: baseUrl,
       uuid: config.uuid || 'survey_' + Date.now(),
       position: config.position || 'bottom-right',
@@ -66,6 +78,10 @@ class WelnoSurveyWidget {
       autoOpen: config.autoOpen || false,
       hideButton: config.hideButton || false
     };
+
+    if (!config.uuid) {
+      console.warn('[WelnoSurveyWidget] uuid 미전달 — 기본값 사용. 채팅-설문 연동을 위해 uuid(webAppKey) 전달을 권장합니다.');
+    }
 
     this.state = {
       isOpen: false,
@@ -824,7 +840,8 @@ class WelnoSurveyWidget {
         template_id: this.templateId || undefined,
         answers: this.state.ratings,
         free_comment: this.elements.comment ? this.elements.comment.value.trim() : '',
-        respondent_uuid: this.config.uuid
+        respondent_uuid: this.config.uuid,
+        respondent_name: this.config.respondentName || undefined
       };
 
       var response = await fetch(url, {

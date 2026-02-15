@@ -18,11 +18,10 @@ from ....services.partner_rag_chat_service import PartnerRagChatService
 from ....middleware.partner_auth import verify_partner_api_key, PartnerAuthInfo
 from ....utils.partner_config import get_partner_config_by_api_key
 from ....utils.security_utils import (
-    generate_secure_session_id, 
+    generate_secure_session_id,
     log_partner_access,
     validate_session_ownership
 )
-
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -64,9 +63,15 @@ async def warmup_partner_session(
     client_ip = http_request.client.host if http_request else "unknown"
     referer = (http_request.headers.get("referer") or http_request.headers.get("origin") or "").strip() or None if http_request else None
 
-    # 위젯 모드 점검: 병원 ID 수신 여부 로그
+    # 위젯 모드 점검: 수신 데이터 상세 로그
     logger.info(
-        f"🟢 [파트너 RAG API] 웜업 요청(위젯) partner_id={partner_info.partner_id} uuid={request.uuid} hospital_id={request.hospital_id}"
+        f"🟢 [파트너 RAG API] 웜업 요청 "
+        f"partner={partner_info.partner_id} uuid={request.uuid} "
+        f"hospital={request.hospital_id} "
+        f"health_data={'Y' if request.health_data else 'N'} "
+        f"patient_info={'Y' if request.patient_info else 'N'} "
+        f"checkup_results={'Y' if request.checkup_results else 'N'} "
+        f"ip={client_ip} referer={referer}"
     )
     
     try:
@@ -103,7 +108,7 @@ async def warmup_partner_session(
             success=True,
             additional_info={"uuid": request.uuid, "hospital_id": request.hospital_id, "referer": referer}
         )
-        
+
         return {
             "success": True,
             "session_id": session_id,
@@ -154,7 +159,12 @@ async def send_partner_message(
         )
         
         logger.info(
-            f"📨 [파트너 RAG API] 메시지 요청 partner_id={partner_info.partner_id} hospital_id={request.hospital_id} msg={request.message[:50]}..."
+            f"📨 [파트너 RAG API] 메시지 요청 "
+            f"partner={partner_info.partner_id} hospital={request.hospital_id} "
+            f"health_data={'Y' if request.health_data else 'N'} "
+            f"patient_info={'Y' if request.patient_info else 'N'} "
+            f"checkup_results={'Y' if request.checkup_results else 'N'} "
+            f"msg={request.message[:50]}..."
         )
         
         # 감사 로그 기록

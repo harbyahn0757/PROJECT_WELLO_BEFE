@@ -21,6 +21,9 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, BackgroundTasks,
 from pydantic import BaseModel, Field
 
 from ....core.database import db_manager
+from ....utils.health_metrics import PATIENT_SELECT_COLUMNS, extract_metrics_json
+from ....utils.json_parsers import format_interest_tags, format_tag_list
+from ....utils.survey_queries import survey_union_count_today_simple, survey_union_by_hospital_today
 
 router = APIRouter(prefix="/embedding", tags=["embedding-management"])
 
@@ -150,12 +153,7 @@ async def get_summary_counts():
         chat_row = await db_manager.execute_one(
             "SELECT COUNT(*) as cnt FROM welno.tb_partner_rag_chat_log WHERE created_at::date = CURRENT_DATE"
         )
-        survey_row = await db_manager.execute_one("""
-            SELECT
-                COALESCE((SELECT COUNT(*) FROM welno.tb_hospital_survey_responses WHERE created_at::date = CURRENT_DATE), 0)
-                + COALESCE((SELECT COUNT(*) FROM welno.tb_survey_responses_dynamic WHERE created_at::date = CURRENT_DATE), 0)
-            as cnt
-        """)
+        survey_row = await db_manager.execute_one(survey_union_count_today_simple())
         return {
             "new_chats": chat_row["cnt"] if chat_row else 0,
             "new_surveys": survey_row["cnt"] if survey_row else 0,
@@ -163,6 +161,60 @@ async def get_summary_counts():
     except Exception as e:
         logger.warning(f"summary-counts 조회 실패: {e}")
         return {"new_chats": 0, "new_surveys": 0}
+
+
+@router.get("/today-summary")
+async def chat_today_summary(target_date: Optional[str] = None):
+    """병원별 상담 요약 — 병원 미선택 시 기본 화면용 (target_date 미지정 시 오늘)"""
+    try:
+        from datetime import date as _date, timedelta
+        day_str = target_date or _date.today().isoformat()
+        next_day = (datetime.strptime(day_str, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        # 1) 병원별 상담 건수 + 메시지 수
+        hospitals = await db_manager.execute_query("""
+            SELECT
+                c.hospital_id,
+                COALESCE(h.hospital_name, c.hospital_id) AS hospital_name,
+                COUNT(DISTINCT c.session_id) AS chat_count,
+                COUNT(*) AS message_count
+            FROM welno.tb_partner_rag_chat_log c
+            LEFT JOIN welno.tb_hospital_rag_config h
+              ON h.hospital_id = c.hospital_id AND h.is_active = true
+            WHERE c.created_at >= %s::date AND c.created_at < %s::date
+            GROUP BY c.hospital_id, h.hospital_name
+            ORDER BY COUNT(DISTINCT c.session_id) DESC
+        """, (day_str, next_day))
+
+        # 2) 전체 KPI
+        total_row = await db_manager.execute_one("""
+            SELECT
+                COUNT(DISTINCT session_id) AS total_sessions,
+                COUNT(*) AS total_messages,
+                COUNT(DISTINCT user_uuid) AS unique_users
+            FROM welno.tb_partner_rag_chat_log
+            WHERE created_at >= %s::date AND created_at < %s::date
+        """, (day_str, next_day))
+
+        # 3) 전체 병원 수
+        all_h = await db_manager.execute_one(
+            "SELECT COUNT(*) AS cnt FROM welno.tb_hospital_rag_config WHERE is_active = true"
+        )
+
+        return {
+            "date": day_str,
+            "hospitals": hospitals,
+            "summary": {
+                "total_sessions": total_row["total_sessions"] if total_row else 0,
+                "total_messages": total_row["total_messages"] if total_row else 0,
+                "unique_users": total_row["unique_users"] if total_row else 0,
+                "active_hospitals": len(hospitals),
+                "total_hospitals": all_h["cnt"] if all_h else 0,
+            }
+        }
+    except Exception as e:
+        logger.warning(f"chat today-summary 조회 실패: {e}")
+        return {"date": target_date, "hospitals": [], "summary": {"total_sessions": 0, "total_messages": 0, "unique_users": 0, "active_hospitals": 0, "total_hospitals": 0}}
 
 
 @router.get("/hierarchy", response_model=List[PartnerHierarchy])
@@ -207,14 +259,8 @@ async def get_partner_hospital_hierarchy():
                 )
                 chat_counts = {r['hospital_id']: r['cnt'] for r in chat_rows}
 
-                survey_rows = await db_manager.execute_query(
-                    """SELECT hospital_id, COUNT(*) as cnt FROM (
-                        SELECT hospital_id FROM welno.tb_hospital_survey_responses WHERE partner_id = %s AND created_at::date = CURRENT_DATE
-                        UNION ALL
-                        SELECT hospital_id FROM welno.tb_survey_responses_dynamic WHERE partner_id = %s AND created_at::date = CURRENT_DATE
-                    ) t GROUP BY hospital_id""",
-                    (pid, pid)
-                )
+                _hosp_sql, _hosp_params = survey_union_by_hospital_today(pid)
+                survey_rows = await db_manager.execute_query(_hosp_sql, _hosp_params)
                 survey_counts = {r['hospital_id']: r['cnt'] for r in survey_rows}
             except Exception:
                 pass
@@ -307,31 +353,11 @@ async def get_pending_hospitals():
 async def get_hospital_chats(hospital_id: str, partner_id: str):
     """특정 병원의 대화 세션 목록 조회"""
     try:
-        query = """
+        query = f"""
             SELECT
-                l.session_id,
-                l.user_uuid,
-                l.message_count,
-                l.created_at,
-                l.updated_at,
-                COALESCE(
-                    l.initial_data->'patient_info'->>'name',
-                    l.client_info->>'patient_name',
-                    l.initial_data->>'name',
-                    ''
-                ) as user_name,
-                COALESCE(
-                    l.initial_data->'patient_info'->>'contact',
-                    l.client_info->>'patient_contact',
-                    l.initial_data->>'phone',
-                    ''
-                ) as user_phone,
-                COALESCE(
-                    l.initial_data->'patient_info'->>'gender', ''
-                ) as user_gender,
-                COALESCE(
-                    l.initial_data->'health_metrics'->>'checkup_date', ''
-                ) as checkup_date,
+                l.session_id, l.user_uuid, l.message_count,
+                l.created_at, l.updated_at,
+                {PATIENT_SELECT_COLUMNS},
                 COALESCE(h.hospital_name, '') as hospital_name
             FROM welno.tb_partner_rag_chat_log l
             LEFT JOIN welno.tb_hospital_rag_config h
@@ -349,86 +375,38 @@ async def get_all_chats(partner_id: Optional[str] = None, limit: int = 200):
     """전체 병원 통합 대화 세션 목록 조회 (태그 포함)"""
     try:
         if partner_id:
-            query = """
+            query = f"""
                 SELECT
-                    l.session_id,
-                    l.partner_id,
-                    l.hospital_id,
-                    l.user_uuid,
-                    l.message_count,
-                    l.created_at,
-                    l.updated_at,
-                    COALESCE(
-                        l.initial_data->'patient_info'->>'name',
-                        l.client_info->>'patient_name',
-                        ''
-                    ) as user_name,
-                    COALESCE(
-                        l.initial_data->'patient_info'->>'contact',
-                        l.client_info->>'patient_contact',
-                        ''
-                    ) as user_phone,
-                    COALESCE(
-                        l.initial_data->'patient_info'->>'gender', ''
-                    ) as user_gender,
-                    COALESCE(
-                        l.initial_data->'health_metrics'->>'checkup_date', ''
-                    ) as checkup_date,
+                    l.session_id, l.partner_id, l.hospital_id, l.user_uuid,
+                    l.message_count, l.created_at, l.updated_at,
+                    {PATIENT_SELECT_COLUMNS},
                     COALESCE(h.hospital_name, LEFT(l.hospital_id, 8) || '...') as hospital_name,
-                    t.interest_tags,
-                    t.risk_tags,
-                    t.sentiment,
-                    t.conversation_summary,
-                    t.data_quality_score
+                    t.interest_tags, t.risk_tags, t.sentiment,
+                    t.conversation_summary, t.data_quality_score
                 FROM welno.tb_partner_rag_chat_log l
                 LEFT JOIN welno.tb_hospital_rag_config h
                     ON l.hospital_id = h.hospital_id AND l.partner_id = h.partner_id
                 LEFT JOIN welno.tb_chat_session_tags t
                     ON l.session_id = t.session_id AND l.partner_id = t.partner_id
                 WHERE l.partner_id = %s
-                ORDER BY l.created_at DESC
-                LIMIT %s
+                ORDER BY l.created_at DESC LIMIT %s
             """
             return await db_manager.execute_query(query, (partner_id, limit))
         else:
-            query = """
+            query = f"""
                 SELECT
-                    l.session_id,
-                    l.partner_id,
-                    l.hospital_id,
-                    l.user_uuid,
-                    l.message_count,
-                    l.created_at,
-                    l.updated_at,
-                    COALESCE(
-                        l.initial_data->'patient_info'->>'name',
-                        l.client_info->>'patient_name',
-                        ''
-                    ) as user_name,
-                    COALESCE(
-                        l.initial_data->'patient_info'->>'contact',
-                        l.client_info->>'patient_contact',
-                        ''
-                    ) as user_phone,
-                    COALESCE(
-                        l.initial_data->'patient_info'->>'gender', ''
-                    ) as user_gender,
-                    COALESCE(
-                        l.initial_data->'health_metrics'->>'checkup_date', ''
-                    ) as checkup_date,
+                    l.session_id, l.partner_id, l.hospital_id, l.user_uuid,
+                    l.message_count, l.created_at, l.updated_at,
+                    {PATIENT_SELECT_COLUMNS},
                     COALESCE(h.hospital_name, LEFT(l.hospital_id, 8) || '...') as hospital_name,
-                    t.interest_tags,
-                    t.risk_tags,
-                    t.sentiment,
-                    t.conversation_summary,
-                    t.data_quality_score
+                    t.interest_tags, t.risk_tags, t.sentiment,
+                    t.conversation_summary, t.data_quality_score
                 FROM welno.tb_partner_rag_chat_log l
                 LEFT JOIN welno.tb_hospital_rag_config h
                     ON l.hospital_id = h.hospital_id AND l.partner_id = h.partner_id
                 LEFT JOIN welno.tb_chat_session_tags t
                     ON l.session_id = t.session_id AND l.partner_id = t.partner_id
-                ORDER BY l.created_at DESC
-                LIMIT %s
+                ORDER BY l.created_at DESC LIMIT %s
             """
             return await db_manager.execute_query(query, (limit,))
     except Exception as e:
@@ -450,15 +428,12 @@ async def export_chats_excel(partner_id: Optional[str] = None, limit: int = 500)
     try:
         # 1. 세션 목록 조회 (태그 포함)
         if partner_id:
-            query = """
+            query = f"""
                 SELECT
                     l.session_id, l.partner_id, l.hospital_id, l.user_uuid,
                     l.message_count, l.created_at, l.updated_at,
                     l.conversation, l.initial_data,
-                    COALESCE(l.initial_data->'patient_info'->>'name', l.client_info->>'patient_name', '') as user_name,
-                    COALESCE(l.initial_data->'patient_info'->>'contact', l.client_info->>'patient_contact', '') as user_phone,
-                    COALESCE(l.initial_data->'patient_info'->>'gender', '') as user_gender,
-                    COALESCE(l.initial_data->'health_metrics'->>'checkup_date', '') as checkup_date,
+                    {PATIENT_SELECT_COLUMNS},
                     COALESCE(h.hospital_name, '') as hospital_name,
                     t.interest_tags, t.risk_tags, t.sentiment,
                     t.conversation_summary, t.data_quality_score,
@@ -473,15 +448,12 @@ async def export_chats_excel(partner_id: Optional[str] = None, limit: int = 500)
             """
             rows = await db_manager.execute_query(query, (partner_id, limit))
         else:
-            query = """
+            query = f"""
                 SELECT
                     l.session_id, l.partner_id, l.hospital_id, l.user_uuid,
                     l.message_count, l.created_at, l.updated_at,
                     l.conversation, l.initial_data,
-                    COALESCE(l.initial_data->'patient_info'->>'name', l.client_info->>'patient_name', '') as user_name,
-                    COALESCE(l.initial_data->'patient_info'->>'contact', l.client_info->>'patient_contact', '') as user_phone,
-                    COALESCE(l.initial_data->'patient_info'->>'gender', '') as user_gender,
-                    COALESCE(l.initial_data->'health_metrics'->>'checkup_date', '') as checkup_date,
+                    {PATIENT_SELECT_COLUMNS},
                     COALESCE(h.hospital_name, '') as hospital_name,
                     t.interest_tags, t.risk_tags, t.sentiment,
                     t.conversation_summary, t.data_quality_score,
@@ -517,72 +489,15 @@ async def export_chats_excel(partner_id: Optional[str] = None, limit: int = 500)
             cell.fill = header_fill
 
         for row_idx, r in enumerate(rows, 2):
-            # interest_tags: [{topic, intensity}] → "혈압(high), 당뇨(medium)" 형식
-            raw_interest = r.get("interest_tags") or []
-            if isinstance(raw_interest, str):
-                try:
-                    raw_interest = json.loads(raw_interest)
-                except:
-                    raw_interest = []
-            if isinstance(raw_interest, list):
-                interest_parts = []
-                for item in raw_interest:
-                    if isinstance(item, dict) and "topic" in item:
-                        intensity = item.get("intensity", "medium")
-                        interest_parts.append(f"{item['topic']}({intensity})")
-                    elif isinstance(item, str):
-                        interest_parts.append(item)
-                interest = ", ".join(interest_parts)
-            else:
-                interest = ""
-
+            interest = format_interest_tags(r.get("interest_tags"))
             risk = ", ".join(r.get("risk_tags") or []) if r.get("risk_tags") else ""
+            concerns_str = format_tag_list(r.get("key_concerns"))
+            recs_str = format_tag_list(r.get("counselor_recommendations"))
+            kw_str = format_tag_list(r.get("keyword_tags"))
+            nutrition_str = format_tag_list(r.get("nutrition_tags"))
 
-            # key_concerns
-            raw_concerns = r.get("key_concerns") or []
-            if isinstance(raw_concerns, str):
-                try:
-                    raw_concerns = json.loads(raw_concerns)
-                except:
-                    raw_concerns = []
-            concerns_str = ", ".join(raw_concerns) if isinstance(raw_concerns, list) else ""
-
-            # counselor_recommendations
-            raw_recs = r.get("counselor_recommendations") or []
-            if isinstance(raw_recs, str):
-                try:
-                    raw_recs = json.loads(raw_recs)
-                except:
-                    raw_recs = []
-            recs_str = ", ".join(raw_recs) if isinstance(raw_recs, list) else ""
-
-            # keyword_tags
-            raw_kw = r.get("keyword_tags") or []
-            if isinstance(raw_kw, str):
-                try:
-                    raw_kw = json.loads(raw_kw)
-                except:
-                    raw_kw = []
-            kw_str = ", ".join(raw_kw) if isinstance(raw_kw, list) else ""
-
-            # nutrition_tags
-            raw_nutrition = r.get("nutrition_tags") or []
-            if isinstance(raw_nutrition, str):
-                try:
-                    raw_nutrition = json.loads(raw_nutrition)
-                except:
-                    raw_nutrition = []
-            nutrition_str = ", ".join(raw_nutrition) if isinstance(raw_nutrition, list) else ""
-
-            # 검진 데이터 JSON
-            initial = r.get("initial_data") or {}
-            if isinstance(initial, str):
-                try:
-                    initial = json.loads(initial)
-                except:
-                    initial = {}
-            metrics = initial.get("health_metrics", {})
-            metrics_json = json.dumps(metrics, ensure_ascii=False) if metrics else ""
+            # 검진 데이터 JSON (공통 유틸 사용)
+            metrics_json = extract_metrics_json(r.get("initial_data"))
 
             # 대화 내역 JSON
             conversation = r.get("conversation") or []

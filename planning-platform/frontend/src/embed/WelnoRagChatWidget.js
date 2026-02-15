@@ -53,13 +53,19 @@ class WelnoRagChatWidget {
       chatIconUrl = (baseUrl.replace(/\/$/, '')) + PARTNER_DEFAULT_ICON[config.apiKey];
     }
 
+    // partnerData가 JSON 문자열인 경우 자동 파싱
+    var partnerData = config.partnerData || null;
+    if (typeof partnerData === 'string') {
+      try { partnerData = JSON.parse(partnerData); } catch(e) { partnerData = null; }
+    }
+
     // 기본 설정
     this.config = {
       apiKey: config.apiKey,
       baseUrl: baseUrl,
       uuid: config.uuid || 'widget_user_' + Date.now(),
       hospitalId: config.hospitalId || 'widget_partner',
-      partnerData: config.partnerData || null,
+      partnerData: partnerData,
       
       // UI 설정
       position: config.position || 'bottom-right', // bottom-right, bottom-left, top-right, top-left
@@ -1109,6 +1115,11 @@ class WelnoRagChatWidget {
       message: message,
       session_id: this.state.sessionId
     };
+
+    // 파트너 데이터가 있으면 포함
+    if (this.config.partnerData) {
+      requestData.health_data = this.config.partnerData;
+    }
 
     // AbortController로 타임아웃 설정 (30초)
     const controller = new AbortController();
