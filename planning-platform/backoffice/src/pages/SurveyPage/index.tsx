@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { downloadWorkbook, downloadJson, dateSuffix } from '../../utils/excelExport';
 import DemoBanner from '../../components/DemoBanner';
+import { IconExcel, IconJson } from '../../components/ExportIcons';
 import {
   BRAND_BROWN, SATISFACTION_VERY_LOW, SATISFACTION_LOW, SATISFACTION_MID,
   SATISFACTION_HIGH, SATISFACTION_VERY_HIGH,
@@ -649,9 +650,9 @@ const SurveyPage: React.FC = () => {
                     <h2 className="survey-page__card-title">{selectedHospitalName}</h2>
                     <p className="survey-page__muted" style={{marginTop: 4}}>만족도 조사 · 총 응답 {stats?.total_count ?? 0}건</p>
                   </div>
-                  <div style={{display: 'flex', gap: 8}}>
-                    <button className="btn-excel" onClick={handleExcelExport}>엑셀</button>
-                    <button className="btn-excel" onClick={handleJsonExport}>JSON</button>
+                  <div className="export-btns">
+                    <button className="btn-excel" onClick={handleExcelExport}><IconExcel />엑셀</button>
+                    <button className="btn-excel" onClick={handleJsonExport}><IconJson />JSON</button>
                   </div>
                 </div>
               </div>

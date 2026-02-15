@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import { getApiBase, fetchWithAuth } from '../../utils/api';
 import { downloadJson, dateSuffix } from '../../utils/excelExport';
+import { IconJson } from '../../components/ExportIcons';
 import './styles.scss';
 
 const API = getApiBase();
@@ -73,11 +74,13 @@ const PatientPage: React.FC = () => {
         <span className="patient-page__count">
           총 {filtered.length.toLocaleString()}명{search && ` / ${total.toLocaleString()}`}
         </span>
-        <button
-          className="btn-excel"
-          onClick={() => downloadJson({ exported_at: new Date().toISOString(), patients: filtered }, `환자목록_${dateSuffix()}.json`)}
-          disabled={loading}
-        >JSON</button>
+        <div className="export-btns">
+          <button
+            className="btn-excel"
+            onClick={() => downloadJson({ exported_at: new Date().toISOString(), patients: filtered }, `환자목록_${dateSuffix()}.json`)}
+            disabled={loading}
+          ><IconJson />JSON</button>
+        </div>
         {loading && <span className="patient-page__loading">로딩...</span>}
       </div>
 

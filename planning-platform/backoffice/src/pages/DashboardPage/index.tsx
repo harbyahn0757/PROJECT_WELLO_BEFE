@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { getApiBase, fetchWithAuth } from '../../utils/api';
 import { downloadWorkbook, downloadJson, dateSuffix } from '../../utils/excelExport';
+import { IconExcel, IconJson } from '../../components/ExportIcons';
 import {
   PIE_PALETTE as PIE_COLORS,
   BRAND_BROWN as COLOR_BROWN,
@@ -244,8 +245,10 @@ const DashboardPage: React.FC = () => {
             >{p.label}</button>
           ))}
         </div>
-        <button className="btn-excel" onClick={handleExcelExport} disabled={loading}>엑셀</button>
-        <button className="btn-excel" onClick={handleJsonExport} disabled={loading}>JSON</button>
+        <div className="export-btns">
+          <button className="btn-excel" onClick={handleExcelExport} disabled={loading}><IconExcel />엑셀</button>
+          <button className="btn-excel" onClick={handleJsonExport} disabled={loading}><IconJson />JSON</button>
+        </div>
         {loading && <span className="dashboard-page__loading">로딩...</span>}
       </div>
 

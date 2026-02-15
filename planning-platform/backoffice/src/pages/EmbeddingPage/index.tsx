@@ -8,6 +8,7 @@ import { useEmbedParams } from '../../hooks/useEmbedParams';
 import { useHierarchy } from '../../hooks/useHierarchy';
 import { downloadWorkbook, dateSuffix } from '../../utils/excelExport';
 import DemoBanner from '../../components/DemoBanner';
+import { IconExcel } from '../../components/ExportIcons';
 import './styles.scss';
 
 const getEmbeddingApiBase = (): string => {
@@ -1022,13 +1023,15 @@ const EmbeddingPage: React.FC = () => {
                     <h2 className="admin-embedding-page__card-title">전체 상담 통합 보기</h2>
                     <p className="admin-embedding-page__muted" style={{marginTop: 4}}>모든 병원의 상담 내역을 한 곳에서 확인합니다. ({allChatSessions.length}건)</p>
                   </div>
-                  <button
-                    className="btn-excel"
-                    onClick={() => handleExcelExport()}
-                    disabled={excelExporting}
-                  >
-                    {excelExporting ? '내보내는 중...' : '엑셀'}
-                  </button>
+                  <div className="export-btns">
+                    <button
+                      className="btn-excel"
+                      onClick={() => handleExcelExport()}
+                      disabled={excelExporting}
+                    >
+                      <IconExcel />{excelExporting ? '내보내는 중...' : '엑셀'}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="admin-embedding-page__chat-container">
@@ -1096,13 +1099,13 @@ const EmbeddingPage: React.FC = () => {
                     <h2 className="admin-embedding-page__card-title">{selectedHospital.hospital_name}</h2>
                     <p className="admin-embedding-page__muted" style={{marginTop: 4}}>상담 내역 {chatSessions.length}건</p>
                   </div>
-                  <div style={{display: 'flex', gap: 8}}>
+                  <div className="export-btns">
                     <button
                       className="btn-excel"
                       onClick={() => handleExcelExport()}
                       disabled={excelExporting}
                     >
-                      {excelExporting ? '...' : '엑셀'}
+                      <IconExcel />{excelExporting ? '...' : '엑셀'}
                     </button>
                     <button
                       className="admin-embedding-page__settings-btn"

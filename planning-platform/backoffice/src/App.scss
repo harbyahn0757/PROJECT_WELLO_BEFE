@@ -100,12 +100,20 @@ body {
   }
 }
 
-/* ── 공통 엑셀 내보내기 버튼 ─────────────── */
+/* ── 내보내기 버튼 그룹 (오른쪽 정렬) ─────── */
+.export-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* ── 공통 엑셀/JSON 내보내기 버튼 ─────────── */
 .btn-excel {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 16px;
+  gap: 5px;
+  padding: 6px 14px;
   border: 1px solid $gray-300;
   border-radius: 20px;
   background: $white;
@@ -116,10 +124,18 @@ body {
   transition: all 0.15s;
   white-space: nowrap;
 
+  svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
   &:hover:not(:disabled) {
     background: $brand-brown;
     color: $white;
     border-color: $brand-brown;
+
+    svg { fill: $white; stroke: $white; }
   }
 
   &:disabled {
