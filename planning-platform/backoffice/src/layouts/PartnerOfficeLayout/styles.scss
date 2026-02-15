@@ -237,4 +237,179 @@
       display: none;
     }
   }
+
+  // ── 햄버거 버튼 (데스크톱 숨김) ──
+  &__hamburger {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+
+    span {
+      display: block;
+      width: 20px;
+      height: 2px;
+      background: $gray-800;
+      position: relative;
+
+      &::before, &::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background: $gray-800;
+      }
+      &::before { top: -6px; }
+      &::after  { top: 6px; }
+    }
+  }
+
+  // ── Backdrop (데스크톱 숨김) ──
+  &__backdrop {
+    display: none;
+  }
+}
+
+// ═══ MOBILE (<768px) ═══
+@media (max-width: $bp-mobile-max) {
+  .po-layout {
+    flex-direction: column;
+  }
+
+  .po-layout__hamburger {
+    display: flex;
+  }
+
+  .po-layout__sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: $sidebar-drawer-width;
+    min-width: $sidebar-drawer-width;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    box-shadow: none;
+
+    &.is-open {
+      transform: translateX(0);
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+    }
+  }
+
+  .po-layout__backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+
+    &.is-open {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+
+  .po-layout__nav-item {
+    min-height: $touch-primary;
+    display: flex;
+    align-items: center;
+  }
+
+  .po-layout__hosp-btn {
+    min-height: $touch-secondary;
+  }
+
+  .po-layout__hosp-item {
+    min-height: $touch-secondary;
+    display: flex;
+    align-items: center;
+  }
+
+  .po-layout__main {
+    width: 100%;
+  }
+
+  .po-layout__header {
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .po-layout__header-title {
+    font-size: $font-base;
+  }
+
+  .po-layout__header-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+  }
+
+  .po-layout__header-name {
+    display: none;
+  }
+
+  .po-layout__logout {
+    min-height: $touch-secondary;
+  }
+
+  // 임베드 모드 모바일
+  .po-layout--embed .po-layout__sidebar {
+    width: 240px;
+    min-width: 240px;
+  }
+}
+
+// ═══ TABLET (768px – 1023px) ═══
+@media (min-width: $bp-tablet-min) and (max-width: $bp-tablet-max) {
+  .po-layout__hamburger {
+    display: flex;
+  }
+
+  .po-layout__sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: $sidebar-drawer-width;
+    min-width: $sidebar-drawer-width;
+    z-index: 1000;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+
+    &.is-open {
+      transform: translateX(0);
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+    }
+  }
+
+  .po-layout__backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+
+    &.is-open {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+
+  .po-layout__header {
+    padding: 0 16px;
+  }
 }

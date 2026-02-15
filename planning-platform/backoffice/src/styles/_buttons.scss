@@ -63,3 +63,31 @@
     border-color: $accent-orange;
   }
 }
+
+@media (max-width: $bp-mobile-max) {
+  .btn-primary {
+    padding: 12px 16px;
+    min-height: $touch-primary;
+    font-size: $font-base;
+  }
+
+  .btn-secondary {
+    padding: 10px 14px;
+    min-height: $touch-secondary;
+  }
+
+  .btn-cancel {
+    padding: 10px 16px;
+    min-height: $touch-secondary;
+  }
+
+  .btn-preset {
+    padding: 8px 14px;
+    min-height: $touch-secondary;
+  }
+
+  .btn-excel {
+    min-height: $touch-secondary;
+    padding: 8px 14px;
+  }
+}

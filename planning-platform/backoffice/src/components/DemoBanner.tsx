@@ -33,9 +33,10 @@ const DemoBanner: React.FC = () => {
     }, 1000);
 
     redirectTimerRef.current = setTimeout(() => {
-      if (window.top) {
-        window.top.location.assign('/backoffice/login');
-      } else {
+      try {
+        // iframe 내부에서 top 접근 시 cross-origin 에러 방지
+        window.top?.location.assign('/backoffice/login');
+      } catch {
         window.location.assign('/backoffice/login');
       }
     }, 5000);

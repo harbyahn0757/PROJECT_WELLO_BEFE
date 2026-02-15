@@ -30,3 +30,25 @@
     }
   }
 }
+
+@media (max-width: $bp-mobile-max) {
+  .tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    margin-bottom: 12px;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  .tabs__item {
+    padding: 10px 16px;
+    font-size: $font-sm;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-height: $touch-secondary;
+    display: inline-flex;
+    align-items: center;
+  }
+}

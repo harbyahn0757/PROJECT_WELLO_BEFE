@@ -30,6 +30,29 @@ const PartnerOfficeLayout: React.FC = () => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // ── 모바일 사이드바 drawer ──
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // 라우트 변경 시 drawer 닫기
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
+  // ESC 키 닫기
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSidebarOpen(false);
+    };
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, []);
+
+  // drawer 열릴 때 body 스크롤 잠금
+  useEffect(() => {
+    document.body.style.overflow = sidebarOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [sidebarOpen]);
+
   // window.location.search 직접 사용 — React Router 상태 의존 X
   const urlParams = useMemo(() => new URLSearchParams(window.location.search), [location.search]);
   const isEmbed = urlParams.has('api_key');
@@ -96,7 +119,13 @@ const PartnerOfficeLayout: React.FC = () => {
 
   return (
     <div className={`po-layout${isEmbed ? ' po-layout--embed' : ''}`}>
-      <aside className="po-layout__sidebar">
+      {/* Backdrop (모바일/태블릿 drawer용) */}
+      <div
+        className={`po-layout__backdrop${sidebarOpen ? ' is-open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+      />
+
+      <aside className={`po-layout__sidebar${sidebarOpen ? ' is-open' : ''}`}>
         <div className="po-layout__sidebar-head">
           <img
             src={`${process.env.PUBLIC_URL}/welno_logo.png`}
@@ -166,6 +195,13 @@ const PartnerOfficeLayout: React.FC = () => {
 
       <div className="po-layout__main">
         <header className="po-layout__header">
+          <button
+            className="po-layout__hamburger"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label="메뉴"
+          >
+            <span />
+          </button>
           <h1 className="po-layout__header-title">{pageTitle}</h1>
           {!isEmbed && (
             <div className="po-layout__header-user">

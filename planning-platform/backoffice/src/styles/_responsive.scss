@@ -1,0 +1,21 @@
+// _responsive.scss — 반응형 믹스인 & 헬퍼
+
+@mixin mobile {
+  @media (max-width: $bp-mobile-max) { @content; }
+}
+
+@mixin tablet {
+  @media (min-width: $bp-tablet-min) and (max-width: $bp-tablet-max) { @content; }
+}
+
+@mixin tablet-and-below {
+  @media (max-width: $bp-tablet-max) { @content; }
+}
+
+@mixin desktop {
+  @media (min-width: $bp-desktop-min) { @content; }
+}
+
+@mixin small-phone {
+  @media (max-width: $bp-small-phone-max) { @content; }
+}

@@ -50,3 +50,54 @@
     color: $gray-700;
   }
 }
+
+// ═══ MOBILE (<768px) ═══
+@media (max-width: $bp-mobile-max) {
+  .patient-page {
+    padding: 12px;
+  }
+
+  .patient-page__toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .patient-page__search {
+    width: 100%;
+    font-size: $font-base;
+    min-height: $touch-secondary;
+  }
+
+  .patient-page__count {
+    font-size: $font-xs;
+  }
+
+  .patient-page__table-wrap {
+    max-height: calc(100vh - 160px);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .patient-page .data-table {
+    font-size: $font-xs;
+
+    th, td {
+      padding: 8px 6px;
+    }
+  }
+
+  .patient-page__key {
+    font-size: 0.625rem;
+  }
+}
+
+// ═══ TABLET (768px – 1023px) ═══
+@media (min-width: $bp-tablet-min) and (max-width: $bp-tablet-max) {
+  .patient-page {
+    padding: 16px 20px;
+  }
+
+  .patient-page__search {
+    width: 220px;
+  }
+}

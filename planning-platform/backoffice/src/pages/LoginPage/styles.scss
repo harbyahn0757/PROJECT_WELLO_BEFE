@@ -89,3 +89,42 @@
     }
   }
 }
+
+// ═══ MOBILE (<768px) ═══
+@media (max-width: $bp-mobile-max) {
+  .login-page__card {
+    width: 100%;
+    max-width: 380px;
+    margin: 0 16px;
+    padding: 32px 20px;
+    box-sizing: border-box;
+  }
+
+  .login-page__title {
+    font-size: 1.25rem;
+  }
+
+  .login-page__input {
+    font-size: $font-base;
+    padding: 12px 14px;
+    min-height: $touch-primary;
+  }
+
+  .login-page__btn {
+    min-height: $touch-primary;
+    font-size: $font-base;
+  }
+}
+
+// ═══ SMALL PHONE (<480px) ═══
+@media (max-width: $bp-small-phone-max) {
+  .login-page__card {
+    margin: 0 12px;
+    padding: 24px 16px;
+  }
+
+  .login-page__subtitle {
+    font-size: $font-xs;
+    margin-bottom: 20px;
+  }
+}

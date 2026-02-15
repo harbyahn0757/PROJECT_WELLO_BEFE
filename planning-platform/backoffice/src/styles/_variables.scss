@@ -88,3 +88,19 @@ $spacing-lg: 1.5rem;
 $spacing-xl: 2rem;
 $shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
 $shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+
+// ── 반응형 브레이크포인트 ──
+$bp-mobile-max: 767px;
+$bp-tablet-min: 768px;
+$bp-tablet-max: 1023px;
+$bp-desktop-min: 1024px;
+$bp-small-phone-max: 479px;
+
+// ── 레이아웃 치수 ──
+$sidebar-width: 210px;
+$sidebar-drawer-width: 280px;
+$header-height: 56px;
+
+// ── 터치 타겟 (WCAG 2.5.5) ──
+$touch-primary: 48px;
+$touch-secondary: 44px;
