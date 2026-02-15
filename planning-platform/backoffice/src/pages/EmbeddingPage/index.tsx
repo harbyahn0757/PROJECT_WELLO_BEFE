@@ -165,6 +165,8 @@ const EmbeddingPage: React.FC = () => {
   const [chatSessionId, setChatSessionId] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   // 문서 탭 UI 상태
   const [docSearchText, setDocSearchText] = useState('');
@@ -248,14 +250,15 @@ const EmbeddingPage: React.FC = () => {
     try {
       const res = await fetch(`${API_BASE}/hospitals/${selectedHospitalId}/rebuild?partner_id=${selectedPartnerId}`, { method: 'POST' });
       if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
-      // 폴링 시작
-      const poll = setInterval(async () => {
+      // 폴링 시작 (ref에 저장하여 언마운트 시 정리 가능)
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = setInterval(async () => {
         try {
           const sr = await fetch(`${API_BASE}/hospitals/${selectedHospitalId}/rebuild/status`);
           const st = await sr.json();
           setRebuildProgress({ status: st.status, progress: st.progress || st.message || '' });
           if (st.status === 'completed' || st.status === 'failed') {
-            clearInterval(poll);
+            if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
             if (st.status === 'completed') {
               setTimeout(() => setRebuildProgress(null), 3000);
               if (selectedHospitalId && selectedPartnerId) {
@@ -310,18 +313,24 @@ const EmbeddingPage: React.FC = () => {
   };
 
   const fetchHospitalDetails = useCallback(async (hospitalId: string, partnerId: string) => {
+    // 이전 요청 취소 (레이스 컨디션 방지)
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     setError(null);
     try {
+      const signal = controller.signal;
       const [docRes, configRes, chatRes] = await Promise.all([
-        fetch(`${API_BASE}/hospitals/${hospitalId}/documents`),
-        fetch(`${API_BASE}/hospitals/${hospitalId}/config?partner_id=${partnerId}`),
-        fetch(`${API_BASE}/hospitals/${hospitalId}/chats?partner_id=${partnerId}`)
+        fetch(`${API_BASE}/hospitals/${hospitalId}/documents`, { signal }),
+        fetch(`${API_BASE}/hospitals/${hospitalId}/config?partner_id=${partnerId}`, { signal }),
+        fetch(`${API_BASE}/hospitals/${hospitalId}/chats?partner_id=${partnerId}`, { signal })
       ]);
       if (docRes.ok) setDocuments(await docRes.json());
       if (configRes.ok) setConfig(await configRes.json());
       if (chatRes.ok) setChatSessions(await chatRes.json());
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return;
       setError(e instanceof Error ? e.message : '데이터 조회 실패');
     } finally {
       setLoading(false);
@@ -477,6 +486,14 @@ const EmbeddingPage: React.FC = () => {
     setNewHospitalName(pending.hospital_id);
     setShowAddHospital(true);
   };
+
+  // 언마운트 시 폴링 + 비동기 요청 정리
+  useEffect(() => {
+    return () => {
+      if (pollIntervalRef.current) { clearInterval(pollIntervalRef.current); pollIntervalRef.current = null; }
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
 
   useEffect(() => {
     if (isEmbedMode && embedParams.partnerId && embedParams.hospitalId) {
