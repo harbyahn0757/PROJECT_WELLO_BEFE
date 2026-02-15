@@ -17,7 +17,7 @@ import { downloadWorkbook, downloadJson, dateSuffix } from '../../utils/excelExp
 import DemoBanner from '../../components/DemoBanner';
 import {
   BRAND_BROWN, SATISFACTION_VERY_LOW, SATISFACTION_LOW, SATISFACTION_MID,
-  SATISFACTION_HIGH, SATISFACTION_VERY_HIGH, CHART_DEEP_BLUE, CHART_PURPLE,
+  SATISFACTION_HIGH, SATISFACTION_VERY_HIGH,
   TREND_PALETTE, GRAY_300, GRAY_700,
 } from '../../styles/colorTokens';
 import './styles.scss';

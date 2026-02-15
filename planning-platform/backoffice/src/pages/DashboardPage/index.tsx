@@ -200,7 +200,7 @@ const DashboardPage: React.FC = () => {
       });
       const data = await resp.json();
       downloadJson(data, `welno_전체데이터_${dateSuffix()}.json`);
-    } catch {}
+    } catch (err) { console.error('JSON export failed:', err); }
   };
 
   const fmtNum = (n: any) => n != null ? Number(n).toLocaleString() : '-';

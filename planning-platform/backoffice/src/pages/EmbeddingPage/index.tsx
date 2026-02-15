@@ -139,7 +139,6 @@ const EmbeddingPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [rebuilding, setRebuilding] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [config, setConfig] = useState<HospitalConfig | null>(null);
   const [showAddHospital, setShowAddHospital] = useState(false);
@@ -551,19 +550,6 @@ const EmbeddingPage: React.FC = () => {
     }
   };
 
-  const handleRebuild = async () => {
-    if (!selectedHospitalId) return;
-    setRebuilding(selectedHospitalId);
-    try {
-      const res = await fetch(`${API_BASE}/hospitals/${selectedHospitalId}/rebuild?partner_id=${selectedPartnerId}`, { method: 'POST' });
-      if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
-      await fetchHierarchy();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '재구축 트리거 실패');
-    } finally {
-      setRebuilding(null);
-    }
-  };
 
   const selectedHospital = hierarchy
     .find(p => p.partner_id === selectedPartnerId)
