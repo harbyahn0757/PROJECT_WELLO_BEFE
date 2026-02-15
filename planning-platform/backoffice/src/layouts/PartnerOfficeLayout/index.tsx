@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { NavLink, Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { getApiBase, fetchWithAuth } from '../../utils/api';
@@ -53,12 +53,10 @@ const PartnerOfficeLayout: React.FC = () => {
     return () => { document.body.style.overflow = ''; };
   }, [sidebarOpen]);
 
-  // window.location.search 직접 사용 — React Router 상태 의존 X
-  const urlParams = useMemo(() => new URLSearchParams(window.location.search), [location.search]);
-  const isEmbed = urlParams.has('api_key');
-  const queryStr = urlParams.toString();
+  const isEmbed = searchParams.has('api_key');
+  const queryStr = searchParams.toString();
 
-  const segment = location.pathname.split('/').pop() || 'dashboard';
+  const segment = NAV_ITEMS.find(item => location.pathname.endsWith(item.key))?.key || 'dashboard';
   const pageTitle = PAGE_TITLES[segment] || '대시보드';
 
   // ── 병원 선택기 ──
