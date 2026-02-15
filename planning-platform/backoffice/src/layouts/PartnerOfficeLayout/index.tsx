@@ -11,6 +11,7 @@ const PAGE_TITLES: Record<string, string> = {
   patients: '환자 통합',
   embedding: '검진결과 상담',
   survey: '만족도 조사',
+  analytics: '데이터 분석',
 };
 
 const NAV_ITEMS = [
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { key: 'patients', label: '환자 통합', path: '/backoffice/patients' },
   { key: 'embedding', label: '검진결과 상담', path: '/backoffice/embedding' },
   { key: 'survey', label: '만족도 조사', path: '/backoffice/survey' },
+  { key: 'analytics', label: '데이터 분석', path: '/backoffice/analytics' },
 ];
 
 interface HospitalOption {
@@ -63,6 +65,7 @@ const PartnerOfficeLayout: React.FC = () => {
   const [hospitals, setHospitals] = useState<HospitalOption[]>([]);
   const [hospFilter, setHospFilter] = useState('');
   const [hospOpen, setHospOpen] = useState(false);
+  const [summaryCounts, setSummaryCounts] = useState<{new_chats: number; new_surveys: number}>({new_chats: 0, new_surveys: 0});
   const selectedHospId = searchParams.get('hospital_id') || '';
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -71,6 +74,14 @@ const PartnerOfficeLayout: React.FC = () => {
     fetchWithAuth(`${API}/partner-office/hospitals`)
       .then(r => r.json())
       .then(d => setHospitals(d.hospitals || []))
+      .catch(() => {});
+  }, [isEmbed]);
+
+  useEffect(() => {
+    if (isEmbed) return;
+    fetchWithAuth(`${API}/admin/embedding/summary-counts`)
+      .then(r => r.json())
+      .then(d => setSummaryCounts({new_chats: d.new_chats || 0, new_surveys: d.new_surveys || 0}))
       .catch(() => {});
   }, [isEmbed]);
 
@@ -182,6 +193,12 @@ const PartnerOfficeLayout: React.FC = () => {
               }
             >
               {item.label}
+              {item.key === 'embedding' && summaryCounts.new_chats > 0 && (
+                <span className="po-layout__nav-badge">{summaryCounts.new_chats}</span>
+              )}
+              {item.key === 'survey' && summaryCounts.new_surveys > 0 && (
+                <span className="po-layout__nav-badge">{summaryCounts.new_surveys}</span>
+              )}
             </NavLink>
           ))}
         </nav>

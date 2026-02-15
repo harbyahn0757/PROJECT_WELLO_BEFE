@@ -45,12 +45,27 @@
     font-size: $font-sm;
   }
 
+  // ── 스플릿 레이아웃 ──
+  &__layout {
+    display: flex;
+    gap: 16px;
+    height: calc(100vh - 160px);
+  }
+
+  &__list-panel {
+    flex: 0 0 50%;
+    min-width: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
   &__table-wrap {
     background: $white;
     border-radius: 10px;
     border: 1px solid $gray-300;
     overflow: auto;
-    max-height: calc(100vh - 180px);
+    flex: 1;
   }
 
   &__key {
@@ -63,6 +78,524 @@
     text-align: center;
     color: $gray-600;
     padding: 24px 8px;
+  }
+
+  // ── 행 클릭 & 선택 ──
+  &__row {
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:hover {
+      background: $gray-100;
+    }
+
+    &--selected {
+      background: $brand-brown-light !important;
+    }
+  }
+
+  // ── 상세 패널 ──
+  &__detail-panel {
+    flex: 1;
+    min-width: 0;
+    background: $white;
+    border-radius: 12px;
+    box-shadow: $shadow-md;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  &__detail-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: $gray-500;
+    font-size: $font-sm;
+  }
+
+  &__detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid $gray-300;
+  }
+
+  &__detail-title {
+    margin: 0;
+    font-size: $font-sm;
+    font-weight: $font-weight-bold;
+    color: $gray-900;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__detail-key {
+    font-family: 'SFMono-Regular', Consolas, monospace;
+    font-size: 11px;
+    color: $gray-500;
+    font-weight: $font-weight-normal;
+  }
+
+  &__detail-close {
+    padding: 4px 12px;
+    border: 1px solid $gray-300;
+    border-radius: 6px;
+    background: $white;
+    font-size: $font-xs;
+    color: $gray-600;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    &:hover {
+      background: $gray-200;
+      color: $gray-900;
+    }
+  }
+
+  // ── 탭 ──
+  &__detail-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid $gray-300;
+    padding: 0 18px;
+  }
+
+  &__detail-tab {
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    font-size: $font-xs;
+    font-weight: $font-weight-semibold;
+    color: $gray-600;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+
+    &:hover {
+      color: $gray-900;
+    }
+
+    &--active {
+      color: $brand-brown;
+      border-bottom-color: $brand-brown;
+    }
+  }
+
+  &__tab-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    background: $gray-300;
+    color: $gray-700;
+    font-size: 10px;
+    margin-left: 4px;
+    padding: 0 4px;
+
+    .patient-page__detail-tab--active & {
+      background: $brand-brown;
+      color: $white;
+    }
+  }
+
+  // ── 상세 섹션 ──
+  &__detail-section {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 18px;
+  }
+
+  &__detail-empty {
+    text-align: center;
+    color: $gray-500;
+    padding: 32px 8px;
+    font-size: $font-sm;
+  }
+
+  &__detail-row {
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:hover {
+      background: $gray-100;
+    }
+  }
+
+  // ── 뱃지 ──
+  &__badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+
+    &--danger {
+      background: rgba($error-light, 0.1);
+      color: $error-light;
+    }
+
+    &--warn {
+      background: rgba($warning-light, 0.1);
+      color: $warning;
+    }
+
+    &--safe {
+      background: rgba($success, 0.1);
+      color: $success;
+    }
+
+    &--caution {
+      display: inline-block;
+      margin-left: 4px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: #fff3cd;
+      color: #856404;
+      font-size: 10px;
+      font-weight: $font-weight-semibold;
+    }
+  }
+
+  // ── 펼침 셀 ──
+  &__expanded-cell {
+    padding: 0 !important;
+    background: $gray-50;
+  }
+
+  &__expanded-info {
+    padding: 12px 16px;
+    font-size: $font-xs;
+    color: $gray-700;
+    line-height: 1.6;
+
+    code {
+      font-size: 10px;
+      background: $gray-200;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+  }
+
+  &__survey-template-name {
+    font-size: 10px;
+    color: $gray-500;
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed $gray-200;
+  }
+
+  &__survey-scores {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 6px;
+    margin-bottom: 8px;
+    font-size: $font-xs;
+  }
+
+  &__survey-score-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 8px;
+    background: $white;
+    border-radius: 6px;
+    border: 1px solid $gray-200;
+
+    span { color: $gray-600; }
+    strong { color: $gray-900; font-size: $font-sm; }
+  }
+
+  &__survey-text-item {
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: $gray-50;
+    border-radius: 6px;
+    font-size: $font-xs;
+    color: $gray-700;
+    line-height: 1.5;
+  }
+
+  &__survey-text-label {
+    color: $gray-500;
+    margin-right: 4px;
+  }
+
+  &__answers-json {
+    margin: 8px 0;
+    padding: 10px;
+    background: $gray-200;
+    border-radius: 6px;
+    font-size: 11px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  // ── 타임라인 ──
+  &__timeline {
+    position: relative;
+    padding-left: 20px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: $gray-300;
+    }
+  }
+
+  &__timeline-item {
+    position: relative;
+    padding-bottom: 16px;
+  }
+
+  &__timeline-dot {
+    position: absolute;
+    left: -17px;
+    top: 4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: $brand-brown;
+    border: 2px solid $white;
+  }
+
+  &__timeline-content {
+    padding-left: 8px;
+  }
+
+  &__timeline-time {
+    font-size: 10px;
+    color: $gray-500;
+  }
+
+  &__timeline-action {
+    font-size: $font-xs;
+    font-weight: $font-weight-semibold;
+    color: $gray-800;
+  }
+
+  &__timeline-message {
+    font-size: 11px;
+    color: $gray-700;
+    margin-top: 2px;
+    padding: 3px 8px;
+    background: $gray-100;
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  &__timeline-page {
+    font-size: 11px;
+    color: $gray-600;
+    margin-top: 2px;
+  }
+
+  &__timeline-meta {
+    display: flex;
+    gap: 8px;
+    margin-top: 2px;
+    font-size: 10px;
+    color: $gray-500;
+  }
+
+  // ── 검진데이터 ──
+  &__health-info {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px 12px;
+    margin-bottom: 14px;
+    padding: 12px;
+    background: $gray-50;
+    border-radius: 8px;
+    font-size: $font-xs;
+    color: $gray-700;
+    line-height: 1.6;
+  }
+
+  // ── 구매 신호 뱃지 ──
+  &__signal-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+
+    &--high {
+      background: rgba($success, 0.1);
+      color: $success;
+    }
+
+    &--mid {
+      background: rgba($warning-light, 0.1);
+      color: $warning;
+    }
+  }
+
+  // ── 확장뷰 리디자인 ──
+  &__expand-summary {
+    margin-bottom: 10px;
+    font-size: $font-xs;
+    line-height: 1.6;
+  }
+
+  &__expand-block {
+    margin-bottom: 8px;
+    font-size: $font-xs;
+
+    strong {
+      color: $gray-800;
+    }
+  }
+
+  &__expand-meta {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid $gray-200;
+    font-size: 10px;
+    color: $gray-500;
+
+    code {
+      font-size: 10px;
+      background: $gray-200;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+  }
+
+  // ── 게이지 바 ──
+  &__gauge-row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 10px;
+  }
+
+  &__gauge {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__gauge-label {
+    font-size: 10px;
+    color: $gray-600;
+    width: 56px;
+    flex-shrink: 0;
+  }
+
+  &__gauge-bar {
+    flex: 1;
+    height: 6px;
+    background: $gray-200;
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  &__gauge-fill {
+    height: 100%;
+    background: $brand-brown;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+
+    &--quality {
+      background: $accent-orange;
+    }
+  }
+
+  &__gauge-value {
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+    color: $gray-700;
+    width: 24px;
+    text-align: right;
+  }
+
+  // ── 태그 칩 ──
+  &__tag-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  &__tag-chip {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+    background: $gray-100;
+    color: $gray-700;
+
+    &--high {
+      background: rgba($brand-brown, 0.12);
+      color: $brand-brown;
+    }
+
+    &--medium {
+      background: $gray-100;
+      color: $gray-700;
+    }
+
+    &--low {
+      background: $gray-50;
+      color: $gray-500;
+    }
+  }
+
+  // ── 상업 태그 칩 ──
+  &__commercial-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+    background: rgba($accent-orange, 0.08);
+    color: $accent-orange;
+
+    small {
+      font-weight: $font-weight-normal;
+      opacity: 0.75;
+    }
+  }
+
+  &__segment-hot {
+    display: inline-block;
+    padding: 0 4px;
+    border-radius: 3px;
+    background: $error-light;
+    color: $white;
+    font-size: 8px;
+    font-weight: $font-weight-bold;
+    margin-left: 2px;
+  }
+
+  &__concern-list {
+    margin: 4px 0 0 16px;
+    padding: 0;
+    font-size: $font-xs;
+    color: $gray-700;
+    line-height: 1.6;
+
+    li {
+      margin-bottom: 2px;
+    }
   }
 }
 
@@ -87,8 +620,21 @@
     font-size: $font-xs;
   }
 
+  .patient-page__layout {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .patient-page__list-panel {
+    flex: none;
+    max-height: 40vh;
+  }
+
+  .patient-page__detail-panel {
+    min-height: 50vh;
+  }
+
   .patient-page__table-wrap {
-    max-height: calc(100vh - 160px);
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -104,6 +650,20 @@
   .patient-page__key {
     font-size: 0.625rem;
   }
+
+  .patient-page__health-info {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-page__detail-tabs {
+    padding: 0 12px;
+    overflow-x: auto;
+  }
+
+  .patient-page__detail-tab {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
 }
 
 // ═══ TABLET (768px – 1023px) ═══
@@ -114,5 +674,9 @@
 
   .patient-page__search {
     width: 220px;
+  }
+
+  .patient-page__list-panel {
+    flex: 0 0 45%;
   }
 }

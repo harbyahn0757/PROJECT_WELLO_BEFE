@@ -15,12 +15,14 @@ import {
 } from 'recharts';
 import { downloadWorkbook, downloadJson, dateSuffix } from '../../utils/excelExport';
 import DemoBanner from '../../components/DemoBanner';
-import { IconExcel, IconJson } from '../../components/ExportIcons';
+import { ExportButtons } from '../../components/ExportButtons';
 import {
   BRAND_BROWN, SATISFACTION_VERY_LOW, SATISFACTION_LOW, SATISFACTION_MID,
   SATISFACTION_HIGH, SATISFACTION_VERY_HIGH,
   TREND_PALETTE, GRAY_300, GRAY_700,
 } from '../../styles/colorTokens';
+import { Spinner } from '../../components/Spinner';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import './styles.scss';
 
 const getApiBase = (): string => {
@@ -145,6 +147,15 @@ const SurveyPage: React.FC = () => {
 
   const [commentModal, setCommentModal] = useState<string | null>(null);
   const [detailModal, setDetailModal] = useState<SurveyResponse | null>(null);
+
+  // Today summary (카드 그리드용)
+  const [todaySummary, setTodaySummary] = useState<{
+    date?: string;
+    hospitals: { hospital_id: string; hospital_name: string; today_count: number; avg_satisfaction: number }[];
+    summary: { today_total: number; today_avg_score: number; active_hospitals: number; total_hospitals: number };
+  } | null>(null);
+  const [todaySummaryLoading, setTodaySummaryLoading] = useState(false);
+  const [landingDate, setLandingDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'stats' | 'report' | 'templates'>('stats');
@@ -349,6 +360,25 @@ const SurveyPage: React.FC = () => {
     fetch(`${EMBEDDING_API_BASE}/summary-counts`).then(r => r.json()).then(setSummaryCounts).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 병원 미선택 시 today-summary fetch (날짜 변경 시 재조회)
+  useEffect(() => {
+    if (!selectedHospitalId && !isEmbedMode) {
+      setTodaySummaryLoading(true);
+      fetch(`${API_BASE}/hospital-survey/today-summary?target_date=${landingDate}`)
+        .then(r => r.json())
+        .then(d => setTodaySummary(d))
+        .catch(() => setTodaySummary(null))
+        .finally(() => setTodaySummaryLoading(false));
+    }
+  }, [selectedHospitalId, isEmbedMode, landingDate]);
+
+  const shiftLandingDate = (days: number) => {
+    const d = new Date(landingDate);
+    d.setDate(d.getDate() + days);
+    setLandingDate(d.toISOString().slice(0, 10));
+  };
+  const isLandingToday = landingDate === new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     if (selectedHospitalId && selectedPartnerId) {
@@ -612,11 +642,14 @@ const SurveyPage: React.FC = () => {
         {/* 인라인 병원 선택 (파트너오피스 모드) */}
         {!isEmbedMode && (
           <div className="survey-page__inline-selector">
-            <select
-              className="survey-page__hospital-select"
+            <SearchableSelect
+              placeholder="병원 선택"
               value={selectedHospitalId || ''}
-              onChange={(e) => {
-                const hid = e.target.value;
+              options={hierarchy.flatMap(p => p.hospitals).map(h => ({
+                value: h.hospital_id,
+                label: h.hospital_name,
+              }))}
+              onChange={(hid) => {
                 if (hid) {
                   for (const p of hierarchy) {
                     const found = p.hospitals.find(h => h.hospital_id === hid);
@@ -625,21 +658,83 @@ const SurveyPage: React.FC = () => {
                   setSelectedHospitalId(hid);
                 }
               }}
-            >
-              <option value="">병원 선택</option>
-              {hierarchy.flatMap(p => p.hospitals).map(h => (
-                <option key={h.hospital_id} value={h.hospital_id}>{h.hospital_name}</option>
-              ))}
-            </select>
+            />
           </div>
         )}
 
         {/* Main */}
         <main className="survey-page__main">
           {!selectedHospitalId ? (
-            <div className="survey-page__empty">
-              <h3>병원을 선택하세요</h3>
-              {!isEmbedMode && <p>왼쪽 사이드바에서 병원을 선택하면 설문 통계를 확인할 수 있습니다.</p>}
+            <div className="survey-page__landing">
+              {/* 날짜 네비게이션 */}
+              <div className="date-nav">
+                <button className="date-nav__btn" onClick={() => shiftLandingDate(-1)}>&lsaquo;</button>
+                <span className="date-nav__label">{landingDate}</span>
+                <button className="date-nav__btn" onClick={() => shiftLandingDate(1)} disabled={isLandingToday}>&rsaquo;</button>
+                {!isLandingToday && (
+                  <button className="date-nav__today" onClick={() => setLandingDate(new Date().toISOString().slice(0, 10))}>오늘</button>
+                )}
+              </div>
+
+              {todaySummaryLoading ? (
+                <Spinner message="설문 데이터를 불러오는 중..." />
+              ) : todaySummary ? (
+                <>
+                  {/* KPI 카드 */}
+                  <div className="landing-kpi-row">
+                    <div className="landing-kpi-card">
+                      <div className="landing-kpi-value">{todaySummary.summary.today_total}</div>
+                      <div className="landing-kpi-label">{isLandingToday ? '오늘' : landingDate} 응답</div>
+                    </div>
+                    <div className="landing-kpi-card">
+                      <div className="landing-kpi-value">{todaySummary.summary.today_avg_score.toFixed(1)}</div>
+                      <div className="landing-kpi-label">평균 점수</div>
+                    </div>
+                    <div className="landing-kpi-card">
+                      <div className="landing-kpi-value">{todaySummary.summary.active_hospitals}</div>
+                      <div className="landing-kpi-label">응답 병원</div>
+                    </div>
+                    <div className="landing-kpi-card">
+                      <div className="landing-kpi-value">{todaySummary.summary.total_hospitals}</div>
+                      <div className="landing-kpi-label">전체 병원</div>
+                    </div>
+                  </div>
+
+                  {/* 병원 카드 그리드 */}
+                  <h3 className="landing-title">{isLandingToday ? '오늘' : landingDate} 응답이 있는 병원</h3>
+                  {todaySummary.hospitals.length === 0 ? (
+                    <div className="landing-empty">해당 날짜에 설문 응답이 없습니다.</div>
+                  ) : (
+                    <div className="landing-hospital-grid">
+                      {todaySummary.hospitals.map(h => (
+                        <div
+                          key={h.hospital_id}
+                          className="landing-hospital-card"
+                          onClick={() => {
+                            for (const p of hierarchy) {
+                              const found = p.hospitals.find(hp => hp.hospital_id === h.hospital_id);
+                              if (found) { setSelectedPartnerId(p.partner_id); break; }
+                            }
+                            setSelectedHospitalId(h.hospital_id);
+                          }}
+                        >
+                          <div className="landing-hospital-card__name">{h.hospital_name || h.hospital_id}</div>
+                          <div className="landing-hospital-card__stats">
+                            <span className="landing-hospital-card__count">{h.today_count}건</span>
+                            <span className={`landing-hospital-card__badge landing-hospital-card__badge--${h.avg_satisfaction >= 4 ? 'high' : h.avg_satisfaction >= 3 ? 'mid' : 'low'}`}>
+                              {h.avg_satisfaction > 0 ? h.avg_satisfaction.toFixed(1) : '-'}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="landing-empty">
+                  병원을 선택하면 설문 통계를 확인할 수 있습니다.
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -650,10 +745,7 @@ const SurveyPage: React.FC = () => {
                     <h2 className="survey-page__card-title">{selectedHospitalName}</h2>
                     <p className="survey-page__muted" style={{marginTop: 4}}>만족도 조사 · 총 응답 {stats?.total_count ?? 0}건</p>
                   </div>
-                  <div className="export-btns">
-                    <button className="btn-excel" onClick={handleExcelExport}><IconExcel />엑셀</button>
-                    <button className="btn-excel" onClick={handleJsonExport}><IconJson />JSON</button>
-                  </div>
+                  <ExportButtons onExcel={handleExcelExport} onJson={handleJsonExport} />
                 </div>
               </div>
 

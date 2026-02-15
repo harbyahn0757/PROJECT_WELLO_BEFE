@@ -1,0 +1,317 @@
+@import '../../styles/variables';
+@import '../../styles/tables';
+
+.analytics-page {
+  padding: 20px 28px;
+
+  &__error {
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba($error-light, 0.08);
+    color: $error-light;
+    font-size: $font-sm;
+  }
+
+  &__loading {
+    font-size: $font-xs;
+    color: $accent-orange;
+    margin-left: 8px;
+  }
+
+  // ── Filters ──
+  &__filters {
+    background: $white;
+    border-radius: 12px;
+    padding: 16px 20px;
+    box-shadow: $shadow-sm;
+    margin-bottom: 16px;
+  }
+
+  &__filter-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  &__date-input {
+    padding: 6px 10px;
+    border: 1px solid $gray-300;
+    border-radius: $border-radius-md;
+    font-size: $font-sm;
+    outline: none;
+
+    &:focus { border-color: $brand-brown; }
+  }
+
+  &__filter-sep {
+    color: $gray-500;
+    font-size: $font-sm;
+  }
+
+  &__checkbox {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: $font-xs;
+    color: $gray-700;
+    cursor: pointer;
+
+    input { accent-color: $brand-brown; }
+  }
+
+  &__reset-btn {
+    padding: 6px 14px;
+    background: $white;
+    color: $gray-600;
+    border: 1px solid $gray-300;
+    border-radius: $border-radius-md;
+    font-size: $font-xs;
+    cursor: pointer;
+
+    &:hover { background: $gray-50; }
+  }
+
+  &__chip-groups {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  &__chip-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  &__chip-label {
+    font-size: $font-xs;
+    color: $gray-600;
+    font-weight: $font-weight-semibold;
+    margin-right: 2px;
+  }
+
+  &__chip {
+    padding: 3px 10px;
+    border: 1px solid $gray-300;
+    border-radius: 14px;
+    background: $white;
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    &:hover { border-color: $brand-brown; }
+
+    &.active {
+      border-color: transparent;
+    }
+  }
+
+  // ── KPI Cards ──
+  &__kpi-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  &__kpi-card {
+    flex: 1;
+    min-width: 100px;
+    max-width: 170px;
+    background: linear-gradient(135deg, $beige-cream 0%, $white 100%);
+    border-radius: 14px;
+    padding: 16px 18px;
+    box-shadow: 0 2px 8px rgba(124, 116, 106, 0.08);
+    text-align: center;
+    border: none;
+    transition: box-shadow 0.2s, transform 0.2s;
+
+    &:hover {
+      box-shadow: 0 4px 14px rgba(124, 116, 106, 0.13);
+      transform: translateY(-1px);
+    }
+
+    &--danger {
+      background: linear-gradient(135deg, #fef2f2 0%, $white 100%);
+    }
+  }
+
+  &__kpi-value {
+    font-size: $font-2xl;
+    font-weight: 800;
+    color: $brand-brown-700;
+    line-height: 1.2;
+  }
+
+  &__kpi-card--danger &__kpi-value {
+    color: $error-light;
+  }
+
+  &__kpi-label {
+    font-size: $font-xs;
+    color: $gray-600;
+    margin-top: 4px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  // ── Charts Grid ──
+  &__charts-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  &__two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  &__chart-card {
+    background: $white;
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: $shadow-sm;
+  }
+
+  &__trend-card {
+    background: $white;
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: $shadow-sm;
+    margin-bottom: 16px;
+  }
+
+  &__chart-title {
+    font-size: $font-sm;
+    font-weight: 700;
+    color: $gray-700;
+    margin: 0 0 12px;
+  }
+
+  &__chart-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 180px;
+    color: $gray-500;
+    font-size: $font-sm;
+  }
+
+  &__concern-list {
+    margin: 0;
+    padding: 0 0 0 16px;
+    font-size: $font-xs;
+    color: $gray-700;
+    line-height: 1.8;
+  }
+
+  // ── Table ──
+  &__table-card {
+    background: $white;
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: $shadow-sm;
+    margin-bottom: 16px;
+  }
+
+  &__table-wrap {
+    overflow-x: auto;
+  }
+
+  &__session-row {
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:hover { background: $gray-50; }
+  }
+
+  &__risk-dot {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+    color: $white;
+  }
+
+  &__signal-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: $font-weight-semibold;
+    color: $gray-800;
+  }
+
+  &__expanded-cell {
+    padding: 0 !important;
+    background: $gray-50;
+  }
+
+  &__expanded-info {
+    padding: 12px 16px;
+    font-size: $font-xs;
+    color: $gray-700;
+    line-height: 1.6;
+
+    > div { margin-bottom: 4px; }
+  }
+
+  &__pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 14px;
+  }
+
+  &__page-btn {
+    padding: 4px 12px;
+    border: 1px solid $gray-300;
+    background: $white;
+    border-radius: $border-radius-md;
+    font-size: $font-xs;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: $gray-50; }
+    &:disabled { opacity: 0.4; cursor: not-allowed; }
+    &.active { background: $brand-brown; color: $white; border-color: $brand-brown; }
+  }
+}
+
+// ── Responsive ──
+@media (max-width: $bp-mobile-max) {
+  .analytics-page {
+    padding: 12px;
+  }
+
+  .analytics-page__charts-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .analytics-page__two-col {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-page__kpi-row {
+    flex-wrap: wrap;
+  }
+
+  .analytics-page__kpi-card {
+    min-width: calc(50% - 8px);
+  }
+}
+
+@media (min-width: $bp-tablet-min) and (max-width: $bp-tablet-max) {
+  .analytics-page__charts-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

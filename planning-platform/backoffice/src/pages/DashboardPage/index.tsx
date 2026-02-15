@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { getApiBase, fetchWithAuth } from '../../utils/api';
 import { downloadWorkbook, downloadJson, dateSuffix } from '../../utils/excelExport';
-import { IconExcel, IconJson } from '../../components/ExportIcons';
+import { ExportButtons } from '../../components/ExportButtons';
 import {
   PIE_PALETTE as PIE_COLORS,
   BRAND_BROWN as COLOR_BROWN,
@@ -18,6 +18,8 @@ import {
   CHART_BLUE as COLOR_BLUE_ACCENT,
   SUCCESS as COLOR_GREEN,
 } from '../../styles/colorTokens';
+import { formatDateOnly } from '../../utils/dateFormat';
+import { Spinner } from '../../components/Spinner';
 import './styles.scss';
 
 const API = getApiBase();
@@ -32,7 +34,7 @@ const DATE_PRESETS = [
   { label: '90일', days: 90 },
 ];
 
-const fmt = (d: Date) => d.toISOString().slice(0, 10);
+const fmt = formatDateOnly;
 
 /* 파이 차트 반응형 라벨: 텍스트가 영역 밖으로 나가지 않도록 축약 */
 const renderPieLabel = ({ name, percent, cx, outerRadius, midAngle, x, y }: any) => {
@@ -245,12 +247,10 @@ const DashboardPage: React.FC = () => {
             >{p.label}</button>
           ))}
         </div>
-        <div className="export-btns">
-          <button className="btn-excel" onClick={handleExcelExport} disabled={loading}><IconExcel />엑셀</button>
-          <button className="btn-excel" onClick={handleJsonExport} disabled={loading}><IconJson />JSON</button>
-        </div>
-        {loading && <span className="dashboard-page__loading">로딩...</span>}
+        <ExportButtons onExcel={handleExcelExport} onJson={handleJsonExport} disabled={loading} />
       </div>
+
+      {loading && !summary && <Spinner message="대시보드 로딩 중..." />}
 
       {/* ── 유입 퍼널 ── */}
       {overview && (() => {
@@ -317,6 +317,10 @@ const DashboardPage: React.FC = () => {
         <div className="dashboard-page__card">
           <div className="dashboard-page__card-label">오늘 상담</div>
           <div className="dashboard-page__card-value">{fmtNum(summary?.today_chats)}</div>
+        </div>
+        <div className="dashboard-page__card">
+          <div className="dashboard-page__card-label">오늘 서베이</div>
+          <div className="dashboard-page__card-value">{fmtNum(summary?.today_surveys)}</div>
         </div>
         <div className="dashboard-page__card">
           <div className="dashboard-page__card-label">고위험</div>

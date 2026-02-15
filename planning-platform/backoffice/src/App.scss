@@ -144,6 +144,206 @@ body {
   }
 }
 
+/* ── 공용 스피너 ──────────────────────── */
+.spinner-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  gap: 10px;
+}
+
+.spinner {
+  border: 3px solid $gray-200;
+  border-top-color: $brand-brown;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+.spinner-msg {
+  font-size: $font-sm;
+  color: $gray-500;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── 공용 날짜 네비게이션 ──────────────── */
+.date-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.date-nav__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid $gray-300;
+  border-radius: 8px;
+  background: $white;
+  font-size: $font-sm;
+  color: $gray-700;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover:not(:disabled) {
+    background: $gray-200;
+    color: $gray-900;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.date-nav__label {
+  font-size: $font-sm;
+  font-weight: $font-weight-semibold;
+  color: $gray-800;
+  min-width: 120px;
+  text-align: center;
+}
+
+.date-nav__today {
+  padding: 4px 12px;
+  border: 1px solid $brand-brown;
+  border-radius: 8px;
+  background: $white;
+  font-size: $font-xs;
+  font-weight: $font-weight-semibold;
+  color: $brand-brown;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: $brand-brown;
+    color: $white;
+  }
+
+  &--active {
+    background: $brand-brown;
+    color: $white;
+  }
+}
+
+/* ── 공용 랜딩 KPI / 병원 카드 ────────── */
+.landing-kpi-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.landing-kpi-card {
+  flex: 1;
+  min-width: 100px;
+  max-width: 170px;
+  background: linear-gradient(135deg, $beige-cream 0%, $white 100%);
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 8px rgba(124, 116, 106, 0.08);
+  text-align: center;
+  border: none;
+  transition: box-shadow 0.2s, transform 0.2s;
+
+  &:hover {
+    box-shadow: 0 4px 14px rgba(124, 116, 106, 0.13);
+    transform: translateY(-1px);
+  }
+}
+
+.landing-kpi-value {
+  font-size: $font-2xl;
+  font-weight: 800;
+  color: $brand-brown-700;
+  line-height: 1.2;
+}
+
+.landing-kpi-label {
+  font-size: $font-xs;
+  color: $gray-600;
+  margin-top: 4px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.landing-title {
+  font-size: $font-md;
+  font-weight: 700;
+  color: $gray-800;
+  margin: 20px 0 12px;
+}
+
+.landing-hospital-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.landing-hospital-card {
+  background: $white;
+  border-radius: 12px;
+  padding: 18px 20px;
+  box-shadow: $shadow-sm;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid $gray-200;
+
+  &:hover {
+    border-color: $brand-brown;
+    box-shadow: $shadow-md;
+    transform: translateY(-2px);
+  }
+
+  &__name {
+    font-size: $font-sm;
+    font-weight: 700;
+    color: $gray-800;
+    margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  &__count {
+    font-size: $font-xs;
+    color: $gray-600;
+    font-weight: 600;
+  }
+
+  &__badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: $font-xs;
+    font-weight: 700;
+
+    &--high { background: rgba($success, 0.1); color: $success; }
+    &--mid  { background: rgba($warning-light, 0.1); color: $warning; }
+    &--low  { background: rgba($error-light, 0.1); color: $error-light; }
+  }
+}
+
+.landing-empty {
+  text-align: center;
+  color: $gray-600;
+  padding: 32px 8px;
+  font-size: $font-sm;
+}
+
 .admin-embedding-page__hospital-btn,
 .survey-page__hospital-btn {
   display: flex;
@@ -153,5 +353,172 @@ body {
   &.admin-embedding-page__hospital-btn--all {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+/* ── 공용 검색 가능 셀렉트 ────────────── */
+.searchable-select {
+  position: relative;
+  display: inline-block;
+  min-width: 240px;
+
+  &__trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid $gray-300;
+    border-radius: 8px;
+    background: $white;
+    font-size: $font-sm;
+    color: $gray-800;
+    cursor: pointer;
+    transition: border-color 0.15s;
+
+    &:hover { border-color: $brand-brown; }
+  }
+
+  &__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    text-align: left;
+  }
+
+  &__arrow {
+    font-size: 9px;
+    margin-left: 8px;
+    color: $gray-500;
+  }
+
+  &__dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 200;
+    background: $white;
+    border: 1px solid $gray-300;
+    border-radius: 8px;
+    box-shadow: $shadow-md;
+    min-width: 240px;
+  }
+
+  &__input {
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    border-bottom: 1px solid $gray-200;
+    font-size: $font-xs;
+    outline: none;
+    box-sizing: border-box;
+    border-radius: 8px 8px 0 0;
+  }
+
+  &__list {
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  &__item {
+    padding: 8px 12px;
+    font-size: $font-xs;
+    color: $gray-700;
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:hover { background: $gray-100; }
+
+    &--active {
+      background: $brand-brown-light;
+      color: $brand-brown;
+      font-weight: $font-weight-semibold;
+    }
+
+    &--pinned {
+      border-bottom: 1px solid $gray-200;
+      font-weight: $font-weight-semibold;
+      color: $gray-800;
+    }
+  }
+
+  &__empty {
+    padding: 12px;
+    text-align: center;
+    font-size: $font-xs;
+    color: $gray-500;
+  }
+}
+
+/* ── 공용 필터 섹션 ──────────────────── */
+.filter-section {
+  background: $white;
+  border-radius: 12px;
+  padding: 14px 18px;
+  box-shadow: $shadow-sm;
+  margin-bottom: 16px;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  &__label {
+    font-size: $font-xs;
+    font-weight: $font-weight-semibold;
+    color: $gray-600;
+    white-space: nowrap;
+  }
+
+  &__input {
+    padding: 6px 10px;
+    border: 1px solid $gray-300;
+    border-radius: $border-radius-md;
+    font-size: $font-sm;
+    outline: none;
+    min-width: 120px;
+
+    &:focus { border-color: $brand-brown; }
+  }
+
+  &__sep {
+    color: $gray-400;
+    font-size: $font-xs;
+  }
+
+  &__chip {
+    padding: 4px 12px;
+    border: 1px solid $gray-300;
+    border-radius: 14px;
+    background: $white;
+    font-size: $font-xs;
+    font-weight: $font-weight-semibold;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    &:hover { border-color: $brand-brown; }
+
+    &--active {
+      background: $brand-brown;
+      color: $white;
+      border-color: $brand-brown;
+    }
+  }
+
+  &__reset {
+    padding: 5px 12px;
+    background: $white;
+    color: $gray-600;
+    border: 1px solid $gray-300;
+    border-radius: $border-radius-md;
+    font-size: $font-xs;
+    cursor: pointer;
+    margin-left: auto;
+
+    &:hover { background: $gray-50; }
   }
 }

@@ -9,6 +9,10 @@ import { useHierarchy } from '../../hooks/useHierarchy';
 import { downloadWorkbook, dateSuffix } from '../../utils/excelExport';
 import DemoBanner from '../../components/DemoBanner';
 import { IconExcel } from '../../components/ExportIcons';
+import { ExportButtons } from '../../components/ExportButtons';
+import { formatDateShort } from '../../utils/dateFormat';
+import { Spinner } from '../../components/Spinner';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import './styles.scss';
 
 const getEmbeddingApiBase = (): string => {
@@ -155,6 +159,15 @@ const EmbeddingPage: React.FC = () => {
   const [chatDetailTab, setChatDetailTab] = useState<'conversation' | 'health' | 'tags'>('conversation');
   const [excelExporting, setExcelExporting] = useState(false);
   const [summaryCounts, setSummaryCounts] = useState<{new_chats: number; new_surveys: number}>({new_chats: 0, new_surveys: 0});
+
+  // 랜딩 화면 (병원 미선택 시)
+  const [landingDate, setLandingDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [chatLanding, setChatLanding] = useState<{
+    date: string;
+    hospitals: { hospital_id: string; hospital_name: string; chat_count: number; message_count: number }[];
+    summary: { total_sessions: number; total_messages: number; unique_users: number; active_hospitals: number; total_hospitals: number };
+  } | null>(null);
+  const [chatLandingLoading, setChatLandingLoading] = useState(false);
 
   // 공통 문서 상태
   const [commonDocuments, setCommonDocuments] = useState<DocumentItem[]>([]);
@@ -498,9 +511,27 @@ const EmbeddingPage: React.FC = () => {
     };
   }, []);
 
+  // 병원 미선택 시 랜딩 데이터 fetch
+  useEffect(() => {
+    if (!selectedHospitalId && !viewAllChats && !isEmbedMode) {
+      setChatLandingLoading(true);
+      fetch(`${API_BASE}/today-summary?target_date=${landingDate}`)
+        .then(r => r.json())
+        .then(d => setChatLanding(d))
+        .catch(() => setChatLanding(null))
+        .finally(() => setChatLandingLoading(false));
+    }
+  }, [selectedHospitalId, viewAllChats, isEmbedMode, landingDate]);
+
+  const shiftLandingDate = (days: number) => {
+    const d = new Date(landingDate);
+    d.setDate(d.getDate() + days);
+    setLandingDate(d.toISOString().slice(0, 10));
+  };
+  const isLandingToday = landingDate === new Date().toISOString().slice(0, 10);
+
   useEffect(() => {
     if (isEmbedMode && embedParams.partnerId && embedParams.hospitalId) {
-      // embed 모드: URL 파라미터로 자동 선택, hierarchy 생략
       setSelectedPartnerId(embedParams.partnerId);
       setSelectedHospitalId(embedParams.hospitalId);
     } else {
@@ -738,15 +769,7 @@ const EmbeddingPage: React.FC = () => {
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const yy = String(d.getFullYear()).slice(2);
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mi = String(d.getMinutes()).padStart(2, '0');
-    return `${yy}.${mm}.${dd} ${hh}:${mi}`;
-  };
+  const formatDate = formatDateShort;
 
   const HEALTH_METRIC_LABELS: Record<string, string> = {
     height: '신장(cm)', weight: '체중(kg)', bmi: 'BMI',
@@ -984,19 +1007,21 @@ const EmbeddingPage: React.FC = () => {
         {/* 인라인 병원 선택 (파트너오피스 모드) */}
         {!isEmbedMode && (
           <div className="admin-embedding-page__inline-selector">
-            <select
-              className="admin-embedding-page__hospital-select"
-              aria-label="병원 선택"
+            <SearchableSelect
+              placeholder="병원 선택"
               value={selectedHospitalId || ''}
-              onChange={(e) => {
-                const hid = e.target.value;
+              pinnedOptions={[{ value: '__all__', label: '전체 상담 통합 보기' }]}
+              options={hierarchy.flatMap(p => p.hospitals).map(h => ({
+                value: h.hospital_id,
+                label: h.hospital_name,
+              }))}
+              onChange={(hid) => {
                 if (hid === '__all__') {
                   setViewAllChats(true);
                   setActiveTab('chats');
                   setSelectedChat(null);
                 } else if (hid) {
                   setViewAllChats(false);
-                  // 해당 병원의 파트너 찾기
                   for (const p of hierarchy) {
                     const found = p.hospitals.find(h => h.hospital_id === hid);
                     if (found) { setSelectedPartnerId(p.partner_id); break; }
@@ -1004,13 +1029,7 @@ const EmbeddingPage: React.FC = () => {
                   setSelectedHospitalId(hid);
                 }
               }}
-            >
-              <option value="">병원 선택</option>
-              <option value="__all__">전체 상담 통합 보기</option>
-              {hierarchy.flatMap(p => p.hospitals).map(h => (
-                <option key={h.hospital_id} value={h.hospital_id}>{h.hospital_name}</option>
-              ))}
-            </select>
+            />
           </div>
         )}
         <main className="admin-embedding-page__main">
@@ -1023,15 +1042,11 @@ const EmbeddingPage: React.FC = () => {
                     <h2 className="admin-embedding-page__card-title">전체 상담 통합 보기</h2>
                     <p className="admin-embedding-page__muted" style={{marginTop: 4}}>모든 병원의 상담 내역을 한 곳에서 확인합니다. ({allChatSessions.length}건)</p>
                   </div>
-                  <div className="export-btns">
-                    <button
-                      className="btn-excel"
-                      onClick={() => handleExcelExport()}
-                      disabled={excelExporting}
-                    >
-                      <IconExcel />{excelExporting ? '내보내는 중...' : '엑셀'}
-                    </button>
-                  </div>
+                  <ExportButtons
+                    onExcel={() => handleExcelExport()}
+                    disabled={excelExporting}
+                    excelLabel={excelExporting ? '내보내는 중...' : '엑셀'}
+                  />
                 </div>
               </div>
               <div className="admin-embedding-page__chat-container">
@@ -1097,7 +1112,7 @@ const EmbeddingPage: React.FC = () => {
                 <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
                   <div>
                     <h2 className="admin-embedding-page__card-title">{selectedHospital.hospital_name}</h2>
-                    <p className="admin-embedding-page__muted" style={{marginTop: 4}}>상담 내역 {chatSessions.length}건</p>
+                    <p className="admin-embedding-page__muted" style={{marginTop: 4}}>{loading ? '로딩 중...' : `상담 내역 ${chatSessions.length}건`}</p>
                   </div>
                   <div className="export-btns">
                     <button
@@ -1473,9 +1488,72 @@ const EmbeddingPage: React.FC = () => {
               )}
             </>
           ) : (
-            <div className="admin-embedding-page__empty-state">
-              <h3>병원을 선택하세요</h3>
-              <p className="admin-embedding-page__muted">왼쪽 사이드바에서 병원을 선택하거나 "전체 상담 통합 보기"를 클릭하세요.</p>
+            <div className="admin-embedding-page__landing">
+              {/* 날짜 네비게이션 */}
+              <div className="date-nav">
+                <button className="date-nav__btn" onClick={() => shiftLandingDate(-1)}>&lsaquo;</button>
+                <span className="date-nav__label">{landingDate}</span>
+                <button className="date-nav__btn" onClick={() => shiftLandingDate(1)} disabled={isLandingToday}>&rsaquo;</button>
+                {!isLandingToday && (
+                  <button className={`date-nav__today`} onClick={() => setLandingDate(new Date().toISOString().slice(0, 10))}>오늘</button>
+                )}
+              </div>
+
+              {chatLandingLoading ? (
+                <Spinner message="상담 데이터를 불러오는 중..." />
+              ) : chatLanding ? (
+                <>
+                  {/* KPI 카드 */}
+                  <div className="landing-kpi-row">
+                    <div className="landing-kpi-card">
+                      <div className="landing-kpi-value">{chatLanding.summary.total_sessions}</div>
+                      <div className="landing-kpi-label">상담 세션</div>
+                    </div>
+                    <div className="landing-kpi-card">
+                      <div className="landing-kpi-value">{chatLanding.summary.total_messages}</div>
+                      <div className="landing-kpi-label">메시지</div>
+                    </div>
+                    <div className="landing-kpi-card">
+                      <div className="landing-kpi-value">{chatLanding.summary.unique_users}</div>
+                      <div className="landing-kpi-label">사용자</div>
+                    </div>
+                    <div className="landing-kpi-card">
+                      <div className="landing-kpi-value">{chatLanding.summary.active_hospitals}</div>
+                      <div className="landing-kpi-label">활성 병원</div>
+                    </div>
+                  </div>
+
+                  {/* 병원 카드 그리드 */}
+                  <h3 className="landing-title">{isLandingToday ? '오늘' : landingDate} 상담이 있는 병원</h3>
+                  {chatLanding.hospitals.length === 0 ? (
+                    <div className="landing-empty">해당 날짜에 상담이 없습니다.</div>
+                  ) : (
+                    <div className="landing-hospital-grid">
+                      {chatLanding.hospitals.map(h => (
+                        <div
+                          key={h.hospital_id}
+                          className="landing-hospital-card"
+                          onClick={() => {
+                            for (const p of hierarchy) {
+                              const found = p.hospitals.find(hp => hp.hospital_id === h.hospital_id);
+                              if (found) { setSelectedPartnerId(p.partner_id); break; }
+                            }
+                            setSelectedHospitalId(h.hospital_id);
+                            setViewAllChats(false);
+                          }}
+                        >
+                          <div className="landing-hospital-card__name">{h.hospital_name}</div>
+                          <div className="landing-hospital-card__stats">
+                            <span className="landing-hospital-card__count">{h.chat_count}건 · {h.message_count}메시지</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="landing-empty">병원을 선택하거나 "전체 상담 통합 보기"를 클릭하세요.</div>
+              )}
             </div>
           )}
         </main>

@@ -150,6 +150,22 @@
     }
   }
 
+  &__nav-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    background: $error;
+    color: $white;
+    font-size: 10px;
+    font-weight: $font-weight-bold;
+    margin-left: 6px;
+    padding: 0 5px;
+    line-height: 1;
+  }
+
   &__logout {
     margin: auto 14px 14px;
     padding: 10px 14px;
