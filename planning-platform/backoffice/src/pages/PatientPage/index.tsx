@@ -29,21 +29,26 @@ const PatientPage: React.FC = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     fetchWithAuth(`${API}/partner-office/patients`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hospital_id: hospitalId || null }),
     })
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`서버 오류 (${r.status})`);
+        return r.json();
+      })
       .then(d => {
         setPatients(d.patients || []);
         setTotal(d.total || 0);
       })
-      .catch(() => {})
+      .catch(e => { setError(e instanceof Error ? e.message : '환자 목록 조회 실패'); })
       .finally(() => setLoading(false));
   }, [hospitalId]);
 
@@ -56,6 +61,7 @@ const PatientPage: React.FC = () => {
 
   return (
     <div className="patient-page">
+      {error && <div className="patient-page__error" role="alert">{error}</div>}
       <div className="patient-page__toolbar">
         <input
           className="patient-page__search"

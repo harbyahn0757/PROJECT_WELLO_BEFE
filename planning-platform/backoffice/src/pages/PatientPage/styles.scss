@@ -36,6 +36,15 @@
     color: $accent-orange;
   }
 
+  &__error {
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: rgba($error-light, 0.08);
+    color: $error-light;
+    font-size: $font-sm;
+  }
+
   &__table-wrap {
     background: $white;
     border-radius: 10px;
