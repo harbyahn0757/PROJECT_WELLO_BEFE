@@ -95,7 +95,7 @@ const PatientPage: React.FC = () => {
           </thead>
           <tbody>
             {filtered.length === 0 && !loading && (
-              <tr><td colSpan={6} style={{ textAlign: 'center', color: '#718096' }}>데이터가 없습니다</td></tr>
+              <tr><td colSpan={6} className="patient-page__empty">데이터가 없습니다</td></tr>
             )}
             {filtered.map((p, i) => (
               <tr key={p.web_app_key}>

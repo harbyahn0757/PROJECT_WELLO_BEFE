@@ -42,7 +42,7 @@ const LoginPage: React.FC = () => {
         <h1 className="login-page__title">WELNO Partner Office</h1>
         <p className="login-page__subtitle">파트너오피스에 로그인하세요</p>
 
-        {error && <div className="login-page__error">{error}</div>}
+        {error && <div className="login-page__error" role="alert">{error}</div>}
 
         <label className="login-page__label">
           아이디

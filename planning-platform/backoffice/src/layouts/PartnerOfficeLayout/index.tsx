@@ -196,7 +196,8 @@ const PartnerOfficeLayout: React.FC = () => {
           <button
             className="po-layout__hamburger"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            aria-label="메뉴"
+            aria-label={sidebarOpen ? '메뉴 닫기' : '메뉴 열기'}
+            aria-expanded={sidebarOpen}
           >
             <span />
           </button>

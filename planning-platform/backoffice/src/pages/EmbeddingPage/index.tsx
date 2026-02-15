@@ -985,6 +985,7 @@ const EmbeddingPage: React.FC = () => {
           <div className="admin-embedding-page__inline-selector">
             <select
               className="admin-embedding-page__hospital-select"
+              aria-label="병원 선택"
               value={selectedHospitalId || ''}
               onChange={(e) => {
                 const hid = e.target.value;
