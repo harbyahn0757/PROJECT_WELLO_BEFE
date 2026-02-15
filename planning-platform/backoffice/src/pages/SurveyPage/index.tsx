@@ -150,8 +150,10 @@ const SurveyPage: React.FC = () => {
 
   // Per-question chart type state (persisted in localStorage)
   const [chartTypePerQ, setChartTypePerQ] = useState<Record<string, string>>(() => {
-      const saved = localStorage.getItem('survey_chart_type_per_q');
-      return saved ? JSON.parse(saved) : {};
+      try {
+        const saved = localStorage.getItem('survey_chart_type_per_q');
+        return saved ? JSON.parse(saved) : {};
+      } catch { return {}; }
   });
 
   // Template management state
@@ -185,7 +187,7 @@ const SurveyPage: React.FC = () => {
           setTemplates(tplList);
           const active = tplList.find(t => t.is_active);
           setActiveTemplate(active || null);
-      } catch (e) { console.error('Failed to fetch templates:', e); }
+      } catch (e) { console.error('Failed to fetch templates:', e); alert('템플릿 목록 조회에 실패했습니다.'); }
   }, [selectedPartnerId, selectedHospitalId]);
 
   const saveTemplate = async () => {
@@ -209,14 +211,14 @@ const SurveyPage: React.FC = () => {
               setIsCreatingTemplate(false);
               fetchTemplates();
           }
-      } catch (e) { console.error('Failed to save template:', e); }
+      } catch (e) { console.error('Failed to save template:', e); alert('템플릿 저장에 실패했습니다.'); }
   };
 
   const toggleTemplateActive = async (id: number) => {
       try {
           await fetch(`${API_BASE}/hospital-survey/templates/${id}/activate`, { method: 'PUT' });
           fetchTemplates();
-      } catch (e) { console.error('Failed to toggle template:', e); }
+      } catch (e) { console.error('Failed to toggle template:', e); alert('템플릿 활성화 변경에 실패했습니다.'); }
   };
 
   const deleteTemplate = async (id: number) => {
@@ -228,7 +230,7 @@ const SurveyPage: React.FC = () => {
               return;
           }
           fetchTemplates();
-      } catch (e) { console.error('Failed to delete template:', e); }
+      } catch (e) { console.error('Failed to delete template:', e); alert('템플릿 삭제에 실패했습니다.'); }
   };
 
   const startEditTemplate = async (template: SurveyTemplate) => {
@@ -238,11 +240,11 @@ const SurveyPage: React.FC = () => {
           setTemplateForm({
               template_name: data.template_name,
               description: data.description || '',
-              questions: data.questions || []
+              questions: Array.isArray(data.questions) ? data.questions : []
           });
           setEditingTemplate(data);
           setIsCreatingTemplate(false);
-      } catch (e) { console.error('Failed to load template:', e); }
+      } catch (e) { console.error('Failed to load template:', e); alert('템플릿 불러오기에 실패했습니다.'); }
   };
 
   const startCreateTemplate = () => {
@@ -267,7 +269,7 @@ const SurveyPage: React.FC = () => {
       setTemplateForm(prev => ({
           ...prev,
           questions: [...prev.questions, {
-              question_key: `q_${Date.now()}`,
+              question_key: `q_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
               question_label: '',
               question_type: 'rating' as const,
               is_required: true,
