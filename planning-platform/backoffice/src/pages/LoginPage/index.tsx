@@ -13,13 +13,24 @@ const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedUser = username.trim();
+    const trimmedPass = password.trim();
+    if (!trimmedUser || !trimmedPass) {
+      setError('아이디와 비밀번호를 입력하세요.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      await login(username, password);
+      await login(trimmedUser, trimmedPass);
       navigate('/backoffice/dashboard');
     } catch (err: any) {
-      setError(err.message || '로그인에 실패했습니다.');
+      const msg = err.message || '';
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+        setError('서버에 연결할 수 없습니다. 네트워크를 확인하세요.');
+      } else {
+        setError(msg || '아이디 또는 비밀번호를 확인하세요.');
+      }
     } finally {
       setLoading(false);
     }
