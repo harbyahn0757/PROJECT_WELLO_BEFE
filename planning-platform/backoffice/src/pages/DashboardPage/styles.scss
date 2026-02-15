@@ -129,6 +129,10 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 14px;
     margin-bottom: 20px;
+
+    &--compact {
+      margin-bottom: 16px;
+    }
   }
 
   &__card {
@@ -175,6 +179,7 @@
 
     &--full {
       width: 100%;
+      margin-bottom: 20px;
     }
 
     &--journey-full {

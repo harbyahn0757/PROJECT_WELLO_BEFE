@@ -284,7 +284,7 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="dashboard-page__chart dashboard-page__chart--full" style={{ marginBottom: 20 }}>
+          <div className="dashboard-page__chart dashboard-page__chart--full">
             <h3 className="dashboard-page__chart-title">일별 유입 · 상담 · 서베이 추이</h3>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={overview.daily || []}>
@@ -417,7 +417,7 @@ const DashboardPage: React.FC = () => {
         <div className="dashboard-page__warning">{journey.warning}</div>
       )}
 
-      <div className="dashboard-page__cards" style={{ marginBottom: 16 }}>
+      <div className="dashboard-page__cards dashboard-page__cards--compact">
         <div className="dashboard-page__card">
           <div className="dashboard-page__card-label">총 이벤트</div>
           <div className="dashboard-page__card-value">{fmtNum(journey?.total_events || 0)}</div>
