@@ -50,11 +50,11 @@ export function useHierarchy(apiBase: string, embedParams?: EmbedParams): UseHie
       if (!res.ok) throw new Error(res.statusText);
       const data: PartnerHierarchy[] = await res.json();
       setHierarchy(data);
-      if (data.length > 0 && !selectedPartnerId) {
+      if (data.length > 0) {
         const firstPartner = data[0];
-        setSelectedPartnerId(firstPartner.partner_id);
-        if (firstPartner.hospitals.length > 0 && !selectedHospitalId) {
-          setSelectedHospitalId(firstPartner.hospitals[0].hospital_id);
+        setSelectedPartnerId(prev => prev || firstPartner.partner_id);
+        if (firstPartner.hospitals.length > 0) {
+          setSelectedHospitalId(prev => prev || firstPartner.hospitals[0].hospital_id);
         }
       }
     } catch (e) {
@@ -62,7 +62,6 @@ export function useHierarchy(apiBase: string, embedParams?: EmbedParams): UseHie
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiBase]);
 
   const togglePartner = useCallback((id: string) => {
