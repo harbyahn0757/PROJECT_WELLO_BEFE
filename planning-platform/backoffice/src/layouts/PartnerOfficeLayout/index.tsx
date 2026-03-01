@@ -77,12 +77,69 @@ const PartnerOfficeLayout: React.FC = () => {
       .catch(() => {});
   }, [isEmbed]);
 
+  // 로그인 모드: 인증으로 summary-counts 조회
   useEffect(() => {
     if (isEmbed) return;
     fetchWithAuth(`${API}/admin/embedding/summary-counts`)
       .then(r => r.json())
       .then(d => setSummaryCounts({new_chats: d.new_chats || 0, new_surveys: d.new_surveys || 0}))
       .catch(() => {});
+  }, [isEmbed]);
+
+  // iframe(embed) 모드: 로그인 없이 summary-counts 조회 후 부모 창에 개별 숫자 전달
+  useEffect(() => {
+    if (!isEmbed) return;
+    const apiBase = window.location.hostname === 'welno.kindhabit.com' ? '/welno-api/v1' : '/api/v1';
+    fetch(`${apiBase}/admin/embedding/summary-counts`)
+      .then(r => r.json())
+      .then(d => {
+        const counts = { new_chats: d.new_chats || 0, new_surveys: d.new_surveys || 0 };
+        setSummaryCounts(counts);
+        try {
+          window.parent.postMessage(
+            {
+              type: 'welno-backoffice-counts',
+              // 메뉴별 개별 맞춤: embedding = 검진결과 상담, survey = 만족도 조사
+              embedding: counts.new_chats,
+              survey: counts.new_surveys,
+              new_chats: counts.new_chats,
+              new_surveys: counts.new_surveys,
+            },
+            '*'
+          );
+        } catch (e) {
+          // cross-origin 등으로 postMessage 실패 시 무시
+        }
+      })
+      .catch(() => {});
+  }, [isEmbed]);
+
+  // embed 모드에서 주기적으로 숫자 갱신 후 부모에 전달 (선택)
+  useEffect(() => {
+    if (!isEmbed) return;
+    const t = setInterval(() => {
+      const apiBase = window.location.hostname === 'welno.kindhabit.com' ? '/welno-api/v1' : '/api/v1';
+      fetch(`${apiBase}/admin/embedding/summary-counts`)
+        .then(r => r.json())
+        .then(d => {
+          const counts = { new_chats: d.new_chats || 0, new_surveys: d.new_surveys || 0 };
+          setSummaryCounts(counts);
+          try {
+            window.parent.postMessage(
+              {
+                type: 'welno-backoffice-counts',
+                embedding: counts.new_chats,
+                survey: counts.new_surveys,
+                new_chats: counts.new_chats,
+                new_surveys: counts.new_surveys,
+              },
+              '*'
+            );
+          } catch (_) {}
+        })
+        .catch(() => {});
+    }, 60 * 1000);
+    return () => clearInterval(t);
   }, [isEmbed]);
 
   // 드롭다운 밖 클릭 시 닫기

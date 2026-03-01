@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -11,6 +11,27 @@ import PatientPage from './pages/PatientPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import './App.scss';
 
+/** iframe/페이지 로드 시 웰노 로고 스피너 */
+const BackofficeLoader: React.FC = () => {
+  const [logoError, setLogoError] = useState(false);
+  return (
+    <div className="backoffice-loader">
+      <div className="backoffice-loader__spinner" aria-hidden="true" />
+      {!logoError ? (
+        <img
+          src={`${process.env.PUBLIC_URL}/welno_logo.png`}
+          alt="WELNO"
+          className="backoffice-loader__logo"
+          onError={() => setLogoError(true)}
+        />
+      ) : (
+        <span className="backoffice-loader__brand">WELNO</span>
+      )}
+      <p className="backoffice-loader__text">로딩 중...</p>
+    </div>
+  );
+};
+
 /** /backoffice 인덱스: api_key 있으면 embedding, 없으면 dashboard */
 const BackofficeIndex: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -19,6 +40,17 @@ const BackofficeIndex: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  const [showLoader, setShowLoader] = useState(true);
+
+  useEffect(() => {
+    const t = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setShowLoader(false));
+    });
+    return () => cancelAnimationFrame(t);
+  }, []);
+
+  if (showLoader) return <BackofficeLoader />;
+
   return (
     <AuthProvider>
       <Router>

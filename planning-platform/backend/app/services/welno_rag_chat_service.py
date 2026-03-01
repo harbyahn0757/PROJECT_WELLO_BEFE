@@ -221,7 +221,7 @@ class WelnoRagChatService:
             elif not trace_data:
                 # trace_data가 없는 기본 웰노 모드에서도 설정을 조회하여 적용
                 config = await self.get_hospital_rag_config(partner_id, hospital_id)
-                trace_data = {"hospital_config": config, "partner_id": partner_id}
+                trace_data = {"hospital_config": config, "partner_id": partner_id, "timings": {}}
 
             # 1. 사용자 메시지 저장
             self.chat_manager.add_message(uuid, hospital_id, "user", message)
@@ -447,15 +447,49 @@ class WelnoRagChatService:
             if query_engine:
                 # RAG 검색 실행 타이밍
                 rag_search_start = time.time()
-                nodes = await query_engine.aretrieve(search_query)
+                try:
+                    nodes = await query_engine.aretrieve(search_query)
+                except ValueError as e:
+                    if "doc_id" in str(e) and "not found" in str(e):
+                        logger.warning(f"⚠️ [RAG 채팅] orphaned node 감지, retriever 직접 재시도: {e}")
+                        # monkey-patch fallback: retriever를 직접 호출해 유효 노드만 수집
+                        try:
+                            retriever = getattr(query_engine, '_retriever', None)
+                            if retriever and hasattr(retriever, '_docstore'):
+                                from llama_index.core.schema import QueryBundle
+                                from llama_index.embeddings.openai import OpenAIEmbedding
+                                qb = QueryBundle(query_str=search_query)
+                                emb = await Settings.embed_model.aget_agg_embedding_from_queries([search_query])
+                                qb.embedding = emb
+                                query = retriever._build_vector_store_query(qb)
+                                query_result = await retriever._vector_store.aquery(query)
+                                # 유효 노드만 필터링
+                                valid_nodes = []
+                                for node_id, score in zip(query_result.ids or [], query_result.similarities or []):
+                                    try:
+                                        doc = await retriever._docstore.aget_document(node_id, raise_error=False)
+                                        if doc is not None:
+                                            from llama_index.core.schema import NodeWithScore
+                                            valid_nodes.append(NodeWithScore(node=doc, score=score))
+                                    except Exception:
+                                        continue
+                                nodes = valid_nodes[:5]
+                                logger.info(f"✅ [RAG 채팅] orphaned 우회 성공 - {len(nodes)}개 유효 노드")
+                            else:
+                                nodes = []
+                        except Exception as fallback_e:
+                            logger.warning(f"⚠️ [RAG 채팅] orphaned 우회 실패, RAG 없이 진행: {fallback_e}")
+                            nodes = []
+                    else:
+                        raise
                 rag_search_time = time.time() - rag_search_start
-                
+
                 if trace_data:
                     trace_data["timings"]["rag_search_ms"] = rag_search_time * 1000
                     trace_data["rag_query"] = search_query
                     trace_data["retrieved_nodes_count"] = len(nodes)
                     trace_data["retrieved_nodes"] = [n.node.get_content()[:200] for n in nodes]
-                
+
                 context_str = "\n".join([n.node.get_content() for n in nodes])
                 # 병원 RAG가 있으면 컨텍스트 앞에 우선 배치
                 if hospital_rag_sources:
@@ -467,13 +501,16 @@ class WelnoRagChatService:
                 logger.info(f"📊 [RAG 채팅] RAG 검색 결과 - {len(nodes)}개 노드, {context_length}자 컨텍스트")
                 logger.info(f"🔍 [RAG 채팅] 검색 쿼리: {search_query[:100]}...")
                 
-                # 소스 추출: 병원 RAG 우선, 그다음 전역 RAG (중복 제거)
+                # 소스 추출: 병원 RAG + 전역 RAG 통합 (파일명+페이지 기준 중복 제거)
                 sources = []
                 seen_sources = set()
+
+                # 병원 RAG 소스 먼저
                 for s in hospital_rag_sources:
                     s_meta = s.get("metadata") or {}
                     title = s_meta.get("file_name") or s_meta.get("title") or "병원 문서"
-                    source_key = f"hospital|{title}"
+                    page = s_meta.get("page_label") or s_meta.get("page") or ""
+                    source_key = f"{title}|{page}"
                     if source_key in seen_sources:
                         continue
                     seen_sources.add(source_key)
@@ -481,10 +518,12 @@ class WelnoRagChatService:
                         "text": (s.get("text") or "")[:500],
                         "score": s.get("score"),
                         "title": title,
-                        "page": "",
+                        "page": page,
                         "category": s_meta.get("category", ""),
                         "source_type": "hospital"
                     })
+
+                # 전역 RAG 노드 (hospital과 동일 키 네임스페이스로 중복 제거)
                 for n in nodes:
                     meta = n.node.metadata or {}
                     file_name = meta.get("file_name") or meta.get("title") or "참고 문헌"

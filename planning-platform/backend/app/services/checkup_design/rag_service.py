@@ -72,6 +72,41 @@ LOCAL_FAISS_BY_HOSPITAL = os.environ.get("LOCAL_FAISS_BY_HOSPITAL", "/data/vecto
 # 로컬 FAISS 엔진 캐시
 _rag_engine_local_cache: Optional[Any] = None
 
+
+def _patch_docstore_aget_nodes():
+    """
+    llama_index 버그 패치: BaseDocumentStore.aget_nodes()에서
+    raise_error=False 분기가 aget_node()에 raise_error를 전달하지 않는 문제 수정.
+    FAISS orphaned node가 있을 때 전체 검색이 실패하는 것을 방지.
+    """
+    try:
+        from llama_index.core.storage.docstore.types import BaseDocumentStore
+        import inspect
+
+        original = BaseDocumentStore.aget_nodes
+        src = inspect.getsource(original)
+        if "aget_node(node_id)" in src and "raise_error=raise_error" not in src.split("else:")[-1]:
+            async def patched_aget_nodes(self, node_ids, raise_error=True):
+                results = []
+                for node_id in node_ids:
+                    try:
+                        node = await self.aget_node(node_id, raise_error=raise_error)
+                        if node is not None:
+                            results.append(node)
+                    except ValueError:
+                        if raise_error:
+                            raise
+                        # orphaned node — skip silently
+                        continue
+                return results
+
+            BaseDocumentStore.aget_nodes = patched_aget_nodes
+            print("[INFO] ✅ docstore.aget_nodes orphaned-node 패치 적용 완료")
+    except Exception as e:
+        print(f"[WARN] docstore 패치 실패 (서비스에는 영향 없음): {e}")
+
+_patch_docstore_aget_nodes()
+
 # Gemini CustomLLM 클래스
 class GeminiLLM(CustomLLM):
     """Google Gemini를 LlamaIndex CustomLLM으로 구현 (RAG 검색용)"""
@@ -300,7 +335,7 @@ async def init_rag_engine(use_local_vector_db: bool = True):
                                 )
                                 
                                 query_engine = index.as_query_engine(
-                                    similarity_top_k=5,
+                                    similarity_top_k=10,
                                     response_mode="compact",
                                     text_qa_template=PromptTemplate(system_prompt)
                                 )
@@ -586,7 +621,7 @@ async def _search_hospital_faiss(hospital_id: str, query: str) -> List[Dict[str,
                     return []
             else:
                 return []
-        retriever = index.as_retriever(similarity_top_k=5)
+        retriever = index.as_retriever(similarity_top_k=10)
         nodes = await retriever.aretrieve(query)
         results = []
         for node in nodes:

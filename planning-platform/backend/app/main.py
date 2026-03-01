@@ -2,8 +2,12 @@
 FastAPI 애플리케이션 메인
 """
 
+import logging
+import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+
+logger = logging.getLogger(__name__)
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.openapi.utils import get_openapi
@@ -63,6 +67,25 @@ static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
 # StaticFiles 마운트 제거 - catch-all 라우트에서 처리하도록 변경
 # app.mount("/welno", StaticFiles(directory=static_dir, html=True), name="welno_static")
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+# iframe/백오피스 요청 → 응답 소요 시간 측정 (느리다는 피드백 대응)
+@app.middleware("http")
+async def log_iframe_response_time(request: Request, call_next):
+    path = request.url.path
+    is_iframe_path = (
+        path.startswith("/backoffice")
+        or path in ("/survey", "/embedding")
+    )
+    start = time.perf_counter()
+    response = await call_next(request)
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    if is_iframe_path:
+        response.headers["X-Response-Time-Ms"] = f"{elapsed_ms:.2f}"
+        logger.info(
+            "[iframe-timing] path=%s method=%s status=%s elapsed_ms=%.2f",
+            path, request.method, response.status_code, elapsed_ms
+        )
+    return response
 
 # 위젯 JS 캐시 방지: 브라우저가 항상 최신 버전을 사용하도록 강제
 @app.middleware("http")
