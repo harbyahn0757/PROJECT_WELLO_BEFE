@@ -418,12 +418,12 @@ class WelnoRagChatService:
                 search_query = f"{', '.join(current_keywords)} 관련: {message}"
             
             from .checkup_design.rag_service import init_rag_engine, CHAT_SYSTEM_PROMPT_TEMPLATE, search_hospital_knowledge
-            
+
             # 타이밍 변수 초기화
             rag_engine_time = 0.0
             rag_search_time = 0.0
             gemini_time = 0.0
-            
+
             # 병원 RAG 우선: 해당 hospital_id 전용 인덱스가 있으면 먼저 검색
             hospital_rag_sources = []
             if hospital_id:
@@ -434,73 +434,39 @@ class WelnoRagChatService:
                         logger.info(f"📚 [RAG 채팅] 병원 RAG 우선 반영 - hospital_id={hospital_id}, 소스 {len(hospital_rag_sources)}개")
                 except Exception as e:
                     logger.warning(f"⚠️ [RAG 채팅] 병원 RAG 검색 스킵: {e}")
-            
-            # RAG 엔진 초기화 타이밍 (전역 인덱스, 기존 동작 유지)
+
+            # RAG 엔진 초기화 타이밍 (FAISSVectorSearch 인스턴스)
             rag_engine_start = time.time()
-            query_engine = await init_rag_engine(use_local_vector_db=True)
+            vector_search = await init_rag_engine(use_local_vector_db=True)
             rag_engine_time = time.time() - rag_engine_start
             logger.info(f"⏱️  [RAG 채팅] RAG 엔진 초기화: {rag_engine_time:.3f}초")
-            
+
             if trace_data:
                 trace_data["timings"]["rag_engine_init_ms"] = rag_engine_time * 1000
-            
-            if query_engine:
+
+            if vector_search:
                 # RAG 검색 실행 타이밍
                 rag_search_start = time.time()
-                try:
-                    nodes = await query_engine.aretrieve(search_query)
-                except ValueError as e:
-                    if "doc_id" in str(e) and "not found" in str(e):
-                        logger.warning(f"⚠️ [RAG 채팅] orphaned node 감지, retriever 직접 재시도: {e}")
-                        # monkey-patch fallback: retriever를 직접 호출해 유효 노드만 수집
-                        try:
-                            retriever = getattr(query_engine, '_retriever', None)
-                            if retriever and hasattr(retriever, '_docstore'):
-                                from llama_index.core.schema import QueryBundle
-                                from llama_index.embeddings.openai import OpenAIEmbedding
-                                qb = QueryBundle(query_str=search_query)
-                                emb = await Settings.embed_model.aget_agg_embedding_from_queries([search_query])
-                                qb.embedding = emb
-                                query = retriever._build_vector_store_query(qb)
-                                query_result = await retriever._vector_store.aquery(query)
-                                # 유효 노드만 필터링
-                                valid_nodes = []
-                                for node_id, score in zip(query_result.ids or [], query_result.similarities or []):
-                                    try:
-                                        doc = await retriever._docstore.aget_document(node_id, raise_error=False)
-                                        if doc is not None:
-                                            from llama_index.core.schema import NodeWithScore
-                                            valid_nodes.append(NodeWithScore(node=doc, score=score))
-                                    except Exception:
-                                        continue
-                                nodes = valid_nodes[:5]
-                                logger.info(f"✅ [RAG 채팅] orphaned 우회 성공 - {len(nodes)}개 유효 노드")
-                            else:
-                                nodes = []
-                        except Exception as fallback_e:
-                            logger.warning(f"⚠️ [RAG 채팅] orphaned 우회 실패, RAG 없이 진행: {fallback_e}")
-                            nodes = []
-                    else:
-                        raise
+                nodes = vector_search.search(search_query, top_k=10)
                 rag_search_time = time.time() - rag_search_start
 
                 if trace_data:
                     trace_data["timings"]["rag_search_ms"] = rag_search_time * 1000
                     trace_data["rag_query"] = search_query
                     trace_data["retrieved_nodes_count"] = len(nodes)
-                    trace_data["retrieved_nodes"] = [n.node.get_content()[:200] for n in nodes]
+                    trace_data["retrieved_nodes"] = [r["text"][:200] for r in nodes]
 
-                context_str = "\n".join([n.node.get_content() for n in nodes])
+                context_str = "\n".join([r["text"] for r in nodes])
                 # 병원 RAG가 있으면 컨텍스트 앞에 우선 배치
                 if hospital_rag_sources:
                     hospital_context = "\n".join([s.get("text", "") for s in hospital_rag_sources])
                     context_str = f"[병원 전용 참고 문헌]\n{hospital_context}\n\n[공통 의학 지식]\n{context_str}"
                 context_length = len(context_str)
-                
+
                 logger.info(f"⏱️  [RAG 채팅] RAG 검색 실행: {rag_search_time:.3f}초")
                 logger.info(f"📊 [RAG 채팅] RAG 검색 결과 - {len(nodes)}개 노드, {context_length}자 컨텍스트")
                 logger.info(f"🔍 [RAG 채팅] 검색 쿼리: {search_query[:100]}...")
-                
+
                 # 소스 추출: 병원 RAG + 전역 RAG 통합 (파일명+페이지 기준 중복 제거)
                 sources = []
                 seen_sources = set()
@@ -524,18 +490,17 @@ class WelnoRagChatService:
                     })
 
                 # 전역 RAG 노드 (hospital과 동일 키 네임스페이스로 중복 제거)
-                for n in nodes:
-                    meta = n.node.metadata or {}
+                for r in nodes:
+                    meta = r.get("metadata") or {}
                     file_name = meta.get("file_name") or meta.get("title") or "참고 문헌"
                     page = meta.get("page_label") or meta.get("page") or ""
                     source_key = f"{file_name}|{page}"
                     if source_key in seen_sources:
                         continue
                     seen_sources.add(source_key)
-                    score = float(n.score) if hasattr(n, 'score') else None
                     sources.append({
-                        "text": clean_html_content(n.node.get_content())[:500],
-                        "score": score,
+                        "text": clean_html_content(r.get("text", ""))[:500],
+                        "score": r.get("score"),
                         "title": file_name,
                         "page": page,
                         "category": meta.get("category", ""),

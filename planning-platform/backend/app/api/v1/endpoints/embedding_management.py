@@ -1113,24 +1113,18 @@ def _run_rebuild_for_hospital(hospital_id: str, partner_id: str = "welno") -> No
         return
 
     try:
-        # 1. 필수 라이브러리 임포트
-        from llama_index.core import (
-            Settings,
-            VectorStoreIndex,
-            StorageContext,
-            Document,
-        )
-        from llama_index.embeddings.openai import OpenAIEmbedding
-        from llama_index.vector_stores.faiss import FaissVectorStore
         import faiss
+        import numpy as np
+        import uuid as uuid_mod
+        from openai import OpenAI
         from pypdf import PdfReader
 
         _rebuild_status[hospital_id]["progress"] = "문서 파싱 중..."
 
-        # 2. 공통 + 병원 uploads 내 파일 → LlamaIndex Document 변환
+        # 2. 공통 + 병원 uploads 내 파일 → dict 변환
         documents: list = []
         supported_exts = {".pdf", ".txt", ".md", ".csv"}
-        
+
         # 비활성 문서 목록 (인덱싱 제외)
         inactive_files = set()
         try:
@@ -1153,7 +1147,7 @@ def _run_rebuild_for_hospital(hospital_id: str, partner_id: str = "welno") -> No
             doc_sources.append(("common", common_uploads))
         if has_hospital_docs:
             doc_sources.append(("hospital", uploads))
-        
+
         for source_type, source_dir in doc_sources:
             for filepath in sorted(source_dir.iterdir()):
                 if not filepath.is_file() or filepath.name.startswith("."):
@@ -1172,33 +1166,32 @@ def _run_rebuild_for_hospital(hospital_id: str, partner_id: str = "welno") -> No
                             text = page.extract_text() or ""
                             text = text.strip()
                             if text:
-                                documents.append(Document(
-                                    text=text,
-                                    metadata={
+                                documents.append({
+                                    "text": text,
+                                    "metadata": {
                                         "file_name": filepath.name,
                                         "page_label": str(page_num),
                                         "hospital_id": hospital_id,
                                         "source_type": source_type,
                                     },
-                                ))
+                                })
                     else:
-                        # txt, md, csv → 전체 텍스트
                         text = filepath.read_text(encoding="utf-8", errors="ignore").strip()
                         if text:
-                            documents.append(Document(
-                                text=text,
-                                metadata={
+                            documents.append({
+                                "text": text,
+                                "metadata": {
                                     "file_name": filepath.name,
                                     "page_label": "1",
                                     "hospital_id": hospital_id,
                                     "source_type": source_type,
                                 },
-                            ))
+                            })
                 except Exception as parse_err:
                     logger.warning(f"[rebuild:{hospital_id}] 파싱 실패 {filepath.name}: {parse_err}")
 
         if not documents:
-            # 활성 문서 0개 -> 기존 FAISS 인덱스 삭제 (비활성 문서가 검색되지 않도록)
+            # 활성 문서 0개 -> 기존 FAISS 인덱스 삭제
             for old_file in ["faiss.index", "default__vector_store.json", "docstore.json",
                              "index_store.json", "graph_store.json", "image__vector_store.json"]:
                 old_path = base / old_file
@@ -1217,7 +1210,7 @@ def _run_rebuild_for_hospital(hospital_id: str, partner_id: str = "welno") -> No
 
         _rebuild_status[hospital_id]["progress"] = f"{len(documents)}개 문서 청크 임베딩 중..."
 
-        # 3. 임베딩 모델 설정
+        # 3. OpenAI 임베딩
         from ....core.config import settings as app_settings
         openai_api_key = os.environ.get("OPENAI_API_KEY") or app_settings.openai_api_key
         if not openai_api_key or openai_api_key == "dev-openai-key":
@@ -1228,27 +1221,50 @@ def _run_rebuild_for_hospital(hospital_id: str, partner_id: str = "welno") -> No
             })
             return
 
-        embed_model = OpenAIEmbedding(model=EMBEDDING_MODEL, api_key=openai_api_key)
-        Settings.embed_model = embed_model
+        client = OpenAI(api_key=openai_api_key)
 
-        # 4. FAISS 인덱스 생성
+        # 배치 임베딩 (최대 2048개씩)
+        all_embeddings = []
+        batch_size = 2048
+        for i in range(0, len(documents), batch_size):
+            batch_texts = [d["text"] for d in documents[i:i + batch_size]]
+            resp = client.embeddings.create(input=batch_texts, model=EMBEDDING_MODEL)
+            all_embeddings.extend([item.embedding for item in resp.data])
+
+        # 4. FAISS 인덱스 빌드
         _rebuild_status[hospital_id]["progress"] = "FAISS 인덱스 생성 중..."
+        vectors = np.array(all_embeddings, dtype=np.float32)
         faiss_index = faiss.IndexFlatL2(EMBEDDING_DIMENSION)
-        vector_store = FaissVectorStore(faiss_index=faiss_index)
-        storage_context = StorageContext.from_defaults(vector_store=vector_store)
+        faiss_index.add(vectors)
 
-        # 5. 인덱스 빌드 (임베딩 + 저장)
-        index = VectorStoreIndex.from_documents(
-            documents,
-            storage_context=storage_context,
-            show_progress=False,
-        )
-
-        # 6. 디스크 저장 (rag_service.py가 로드하는 형식과 동일)
+        # 5. llama-index 호환 형식으로 저장
         _rebuild_status[hospital_id]["progress"] = "인덱스 저장 중..."
-        index.storage_context.persist(persist_dir=str(base))
-        # faiss 바이너리 인덱스를 명시적으로 저장 (storage_context.persist는 JSON만 저장)
+
+        nodes_dict = {}
+        docstore_data = {}
+        for idx, doc in enumerate(documents):
+            node_id = str(uuid_mod.uuid4())
+            nodes_dict[str(idx)] = node_id
+            docstore_data[node_id] = {
+                "__data__": {"text": doc["text"], "metadata": doc["metadata"]},
+                "__type__": "1",
+            }
+
         faiss.write_index(faiss_index, str(base / "faiss.index"))
+
+        index_id = str(uuid_mod.uuid4())
+        index_store = {
+            "index_store/data": {
+                index_id: {
+                    "__type__": "vector_store",
+                    "__data__": json.dumps({"nodes_dict": nodes_dict}),
+                }
+            }
+        }
+        (base / "index_store.json").write_text(json.dumps(index_store, ensure_ascii=False))
+
+        docstore = {"docstore/data": docstore_data}
+        (base / "docstore.json").write_text(json.dumps(docstore, ensure_ascii=False))
 
         _rebuild_status[hospital_id].update({
             "status": "completed",

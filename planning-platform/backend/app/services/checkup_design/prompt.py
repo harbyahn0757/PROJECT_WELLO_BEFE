@@ -9,41 +9,7 @@ import re
 import os
 from datetime import datetime, timedelta
 
-# LlamaIndex RAG 관련 임포트
-try:
-    from llama_index.core import Settings
-    from llama_index.core.llms import CustomLLM
-    from llama_index.core.llms.llm import LLM
-    from llama_index.core.llms import ChatMessage, MessageRole, CompletionResponse, LLMMetadata
-    from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
-    from llama_index.llms.openai import OpenAI
-    # Google Gemini는 google-generativeai 직접 사용하여 CustomLLM으로 래핑
-    try:
-        import google.generativeai as genai
-        GEMINI_AVAILABLE = True
-    except ImportError:
-        GEMINI_AVAILABLE = False
-        genai = None
-    LLAMAINDEX_AVAILABLE = True
-except ImportError as e:
-    LLAMAINDEX_AVAILABLE = False
-    GEMINI_AVAILABLE = False
-    genai = None
-    # 개발 환경에서 라이브러리가 없을 경우를 대비한 더미 클래스
-    class LlamaCloudIndex:
-        pass
-    class OpenAI:
-        pass
-    class CustomLLM:
-        pass
-    class ChatMessage:
-        pass
-    class MessageRole:
-        pass
-    class CompletionResponse:
-        pass
-    class LLMMetadata:
-        pass
+# RAG 검색은 rag_service.py의 FAISSVectorSearch로 전환됨
 
 from app.core.config import settings
 
@@ -72,139 +38,8 @@ def remove_html_tags(text: str) -> str:
 # [PART 0-3] RAG 시스템 초기화 및 검색 함수
 # =============================================================================
 
-# LlamaCloud 설정 상수 (공식 예제 기준)
-LLAMACLOUD_INDEX_NAME = "Dr.Welno"  # 공식 예제와 동일
-LLAMACLOUD_PROJECT_NAME = "Default"
-LLAMACLOUD_INDEX_ID = "cb77bf6b-02a9-486f-9718-4ffac0d30e73"  # pipeline_id 또는 index_id
-LLAMACLOUD_PROJECT_ID = "45c4d9d4-ce6b-4f62-ad88-9107fe6de8cc"
-LLAMACLOUD_ORGANIZATION_ID = "e4024539-3d26-48b5-8051-9092380c84d2"  # 공식 예제에서 제공된 organization_id
-LLAMACLOUD_ORGANIZATION_ID = "e4024539-3d26-48b5-8051-9092380c84d2"  # 공식 예제에서 제공된 organization_id
-
-# 전역 RAG 엔진 캐시 (재사용을 위해)
-_rag_engine_cache: Optional[Any] = None
-
-# Gemini CustomLLM 클래스
-class GeminiLLM(CustomLLM):
-    """Google Gemini를 LlamaIndex CustomLLM으로 구현 (RAG 검색용)"""
-    
-    def __init__(self, api_key: str, model: str = "gemini-2.0-flash", **kwargs):
-        if not GEMINI_AVAILABLE or not genai:
-            raise ImportError("google-generativeai가 설치되지 않았습니다.")
-        
-        # CustomLLM 초기화
-        super().__init__(**kwargs)
-        
-        # Gemini 설정
-        genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel(model)
-        self._model_name = model
-    
-    @property
-    def metadata(self) -> LLMMetadata:
-        """LLM 메타데이터"""
-        return LLMMetadata(
-            context_window=8192,
-            num_output=2048,
-            is_chat_model=True,
-            model_name=self._model_name
-        )
-    
-    def complete(self, prompt: str, formatted: bool = False, **kwargs) -> CompletionResponse:
-        """텍스트 완성 (동기)"""
-        try:
-            response = self._model.generate_content(prompt)
-            text = response.text if hasattr(response, 'text') else str(response)
-            return CompletionResponse(text=text)
-        except Exception as e:
-            raise Exception(f"Gemini API 호출 실패: {str(e)}")
-    
-    async def acomplete(self, prompt: str, formatted: bool = False, **kwargs) -> CompletionResponse:
-        """텍스트 완성 (비동기)"""
-        try:
-            # google-generativeai는 비동기 메서드가 없으므로 동기 메서드 사용
-            response = self._model.generate_content(prompt)
-            text = response.text if hasattr(response, 'text') else str(response)
-            return CompletionResponse(text=text)
-        except Exception as e:
-            raise Exception(f"Gemini API 호출 실패: {str(e)}")
-    
-    def stream_complete(self, prompt: str, formatted: bool = False, **kwargs):
-        """스트리밍 텍스트 완성"""
-        try:
-            response = self._model.generate_content(prompt, stream=True)
-            for chunk in response:
-                if hasattr(chunk, 'text') and chunk.text:
-                    yield CompletionResponse(text=chunk.text, delta=chunk.text)
-        except Exception as e:
-            raise Exception(f"Gemini API 호출 실패: {str(e)}")
-
-async def init_rag_engine():
-    """
-    LlamaCloud 기반 RAG Query Engine 초기화
-    
-    Returns:
-        QueryEngine 인스턴스 또는 None (초기화 실패 시)
-    """
-    global _rag_engine_cache
-    
-    # 이미 초기화된 경우 캐시 반환
-    if _rag_engine_cache is not None:
-        return _rag_engine_cache
-    
-    if not LLAMAINDEX_AVAILABLE:
-        print("[WARN] LlamaIndex 라이브러리가 설치되지 않았습니다. RAG 기능을 사용할 수 없습니다.")
-        return None
-    
-    try:
-        # API 키 가져오기
-        llamaindex_api_key = os.environ.get("LLAMAINDEX_API_KEY") or settings.llamaindex_api_key
-        gemini_api_key = os.environ.get("GOOGLE_GEMINI_API_KEY") or settings.google_gemini_api_key
-        
-        if not llamaindex_api_key or llamaindex_api_key.startswith("dev-llamaindex-key"):
-            print("[WARN] LlamaIndex API 키가 설정되지 않았습니다. RAG 기능을 사용할 수 없습니다.")
-            return None
-        
-        # Gemini API 키 필수 (RAG용으로 Gemini 사용)
-        if not gemini_api_key or gemini_api_key.startswith("dev-gemini-key"):
-            print("[ERROR] Google Gemini API 키가 설정되지 않았습니다. RAG 기능을 사용할 수 없습니다.")
-            return None
-        
-        # Gemini LLM 초기화 (RAG용 - 필수)
-        if not GEMINI_AVAILABLE or not genai:
-            print("[ERROR] google-generativeai가 설치되지 않았습니다. RAG 기능을 사용할 수 없습니다.")
-            return None
-        
-        try:
-            llm = GeminiLLM(api_key=gemini_api_key, model="gemini-2.0-flash")
-            print(f"[INFO] Gemini LLM 초기화 완료")
-        except Exception as e:
-            print(f"[ERROR] Gemini LLM 초기화 실패: {str(e)}")
-            return None
-        
-        # Settings에 Gemini LLM 설정 (RAG 검색용)
-        Settings.llm = llm
-        
-        # LlamaCloud Index 초기화 (index_id만 사용 - API 요구사항)
-        # 주의: Exactly one of name, id, pipeline_id or index_id must be provided
-        index = LlamaCloudIndex(
-            index_id=LLAMACLOUD_INDEX_ID,  # pipeline_id로도 사용 가능
-            api_key=llamaindex_api_key
-        )
-        
-        # Query Engine 생성 (Gemini LLM 사용)
-        # as_query_engine()은 Settings.llm에 설정된 Gemini를 자동으로 사용
-        query_engine = index.as_query_engine(
-            similarity_top_k=5,  # 상위 5개 결과 반환
-            response_mode="tree_summarize"  # 더 상세한 응답 생성 (compact → tree_summarize)
-        )
-        
-        _rag_engine_cache = query_engine
-        print(f"[INFO] RAG 엔진 초기화 완료 - Index: {LLAMACLOUD_INDEX_NAME}")
-        return query_engine
-        
-    except Exception as e:
-        print(f"[ERROR] RAG 엔진 초기화 실패: {str(e)}")
-        return None
+# RAG 엔진은 rag_service.py의 init_rag_engine() 사용
+from .rag_service import init_rag_engine
 
 
 # -----------------------------------------------------------------------------
@@ -295,35 +130,31 @@ def generate_specific_queries(
 
 
 def extract_evidence_from_source_nodes(
-    source_nodes: List[Any],
+    search_results: List[Dict[str, Any]],
     query: str
 ) -> List[Dict[str, Any]]:
     """
-    source_nodes에서 구조화된 에비던스 추출 (TODO-2)
-    
+    FAISSVectorSearch 검색 결과에서 구조화된 에비던스 추출.
+
     Args:
-        source_nodes: LlamaIndex 검색 결과의 source_nodes
+        search_results: FAISSVectorSearch.search() 반환 리스트
         query: 검색 쿼리
-    
+
     Returns:
         구조화된 에비던스 리스트
     """
     evidences = []
-    
-    for node in source_nodes[:3]:  # 상위 3개만
+
+    for r in search_results[:3]:  # 상위 3개만
         try:
-            metadata = node.node.metadata if hasattr(node.node, 'metadata') else {}
-            text = node.node.text if hasattr(node.node, 'text') else ""
-            score = node.score if hasattr(node, 'score') else 0.0
-            
-            # 파일명에서 문서명, 조직, 연도 추출
+            metadata = r.get("metadata", {})
+            text = r.get("text", "")
+            score = r.get("score", 0.0)
+
             file_name = metadata.get('file_name', '')
             page = metadata.get('page_label', 'N/A')
-            
-            # 파일명 정리
             doc_name = file_name.replace('.pdf', '').replace('_', ' ')
-            
-            # 조직명 및 연도 추출
+
             org = ''
             year = ''
             if '당뇨병' in doc_name:
@@ -332,30 +163,28 @@ def extract_evidence_from_source_nodes(
                 org = '대한고혈압학회'
             elif '암' in doc_name or '검진' in doc_name:
                 org = '국립암센터'
-            
-            import re
+
             year_match = re.search(r'20\d{2}', doc_name)
             if year_match:
                 year = year_match.group()
-            
-            # 인용 가능한 문장 추출 (TODO-3)
+
             citation = extract_meaningful_citation(text, query)
-            
+
             evidences.append({
                 "source_document": doc_name,
                 "organization": org,
                 "year": year,
                 "page": page,
                 "citation": citation,
-                "full_text": text[:500],  # 최대 500자
+                "full_text": text[:500],
                 "confidence_score": score,
                 "query": query
             })
-            
+
         except Exception as e:
-            print(f"[WARN] source_node 파싱 실패: {str(e)}")
+            print(f"[WARN] search result 파싱 실패: {str(e)}")
             continue
-    
+
     return evidences
 
 
@@ -471,12 +300,12 @@ async def get_medical_evidence_from_rag(
 ) -> Dict[str, Any]:
     """
     RAG 시스템을 사용하여 구조화된 의학적 근거 검색 (통합 버전)
-    
+
     Args:
-        query_engine: LlamaIndex QueryEngine 인스턴스
+        query_engine: FAISSVectorSearch 인스턴스
         patient_context: 환자 정보 (age, gender, family_history, abnormal_items 등)
         concerns: 환자의 염려 항목 리스트
-    
+
     Returns:
         {
             "context_text": "프롬프트에 포함할 텍스트",
@@ -485,34 +314,33 @@ async def get_medical_evidence_from_rag(
     """
     if query_engine is None:
         return {"context_text": "", "structured_evidences": []}
-    
+
     all_evidences = []
-    
+
     try:
-        # 1. 구체적인 쿼리 생성 (TODO-1)
+        # 1. 구체적인 쿼리 생성
         queries = generate_specific_queries(patient_context, concerns)
         print(f"[INFO] RAG 쿼리 {len(queries)}개 생성 완료")
-        
-        # 2. 각 쿼리 실행 및 source_nodes 추출 (TODO-2)
+
+        # 2. 각 쿼리 실행 — FAISSVectorSearch.search() 호출
         for query_info in queries:
             query = query_info['query']
             category = query_info['category']
-            
+
             try:
-                response = query_engine.query(query)
-                
-                if response and hasattr(response, 'source_nodes') and response.source_nodes:
-                    # source_nodes에서 구조화된 에비던스 추출
-                    evidences = extract_evidence_from_source_nodes(response.source_nodes, query)
-                    
+                results = query_engine.search(query, top_k=5)
+
+                if results:
+                    evidences = extract_evidence_from_source_nodes(results, query)
+
                     for ev in evidences:
                         ev['category'] = category
                         all_evidences.append(ev)
-                    
+
                     print(f"[INFO] RAG 검색 성공 ({category}) - {len(evidences)}개 에비던스")
                 else:
                     print(f"[WARN] RAG 검색 결과 없음 ({category})")
-                    
+
             except Exception as e:
                 print(f"[WARN] RAG 검색 실패 ({category}): {str(e)}")
         
