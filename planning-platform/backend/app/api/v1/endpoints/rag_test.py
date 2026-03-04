@@ -19,12 +19,10 @@ router = APIRouter()
 
 async def _gemini_complete(api_key: str, prompt: str, model: str = "gemini-2.0-flash") -> str:
     """Gemini API 직접 호출 (llama-index 의존 없이)."""
-    import google.generativeai as genai
+    from google import genai
 
-    genai.configure(api_key=api_key)
-    gm = genai.GenerativeModel(model)
-    loop = asyncio.get_event_loop()
-    resp = await loop.run_in_executor(None, lambda: gm.generate_content(prompt))
+    client = genai.Client(api_key=api_key)
+    resp = await client.aio.models.generate_content(model=model, contents=prompt)
     return resp.text if hasattr(resp, "text") else str(resp)
 
 

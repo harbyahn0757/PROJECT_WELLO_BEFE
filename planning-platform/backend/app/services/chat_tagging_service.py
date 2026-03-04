@@ -275,15 +275,14 @@ async def llm_analyze_session(
           "invalid_response", "api_error:{msg}"
     """
     try:
-        import google.generativeai as genai
+        from google import genai
 
         api_key = settings.google_gemini_api_key
         if not api_key or api_key == "dev-gemini-key":
             logger.debug("[태깅-LLM] Gemini API 키 미설정, 스킵")
             return None, "api_key_missing"
 
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(settings.google_gemini_lite_model)
+        client = genai.Client(api_key=api_key)
 
         # 대화를 순서대로 번호 매겨서 포맷 (흐름 파악 + 화자 구분)
         conv_lines = []
@@ -367,7 +366,10 @@ async def llm_analyze_session(
   "buying_signal": "high|mid|low"
 }}"""
 
-        response = await asyncio.to_thread(model.generate_content, prompt)
+        response = await client.aio.models.generate_content(
+            model=settings.google_gemini_lite_model,
+            contents=prompt,
+        )
         # Gemini API 응답 형식 방어: .text 접근 실패 시 parts에서 추출
         try:
             raw_text = response.text.strip()

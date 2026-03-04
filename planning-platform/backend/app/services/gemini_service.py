@@ -1,14 +1,11 @@
-import os
-import json
 import logging
 import asyncio
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 
-import google.generativeai as genai
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
-from google.generativeai import caching
+from google import genai
+from google.genai import types
 
 from ..core.config import settings
 
@@ -36,23 +33,34 @@ class GeminiResponse:
 
 class GeminiService:
     """Google Gemini 서비스 클래스"""
-    
+
+    MAX_CHAT_SESSIONS = 20  # 채팅 세션 캐시 상한
+    MAX_CONTENT_CACHES = 10  # CachedContent 상한
+
+    SAFETY_SETTINGS = [
+        types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
+        types.SafetySetting(category="HARM_CATEGORY_HATE_SPEECH", threshold="BLOCK_NONE"),
+        types.SafetySetting(category="HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold="BLOCK_NONE"),
+        types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
+    ]
+
     def __init__(self):
         self._api_key: Optional[str] = None
+        self._client: Optional[genai.Client] = None
         self._initialized: bool = False
         self._chat_sessions: Dict[str, Any] = {}  # 세션별 ChatSession 저장
         self._content_caches: Dict[str, Any] = {}  # 세션별 CachedContent 저장
         self._cache_enabled: bool = True  # Context Caching 활성화 여부
-        
+
     async def initialize(self):
         """Gemini 클라이언트 초기화"""
         if self._initialized:
             return
 
         self._api_key = settings.google_gemini_api_key
-        
+
         if self._api_key and self._api_key != "dev-gemini-key":
-            genai.configure(api_key=self._api_key)
+            self._client = genai.Client(api_key=self._api_key)
             self._initialized = True
             logger.info("✅ [Gemini Service] 초기화 완료")
         else:
@@ -77,62 +85,45 @@ class GeminiService:
             return GeminiResponse(success=False, error="Gemini 서비스가 초기화되지 않았습니다.")
 
         try:
-            # 모델 설정
-            generation_config = {
-                "temperature": request.temperature,
-                "max_output_tokens": request.max_tokens,
-            }
-            
-            # JSON 응답을 강제하려면 프롬프트에 지시하거나 response_mime_type 설정 (1.5 Pro부터 지원)
+            # GenerateContentConfig 구성
+            config = types.GenerateContentConfig(
+                temperature=request.temperature,
+                max_output_tokens=request.max_tokens,
+                safety_settings=self.SAFETY_SETTINGS,
+            )
+
+            # JSON 응답 요청
             if request.response_format and request.response_format.get("type") == "json_object":
-                generation_config["response_mime_type"] = "application/json"
+                config.response_mime_type = "application/json"
+
+            # System instruction 설정
+            if request.system_instruction:
+                config.system_instruction = request.system_instruction
 
             # Phase 3: Context Caching 적용
             cached_content = None
             is_first_message = not (request.chat_history and len(request.chat_history) > 0)
-            
+
             if self._cache_enabled and request.system_instruction and session_id and is_first_message:
                 cached_content = await self._get_or_create_cache(
                     system_prompt=request.system_instruction,
                     model_name=request.model,
                     cache_key=session_id
                 )
-            
-            # 모델 생성 (캐시 사용 또는 일반 모드)
+
             if cached_content:
-                model = genai.GenerativeModel.from_cached_content(
-                    cached_content=cached_content,
-                    generation_config=generation_config
-                )
+                config.cached_content = cached_content.name
                 logger.info(f"✅ [Cache] Context Caching 활성화 (30-50% 성능 향상 예상)")
-            else:
-                # System instruction 설정
-                model_kwargs = {
-                    "model_name": request.model,
-                    "generation_config": generation_config
-                }
-                if request.system_instruction:
-                    model_kwargs["system_instruction"] = request.system_instruction
-                
-                model = genai.GenerativeModel(**model_kwargs)
 
-            # 안전 설정 (차단 최소화)
-            safety_settings = {
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-            }
-
-            # 비동기 호출 (asyncio.to_thread로 래핑, genai 라이브러리가 기본적으로 동기식이므로)
+            # 네이티브 async 호출
             logger.info(f"📡 [Gemini Service] API 호출 중... (Model: {request.model})")
-            
+
             try:
                 response = await asyncio.wait_for(
-                    asyncio.to_thread(
-                        model.generate_content,
-                        request.prompt,
-                        safety_settings=safety_settings
+                    self._client.aio.models.generate_content(
+                        model=request.model,
+                        contents=request.prompt,
+                        config=config,
                     ),
                     timeout=60.0  # 60초 타임아웃
                 )
@@ -146,29 +137,21 @@ class GeminiService:
                 return GeminiResponse(success=False, error="Gemini API 응답 형식 오류 (candidates 없음)")
             
             finish_reason = response.candidates[0].finish_reason
-            finish_reason_map = {
-                1: "STOP",           # 정상 완료
-                2: "MAX_TOKENS",     # 토큰 제한 초과
-                3: "SAFETY",         # 안전 필터 차단
-                4: "RECITATION",     # 인용 감지
-                5: "OTHER"           # 기타
-            }
-            finish_reason_name = finish_reason_map.get(finish_reason, f"UNKNOWN({finish_reason})")
-            
-            logger.debug(f"🔍 [Gemini] finish_reason: {finish_reason_name}")
-            
-            if finish_reason != 1:  # STOP이 아니면 비정상
-                logger.warning(f"⚠️ [Gemini Service] 비정상 종료: {finish_reason_name}")
-                
-                if finish_reason == 2:  # MAX_TOKENS
+
+            logger.debug(f"🔍 [Gemini] finish_reason: {finish_reason}")
+
+            if finish_reason != "STOP":  # STOP이 아니면 비정상
+                logger.warning(f"⚠️ [Gemini Service] 비정상 종료: {finish_reason}")
+
+                if finish_reason == "MAX_TOKENS":
                     logger.error(f"❌ [Gemini Service] 토큰 제한 초과 (max: {request.max_tokens})")
                     return GeminiResponse(success=False, error=f"응답이 토큰 제한({request.max_tokens})을 초과했습니다")
-                elif finish_reason == 3:  # SAFETY
+                elif finish_reason == "SAFETY":
                     logger.error(f"❌ [Gemini Service] 안전 필터에 의해 차단됨")
                     return GeminiResponse(success=False, error="안전 필터에 의해 응답이 차단되었습니다")
                 else:
-                    logger.error(f"❌ [Gemini Service] 알 수 없는 종료 이유: {finish_reason_name}")
-                    return GeminiResponse(success=False, error=f"응답 생성 실패: {finish_reason_name}")
+                    logger.error(f"❌ [Gemini Service] 알 수 없는 종료 이유: {finish_reason}")
+                    return GeminiResponse(success=False, error=f"응답 생성 실패: {finish_reason}")
             
             response_text = response.text
             
@@ -250,66 +233,56 @@ class GeminiService:
             return
 
         try:
-            generation_config = {
-                "temperature": request.temperature,
-                "max_output_tokens": request.max_tokens,
-            }
-            
+            # GenerateContentConfig 구성
+            config = types.GenerateContentConfig(
+                temperature=request.temperature,
+                max_output_tokens=request.max_tokens,
+                safety_settings=self.SAFETY_SETTINGS,
+            )
+
             # Context Caching 시도 (첫 메시지 + system_instruction 있을 때만)
             cached_content = None
             is_first_message = not (request.chat_history and len(request.chat_history) > 0)
-            
+
             if request.system_instruction and session_id and is_first_message:
                 cached_content = await self._get_or_create_cache(
                     system_prompt=request.system_instruction,
                     model_name=request.model,
                     cache_key=session_id
                 )
-            
-            # 모델 생성 (캐시 사용 or 일반)
+
             if cached_content:
-                model = genai.GenerativeModel.from_cached_content(
-                    cached_content=cached_content,
-                    generation_config=generation_config
-                )
+                config.cached_content = cached_content.name
                 cache_status = "cached"
             else:
-                model = genai.GenerativeModel(
-                    model_name=request.model,
-                    generation_config=generation_config
-                )
                 cache_status = "normal"
 
-            # 안전 설정 (의료 콘텐츠를 위해 차단 최소화)
-            safety_settings = {
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-            }
+            # System instruction 설정
+            if request.system_instruction:
+                config.system_instruction = request.system_instruction
 
             logger.info(f"📡 [Gemini] {request.model} 호출 (session: {session_id[:8] if session_id else 'None'}..., mode: {cache_status})")
-            
+
             # 히스토리 있으면 Chat 모드, 없으면 단일 생성
             if is_first_message:
-                response = model.generate_content(
-                    request.prompt,
-                    safety_settings=safety_settings,
-                    stream=True
-                )
+                for chunk in self._client.models.generate_content_stream(
+                    model=request.model,
+                    contents=request.prompt,
+                    config=config,
+                ):
+                    if chunk.text:
+                        yield chunk.text
+                        await asyncio.sleep(0)
             else:
-                chat_session = model.start_chat(history=request.chat_history)
-                response = chat_session.send_message(
-                    request.prompt,
-                    safety_settings=safety_settings,
-                    stream=True
+                chat = self._client.chats.create(
+                    model=request.model,
+                    config=config,
+                    history=request.chat_history,
                 )
-            
-            # 스트리밍 응답 (각 청크 후 이벤트 루프에 제어권 반환하여 SSE 즉시 전송)
-            for chunk in response:
-                if chunk.text:
-                    yield chunk.text
-                    await asyncio.sleep(0)
+                for chunk in chat.send_message_stream(message=request.prompt):
+                    if chunk.text:
+                        yield chunk.text
+                        await asyncio.sleep(0)
 
         except Exception as e:
             logger.error(f"❌ [Gemini] 호출 실패: {str(e)}")
@@ -373,37 +346,49 @@ class GeminiService:
                         if datetime.now() < cached.expire_time:
                             logger.debug(f"♻️ [Cache] 기존 캐시 재사용: {cache_key[:8]}...")
                             return cached
-                    
+
                     # 만료된 캐시 정리
-                    await asyncio.to_thread(cached.delete)
+                    await self._client.aio.caches.delete(name=cached.name)
                     del self._content_caches[cache_key]
                     logger.debug(f"🗑️ [Cache] 만료된 캐시 정리")
                 except:
                     # 정리 실패해도 무시하고 진행
                     pass
-            
+
             # 토큰 수 추정 (4자 ≈ 1토큰, 보수적 추정)
             estimated_tokens = len(system_prompt) // 4
-            
+
             # 최소 토큰 수 체크 (Gemini 3 Flash: 1,024 토큰)
             if estimated_tokens < 1024:
                 logger.debug(f"⏭️ [Cache] 토큰 부족 ({estimated_tokens} < 1024), 일반 모드 사용")
                 return None
-            
+
             # 새 캐시 생성 시도
             logger.debug(f"📦 [Cache] 새 캐시 생성 중... (~{estimated_tokens} tokens)")
-            
-            cached_content = await asyncio.to_thread(
-                caching.CachedContent.create,
+
+            cached_content = await self._client.aio.caches.create(
                 model=model_name,
-                display_name=f"welno_rag_{cache_key[:16]}",
-                system_instruction=system_prompt,
-                ttl=timedelta(hours=1)
+                config=types.CreateCachedContentConfig(
+                    display_name=f"welno_rag_{cache_key[:16]}",
+                    system_instruction=system_prompt,
+                    ttl="3600s",
+                ),
             )
-            
+
+            # LRU: 캐시 상한 초과 시 가장 오래된 항목 제거
+            if len(self._content_caches) >= self.MAX_CONTENT_CACHES:
+                oldest_key = next(iter(self._content_caches))
+                try:
+                    await self._client.aio.caches.delete(
+                        name=self._content_caches[oldest_key].name
+                    )
+                except Exception:
+                    pass
+                del self._content_caches[oldest_key]
+                logger.info(f"🗑️ [Cache] LRU 제거: {oldest_key} ({len(self._content_caches)}/{self.MAX_CONTENT_CACHES})")
             self._content_caches[cache_key] = cached_content
             logger.info(f"✅ [Cache] 캐시 생성 완료 (30-50% 성능 향상 예상)")
-            
+
             return cached_content
             
         except Exception as e:
@@ -416,7 +401,7 @@ class GeminiService:
         if cache_key in self._content_caches:
             try:
                 cached = self._content_caches[cache_key]
-                await asyncio.to_thread(cached.delete)
+                await self._client.aio.caches.delete(name=cached.name)
                 del self._content_caches[cache_key]
                 logger.info(f"🗑️ [Context Cache] 캐시 삭제 완료: {cache_key}")
             except Exception as e:
