@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'WELNO_BE',
-      script: 'python',
+      script: 'venv/bin/python3',
       args: ['-u', '-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8082'],
       cwd: '/home/welno/workspace/PROJECT_WELNO_BEFE/planning-platform/backend',
       instances: 1,
