@@ -80,6 +80,10 @@ class FAISSVectorSearch:
             })
         return results
 
+    async def aretrieve(self, query: str, top_k: int = 10) -> List[Dict]:
+        """search()의 async wrapper — llama-index 호환 인터페이스."""
+        return self.search(query, top_k)
+
     def _embed(self, text: str) -> List[float]:
         """OpenAI 임베딩 API 호출."""
         resp = self.client.embeddings.create(input=text, model=self.model)

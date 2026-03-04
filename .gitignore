@@ -167,3 +167,11 @@ planning-platform/backend/config.env.bak*
 planning-platform/backoffice/src/**/*.bak*
 planning-platform/backoffice/src/**/*.backup
 
+# ============================================================================
+# Claude Code
+# ============================================================================
+planning-platform/.claude/settings.local.json
+planning-platform/.claude/skills
+planning-platform/.claude/commands
+planning-platform/.claude/rules
+

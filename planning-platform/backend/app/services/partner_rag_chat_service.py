@@ -733,7 +733,7 @@ class PartnerRagChatService(WelnoRagChatService):
             if query_engine:
                 # '건강검진 종합 안내' 성격의 쿼리로 미리 의학 문서 로드
                 nodes = await query_engine.aretrieve("고혈압 당뇨 비만 간기능 검진 항목 가이드")
-                medical_ctx = "\n".join([n.node.get_content() for n in nodes])
+                medical_ctx = "\n".join([n.get("text", "") for n in nodes])
                 
                 # 3. Gemini Context Caching 수행
                 from .gemini_service import gemini_service
