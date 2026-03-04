@@ -219,29 +219,6 @@ const IntroLandingPage: React.FC<Props> = ({ status }) => {
       <PageTransitionLoader isVisible={isGenerating} message="리포트를 분석 중입니다..." />
       
       <main className="dp-content" key="intro-page-main">
-        {/* CTA 영역 - 상단으로 이동 */}
-        <section className="payment-guide" style={{ textAlign: 'center', padding: '10px 0' }}>
-          <div className="price-box" style={{ justifyContent: 'center', borderBottom: 'none', paddingBottom: '5px', marginBottom: '10px', marginTop: '10px' }}>
-            <span className="item-name" style={{ fontSize: '18px', letterSpacing: '-0.3px', lineHeight: '1.4', color: '#8B4513', fontWeight: '600' }}>AI 질병예측 리포트 (PDF)</span>
-          </div>
-          
-          {/* 구분선 */}
-          <hr style={{ 
-            width: '100%', 
-            maxWidth: '300px', 
-            margin: '10px auto', 
-            border: 'none', 
-            borderTop: '1px solid #e0e0e0' 
-          }} />
-          
-          <ul className="benefits" style={{ listStyle: 'none', padding: 0, margin: '10px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-            <li style={{ fontSize: '14px', letterSpacing: '-0.2px', lineHeight: '1.4' }}>✓ 20대 질병 예측 분석</li>
-            <li style={{ fontSize: '14px', letterSpacing: '-0.2px', lineHeight: '1.4' }}>✓ 암 발생 위험도 분석</li>
-            <li style={{ fontSize: '14px', letterSpacing: '-0.2px', lineHeight: '1.4' }}>✓ 건강 나이 분석</li>
-            <li style={{ fontSize: '14px', letterSpacing: '-0.2px', lineHeight: '1.4' }}>✓ PDF 리포트 다운로드</li>
-          </ul>
-        </section>
-
         {/* 소개 이미지 섹션 */}
         <section className="image-intro">
           <img src={reportB1} alt="intro 1" className="intro-img" />
