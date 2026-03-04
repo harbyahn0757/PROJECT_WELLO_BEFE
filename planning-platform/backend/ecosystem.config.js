@@ -8,7 +8,7 @@ module.exports = {
       instances: 1,
       exec_mode: 'fork',
       watch: false, // uvicorn --reload가 이미 파일 변경 감지
-      max_memory_restart: '1G',
+      max_memory_restart: '2G',
       env: {
         NODE_ENV: 'development',
         PYTHONPATH: '/home/workspace/PROJECT_WELNO_BEFE/planning-platform/backend'

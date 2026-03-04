@@ -7,6 +7,7 @@ llama-index 의존성 제거 — FAISSVectorSearch 직접 사용
 import os
 import re
 import logging
+from collections import OrderedDict
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from ...core.config import settings
@@ -24,7 +25,8 @@ LOCAL_FAISS_BY_HOSPITAL = os.environ.get(
 
 # 글로벌 + 병원별 FAISSVectorSearch 캐시
 _global_vs_cache: Optional[FAISSVectorSearch] = None
-_hospital_vs_cache: Dict[str, FAISSVectorSearch] = {}
+_hospital_vs_cache: OrderedDict = OrderedDict()  # LRU 캐시 (OOM 방지)
+MAX_HOSPITAL_CACHE = 5  # 병원별 FAISS 인스턴스 최대 개수
 
 CHAT_SYSTEM_PROMPT_TEMPLATE = (
     "당신은 검진 결과지를 읽어 드리는 {persona_name}입니다.\n"
@@ -309,8 +311,13 @@ async def _search_hospital_faiss(
         return []
 
     try:
-        # 캐시 확인
-        if hospital_id not in _hospital_vs_cache:
+        # LRU 캐시: 히트 시 최신으로 이동, 초과 시 가장 오래된 항목 제거
+        if hospital_id in _hospital_vs_cache:
+            _hospital_vs_cache.move_to_end(hospital_id)
+        else:
+            if len(_hospital_vs_cache) >= MAX_HOSPITAL_CACHE:
+                evicted_id, _ = _hospital_vs_cache.popitem(last=False)
+                logger.info(f"병원 FAISS 캐시 LRU 제거: {evicted_id} (현재 {len(_hospital_vs_cache)}/{MAX_HOSPITAL_CACHE})")
             _hospital_vs_cache[hospital_id] = FAISSVectorSearch(
                 faiss_dir=str(hospital_dir),
                 openai_api_key=openai_api_key,

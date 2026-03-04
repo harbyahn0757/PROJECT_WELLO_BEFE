@@ -208,10 +208,10 @@ async def init_payment(request: Request):
                 else:
                     # 새로 생성
                     cur.execute("""
-                        INSERT INTO welno.tb_campaign_payments (oid, uuid, partner_id, user_name, user_data, amount, status, email)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (oid, uuid, partner_id, user_name, json.dumps(user_info), payment_amount, 'READY', email))
-                    logger.info(f"✅ [결제초기화] 새 결제 데이터 생성: oid={oid}, uuid={uuid}")
+                        INSERT INTO welno.tb_campaign_payments (oid, uuid, partner_id, user_name, user_data, amount, status, pipeline_step, email)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (oid, uuid, partner_id, user_name, json.dumps(user_info), payment_amount, 'READY', 'PAYMENT_PENDING', email))
+                    logger.info(f"✅ [결제초기화] 새 결제 데이터 생성: oid={oid}, uuid={uuid}, pipeline_step=PAYMENT_PENDING")
                 conn.commit()
                 
                 # 슬랙 알림: 결제 시작
@@ -301,11 +301,11 @@ async def _handle_payment_callback(
     결제 콜백 공통 처리 로직
     """
     p_oid = P_NOTI
-    
+
     # TODO: [MEDIUM-3] Inicis 콜백 서명 검증 추가 필요 (P_CHKFAKE 검증)
     # 현재 콜백이 실제 이니시스에서 온 것인지 검증하지 않음
-    
-    logger.info(f"payment_callback received: status={P_STATUS}, oid={p_oid}, tid={P_TID}")
+
+    logger.info(f"📥 [결제콜백] 수신: status={P_STATUS}, oid={p_oid}, tid={P_TID}, msg={P_RMESG1}, req_url={P_REQ_URL}")
 
     if P_STATUS != '00':
         update_payment_status(p_oid, 'FAILED', error_msg=P_RMESG1)
@@ -1502,4 +1502,86 @@ async def trigger_generation_directly(request: Request):
         
     except Exception as e:
         logger.error(f"❌ [Direct Generate] 오류: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─── 관리자 복구 엔드포인트 ───
+
+@router.get("/admin/stale-payments/")
+async def get_stale_payments(
+    hours: int = Query(default=24, ge=1, le=720),
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """
+    READY/INIT 상태로 방치된 결제 목록 조회.
+    ?hours=24 → 24시간 이상 경과된 건만 반환.
+    """
+    try:
+        with db_manager.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT oid, uuid, partner_id, user_name, status,
+                           pipeline_step, amount, created_at, updated_at
+                    FROM welno.tb_campaign_payments
+                    WHERE status IN ('READY', 'INIT')
+                      AND created_at < NOW() - INTERVAL '%s hours'
+                    ORDER BY created_at DESC
+                    LIMIT 100
+                """, (hours,))
+                rows = cur.fetchall()
+                cols = [d[0] for d in cur.description]
+                results = [dict(zip(cols, row)) for row in rows]
+                for r in results:
+                    for k, v in r.items():
+                        if isinstance(v, datetime):
+                            r[k] = v.isoformat()
+        return {"count": len(results), "payments": results}
+    except Exception as e:
+        logger.error(f"stale-payments error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/admin/cancel-stale-payment/")
+async def cancel_stale_payment(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """
+    READY/INIT 상태인 결제를 CANCELLED로 전이.
+    Body: {"oid": "...", "reason": "콜백 미수신으로 취소"}
+    """
+    body = await request.json()
+    oid = body.get("oid")
+    reason = body.get("reason", "관리자 수동 취소")
+    if not oid:
+        raise HTTPException(status_code=400, detail="oid 필수")
+
+    try:
+        with db_manager.get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT status FROM welno.tb_campaign_payments WHERE oid = %s",
+                    (oid,)
+                )
+                row = cur.fetchone()
+                if not row:
+                    raise HTTPException(status_code=404, detail="주문 없음")
+                if row[0] not in ('READY', 'INIT'):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"현재 상태 {row[0]}는 취소 불가 (READY/INIT만 가능)"
+                    )
+                cur.execute("""
+                    UPDATE welno.tb_campaign_payments
+                    SET status = 'CANCELLED', error_message = %s,
+                        pipeline_step = 'ADMIN_CANCELLED', updated_at = NOW()
+                    WHERE oid = %s
+                """, (reason, oid))
+                conn.commit()
+        logger.info(f"🔧 [관리자] 결제 취소: oid={oid}, reason={reason}")
+        return {"success": True, "oid": oid, "new_status": "CANCELLED"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"cancel-stale-payment error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
