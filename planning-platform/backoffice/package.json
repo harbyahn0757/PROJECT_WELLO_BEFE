@@ -21,6 +21,7 @@
   "scripts": {
     "start": "PORT=9283 DANGEROUSLY_DISABLE_HOST_CHECK=true react-scripts start",
     "build": "CI=false TSC_COMPILE_ON_ERROR=true NODE_OPTIONS=\"--max-old-space-size=1024\" react-scripts build",
+    "deploy:simple": "npm run build && rm -rf ../backend/static/backoffice/* && mkdir -p ../backend/static/backoffice && cp -r build/* ../backend/static/backoffice/ && cp ../backend/static/welno_logo.png ../backend/static/backoffice/ 2>/dev/null; echo 'Backoffice deployed.'",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
