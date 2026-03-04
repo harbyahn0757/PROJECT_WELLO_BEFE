@@ -77,20 +77,22 @@ const PartnerOfficeLayout: React.FC = () => {
       .catch(() => {});
   }, [isEmbed]);
 
-  // 로그인 모드: 인증으로 summary-counts 조회
+  // 로그인 모드: 인증으로 summary-counts 조회 (병원 필터 포함)
   useEffect(() => {
     if (isEmbed) return;
-    fetchWithAuth(`${API}/admin/embedding/summary-counts`)
+    const hosParam = selectedHospId ? `?hospital_id=${selectedHospId}` : '';
+    fetchWithAuth(`${API}/admin/embedding/summary-counts${hosParam}`)
       .then(r => r.json())
       .then(d => setSummaryCounts({new_chats: d.new_chats || 0, new_surveys: d.new_surveys || 0}))
       .catch(() => {});
-  }, [isEmbed]);
+  }, [isEmbed, selectedHospId]);
 
   // iframe(embed) 모드: 로그인 없이 summary-counts 조회 후 부모 창에 개별 숫자 전달
   useEffect(() => {
     if (!isEmbed) return;
     const apiBase = window.location.hostname === 'welno.kindhabit.com' ? '/welno-api/v1' : '/api/v1';
-    fetch(`${apiBase}/admin/embedding/summary-counts`)
+    const hosParam = selectedHospId ? `?hospital_id=${selectedHospId}` : '';
+    fetch(`${apiBase}/admin/embedding/summary-counts${hosParam}`)
       .then(r => r.json())
       .then(d => {
         const counts = { new_chats: d.new_chats || 0, new_surveys: d.new_surveys || 0 };
@@ -112,14 +114,15 @@ const PartnerOfficeLayout: React.FC = () => {
         }
       })
       .catch(() => {});
-  }, [isEmbed]);
+  }, [isEmbed, selectedHospId]);
 
   // embed 모드에서 주기적으로 숫자 갱신 후 부모에 전달 (선택)
   useEffect(() => {
     if (!isEmbed) return;
     const t = setInterval(() => {
       const apiBase = window.location.hostname === 'welno.kindhabit.com' ? '/welno-api/v1' : '/api/v1';
-      fetch(`${apiBase}/admin/embedding/summary-counts`)
+      const hosParam = selectedHospId ? `?hospital_id=${selectedHospId}` : '';
+      fetch(`${apiBase}/admin/embedding/summary-counts${hosParam}`)
         .then(r => r.json())
         .then(d => {
           const counts = { new_chats: d.new_chats || 0, new_surveys: d.new_surveys || 0 };
@@ -140,7 +143,7 @@ const PartnerOfficeLayout: React.FC = () => {
         .catch(() => {});
     }, 60 * 1000);
     return () => clearInterval(t);
-  }, [isEmbed]);
+  }, [isEmbed, selectedHospId]);
 
   // 드롭다운 밖 클릭 시 닫기
   useEffect(() => {

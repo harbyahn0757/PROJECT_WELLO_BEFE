@@ -147,13 +147,24 @@ async def list_partners():
 
 
 @router.get("/summary-counts")
-async def get_summary_counts():
-    """사이드바 뱃지용 — 오늘 신규 상담 건수 + 설문 건수"""
+async def get_summary_counts(hospital_id: Optional[str] = None):
+    """사이드바 뱃지용 — 오늘 신규 상담 건수 + 설문 건수 (병원 필터 지원)"""
     try:
-        chat_row = await db_manager.execute_one(
-            "SELECT COUNT(*) as cnt FROM welno.tb_partner_rag_chat_log WHERE created_at::date = CURRENT_DATE"
-        )
-        survey_row = await db_manager.execute_one(survey_union_count_today_simple())
+        if hospital_id:
+            chat_row = await db_manager.execute_one(
+                "SELECT COUNT(*) as cnt FROM welno.tb_partner_rag_chat_log WHERE created_at::date = CURRENT_DATE AND hospital_id = %s",
+                (hospital_id,)
+            )
+            survey_sql = """SELECT
+                COALESCE((SELECT COUNT(*) FROM welno.tb_hospital_survey_responses WHERE created_at::date = CURRENT_DATE AND hospital_id = %s), 0)
+                + COALESCE((SELECT COUNT(*) FROM welno.tb_survey_responses_dynamic WHERE created_at::date = CURRENT_DATE AND hospital_id = %s), 0)
+            as cnt"""
+            survey_row = await db_manager.execute_one(survey_sql, (hospital_id, hospital_id))
+        else:
+            chat_row = await db_manager.execute_one(
+                "SELECT COUNT(*) as cnt FROM welno.tb_partner_rag_chat_log WHERE created_at::date = CURRENT_DATE"
+            )
+            survey_row = await db_manager.execute_one(survey_union_count_today_simple())
         return {
             "new_chats": chat_row["cnt"] if chat_row else 0,
             "new_surveys": survey_row["cnt"] if survey_row else 0,
