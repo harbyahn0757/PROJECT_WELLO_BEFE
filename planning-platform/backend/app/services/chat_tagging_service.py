@@ -82,6 +82,73 @@ COMMERCIAL_MAPPING = {
     "다이어트": {"category": "체중관리", "product_hint": "가르시니아"},
 }
 
+# 검진 수치 한글 라벨 (LLM 프롬프트용)
+METRIC_LABELS = {
+    "systolic_bp": "수축기 혈압", "diastolic_bp": "이완기 혈압",
+    "fasting_glucose": "공복혈당", "total_cholesterol": "총콜레스테롤",
+    "hdl_cholesterol": "HDL", "ldl_cholesterol": "LDL",
+    "hemoglobin": "헤모글로빈", "sgot_ast": "AST(간수치)",
+    "sgpt_alt": "ALT(간수치)", "gamma_gtp": "감마GTP",
+    "creatinine": "크레아티닌", "gfr": "사구체여과율(GFR)",
+    "bmi": "BMI", "triglycerides": "중성지방",
+    "height": "신장", "weight": "체중",
+}
+
+# 설문 항목 한글 라벨
+SURVEY_LABELS = {
+    "exercise_frequency": "운동", "smoking": "흡연",
+    "alcohol": "음주", "sleep_quality": "수면",
+    "stress_level": "스트레스",
+}
+
+
+def _format_health_data_for_prompt(
+    health_metrics: Dict[str, Any],
+    patient_info: Optional[Dict[str, Any]] = None,
+    medical_history: Optional[list] = None,
+) -> str:
+    """검진 수치 + 환자 프로필 + 병력을 LLM-readable 텍스트로 변환."""
+    sections = []
+
+    # 환자 프로필
+    if patient_info:
+        age_str = ""
+        if patient_info.get("birth_date"):
+            try:
+                bd = datetime.strptime(str(patient_info["birth_date"])[:10], "%Y-%m-%d")
+                today = datetime.now()
+                age = today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
+                age_str = f"{age}세"
+            except Exception:
+                pass
+        gender_map = {"M": "남성", "F": "여성", "male": "남성", "female": "여성"}
+        gender_str = gender_map.get(patient_info.get("gender", ""), "")
+        if age_str or gender_str:
+            sections.append(f"[환자 프로필]\n나이: {age_str or '미상'}, 성별: {gender_str or '미상'}")
+
+    # 검진 데이터
+    if health_metrics:
+        checkup_date = health_metrics.get("checkup_date", "")
+        header = f"[검진 데이터]{f' (검진일: {checkup_date})' if checkup_date else ''}"
+        lines = []
+        for key, label in METRIC_LABELS.items():
+            val = health_metrics.get(key)
+            if val is None or val == "" or val == 0:
+                continue
+            range_val = health_metrics.get(f"{key}_range", "")
+            abnormal = health_metrics.get(f"{key}_abnormal", "정상")
+            range_part = f" (기준: {range_val})" if range_val else ""
+            lines.append(f"{label}: {val}{range_part} → {abnormal}")
+        if lines:
+            sections.append(header + "\n" + "\n".join(lines))
+
+    # 병력
+    if medical_history:
+        history_text = ", ".join(str(h) for h in medical_history if h)
+        sections.append(f"[병력]\n{history_text}" if history_text else "[병력]\n(해당 사항 없음)")
+
+    return "\n\n".join(sections)
+
 
 # ─── 규칙 기반 함수 (폴백용으로 유지) ──────────────────────────────
 
@@ -264,9 +331,14 @@ async def generate_conversation_summary(messages: List[Dict[str, str]]) -> str:
 async def llm_analyze_session(
     messages: List[Dict[str, str]],
     health_metrics: Optional[Dict[str, Any]] = None,
+    patient_info: Optional[Dict[str, Any]] = None,
+    medical_history: Optional[list] = None,
+    survey_data: Optional[Dict[str, Any]] = None,
+    es_behavior: Optional[Dict[str, Any]] = None,
 ) -> tuple[Optional[Dict[str, Any]], str]:
     """
     Gemini Flash Lite를 사용하여 대화 세션을 분석합니다.
+    v3: 검진수치 + 환자프로필 + 병력 + 설문 + ES행동 + 대화패턴 멀티채널 통합.
 
     Returns:
         (result, error_reason) 튜플.
@@ -303,14 +375,28 @@ async def llm_analyze_session(
 
         total_user_turns = user_turn
 
-        # 이상소견 목록
-        abnormal_items = []
-        if health_metrics:
-            for key, val in health_metrics.items():
-                if key.endswith("_abnormal") and val and val != "정상":
-                    metric_name = key.replace("_abnormal", "")
-                    abnormal_items.append(f"{metric_name}: {val}")
-        abnormal_text = "\n".join(abnormal_items) if abnormal_items else "없음"
+        # ── 멀티채널 컨텍스트 구성 (v3) ──
+        health_context = _format_health_data_for_prompt(
+            health_metrics or {}, patient_info, medical_history)
+
+        survey_context = ""
+        if survey_data:
+            survey_context = _format_survey_for_prompt(survey_data)
+
+        es_context = ""
+        if es_behavior:
+            es_lines = ["[이 병원 수검자 행동 요약] (최근 30일)"]
+            for label, count in es_behavior.items():
+                if count:
+                    es_lines.append(f"{label}: {count}")
+            if len(es_lines) > 1:
+                es_context = "\n".join(es_lines)
+
+        conv_pattern = _format_conversation_pattern(messages)
+
+        # 컨텍스트 블록 조립 (데이터 있는 섹션만 포함 — graceful degradation)
+        context_blocks = [b for b in [health_context, survey_context, es_context] if b]
+        context_section = "\n\n".join(context_blocks) if context_blocks else "[검진 데이터 없음]"
 
         prompt = f"""건강상담 대화를 분석합니다. 환자(수검자) 질문과 상담사(AI) 답변이 턴 번호(#)로 구분되어 있습니다.
 반드시 아래 규칙을 지켜서 JSON만 출력하세요.
@@ -320,11 +406,12 @@ async def llm_analyze_session(
 예: 환자가 "혈압이 걱정돼요"라고 했으면 → 혈압은 관심사 ✓
 예: 상담사가 "콜레스테롤도 관리하세요"라고 했지만 환자가 언급 안 했으면 → 콜레스테롤은 관심사 ✗
 
+{context_section}
+
+{conv_pattern}
+
 [대화] (총 {total_user_turns}턴)
 {conversation_text}
-
-[검진 이상소견]
-{abnormal_text}
 
 분석 규칙:
 - summary: "환자가 ~에 대해 질문하고, 상담사가 ~을 안내함" 형식으로 화자를 구분하여 1-2문장 요약
@@ -382,7 +469,15 @@ async def llm_analyze_session(
   "borderline_worried": 경계수치이면서 anxiety_level이 medium 이상 → 핵심 전환 대상. 단순 질문 1회만 한 경우는 해당 안됨.
   "lifestyle_improvable": 경계수치 + 식이/운동/생활습관 대화 → 대부분의 일반 상담
   "chronic_management": 만성질환(혈압/당뇨/간) 관련 지속 관리 대화 + 이미 질환을 인지하고 관리 중인 경우
-- hospital_prospect_score: 0-100 병원 전환 가망 점수 (urgency+anxiety+engagement 종합)"""
+- hospital_prospect_score: 0-100 병원 전환 가망 점수 (urgency+anxiety+engagement 종합)
+
+[종합 교차분석 가이드 — 데이터가 있는 항목만 적용]
+- 검진 이상 수치인데 대화에서 해당 항목에 관심 없음 → "무관심 위험" → medical_urgency 상향
+- 설문에서 흡연/음주인데 검진 간수치/혈압 이상 → lifestyle_tags에 원인 반영
+- 병원 활성 수검자 수가 많으면 → 참여도 높은 병원 → hospital_prospect_score 소폭 가산
+- 대화 질문 간격 짧고 + 검진 이상 항목 관련 질문 → anxiety_level 상향
+- 검진 이상 + 대화에서 해당 질문 → borderline_worried 우선 고려
+- 설문에서 운동 안 함 + BMI 과체중 → lifestyle_tags에 "운동부족+비만" 반영"""
 
         response = await client.aio.models.generate_content(
             model=settings.google_gemini_lite_model,
@@ -563,10 +658,10 @@ async def load_messages_from_db(session_id: str) -> Optional[List[Dict[str, str]
         messages = []
         for msg in conversation:
             if isinstance(msg, dict) and msg.get("role") and msg.get("content"):
-                messages.append({
-                    "role": msg["role"],
-                    "content": msg["content"],
-                })
+                m = {"role": msg["role"], "content": msg["content"]}
+                if msg.get("timestamp"):
+                    m["timestamp"] = msg["timestamp"]
+                messages.append(m)
         return messages if messages else None
 
     except Exception as e:
@@ -594,6 +689,134 @@ async def load_health_metrics_from_db(session_id: str) -> Optional[Dict[str, Any
     except Exception as e:
         logger.warning(f"[태깅] 검진 데이터 로드 실패: {session_id} - {e}")
         return None
+
+
+async def load_session_context_from_db(session_id: str) -> Dict[str, Any]:
+    """DB에서 세션의 전체 컨텍스트(health_metrics + patient_info + medical_history + IDs)를 로드."""
+    try:
+        query = """
+            SELECT initial_data, user_uuid, hospital_id
+            FROM welno.tb_partner_rag_chat_log
+            WHERE session_id = %s
+        """
+        result = await db_manager.execute_one(query, (session_id,))
+        if not result:
+            return {}
+        initial_data = result.get("initial_data", {})
+        if isinstance(initial_data, str):
+            initial_data = json.loads(initial_data)
+        if not isinstance(initial_data, dict):
+            initial_data = {}
+        return {
+            "health_metrics": initial_data.get("health_metrics", {}),
+            "patient_info": initial_data.get("patient_info", {}),
+            "medical_history": initial_data.get("medical_history", []),
+            "user_uuid": result.get("user_uuid", ""),
+            "hospital_id": result.get("hospital_id", ""),
+        }
+    except Exception as e:
+        logger.warning(f"[태깅] 세션 컨텍스트 로드 실패: {session_id} - {e}")
+        return {}
+
+
+async def load_survey_data_for_session(user_uuid: str, hospital_id: str) -> Optional[Dict]:
+    """Redis에서 설문 응답을 로드. 실패 시 None."""
+    try:
+        import redis
+        r = redis.from_url("redis://10.0.1.10:6379/0", decode_responses=True, socket_timeout=2)
+        survey_key = f"welno:survey:{user_uuid}:{hospital_id}"
+        raw = r.get(survey_key)
+        if not raw:
+            return None
+        data = json.loads(raw)
+        return data.get("survey_responses", {})
+    except Exception as e:
+        logger.debug(f"[태깅] 설문 로드 실패 (무시): {e}")
+        return None
+
+
+async def load_es_behavior_for_hospital(
+    hospital_id: str, days: int = 30
+) -> Optional[Dict[str, Any]]:
+    """ES에서 병원 레벨 행동 데이터 조회 (business 인덱스). 실패 시 None.
+    NOTE: ES data.user.name은 마스킹됨(이*옥) → WELNO 원본명과 매칭 불가.
+          따라서 개인별이 아닌 병원 레벨 활동 요약으로 제공."""
+    from urllib.request import Request, urlopen
+    ES_URL = "http://10.0.0.10:9200"
+    try:
+        query = json.dumps({
+            "size": 0,
+            "query": {"bool": {"must": [
+                {"term": {"header.hospital.id": hospital_id}},
+                {"range": {"header.@timestamp": {"gte": f"now-{days}d"}}},
+            ]}},
+            "aggs": {
+                "events": {"terms": {"field": "data.context", "size": 20}},
+                "unique_users": {"cardinality": {"field": "data.user.webAppKey"}},
+            },
+        }).encode()
+        req = Request(f"{ES_URL}/medilinx-logs-business/_search",
+                      data=query, headers={"Content-Type": "application/json"})
+        with urlopen(req, timeout=5) as resp:
+            biz_data = json.loads(resp.read())
+
+        aggs = biz_data.get("aggregations", {})
+        total_users = aggs.get("unique_users", {}).get("value", 0)
+        buckets = aggs.get("events", {}).get("buckets", [])
+
+        result = {}
+        if total_users:
+            result["이 병원 활성 수검자 수"] = f"{total_users}명"
+        for b in buckets:
+            key = b.get("key", "")
+            count = b.get("doc_count", 0)
+            if "ResultOpen" in key:
+                result["결과 열람 총 횟수"] = f"{count}회"
+            elif "BannerClick" in key:
+                result["배너 클릭 총 횟수"] = f"{count}회"
+
+        return result if result else None
+    except Exception as e:
+        logger.debug(f"[태깅] ES 행동 데이터 조회 실패 (무시): {e}")
+        return None
+
+
+def _format_survey_for_prompt(survey: Dict[str, Any]) -> str:
+    """설문 응답을 LLM-readable 텍스트로 변환."""
+    lines = []
+    for key, label in SURVEY_LABELS.items():
+        val = survey.get(key)
+        if val:
+            lines.append(f"{label}: {val}")
+    concerns = survey.get("additional_concerns", "")
+    if concerns:
+        lines.append(f'본인이 직접 쓴 걱정: "{concerns}"')
+    return "[생활습관 설문]\n" + "\n".join(lines) if lines else ""
+
+
+def _format_conversation_pattern(messages: List[Dict[str, str]]) -> str:
+    """메시지 타임스탬프로 대화 패턴(턴 수, 평균 간격) 텍스트 생성."""
+    user_timestamps = []
+    total_turns = sum(1 for m in messages if m.get("role") == "user")
+    for m in messages:
+        if m.get("role") == "user" and m.get("timestamp"):
+            try:
+                ts = datetime.fromisoformat(str(m["timestamp"]).replace("Z", "+00:00"))
+                user_timestamps.append(ts)
+            except Exception:
+                pass
+    if len(user_timestamps) >= 2:
+        intervals = [(user_timestamps[i+1] - user_timestamps[i]).total_seconds()
+                     for i in range(len(user_timestamps) - 1)]
+        avg_sec = sum(intervals) / len(intervals)
+        if avg_sec < 30:
+            pace = "빠른 연속 질문 — 적극적 관심"
+        elif avg_sec < 120:
+            pace = "보통 속도"
+        else:
+            pace = "느린 간격 — 신중한 질문"
+        return f"[대화 패턴] 총 {total_turns}턴, 평균 질문 간격 {int(avg_sec)}초 ({pace})"
+    return f"[대화 패턴] 총 {total_turns}턴"
 
 
 # ─── 재방문 추천 메시지 생성 ──────────────────────────────────────
@@ -706,22 +929,43 @@ async def tag_chat_session(
             logger.warning(f"[태깅] 메시지 없음, 태깅 스킵: {session_id}")
             return None
 
-        # 검진 데이터가 없으면 DB에서 로드
+        # ── 멀티채널 데이터 수집 (v3) ──
+        context = await load_session_context_from_db(session_id)
         if health_metrics is None:
-            health_metrics = await load_health_metrics_from_db(session_id) or {}
+            health_metrics = context.get("health_metrics", {})
+        patient_info = context.get("patient_info", {})
+        medical_history = context.get("medical_history", [])
+
+        # Tier 2: 설문 (있으면 사용)
+        survey_data = None
+        if context.get("user_uuid") and context.get("hospital_id"):
+            survey_data = await load_survey_data_for_session(
+                context["user_uuid"], context["hospital_id"])
+
+        # Tier 3: ES 행동 데이터 — 병원 레벨 (개인 매칭 불가: ES name 마스킹)
+        es_behavior = None
+        if context.get("hospital_id"):
+            es_behavior = await load_es_behavior_for_hospital(
+                context["hospital_id"])
 
         # 규칙 기반 결과 (항상 계산 — risk_tags, data_quality는 규칙 기반 유지)
         risk_tags = extract_risk_tags(health_metrics)
         keyword_tags = extract_keyword_tags(messages)
         data_quality = calculate_data_quality_score(health_metrics)
 
-        # LLM 분석 시도
+        # LLM 분석 시도 (멀티채널 통합)
         tagging_model = "rule-based"
         llm_attempted = False
         llm_failed = False
         llm_error = None
 
-        llm_result, llm_err = await llm_analyze_session(messages, health_metrics)
+        llm_result, llm_err = await llm_analyze_session(
+            messages, health_metrics,
+            patient_info=patient_info,
+            medical_history=medical_history,
+            survey_data=survey_data,
+            es_behavior=es_behavior,
+        )
 
         if llm_err == "api_key_missing":
             llm_attempted = False
@@ -846,7 +1090,7 @@ async def tag_chat_session(
              suggested_revisit_messages,
              medical_tags, lifestyle_tags, medical_urgency,
              anxiety_level, prospect_type, hospital_prospect_score)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 2,
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 3,
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                     %s, %s, %s, %s, %s, %s)
             ON CONFLICT (session_id, partner_id) DO UPDATE SET
