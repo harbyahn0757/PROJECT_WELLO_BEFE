@@ -371,17 +371,17 @@ async def llm_analyze_session(
 
 [병원 파트너 전용 — 반드시 추가 분석]
 위 JSON에 아래 6개 필드를 추가하세요:
-- medical_tags: interest_tags 중 의료 관련만 분리 (혈압/당뇨/간/콜레스테롤/신장/암/갑상선/심장/빈혈/위장/폐 등)
-- lifestyle_tags: interest_tags 중 생활습관 관련만 분리 (다이어트/운동/식단/영양제/수면/음주/흡연 등)
+- medical_tags: 의료 관련 키워드만 순수 문자열 배열로 반환. 예: ["혈압", "콜레스테롤", "간"]. interest_tags와 달리 topic/intensity 객체가 아닌 단순 문자열 리스트여야 합니다.
+- lifestyle_tags: 생활습관 관련 키워드만 순수 문자열 배열로 반환. 예: ["다이어트", "운동", "식단"]. 단순 문자열 리스트여야 합니다.
 - medical_urgency: 검진 이상소견+대화 종합 판단.
   "urgent": 위험수준 수치+증상 언급, "borderline": 경계 수치, "normal": 정상 범위
-- anxiety_level: 환자 불안 수준.
-  "high": 걱정/불안 직접 표현 반복, "medium": 은근한 걱정, "low": 담담
-- prospect_type: 병원 전환 4분류 (우선순위: needs_visit > borderline_worried > lifestyle_improvable > chronic_management)
-  "needs_visit": 위험수준+증상 → 실제 진료 필요
-  "borderline_worried": 경계수치+불안 → 핵심 전환 대상
-  "lifestyle_improvable": 경계수치+식이/운동 관련 대화
-  "chronic_management": 만성질환 관련 지속 관리 대화
+- anxiety_level: 환자 불안 수준 (적극적으로 판단할 것 — 건강 관련 질문 자체가 걱정의 표현임).
+  "high": 걱정/불안 직접 표현, 반복 질문, 증상 호소, "medium": 건강 관련 질문 2회 이상 또는 수치에 대한 우려, "low": 단순 정보 확인 1회
+- prospect_type: 병원 전환 4분류. 대화 내용과 검진 수치를 모두 고려하여 판단.
+  "needs_visit": 위험수준 수치 + 증상 언급 → 실제 진료 필요
+  "borderline_worried": 경계수치이면서 anxiety_level이 medium 이상 → 핵심 전환 대상. 단순 질문 1회만 한 경우는 해당 안됨.
+  "lifestyle_improvable": 경계수치 + 식이/운동/생활습관 대화 → 대부분의 일반 상담
+  "chronic_management": 만성질환(혈압/당뇨/간) 관련 지속 관리 대화 + 이미 질환을 인지하고 관리 중인 경우
 - hospital_prospect_score: 0-100 병원 전환 가망 점수 (urgency+anxiety+engagement 종합)"""
 
         response = await client.aio.models.generate_content(
@@ -496,11 +496,23 @@ async def llm_analyze_session(
             result["buying_signal"] = "low"
 
         # ── 병원 전용 필드 검증 (모든 세션에 항상 적용) ──
-        raw_med = result.get("medical_tags", [])
-        result["medical_tags"] = [str(t) for t in raw_med[:15]] if isinstance(raw_med, list) else []
+        def _normalize_tag_list(raw: Any, max_items: int = 15) -> list:
+            """LLM이 반환한 태그를 순수 문자열 리스트로 정규화.
+            dict({"topic":"혈압",...})가 오면 topic만 추출, 문자열이면 그대로."""
+            if not isinstance(raw, list):
+                return []
+            normalized = []
+            for t in raw[:max_items]:
+                if isinstance(t, dict):
+                    normalized.append(str(t.get("topic", t.get("name", ""))))
+                elif isinstance(t, str):
+                    normalized.append(t)
+                else:
+                    normalized.append(str(t))
+            return [s for s in normalized if s]
 
-        raw_life = result.get("lifestyle_tags", [])
-        result["lifestyle_tags"] = [str(t) for t in raw_life[:10]] if isinstance(raw_life, list) else []
+        result["medical_tags"] = _normalize_tag_list(result.get("medical_tags", []), 15)
+        result["lifestyle_tags"] = _normalize_tag_list(result.get("lifestyle_tags", []), 10)
 
         valid_urgency = {"urgent", "borderline", "normal"}
         if result.get("medical_urgency") not in valid_urgency:
