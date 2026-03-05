@@ -84,7 +84,7 @@ class InfraErrorLogBuilder:
         caller_frame = inspect.currentframe().f_back
         caller_info = f"{caller_frame.f_code.co_filename}:{caller_frame.f_lineno}"
         
-        return {
+        result = {
             "event_type": report_data.get("event_type", "unknown"),
             "oid": report_data.get("oid"),
             "uuid": report_data.get("uuid"),
@@ -99,6 +99,9 @@ class InfraErrorLogBuilder:
                 "component": "report_system"
             }
         }
+        if report_data.get("user_name"):
+            result["user_name"] = report_data["user_name"]
+        return result
     
     @staticmethod
     def build_error_log(error_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -273,15 +276,19 @@ class ReportLogBuilder:
     """리포트 전용 로그 빌더"""
     
     @staticmethod
-    def build_report_success_log(oid: str, uuid: str, duration: int, data_source: str) -> Dict[str, Any]:
+    def build_report_success_log(oid: str, uuid: str, duration: int, data_source: str,
+                                 user_name: Optional[str] = None) -> Dict[str, Any]:
         """리포트 생성 성공 로그 생성"""
-        return InfraErrorLogBuilder.build_report_log({
+        log_data = {
             "event_type": "success",
             "oid": oid,
             "uuid": uuid,
             "duration": duration,
             "data_source": data_source
-        })
+        }
+        if user_name:
+            log_data["user_name"] = user_name
+        return InfraErrorLogBuilder.build_report_log(log_data)
     
     @staticmethod
     def build_report_failed_log(oid: str, uuid: str, error_message: str,

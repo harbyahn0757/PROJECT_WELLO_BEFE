@@ -241,7 +241,7 @@ class SlackService:
         fields = [
             SlackField(title="상태", value=config["title"], short=True),
             SlackField(title="주문번호", value=data.get("oid", "N/A"), short=True),
-            SlackField(title="사용자", value=data.get("uuid", "N/A")[:8], short=True)
+            SlackField(title="사용자", value=data.get("user_name") or data.get("uuid", "N/A")[:8], short=True)
         ]
         
         # 소요 시간

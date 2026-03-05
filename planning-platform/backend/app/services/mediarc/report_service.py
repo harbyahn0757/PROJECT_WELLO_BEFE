@@ -205,7 +205,8 @@ async def run_disease_report_pipeline(
                     oid=oid or "N/A",
                     uuid=user_info.get('uuid', 'N/A'),
                     duration=duration,
-                    data_source=data_source
+                    data_source=data_source,
+                    user_name=user_name
                 )
                 
                 await structured_logger.log_report_event(report_log)

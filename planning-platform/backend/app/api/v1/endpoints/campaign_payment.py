@@ -225,6 +225,10 @@ async def init_payment(request: Request):
                         slack_service = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
                         structured_logger = get_structured_logger(slack_service)
                         
+                        # 파트너명 조회 (슬랙 알림용)
+                        _p_cfg = get_partner_config(partner_id) if partner_id else None
+                        _p_name = _p_cfg.get('partner_name', partner_id) if _p_cfg else partner_id
+
                         payment_log = PaymentLogBuilder.build_payment_start_log(
                             oid=oid,
                             uuid=uuid,
@@ -232,7 +236,7 @@ async def init_payment(request: Request):
                             amount=payment_amount,
                             user_name=user_name or '',
                             user_phone=user_info.get('phone', '') if isinstance(user_info, dict) else '',
-                            hospital_name=partner_id
+                            hospital_name=_p_name
                         )
                         
                         await structured_logger.log_payment_event(payment_log)
@@ -503,15 +507,19 @@ async def _handle_payment_callback(
                         slack_service = get_slack_service(settings.slack_webhook_url, settings.slack_channel_id)
                         structured_logger = get_structured_logger(slack_service)
                         
+                        _pid = order_data.get('partner_id')
+                        _p_cfg = get_partner_config(_pid) if _pid else None
+                        _p_name = _p_cfg.get('partner_name', _pid) if _p_cfg else _pid
+
                         payment_log = PaymentLogBuilder.build_payment_success_log(
                             oid=p_oid,
                             uuid=uuid,
                             amount=approved_amount,
                             branch_type="리포트생성",
-                            partner_id=order_data.get('partner_id'),
+                            partner_id=_pid,
                             user_name=order_data.get('user_name'),
                             user_phone=(u_info.get('phone') or u_info.get('phone_number', '')) if isinstance(u_info, dict) else '',
-                            hospital_name=order_data.get('partner_id', ''),
+                            hospital_name=_p_name,
                         )
 
                         await structured_logger.log_payment_event(payment_log)
