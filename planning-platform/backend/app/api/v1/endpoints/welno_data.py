@@ -7,11 +7,15 @@ from fastapi.responses import StreamingResponse, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Dict, Any, Optional, List
 from datetime import datetime
+import asyncio
 import httpx
 from ....services.welno_data_service import welno_data_service
 from ....core.security import get_current_user, verify_token
 
 security = HTTPBearer(auto_error=False)  # 토큰이 없어도 에러 발생 안 함 (선택적 인증)
+
+# Python 3.12+ asyncio task GC 방지: 백그라운드 태스크 강한 참조 유지
+_background_tasks: set = set()
 
 router = APIRouter()
 
@@ -378,15 +382,17 @@ async def upload_health_data(
                 from .campaign_payment import update_pipeline_step
                 update_pipeline_step(order['oid'], 'REPORT_WAITING')
 
-                asyncio.create_task(
+                _report_task = asyncio.create_task(
                     generate_mediarc_report_async(
                         patient_uuid=uuid,
                         hospital_id=hospital_id,
                         session_id=None,
-                        partner_id=partner_id,  # ⭐ 파트너 ID 전달 (보안 강화)
+                        partner_id=partner_id,
                         service=welno_data_service
                     )
                 )
+                _background_tasks.add(_report_task)
+                _report_task.add_done_callback(_background_tasks.discard)
         except Exception as campaign_err:
             print(f"⚠️ [데이터업로드] 캠페인 리포트 트리거 실패: {campaign_err}")
 

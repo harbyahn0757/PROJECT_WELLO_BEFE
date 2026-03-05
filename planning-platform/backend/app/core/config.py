@@ -127,7 +127,7 @@ class Settings(BaseSettings):
 
     # Mediarc 질병예측 리포트 설정
     MEDIARC_ENABLED: bool = Field(default=True, env="MEDIARC_ENABLED")
-    MEDIARC_API_URL: str = Field(default="https://xogxog.com/api/external/mediarc/report/", env="MEDIARC_API_URL")
+    MEDIARC_API_URL: str = Field(default="https://partner.kindhabit.com/api/external/mediarc/report/", env="MEDIARC_API_URL")
     MEDIARC_API_KEY: str = Field(default="welno_5a9bb40b5108ecd8ef864658d5a2d5ab", env="MEDIARC_API_KEY")
     
     # WELNO 기본 설정 (동적 조회로 대체 예정)

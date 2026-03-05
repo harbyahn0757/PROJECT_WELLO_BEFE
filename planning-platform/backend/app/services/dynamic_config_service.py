@@ -84,14 +84,14 @@ class DynamicConfigService:
                 if mediarc_config:
                     return {
                         "enabled": mediarc_config.get("enabled", True),
-                        "api_url": mediarc_config.get("api_url", "https://xogxog.com/api/external/mediarc/report/"),
+                        "api_url": mediarc_config.get("api_url", "https://partner.kindhabit.com/api/external/mediarc/report/"),
                         "api_key": mediarc_config.get("api_key", "welno_5a9bb40b5108ecd8ef864658d5a2d5ab")
                     }
             
             # 기본값 반환
             return {
                 "enabled": True,
-                "api_url": "https://xogxog.com/api/external/mediarc/report/",
+                "api_url": "https://partner.kindhabit.com/api/external/mediarc/report/",
                 "api_key": "welno_5a9bb40b5108ecd8ef864658d5a2d5ab"
             }
             

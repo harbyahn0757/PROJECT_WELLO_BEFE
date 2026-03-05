@@ -630,7 +630,7 @@ const MainPage: React.FC = () => {
   // 도메인별 인사말 구분
   const hostname = window.location.hostname;
   const isKindHabitDomain = hostname.includes('kindhabit.com');
-  const isWelnoDomain = hostname === 'xogxog.com' || hostname === 'localhost' || hostname === '127.0.0.1';
+  const isWelnoDomain = hostname === 'welno.kindhabit.com' || hostname === 'localhost' || hostname === '127.0.0.1';
 
   // 카드 순차 깜빡임 효과 (한번만 실행, 아래 4개 카드의 이미지만)
   useEffect(() => {

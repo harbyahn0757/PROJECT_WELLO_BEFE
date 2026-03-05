@@ -10,6 +10,7 @@ import hashlib
 import base64
 import time
 import logging
+import asyncio
 from fastapi import APIRouter, HTTPException, Request, Form, Query, Depends
 from fastapi.responses import StreamingResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -17,6 +18,10 @@ from typing import Optional
 import httpx
 
 security = HTTPBearer(auto_error=False)  # 선택적 인증
+
+# Python 3.12+ asyncio task GC 방지: 백그라운드 태스크 강한 참조 유지
+_background_tasks: set = set()
+
 from fastapi.responses import RedirectResponse, JSONResponse
 from typing import Dict, Any, Optional
 from datetime import datetime
@@ -463,14 +468,15 @@ async def _handle_payment_callback(
                         "gender": u_info.get('gender', 'M')
                     }
                     
-                    import asyncio
                     _reg_task = asyncio.create_task(welno_data_service.save_patient_data(
                         uuid=uuid,
                         hospital_id=settings.welno_default_hospital_id,
                         user_info=user_info_for_reg,
                         session_id=f"CAMPAIGN_{p_oid}"
                     ))
-                    _reg_task.add_done_callback(lambda t: logger.error(f"❌ [Payment] 환자등록 비동기 실패: {t.exception()}") if t.exception() else None)  # HIGH-1 fix
+                    _background_tasks.add(_reg_task)
+                    _reg_task.add_done_callback(_background_tasks.discard)
+                    _reg_task.add_done_callback(lambda t: logger.error(f"❌ [Payment] 환자등록 비동기 실패: {t.exception()}") if t.exception() else None)
                     logger.info(f"✅ [Payment] 데이터 충분 유저 즉시 정식 등록 완료: {uuid}")
                 except Exception as reg_err:
                     logger.error(f"⚠️ [Payment] 정식 등록 실패 (무시): {reg_err}")
@@ -512,9 +518,10 @@ async def _handle_payment_callback(
                     except Exception as e:
                         logger.warning(f"⚠️ [결제성공] 슬랙 알림 실패: {e}")
                 
-                import asyncio
                 _report_task = asyncio.create_task(trigger_report_generation(order_data))
-                _report_task.add_done_callback(lambda t: logger.error(f"❌ [Payment] 리포트생성 비동기 실패: {t.exception()}") if t.exception() else None)  # HIGH-1 fix
+                _background_tasks.add(_report_task)
+                _report_task.add_done_callback(_background_tasks.discard)
+                _report_task.add_done_callback(lambda t: logger.error(f"❌ [Payment] 리포트생성 비동기 실패: {t.exception()}") if t.exception() else None)
                 # 동적 도메인 사용
                 success_url = f'{get_frontend_domain(request)}/campaigns/disease-prediction/?page=result&status=success&oid={p_oid}'
                 logger.info(f"[Payment] 결제 성공 리다이렉트: {success_url}")
@@ -1494,9 +1501,10 @@ async def trigger_generation_directly(request: Request):
             raise HTTPException(status_code=404, detail="주문 정보를 찾을 수 없습니다.")
 
         # 2. 비동기로 리포트 생성 트리거
-        import asyncio
         _gen_task = asyncio.create_task(trigger_report_generation(order_data))
-        _gen_task.add_done_callback(lambda t: logger.error(f"❌ [Direct Generate] 리포트생성 비동기 실패: {t.exception()}") if t.exception() else None)  # HIGH-1 fix
+        _background_tasks.add(_gen_task)
+        _gen_task.add_done_callback(_background_tasks.discard)
+        _gen_task.add_done_callback(lambda t: logger.error(f"❌ [Direct Generate] 리포트생성 비동기 실패: {t.exception()}") if t.exception() else None)
         
         return {"success": True, "message": "리포트 생성이 시작되었습니다.", "oid": order_data['oid']}
         

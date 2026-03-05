@@ -20,6 +20,9 @@ from pydantic import BaseModel
 import asyncio
 from datetime import datetime
 
+# Python 3.12+ asyncio task GC 방지: 백그라운드 태스크 강한 참조 유지
+_background_tasks: set = set()
+
 router = APIRouter()
 
 # WebSocket 라우터는 별도로 등록됨
@@ -1584,19 +1587,20 @@ async def collect_health_data_background_task(session_id: str):
                             from .campaign_payment import update_pipeline_step
                             update_pipeline_step(oid, 'REPORT_WAITING')
 
-                        import asyncio
                         from app.services.mediarc import generate_mediarc_report_async
-                        
+
                         # asyncio.create_task()로 독립 실행 (답변 기다리지 않음)
-                        asyncio.create_task(
+                        _t = asyncio.create_task(
                             generate_mediarc_report_async(
                                 patient_uuid=patient_uuid,
                                 hospital_id=hospital_id,
                                 session_id=session_id,
-                                partner_id=partner_id,  # ⭐ 파트너 ID 전달 (보안 강화)
+                                partner_id=partner_id,
                                 service=welno_service
                             )
                         )
+                        _background_tasks.add(_t)
+                        _t.add_done_callback(_background_tasks.discard)
                         print(f"⏭️ [Mediarc] 답변 대기하지 않고 처방전 조회 진행")
                     else:
                         if not MEDIARC_ENABLED:
@@ -2156,10 +2160,9 @@ async def collect_health_data_background_task(session_id: str):
                                 session_manager._save_session(session_id, final_session_data)
                                 
                                 print(f"🎨 [패러럴] 건강검진 데이터 수집 완료 → 레포트 생성 시작 (처방전 수집과 병렬)")
-                                import asyncio
                                 # ⭐ OID 추출 (캠페인 결제 연동을 위해)
                                 campaign_oid = final_session_data.get("oid")
-                                asyncio.create_task(
+                                _t = asyncio.create_task(
                                     _generate_mediarc_with_notification(
                                         patient_uuid=patient_uuid,
                                         hospital_id=hospital_id,
@@ -2168,6 +2171,8 @@ async def collect_health_data_background_task(session_id: str):
                                         oid=campaign_oid
                                     )
                                 )
+                                _background_tasks.add(_t)
+                                _t.add_done_callback(_background_tasks.discard)
                             else:
                                 print(f"⚠️ [패러럴] 레포트 생성이 이미 시작됨 (중복 방지)")
 
@@ -2311,19 +2316,20 @@ async def collect_health_data_background_task(session_id: str):
                         from app.services.mediarc import generate_mediarc_report_async
                         
                         print(f"🚀 [Tilko → Mediarc] 백그라운드 태스크 등록 (session_id={session_id}, oid={oid})")
-                        
+
                         # asyncio.create_task()로 독립 실행
-                        import asyncio
-                        asyncio.create_task(
+                        _t = asyncio.create_task(
                             generate_mediarc_report_async(
                                 patient_uuid=patient_uuid,
                                 hospital_id=hospital_id,
-                                session_id=session_id,  # ✅ session_id 전달 (WebSocket 알림용)
-                                partner_id=partner_id,  # ⭐ 파트너 ID 전달 (보안 강화)
+                                session_id=session_id,
+                                partner_id=partner_id,
                                 service=welno_service,
-                                oid=oid  # ⭐ OID 전달 (캠페인 결제 연동)
+                                oid=oid
                             )
                         )
+                        _background_tasks.add(_t)
+                        _t.add_done_callback(_background_tasks.discard)
                         
                         print(f"✅ [Tilko → Mediarc] 백그라운드 태스크 등록 완료")
                         print(f"   → WebSocket 알림 예상: ws://.../{session_id}")

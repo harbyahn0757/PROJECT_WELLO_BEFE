@@ -10,7 +10,7 @@
     "model": "pplx-70b-online"
   },
   "api": {
-    "baseUrl": "https://xogxog.com",
+    "baseUrl": "https://welno.kindhabit.com",
     "endpoints": {
       "healthAnalysis": "/welno-api/v1/health-analysis/analyze"
     }

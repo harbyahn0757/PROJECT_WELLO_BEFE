@@ -72,7 +72,7 @@ export const useWebSocketAuth = ({
                   window.location.hostname === 'localhost' || 
                   (window.location.port === '9282' && window.location.hostname === 'localhost') || 
                   (window.location.port === '9283' && window.location.hostname === 'localhost')) &&
-                  window.location.hostname !== 'xogxog.com';
+                  window.location.hostname !== 'welno.kindhabit.com';
     let wsUrl;
     
     if (isDev) {
@@ -84,7 +84,7 @@ export const useWebSocketAuth = ({
     } else {
       // 운영환경: Nginx를 통한 WebSocket 연결 (wss:// 사용)
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host; // xogxog.com
+      const host = window.location.host; // welno.kindhabit.com
       wsUrl = `${protocol}//${host}/api/v1/tilko/ws/${sessionId}`;
       console.log(`🔌 [WebSocket] 연결 시도 (프로덕션): ${wsUrl}`);
     }
