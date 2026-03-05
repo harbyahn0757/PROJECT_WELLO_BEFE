@@ -66,6 +66,10 @@ interface AnalyticsResponse {
   total_sessions_in_page: number;
   page: number;
   page_size: number;
+  // 병원 전용
+  prospect_type_distribution?: DistItem[];
+  medical_urgency_distribution?: DistItem[];
+  medical_tags_top?: InterestItem[];
 }
 
 interface FilterState {
@@ -86,13 +90,19 @@ const RISK_COLORS: Record<string, string> = { high: ERROR, medium: ACCENT_ORANGE
 const VIP_COLORS: Record<string, string> = { red_alert: ERROR, watch: ACCENT_ORANGE, normal: SUCCESS };
 const SIGNAL_COLORS: Record<string, string> = { high: SUCCESS, mid: ACCENT_ORANGE_CALM, low: GRAY_300 };
 
+const PROSPECT_COLORS: Record<string, string> = {
+  borderline_worried: ACCENT_ORANGE, needs_visit: ERROR,
+  lifestyle_improvable: SUCCESS, chronic_management: '#2563eb',
+};
+const URGENCY_COLORS: Record<string, string> = { urgent: ERROR, borderline: ACCENT_ORANGE, normal: SUCCESS };
 const RISK_OPTIONS = ['high', 'medium', 'low'];
 const SENTIMENT_OPTIONS = ['positive', 'negative', 'neutral', 'worried', 'grateful'];
 const SIGNAL_OPTIONS = ['high', 'mid', 'low'];
 const VIP_OPTIONS = ['red_alert', 'watch', 'normal'];
 
 const AnalyticsPage: React.FC = () => {
-  useAuth();
+  const { partnerType } = useAuth();
+  const isHospital = partnerType === 'hospital';
   const [searchParams, setSearchParams] = useSearchParams();
 
   // ── State ──
@@ -301,10 +311,21 @@ const AnalyticsPage: React.FC = () => {
             {renderDonut(data.intent_distribution, {}, '행동 의향 분포')}
             {renderDonut(data.engagement_distribution, {}, '참여도 분포')}
 
-            {renderDonut(data.buying_signal_distribution, SIGNAL_COLORS, '구매 신호 분포')}
-            {renderDonut(data.vip_risk_distribution, VIP_COLORS, 'VIP 위험 분포')}
-            {renderBar(data.commercial_categories, '상업 카테고리 TOP', 'count', 'category')}
-            {renderBar(data.pain_points, 'Pain Points', 'count', 'area')}
+            {isHospital ? (
+              <>
+                {renderDonut(data.prospect_type_distribution || [], PROSPECT_COLORS, '병원 4분류 분포')}
+                {renderDonut(data.medical_urgency_distribution || [], URGENCY_COLORS, '의료 긴급도 분포')}
+                {renderBar(data.medical_tags_top || [], '의료 관심 태그 TOP', 'count', 'topic')}
+                {renderBar(data.pain_points, 'Pain Points', 'count', 'area')}
+              </>
+            ) : (
+              <>
+                {renderDonut(data.buying_signal_distribution, SIGNAL_COLORS, '구매 신호 분포')}
+                {renderDonut(data.vip_risk_distribution, VIP_COLORS, 'VIP 위험 분포')}
+                {renderBar(data.commercial_categories, '상업 카테고리 TOP', 'count', 'category')}
+                {renderBar(data.pain_points, 'Pain Points', 'count', 'area')}
+              </>
+            )}
           </div>
 
           {/* ── Daily Trend ── */}

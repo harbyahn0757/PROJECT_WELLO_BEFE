@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-import { getApiBase } from '../utils/api';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { getApiBase, fetchWithAuth } from '../utils/api';
+
+export type PartnerType = 'hospital' | 'hospital' | 'commerce';
 
 interface UserInfo {
   username: string;
@@ -10,6 +12,7 @@ interface UserInfo {
 interface AuthContextType {
   token: string | null;
   user: UserInfo | null;
+  partnerType: PartnerType;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
@@ -18,7 +21,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const API = getApiBase();
   const [token, setToken] = useState<string | null>(() => sessionStorage.getItem('po_token'));
+  const [partnerType, setPartnerType] = useState<PartnerType>(
+    () => (sessionStorage.getItem('po_partner_type') as PartnerType) || 'hospital'
+  );
   const [user, setUser] = useState<UserInfo | null>(() => {
     try {
       const raw = sessionStorage.getItem('po_user');
@@ -52,18 +59,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sessionStorage.setItem('po_user', JSON.stringify(u));
     setToken(data.access_token);
     setUser(u);
-  }, []);
+    // partner_type 조회
+    try {
+      const ptResp = await fetch(`${API}/partner-office/partner-type`, {
+        headers: { Authorization: `Bearer ${data.access_token}` },
+      });
+      if (ptResp.ok) {
+        const ptData = await ptResp.json();
+        const pt = ptData.partner_type || 'hospital';
+        sessionStorage.setItem('po_partner_type', pt);
+        setPartnerType(pt);
+      }
+    } catch { /* partner_type 조회 실패 시 기본값 유지 */ }
+  }, [API]);
 
   const logout = useCallback(() => {
     sessionStorage.removeItem('po_token');
     sessionStorage.removeItem('po_user');
+    sessionStorage.removeItem('po_partner_type');
     setToken(null);
     setUser(null);
+    setPartnerType('hospital');
     window.location.href = '/backoffice/login';
   }, []);
 
+  // 이미 로그인된 상태에서 partner_type이 없으면 조회
+  useEffect(() => {
+    if (token && !sessionStorage.getItem('po_partner_type')) {
+      fetchWithAuth(`${API}/partner-office/partner-type`)
+        .then(r => r.json())
+        .then(d => {
+          const pt = d.partner_type || 'hospital';
+          sessionStorage.setItem('po_partner_type', pt);
+          setPartnerType(pt);
+        })
+        .catch(() => {});
+    }
+  }, [token, API]);
+
   return (
-    <AuthContext.Provider value={{ token, user, login, logout, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ token, user, partnerType, login, logout, isAuthenticated: !!token }}>
       {children}
     </AuthContext.Provider>
   );

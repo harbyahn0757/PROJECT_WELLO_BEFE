@@ -2,6 +2,29 @@
 파트너 관련 상수 정의
 """
 
+# ─── 파트너 유형 분류 ────────────────────────────────────────
+class PartnerTypes:
+    """파트너 유형 상수"""
+    HOSPITAL = "hospital"       # 병원 (medilinx)
+    HEALTHCARE = "healthcare"   # 헬스케어 (welno, welno_internal)
+    COMMERCE = "commerce"       # 커머스 (kindhabit, test_partner)
+
+# 파트너 ID → 유형 매핑
+PARTNER_TYPE_MAP = {
+    "medilinx": PartnerTypes.HOSPITAL,
+    "welno": PartnerTypes.HEALTHCARE,
+    "welno_internal": PartnerTypes.HEALTHCARE,
+    "kindhabit": PartnerTypes.COMMERCE,
+    "test_partner": PartnerTypes.COMMERCE,
+}
+
+# ─── 병원 가망고객 4분류 ──────────────────────────────────────
+class ProspectTypes:
+    CHRONIC_MANAGEMENT = "chronic_management"      # 만성질환 지속 관리
+    NEEDS_VISIT = "needs_visit"                    # 실제 진료 필요
+    BORDERLINE_WORRIED = "borderline_worried"      # 경계+걱정 (핵심 전환 대상)
+    LIFESTYLE_IMPROVABLE = "lifestyle_improvable"  # 생활습관 개선 가능
+
 # 파트너 ID 상수
 class PartnerIDs:
     """파트너 ID 상수 클래스"""

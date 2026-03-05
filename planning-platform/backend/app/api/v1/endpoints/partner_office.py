@@ -18,7 +18,7 @@ from ....core.config import settings
 from ....core.database import db_manager
 from ....utils.query_builders import build_filter
 from ....utils.survey_queries import survey_union_daily, survey_union_count_today, survey_union_by_respondent, survey_union_detail_for_user
-from ....utils.partner_config import get_partner_config_by_api_key
+from ....utils.partner_config import get_partner_config_by_api_key, get_partner_type
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/partner-office", tags=["partner-office"])
@@ -1138,6 +1138,37 @@ async def analytics(
     )
     key_concerns = [r["concern"] for r in key_concerns_rows]
 
+    # 11b) prospect_type distribution (병원 전용)
+    prospect_dist = await db_manager.execute_query(
+        f"""SELECT v.prospect_type AS name, COUNT(*) AS value
+            FROM welno.v_analysis_cross v
+            WHERE {where} AND v.prospect_type IS NOT NULL
+            GROUP BY v.prospect_type""",
+        params,
+    )
+
+    # 11c) medical_urgency distribution (병원 전용)
+    urgency_dist = await db_manager.execute_query(
+        f"""SELECT v.medical_urgency AS name, COUNT(*) AS value
+            FROM welno.v_analysis_cross v
+            WHERE {where} AND v.medical_urgency IS NOT NULL
+            GROUP BY v.medical_urgency""",
+        params,
+    )
+
+    # 11d) medical_tags top (병원 전용)
+    medical_tags_top = await db_manager.execute_query(
+        f"""SELECT elem::text AS topic, COUNT(*) AS count
+            FROM welno.v_analysis_cross v,
+                 jsonb_array_elements_text(v.medical_tags) AS elem
+            WHERE {where} AND v.medical_tags IS NOT NULL
+                AND jsonb_array_length(v.medical_tags) > 0
+            GROUP BY elem::text
+            ORDER BY count DESC
+            LIMIT 15""",
+        params,
+    )
+
     # 12) daily_trend (pivot by risk_level)
     daily_trend = await db_manager.execute_query(
         f"""SELECT v.chat_date::date AS date,
@@ -1237,6 +1268,10 @@ async def analytics(
         "total_sessions_in_page": total_sessions_in_page,
         "page": req.page,
         "page_size": req.page_size,
+        # 병원 전용 분포 (데이터 없으면 빈 배열)
+        "prospect_type_distribution": prospect_dist,
+        "medical_urgency_distribution": urgency_dist,
+        "medical_tags_top": medical_tags_top,
     }
 
 
@@ -1271,7 +1306,7 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
         params,
     )
 
-    # 후보 목록
+    # 후보 목록 (병원: hospital_prospect_score 정렬, 그 외: engagement_score)
     rows = await db_manager.execute_query(
         f"""SELECT
                 t.session_id,
@@ -1286,12 +1321,24 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
                 t.engagement_score,
                 t.buying_signal,
                 t.key_concerns,
+                t.medical_tags,
+                t.lifestyle_tags,
+                t.medical_urgency,
+                t.anxiety_level,
+                t.prospect_type,
+                t.hospital_prospect_score,
                 c.created_at AS last_chat_date,
-                EXTRACT(DAY FROM NOW() - c.created_at)::int AS days_since_chat
+                EXTRACT(DAY FROM NOW() - c.created_at)::int AS days_since_chat,
+                COALESCE(pc.config->>'partner_type', 'healthcare') AS partner_type
             FROM welno.tb_chat_session_tags t
             JOIN welno.tb_partner_rag_chat_log c ON c.session_id = t.session_id
+            LEFT JOIN welno.tb_partner_config pc
+                ON pc.partner_id = c.partner_id AND pc.is_active = true
             WHERE {where}
-            ORDER BY t.engagement_score DESC NULLS LAST
+            ORDER BY
+                CASE WHEN COALESCE(pc.config->>'partner_type', 'healthcare') = 'hospital'
+                     THEN t.hospital_prospect_score ELSE t.engagement_score END
+                DESC NULLS LAST
             LIMIT %s""",
         params + [req.limit],
     )
@@ -1328,6 +1375,19 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
                 msgs = _json.loads(msgs)
             except Exception:
                 msgs = {}
+        # 병원 전용 JSONB 파싱
+        mt = r.get("medical_tags") or []
+        if isinstance(mt, str):
+            try:
+                mt = _json.loads(mt)
+            except Exception:
+                mt = []
+        lt = r.get("lifestyle_tags") or []
+        if isinstance(lt, str):
+            try:
+                lt = _json.loads(lt)
+            except Exception:
+                lt = []
         candidates.append({
             "session_id": r["session_id"],
             "patient_name": ci.get("patient_name") or ci.get("name", ""),
@@ -1344,6 +1404,14 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
             "buying_signal": r.get("buying_signal"),
             "days_since_chat": r.get("days_since_chat", 0),
             "last_chat_date": str(r["last_chat_date"])[:10] if r.get("last_chat_date") else None,
+            # 병원 전용 필드
+            "medical_tags": mt,
+            "lifestyle_tags": lt,
+            "medical_urgency": r.get("medical_urgency"),
+            "anxiety_level": r.get("anxiety_level"),
+            "prospect_type": r.get("prospect_type"),
+            "hospital_prospect_score": r.get("hospital_prospect_score"),
+            "partner_type": r.get("partner_type", "healthcare"),
         })
 
     return {
@@ -1474,3 +1542,16 @@ async def backoffice_counts(
     except Exception as e:
         logger.warning(f"backoffice-counts 조회 실패: {e}")
         return {"embedding": 0, "survey": 0, "revisit": 0}
+
+
+# ─── Partner Type 조회 ─────────────────────────────────────
+@router.get("/partner-type")
+async def get_partner_type_endpoint(
+    user: dict = Depends(get_current_user),
+):
+    """현재 로그인한 사용자의 파트너 유형 반환 (hospital/healthcare/commerce)"""
+    partner_id = user.get("partner_id")
+    if not partner_id:
+        return {"partner_type": "healthcare"}
+    pt = get_partner_type(partner_id)
+    return {"partner_type": pt, "partner_id": partner_id}

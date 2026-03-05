@@ -366,6 +366,24 @@ async def llm_analyze_session(
   "buying_signal": "high|mid|low"
 }}"""
 
+        # ── 병원 전용 추가 분석 (모든 세션에 항상 포함) ──
+        prompt += """
+
+[병원 파트너 전용 — 반드시 추가 분석]
+위 JSON에 아래 6개 필드를 추가하세요:
+- medical_tags: interest_tags 중 의료 관련만 분리 (혈압/당뇨/간/콜레스테롤/신장/암/갑상선/심장/빈혈/위장/폐 등)
+- lifestyle_tags: interest_tags 중 생활습관 관련만 분리 (다이어트/운동/식단/영양제/수면/음주/흡연 등)
+- medical_urgency: 검진 이상소견+대화 종합 판단.
+  "urgent": 위험수준 수치+증상 언급, "borderline": 경계 수치, "normal": 정상 범위
+- anxiety_level: 환자 불안 수준.
+  "high": 걱정/불안 직접 표현 반복, "medium": 은근한 걱정, "low": 담담
+- prospect_type: 병원 전환 4분류 (우선순위: needs_visit > borderline_worried > lifestyle_improvable > chronic_management)
+  "needs_visit": 위험수준+증상 → 실제 진료 필요
+  "borderline_worried": 경계수치+불안 → 핵심 전환 대상
+  "lifestyle_improvable": 경계수치+식이/운동 관련 대화
+  "chronic_management": 만성질환 관련 지속 관리 대화
+- hospital_prospect_score: 0-100 병원 전환 가망 점수 (urgency+anxiety+engagement 종합)"""
+
         response = await client.aio.models.generate_content(
             model=settings.google_gemini_lite_model,
             contents=prompt,
@@ -476,6 +494,28 @@ async def llm_analyze_session(
         valid_signals = {"high", "mid", "low"}
         if result.get("buying_signal") not in valid_signals:
             result["buying_signal"] = "low"
+
+        # ── 병원 전용 필드 검증 (모든 세션에 항상 적용) ──
+        raw_med = result.get("medical_tags", [])
+        result["medical_tags"] = [str(t) for t in raw_med[:15]] if isinstance(raw_med, list) else []
+
+        raw_life = result.get("lifestyle_tags", [])
+        result["lifestyle_tags"] = [str(t) for t in raw_life[:10]] if isinstance(raw_life, list) else []
+
+        valid_urgency = {"urgent", "borderline", "normal"}
+        if result.get("medical_urgency") not in valid_urgency:
+            result["medical_urgency"] = "normal"
+
+        valid_anxiety = {"high", "medium", "low"}
+        if result.get("anxiety_level") not in valid_anxiety:
+            result["anxiety_level"] = "low"
+
+        valid_prospects = {"chronic_management", "needs_visit", "borderline_worried", "lifestyle_improvable"}
+        if result.get("prospect_type") not in valid_prospects:
+            result["prospect_type"] = "chronic_management"
+
+        hp_score = result.get("hospital_prospect_score", 0)
+        result["hospital_prospect_score"] = max(0, min(100, int(hp_score) if isinstance(hp_score, (int, float)) else 0))
 
         logger.info(f"[태깅-LLM] 분석 완료: sentiment={result['sentiment']}, "
                      f"tags={len(result['interest_tags'])}, risk={result['risk_level']}")
@@ -713,6 +753,13 @@ async def tag_chat_session(
             SIGNAL_ORDER = {"low": 0, "mid": 1, "high": 2}
             if SIGNAL_ORDER.get(rule_signal, 0) > SIGNAL_ORDER.get(buying_signal, 0):
                 buying_signal = rule_signal
+            # 병원 전용 필드 (LLM이 반환한 경우에만)
+            medical_tags = llm_result.get("medical_tags")
+            lifestyle_tags_val = llm_result.get("lifestyle_tags")
+            medical_urgency = llm_result.get("medical_urgency")
+            anxiety_level = llm_result.get("anxiety_level")
+            prospect_type = llm_result.get("prospect_type")
+            hospital_prospect_score = llm_result.get("hospital_prospect_score")
         else:
             # LLM 실패 — 규칙 기반 폴백
             raw_interest = extract_interest_tags(messages)
@@ -728,6 +775,13 @@ async def tag_chat_session(
             nutrition_tags = extract_nutrition_tags(messages)
             commercial_tags = extract_commercial_tags(interest_tags)
             buying_signal = extract_buying_signal(messages)
+            # 병원 전용 필드 — LLM 폴백 시 None
+            medical_tags = None
+            lifestyle_tags_val = None
+            medical_urgency = None
+            anxiety_level = None
+            prospect_type = None
+            hospital_prospect_score = None
 
         tag_data = {
             "session_id": session_id,
@@ -754,6 +808,13 @@ async def tag_chat_session(
             "commercial_tags": commercial_tags,
             "buying_signal": buying_signal,
             "conversion_flag": False,
+            # 병원 전용 6개 필드
+            "medical_tags": medical_tags,
+            "lifestyle_tags": lifestyle_tags_val,
+            "medical_urgency": medical_urgency,
+            "anxiety_level": anxiety_level,
+            "prospect_type": prospect_type,
+            "hospital_prospect_score": hospital_prospect_score,
         }
 
         # 재방문 추천 메시지 3종 생성 (follow_up_needed=true일 때)
@@ -770,8 +831,12 @@ async def tag_chat_session(
              conversation_depth, engagement_score, action_intent, nutrition_tags,
              llm_attempted, llm_failed, llm_error,
              commercial_tags, buying_signal, conversion_flag,
-             suggested_revisit_messages)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 2, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+             suggested_revisit_messages,
+             medical_tags, lifestyle_tags, medical_urgency,
+             anxiety_level, prospect_type, hospital_prospect_score)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 2,
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s, %s)
             ON CONFLICT (session_id, partner_id) DO UPDATE SET
                 interest_tags = EXCLUDED.interest_tags,
                 risk_tags = EXCLUDED.risk_tags,
@@ -797,6 +862,12 @@ async def tag_chat_session(
                 buying_signal = EXCLUDED.buying_signal,
                 conversion_flag = EXCLUDED.conversion_flag,
                 suggested_revisit_messages = EXCLUDED.suggested_revisit_messages,
+                medical_tags = EXCLUDED.medical_tags,
+                lifestyle_tags = EXCLUDED.lifestyle_tags,
+                medical_urgency = EXCLUDED.medical_urgency,
+                anxiety_level = EXCLUDED.anxiety_level,
+                prospect_type = EXCLUDED.prospect_type,
+                hospital_prospect_score = EXCLUDED.hospital_prospect_score,
                 updated_at = NOW()
         """
         await db_manager.execute_update(upsert_query, (
@@ -825,6 +896,12 @@ async def tag_chat_session(
             buying_signal,
             False,  # conversion_flag
             json.dumps(revisit_msgs, ensure_ascii=False) if revisit_msgs else None,
+            json.dumps(medical_tags, ensure_ascii=False) if medical_tags else None,
+            json.dumps(lifestyle_tags_val, ensure_ascii=False) if lifestyle_tags_val else None,
+            medical_urgency,
+            anxiety_level,
+            prospect_type,
+            hospital_prospect_score,
         ))
 
         logger.info(f"[태깅] 세션 태깅 완료: {session_id} - "

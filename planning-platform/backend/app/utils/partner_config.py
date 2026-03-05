@@ -75,6 +75,24 @@ def get_partner_config(partner_id: str, conn=None) -> Optional[Dict[str, Any]]:
         return None
 
 
+def get_partner_type(partner_id: str, conn=None) -> str:
+    """
+    파트너 유형 조회 (hospital / healthcare / commerce).
+    DB config에 partner_type이 있으면 사용, 없으면 코드 매핑으로 폴백.
+    """
+    from .partner_constants import PARTNER_TYPE_MAP, PartnerTypes
+
+    # DB 조회 시도
+    config = get_partner_config(partner_id, conn)
+    if config:
+        pt = config.get("config", {}).get("partner_type")
+        if pt:
+            return pt
+
+    # 코드 매핑 폴백
+    return PARTNER_TYPE_MAP.get(partner_id, PartnerTypes.HEALTHCARE)
+
+
 def get_partner_config_by_api_key(api_key: str, conn=None) -> Optional[Dict[str, Any]]:
     """
     API Key로 파트너 설정 조회

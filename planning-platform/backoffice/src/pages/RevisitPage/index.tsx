@@ -32,6 +32,14 @@ interface Candidate {
   buying_signal: string;
   days_since_chat: number;
   last_chat_date: string | null;
+  // 병원 전용
+  medical_tags?: string[];
+  lifestyle_tags?: string[];
+  medical_urgency?: string;
+  anxiety_level?: string;
+  prospect_type?: string;
+  hospital_prospect_score?: number;
+  partner_type?: string;
 }
 
 const RISK_COLORS: Record<string, string> = { high: '#dc2626', medium: '#d97706', low: '#059669' };
@@ -39,6 +47,17 @@ const RISK_LABELS: Record<string, string> = { high: '고위험', medium: '중위
 const INTENT_LABELS: Record<string, string> = { active: '적극적', considering: '고려중', passive: '소극적' };
 const MSG_LABELS: Record<string, string> = { care_message: '케어', action_message: '행동유도', info_message: '정보제공' };
 const MSG_ICONS: Record<string, string> = { care_message: '💛', action_message: '🎯', info_message: '📋' };
+
+// 병원 전용: prospect_type 배지
+const PROSPECT_COLORS: Record<string, string> = {
+  borderline_worried: '#d97706', needs_visit: '#dc2626',
+  lifestyle_improvable: '#059669', chronic_management: '#2563eb',
+};
+const PROSPECT_LABELS: Record<string, string> = {
+  borderline_worried: '경계+걱정', needs_visit: '진료필요',
+  lifestyle_improvable: '생활습관개선', chronic_management: '만성관리',
+};
+const URGENCY_LABELS: Record<string, string> = { urgent: '긴급', borderline: '경계', normal: '정상' };
 
 /** 경과일 기반 색상 */
 const daysColor = (d: number) => d <= 3 ? '#059669' : d <= 7 ? '#d97706' : '#dc2626';
@@ -59,6 +78,7 @@ const RevisitPage: React.FC = () => {
   const [daysFilter, setDaysFilter] = useState('');
   const [search, setSearch] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
+  const [prospectFilter, setProspectFilter] = useState('');
 
   const hospitalId = embedParams.hospitalId || '';
 
@@ -82,6 +102,7 @@ const RevisitPage: React.FC = () => {
 
   useEffect(() => { fetchCandidates(); }, [fetchCandidates]);
 
+  const isHospitalMode = useMemo(() => candidates.some(c => c.partner_type === 'hospital'), [candidates]);
   const weeklyNew = useMemo(() => candidates.filter(c => c.days_since_chat <= 7).length, [candidates]);
 
   const filtered = useMemo(() => {
@@ -92,6 +113,7 @@ const RevisitPage: React.FC = () => {
     else if (daysFilter === '7') list = list.filter(c => c.days_since_chat <= 7);
     else if (daysFilter === '14') list = list.filter(c => c.days_since_chat <= 14);
     else if (daysFilter === '14+') list = list.filter(c => c.days_since_chat > 14);
+    if (prospectFilter) list = list.filter(c => c.prospect_type === prospectFilter);
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(c =>
@@ -101,7 +123,7 @@ const RevisitPage: React.FC = () => {
       );
     }
     return list;
-  }, [candidates, riskFilter, intentFilter, daysFilter, search]);
+  }, [candidates, riskFilter, intentFilter, daysFilter, prospectFilter, search]);
 
   const selected = useMemo(() => filtered.find(c => c.session_id === selectedId), [filtered, selectedId]);
 
@@ -179,6 +201,15 @@ const RevisitPage: React.FC = () => {
           <option value="14">2주 이내</option>
           <option value="14+">14일 초과</option>
         </select>
+        {isHospitalMode && (
+          <select value={prospectFilter} onChange={e => setProspectFilter(e.target.value)}>
+            <option value="">분류 전체</option>
+            <option value="needs_visit">진료필요</option>
+            <option value="borderline_worried">경계+걱정</option>
+            <option value="lifestyle_improvable">생활습관개선</option>
+            <option value="chronic_management">만성관리</option>
+          </select>
+        )}
         <input
           className="revisit-page__search"
           placeholder="환자명·관심사 검색"
@@ -197,8 +228,9 @@ const RevisitPage: React.FC = () => {
                 <th>병원명</th>
                 <th>관심사</th>
                 <th>위험도</th>
+                {isHospitalMode && <th>분류</th>}
                 <th>경과일</th>
-                <th>참여도</th>
+                {isHospitalMode ? <th>가망점수</th> : <th>참여도</th>}
               </tr>
             </thead>
             <tbody>
@@ -211,27 +243,37 @@ const RevisitPage: React.FC = () => {
                   <td>{c.patient_name || '-'}</td>
                   <td>{c.hospital_name || '-'}</td>
                   <td>
-                    {c.interest_tags.slice(0, 3).map((t, i) => (
-                      <span key={i} className={`revisit-page__tag revisit-page__tag--${t.intensity}`}>
-                        {t.topic}
-                      </span>
-                    ))}
+                    {(isHospitalMode && c.medical_tags?.length ? c.medical_tags : c.interest_tags.map(t => t.topic))
+                      .slice(0, 3).map((t, i) => (
+                        <span key={i} className={`revisit-page__tag revisit-page__tag--${isHospitalMode ? 'high' : (c.interest_tags[i]?.intensity || 'medium')}`}>
+                          {typeof t === 'string' ? t : (t as any).topic}
+                        </span>
+                      ))}
                   </td>
                   <td>
-                    <span className="revisit-page__badge" style={{ background: RISK_COLORS[c.risk_level] }}>
-                      {RISK_LABELS[c.risk_level] || c.risk_level}
+                    <span className="revisit-page__badge" style={{ background: isHospitalMode ? (PROSPECT_COLORS[c.medical_urgency || ''] || RISK_COLORS[c.risk_level]) : RISK_COLORS[c.risk_level] }}>
+                      {isHospitalMode ? (URGENCY_LABELS[c.medical_urgency || ''] || RISK_LABELS[c.risk_level]) : (RISK_LABELS[c.risk_level] || c.risk_level)}
                     </span>
                   </td>
+                  {isHospitalMode && (
+                    <td>
+                      {c.prospect_type && (
+                        <span className="revisit-page__badge" style={{ background: PROSPECT_COLORS[c.prospect_type] || '#6b7280' }}>
+                          {PROSPECT_LABELS[c.prospect_type] || c.prospect_type}
+                        </span>
+                      )}
+                    </td>
+                  )}
                   <td>
                     <span style={{ color: daysColor(c.days_since_chat), fontWeight: 600 }}>
                       {c.days_since_chat}일
                     </span>
                   </td>
-                  <td>{c.engagement_score}점</td>
+                  <td>{isHospitalMode ? `${c.hospital_prospect_score ?? '-'}점` : `${c.engagement_score}점`}</td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={6} className="revisit-page__empty">재방문 후보가 없습니다.</td></tr>
+                <tr><td colSpan={isHospitalMode ? 7 : 6} className="revisit-page__empty">재방문 후보가 없습니다.</td></tr>
               )}
             </tbody>
           </table>
@@ -249,6 +291,42 @@ const RevisitPage: React.FC = () => {
                 {daysLabel(selected.days_since_chat)}
               </span>
             </div>
+
+            {/* 병원 전용: 분류 + 의료태그 */}
+            {isHospitalMode && selected.prospect_type && (
+              <div className="revisit-page__section">
+                <h4>병원 가망 분석</h4>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                  <span className="revisit-page__badge" style={{ background: PROSPECT_COLORS[selected.prospect_type] }}>
+                    {PROSPECT_LABELS[selected.prospect_type]}
+                  </span>
+                  {selected.medical_urgency && (
+                    <span className="revisit-page__badge" style={{ background: selected.medical_urgency === 'urgent' ? '#dc2626' : selected.medical_urgency === 'borderline' ? '#d97706' : '#059669' }}>
+                      {URGENCY_LABELS[selected.medical_urgency]}
+                    </span>
+                  )}
+                  {selected.hospital_prospect_score != null && (
+                    <span style={{ fontWeight: 600 }}>가망점수 {selected.hospital_prospect_score}점</span>
+                  )}
+                </div>
+                {selected.medical_tags && selected.medical_tags.length > 0 && (
+                  <div>
+                    <strong>의료 관심:</strong>{' '}
+                    {selected.medical_tags.map((t, i) => (
+                      <span key={i} className="revisit-page__tag revisit-page__tag--high">{t}</span>
+                    ))}
+                  </div>
+                )}
+                {selected.lifestyle_tags && selected.lifestyle_tags.length > 0 && (
+                  <div style={{ marginTop: 4 }}>
+                    <strong>생활습관:</strong>{' '}
+                    {selected.lifestyle_tags.map((t, i) => (
+                      <span key={i} className="revisit-page__tag revisit-page__tag--low">{t}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 대화 요약 */}
             {selected.conversation_summary && (
