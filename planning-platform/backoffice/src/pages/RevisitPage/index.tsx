@@ -19,6 +19,7 @@ interface MessageVariants {
 interface Candidate {
   session_id: string;
   patient_name: string;
+  hospital_name: string;
   interest_tags: Array<{ topic: string; intensity: string }>;
   risk_level: string;
   action_intent: string;
@@ -95,6 +96,7 @@ const RevisitPage: React.FC = () => {
       const q = search.toLowerCase();
       list = list.filter(c =>
         c.patient_name.toLowerCase().includes(q) ||
+        c.hospital_name.toLowerCase().includes(q) ||
         c.interest_tags.some(t => t.topic.toLowerCase().includes(q))
       );
     }
@@ -112,6 +114,7 @@ const RevisitPage: React.FC = () => {
   const handleExcel = () => {
     const data = filtered.map(c => ({
       '환자명': c.patient_name || '-',
+      '병원명': c.hospital_name || '-',
       '관심사': c.interest_tags.map(t => t.topic).join(', '),
       '위험도': RISK_LABELS[c.risk_level] || c.risk_level,
       '경과일': c.days_since_chat,
@@ -191,6 +194,7 @@ const RevisitPage: React.FC = () => {
             <thead>
               <tr>
                 <th>환자명</th>
+                <th>병원명</th>
                 <th>관심사</th>
                 <th>위험도</th>
                 <th>경과일</th>
@@ -205,6 +209,7 @@ const RevisitPage: React.FC = () => {
                   onClick={() => setSelectedId(c.session_id)}
                 >
                   <td>{c.patient_name || '-'}</td>
+                  <td>{c.hospital_name || '-'}</td>
                   <td>
                     {c.interest_tags.slice(0, 3).map((t, i) => (
                       <span key={i} className={`revisit-page__tag revisit-page__tag--${t.intensity}`}>
@@ -226,7 +231,7 @@ const RevisitPage: React.FC = () => {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={5} className="revisit-page__empty">재방문 후보가 없습니다.</td></tr>
+                <tr><td colSpan={6} className="revisit-page__empty">재방문 후보가 없습니다.</td></tr>
               )}
             </tbody>
           </table>

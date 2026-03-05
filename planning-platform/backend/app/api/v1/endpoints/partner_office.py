@@ -1329,7 +1329,8 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
                 msgs = {}
         candidates.append({
             "session_id": r["session_id"],
-            "patient_name": ci.get("name", ""),
+            "patient_name": ci.get("patient_name") or ci.get("name", ""),
+            "hospital_name": ci.get("hospital_name", ""),
             "interest_tags": it,
             "risk_level": r.get("risk_level"),
             "action_intent": r.get("action_intent"),
