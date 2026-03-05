@@ -191,109 +191,108 @@ const PartnerOfficeLayout: React.FC = () => {
 
   return (
     <div className={`po-layout${isEmbed ? ' po-layout--embed' : ''}`}>
-      {/* Backdrop (모바일/태블릿 drawer용) */}
-      <div
-        className={`po-layout__backdrop${sidebarOpen ? ' is-open' : ''}`}
-        onClick={() => setSidebarOpen(false)}
-      />
-
-      <aside className={`po-layout__sidebar${sidebarOpen ? ' is-open' : ''}`}>
-        <div className="po-layout__sidebar-head">
-          <img
-            src={`${process.env.PUBLIC_URL}/welno_logo.png`}
-            alt="Welno"
-            className="po-layout__logo-img"
+      {/* 로그인 모드: 사이드바 + 헤더 표시 */}
+      {!isEmbed && (
+        <>
+          <div
+            className={`po-layout__backdrop${sidebarOpen ? ' is-open' : ''}`}
+            onClick={() => setSidebarOpen(false)}
           />
-        </div>
 
-        {/* 병원 선택 드롭다운 */}
-        {!isEmbed && (
-          <div className="po-layout__hosp-select" ref={dropdownRef}>
-            <button
-              className="po-layout__hosp-btn"
-              onClick={() => setHospOpen(!hospOpen)}
-            >
-              <span className="po-layout__hosp-label">
-                {selectedHospName || '전체 병원'}
-              </span>
-              <span className="po-layout__hosp-arrow">{hospOpen ? '▲' : '▼'}</span>
-            </button>
-            {hospOpen && (
-              <div className="po-layout__hosp-dropdown">
-                <input
-                  className="po-layout__hosp-input"
-                  type="text"
-                  placeholder="병원명 검색..."
-                  value={hospFilter}
-                  onChange={e => setHospFilter(e.target.value)}
-                  autoFocus
-                />
-                <div className="po-layout__hosp-list">
-                  <div
-                    className={`po-layout__hosp-item${!selectedHospId ? ' po-layout__hosp-item--active' : ''}`}
-                    onClick={() => selectHospital('')}
-                  >전체 병원</div>
-                  {filteredHospitals.map(h => (
+          <aside className={`po-layout__sidebar${sidebarOpen ? ' is-open' : ''}`}>
+            <div className="po-layout__sidebar-head">
+              <img
+                src={`${process.env.PUBLIC_URL}/welno_logo.png`}
+                alt="Welno"
+                className="po-layout__logo-img"
+              />
+            </div>
+
+            <div className="po-layout__hosp-select" ref={dropdownRef}>
+              <button
+                className="po-layout__hosp-btn"
+                onClick={() => setHospOpen(!hospOpen)}
+              >
+                <span className="po-layout__hosp-label">
+                  {selectedHospName || '전체 병원'}
+                </span>
+                <span className="po-layout__hosp-arrow">{hospOpen ? '▲' : '▼'}</span>
+              </button>
+              {hospOpen && (
+                <div className="po-layout__hosp-dropdown">
+                  <input
+                    className="po-layout__hosp-input"
+                    type="text"
+                    placeholder="병원명 검색..."
+                    value={hospFilter}
+                    onChange={e => setHospFilter(e.target.value)}
+                    autoFocus
+                  />
+                  <div className="po-layout__hosp-list">
                     <div
-                      key={h.hospital_id}
-                      className={`po-layout__hosp-item${selectedHospId === h.hospital_id ? ' po-layout__hosp-item--active' : ''}`}
-                      onClick={() => selectHospital(h.hospital_id)}
-                    >{h.hospital_name}</div>
-                  ))}
+                      className={`po-layout__hosp-item${!selectedHospId ? ' po-layout__hosp-item--active' : ''}`}
+                      onClick={() => selectHospital('')}
+                    >전체 병원</div>
+                    {filteredHospitals.map(h => (
+                      <div
+                        key={h.hospital_id}
+                        className={`po-layout__hosp-item${selectedHospId === h.hospital_id ? ' po-layout__hosp-item--active' : ''}`}
+                        onClick={() => selectHospital(h.hospital_id)}
+                      >{h.hospital_name}</div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </div>
 
-        <nav className="po-layout__nav">
-          {visibleNav.map(item => (
-            <NavLink
-              key={item.key}
-              to={navTo(item.path)}
-              className={({ isActive }) =>
-                `po-layout__nav-item${isActive ? ' po-layout__nav-item--active' : ''}`
-              }
-            >
-              {item.label}
-              {item.key === 'embedding' && summaryCounts.new_chats > 0 && (
-                <span className="po-layout__nav-badge">{summaryCounts.new_chats}</span>
-              )}
-              {item.key === 'survey' && summaryCounts.new_surveys > 0 && (
-                <span className="po-layout__nav-badge">{summaryCounts.new_surveys}</span>
-              )}
-              {item.key === 'revisit' && summaryCounts.new_revisit > 0 && (
-                <span className="po-layout__nav-badge">{summaryCounts.new_revisit}</span>
-              )}
-            </NavLink>
-          ))}
-        </nav>
+            <nav className="po-layout__nav">
+              {visibleNav.map(item => (
+                <NavLink
+                  key={item.key}
+                  to={navTo(item.path)}
+                  className={({ isActive }) =>
+                    `po-layout__nav-item${isActive ? ' po-layout__nav-item--active' : ''}`
+                  }
+                >
+                  {item.label}
+                  {item.key === 'embedding' && summaryCounts.new_chats > 0 && (
+                    <span className="po-layout__nav-badge">{summaryCounts.new_chats}</span>
+                  )}
+                  {item.key === 'survey' && summaryCounts.new_surveys > 0 && (
+                    <span className="po-layout__nav-badge">{summaryCounts.new_surveys}</span>
+                  )}
+                  {item.key === 'revisit' && summaryCounts.new_revisit > 0 && (
+                    <span className="po-layout__nav-badge">{summaryCounts.new_revisit}</span>
+                  )}
+                </NavLink>
+              ))}
+            </nav>
 
-        {!isEmbed && (
-          <button className="po-layout__logout" onClick={logout}>로그아웃</button>
-        )}
-      </aside>
+            <button className="po-layout__logout" onClick={logout}>로그아웃</button>
+          </aside>
+        </>
+      )}
 
       <div className="po-layout__main">
-        <header className="po-layout__header">
-          <button
-            className="po-layout__hamburger"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            aria-label={sidebarOpen ? '메뉴 닫기' : '메뉴 열기'}
-            aria-expanded={sidebarOpen}
-          >
-            <span />
-          </button>
-          <h1 className="po-layout__header-title">{pageTitle}</h1>
-          {!isEmbed && (
+        {!isEmbed && (
+          <header className="po-layout__header">
+            <button
+              className="po-layout__hamburger"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label={sidebarOpen ? '메뉴 닫기' : '메뉴 열기'}
+              aria-expanded={sidebarOpen}
+            >
+              <span />
+            </button>
+            <h1 className="po-layout__header-title">{pageTitle}</h1>
             <div className="po-layout__header-user">
               <span className="po-layout__header-badge">
                 {user?.permission_level === 'super_admin' ? '관리자' : '파트너'}
               </span>
               <span className="po-layout__header-name">{user?.display_name}</span>
             </div>
-          )}
-        </header>
+          </header>
+        )}
         <main className="po-layout__content">
           <Outlet />
         </main>

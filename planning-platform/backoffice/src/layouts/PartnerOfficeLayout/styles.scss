@@ -238,19 +238,14 @@
     background: $gray-100;
   }
 
-  // iframe 임베드 모드: 사이드바 축소
+  // iframe 임베드 모드: 사이드바/헤더 없이 콘텐츠만
   &--embed {
-    .po-layout__sidebar {
-      width: 160px;
-      min-width: 160px;
+    .po-layout__main {
+      margin-left: 0;
     }
 
-    .po-layout__logout {
-      display: none;
-    }
-
-    .po-layout__header-user {
-      display: none;
+    .po-layout__content {
+      padding-top: 0;
     }
   }
 

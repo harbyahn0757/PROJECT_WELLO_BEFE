@@ -18,6 +18,7 @@ from ....core.config import settings
 from ....core.database import db_manager
 from ....utils.query_builders import build_filter
 from ....utils.survey_queries import survey_union_daily, survey_union_count_today, survey_union_by_respondent, survey_union_detail_for_user
+from ....utils.partner_config import get_partner_config_by_api_key
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/partner-office", tags=["partner-office"])
@@ -1411,3 +1412,65 @@ async def tagging_stats(req: RevisitCandidatesRequest):
         "avg_data_quality": float(stats_row["avg_data_quality"]) if stats_row else 0,
         "risk_level_distribution": {r["name"]: r["value"] for r in (risk_dist or [])},
     }
+
+
+# ─── Backoffice Counts (API Key 인증 — Maria 대시보드용) ────
+@router.get("/backoffice-counts")
+async def backoffice_counts(
+    api_key: str,
+    partner_id: str,
+    hospital_id: Optional[str] = None,
+):
+    """Maria 대시보드에서 직접 fetch할 수 있는 카운트 API (JWT 불필요, api_key 인증)"""
+    # 1. api_key 검증
+    partner_config = get_partner_config_by_api_key(api_key)
+    if not partner_config:
+        raise HTTPException(status_code=403, detail="유효하지 않은 API Key입니다.")
+    if partner_config["partner_id"] != partner_id:
+        raise HTTPException(status_code=403, detail="partner_id가 API Key와 일치하지 않습니다.")
+
+    # 2. summary-counts와 동일한 3개 SQL (embedding_management.py 재사용)
+    try:
+        if hospital_id:
+            chat_row = await db_manager.execute_one(
+                "SELECT COUNT(*) as cnt FROM welno.tb_partner_rag_chat_log WHERE created_at::date = CURRENT_DATE AND hospital_id = %s",
+                (hospital_id,)
+            )
+            survey_sql = """SELECT
+                COALESCE((SELECT COUNT(*) FROM welno.tb_hospital_survey_responses WHERE created_at::date = CURRENT_DATE AND hospital_id = %s), 0)
+                + COALESCE((SELECT COUNT(*) FROM welno.tb_survey_responses_dynamic WHERE created_at::date = CURRENT_DATE AND hospital_id = %s), 0)
+            as cnt"""
+            survey_row = await db_manager.execute_one(survey_sql, (hospital_id, hospital_id))
+            revisit_row = await db_manager.execute_one(
+                """SELECT COUNT(*) as cnt FROM welno.tb_chat_session_tags t
+                   JOIN welno.tb_partner_rag_chat_log c ON c.session_id = t.session_id
+                   WHERE t.follow_up_needed = true AND c.hospital_id = %s
+                   AND c.created_at >= NOW() - interval '30 days'""",
+                (hospital_id,)
+            )
+        else:
+            chat_row = await db_manager.execute_one(
+                "SELECT COUNT(*) as cnt FROM welno.tb_partner_rag_chat_log WHERE created_at::date = CURRENT_DATE"
+            )
+            survey_row = await db_manager.execute_one(
+                """SELECT
+                    COALESCE((SELECT COUNT(*) FROM welno.tb_hospital_survey_responses WHERE created_at::date = CURRENT_DATE), 0)
+                    + COALESCE((SELECT COUNT(*) FROM welno.tb_survey_responses_dynamic WHERE created_at::date = CURRENT_DATE), 0)
+                as cnt"""
+            )
+            revisit_row = await db_manager.execute_one(
+                """SELECT COUNT(*) as cnt FROM welno.tb_chat_session_tags
+                   WHERE follow_up_needed = true
+                   AND created_at >= NOW() - interval '30 days'"""
+            )
+
+        return {
+            "embedding": chat_row["cnt"] if chat_row else 0,
+            "survey": survey_row["cnt"] if survey_row else 0,
+            "revisit": revisit_row["cnt"] if revisit_row else 0,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"backoffice-counts 조회 실패: {e}")
+        return {"embedding": 0, "survey": 0, "revisit": 0}
