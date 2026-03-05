@@ -662,17 +662,58 @@ class PartnerRagChatService(WelnoRagChatService):
         patient_info = processed_data.get("patient_info", {})
         name = patient_info.get("name", "고객")
         
-        # 주요 건강 지표 기반 키워드 추출
+        # 주요 건강 지표 기반 키워드 추출 (우선순위 순)
         metrics = processed_data.get("health_metrics", {})
         bmi = metrics.get("bmi")
         sbp = metrics.get("systolic_bp")
-        
+        dbp = metrics.get("diastolic_bp")
+        fasting_glucose = metrics.get("fasting_glucose")
+        total_cholesterol = metrics.get("total_cholesterol")
+        ldl = metrics.get("ldl_cholesterol")
+        gfr = metrics.get("gfr")
+        ast = metrics.get("ast")
+        alt = metrics.get("alt")
+
         concern_keyword = "검진 결과"
-        if sbp and sbp >= 140: concern_keyword = "혈압"
-        elif bmi and bmi >= 25: concern_keyword = "체중 관리"
-        
+        risk_tone = "friendly"  # friendly / curious / urgent
+
+        if sbp and sbp >= 140:
+            concern_keyword = "혈압"
+            risk_tone = "urgent" if sbp >= 160 else "curious"
+        elif fasting_glucose and fasting_glucose >= 126:
+            concern_keyword = "혈당"
+            risk_tone = "urgent"
+        elif fasting_glucose and fasting_glucose >= 100:
+            concern_keyword = "혈당"
+            risk_tone = "curious"
+        elif total_cholesterol and total_cholesterol >= 240:
+            concern_keyword = "콜레스테롤"
+            risk_tone = "curious"
+        elif ldl and ldl >= 160:
+            concern_keyword = "LDL 콜레스테롤"
+            risk_tone = "curious"
+        elif (ast and ast >= 40) or (alt and alt >= 40):
+            concern_keyword = "간 수치"
+            risk_tone = "curious"
+        elif bmi and bmi >= 30:
+            concern_keyword = "체중 관리"
+            risk_tone = "curious"
+        elif bmi and bmi >= 25:
+            concern_keyword = "체중 관리"
+            risk_tone = "friendly"
+        elif gfr and gfr < 60:
+            concern_keyword = "신장 기능"
+            risk_tone = "urgent"
+
         # 병원명 추출
         hospital_name = processed_data.get("partner_hospital_name", "") or partner_info.partner_name or ""
+
+        # 톤별 프롬프트 가이드
+        tone_guide = {
+            "friendly": "가볍고 친근한 톤. 호기심을 자극하되 부담 없이.",
+            "curious": "살짝 의미심장한 톤. '한번 확인해 보시면 좋을 것 같아요' 느낌.",
+            "urgent": "관심을 끄는 톤이되 공포 유발 금지. '꼭 한번 살펴보세요' 느낌.",
+        }.get(risk_tone, "가볍고 친근한 톤.")
 
         # Gemini에게 호기심을 유발하는 후킹 인사말 생성 요청
         from .gemini_service import gemini_service, GeminiRequest
@@ -683,9 +724,11 @@ class PartnerRagChatService(WelnoRagChatService):
         사용자가 "어? 뭔데?" 하고 궁금해서 반드시 클릭하게 만드는 후킹 메시지 1문장을 작성하세요.
         이 메시지는 채팅 아이콘 위 작은 말풍선에 표시됩니다.
 
+        톤 가이드: {tone_guide}
+
         규칙:
         - 반드시 '{hospital_name}'을 포함하세요.
-        - 호기심과 궁금증을 유발하는 톤 (예: "눈에 띄는 부분이 있어요", "한번 확인해 보실래요?")
+        - 호기심과 궁금증을 유발하되 공포 유발 금지.
         - 의학적 진단·조언·경고 절대 금지. 의료인 느낌 표현 금지 ('상담사', '전문가', 'Dr.' 등).
         - 가볍고 친근한 말투, 반말X 존댓말O.
         - 이모지 1개 사용.

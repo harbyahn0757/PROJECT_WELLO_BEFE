@@ -9,6 +9,7 @@ import EmbeddingPage from './pages/EmbeddingPage';
 import SurveyPage from './pages/SurveyPage';
 import PatientPage from './pages/PatientPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import RevisitPage from './pages/RevisitPage';
 import './App.scss';
 
 /** iframe/페이지 로드 시 웰노 로고 스피너 */
@@ -73,6 +74,7 @@ const App: React.FC = () => {
             <Route path="embedding" element={<EmbeddingPage />} />
             <Route path="survey" element={<SurveyPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="revisit" element={<RevisitPage />} />
           </Route>
 
           {/* 기본 리다이렉트 */}

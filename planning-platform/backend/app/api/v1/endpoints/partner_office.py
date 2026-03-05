@@ -67,6 +67,12 @@ class AnalyticsRequest(BaseModel):
     page: int = 1
     page_size: int = 20
 
+
+class RevisitCandidatesRequest(BaseModel):
+    hospital_id: Optional[str] = None
+    days: int = 30
+    limit: int = 50
+
 # ─── Auth helpers ─────────────────────────────────────────
 
 def _hash_password(password: str) -> str:
@@ -1230,4 +1236,177 @@ async def analytics(
         "total_sessions_in_page": total_sessions_in_page,
         "page": req.page,
         "page_size": req.page_size,
+    }
+
+
+# ─── Revisit Candidates (재방문 후보) ────────────────────────────
+
+@router.post("/revisit-candidates")
+async def revisit_candidates(req: RevisitCandidatesRequest):
+    """재방문 후보 목록 — follow_up_needed=true인 세션 + 추천 메시지 (embed 모드 호환: 인증 불필요)"""
+    import json as _json
+
+    conditions = ["t.follow_up_needed = true"]
+    params: list = []
+
+    if req.hospital_id:
+        conditions.append("c.hospital_id = %s")
+        params.append(req.hospital_id)
+
+    conditions.append("c.created_at >= NOW() - interval '%s days'")
+    params.append(req.days)
+
+    where = " AND ".join(conditions)
+
+    # 집계
+    summary_row = await db_manager.execute_one(
+        f"""SELECT
+                COUNT(*) AS total,
+                COUNT(*) FILTER (WHERE t.risk_level = 'high') AS high_risk_count,
+                COALESCE(ROUND(AVG(t.engagement_score)::numeric, 1), 0) AS avg_engagement
+            FROM welno.tb_chat_session_tags t
+            JOIN welno.tb_partner_rag_chat_log c ON c.session_id = t.session_id
+            WHERE {where}""",
+        params,
+    )
+
+    # 후보 목록
+    rows = await db_manager.execute_query(
+        f"""SELECT
+                t.session_id,
+                c.client_info,
+                t.interest_tags,
+                t.risk_level,
+                t.action_intent,
+                t.follow_up_needed,
+                t.suggested_revisit_messages,
+                t.conversation_summary,
+                t.counselor_recommendations,
+                t.engagement_score,
+                t.buying_signal,
+                t.key_concerns,
+                c.created_at AS last_chat_date,
+                EXTRACT(DAY FROM NOW() - c.created_at)::int AS days_since_chat
+            FROM welno.tb_chat_session_tags t
+            JOIN welno.tb_partner_rag_chat_log c ON c.session_id = t.session_id
+            WHERE {where}
+            ORDER BY t.engagement_score DESC NULLS LAST
+            LIMIT %s""",
+        params + [req.limit],
+    )
+
+    candidates = []
+    for r in (rows or []):
+        ci = r.get("client_info") or {}
+        if isinstance(ci, str):
+            try:
+                ci = _json.loads(ci)
+            except Exception:
+                ci = {}
+        it = r.get("interest_tags") or []
+        if isinstance(it, str):
+            try:
+                it = _json.loads(it)
+            except Exception:
+                it = []
+        cr = r.get("counselor_recommendations") or []
+        if isinstance(cr, str):
+            try:
+                cr = _json.loads(cr)
+            except Exception:
+                cr = []
+        kc = r.get("key_concerns") or []
+        if isinstance(kc, str):
+            try:
+                kc = _json.loads(kc)
+            except Exception:
+                kc = []
+        msgs = r.get("suggested_revisit_messages") or {}
+        if isinstance(msgs, str):
+            try:
+                msgs = _json.loads(msgs)
+            except Exception:
+                msgs = {}
+        candidates.append({
+            "session_id": r["session_id"],
+            "patient_name": ci.get("name", ""),
+            "interest_tags": it,
+            "risk_level": r.get("risk_level"),
+            "action_intent": r.get("action_intent"),
+            "follow_up_needed": r.get("follow_up_needed"),
+            "message_variants": msgs,
+            "conversation_summary": r.get("conversation_summary"),
+            "counselor_recommendations": cr,
+            "key_concerns": kc,
+            "engagement_score": r.get("engagement_score"),
+            "buying_signal": r.get("buying_signal"),
+            "days_since_chat": r.get("days_since_chat", 0),
+            "last_chat_date": str(r["last_chat_date"])[:10] if r.get("last_chat_date") else None,
+        })
+
+    return {
+        "total": summary_row["total"] if summary_row else 0,
+        "high_risk_count": summary_row["high_risk_count"] if summary_row else 0,
+        "avg_engagement": float(summary_row["avg_engagement"]) if summary_row else 0,
+        "candidates": candidates,
+    }
+
+
+# ─── Tagging Stats (태깅 통계) ──────────────────────────────────
+
+@router.post("/tagging-stats")
+async def tagging_stats(req: RevisitCandidatesRequest):
+    """태깅 통계 — LLM 성공률, 태그 분포, follow_up 비율"""
+    conditions = ["1=1"]
+    params: list = []
+
+    if req.hospital_id:
+        conditions.append("c.hospital_id = %s")
+        params.append(req.hospital_id)
+
+    conditions.append("c.created_at >= NOW() - interval '%s days'")
+    params.append(req.days)
+
+    where = " AND ".join(conditions)
+
+    stats_row = await db_manager.execute_one(
+        f"""SELECT
+                COUNT(*) AS total_sessions,
+                COUNT(t.session_id) AS tagged_sessions,
+                COUNT(*) FILTER (WHERE t.llm_attempted AND NOT t.llm_failed) AS llm_success,
+                COUNT(*) FILTER (WHERE t.llm_failed) AS llm_failed_count,
+                COUNT(*) FILTER (WHERE t.follow_up_needed) AS follow_up_count,
+                COALESCE(ROUND(AVG(t.engagement_score)::numeric, 1), 0) AS avg_engagement,
+                COALESCE(ROUND(AVG(t.data_quality_score)::numeric, 1), 0) AS avg_data_quality
+            FROM welno.tb_partner_rag_chat_log c
+            LEFT JOIN welno.tb_chat_session_tags t ON t.session_id = c.session_id
+            WHERE {where}""",
+        params,
+    )
+
+    total = stats_row["total_sessions"] if stats_row else 0
+    tagged = stats_row["tagged_sessions"] if stats_row else 0
+    llm_ok = stats_row["llm_success"] if stats_row else 0
+    follow_up = stats_row["follow_up_count"] if stats_row else 0
+
+    # risk_level 분포
+    risk_dist = await db_manager.execute_query(
+        f"""SELECT t.risk_level AS name, COUNT(*) AS value
+            FROM welno.tb_chat_session_tags t
+            JOIN welno.tb_partner_rag_chat_log c ON c.session_id = t.session_id
+            WHERE {where} AND t.risk_level IS NOT NULL
+            GROUP BY t.risk_level""",
+        params,
+    )
+
+    return {
+        "total_sessions": total,
+        "tagged_sessions": tagged,
+        "llm_success_rate": round(llm_ok / tagged * 100, 1) if tagged else 0,
+        "llm_failed_count": stats_row["llm_failed_count"] if stats_row else 0,
+        "follow_up_rate": round(follow_up / total * 100, 1) if total else 0,
+        "follow_up_count": follow_up,
+        "avg_engagement": float(stats_row["avg_engagement"]) if stats_row else 0,
+        "avg_data_quality": float(stats_row["avg_data_quality"]) if stats_row else 0,
+        "risk_level_distribution": {r["name"]: r["value"] for r in (risk_dist or [])},
     }

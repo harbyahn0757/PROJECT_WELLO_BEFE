@@ -304,6 +304,28 @@ class WelnoRagChatWidget {
         filter: brightness(0.9);
       }
 
+      /* 배지 dot — warmup has_data=true 일 때 표시 */
+      .${this.cssPrefix}-badge {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        width: 10px;
+        height: 10px;
+        background: #ff4d4f;
+        border-radius: 50%;
+        border: 2px solid white;
+        display: none;
+        z-index: 1;
+      }
+      .${this.cssPrefix}-badge.visible {
+        display: block;
+        animation: badgePulse 2s infinite;
+      }
+      @keyframes badgePulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+      }
+
       /* 파트너 아이콘: 이미지일 때는 원형 버튼 전체를 꽉 채움, SVG는 24x24 유지 */
       .${this.cssPrefix}-button .${this.cssPrefix}-icon-slot {
         position: absolute;
@@ -881,6 +903,11 @@ class WelnoRagChatWidget {
     this.elements.button.innerHTML = this.getChatIcon();
     this.elements.button.setAttribute('aria-label', '채팅 열기');
 
+    // 배지 dot (warmup has_data=true 시 표시)
+    this.elements.badge = document.createElement('span');
+    this.elements.badge.className = `${this.cssPrefix}-badge`;
+    this.elements.button.appendChild(this.elements.badge);
+
     // 웰컴 버블 (말풍선)
     this.elements.welcomeBubble = document.createElement('div');
     this.elements.welcomeBubble.className = `${this.cssPrefix}-welcome-bubble`;
@@ -1021,9 +1048,12 @@ class WelnoRagChatWidget {
     this.elements.button.classList.add('active');
     this.elements.button.innerHTML = this.getCloseIcon();
 
-    // 채팅창이 열리면 웰컴 버블 숨기기
+    // 채팅창이 열리면 웰컴 버블 + 배지 숨기기
     if (this.elements.welcomeBubble) {
       this.elements.welcomeBubble.classList.remove('visible');
+    }
+    if (this.elements.badge) {
+      this.elements.badge.classList.remove('visible');
     }
 
     // 모바일: 배경 스크롤 방지
@@ -1542,12 +1572,17 @@ class WelnoRagChatWidget {
           this.state.sessionId = data.session_id;
         }
 
+        // has_data=true → 배지 dot 표시
+        if (data.has_data && this.elements.badge) {
+          this.elements.badge.classList.add('visible');
+        }
+
         if (data.greeting) {
           // 말풍선 문구 업데이트 (줄바꿈/공백 강화 정규화: <br> 제거, 연속 공백 collapse)
           const raw = (data.greeting || '').replace(/<br\s*\/?>/gi, ' ');
           const normalizedGreeting = raw.replace(/\s+/g, ' ').trim();
           this.elements.welcomeBubble.querySelector(`.${this.cssPrefix}-welcome-bubble-text`).textContent = normalizedGreeting;
-          
+
           // 약간의 지연 후 부드럽게 노출
           setTimeout(() => {
             if (!this.state.isOpen) {

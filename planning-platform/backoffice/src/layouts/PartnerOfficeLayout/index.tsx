@@ -11,6 +11,7 @@ const PAGE_TITLES: Record<string, string> = {
   patients: '환자 통합',
   embedding: '검진결과 상담',
   survey: '만족도 조사',
+  revisit: '재환가망고객',
   analytics: '데이터 분석',
 };
 
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
   { key: 'patients', label: '환자 통합', path: '/backoffice/patients' },
   { key: 'embedding', label: '검진결과 상담', path: '/backoffice/embedding' },
   { key: 'survey', label: '만족도 조사', path: '/backoffice/survey' },
+  { key: 'revisit', label: '재환가망고객', path: '/backoffice/revisit' },
   { key: 'analytics', label: '데이터 분석', path: '/backoffice/analytics' },
 ];
 
@@ -65,7 +67,7 @@ const PartnerOfficeLayout: React.FC = () => {
   const [hospitals, setHospitals] = useState<HospitalOption[]>([]);
   const [hospFilter, setHospFilter] = useState('');
   const [hospOpen, setHospOpen] = useState(false);
-  const [summaryCounts, setSummaryCounts] = useState<{new_chats: number; new_surveys: number}>({new_chats: 0, new_surveys: 0});
+  const [summaryCounts, setSummaryCounts] = useState<{new_chats: number; new_surveys: number; new_revisit: number}>({new_chats: 0, new_surveys: 0, new_revisit: 0});
   const selectedHospId = searchParams.get('hospital_id') || '';
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -83,7 +85,7 @@ const PartnerOfficeLayout: React.FC = () => {
     const hosParam = selectedHospId ? `?hospital_id=${selectedHospId}` : '';
     fetchWithAuth(`${API}/admin/embedding/summary-counts${hosParam}`)
       .then(r => r.json())
-      .then(d => setSummaryCounts({new_chats: d.new_chats || 0, new_surveys: d.new_surveys || 0}))
+      .then(d => setSummaryCounts({new_chats: d.new_chats || 0, new_surveys: d.new_surveys || 0, new_revisit: d.new_revisit_candidates || 0}))
       .catch(() => {});
   }, [isEmbed, selectedHospId]);
 
@@ -95,15 +97,15 @@ const PartnerOfficeLayout: React.FC = () => {
     fetch(`${apiBase}/admin/embedding/summary-counts${hosParam}`)
       .then(r => r.json())
       .then(d => {
-        const counts = { new_chats: d.new_chats || 0, new_surveys: d.new_surveys || 0 };
+        const counts = { new_chats: d.new_chats || 0, new_surveys: d.new_surveys || 0, new_revisit: d.new_revisit_candidates || 0 };
         setSummaryCounts(counts);
         try {
           window.parent.postMessage(
             {
               type: 'welno-backoffice-counts',
-              // 메뉴별 개별 맞춤: embedding = 검진결과 상담, survey = 만족도 조사
               embedding: counts.new_chats,
               survey: counts.new_surveys,
+              revisit: counts.new_revisit,
               new_chats: counts.new_chats,
               new_surveys: counts.new_surveys,
             },
@@ -125,7 +127,7 @@ const PartnerOfficeLayout: React.FC = () => {
       fetch(`${apiBase}/admin/embedding/summary-counts${hosParam}`)
         .then(r => r.json())
         .then(d => {
-          const counts = { new_chats: d.new_chats || 0, new_surveys: d.new_surveys || 0 };
+          const counts = { new_chats: d.new_chats || 0, new_surveys: d.new_surveys || 0, new_revisit: d.new_revisit_candidates || 0 };
           setSummaryCounts(counts);
           try {
             window.parent.postMessage(
@@ -133,6 +135,7 @@ const PartnerOfficeLayout: React.FC = () => {
                 type: 'welno-backoffice-counts',
                 embedding: counts.new_chats,
                 survey: counts.new_surveys,
+                revisit: counts.new_revisit,
                 new_chats: counts.new_chats,
                 new_surveys: counts.new_surveys,
               },
@@ -258,6 +261,9 @@ const PartnerOfficeLayout: React.FC = () => {
               )}
               {item.key === 'survey' && summaryCounts.new_surveys > 0 && (
                 <span className="po-layout__nav-badge">{summaryCounts.new_surveys}</span>
+              )}
+              {item.key === 'revisit' && summaryCounts.new_revisit > 0 && (
+                <span className="po-layout__nav-badge">{summaryCounts.new_revisit}</span>
               )}
             </NavLink>
           ))}

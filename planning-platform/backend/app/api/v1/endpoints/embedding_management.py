@@ -148,7 +148,7 @@ async def list_partners():
 
 @router.get("/summary-counts")
 async def get_summary_counts(hospital_id: Optional[str] = None):
-    """사이드바 뱃지용 — 오늘 신규 상담 건수 + 설문 건수 (병원 필터 지원)"""
+    """사이드바 뱃지용 — 오늘 신규 상담 건수 + 설문 건수 + 재방문 후보 수 (병원 필터 지원)"""
     try:
         if hospital_id:
             chat_row = await db_manager.execute_one(
@@ -160,18 +160,31 @@ async def get_summary_counts(hospital_id: Optional[str] = None):
                 + COALESCE((SELECT COUNT(*) FROM welno.tb_survey_responses_dynamic WHERE created_at::date = CURRENT_DATE AND hospital_id = %s), 0)
             as cnt"""
             survey_row = await db_manager.execute_one(survey_sql, (hospital_id, hospital_id))
+            revisit_row = await db_manager.execute_one(
+                """SELECT COUNT(*) as cnt FROM welno.tb_chat_session_tags t
+                   JOIN welno.tb_partner_rag_chat_log c ON c.session_id = t.session_id
+                   WHERE t.follow_up_needed = true AND c.hospital_id = %s
+                   AND c.created_at >= NOW() - interval '30 days'""",
+                (hospital_id,)
+            )
         else:
             chat_row = await db_manager.execute_one(
                 "SELECT COUNT(*) as cnt FROM welno.tb_partner_rag_chat_log WHERE created_at::date = CURRENT_DATE"
             )
             survey_row = await db_manager.execute_one(survey_union_count_today_simple())
+            revisit_row = await db_manager.execute_one(
+                """SELECT COUNT(*) as cnt FROM welno.tb_chat_session_tags
+                   WHERE follow_up_needed = true
+                   AND created_at >= NOW() - interval '30 days'"""
+            )
         return {
             "new_chats": chat_row["cnt"] if chat_row else 0,
             "new_surveys": survey_row["cnt"] if survey_row else 0,
+            "new_revisit_candidates": revisit_row["cnt"] if revisit_row else 0,
         }
     except Exception as e:
         logger.warning(f"summary-counts 조회 실패: {e}")
-        return {"new_chats": 0, "new_surveys": 0}
+        return {"new_chats": 0, "new_surveys": 0, "new_revisit_candidates": 0}
 
 
 @router.get("/today-summary")

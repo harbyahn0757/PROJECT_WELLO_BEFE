@@ -6,9 +6,10 @@ import './WelnoRagChat.scss';
 
 interface WelnoRagChatButtonProps {
   onToggle?: (isOpen: boolean) => void;
+  hasData?: boolean;
 }
 
-const WelnoRagChatButton: React.FC<WelnoRagChatButtonProps> = ({ onToggle }) => {
+const WelnoRagChatButton: React.FC<WelnoRagChatButtonProps> = ({ onToggle, hasData }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [shouldHide, setShouldHide] = useState(false);
   const { state } = useWelnoData();
@@ -79,6 +80,21 @@ const WelnoRagChatButton: React.FC<WelnoRagChatButtonProps> = ({ onToggle }) => 
         onClick={handleClick}
         aria-label="채팅 열기"
       >
+        {hasData && !isOpen && (
+          <span
+            style={{
+              position: 'absolute',
+              top: 2,
+              right: 2,
+              width: 10,
+              height: 10,
+              background: '#ff4d4f',
+              borderRadius: '50%',
+              border: '2px solid white',
+              zIndex: 1,
+            }}
+          />
+        )}
         {isOpen ? (
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
             <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>

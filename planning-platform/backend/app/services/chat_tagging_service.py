@@ -544,6 +544,85 @@ async def load_health_metrics_from_db(session_id: str) -> Optional[Dict[str, Any
         return None
 
 
+# ─── 재방문 추천 메시지 생성 ──────────────────────────────────────
+
+async def generate_revisit_messages(
+    tags: Dict[str, Any],
+    messages: Optional[List[Dict[str, str]]] = None,
+) -> Optional[Dict[str, str]]:
+    """
+    태깅 결과 기반 재방문 추천 메시지 3종 생성 (follow_up_needed=true일 때만).
+    Gemini Flash Lite로 care/action/info 시나리오별 메시지를 생성합니다.
+    의료법 준수 가드레일 포함.
+    """
+    if not tags.get("follow_up_needed"):
+        return None
+
+    interest_topics = [t.get("topic", "") for t in (tags.get("interest_tags") or []) if t.get("intensity") in ("high", "medium")]
+    risk_level = tags.get("risk_level", "low")
+    recommendations = tags.get("counselor_recommendations") or []
+    summary = tags.get("conversation_summary") or ""
+
+    if not interest_topics and not recommendations:
+        return None
+
+    topic_str = ", ".join(interest_topics[:3]) if interest_topics else "건강 관리"
+    rec_str = " / ".join(recommendations[:2]) if recommendations else ""
+
+    try:
+        prompt = f"""환자가 건강검진 결과 상담 채팅을 했습니다.
+관심사: {topic_str}
+위험도: {risk_level}
+AI 권장: {rec_str}
+대화요약: {summary[:200]}
+
+이 환자에게 보낼 재방문 유도 메시지를 3가지 시나리오로 작성하세요.
+
+[시나리오별 톤]
+1. care_message: 케어/안부 톤 — 상담 후 안부를 묻는 부드러운 메시지
+2. action_message: 행동 유도 톤 — 예약/상담/검사 등 구체적 행동을 권유
+3. info_message: 정보 제공 톤 — 관심사 관련 건강 팁/정보 안내
+
+[의료법 준수 가드레일 — 반드시 지켜야 합니다]
+- 치료 효과 100% 보장 표현 절대 금지 ("완치", "확실히 나을" 등)
+- 환자 후기 직접 인용 금지 (의료법 제56조 위반, 과태료 500만원)
+- "~권장합니다", "~확인해보세요" 등 정보 제공형 톤 유지
+- 의학적 진단/경고 금지, 친근한 존댓말
+- 각 메시지 60자 이내
+
+응답은 반드시 JSON만 출력:
+{{"care_message": "...", "action_message": "...", "info_message": "..."}}"""
+
+        from .gemini_service import gemini_service, GeminiRequest
+        res = await gemini_service.call_api(
+            GeminiRequest(prompt=prompt, model=settings.google_gemini_lite_model, temperature=0.5),
+            save_log=False,
+        )
+        if res.success and res.content:
+            raw = res.content.strip()
+            if raw.startswith("```"):
+                raw = raw.split("\n", 1)[-1]
+                if raw.endswith("```"):
+                    raw = raw[:-3]
+                raw = raw.strip()
+            result = json.loads(raw)
+            for k in ("care_message", "action_message", "info_message"):
+                if k in result:
+                    result[k] = str(result[k]).replace('"', '').replace('\n', ' ')[:200]
+            if all(k in result for k in ("care_message", "action_message", "info_message")):
+                return result
+    except Exception as e:
+        logger.warning(f"[태깅] 재방문 메시지 생성 실패: {e}")
+
+    # 폴백: 규칙 기반 3종 메시지
+    topic = interest_topics[0] if interest_topics else "건강 관리"
+    return {
+        "care_message": f"{topic} 관련 상담 이후 건강 관리는 잘 되고 계신가요?",
+        "action_message": f"{topic} 관련 궁금하셨던 부분, 한번 상담 예약해 보시는 건 어떨까요?",
+        "info_message": f"{topic} 관리에 도움이 되는 정보가 있어 안내드립니다.",
+    }
+
+
 # ─── 메인 태깅 함수 (LLM + 규칙 기반 하이브리드) ──────────────────
 
 async def tag_chat_session(
@@ -677,6 +756,10 @@ async def tag_chat_session(
             "conversion_flag": False,
         }
 
+        # 재방문 추천 메시지 3종 생성 (follow_up_needed=true일 때)
+        revisit_msgs = await generate_revisit_messages(tag_data, messages)
+        tag_data["suggested_revisit_messagess"] = revisit_msgs
+
         # DB 저장 (Upsert)
         upsert_query = """
             INSERT INTO welno.tb_chat_session_tags
@@ -686,8 +769,9 @@ async def tag_chat_session(
              counselor_recommendations,
              conversation_depth, engagement_score, action_intent, nutrition_tags,
              llm_attempted, llm_failed, llm_error,
-             commercial_tags, buying_signal, conversion_flag)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 2, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+             commercial_tags, buying_signal, conversion_flag,
+             suggested_revisit_messages)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 2, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (session_id, partner_id) DO UPDATE SET
                 interest_tags = EXCLUDED.interest_tags,
                 risk_tags = EXCLUDED.risk_tags,
@@ -712,6 +796,7 @@ async def tag_chat_session(
                 commercial_tags = EXCLUDED.commercial_tags,
                 buying_signal = EXCLUDED.buying_signal,
                 conversion_flag = EXCLUDED.conversion_flag,
+                suggested_revisit_messages = EXCLUDED.suggested_revisit_messages,
                 updated_at = NOW()
         """
         await db_manager.execute_update(upsert_query, (
@@ -739,6 +824,7 @@ async def tag_chat_session(
             json.dumps(commercial_tags, ensure_ascii=False),
             buying_signal,
             False,  # conversion_flag
+            json.dumps(revisit_msgs, ensure_ascii=False) if revisit_msgs else None,
         ))
 
         logger.info(f"[태깅] 세션 태깅 완료: {session_id} - "
