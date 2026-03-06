@@ -288,27 +288,27 @@ class GeminiService:
             logger.error(f"❌ [Gemini] 호출 실패: {str(e)}")
             yield f"오류 발생: {str(e)}"
     
-    def _format_chat_history(self, history: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """채팅 히스토리를 Gemini Chat 형식으로 변환"""
+    def _format_chat_history(self, history: List[Dict[str, Any]]) -> List[types.Content]:
+        """채팅 히스토리를 Gemini Chat 형식(types.Content)으로 변환"""
         formatted = []
         for msg in history:
             role = msg.get("role", "user")
             content = msg.get("content", "")
-            
+
             if not content:
                 continue
-            
+
             # Gemini Chat 형식: "user" 또는 "model"
             if role == "assistant":
                 role = "model"
             elif role != "user":
                 continue  # user와 assistant만 지원
-            
-            formatted.append({
-                "role": role,
-                "parts": [content]  # Gemini Chat API 형식: parts는 리스트
-            })
-        
+
+            formatted.append(types.Content(
+                role=role,
+                parts=[types.Part(text=content)],
+            ))
+
         return formatted
     
     async def _get_or_create_cache(
