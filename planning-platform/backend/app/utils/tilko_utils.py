@@ -155,9 +155,10 @@ async def get_health_screening_data(
                 "ErrMsg": "간편인증 로그인 요청이 실패했습니다. (사용자가 아직 카카오톡에서 인증하지 않음)",
                 "Message": "인증 대기 중"
             }
-        
+
+        response.encoding = 'utf-8'
         result = response.json()
-        
+
         print(f"🏥 [건강검진API] 응답 Status: {result.get('Status', 'Unknown')}")
         
         # Status가 Error인 경우 상세 정보 출력
@@ -304,9 +305,10 @@ async def get_prescription_data(
                 "ErrMsg": "간편인증 로그인 요청이 실패했습니다. (사용자가 아직 카카오톡에서 인증하지 않음)",
                 "Message": "인증 대기 중"
             }
-        
+
+        response.encoding = 'utf-8'
         result = response.json()
-        
+
         print(f"💊 [처방전API] 응답 Status: {result.get('Status', 'Unknown')}")
         
         # Status가 Error인 경우 상세 정보 출력

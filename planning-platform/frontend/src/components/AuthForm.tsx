@@ -10,6 +10,7 @@ import PasswordModal from './PasswordModal';
 import { PasswordModalType } from './PasswordModal/types';
 import DataDeletionWarningModal from './common/DataDeletionWarningModal';
 import { STORAGE_KEYS, StorageManager } from '../constants/storage';
+import { sanitizeTilkoMessage } from '../utils/textSanitizer';
 import { useWelnoData } from '../contexts/WelnoDataContext';
 import { API_ENDPOINTS } from '../config/api';
 import { PasswordService } from './PasswordModal/PasswordService';
@@ -483,17 +484,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       if (isAuthError) {
         console.warn('⚠️ [AuthForm] 인증 미완료/실패 감지 - 모달 표시');
         
-        // 텍스트에서 HTML 태그 및 엔티티 제거
-        const cleanMessage = message
-          .replace(/<[^>]*>?/gm, '') // HTML 태그 제거
-          .replace(/&amp;?/g, '&')    // 이중 인코딩 대응
-          .replace(/&nbsp;?/g, ' ')   // 공백 엔티티 변환
-          .replace(/&lsquo;|&rsquo;|‘|’|&ldquo;|&rdquo;|“|”/g, "'") // 모든 종류의 따옴표 처리
-          .replace(/&middot;?/g, '·')
-          .replace(/&lt;?/g, '<')
-          .replace(/&gt;?/g, '>')
-          .replace(/\n\s*\n/g, '\n\n') // 중복 줄바꿈 정리
-          .trim();
+        const cleanMessage = sanitizeTilkoMessage(message);
 
         setPendingAuthMessage(cleanMessage);
         setShowPendingAuthModal(true);
@@ -700,7 +691,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       
       setIsCollecting(true);
       setCurrentStatus(type);
-      setStatusMessage(message); // ✅ 실제 메시지 저장
+      setStatusMessage(sanitizeTilkoMessage(message));
     },
     onStatusUpdate: (status, authCompleted) => {
       console.log('🔄 [onStatusUpdate] 상태:', status);

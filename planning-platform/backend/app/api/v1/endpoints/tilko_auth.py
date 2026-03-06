@@ -18,6 +18,7 @@ from app.data.redis_session_manager import redis_session_manager as session_mana
 from app.services.partner_identification_service import partner_identification_service
 from pydantic import BaseModel
 import asyncio
+import re
 from datetime import datetime
 
 # Python 3.12+ asyncio task GC 방지: 백그라운드 태스크 강한 참조 유지
@@ -1411,7 +1412,8 @@ async def collect_health_data_background_task(session_id: str):
             health_data = await get_health_screening_data(request_login)
             
             if health_data.get("Status") == "Error":
-                error_msg = health_data.get("Message", "건강검진 데이터 수집 실패")
+                error_msg = health_data.get("Message") or health_data.get("ErrMsg") or "건강검진 데이터 수집 실패"
+                error_msg = re.sub(r'<[^>]+>', '', error_msg).strip()
                 error_code = health_data.get("ErrorCode", 0)
                 error_log = health_data.get("ErrorLog", "")
                 
@@ -1642,7 +1644,8 @@ async def collect_health_data_background_task(session_id: str):
             prescription_data = await get_prescription_data(request_login)
             
             if prescription_data.get("Status") == "Error":
-                error_msg = prescription_data.get("ErrMsg", prescription_data.get("Message", "처방전 데이터 수집 실패"))
+                error_msg = prescription_data.get("ErrMsg") or prescription_data.get("Message") or "처방전 데이터 수집 실패"
+                error_msg = re.sub(r'<[^>]+>', '', error_msg).strip()
                 error_code = prescription_data.get("ErrorCode", 0)
                 technical_detail = prescription_data.get("TechnicalDetail", "")
                 error_log = prescription_data.get("ErrorLog", "")
