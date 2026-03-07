@@ -1481,6 +1481,7 @@ class WelnoRagChatWidget {
     let messageElement = null;
     let streamDone = false;
     var self = this;
+    var _pendingDone = null; // done 데이터를 타이핑 완료까지 보관
 
     // 타이핑 루프: 20ms 간격으로 1글자씩 — 초당 ~50자, 부드러운 타이핑
     var typingInterval = null;
@@ -1512,6 +1513,11 @@ class WelnoRagChatWidget {
           if (messageElement) {
             self.updateMessageContent(messageElement, assistantMessage);
           }
+          // 타이핑 완료 → 순차 UI 등장
+          if (_pendingDone) {
+            self._renderPostStreamUI(messageElement, _pendingDone);
+            _pendingDone = null;
+          }
         }
       }, 20);
     };
@@ -1530,39 +1536,9 @@ class WelnoRagChatWidget {
         }
 
         if (data.done) {
-          // 순차 등장: 참고문헌(접힘) → 피드백 → 서제스천 → 마무리
-          var delay = 0;
-          var _me = messageElement;
-          var _self = this;
-
-          // 1) 참고문헌 (즉시, 접힌 상태)
-          if (data.sources && data.sources.length > 0) {
-            this.addSources(_me, data.sources);
-            delay += 300;
-          }
-
-          // 2) 피드백
-          if (_me) {
-            setTimeout(function() { _self.addFeedback(_me); _self.scrollToBottom(); }, delay);
-            delay += 400;
-          }
-
-          // 3) 서제스천
-          if (data.suggestions && data.suggestions.length > 0) {
-            var _sugs = data.suggestions;
-            setTimeout(function() { _self.addSuggestions(_me, _sugs); _self.scrollToBottom(); }, delay);
-            delay += 500;
-          }
-
-          // 4) 마무리 멘트 (2번째 응답부터)
-          if (this.state.assistantMsgCount >= 1) {
-            setTimeout(function() { _self.addClosingNote(); _self.scrollToBottom(); }, delay);
-          }
-
-          this.state.assistantMsgCount++;
-          if (this.state.assistantMsgCount === 1) {
-            setTimeout(function() { _self.addDisclaimer(); _self.scrollToBottom(); }, delay + 200);
-          }
+          // 타이핑 완료 후 순차 렌더링하기 위해 데이터만 저장
+          _pendingDone = data;
+          streamDone = true;
         }
       } catch (e) {
         console.error('[WelnoWidget] SSE 파싱 에러:', e.message, '| line:', line.substring(0, 200));
@@ -1591,6 +1567,55 @@ class WelnoRagChatWidget {
       streamDone = true;
       // setInterval이 남은 텍스트를 다 보여준 후 자동 종료
     }
+  }
+
+  /**
+   * 타이핑 완료 후 순차 UI 등장 (sources → feedback → suggestions → closing)
+   */
+  _renderPostStreamUI(messageElement, data) {
+    var self = this;
+    var delay = 0;
+
+    // 1) 참고문헌 (접힌 상태, 즉시)
+    if (data.sources && data.sources.length > 0) {
+      self.addSources(messageElement, data.sources);
+    }
+
+    // 2) 피드백 (300ms)
+    delay += 300;
+    setTimeout(function() {
+      self.addFeedback(messageElement);
+      self.scrollToBottom();
+    }, delay);
+
+    // 3) 서제스천 (700ms — CSS stagger 애니메이션)
+    var suggestions = data.suggestions || self.state.suggestions || [];
+    if (suggestions.length > 0) {
+      delay += 400;
+      setTimeout(function() {
+        self.addSuggestions(messageElement, suggestions);
+        self.scrollToBottom();
+      }, delay);
+    }
+
+    // 4) 마무리 멘트 (1200ms)
+    delay += 500;
+    setTimeout(function() {
+      self.addClosingNote();
+      self.scrollToBottom();
+    }, delay);
+
+    // 5) 면책 안내 (첫 응답만)
+    if (self.state.assistantMsgCount === 0) {
+      setTimeout(function() {
+        self.addDisclaimer();
+        self.scrollToBottom();
+      }, delay + 300);
+    }
+
+    self.state.assistantMsgCount++;
+    self.state.isLoading = false;
+    self.scrollToBottom();
   }
 
   /**
