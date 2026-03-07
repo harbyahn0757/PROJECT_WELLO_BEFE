@@ -396,14 +396,22 @@ class WelnoRagChatWidget {
         background: #FFFAF2;
         border-radius: 20px;
         box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.12);
-        display: none;
+        display: flex;
         flex-direction: column;
         overflow: hidden;
-        animation: slideInUp 0.3s ease-out;
+        opacity: 0;
+        transform: translateY(16px) scale(0.97);
+        pointer-events: none;
+        visibility: hidden;
+        transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s 0.3s;
       }
 
       .${this.cssPrefix}-window.open {
-        display: flex;
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
+        visibility: visible;
+        transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s 0s;
       }
 
       .${this.cssPrefix}-container.position-bottom-left .${this.cssPrefix}-window {
@@ -844,13 +852,9 @@ class WelnoRagChatWidget {
 
       /* 헤더 고정 및 메시지 영역 독립 스크롤 강화 */
       .${this.cssPrefix}-window {
-        display: none;
         flex-direction: column;
         height: 650px;
-        position: relative; /* 자식 요소 포지셔닝 기준 */
-      }
-      .${this.cssPrefix}-window.open {
-        display: flex !important;
+        position: relative;
       }
       .${this.cssPrefix}-header {
         flex-shrink: 0;
@@ -1526,23 +1530,38 @@ class WelnoRagChatWidget {
         }
 
         if (data.done) {
+          // 순차 등장: 참고문헌(접힘) → 피드백 → 서제스천 → 마무리
+          var delay = 0;
+          var _me = messageElement;
+          var _self = this;
+
+          // 1) 참고문헌 (즉시, 접힌 상태)
           if (data.sources && data.sources.length > 0) {
-            this.addSources(messageElement, data.sources);
+            this.addSources(_me, data.sources);
+            delay += 300;
           }
-          // 피드백 버튼
-          if (messageElement) {
-            this.addFeedback(messageElement);
+
+          // 2) 피드백
+          if (_me) {
+            setTimeout(function() { _self.addFeedback(_me); _self.scrollToBottom(); }, delay);
+            delay += 400;
           }
+
+          // 3) 서제스천
           if (data.suggestions && data.suggestions.length > 0) {
-            this.addSuggestions(messageElement, data.suggestions);
+            var _sugs = data.suggestions;
+            setTimeout(function() { _self.addSuggestions(_me, _sugs); _self.scrollToBottom(); }, delay);
+            delay += 500;
           }
-          // 마무리 멘트 (2번째 응답부터)
+
+          // 4) 마무리 멘트 (2번째 응답부터)
           if (this.state.assistantMsgCount >= 1) {
-            this.addClosingNote();
+            setTimeout(function() { _self.addClosingNote(); _self.scrollToBottom(); }, delay);
           }
+
           this.state.assistantMsgCount++;
           if (this.state.assistantMsgCount === 1) {
-            this.addDisclaimer();
+            setTimeout(function() { _self.addDisclaimer(); _self.scrollToBottom(); }, delay + 200);
           }
         }
       } catch (e) {
