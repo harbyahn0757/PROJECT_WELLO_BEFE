@@ -1,6 +1,7 @@
 """
 웰노 RAG 채팅 서비스
 """
+import asyncio
 import logging
 import json
 import redis
@@ -277,6 +278,11 @@ class WelnoRagChatService:
                             past_survey_info = f"\n[기본 문진 정보 (페르소나)]\n{generate_survey_section(responses)}\n"
                     except: pass
 
+            # RAG 엔진 초기화를 먼저 시작 (health_data fetch와 병렬 실행)
+            from .checkup_design.rag_service import init_rag_engine, CHAT_SYSTEM_PROMPT_TEMPLATE, search_hospital_knowledge
+            rag_engine_start = time.time()
+            rag_init_task = asyncio.create_task(init_rag_engine(use_local_vector_db=True))
+
             if is_first_message:
                 try:
                     logger.info(f"🔍 [검진데이터] 조회 시작: uuid={uuid}, hospital_id={hospital_id}")
@@ -417,8 +423,6 @@ class WelnoRagChatService:
             if current_keywords:
                 search_query = f"{', '.join(current_keywords)} 관련: {message}"
             
-            from .checkup_design.rag_service import init_rag_engine, CHAT_SYSTEM_PROMPT_TEMPLATE, search_hospital_knowledge
-
             # 타이밍 변수 초기화
             rag_engine_time = 0.0
             rag_search_time = 0.0
@@ -435,11 +439,10 @@ class WelnoRagChatService:
                 except Exception as e:
                     logger.warning(f"⚠️ [RAG 채팅] 병원 RAG 검색 스킵: {e}")
 
-            # RAG 엔진 초기화 타이밍 (FAISSVectorSearch 인스턴스)
-            rag_engine_start = time.time()
-            vector_search = await init_rag_engine(use_local_vector_db=True)
+            # RAG 엔진 초기화 대기 (health_data fetch와 병렬로 이미 시작됨)
+            vector_search = await rag_init_task
             rag_engine_time = time.time() - rag_engine_start
-            logger.info(f"⏱️  [RAG 채팅] RAG 엔진 초기화: {rag_engine_time:.3f}초")
+            logger.info(f"⏱️  [RAG 채팅] RAG 엔진 초기화 (병렬): {rag_engine_time:.3f}초")
 
             if trace_data:
                 trace_data["timings"]["rag_engine_init_ms"] = rag_engine_time * 1000
@@ -447,7 +450,7 @@ class WelnoRagChatService:
             if vector_search:
                 # RAG 검색 실행 타이밍
                 rag_search_start = time.time()
-                nodes = vector_search.search(search_query, top_k=10)
+                nodes = vector_search.search(search_query, top_k=5)
                 rag_search_time = time.time() - rag_search_start
 
                 if trace_data:
@@ -567,79 +570,87 @@ class WelnoRagChatService:
                     persona_name = f"{hospital_config.get('partner_name')}의 에이전트"
 
                 if is_first_message:
-                    # 첫 메시지: 검진/복약 데이터 포함
-                    base_system_prompt = CHAT_SYSTEM_PROMPT_TEMPLATE.format(
-                        persona_name=persona_name,
-                        context_str="{context_str}",
-                        query_str="{query_str}"
-                    )
-                    # DB 페르소나가 있으면 기본 프롬프트 앞에 추가
+                    # 첫 메시지: system_instruction 분리 (Context Caching 활성화)
+                    # 1) 시스템 프롬프트 = 규칙 + 환자 데이터 (세션 내 불변 → 캐시 대상)
+                    rules_part = CHAT_SYSTEM_PROMPT_TEMPLATE.split("[Context]")[0].rstrip()
+                    rules_prompt = rules_part.format(persona_name=persona_name, context_str="", query_str="")
+
+                    system_parts = []
                     if custom_persona:
-                        base_system_prompt = f"{custom_persona}\n\n{base_system_prompt}"
-                        
-                    enhanced_prompt = base_system_prompt
-                    combined_context = briefing_context + past_survey_info + f"\n[의학 지식 문서 (참고 문헌)]\n{context_str}"
-                    if combined_context:
-                        # [Context] 부분을 실제 데이터로 치환
-                        enhanced_prompt = enhanced_prompt.replace("[Context]", f"[Context]\n{combined_context}")
-                    
-                    # {query_str}과 {context_str} 최종 치환
-                    final_prompt = enhanced_prompt.format(query_str=message, context_str="")
-                    
-                    # 프롬프트 구성 로깅
-                    prompt_length = len(final_prompt)
-                    briefing_length = len(briefing_context) if briefing_context else 0
-                    past_survey_length = len(past_survey_info) if past_survey_info else 0
-                    context_str_length = len(context_str) if context_str else 0
-                    logger.info(f"📝 [프롬프트] 최종 구성 (첫 메시지):")
-                    logger.info(f"  - 전체 길이: {prompt_length}자")
-                    logger.info(f"  - briefing_context 포함: {'yes' if briefing_context else 'no'}, 길이: {briefing_length}자")
-                    logger.info(f"  - past_survey_info 포함: {'yes' if past_survey_info else 'no'}, 길이: {past_survey_length}자")
-                    logger.info(f"  - context_str (RAG 검색) 포함: {'yes' if context_str else 'no'}, 길이: {context_str_length}자")
-                    
-                    if not briefing_context:
-                        logger.warning(f"⚠️ [프롬프트] 검진 데이터가 컨텍스트에 포함되지 않음 - briefing_context 없음")
-                    
-                    # 단계별 지침 추가
+                        system_parts.append(custom_persona)
+                    system_parts.append(rules_prompt)
+                    # 환자 건강 데이터 (세션 내 고정 → 캐시에 포함)
+                    if briefing_context or past_survey_info:
+                        patient_data = "[환자 건강 데이터]"
+                        if briefing_context:
+                            patient_data += f"\n{briefing_context}"
+                        if past_survey_info:
+                            patient_data += f"\n{past_survey_info}"
+                        system_parts.append(patient_data)
+
+                    # 단계별 지침
                     stage_instruction = ""
                     msg_stripped = (message or "").strip()
                     is_greeting_or_short = len(msg_stripped) <= 4 or msg_stripped in ("안녕", "하이", "안녕하세요", "hello", "hi", "?", "ㅇ", "응", "네", "ㅇㅋ", "ㅎ")
                     logger.info(f"🔍 [채팅] 첫 메시지 chat_stage: {chat_stage}, message: {message[:50]}, is_greeting_or_short: {is_greeting_or_short}")
                     if is_greeting_or_short:
-                        stage_instruction = "\n\n**상담 지침**: 사용자가 인사나 짧은 말만 한 경우, 참고 문헌을 요약·나열하지 말고, 친절히 인사한 뒤 '어떤 부분이 궁금하세요? 😊' 라고 짧게 물어보세요."
+                        stage_instruction = "**상담 지침**: 사용자가 인사나 짧은 말만 한 경우, 참고 문헌을 요약·나열하지 말고, 친절히 인사한 뒤 '어떤 부분이 궁금하세요? 😊' 라고 짧게 물어보세요."
                         chat_stage = "normal"
                     elif chat_stage == "awaiting_current_concerns":
-                        stage_instruction = "\n\n**상담 단계**: 간략히 조언 후 '최근 걱정되거나 불편한 곳이 있는지' 질문하세요."
+                        stage_instruction = "**상담 단계**: 간략히 조언 후 '최근 걱정되거나 불편한 곳이 있는지' 질문하세요."
                         chat_stage = "normal"
                     else:
-                        stage_instruction = "\n추이, 패턴을 분석하되 '자세한 내용은 담당 의료진과 상담하시길 권해요 😊'로 안내하세요."
+                        stage_instruction = "추이, 패턴을 분석하되 '자세한 내용은 담당 의료진과 상담하시길 권해요 😊'로 안내하세요."
                         chat_stage = "normal"
                     if is_partner_session:
                         stage_instruction += (
                             "\n\n**파트너 위젯 모드**: (1) 검진 결과 설명·해석에 집중하고, 자료 대비 비교보다는 '이 검진에서 무엇이 중요한지'를 읽어주는 데 초점을 맞추세요. "
                             "(2) ###, * 목록 같은 긴 보고서 형식은 쓰지 말고, 짧은 문단과 줄바꿈으로 읽기 쉽게 답하세요. "
                             "(3) 강조는 **단어**처럼 짧게만 사용하세요.\n"
-                            "**클라이언트(결과지) 우선**: [Context]의 '파트너 제공 검진 데이터'에 있는 *_abnormal(판정), *_range(정상범위)가 참고 문헌(RAG)보다 우선합니다. "
+                            "**클라이언트(결과지) 우선**: 환자 건강 데이터에 있는 *_abnormal(판정), *_range(정상범위)가 참고 문헌(RAG)보다 우선합니다. "
                             "클라이언트 판정과 참고 문헌이 크게 다르면, 답변에서 '이런 부분은 주의 깊게 봐야 해요' 정도로 짧게 언급하고, '검진 받으신 병원에도 한 번 여쭤보시면 좋겠어요 😊'처럼 부드럽게 병원 문의를 권한 뒤, 반드시 답변 안에 정확히 한 번만 [CLIENT_RAG_DISCREPANCY] 를 포함하세요.\n"
-                            "**출처 명시**: '표준에 따르면', '가이드라인에 따르면', '다른 사항은 이렇다' 등으로 말할 때는 반드시 [Context]에 있는 참고 문헌의 정확한 출처(문서명 등)를 밝히세요. 벡터 데이터가 있을 때만 그렇게 서술하세요.\n"
+                            "**출처 명시**: '표준에 따르면', '가이드라인에 따르면', '다른 사항은 이렇다' 등으로 말할 때는 반드시 참고 문헌의 정확한 출처(문서명 등)를 밝히세요. 벡터 데이터가 있을 때만 그렇게 서술하세요.\n"
                             "**위험 소견**: 위험하거나 확정적인 의견은 삼가고, 어려운 부분은 '담당 의료진과 상담하시길 권해요 😊'로 안내하세요.\n"
                             "**면책 안내**: 병원에서 설정한 기준치와 일반적인 참고 범위를 기준으로 안내해 드려요."
                         )
+                    if stage_instruction:
+                        system_parts.append(stage_instruction)
                     logger.info(f"🔍 [채팅] 최종 chat_stage: {chat_stage}")
-                    
-                    enhanced_prompt += stage_instruction
+
+                    # SUGGESTIONS 지시
                     if is_greeting_or_short:
-                        enhanced_prompt += "\n\n**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고 '[SUGGESTIONS] 전체 결과 요약해줘, 이상 있는 항목만 알려줘, 생활습관 조언해줘 [/SUGGESTIONS]' 형식으로 포함하세요."
+                        system_parts.append("**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고 '[SUGGESTIONS] 전체 결과 요약해줘, 이상 있는 항목만 알려줘, 생활습관 조언해줘 [/SUGGESTIONS]' 형식으로 포함하세요.")
                     else:
-                        enhanced_prompt += "\n\n**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요."
-                    
-                    prompt = enhanced_prompt.format(context_str=context_str, query_str=message)
-                    
+                        system_parts.append("**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요.")
+
+                    system_instruction = "\n\n".join(system_parts)
+
+                    # 2) 유저 프롬프트 = RAG 컨텍스트 + 사용자 질문 (매 요청 변동)
+                    prompt_parts = []
+                    if context_str:
+                        prompt_parts.append(f"[의학 지식 문서 (참고 문헌)]\n{context_str}")
+                    prompt_parts.append(f"사용자 질문: {message}\n도우미 답변:")
+                    prompt = "\n\n".join(prompt_parts)
+
+                    # 로깅
+                    briefing_length = len(briefing_context) if briefing_context else 0
+                    past_survey_length = len(past_survey_info) if past_survey_info else 0
+                    context_str_length = len(context_str) if context_str else 0
+                    logger.info(f"📝 [프롬프트] 최종 구성 (첫 메시지, system_instruction 분리):")
+                    logger.info(f"  - system_instruction: {len(system_instruction)}자 (~{len(system_instruction)//4} tokens)")
+                    logger.info(f"  - user_prompt: {len(prompt)}자")
+                    logger.info(f"  - briefing_context: {'yes' if briefing_context else 'no'}, {briefing_length}자")
+                    logger.info(f"  - past_survey_info: {'yes' if past_survey_info else 'no'}, {past_survey_length}자")
+                    logger.info(f"  - context_str (RAG): {'yes' if context_str else 'no'}, {context_str_length}자")
+                    if not briefing_context:
+                        logger.warning(f"⚠️ [프롬프트] 검진 데이터가 컨텍스트에 포함되지 않음")
+
                     if trace_data:
                         trace_data["final_prompt"] = prompt
+                        trace_data["system_instruction_length"] = len(system_instruction)
                         trace_data["is_first_message"] = True
-                    
-                    gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", chat_history=None)
+
+                    gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", system_instruction=system_instruction, chat_history=None)
                 else:
                     # 이후 메시지: 히스토리 + 검진/복약/문진 데이터 요약 포함
                     # Redis에서 저장된 검진/복약 데이터 요약 가져오기
@@ -693,59 +704,69 @@ class WelnoRagChatService:
                                     past_survey_info_subsequent = f"\n[기본 문진 정보 (페르소나)]\n{generate_survey_section(responses)}\n"
                             except: pass
                     
-                    # 히스토리와 검진/복약/문진 데이터 요약을 함께 전달
-                    persona_prefix = f"{custom_persona}\n\n" if custom_persona else ""
-                    
-                    # 시스템 프롬프트 템플릿 적용 (첫 메시지가 아닐 때도 페르소나 유지)
-                    base_system_prompt_subsequent = CHAT_SYSTEM_PROMPT_TEMPLATE.format(
-                        persona_name=persona_name,
-                        context_str="{context_str}",
-                        query_str="{query_str}"
-                    )
-                    # [Context] 부분을 실제 데이터로 치환
-                    full_context = f"{data_summary}{past_survey_info_subsequent}\n[의학 지식 문서 (참고 문헌)]\n{context_str}"
-                    prompt = base_system_prompt_subsequent.replace("[Context]", f"[Context]{full_context}")
-                    
-                    # 사용자 질문은 이미 base_system_prompt_subsequent 하단에 {query_str}로 포함되어 있으나,
-                    # 기존 로직과의 호환을 위해 명시적으로 format 호출
-                    prompt = prompt.format(query_str=message, context_str="") # context_str은 이미 위에서 replace로 처리됨
+                    # 이후 메시지: system_instruction 분리 (첫 메시지와 동일 구조)
+                    # 1) 시스템 프롬프트 = 규칙 + 데이터 요약
+                    rules_part = CHAT_SYSTEM_PROMPT_TEMPLATE.split("[Context]")[0].rstrip()
+                    rules_prompt = rules_part.format(persona_name=persona_name, context_str="", query_str="")
 
-                    if trace_data:
-                        trace_data["final_prompt"] = prompt
-                        trace_data["is_first_message"] = False
-                    
-                    # 프롬프트 구성 로깅
-                    prompt_length = len(prompt)
-                    data_summary_length = len(data_summary) if data_summary else 0
-                    past_survey_length = len(past_survey_info_subsequent) if past_survey_info_subsequent else 0
-                    context_str_length = len(context_str) if context_str else 0
-                    logger.info(f"📝 [프롬프트] 최종 구성:")
-                    logger.info(f"  - 전체 길이: {prompt_length}자")
-                    logger.info(f"  - data_summary 포함: {'yes' if data_summary else 'no'}, 길이: {data_summary_length}자")
-                    logger.info(f"  - past_survey_info 포함: {'yes' if past_survey_info_subsequent else 'no'}, 길이: {past_survey_length}자")
-                    logger.info(f"  - context_str (RAG 검색) 포함: {'yes' if context_str else 'no'}, 길이: {context_str_length}자")
-                    
-                    if not data_summary:
-                        logger.warning(f"⚠️ [프롬프트] 검진 데이터가 컨텍스트에 포함되지 않음 - data_summary 없음")
-                    
-                    # 단계별 지침 추가
+                    system_parts = []
+                    if custom_persona:
+                        system_parts.append(custom_persona)
+                    system_parts.append(rules_prompt)
+                    # 환자 데이터 (Redis에서 가져온 요약)
+                    if data_summary or past_survey_info_subsequent:
+                        patient_data = "[환자 건강 데이터]"
+                        if data_summary:
+                            patient_data += f"\n{data_summary.strip()}"
+                        if past_survey_info_subsequent:
+                            patient_data += f"\n{past_survey_info_subsequent.strip()}"
+                        system_parts.append(patient_data)
+
+                    # 단계별 지침
                     stage_instruction = ""
                     if chat_stage == "awaiting_current_concerns":
-                        stage_instruction = "\n\n**상담 단계**: 현재 고민과 과거 데이터 연결, '담당 의료진과 상담하시길 권해요 😊'로 안내."
+                        stage_instruction = "**상담 단계**: 현재 고민과 과거 데이터 연결, '담당 의료진과 상담하시길 권해요 😊'로 안내."
                         chat_stage = "normal"
                     else:
-                        # 복잡한 증상이나 의학적 판단이 필요한 경우 의료진 상담 안내
                         if any(kw in message for kw in ["피로", "통증", "증상", "아픔", "불편", "걱정"]):
-                            stage_instruction = "\n\n**상담 지침**: 답변 끝에 '자세한 내용은 담당 의료진과 상담하시길 권해요 😊'로 안내."
-                    
-                    prompt += stage_instruction
-                    # 종료 의사 감지 시 SUGGESTIONS 비생성
+                            stage_instruction = "**상담 지침**: 답변 끝에 '자세한 내용은 담당 의료진과 상담하시길 권해요 😊'로 안내."
+                    if stage_instruction:
+                        system_parts.append(stage_instruction)
+
+                    # SUGGESTIONS (종료 의사 감지 시 비생성)
                     end_keywords = ["감사합니다", "고마워", "알겠습니다", "알겠어", "그만", "종료", "끝", "됐어", "괜찮아", "충분해", "다 들었어"]
                     is_ending = any(kw in (message or "") for kw in end_keywords)
                     if not is_ending:
-                        prompt += "\n\n**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요."
+                        system_parts.append("**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요.")
 
-                    gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", chat_history=chat_history)
+                    system_instruction = "\n\n".join(system_parts)
+
+                    # 2) 유저 프롬프트 = RAG 컨텍스트 + 사용자 질문
+                    prompt_parts = []
+                    if context_str:
+                        prompt_parts.append(f"[의학 지식 문서 (참고 문헌)]\n{context_str}")
+                    prompt_parts.append(f"사용자 질문: {message}\n도우미 답변:")
+                    prompt = "\n\n".join(prompt_parts)
+
+                    # 로깅
+                    data_summary_length = len(data_summary) if data_summary else 0
+                    past_survey_length = len(past_survey_info_subsequent) if past_survey_info_subsequent else 0
+                    context_str_length = len(context_str) if context_str else 0
+                    logger.info(f"📝 [프롬프트] 최종 구성 (이후 메시지, system_instruction 분리):")
+                    logger.info(f"  - system_instruction: {len(system_instruction)}자 (~{len(system_instruction)//4} tokens)")
+                    logger.info(f"  - user_prompt: {len(prompt)}자")
+                    logger.info(f"  - data_summary: {'yes' if data_summary else 'no'}, {data_summary_length}자")
+                    logger.info(f"  - past_survey_info: {'yes' if past_survey_info_subsequent else 'no'}, {past_survey_length}자")
+                    logger.info(f"  - context_str (RAG): {'yes' if context_str else 'no'}, {context_str_length}자")
+                    if not data_summary:
+                        logger.warning(f"⚠️ [프롬프트] 검진 데이터 없음 - data_summary 없음")
+
+                    if trace_data:
+                        trace_data["final_prompt"] = prompt
+                        trace_data["system_instruction_length"] = len(system_instruction)
+                        trace_data["is_first_message"] = False
+
+                    gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", system_instruction=system_instruction, chat_history=chat_history)
                 
                 # Gemini API 호출 타이밍
                 gemini_start = time.time()
