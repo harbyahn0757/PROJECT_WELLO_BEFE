@@ -908,7 +908,6 @@ class WelnoRagChatService:
 
             # 6. 백그라운드 태깅 (done yield 전에 create_task로 실행)
             try:
-                import asyncio
                 asyncio.create_task(_background_tag_session(
                     session_id, partner_id, uuid, hospital_id, trace_data
                 ))
