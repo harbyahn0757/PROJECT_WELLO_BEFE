@@ -1805,11 +1805,10 @@ class WelnoRagChatWidget {
     toggleBtn.className = `${prefix}-sources-toggle`;
     toggleBtn.innerHTML = `<span>참고 문헌</span><span class="${prefix}-sources-chevron" aria-hidden="true">▼</span>`;
 
-    // 소스 리스트 — 기본 열림
+    // 소스 리스트 — 기본 닫힘 (토글로 펼치기)
     const listWrap = document.createElement('div');
     listWrap.className = `${prefix}-sources-list`;
-    listWrap.setAttribute('data-open', 'true');
-    toggleBtn.classList.add('is-open');
+    listWrap.setAttribute('data-open', 'false');
 
     sources.forEach(source => {
       const sourceEl = document.createElement('div');
