@@ -138,11 +138,21 @@ class WelnoRagChatWidget {
     // 세션 ID 생성 (웜업 전 임시용)
     this.state.sessionId = `temp_${this.config.uuid}_${Date.now()}`;
     
-    // 웜업 API 호출 (백그라운드에서 분석 및 인사말 준비)
+    // 클라이언트 즉시 후킹 메시지 생성 → 티저 버블에만 표시
+    var hookMsg = this._generateHookMessage(this.config.partnerData);
+    if (hookMsg && this.config.mode === 'teaser') {
+      this.config.teaserMessage = hookMsg;
+      if (this.elements.teaserBubble) {
+        var teaserText = this.elements.teaserBubble.querySelector('.' + this.cssPrefix + '-teaser-text');
+        if (teaserText) teaserText.textContent = hookMsg;
+      }
+    }
+
+    // 채팅 열릴 때 보이는 첫 메시지는 항상 welcome
+    this.addMessage('assistant', this.config.welcomeMessage);
+
+    // 웜업 API 호출 (세션ID + 배지용)
     this.warmup();
-      
-      // 환영 메시지 추가
-      this.addMessage('assistant', this.config.welcomeMessage);
 
       // 모드별 초기 동작
       if (this.config.mode === 'teaser') {
@@ -917,7 +927,8 @@ class WelnoRagChatWidget {
         bottom: 24px;
         right: 24px;
         max-width: 280px;
-        padding: 16px 20px 16px 52px;
+        padding: 20px 22px 20px 54px;
+        min-height: 60px;
         background: ${primaryColor};
         color: white;
         border-radius: 18px 18px 4px 18px;
@@ -956,27 +967,6 @@ class WelnoRagChatWidget {
         width: 16px;
         height: 16px;
       }
-      .${this.cssPrefix}-teaser-close {
-        position: absolute;
-        top: -6px;
-        right: -6px;
-        width: 20px;
-        height: 20px;
-        background: rgba(0,0,0,0.4);
-        color: white;
-        border: none;
-        border-radius: 50%;
-        font-size: 12px;
-        line-height: 20px;
-        text-align: center;
-        cursor: pointer;
-        padding: 0;
-        opacity: 0;
-        transition: opacity 0.2s;
-      }
-      .${this.cssPrefix}-teaser-bubble:hover .${this.cssPrefix}-teaser-close {
-        opacity: 1;
-      }
 
       @keyframes welnoTeaserBounceIn {
         0% { transform: translateY(100px) scale(0.8); opacity: 0; }
@@ -988,9 +978,22 @@ class WelnoRagChatWidget {
         0%, 100% { transform: translateY(0); }
         50% { transform: translateY(-4px); }
       }
+      @keyframes welnoTeaserPulseRing {
+        0% { box-shadow: 0 0 0 0 rgba(${this._hexToRgb(primaryColor)}, 0.4); }
+        70% { box-shadow: 0 0 0 12px rgba(${this._hexToRgb(primaryColor)}, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(${this._hexToRgb(primaryColor)}, 0); }
+      }
+      @keyframes welnoTeaserIconBounce {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.15); }
+      }
       .${this.cssPrefix}-teaser-bubble.visible {
         animation: welnoTeaserBounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards,
-                   welnoTeaserFloat 2s ease-in-out 0.8s infinite;
+                   welnoTeaserFloat 2s ease-in-out 0.8s infinite,
+                   welnoTeaserPulseRing 2s ease-in-out 0.8s infinite;
+      }
+      .${this.cssPrefix}-teaser-bubble.visible .${this.cssPrefix}-teaser-avatar {
+        animation: welnoTeaserIconBounce 3s ease-in-out 1s infinite;
       }
       .${this.cssPrefix}-teaser-bubble.hiding {
         opacity: 0;
@@ -1355,8 +1358,8 @@ class WelnoRagChatWidget {
   }
 
   /**
-   * 스트리밍 응답 처리 (SSE + rAF 타이핑 애니메이션)
-   * Studio 패턴: 버퍼에 텍스트를 쌓고, rAF로 3글자씩 화면에 반영 + ▌ 커서
+   * 스트리밍 응답 처리 (SSE + 20ms 타이핑 애니메이션)
+   * 버퍼에 텍스트를 쌓고, 20ms 간격으로 1글자씩 화면에 반영 + ▌ 커서
    */
   async handleStreamingResponse(response) {
     const reader = response.body.getReader();
@@ -1366,28 +1369,24 @@ class WelnoRagChatWidget {
     let assistantMessage = '';  // SSE에서 받은 전체 텍스트
     let displayed = '';         // 화면에 보여준 텍스트
     let messageElement = null;
-    let animFrame = null;
     let streamDone = false;
     var self = this;
 
-    // rAF 타이핑 루프: 버퍼(assistantMessage)보다 displayed가 뒤처지면 3글자씩 따라감
+    // 타이핑 루프: 20ms 간격으로 1글자씩 — 초당 ~50자, 부드러운 타이핑
+    var typingInterval = null;
     var startTyping = function() {
-      var tick = function() {
+      typingInterval = setInterval(function() {
         if (displayed.length < assistantMessage.length) {
-          var charsToAdd = Math.min(3, assistantMessage.length - displayed.length);
-          displayed = assistantMessage.slice(0, displayed.length + charsToAdd);
+          displayed = assistantMessage.slice(0, displayed.length + 1);
           if (messageElement) {
-            // 스트리밍 중이면 ▌ 커서 추가
             var cursorHtml = streamDone ? '' : '<span style="color:' + (self.config.buttonColor || '#A69B8F') + ';animation:cursorPulse 1s infinite">\u258C</span>';
             var bubble = messageElement.querySelector('.' + self.cssPrefix + '-message-bubble');
             if (bubble) {
               bubble.innerHTML = self._renderMessageHtml(displayed) + cursorHtml;
-              // structured 클래스 동적 적용
               if (self._isStructuredResponse(displayed)) {
                 bubble.classList.add('structured');
               }
             }
-            // 스크롤
             if (!self._scrollRAF) {
               self._scrollRAF = requestAnimationFrame(function() {
                 self._scrollRAF = null;
@@ -1399,15 +1398,12 @@ class WelnoRagChatWidget {
             }
           }
         } else if (streamDone) {
-          // 타이핑 완료 — 커서 제거, 최종 렌더
+          clearInterval(typingInterval);
           if (messageElement) {
             self.updateMessageContent(messageElement, assistantMessage);
           }
-          return; // rAF 루프 중지
         }
-        animFrame = requestAnimationFrame(tick);
-      };
-      animFrame = requestAnimationFrame(tick);
+      }, 20);
     };
 
     const processLine = (line) => {
@@ -1460,7 +1456,7 @@ class WelnoRagChatWidget {
     } finally {
       reader.releaseLock();
       streamDone = true;
-      // rAF가 남은 텍스트를 다 보여준 후 자동 종료
+      // setInterval이 남은 텍스트를 다 보여준 후 자동 종료
     }
   }
 
@@ -1484,6 +1480,54 @@ class WelnoRagChatWidget {
     var g = parseInt(hex.substring(2, 4), 16);
     var b = parseInt(hex.substring(4, 6), 16);
     return r + ',' + g + ',' + b;
+  }
+
+  /**
+   * 클라이언트 즉시 후킹 메시지 생성 (백엔드 threshold 미러링)
+   */
+  _generateHookMessage(partnerData) {
+    if (!partnerData || !partnerData.checkup_results) return null;
+    var cr = partnerData.checkup_results;
+    if (Array.isArray(cr)) cr = cr[0] || {};
+    var name = (partnerData.patient && partnerData.patient.name) || '고객';
+    var hospital = partnerData.partner_hospital_name || (partnerData.patient && partnerData.patient.hospital_name) || '';
+
+    var keyword = null, emoji = '\uD83D\uDC40';
+    if (cr.systolic_bp >= 140)         { keyword = '혈압'; emoji = '\uD83D\uDC93'; }
+    else if (cr.fasting_glucose >= 126){ keyword = '혈당'; emoji = '\uD83E\uDE78'; }
+    else if (cr.fasting_glucose >= 100){ keyword = '혈당'; emoji = '\uD83D\uDCCA'; }
+    else if (cr.total_cholesterol >= 240){ keyword = '콜레스테롤'; emoji = '\uD83D\uDCCA'; }
+    else if (cr.ldl_cholesterol >= 160){ keyword = 'LDL 콜레스테롤'; emoji = '\uD83D\uDCCA'; }
+    else if ((cr.sgot_ast >= 40) || (cr.sgpt_alt >= 40)){ keyword = '간 수치'; emoji = '\uD83D\uDD2C'; }
+    else if (cr.bmi >= 25)             { keyword = '체중 관리'; emoji = '\u2696\uFE0F'; }
+    else if (cr.gfr && cr.gfr < 60)    { keyword = '신장 기능'; emoji = '\uD83D\uDD2C'; }
+
+    if (!keyword) {
+      var hasAbnormal = Object.keys(cr).some(function(k) { return k.endsWith('_abnormal') && cr[k]; });
+      if (hasAbnormal) keyword = '검진 결과';
+    }
+    if (!keyword) return null;
+
+    // risk_tone 판정 (백엔드 _generate_personalized_greeting 미러링)
+    var tone = 'friendly';
+    if (cr.systolic_bp >= 160)            tone = 'urgent';
+    else if (cr.systolic_bp >= 140)       tone = 'curious';
+    else if (cr.fasting_glucose >= 126)   tone = 'urgent';
+    else if (cr.fasting_glucose >= 100)   tone = 'curious';
+    else if (cr.total_cholesterol >= 240) tone = 'curious';
+    else if (cr.ldl_cholesterol >= 160)   tone = 'curious';
+    else if ((cr.sgot_ast >= 40) || (cr.sgpt_alt >= 40)) tone = 'curious';
+    else if (cr.bmi >= 25)               tone = 'friendly';
+    else if (cr.gfr && cr.gfr < 60)      tone = 'urgent';
+
+    var hp = hospital ? hospital + ' ' : '';
+    if (tone === 'urgent') {
+      return name + '님, ' + hp + keyword + ' 결과 꼭 한번 확인해 보세요 ' + emoji;
+    } else if (tone === 'curious') {
+      return hp + '검진 결과 정리됐어요, ' + name + '님 ' + keyword + ' 한번 살펴보세요 ' + emoji;
+    } else {
+      return name + '님, ' + hp + '검진 결과 정리됐어요! 확인해 보세요 ' + emoji;
+    }
   }
 
   /**
@@ -1807,18 +1851,6 @@ class WelnoRagChatWidget {
     text.textContent = this.config.teaserMessage;
     bubble.appendChild(text);
 
-    // 닫기 버튼 (hover 시 표시)
-    const closeBtn = document.createElement('button');
-    closeBtn.className = `${this.cssPrefix}-teaser-close`;
-    closeBtn.innerHTML = '×';
-    closeBtn.setAttribute('aria-label', '닫기');
-    closeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      bubble.classList.remove('visible');
-      bubble.classList.add('hiding');
-    });
-    bubble.appendChild(closeBtn);
-
     // 클릭 → 채팅 열기
     bubble.addEventListener('click', () => this.open());
 
@@ -1940,24 +1972,17 @@ class WelnoRagChatWidget {
           this.elements.badge.classList.add('visible');
         }
 
-        if (data.greeting) {
-          // 말풍선 문구 업데이트 (줄바꿈/공백 강화 정규화: <br> 제거, 연속 공백 collapse)
+        // 버튼 모드에서만 greeting으로 웰컴 버블 업데이트
+        // 티저 모드는 클라이언트 hookMessage가 이미 처리함
+        if (data.greeting && this.config.mode !== 'teaser') {
           const raw = (data.greeting || '').replace(/<br\s*\/?>/gi, ' ');
           const normalizedGreeting = raw.replace(/\s+/g, ' ').trim();
-
-          if (this.config.mode === 'teaser') {
-            // 티저 모드: 티저 말풍선 텍스트 업데이트
-            const teaserText = this.elements.teaserBubble && this.elements.teaserBubble.querySelector(`.${this.cssPrefix}-teaser-text`);
-            if (teaserText) teaserText.textContent = normalizedGreeting;
-          } else {
-            // 버튼 모드: 웰컴 버블 텍스트 업데이트 + 노출
-            this.elements.welcomeBubble.querySelector(`.${this.cssPrefix}-welcome-bubble-text`).textContent = normalizedGreeting;
-            setTimeout(() => {
-              if (!this.state.isOpen) {
-                this.elements.welcomeBubble.classList.add('visible');
-              }
-            }, 1000);
-          }
+          this.elements.welcomeBubble.querySelector(`.${this.cssPrefix}-welcome-bubble-text`).textContent = normalizedGreeting;
+          setTimeout(() => {
+            if (!this.state.isOpen) {
+              this.elements.welcomeBubble.classList.add('visible');
+            }
+          }, 1000);
         }
       }
     } catch (error) {
