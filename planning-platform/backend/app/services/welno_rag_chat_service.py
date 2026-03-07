@@ -18,6 +18,11 @@ from .checkup_design.lifestyle_rag_service import lifestyle_rag_service, Lifesty
 from ..services.gemini_service import gemini_service, GeminiRequest
 from ..services.welno_data_service import WelnoDataService
 from ..core.database import db_manager
+from .chat_tagging_service import (
+    build_suggestion_instruction,
+    extract_health_alerts,
+)
+from ..utils.partner_constants import PARTNER_TYPE_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -617,11 +622,18 @@ class WelnoRagChatService:
                         system_parts.append(stage_instruction)
                     logger.info(f"🔍 [채팅] 최종 chat_stage: {chat_stage}")
 
-                    # SUGGESTIONS 지시
-                    if is_greeting_or_short:
-                        system_parts.append("**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고 '[SUGGESTIONS] 전체 결과 요약해줘, 이상 있는 항목만 알려줘, 생활습관 조언해줘 [/SUGGESTIONS]' 형식으로 포함하세요.")
-                    else:
-                        system_parts.append("**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요.")
+                    # SUGGESTIONS 지시 (파트너별 태깅 연동 개인화)
+                    _health_alerts = []
+                    if trace_data:
+                        _pd = trace_data.get("processed_data", {})
+                        if isinstance(_pd, dict):
+                            _health_alerts = extract_health_alerts(_pd.get("health_metrics", {}))
+                    _pt = PARTNER_TYPE_MAP.get(partner_id, "healthcare")
+                    system_parts.append(build_suggestion_instruction(
+                        turn_number=message_count,
+                        health_alerts=_health_alerts,
+                        partner_type=_pt,
+                    ))
 
                     system_instruction = "\n\n".join(system_parts)
 
@@ -737,7 +749,17 @@ class WelnoRagChatService:
                     end_keywords = ["감사합니다", "고마워", "알겠습니다", "알겠어", "그만", "종료", "끝", "됐어", "괜찮아", "충분해", "다 들었어"]
                     is_ending = any(kw in (message or "") for kw in end_keywords)
                     if not is_ending:
-                        system_parts.append("**중요**: 답변이 끝난 후 반드시 빈 줄을 하나 두고, 사용자가 이어서 물어볼 법한 짧은 질문 2~3개를 '[SUGGESTIONS] 질문1, 질문2, 질문3 [/SUGGESTIONS]' 형식으로 포함하세요.")
+                        _health_alerts_sub = []
+                        if trace_data:
+                            _pd_sub = trace_data.get("processed_data", {})
+                            if isinstance(_pd_sub, dict):
+                                _health_alerts_sub = extract_health_alerts(_pd_sub.get("health_metrics", {}))
+                        _pt_sub = PARTNER_TYPE_MAP.get(partner_id, "healthcare")
+                        system_parts.append(build_suggestion_instruction(
+                            turn_number=message_count,
+                            health_alerts=_health_alerts_sub,
+                            partner_type=_pt_sub,
+                        ))
 
                     system_instruction = "\n\n".join(system_parts)
 
@@ -866,15 +888,29 @@ class WelnoRagChatService:
                 
                 # 불완전한 태그 제거 (정규식으로 [SUGGEST로 시작하는 모든 패턴 제거)
                 full_answer = re.sub(r'\[SUGGEST[^\]]*\]?.*', '', full_answer, flags=re.DOTALL).strip()
-                
-                # 예상 질문 파싱
+
+                # 예상 질문 파싱 (파이프 | 우선, 쉼표 , 폴백)
                 if "[SUGGESTIONS]" in full_answer:
                     try:
                         sug_part = full_answer.split("[SUGGESTIONS]")[1].split("[/SUGGESTIONS]")[0]
-                        suggestions = [s.strip() for s in sug_part.split(",") if s.strip()][:3]
+                        if "|" in sug_part:
+                            suggestions = [s.strip() for s in sug_part.split("|") if s.strip()][:3]
+                        else:
+                            suggestions = [s.strip() for s in sug_part.split(",") if s.strip()][:3]
                         full_answer = full_answer.split("[SUGGESTIONS]")[0].strip()
                     except:
                         pass
+
+                # 모델이 SUGGESTIONS를 생략하면 룰 기반 폴백
+                if not suggestions:
+                    from .chat_tagging_service import generate_fallback_suggestions
+                    _ha = []
+                    if trace_data:
+                        _hm = trace_data.get("processed_data", {})
+                        if isinstance(_hm, dict):
+                            _ha = extract_health_alerts(_hm.get("health_metrics", {}))
+                    suggestions = generate_fallback_suggestions(message_count, _ha, "")
+                    logger.info(f"💡 [서제스천] 모델 미생성 — 폴백 {len(suggestions)}건 사용")
             else:
                 yield f"data: {json.dumps({'answer': '죄송합니다. 엔진 초기화에 실패했습니다.', 'done': False}, ensure_ascii=False)}\n\n"
 

@@ -311,25 +311,31 @@ class WelnoRagChatWidget {
         border-radius: 50%;
         background: ${primaryColor};
         color: white;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 4px 14px rgba(${this._hexToRgb(primaryColor)}, 0.3);
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.3s ease;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
         outline: none;
         overflow: hidden;
         position: relative;
+        animation: welnoButtonPulse 3s ease-in-out infinite;
       }
 
       .${this.cssPrefix}-button:hover {
-        transform: scale(1.1);
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-        filter: brightness(0.9);
+        transform: scale(1.08);
+        box-shadow: 0 6px 20px rgba(${this._hexToRgb(primaryColor)}, 0.4);
+        animation: none;
       }
 
       .${this.cssPrefix}-button.active {
-        filter: brightness(0.9);
+        animation: none;
+      }
+
+      @keyframes welnoButtonPulse {
+        0%, 100% { box-shadow: 0 4px 14px rgba(${this._hexToRgb(primaryColor)}, 0.3); }
+        50% { box-shadow: 0 4px 20px rgba(${this._hexToRgb(primaryColor)}, 0.5); }
       }
 
       /* 배지 dot — warmup has_data=true 일 때 표시 */
@@ -385,15 +391,14 @@ class WelnoRagChatWidget {
         position: absolute;
         bottom: 70px;
         right: 0;
-        width: 400px; /* 360px -> 400px */
-        height: 650px; /* 550px -> 650px */
+        width: 400px;
+        height: 650px;
         background: #FFFAF2;
         border-radius: 20px;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 0 0 1px rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.12);
         display: none;
         flex-direction: column;
         overflow: hidden;
-        border: 1px solid ${t.borderSubtle};
         animation: slideInUp 0.3s ease-out;
       }
 
@@ -431,34 +436,61 @@ class WelnoRagChatWidget {
 
       /* 헤더 */
       .${this.cssPrefix}-header {
-        background: ${headerColor};
+        background: linear-gradient(135deg, ${headerColor} 0%, color-mix(in srgb, ${headerColor} 85%, black) 100%);
         color: white;
-        padding: 12px 16px;
+        padding: 14px 16px;
         display: flex;
         justify-content: space-between;
         align-items: center;
       }
 
+      .${this.cssPrefix}-header-info {
+        display: flex;
+        flex-direction: column;
+      }
+
       .${this.cssPrefix}-header h3 {
         margin: 0;
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 600;
-        letter-spacing: -0.5px;
+        letter-spacing: -0.3px;
+      }
+
+      .${this.cssPrefix}-header-status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #4ade80;
+        display: inline-block;
+        margin-left: 6px;
+        vertical-align: middle;
+        box-shadow: 0 0 4px rgba(74, 222, 128, 0.5);
       }
 
       .${this.cssPrefix}-close-button {
         background: none;
         border: none;
         color: white;
-        font-size: 20px;
         cursor: pointer;
         padding: 4px;
-        border-radius: 4px;
-        transition: background-color 0.2s;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        opacity: 0.7;
+        transition: opacity 0.2s, background 0.2s;
       }
 
       .${this.cssPrefix}-close-button:hover {
+        opacity: 1;
         background: rgba(255, 255, 255, 0.1);
+      }
+
+      .${this.cssPrefix}-close-button svg {
+        width: 16px;
+        height: 16px;
       }
 
       /* 웰컴 버블 - 뷰포트 기준 고정 위치로 가로 너비 활용 (!important 추가로 강제 적용) */
@@ -579,6 +611,11 @@ class WelnoRagChatWidget {
         margin-bottom: 16px;
         display: flex;
         flex-direction: column;
+        animation: welnoMessageIn 0.25s ease-out;
+      }
+
+      .${this.cssPrefix}-message.consecutive {
+        margin-top: -12px;
       }
 
       .${this.cssPrefix}-message.user {
@@ -587,6 +624,11 @@ class WelnoRagChatWidget {
 
       .${this.cssPrefix}-message.assistant {
         align-items: flex-start;
+      }
+
+      @keyframes welnoMessageIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
       }
 
       .${this.cssPrefix}-message-bubble {
@@ -603,24 +645,6 @@ class WelnoRagChatWidget {
         color: white;
         border-radius: 18px 18px 4px 18px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      }
-
-      .${this.cssPrefix}-message.assistant .${this.cssPrefix}-message-row {
-        display: flex;
-        align-items: flex-start;
-        gap: 8px;
-      }
-
-      .${this.cssPrefix}-message-avatar {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        background: rgba(${this._hexToRgb(primaryColor)}, 0.15);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        margin-top: 2px;
       }
 
       .${this.cssPrefix}-message.assistant .${this.cssPrefix}-message-bubble {
@@ -668,24 +692,35 @@ class WelnoRagChatWidget {
         color: #A09890;
       }
 
-      /* 로딩 인디케이터 (Studio 스타일: 아바타 + ▌ 커서) */
-      .${this.cssPrefix}-loading-wrap {
+      /* 로딩 인디케이터: 타이핑 버블 */
+      .${this.cssPrefix}-typing-bubble {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         align-self: flex-start;
-        gap: 8px;
-        padding: 8px 0;
+        gap: 4px;
+        padding: 14px 18px;
+        background: #FFFFFF;
+        border-radius: 18px 18px 18px 4px;
+        border: 1px solid rgba(221,208,195,0.5);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        margin-bottom: 8px;
+        animation: welnoMessageIn 0.25s ease-out;
       }
 
-      .${this.cssPrefix}-loading-cursor {
-        font-size: 16px;
-        color: ${primaryColor};
-        animation: cursorPulse 1s infinite;
+      .${this.cssPrefix}-typing-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: ${primaryColor};
+        animation: welnoTypingBounce 1.4s infinite;
       }
 
-      @keyframes cursorPulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.3; }
+      .${this.cssPrefix}-typing-dot:nth-child(2) { animation-delay: 0.2s; }
+      .${this.cssPrefix}-typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+      @keyframes welnoTypingBounce {
+        0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+        30% { transform: translateY(-6px); opacity: 1; }
       }
 
       /* 입력 영역 */
@@ -898,16 +933,25 @@ class WelnoRagChatWidget {
         background: #F8F8F8;
         border: 1px solid #E5E5E5;
         border-radius: 16px;
-        padding: 6px 12px;
+        padding: 8px 16px;
         font-size: 13px;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: background 0.25s, border-color 0.25s;
+        animation: welnoChipIn 0.3s ease-out backwards;
       }
 
+      .${this.cssPrefix}-suggestion:nth-child(1) { animation-delay: 0s; }
+      .${this.cssPrefix}-suggestion:nth-child(2) { animation-delay: 0.1s; }
+      .${this.cssPrefix}-suggestion:nth-child(3) { animation-delay: 0.2s; }
+
       .${this.cssPrefix}-suggestion:hover {
-        background: ${primaryColor};
-        color: white;
+        background: rgba(${this._hexToRgb(primaryColor)}, 0.12);
         border-color: ${primaryColor};
+      }
+
+      @keyframes welnoChipIn {
+        from { opacity: 0; transform: translateY(8px) scale(0.95); }
+        to { opacity: 1; transform: translateY(0) scale(1); }
       }
 
       .${this.cssPrefix}-disclaimer {
@@ -1081,8 +1125,12 @@ class WelnoRagChatWidget {
     const header = document.createElement('div');
     header.className = `${this.cssPrefix}-header`;
     header.innerHTML = `
-      <h3>MediArc</h3>
-      <button class="${this.cssPrefix}-close-button" aria-label="채팅 닫기">×</button>
+      <div class="${this.cssPrefix}-header-info">
+        <h3>MediArc<span class="${this.cssPrefix}-header-status-dot"></span></h3>
+      </div>
+      <button class="${this.cssPrefix}-close-button" aria-label="채팅 닫기">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     `;
 
     // 메시지 영역
@@ -1554,7 +1602,19 @@ class WelnoRagChatWidget {
       var ulMatch = line.match(/^\s*[*\-]\s+(.+)$/);
       var olMatch = !ulMatch ? line.match(/^\s*(\d+)[.)]\s+(.+)$/) : null;
 
-      if (ulMatch) {
+      // 헤딩 (### > ## 순서로 매칭)
+      var h3Match = line.match(/^\s*###\s+(.+)$/);
+      var h2Match = !h3Match ? line.match(/^\s*##\s+(.+)$/) : null;
+
+      if (h3Match) {
+        if (inUl) { result.push('</ul>'); inUl = false; }
+        if (inOl) { result.push('</ol>'); inOl = false; }
+        result.push('<div style="font-weight:600;font-size:13px;margin:10px 0 4px;color:#555">' + h3Match[1] + '</div>');
+      } else if (h2Match) {
+        if (inUl) { result.push('</ul>'); inUl = false; }
+        if (inOl) { result.push('</ol>'); inOl = false; }
+        result.push('<div style="font-weight:700;font-size:14px;margin:12px 0 4px;color:#333">' + h2Match[1] + '</div>');
+      } else if (ulMatch) {
         if (inOl) { result.push('</ol>'); inOl = false; }
         if (!inUl) { result.push('<ul>'); inUl = true; }
         result.push('<li>' + ulMatch[1] + '</li>');
@@ -1586,32 +1646,23 @@ class WelnoRagChatWidget {
     const messageElement = document.createElement('div');
     messageElement.className = `${this.cssPrefix}-message ${role}`;
 
-    if (role === 'assistant') {
-      // AI 메시지: 아바타 + 말풍선을 row로 묶기
-      const row = document.createElement('div');
-      row.className = `${this.cssPrefix}-message-row`;
-
-      const avatar = document.createElement('div');
-      avatar.className = `${this.cssPrefix}-message-avatar`;
-      avatar.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5L8.5 5.5L12.5 7L8.5 8.5L7 12.5L5.5 8.5L1.5 7L5.5 5.5L7 1.5Z" fill="currentColor" style="color:' + (this.config.buttonColor || THEME_TOKENS[this.config.theme === 'navy' ? 'navy' : 'default'].buttonColor) + '"/></svg>';
-
-      const bubbleElement = document.createElement('div');
-      bubbleElement.className = `${this.cssPrefix}-message-bubble`;
-      if (this._isStructuredResponse(content)) {
-        bubbleElement.classList.add('structured');
-      }
-      bubbleElement.innerHTML = this._renderMessageHtml(content);
-
-      row.appendChild(avatar);
-      row.appendChild(bubbleElement);
-      messageElement.appendChild(row);
-    } else {
-      // 사용자 메시지: 말풍선만
-      const bubbleElement = document.createElement('div');
-      bubbleElement.className = `${this.cssPrefix}-message-bubble`;
-      bubbleElement.innerHTML = this._renderMessageHtml(content);
-      messageElement.appendChild(bubbleElement);
+    // 연속 메시지 그룹핑: 이전 메시지와 같은 role이면 간격 좁히기
+    const lastMsg = this.state.messages[this.state.messages.length - 1];
+    const isConsecutive = lastMsg && lastMsg.role === role;
+    if (isConsecutive) {
+      messageElement.classList.add('consecutive');
+      // 이전 메시지의 타임스탬프 숨기기 (그룹 마지막만 표시)
+      const prevFooter = this.elements.messagesContainer.querySelector(`.${this.cssPrefix}-message:last-child .${this.cssPrefix}-message-footer`);
+      if (prevFooter) prevFooter.style.display = 'none';
     }
+
+    const bubbleElement = document.createElement('div');
+    bubbleElement.className = `${this.cssPrefix}-message-bubble`;
+    if (role === 'assistant' && this._isStructuredResponse(content)) {
+      bubbleElement.classList.add('structured');
+    }
+    bubbleElement.innerHTML = this._renderMessageHtml(content);
+    messageElement.appendChild(bubbleElement);
 
     const footerElement = document.createElement('div');
     footerElement.className = `${this.cssPrefix}-message-footer`;
@@ -1630,7 +1681,7 @@ class WelnoRagChatWidget {
     footerElement.appendChild(footerRow);
 
     messageElement.appendChild(footerElement);
-    
+
     this.elements.messagesContainer.appendChild(messageElement);
     this.scrollToBottom();
     
@@ -1780,16 +1831,14 @@ class WelnoRagChatWidget {
     this.elements.sendButton.disabled = isLoading;
     
     if (isLoading) {
-      // 로딩 인디케이터: Studio 스타일 아바타 + ▌ 커서
+      // 로딩 인디케이터: 타이핑 버블 (bounce dots)
       const loadingElement = document.createElement('div');
-      loadingElement.className = `${this.cssPrefix}-loading-wrap`;
+      loadingElement.className = `${this.cssPrefix}-typing-bubble`;
       loadingElement.id = 'loading-indicator';
-      var accentColor = this.config.buttonColor || THEME_TOKENS[this.config.theme === 'navy' ? 'navy' : 'default'].buttonColor;
       loadingElement.innerHTML = `
-        <div class="${this.cssPrefix}-message-avatar">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5L8.5 5.5L12.5 7L8.5 8.5L7 12.5L5.5 8.5L1.5 7L5.5 5.5L7 1.5Z" fill="${accentColor}"/></svg>
-        </div>
-        <span class="${this.cssPrefix}-loading-cursor">\u258C</span>
+        <span class="${this.cssPrefix}-typing-dot"></span>
+        <span class="${this.cssPrefix}-typing-dot"></span>
+        <span class="${this.cssPrefix}-typing-dot"></span>
       `;
       this.elements.messagesContainer.appendChild(loadingElement);
       this.scrollToBottom();
