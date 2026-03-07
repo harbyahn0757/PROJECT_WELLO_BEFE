@@ -150,6 +150,102 @@ def _format_health_data_for_prompt(
     return "\n\n".join(sections)
 
 
+# ─── 서제스천 생성 (태깅 연동) ───────────────────────────────────
+
+def extract_health_alerts(health_metrics: Dict[str, Any]) -> List[Dict[str, str]]:
+    """검진 데이터에서 이상 항목 추출 (서제스천 개인화용)."""
+    alerts = []
+    if not health_metrics:
+        return alerts
+    for key, label in METRIC_LABELS.items():
+        abnormal = health_metrics.get(f"{key}_abnormal", "")
+        if abnormal and abnormal != "정상":
+            val = health_metrics.get(key)
+            alerts.append({"field": key, "label": label, "value": str(val or ""), "judgment": abnormal})
+    return alerts
+
+
+# 파트너별 서제스천 방향 — 구체적 질문은 모델이 맥락에서 생성
+# hospital: 가볍게 관리할 수 있다는 맥락에서 재방문 유도
+# commerce: 식단/영양/생활습관 관심 자연스럽게 확장
+# healthcare: 수치 이해 + 일상 실천 방향
+_PARTNER_DIRECTION = {
+    "hospital": (
+        "서제스천 방향: 환자가 검진 수치를 이해하고 가볍게 관리해볼 수 있는 질문.\n"
+        "수치 간 연관성, 관리 주기, 생활에서 개선 가능한 부분 등.\n"
+        "병원 방문/진단/겁주기 식 질문은 피하세요 — 환자가 알아서 물어봅니다."
+    ),
+    "commerce": (
+        "서제스천 방향: 식단, 영양소, 생활습관 개선으로 자연스럽게 확장하는 질문.\n"
+        "어떤 음식/영양소가 도움 되는지, 일상에서 실천 가능한 방법 등.\n"
+        "상품 추천이나 구매 유도 느낌은 절대 내지 마세요."
+    ),
+    "healthcare": (
+        "서제스천 방향: 수치의 의미를 쉽게 이해하고 생활습관과 연결하는 질문.\n"
+        "이상 항목 간 관계, 운동/식단 실천법, 다른 항목 확인 등."
+    ),
+}
+
+
+def build_suggestion_instruction(
+    turn_number: int,
+    health_alerts: Optional[List[Dict[str, str]]] = None,
+    partner_type: str = "healthcare",
+) -> str:
+    """파트너 방향 + 이상 항목만 전달, 구체적 질문은 모델이 생성."""
+    pt = partner_type if partner_type in _PARTNER_DIRECTION else "healthcare"
+    lines = [
+        "[서제스천 생성 규칙]",
+        "답변 마지막에 반드시 후속 질문 3개를 아래 형식으로 생성하세요.",
+        "형식: [SUGGESTIONS] 질문1 | 질문2 | 질문3 [/SUGGESTIONS]",
+        "각 질문은 20자 이내, 경어체.",
+        "",
+        _PARTNER_DIRECTION[pt],
+    ]
+
+    if health_alerts:
+        top = health_alerts[:3]
+        items_str = ", ".join(f"{a['label']}({a['judgment']})" for a in top)
+        lines.append(f"\n환자의 이상 항목: {items_str}")
+
+    return "\n".join(lines)
+
+
+_FALLBACK_TEMPLATES = {
+    1: [
+        "전체 검진 결과 요약해줘",
+        "이상 있는 항목만 알려줘",
+        "생활습관 조언해줘",
+    ],
+    2: [
+        "{topic} 더 자세히 알고 싶어요",
+        "다른 이상 항목은 없나요?",
+        "생활습관으로 개선할 수 있나요?",
+    ],
+    3: [
+        "{topic} 수치 기준이 궁금해요",
+        "다음 검진은 언제 받으면 좋을까요?",
+        "핵심만 정리해줄 수 있나요?",
+    ],
+}
+
+
+def generate_fallback_suggestions(
+    turn_count: int,
+    health_alerts: Optional[List[Dict[str, str]]] = None,
+    last_answer_topic: str = "",
+) -> List[str]:
+    """모델이 서제스천을 생략했을 때 룰 기반 폴백."""
+    key = min(turn_count, 3)
+    templates = _FALLBACK_TEMPLATES.get(key, _FALLBACK_TEMPLATES[3])
+
+    topic = last_answer_topic or "검진 결과"
+    if health_alerts and not last_answer_topic:
+        topic = health_alerts[0]["label"]
+
+    return [t.format(topic=topic) for t in templates]
+
+
 # ─── 규칙 기반 함수 (폴백용으로 유지) ──────────────────────────────
 
 def extract_interest_tags(messages: List[Dict[str, str]]) -> List[str]:
