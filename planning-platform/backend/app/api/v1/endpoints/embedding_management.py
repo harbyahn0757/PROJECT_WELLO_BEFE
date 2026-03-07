@@ -1371,7 +1371,7 @@ async def get_hospital_config(hospital_id: str, partner_id: str = "welno"):
                 welcome_message="",
                 llm_config={"model": "gemini-3-flash-preview", "temperature": 0.7, "max_tokens": 2000},
                 embedding_config={"model": "text-embedding-ada-002", "index_name": "faiss_db"},
-                theme_config={"theme": "default", "logo_url": None, "primary_color": "#7B5E4F"},
+                theme_config={"theme": "default", "logo_url": None, "primary_color": "#7B5E4F", "icon_url": None, "widget_mode": "button", "teaser_message": "건강 궁금한 점 물어보세요!", "teaser_delay": 2000},
                 is_active=True,
             )
 

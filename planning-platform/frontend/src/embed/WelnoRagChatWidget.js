@@ -74,6 +74,9 @@ class WelnoRagChatWidget {
       chatIconUrl: chatIconUrl, // 파트너 지정 또는 API Key 자동 매핑(메디링스 등)
       
       // 동작 설정
+      mode: config.mode || 'button',  // 'button' (기존) | 'teaser' (신규)
+      teaserMessage: config.teaserMessage || '건강 궁금한 점 물어보세요!',
+      teaserDelay: config.teaserDelay != null ? config.teaserDelay : 2000,
       autoOpen: config.autoOpen || false,
       welcomeMessage: config.welcomeMessage || '안녕하세요! 건강과 영양에 대해 궁금한 점을 물어보세요. 😊',
       
@@ -140,12 +143,16 @@ class WelnoRagChatWidget {
       
       // 환영 메시지 추가
       this.addMessage('assistant', this.config.welcomeMessage);
-      
-      // 자동 열기
-      if (this.config.autoOpen) {
+
+      // 모드별 초기 동작
+      if (this.config.mode === 'teaser') {
+        // 티저 모드: 딜레이 후 티저 말풍선 표시
+        this.showTeaser();
+      } else if (this.config.autoOpen) {
+        // 버튼 모드: 자동 열기
         setTimeout(() => this.open(), 500);
       }
-      
+
       this.state.isInitialized = true;
       
     } catch (error) {
@@ -186,7 +193,18 @@ class WelnoRagChatWidget {
           this.config.chatIconUrl = data.theme.icon_url;
         }
 
-        // 3. 인사말 및 파트너명 덮어쓰기
+        // 3. 위젯 모드/티저 설정 덮어쓰기
+        if (data.theme && data.theme.widget_mode) {
+          this.config.mode = data.theme.widget_mode;
+        }
+        if (data.theme && data.theme.teaser_message) {
+          this.config.teaserMessage = data.theme.teaser_message;
+        }
+        if (data.theme && data.theme.teaser_delay != null) {
+          this.config.teaserDelay = data.theme.teaser_delay;
+        }
+
+        // 4. 인사말 및 파트너명 덮어쓰기
         if (data.welcome_message) {
           this.config.welcomeMessage = data.welcome_message;
         }
@@ -567,21 +585,45 @@ class WelnoRagChatWidget {
         border-radius: 18px;
         word-wrap: break-word;
         line-height: 1.6;
-        font-size: 14.5px;
+        font-size: 13px;
       }
 
       .${this.cssPrefix}-message.user .${this.cssPrefix}-message-bubble {
         background: ${primaryColor};
         color: white;
-        border-bottom-right-radius: 2px;
+        border-radius: 18px 18px 4px 18px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       }
 
+      .${this.cssPrefix}-message.assistant .${this.cssPrefix}-message-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .${this.cssPrefix}-message-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: rgba(${this._hexToRgb(primaryColor)}, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+
       .${this.cssPrefix}-message.assistant .${this.cssPrefix}-message-bubble {
-        background: #F8EDDA;
-        color: #4A3A34;
-        border-bottom-left-radius: 2px;
+        background: #FFFFFF;
+        color: #2A1F17;
+        border-radius: 18px 18px 18px 4px;
+        border: 1px solid rgba(221,208,195,0.5);
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      }
+
+      .${this.cssPrefix}-message-bubble.structured {
+        border-left: 3px solid ${primaryColor};
+        max-width: 88%;
       }
 
       .${this.cssPrefix}-message-bubble ul,
@@ -613,40 +655,27 @@ class WelnoRagChatWidget {
 
       .${this.cssPrefix}-message-time {
         font-size: 11px;
-        color: #999;
+        color: #A09890;
       }
 
-      /* 로딩 인디케이터 (말풍선 없이 점 세 개만) */
+      /* 로딩 인디케이터 (Studio 스타일: 아바타 + ▌ 커서) */
       .${this.cssPrefix}-loading-wrap {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         align-self: flex-start;
+        gap: 8px;
         padding: 8px 0;
       }
 
-      .${this.cssPrefix}-loading-dots {
-        display: flex;
-        gap: 4px;
+      .${this.cssPrefix}-loading-cursor {
+        font-size: 16px;
+        color: ${primaryColor};
+        animation: cursorPulse 1s infinite;
       }
 
-      .${this.cssPrefix}-loading-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #999;
-        animation: loadingDot 1.4s infinite ease-in-out both;
-      }
-
-      .${this.cssPrefix}-loading-dot:nth-child(1) { animation-delay: -0.32s; }
-      .${this.cssPrefix}-loading-dot:nth-child(2) { animation-delay: -0.16s; }
-
-      @keyframes loadingDot {
-        0%, 80%, 100% {
-          transform: scale(0);
-        }
-        40% {
-          transform: scale(1);
-        }
+      @keyframes cursorPulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
       }
 
       /* 입력 영역 */
@@ -662,9 +691,9 @@ class WelnoRagChatWidget {
       .${this.cssPrefix}-input {
         flex: 1;
         border: 1px solid #E5E5E5;
-        border-radius: 20px;
+        border-radius: 16px;
         padding: 10px 16px;
-        font-size: 15px;
+        font-size: 13px;
         outline: none;
         resize: none;
         min-height: 20px;
@@ -696,7 +725,7 @@ class WelnoRagChatWidget {
       }
 
       .${this.cssPrefix}-send-button:disabled {
-        background: #CCC;
+        background: rgba(${this._hexToRgb(primaryColor)}, 0.15);
         cursor: not-allowed;
       }
 
@@ -881,6 +910,134 @@ class WelnoRagChatWidget {
         border-radius: 8px;
         line-height: 1.5;
       }
+
+      /* ── 티저 모드 ── */
+      .${this.cssPrefix}-teaser-bubble {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        max-width: 280px;
+        padding: 16px 20px 16px 52px;
+        background: ${primaryColor};
+        color: white;
+        border-radius: 18px 18px 4px 18px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        cursor: pointer;
+        font-size: 15px;
+        line-height: 1.5;
+        opacity: 0;
+        transform: translateY(100px) scale(0.8);
+        transition: opacity 0.2s ease;
+        z-index: 9999;
+        font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      .${this.cssPrefix}-teaser-bubble:hover {
+        filter: brightness(1.08);
+      }
+      .${this.cssPrefix}-teaser-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        position: absolute;
+        top: 14px;
+        left: 14px;
+        background: rgba(255,255,255,0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .${this.cssPrefix}-teaser-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .${this.cssPrefix}-teaser-avatar svg {
+        width: 16px;
+        height: 16px;
+      }
+      .${this.cssPrefix}-teaser-close {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        width: 20px;
+        height: 20px;
+        background: rgba(0,0,0,0.4);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        font-size: 12px;
+        line-height: 20px;
+        text-align: center;
+        cursor: pointer;
+        padding: 0;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .${this.cssPrefix}-teaser-bubble:hover .${this.cssPrefix}-teaser-close {
+        opacity: 1;
+      }
+
+      @keyframes welnoTeaserBounceIn {
+        0% { transform: translateY(100px) scale(0.8); opacity: 0; }
+        50% { transform: translateY(-8px) scale(1.02); opacity: 1; }
+        70% { transform: translateY(4px) scale(0.99); opacity: 1; }
+        100% { transform: translateY(0) scale(1); opacity: 1; }
+      }
+      @keyframes welnoTeaserFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-4px); }
+      }
+      .${this.cssPrefix}-teaser-bubble.visible {
+        animation: welnoTeaserBounceIn 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards,
+                   welnoTeaserFloat 2s ease-in-out 0.8s infinite;
+      }
+      .${this.cssPrefix}-teaser-bubble.hiding {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+        transition: all 0.2s ease-in;
+        animation: none;
+      }
+
+      /* 티저 모드 채팅창: 슬라이드업 */
+      .${this.cssPrefix}-window.teaser-mode {
+        position: fixed;
+        bottom: 0;
+        right: 0;
+        left: auto;
+        top: auto;
+        width: 400px;
+        height: 650px;
+        border-radius: 20px 20px 0 0;
+        transform: translateY(100%);
+        opacity: 0;
+        display: flex;
+        animation: none;
+      }
+      .${this.cssPrefix}-window.teaser-mode.open {
+        transform: translateY(0);
+        opacity: 1;
+        transition: transform 0.5s cubic-bezier(0.16,1,0.3,1), opacity 0.3s ease;
+      }
+      .${this.cssPrefix}-window.teaser-mode.closing {
+        transform: translateY(100%);
+        opacity: 0;
+        transition: transform 0.3s ease-in, opacity 0.2s ease-in;
+      }
+
+      @media (max-width: 480px) {
+        .${this.cssPrefix}-teaser-bubble {
+          right: 16px;
+          bottom: 16px;
+          left: 16px;
+          max-width: none;
+        }
+        .${this.cssPrefix}-window.teaser-mode {
+          width: 100%;
+          height: 100%;
+          border-radius: 0;
+        }
+      }
     `;
 
     const styleSheet = document.createElement('style');
@@ -951,9 +1108,17 @@ class WelnoRagChatWidget {
     this.elements.window.appendChild(this.elements.messagesContainer);
     this.elements.window.appendChild(inputArea);
 
-    this.elements.container.appendChild(this.elements.welcomeBubble);
-    this.elements.container.appendChild(this.elements.button);
-    this.elements.container.appendChild(this.elements.window);
+    if (this.config.mode === 'teaser') {
+      // 티저 모드: 버튼/웰컴버블 대신 티저 말풍선 사용
+      this.createTeaserBubble();
+      this.elements.window.classList.add('teaser-mode');
+      this.elements.container.appendChild(this.elements.window);
+    } else {
+      // 버튼 모드: 기존 동작
+      this.elements.container.appendChild(this.elements.welcomeBubble);
+      this.elements.container.appendChild(this.elements.button);
+      this.elements.container.appendChild(this.elements.window);
+    }
 
     // body에 추가
     document.body.appendChild(this.elements.container);
@@ -963,20 +1128,24 @@ class WelnoRagChatWidget {
    * 이벤트 리스너 등록
    */
   bindEvents() {
-    // 채팅 버튼 클릭
-    this.elements.button.addEventListener('click', () => {
-      if (this.state.isOpen) {
-        this.close();
-      } else {
-        this.open();
-      }
-    });
+    if (this.config.mode === 'teaser') {
+      // 티저 모드 이벤트는 createTeaserBubble()에서 등록됨
+    } else {
+      // 버튼 모드: 채팅 버튼 클릭
+      this.elements.button.addEventListener('click', () => {
+        if (this.state.isOpen) {
+          this.close();
+        } else {
+          this.open();
+        }
+      });
 
-    // 웰컴 버블 클릭
-    this.elements.welcomeBubble.addEventListener('click', () => {
-      this.open();
-      this.elements.welcomeBubble.classList.remove('visible');
-    });
+      // 웰컴 버블 클릭
+      this.elements.welcomeBubble.addEventListener('click', () => {
+        this.open();
+        this.elements.welcomeBubble.classList.remove('visible');
+      });
+    }
 
     // 닫기 버튼 클릭
     const closeButton = this.elements.window.querySelector(`.${this.cssPrefix}-close-button`);
@@ -1043,17 +1212,23 @@ class WelnoRagChatWidget {
     if (this.state.isOpen) return;
 
     this.state.isOpen = true;
-    this.elements.window.classList.add('open');
-    this.elements.container.classList.add('is-open'); // 컨테이너에 상태 추가
-    this.elements.button.classList.add('active');
-    this.elements.button.innerHTML = this.getCloseIcon();
+    this.elements.container.classList.add('is-open');
 
-    // 채팅창이 열리면 웰컴 버블 + 배지 숨기기
-    if (this.elements.welcomeBubble) {
-      this.elements.welcomeBubble.classList.remove('visible');
-    }
-    if (this.elements.badge) {
-      this.elements.badge.classList.remove('visible');
+    if (this.config.mode === 'teaser') {
+      // 티저 모드: 티저 fadeOut → 채팅창 slideUp
+      this.handleTeaserClick();
+    } else {
+      // 버튼 모드: 기존 동작
+      this.elements.window.classList.add('open');
+      this.elements.button.classList.add('active');
+      this.elements.button.innerHTML = this.getCloseIcon();
+
+      if (this.elements.welcomeBubble) {
+        this.elements.welcomeBubble.classList.remove('visible');
+      }
+      if (this.elements.badge) {
+        this.elements.badge.classList.remove('visible');
+      }
     }
 
     // 모바일: 배경 스크롤 방지
@@ -1067,11 +1242,9 @@ class WelnoRagChatWidget {
       this.elements.input.focus();
     }, 300);
 
-    // 콜백 호출
     if (this.config.onOpen) {
       this.config.onOpen();
     }
-
   }
 
   /**
@@ -1081,10 +1254,17 @@ class WelnoRagChatWidget {
     if (!this.state.isOpen) return;
 
     this.state.isOpen = false;
-    this.elements.window.classList.remove('open');
-    this.elements.container.classList.remove('is-open'); // 컨테이너 상태 제거
-    this.elements.button.classList.remove('active');
-    this.elements.button.innerHTML = this.getChatIcon();
+    this.elements.container.classList.remove('is-open');
+
+    if (this.config.mode === 'teaser') {
+      // 티저 모드: 채팅창 slideDown → 티저 재등장
+      this.closeChatToTeaser();
+    } else {
+      // 버튼 모드: 기존 동작
+      this.elements.window.classList.remove('open');
+      this.elements.button.classList.remove('active');
+      this.elements.button.innerHTML = this.getChatIcon();
+    }
 
     // 모바일: 배경 스크롤 복원 + 키보드 높이 초기화
     if (window.innerWidth <= 480) {
@@ -1093,11 +1273,9 @@ class WelnoRagChatWidget {
       this.elements.window.style.top = '';
     }
 
-    // 콜백 호출
     if (this.config.onClose) {
       this.config.onClose();
     }
-
   }
 
   /**
@@ -1177,16 +1355,61 @@ class WelnoRagChatWidget {
   }
 
   /**
-   * 스트리밍 응답 처리 (SSE: 청크가 줄 중간에 잘릴 수 있으므로 버퍼로 완전한 줄만 파싱)
+   * 스트리밍 응답 처리 (SSE + rAF 타이핑 애니메이션)
+   * Studio 패턴: 버퍼에 텍스트를 쌓고, rAF로 3글자씩 화면에 반영 + ▌ 커서
    */
   async handleStreamingResponse(response) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    
-    let assistantMessage = '';
+
+    let assistantMessage = '';  // SSE에서 받은 전체 텍스트
+    let displayed = '';         // 화면에 보여준 텍스트
     let messageElement = null;
-    
+    let animFrame = null;
+    let streamDone = false;
+    var self = this;
+
+    // rAF 타이핑 루프: 버퍼(assistantMessage)보다 displayed가 뒤처지면 3글자씩 따라감
+    var startTyping = function() {
+      var tick = function() {
+        if (displayed.length < assistantMessage.length) {
+          var charsToAdd = Math.min(3, assistantMessage.length - displayed.length);
+          displayed = assistantMessage.slice(0, displayed.length + charsToAdd);
+          if (messageElement) {
+            // 스트리밍 중이면 ▌ 커서 추가
+            var cursorHtml = streamDone ? '' : '<span style="color:' + (self.config.buttonColor || '#A69B8F') + ';animation:cursorPulse 1s infinite">\u258C</span>';
+            var bubble = messageElement.querySelector('.' + self.cssPrefix + '-message-bubble');
+            if (bubble) {
+              bubble.innerHTML = self._renderMessageHtml(displayed) + cursorHtml;
+              // structured 클래스 동적 적용
+              if (self._isStructuredResponse(displayed)) {
+                bubble.classList.add('structured');
+              }
+            }
+            // 스크롤
+            if (!self._scrollRAF) {
+              self._scrollRAF = requestAnimationFrame(function() {
+                self._scrollRAF = null;
+                var el = self.elements.messagesContainer;
+                if (!el) return;
+                var isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+                if (isNearBottom) el.scrollTop = el.scrollHeight;
+              });
+            }
+          }
+        } else if (streamDone) {
+          // 타이핑 완료 — 커서 제거, 최종 렌더
+          if (messageElement) {
+            self.updateMessageContent(messageElement, assistantMessage);
+          }
+          return; // rAF 루프 중지
+        }
+        animFrame = requestAnimationFrame(tick);
+      };
+      animFrame = requestAnimationFrame(tick);
+    };
+
     const processLine = (line) => {
       if (!line.startsWith('data: ')) return;
       try {
@@ -1196,8 +1419,8 @@ class WelnoRagChatWidget {
           assistantMessage += data.answer;
           if (!messageElement) {
             messageElement = this.addMessage('assistant', '');
+            startTyping();
           }
-          this.updateMessageContent(messageElement, assistantMessage);
         }
 
         if (data.done) {
@@ -1207,7 +1430,6 @@ class WelnoRagChatWidget {
           if (data.suggestions && data.suggestions.length > 0) {
             this.addSuggestions(messageElement, data.suggestions);
           }
-          // 면책 안내: 첫 응답 시 1회만
           this.state.assistantMsgCount++;
           if (this.state.assistantMsgCount === 1) {
             this.addDisclaimer();
@@ -1217,27 +1439,51 @@ class WelnoRagChatWidget {
         console.error('[WelnoWidget] SSE 파싱 에러:', e.message, '| line:', line.substring(0, 200));
       }
     };
-    
+
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
-        
+
         for (const line of lines) {
           processLine(line.trim());
         }
       }
-      
+
       if (buffer.trim()) {
         processLine(buffer.trim());
       }
     } finally {
       reader.releaseLock();
+      streamDone = true;
+      // rAF가 남은 텍스트를 다 보여준 후 자동 종료
     }
+  }
+
+  /**
+   * 구조화된 응답인지 판별 (Studio isStructuredResponse 포팅)
+   */
+  _isStructuredResponse(text) {
+    if (!text || text.length < 150) return false;
+    var patterns = [/^\d+\.\s+\*\*/m, /^#{1,3}\s+/m, /^\*\*[^*]+\*\*:/m, /^-\s+\*\*/m];
+    return patterns.some(function(p) { return p.test(text); });
+  }
+
+  /**
+   * HEX → R,G,B 문자열 변환 (rgba() 용)
+   */
+  _hexToRgb(hex) {
+    if (!hex) return '196,168,130';
+    hex = hex.replace('#', '');
+    if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+    var r = parseInt(hex.substring(0, 2), 16);
+    var g = parseInt(hex.substring(2, 4), 16);
+    var b = parseInt(hex.substring(4, 6), 16);
+    return r + ',' + g + ',' + b;
   }
 
   /**
@@ -1295,11 +1541,34 @@ class WelnoRagChatWidget {
   addMessage(role, content) {
     const messageElement = document.createElement('div');
     messageElement.className = `${this.cssPrefix}-message ${role}`;
-    
-    const bubbleElement = document.createElement('div');
-    bubbleElement.className = `${this.cssPrefix}-message-bubble`;
-    bubbleElement.innerHTML = this._renderMessageHtml(content);
-    
+
+    if (role === 'assistant') {
+      // AI 메시지: 아바타 + 말풍선을 row로 묶기
+      const row = document.createElement('div');
+      row.className = `${this.cssPrefix}-message-row`;
+
+      const avatar = document.createElement('div');
+      avatar.className = `${this.cssPrefix}-message-avatar`;
+      avatar.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5L8.5 5.5L12.5 7L8.5 8.5L7 12.5L5.5 8.5L1.5 7L5.5 5.5L7 1.5Z" fill="currentColor" style="color:' + (this.config.buttonColor || THEME_TOKENS[this.config.theme === 'navy' ? 'navy' : 'default'].buttonColor) + '"/></svg>';
+
+      const bubbleElement = document.createElement('div');
+      bubbleElement.className = `${this.cssPrefix}-message-bubble`;
+      if (this._isStructuredResponse(content)) {
+        bubbleElement.classList.add('structured');
+      }
+      bubbleElement.innerHTML = this._renderMessageHtml(content);
+
+      row.appendChild(avatar);
+      row.appendChild(bubbleElement);
+      messageElement.appendChild(row);
+    } else {
+      // 사용자 메시지: 말풍선만
+      const bubbleElement = document.createElement('div');
+      bubbleElement.className = `${this.cssPrefix}-message-bubble`;
+      bubbleElement.innerHTML = this._renderMessageHtml(content);
+      messageElement.appendChild(bubbleElement);
+    }
+
     const footerElement = document.createElement('div');
     footerElement.className = `${this.cssPrefix}-message-footer`;
 
@@ -1308,15 +1577,14 @@ class WelnoRagChatWidget {
 
     const timeElement = document.createElement('div');
     timeElement.className = `${this.cssPrefix}-message-time`;
-    timeElement.textContent = new Date().toLocaleTimeString('ko-KR', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
+    timeElement.textContent = new Date().toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit'
     });
-    
+
     footerRow.appendChild(timeElement);
     footerElement.appendChild(footerRow);
-    
-    messageElement.appendChild(bubbleElement);
+
     messageElement.appendChild(footerElement);
     
     this.elements.messagesContainer.appendChild(messageElement);
@@ -1339,6 +1607,12 @@ class WelnoRagChatWidget {
   updateMessageContent(messageElement, content) {
     const bubbleElement = messageElement.querySelector(`.${this.cssPrefix}-message-bubble`);
     bubbleElement.innerHTML = this._renderMessageHtml(content);
+    // 구조화 응답이면 structured 클래스 동적 추가
+    if (this._isStructuredResponse(content)) {
+      bubbleElement.classList.add('structured');
+    } else {
+      bubbleElement.classList.remove('structured');
+    }
     // 스트리밍 중 스크롤을 throttle (매 청크마다 스크롤하면 버벅임)
     if (!this._scrollRAF) {
       this._scrollRAF = requestAnimationFrame(() => {
@@ -1462,16 +1736,16 @@ class WelnoRagChatWidget {
     this.elements.sendButton.disabled = isLoading;
     
     if (isLoading) {
-      // 로딩 인디케이터: 말풍선 없이 점 세 개만 (웰너와 동일)
+      // 로딩 인디케이터: Studio 스타일 아바타 + ▌ 커서
       const loadingElement = document.createElement('div');
       loadingElement.className = `${this.cssPrefix}-loading-wrap`;
       loadingElement.id = 'loading-indicator';
+      var accentColor = this.config.buttonColor || THEME_TOKENS[this.config.theme === 'navy' ? 'navy' : 'default'].buttonColor;
       loadingElement.innerHTML = `
-        <div class="${this.cssPrefix}-loading-dots">
-          <div class="${this.cssPrefix}-loading-dot"></div>
-          <div class="${this.cssPrefix}-loading-dot"></div>
-          <div class="${this.cssPrefix}-loading-dot"></div>
+        <div class="${this.cssPrefix}-message-avatar">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1.5L8.5 5.5L12.5 7L8.5 8.5L7 12.5L5.5 8.5L1.5 7L5.5 5.5L7 1.5Z" fill="${accentColor}"/></svg>
         </div>
+        <span class="${this.cssPrefix}-loading-cursor">\u258C</span>
       `;
       this.elements.messagesContainer.appendChild(loadingElement);
       this.scrollToBottom();
@@ -1508,6 +1782,95 @@ class WelnoRagChatWidget {
     if (this.config.onError) {
       this.config.onError(error);
     }
+  }
+
+  /**
+   * 티저 말풍선 DOM 생성 (mode === 'teaser' 전용)
+   */
+  createTeaserBubble() {
+    const bubble = document.createElement('div');
+    bubble.className = `${this.cssPrefix}-teaser-bubble`;
+
+    // 아바타
+    const avatar = document.createElement('div');
+    avatar.className = `${this.cssPrefix}-teaser-avatar`;
+    if (this.config.chatIconUrl) {
+      avatar.innerHTML = `<img src="${this.config.chatIconUrl}" alt="" />`;
+    } else {
+      avatar.innerHTML = '<svg width="16" height="16" viewBox="0 0 14 14" fill="none"><path d="M7 1.5L8.5 5.5L12.5 7L8.5 8.5L7 12.5L5.5 8.5L1.5 7L5.5 5.5L7 1.5Z" fill="white"/></svg>';
+    }
+    bubble.appendChild(avatar);
+
+    // 메시지 텍스트
+    const text = document.createElement('span');
+    text.className = `${this.cssPrefix}-teaser-text`;
+    text.textContent = this.config.teaserMessage;
+    bubble.appendChild(text);
+
+    // 닫기 버튼 (hover 시 표시)
+    const closeBtn = document.createElement('button');
+    closeBtn.className = `${this.cssPrefix}-teaser-close`;
+    closeBtn.innerHTML = '×';
+    closeBtn.setAttribute('aria-label', '닫기');
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      bubble.classList.remove('visible');
+      bubble.classList.add('hiding');
+    });
+    bubble.appendChild(closeBtn);
+
+    // 클릭 → 채팅 열기
+    bubble.addEventListener('click', () => this.open());
+
+    this.elements.teaserBubble = bubble;
+    document.body.appendChild(bubble);
+  }
+
+  /**
+   * 티저 말풍선 표시 (딜레이 후 bounce-in)
+   */
+  showTeaser() {
+    if (!this.elements.teaserBubble) return;
+    setTimeout(() => {
+      if (!this.state.isOpen) {
+        this.elements.teaserBubble.classList.remove('hiding');
+        this.elements.teaserBubble.classList.add('visible');
+      }
+    }, this.config.teaserDelay);
+  }
+
+  /**
+   * 티저 클릭 → 채팅창 전환 (fadeOut → slideUp)
+   */
+  handleTeaserClick() {
+    if (this.elements.teaserBubble) {
+      this.elements.teaserBubble.classList.remove('visible');
+      this.elements.teaserBubble.classList.add('hiding');
+    }
+
+    // 티저 fadeOut 후 채팅창 slideUp
+    setTimeout(() => {
+      this.elements.window.classList.remove('closing');
+      this.elements.window.classList.add('open');
+      this.scrollToBottom();
+    }, 200);
+  }
+
+  /**
+   * 채팅 닫기 → 티저 재등장 (slideDown → fadeIn)
+   */
+  closeChatToTeaser() {
+    this.elements.window.classList.add('closing');
+    this.elements.window.classList.remove('open');
+
+    // slideDown 완료 후 티저 재등장
+    setTimeout(() => {
+      this.elements.window.classList.remove('closing');
+      if (this.elements.teaserBubble) {
+        this.elements.teaserBubble.classList.remove('hiding');
+        this.elements.teaserBubble.classList.add('visible');
+      }
+    }, 400);
   }
 
   /**
@@ -1581,14 +1944,20 @@ class WelnoRagChatWidget {
           // 말풍선 문구 업데이트 (줄바꿈/공백 강화 정규화: <br> 제거, 연속 공백 collapse)
           const raw = (data.greeting || '').replace(/<br\s*\/?>/gi, ' ');
           const normalizedGreeting = raw.replace(/\s+/g, ' ').trim();
-          this.elements.welcomeBubble.querySelector(`.${this.cssPrefix}-welcome-bubble-text`).textContent = normalizedGreeting;
 
-          // 약간의 지연 후 부드럽게 노출
-          setTimeout(() => {
-            if (!this.state.isOpen) {
-              this.elements.welcomeBubble.classList.add('visible');
-            }
-          }, 1000);
+          if (this.config.mode === 'teaser') {
+            // 티저 모드: 티저 말풍선 텍스트 업데이트
+            const teaserText = this.elements.teaserBubble && this.elements.teaserBubble.querySelector(`.${this.cssPrefix}-teaser-text`);
+            if (teaserText) teaserText.textContent = normalizedGreeting;
+          } else {
+            // 버튼 모드: 웰컴 버블 텍스트 업데이트 + 노출
+            this.elements.welcomeBubble.querySelector(`.${this.cssPrefix}-welcome-bubble-text`).textContent = normalizedGreeting;
+            setTimeout(() => {
+              if (!this.state.isOpen) {
+                this.elements.welcomeBubble.classList.add('visible');
+              }
+            }, 1000);
+          }
         }
       }
     } catch (error) {
@@ -1613,6 +1982,11 @@ class WelnoRagChatWidget {
 
     if (this.elements.container && this.elements.container.parentNode) {
       this.elements.container.parentNode.removeChild(this.elements.container);
+    }
+
+    // 티저 말풍선 제거 (body에 직접 붙어있음)
+    if (this.elements.teaserBubble && this.elements.teaserBubble.parentNode) {
+      this.elements.teaserBubble.parentNode.removeChild(this.elements.teaserBubble);
     }
 
     // 스타일 제거 (다른 위젯이 없을 때만)

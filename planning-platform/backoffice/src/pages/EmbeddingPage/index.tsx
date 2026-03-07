@@ -61,7 +61,15 @@ interface HospitalConfig {
   welcome_message: string;
   llm_config: { model: string; temperature: number; max_tokens: number };
   embedding_config: { model: string; index_name: string };
-  theme_config: { theme: string; primary_color: string; logo_url?: string };
+  theme_config: {
+    theme: string;
+    primary_color: string;
+    logo_url?: string;
+    icon_url?: string;
+    widget_mode?: 'button' | 'teaser';
+    teaser_message?: string;
+    teaser_delay?: number;
+  };
   is_active: boolean;
   created_at?: string;
   updated_at?: string;
@@ -1414,6 +1422,114 @@ const EmbeddingPage: React.FC = () => {
                             <label>초기 인사말</label>
                             <input type="text" value={config?.welcome_message || ''} onChange={(e) => setConfig(prev => prev ? { ...prev, welcome_message: e.target.value } : null)} />
                           </div>
+
+                          <div className="admin-embedding-page__form-section-title">위젯 표시 설정</div>
+
+                          <div className="admin-embedding-page__form-group">
+                            <label>위젯 모드</label>
+                            <select
+                              value={config?.theme_config?.widget_mode || 'button'}
+                              onChange={(e) => setConfig(prev => prev ? {
+                                ...prev,
+                                theme_config: { ...prev.theme_config, widget_mode: e.target.value as 'button' | 'teaser' }
+                              } : null)}
+                            >
+                              <option value="button">버튼 — 클릭으로 열기</option>
+                              <option value="teaser">티저 — 말풍선 자동 표시</option>
+                            </select>
+                          </div>
+
+                          {config?.theme_config?.widget_mode === 'teaser' && (
+                            <>
+                              <div className="admin-embedding-page__form-group">
+                                <label>티저 메시지</label>
+                                <input
+                                  type="text"
+                                  value={config?.theme_config?.teaser_message || '건강 궁금한 점 물어보세요!'}
+                                  onChange={(e) => setConfig(prev => prev ? {
+                                    ...prev,
+                                    theme_config: { ...prev.theme_config, teaser_message: e.target.value }
+                                  } : null)}
+                                />
+                                <span className="admin-embedding-page__form-hint">위젯 옆에 자동 표시되는 안내 문구</span>
+                              </div>
+                              <div className="admin-embedding-page__form-group">
+                                <label>티저 지연 (초)</label>
+                                <div className="admin-embedding-page__form-row-inline">
+                                  <input
+                                    type="range"
+                                    min={500}
+                                    max={10000}
+                                    step={500}
+                                    value={config?.theme_config?.teaser_delay ?? 2000}
+                                    onChange={(e) => setConfig(prev => prev ? {
+                                      ...prev,
+                                      theme_config: { ...prev.theme_config, teaser_delay: Number(e.target.value) }
+                                    } : null)}
+                                  />
+                                  <span>{((config?.theme_config?.teaser_delay ?? 2000) / 1000).toFixed(1)}초</span>
+                                </div>
+                              </div>
+                            </>
+                          )}
+
+                          <div className="admin-embedding-page__form-group">
+                            <label>메인 색상</label>
+                            <div className="admin-embedding-page__color-picker-row">
+                              <input
+                                type="color"
+                                value={config?.theme_config?.primary_color || '#7B5E4F'}
+                                onChange={(e) => setConfig(prev => prev ? {
+                                  ...prev,
+                                  theme_config: { ...prev.theme_config, primary_color: e.target.value }
+                                } : null)}
+                              />
+                              <input
+                                type="text"
+                                value={config?.theme_config?.primary_color || '#7B5E4F'}
+                                onChange={(e) => setConfig(prev => prev ? {
+                                  ...prev,
+                                  theme_config: { ...prev.theme_config, primary_color: e.target.value }
+                                } : null)}
+                                placeholder="#7B5E4F"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="admin-embedding-page__form-group">
+                            <label>아이콘 URL (선택)</label>
+                            <input
+                              type="text"
+                              value={config?.theme_config?.icon_url || ''}
+                              onChange={(e) => setConfig(prev => prev ? {
+                                ...prev,
+                                theme_config: { ...prev.theme_config, icon_url: e.target.value || undefined }
+                              } : null)}
+                              placeholder="https://example.com/icon.png"
+                            />
+                          </div>
+
+                          <div className="admin-embedding-page__form-section-title">임베드 코드</div>
+                          <div className="admin-embedding-page__embed-code-wrap">
+                            <pre className="admin-embedding-page__embed-code">{`<script src="https://welno.kindhabit.com/welno-api/static/WelnoRagChatWidget.js"></script>
+<script>
+  new WelnoRagChatWidget({
+    apiKey: '${config?.partner_id || ''}',
+    baseUrl: 'https://welno.kindhabit.com',
+    hospitalId: '${selectedHospitalId || ''}'
+  }).init();
+</script>`}</pre>
+                            <button
+                              type="button"
+                              className="admin-embedding-page__copy-btn"
+                              onClick={() => {
+                                const code = `<script src="https://welno.kindhabit.com/welno-api/static/WelnoRagChatWidget.js"></script>\n<script>\n  new WelnoRagChatWidget({\n    apiKey: '${config?.partner_id || ''}',\n    baseUrl: 'https://welno.kindhabit.com',\n    hospitalId: '${selectedHospitalId || ''}'\n  }).init();\n</script>`;
+                                navigator.clipboard.writeText(code).then(() => alert('복사되었습니다.'));
+                              }}
+                            >복사</button>
+                          </div>
+                          <span className="admin-embedding-page__form-hint">파트너 웹사이트에 붙여넣으면 위젯이 자동 표시됩니다. 모드/색상은 서버 설정을 따릅니다.</span>
+
                           <button type="button" className="admin-embedding-page__save-btn" onClick={handleSaveConfig} disabled={saving}>{saving ? '저장 중...' : '설정 저장'}</button>
                         </div>
                       </div>
