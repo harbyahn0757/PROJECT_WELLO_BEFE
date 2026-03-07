@@ -519,3 +519,32 @@ async def summarize_partner_chat(
     except Exception as e:
         logger.error(f"❌ [파트너 RAG API] 요약 실패: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+class FeedbackRequest(BaseModel):
+    """채팅 피드백 요청"""
+    session_id: Optional[str] = None
+    feedback: str = Field(..., pattern=r"^(up|down)$")
+    message_count: Optional[int] = None
+
+
+@router.post("/partner/feedback")
+async def submit_feedback(
+    request: FeedbackRequest,
+    partner_info: PartnerAuthInfo = Depends(verify_partner_api_key)
+):
+    """사용자 피드백 (👍/👎) 저장"""
+    from ....core.database import db_manager
+    try:
+        if request.session_id:
+            await db_manager.execute_update(
+                """UPDATE welno.tb_chat_session_tags
+                   SET user_feedback = %s, updated_at = NOW()
+                   WHERE session_id = %s AND partner_id = %s""",
+                (request.feedback, request.session_id, partner_info.partner_id)
+            )
+        logger.info(f"👍 [피드백] {partner_info.partner_id} / {request.session_id} → {request.feedback}")
+        return {"status": "ok"}
+    except Exception as e:
+        logger.warning(f"⚠️ [피드백] 저장 실패: {e}")
+        return {"status": "ok"}  # 피드백 실패해도 200 반환

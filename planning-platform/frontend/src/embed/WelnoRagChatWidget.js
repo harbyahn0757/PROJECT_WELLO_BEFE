@@ -954,6 +954,64 @@ class WelnoRagChatWidget {
         to { opacity: 1; transform: translateY(0) scale(1); }
       }
 
+      /* 피드백 버튼 */
+      .${this.cssPrefix}-feedback {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 6px;
+        animation: welnoChipIn 0.3s ease-out backwards;
+        animation-delay: 0.1s;
+      }
+
+      .${this.cssPrefix}-feedback-label {
+        font-size: 11px;
+        color: #A09890;
+      }
+
+      .${this.cssPrefix}-feedback-btn {
+        background: none;
+        border: 1px solid #E5E5E5;
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        transition: all 0.2s;
+        padding: 0;
+      }
+
+      .${this.cssPrefix}-feedback-btn:hover {
+        border-color: ${primaryColor};
+        background: rgba(${this._hexToRgb(primaryColor)}, 0.08);
+      }
+
+      .${this.cssPrefix}-feedback-btn.selected {
+        border-color: ${primaryColor};
+        background: rgba(${this._hexToRgb(primaryColor)}, 0.15);
+        transform: scale(1.1);
+      }
+
+      .${this.cssPrefix}-feedback-thanks {
+        font-size: 11px;
+        color: ${primaryColor};
+        animation: welnoChipIn 0.25s ease-out;
+      }
+
+      /* 마무리 멘트 */
+      .${this.cssPrefix}-closing-note {
+        font-size: 12px;
+        color: #A09890;
+        text-align: center;
+        padding: 8px 16px;
+        margin-top: 4px;
+        animation: welnoChipIn 0.3s ease-out backwards;
+        animation-delay: 0.3s;
+      }
+
       .${this.cssPrefix}-disclaimer {
         text-align: center;
         padding: 6px 12px;
@@ -1471,8 +1529,16 @@ class WelnoRagChatWidget {
           if (data.sources && data.sources.length > 0) {
             this.addSources(messageElement, data.sources);
           }
+          // 피드백 버튼
+          if (messageElement) {
+            this.addFeedback(messageElement);
+          }
           if (data.suggestions && data.suggestions.length > 0) {
             this.addSuggestions(messageElement, data.suggestions);
+          }
+          // 마무리 멘트 (2번째 응답부터)
+          if (this.state.assistantMsgCount >= 1) {
+            this.addClosingNote();
           }
           this.state.assistantMsgCount++;
           if (this.state.assistantMsgCount === 1) {
@@ -1822,6 +1888,85 @@ class WelnoRagChatWidget {
     this.scrollToBottom();
   }
 
+
+  /**
+   * 피드백 버튼 추가 (👍/👎)
+   */
+  addFeedback(messageElement) {
+    const fb = document.createElement('div');
+    fb.className = `${this.cssPrefix}-feedback`;
+
+    const label = document.createElement('span');
+    label.className = `${this.cssPrefix}-feedback-label`;
+    label.textContent = '도움이 됐나요?';
+
+    const btnUp = document.createElement('button');
+    btnUp.className = `${this.cssPrefix}-feedback-btn`;
+    btnUp.innerHTML = '👍';
+    btnUp.setAttribute('aria-label', '도움됨');
+
+    const btnDown = document.createElement('button');
+    btnDown.className = `${this.cssPrefix}-feedback-btn`;
+    btnDown.innerHTML = '👎';
+    btnDown.setAttribute('aria-label', '아쉬움');
+
+    const handleClick = (type, btn) => {
+      btnUp.style.display = 'none';
+      btnDown.style.display = 'none';
+      label.style.display = 'none';
+      const thanks = document.createElement('span');
+      thanks.className = `${this.cssPrefix}-feedback-thanks`;
+      thanks.textContent = type === 'up' ? '감사합니다! 🙏' : '더 나은 답변을 위해 노력할게요!';
+      fb.appendChild(thanks);
+      // 백엔드에 피드백 전송 (fire & forget)
+      this._sendFeedback(type);
+    };
+
+    btnUp.addEventListener('click', () => handleClick('up', btnUp));
+    btnDown.addEventListener('click', () => handleClick('down', btnDown));
+
+    fb.appendChild(label);
+    fb.appendChild(btnUp);
+    fb.appendChild(btnDown);
+    messageElement.appendChild(fb);
+  }
+
+  /**
+   * 마무리 멘트 랜덤 표시
+   */
+  addClosingNote() {
+    const notes = [
+      '궁금한 게 더 있으면 언제든 물어보세요 ✨',
+      '더 알고 싶은 항목이 있으면 편하게 질문해 주세요!',
+      '검진 결과, 함께 살펴볼까요? 🔍',
+    ];
+    const note = notes[Math.floor(Math.random() * notes.length)];
+    const el = document.createElement('div');
+    el.className = `${this.cssPrefix}-closing-note`;
+    el.textContent = note;
+    this.elements.messagesContainer.appendChild(el);
+  }
+
+  /**
+   * 피드백 전송 (백엔드)
+   */
+  _sendFeedback(type) {
+    try {
+      const url = `${this.config.baseUrl}/welno-api/v1/rag-chat/partner/feedback`;
+      fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Partner-API-Key': this.config.apiKey,
+        },
+        body: JSON.stringify({
+          session_id: this.state.sessionId,
+          feedback: type,
+          message_count: this.state.messages.length,
+        }),
+      }).catch(() => {});
+    } catch (e) {}
+  }
 
   /**
    * 로딩 상태 설정
