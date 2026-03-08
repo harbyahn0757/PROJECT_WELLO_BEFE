@@ -186,16 +186,41 @@ class WelnoRagChatService:
                     session_id
                 ))
             else:
+                # 신규 세션: warmup 인사말이 있으면 conversation 첫 행에 포함
+                conversation = []
+                enriched_initial = dict(initial_data) if initial_data else {}
+                if self.redis_client:
+                    try:
+                        greeting_key = f"welno:partner_rag:mapping:{session_id}:greetings"
+                        greeting_json = self.redis_client.get(greeting_key)
+                        if greeting_json:
+                            greeting_data = json.loads(greeting_json)
+                            # conversation 첫 행: 인사말 (assistant)
+                            conversation.append({
+                                "role": "assistant",
+                                "content": greeting_data.get("data_science_greeting", ""),
+                                "timestamp": greeting_data.get("timestamp", timestamp),
+                                "type": "greeting",
+                            })
+                            # initial_data에 인사말 메타 기록
+                            enriched_initial["hook_greeting"] = greeting_data.get("hook_greeting", "")
+                            enriched_initial["data_science_greeting"] = greeting_data.get("data_science_greeting", "")
+                            enriched_initial["data_type"] = greeting_data.get("data_type", "")
+                            enriched_initial["greeting_model"] = greeting_data.get("model", "")
+                    except Exception as e:
+                        logger.warning(f"⚠️ [대화 로그] 인사말 로드 실패: {e}")
+                conversation.append(new_message)
+
                 insert_query = """
-                    INSERT INTO welno.tb_partner_rag_chat_log 
+                    INSERT INTO welno.tb_partner_rag_chat_log
                     (partner_id, hospital_id, user_uuid, session_id, client_info, initial_data, conversation, message_count)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """
                 await db_manager.execute_update(insert_query, (
                     partner_id, hospital_id, user_uuid, session_id,
                     json.dumps(client_info or {}, ensure_ascii=False),
-                    json.dumps(initial_data or {}, ensure_ascii=False),
-                    json.dumps([new_message], ensure_ascii=False),
+                    json.dumps(enriched_initial, ensure_ascii=False),
+                    json.dumps(conversation, ensure_ascii=False),
                     1 if role == 'user' else 0
                 ))
             
@@ -608,16 +633,39 @@ class WelnoRagChatService:
                         stage_instruction = "추이, 패턴을 분석하되 '자세한 내용은 담당 의료진과 상담하시길 권해요 😊'로 안내하세요."
                         chat_stage = "normal"
                     if is_partner_session:
-                        stage_instruction += (
-                            "\n\n**파트너 위젯 모드**: (1) 검진 결과 설명·해석에 집중하고, 자료 대비 비교보다는 '이 검진에서 무엇이 중요한지'를 읽어주는 데 초점을 맞추세요. "
-                            "(2) ###, * 목록 같은 긴 보고서 형식은 쓰지 말고, 짧은 문단과 줄바꿈으로 읽기 쉽게 답하세요. "
-                            "(3) 강조는 **단어**처럼 짧게만 사용하세요.\n"
-                            "**클라이언트(결과지) 우선**: 환자 건강 데이터에 있는 *_abnormal(판정), *_range(정상범위)가 참고 문헌(RAG)보다 우선합니다. "
-                            "클라이언트 판정과 참고 문헌이 크게 다르면, 답변에서 '이런 부분은 주의 깊게 봐야 해요' 정도로 짧게 언급하고, '검진 받으신 병원에도 한 번 여쭤보시면 좋겠어요 😊'처럼 부드럽게 병원 문의를 권한 뒤, 반드시 답변 안에 정확히 한 번만 [CLIENT_RAG_DISCREPANCY] 를 포함하세요.\n"
-                            "**출처 명시**: '표준에 따르면', '가이드라인에 따르면', '다른 사항은 이렇다' 등으로 말할 때는 반드시 참고 문헌의 정확한 출처(문서명 등)를 밝히세요. 벡터 데이터가 있을 때만 그렇게 서술하세요.\n"
-                            "**위험 소견**: 위험하거나 확정적인 의견은 삼가고, 어려운 부분은 '담당 의료진과 상담하시길 권해요 😊'로 안내하세요.\n"
-                            "**면책 안내**: 병원에서 설정한 기준치와 일반적인 참고 범위를 기준으로 안내해 드려요."
-                        )
+                        # 파트너 세션: data_type 확인 (정상인 vs 이상소견)
+                        _partner_data_type = ""
+                        if self.redis_client:
+                            try:
+                                _g_key = f"welno:partner_rag:mapping:{session_id}:greetings"
+                                _g_json = self.redis_client.get(_g_key)
+                                if _g_json:
+                                    _partner_data_type = json.loads(_g_json).get("data_type", "")
+                            except Exception:
+                                pass
+
+                        if _partner_data_type == "no_abnormal":
+                            stage_instruction += (
+                                "\n\n**파트너 위젯 모드 (정상 소견)**: 이 환자의 검진 결과는 전반적으로 정상입니다.\n"
+                                "- '눈여겨볼 부분', '확인해 볼 부분', '주의가 필요한' 등 이상 암시 표현 절대 금지.\n"
+                                "- '전반적으로 양호합니다', '잘 관리되고 있습니다' 등 긍정적 톤 유지.\n"
+                                "- 문진표, 암 검진, 백신 등 환자가 묻지 않은 의료 주제를 먼저 꺼내지 마세요.\n"
+                                "- 사용자가 구체적으로 물어본 항목에만 답하세요.\n"
+                                "- 불필요한 걱정을 유발하는 생활습관 조언은 자제하세요.\n"
+                                "- ###, * 목록 같은 긴 보고서 형식은 쓰지 말고, 짧은 문단으로 읽기 쉽게.\n"
+                                "- 강조는 **단어**처럼 짧게만 사용하세요."
+                            )
+                        else:
+                            stage_instruction += (
+                                "\n\n**파트너 위젯 모드**: (1) 검진 결과 설명·해석에 집중하고, 자료 대비 비교보다는 '이 검진에서 무엇이 중요한지'를 읽어주는 데 초점을 맞추세요. "
+                                "(2) ###, * 목록 같은 긴 보고서 형식은 쓰지 말고, 짧은 문단과 줄바꿈으로 읽기 쉽게 답하세요. "
+                                "(3) 강조는 **단어**처럼 짧게만 사용하세요.\n"
+                                "**클라이언트(결과지) 우선**: 환자 건강 데이터에 있는 *_abnormal(판정), *_range(정상범위)가 참고 문헌(RAG)보다 우선합니다. "
+                                "클라이언트 판정과 참고 문헌이 크게 다르면, 답변에서 '이런 부분은 주의 깊게 봐야 해요' 정도로 짧게 언급하고, '검진 받으신 병원에도 한 번 여쭤보시면 좋겠어요 😊'처럼 부드럽게 병원 문의를 권한 뒤, 반드시 답변 안에 정확히 한 번만 [CLIENT_RAG_DISCREPANCY] 를 포함하세요.\n"
+                                "**출처 명시**: '표준에 따르면', '가이드라인에 따르면', '다른 사항은 이렇다' 등으로 말할 때는 반드시 참고 문헌의 정확한 출처(문서명 등)를 밝히세요. 벡터 데이터가 있을 때만 그렇게 서술하세요.\n"
+                                "**위험 소견**: 위험하거나 확정적인 의견은 삼가고, 어려운 부분은 '담당 의료진과 상담하시길 권해요 😊'로 안내하세요.\n"
+                                "**면책 안내**: 병원에서 설정한 기준치와 일반적인 참고 범위를 기준으로 안내해 드려요."
+                            )
                     if stage_instruction:
                         system_parts.append(stage_instruction)
                     logger.info(f"🔍 [채팅] 최종 chat_stage: {chat_stage}")

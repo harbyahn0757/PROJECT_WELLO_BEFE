@@ -634,13 +634,33 @@ class PartnerRagChatService(WelnoRagChatService):
             # 2. 세션 메타데이터 및 파트너 데이터 Redis 저장 (상담 시 즉시 사용 가능하도록)
             await self._store_partner_session_metadata(session_id, partner_info, processed_data)
             
-            # 3. 후킹 인사말 + 데이터사이언스 인사말 병렬 생성 (Gemini)
+            # 3. 데이터 유형 분류 (정상인/이상소견/추이)
+            data_type = self._classify_data_type(processed_data)
+
+            # 4. 후킹 인사말 + 데이터사이언스 인사말 병렬 생성 (Gemini)
             hook_greeting, data_science_greeting = await asyncio.gather(
                 self._generate_hook_greeting(partner_info, processed_data),
                 self._generate_data_science_greeting(partner_info, processed_data),
             )
 
-            # 4. 백그라운드 태스크: Gemini Context Caching 미리 수행 (의학 지식 로딩)
+            # 5. 인사말 + 메타정보를 Redis에 저장 (대화 로그 첫 행에 포함시키기 위해)
+            if self.redis_client:
+                greeting_data = {
+                    "hook_greeting": hook_greeting,
+                    "data_science_greeting": data_science_greeting,
+                    "data_type": data_type,
+                    "model": "gemini-3-flash-preview",
+                    "timestamp": datetime.now().isoformat(),
+                }
+                greeting_key = f"welno:partner_rag:mapping:{session_id}:greetings"
+                self.redis_client.setex(greeting_key, 86400, json.dumps(greeting_data, ensure_ascii=False))
+
+            logger.info(
+                f"✅ [파트너 RAG] 웜업 완료 - data_type={data_type}, "
+                f"hook={hook_greeting[:40]}..., greeting={data_science_greeting[:40]}..."
+            )
+
+            # 6. 백그라운드 태스크: Gemini Context Caching 미리 수행 (의학 지식 로딩)
             asyncio.create_task(self._preload_rag_context_background(partner_info, uuid, hospital_id, session_id, processed_data))
 
             return {
@@ -648,6 +668,7 @@ class PartnerRagChatService(WelnoRagChatService):
                 "chat_greeting": data_science_greeting,
                 "hook_greeting": hook_greeting,
                 "data_science_greeting": data_science_greeting,
+                "data_type": data_type,
                 "has_data": processed_data.get("has_data", False)
             }
             
@@ -714,6 +735,41 @@ class PartnerRagChatService(WelnoRagChatService):
         # 병원명 추출
         hospital_name = processed_data.get("partner_hospital_name", "") or partner_info.partner_name or ""
 
+        # 정상인: 경고성 메시지 대신 결과 정리 스타일
+        if concern_keyword == "검진 결과":
+            from .gemini_service import gemini_service, GeminiRequest
+            prompt = f"""
+            당신은 '{hospital_name}'에서 검진 결과지를 읽어 드리는 에이전트입니다.
+            환자 {name}님의 검진 결과를 분석했는데, 전반적으로 양호합니다.
+
+            결과가 잘 정리되어 있다는 느낌의 가볍고 친근한 인사말 1문장을 작성하세요.
+            이 메시지는 채팅 아이콘 위 작은 말풍선에 표시됩니다.
+
+            규칙:
+            - 반드시 '{hospital_name}'을 포함하세요.
+            - "눈에 띄는 부분", "확인해 볼 부분", "눈여겨볼" 등 이상 암시 표현 절대 금지.
+            - 결과 정리 완료 / 건강 유지 응원 느낌으로.
+            - 의학적 진단·조언·경고 절대 금지.
+            - 가볍고 친근한 말투, 반말X 존댓말O.
+            - 이모지 1개 사용.
+            - 25자~45자 이내로 짧게.
+
+            좋은 예시:
+            - "{name}님, {hospital_name} 검진 결과 정리해 드렸어요! 😊"
+            - "{hospital_name} 검진 결과 도착했어요, {name}님 확인해 보세요 ✨"
+            - "{name}님! {hospital_name} 결과 깔끔하게 정리됐어요 📋"
+            """
+            try:
+                res = await gemini_service.call_api(
+                    GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", temperature=0.7),
+                    save_log=False
+                )
+                if res.success:
+                    raw = res.content.strip().replace('"', '')
+                    return ' '.join(raw.split())
+            except: pass
+            return f"{name}님, {hospital_name} 검진 결과 정리해 드렸어요! 궁금한 점 있으면 물어보세요 😊"
+
         # 톤별 프롬프트 가이드
         tone_guide = {
             "friendly": "가볍고 친근한 톤. 호기심을 자극하되 부담 없이.",
@@ -767,19 +823,11 @@ class PartnerRagChatService(WelnoRagChatService):
         trends = processed_data.get("trend_data") or processed_data.get("historical_data")
         abnormal_items = [
             k for k, v in metrics.items()
-            if k.endswith("_abnormal") and v
+            if k.endswith("_abnormal") and v and v != "정상"
         ]
         if trends and len(trends) > 0:
             return "with_trends"
-        elif abnormal_items or any([
-            (metrics.get("systolic_bp") or 0) >= 140,
-            (metrics.get("fasting_glucose") or 0) >= 100,
-            (metrics.get("total_cholesterol") or 0) >= 240,
-            (metrics.get("ldl_cholesterol") or 0) >= 160,
-            (metrics.get("ast") or 0) >= 40,
-            (metrics.get("alt") or 0) >= 40,
-            (metrics.get("bmi") or 0) >= 25,
-        ]):
+        elif abnormal_items:
             return "single_visit"
         else:
             return "no_abnormal"
@@ -813,28 +861,15 @@ class PartnerRagChatService(WelnoRagChatService):
                 metric_lines.append(f"- {label}: {v}{unit}")
         metrics_summary = "\n".join(metric_lines) if metric_lines else "수치 없음"
 
-        # 이상 항목 개수 파악 (구체적 수치는 숨기고 "몇 가지"만 힌트)
-        abnormal_count = sum(1 for k, v in metrics.items() if k.endswith("_abnormal") and v)
-        elevated_count = sum(1 for check in [
-            (metrics.get("systolic_bp") or 0) >= 140,
-            (metrics.get("fasting_glucose") or 0) >= 100,
-            (metrics.get("total_cholesterol") or 0) >= 240,
-            (metrics.get("ldl_cholesterol") or 0) >= 160,
-            (metrics.get("ast") or 0) >= 40 or (metrics.get("alt") or 0) >= 40,
-            (metrics.get("bmi") or 0) >= 25,
-            (metrics.get("gfr") or 0) > 0 and (metrics.get("gfr") or 999) < 60,
-        ] if check)
-        attention_count = max(abnormal_count, elevated_count, 1)
-
         style_guide = {
             "with_trends": (
                 "추이 데이터가 있습니다. '지난 검진과 비교해서 변화가 있는 항목이 있다'고만 암시하세요. "
                 "어떤 항목이 어떻게 변했는지는 말하지 마세요 — 사용자가 물어보게 만드세요."
             ),
             "single_visit": (
-                f"검진 결과에서 {attention_count}가지 정도 눈여겨볼 항목이 있습니다. "
+                "검진 결과에서 눈여겨볼 부분이 있습니다. 몇 가지인지, "
                 "어떤 항목인지, 수치가 얼마인지 절대 말하지 마세요. "
-                "'확인해 볼 부분이 있다'고만 하고, 어떤 것부터 볼지 사용자에게 선택권을 주세요."
+                "'확인해 볼 부분이 있다'고만 하고, 사용자가 물어보게 만드세요."
             ),
             "no_abnormal": (
                 "이상 항목이 없습니다. 결과가 전반적으로 양호하다고 짧게 언급하고, "
