@@ -813,34 +813,57 @@ class PartnerRagChatService(WelnoRagChatService):
                 metric_lines.append(f"- {label}: {v}{unit}")
         metrics_summary = "\n".join(metric_lines) if metric_lines else "수치 없음"
 
+        # 이상 항목 개수 파악 (구체적 수치는 숨기고 "몇 가지"만 힌트)
+        abnormal_count = sum(1 for k, v in metrics.items() if k.endswith("_abnormal") and v)
+        elevated_count = sum(1 for check in [
+            (metrics.get("systolic_bp") or 0) >= 140,
+            (metrics.get("fasting_glucose") or 0) >= 100,
+            (metrics.get("total_cholesterol") or 0) >= 240,
+            (metrics.get("ldl_cholesterol") or 0) >= 160,
+            (metrics.get("ast") or 0) >= 40 or (metrics.get("alt") or 0) >= 40,
+            (metrics.get("bmi") or 0) >= 25,
+            (metrics.get("gfr") or 0) > 0 and (metrics.get("gfr") or 999) < 60,
+        ] if check)
+        attention_count = max(abnormal_count, elevated_count, 1)
+
         style_guide = {
             "with_trends": (
-                "추이 데이터가 있습니다. 시간에 따른 변화(상승/하강 추세)를 분석하고, "
-                "가장 주의가 필요한 1-2개 항목을 구체적 수치와 함께 설명하세요."
+                "추이 데이터가 있습니다. '지난 검진과 비교해서 변화가 있는 항목이 있다'고만 암시하세요. "
+                "어떤 항목이 어떻게 변했는지는 말하지 마세요 — 사용자가 물어보게 만드세요."
             ),
             "single_visit": (
-                "단회 검진 데이터입니다. 기준치를 넘은 항목을 1-2개 골라 "
-                "수치와 기준치를 비교하며 쉽게 설명하세요."
+                f"검진 결과에서 {attention_count}가지 정도 눈여겨볼 항목이 있습니다. "
+                "어떤 항목인지, 수치가 얼마인지 절대 말하지 마세요. "
+                "'확인해 볼 부분이 있다'고만 하고, 어떤 것부터 볼지 사용자에게 선택권을 주세요."
             ),
             "no_abnormal": (
-                "특별히 이상 항목이 없습니다. 전반적으로 양호하다고 안심시키고, "
-                "건강 관련 궁금한 점을 편하게 물어보라고 안내하세요."
+                "이상 항목이 없습니다. 결과가 전반적으로 양호하다고 짧게 언급하고, "
+                "'혹시 평소 궁금했던 건강 항목이 있나요?' 같은 열린 질문으로 대화를 유도하세요."
             ),
         }
 
         from .gemini_service import gemini_service, GeminiRequest
         prompt = f"""당신은 '{hospital}' 검진 결과를 읽어 드리는 건강 도우미입니다.
-{name}님의 검진 수치:
+{name}님의 검진 수치 (내부 참고용, 사용자에게 직접 노출 금지):
 {metrics_summary}
 
-데이터 특성: {style_guide.get(data_type, style_guide["single_visit"])}
+대화 유도 전략: {style_guide.get(data_type, style_guide["single_visit"])}
 
-규칙:
-- 2-3문장으로 데이터 기반 인사이트를 제공하세요.
-- 의학적 진단·확정 표현 금지. '~일 수 있어요', '~살펴보면 좋겠어요' 톤.
-- 구체적 수치를 1-2개 언급하되 공포 유발 금지.
-- 이모지 1-2개 사용, 존댓말, 친근한 톤.
-- 마지막에 "궁금한 점을 물어보세요" 류 마무리.
+핵심 원칙 — "정보를 주지 말고, 궁금증을 만들어라":
+- 수치, 항목명, 진단명을 직접 말하지 마세요.
+- "눈여겨볼 부분이 있어요", "같이 살펴볼까요?" 처럼 궁금증만 만드세요.
+- 마지막은 반드시 사용자가 대답하게 되는 질문으로 끝내세요.
+- 2문장 이내. 이모지 1개. 존댓말.
+
+좋은 예시:
+- "{name}님, 검진 결과 살펴봤는데 같이 확인해 보면 좋을 부분이 있어요. 어떤 항목부터 볼까요? 📋"
+- "전체적으로 괜찮은데, 한두 가지 눈에 띄는 게 있어요. 궁금하시면 물어봐 주세요 😊"
+- "검진 수치 중에 추이가 좀 달라진 게 있는데, 같이 확인해 볼까요? 📊"
+
+나쁜 예시 (절대 하지 말 것):
+- "혈압이 142mmHg로 높게 나왔어요" ← 수치 노출
+- "공복혈당이 기준치를 넘었습니다" ← 항목+판정 노출
+- "콜레스테롤 관리가 필요합니다" ← 결론 노출
 """
         try:
             res = await gemini_service.call_api(
@@ -853,11 +876,11 @@ class PartnerRagChatService(WelnoRagChatService):
         except Exception:
             pass
 
-        # 폴백: 규칙 기반
+        # 폴백: 대화 유도형
         hp = f"{hospital} " if hospital else ""
         if data_type == "no_abnormal":
-            return f"{name}님, {hp}검진 결과를 정리해 봤어요! 전반적으로 양호합니다. 궁금한 항목이 있으면 물어보세요 😊"
-        return f"{name}님, {hp}검진 결과를 분석해 봤어요. 주의가 필요한 항목이 있는데, 자세히 알아볼까요? 📊"
+            return f"{name}님, {hp}검진 결과 살펴봤어요! 전반적으로 양호한데, 평소 궁금했던 건강 항목이 있으신가요? 😊"
+        return f"{name}님, {hp}검진 결과에서 같이 확인해 보면 좋을 부분이 있어요. 어떤 항목부터 볼까요? 📋"
 
     async def _preload_rag_context_background(
         self, 
