@@ -634,18 +634,20 @@ class PartnerRagChatService(WelnoRagChatService):
             # 2. 세션 메타데이터 및 파트너 데이터 Redis 저장 (상담 시 즉시 사용 가능하도록)
             await self._store_partner_session_metadata(session_id, partner_info, processed_data)
             
-            # 3. 개인화된 인사말(Greeting) 생성 (Gemini 1s 이내)
-            greeting = await self._generate_personalized_greeting(partner_info, processed_data)
-
-            # 3-1. 채팅 내부 인사말 — 후킹 메시지의 맥락을 이어가는 톤
-            chat_greeting = self._generate_chat_greeting(processed_data)
+            # 3. 후킹 인사말 + 데이터사이언스 인사말 병렬 생성 (Gemini)
+            hook_greeting, data_science_greeting = await asyncio.gather(
+                self._generate_hook_greeting(partner_info, processed_data),
+                self._generate_data_science_greeting(partner_info, processed_data),
+            )
 
             # 4. 백그라운드 태스크: Gemini Context Caching 미리 수행 (의학 지식 로딩)
             asyncio.create_task(self._preload_rag_context_background(partner_info, uuid, hospital_id, session_id, processed_data))
 
             return {
-                "greeting": greeting,
-                "chat_greeting": chat_greeting,
+                "greeting": hook_greeting,
+                "chat_greeting": data_science_greeting,
+                "hook_greeting": hook_greeting,
+                "data_science_greeting": data_science_greeting,
                 "has_data": processed_data.get("has_data", False)
             }
             
@@ -653,7 +655,7 @@ class PartnerRagChatService(WelnoRagChatService):
             logger.error(f"❌ [파트너 RAG] 웜업 처리 실패: {e}")
             return {"greeting": "안녕하세요! 건강 검진 결과에 대해 궁금한 점을 물어보세요.", "has_data": False}
 
-    async def _generate_personalized_greeting(
+    async def _generate_hook_greeting(
         self, 
         partner_info: PartnerAuthInfo, 
         processed_data: Dict[str, Any]
@@ -758,46 +760,104 @@ class PartnerRagChatService(WelnoRagChatService):
         
         return f"{name}님, {hospital_name} {concern_keyword} 결과에서 눈에 띄는 부분이 있어요 👀"
 
-    def _generate_chat_greeting(self, processed_data: Dict[str, Any]) -> str:
-        """채팅 내부 첫 인사말 — 후킹 메시지의 맥락을 이어가는 톤 (규칙 기반, 즉시)"""
+    @staticmethod
+    def _classify_data_type(processed_data: Dict[str, Any]) -> str:
+        """데이터 유형 분류: with_trends / single_visit / no_abnormal"""
+        metrics = processed_data.get("health_metrics", {})
+        trends = processed_data.get("trend_data") or processed_data.get("historical_data")
+        abnormal_items = [
+            k for k, v in metrics.items()
+            if k.endswith("_abnormal") and v
+        ]
+        if trends and len(trends) > 0:
+            return "with_trends"
+        elif abnormal_items or any([
+            (metrics.get("systolic_bp") or 0) >= 140,
+            (metrics.get("fasting_glucose") or 0) >= 100,
+            (metrics.get("total_cholesterol") or 0) >= 240,
+            (metrics.get("ldl_cholesterol") or 0) >= 160,
+            (metrics.get("ast") or 0) >= 40,
+            (metrics.get("alt") or 0) >= 40,
+            (metrics.get("bmi") or 0) >= 25,
+        ]):
+            return "single_visit"
+        else:
+            return "no_abnormal"
+
+    async def _generate_data_science_greeting(
+        self,
+        partner_info: PartnerAuthInfo,
+        processed_data: Dict[str, Any],
+    ) -> str:
+        """데이터사이언스 관점 인사이트 메시지 (2-3문장, LLM)"""
         if not processed_data.get("has_data"):
             return "안녕하세요! 😊 건강검진 결과에 대해 궁금한 점을 물어보세요."
 
         patient_info = processed_data.get("patient_info", {})
         name = patient_info.get("name", "고객")
         metrics = processed_data.get("health_metrics", {})
-        hospital = processed_data.get("partner_hospital_name", "") or ""
+        hospital = processed_data.get("partner_hospital_name", "") or partner_info.partner_name or ""
+        data_type = self._classify_data_type(processed_data)
 
-        # 후킹과 동일한 keyword/tone 판정
-        sbp = metrics.get("systolic_bp")
-        fasting_glucose = metrics.get("fasting_glucose")
-        total_cholesterol = metrics.get("total_cholesterol")
-        ldl = metrics.get("ldl_cholesterol")
-        ast = metrics.get("ast")
-        alt = metrics.get("alt")
-        bmi = metrics.get("bmi")
-        gfr = metrics.get("gfr")
+        # 주요 수치 요약
+        metric_lines = []
+        for label, key, unit in [
+            ("수축기혈압", "systolic_bp", "mmHg"), ("이완기혈압", "diastolic_bp", "mmHg"),
+            ("공복혈당", "fasting_glucose", "mg/dL"), ("총콜레스테롤", "total_cholesterol", "mg/dL"),
+            ("LDL", "ldl_cholesterol", "mg/dL"), ("HDL", "hdl_cholesterol", "mg/dL"),
+            ("AST", "ast", "U/L"), ("ALT", "alt", "U/L"),
+            ("BMI", "bmi", ""), ("GFR", "gfr", "mL/min"),
+        ]:
+            v = metrics.get(key)
+            if v is not None:
+                metric_lines.append(f"- {label}: {v}{unit}")
+        metrics_summary = "\n".join(metric_lines) if metric_lines else "수치 없음"
 
+        style_guide = {
+            "with_trends": (
+                "추이 데이터가 있습니다. 시간에 따른 변화(상승/하강 추세)를 분석하고, "
+                "가장 주의가 필요한 1-2개 항목을 구체적 수치와 함께 설명하세요."
+            ),
+            "single_visit": (
+                "단회 검진 데이터입니다. 기준치를 넘은 항목을 1-2개 골라 "
+                "수치와 기준치를 비교하며 쉽게 설명하세요."
+            ),
+            "no_abnormal": (
+                "특별히 이상 항목이 없습니다. 전반적으로 양호하다고 안심시키고, "
+                "건강 관련 궁금한 점을 편하게 물어보라고 안내하세요."
+            ),
+        }
+
+        from .gemini_service import gemini_service, GeminiRequest
+        prompt = f"""당신은 '{hospital}' 검진 결과를 읽어 드리는 건강 도우미입니다.
+{name}님의 검진 수치:
+{metrics_summary}
+
+데이터 특성: {style_guide.get(data_type, style_guide["single_visit"])}
+
+규칙:
+- 2-3문장으로 데이터 기반 인사이트를 제공하세요.
+- 의학적 진단·확정 표현 금지. '~일 수 있어요', '~살펴보면 좋겠어요' 톤.
+- 구체적 수치를 1-2개 언급하되 공포 유발 금지.
+- 이모지 1-2개 사용, 존댓말, 친근한 톤.
+- 마지막에 "궁금한 점을 물어보세요" 류 마무리.
+"""
+        try:
+            res = await gemini_service.call_api(
+                GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", temperature=0.7),
+                save_log=False,
+            )
+            if res.success:
+                raw = res.content.strip().replace('"', '')
+                return ' '.join(raw.split())
+        except Exception:
+            pass
+
+        # 폴백: 규칙 기반
         hp = f"{hospital} " if hospital else ""
-
-        if sbp and sbp >= 140:
-            return f"{name}님, {hp}검진에서 혈압이 조금 높게 나왔어요. 어떤 의미인지 같이 살펴볼까요? 😊"
-        elif fasting_glucose and fasting_glucose >= 126:
-            return f"{name}님, {hp}혈당 수치가 눈에 띄네요. 어떤 부분을 확인하면 좋을지 알려드릴게요 📋"
-        elif fasting_glucose and fasting_glucose >= 100:
-            return f"{name}님, {hp}혈당 결과가 정리됐어요. 수치가 어떤 의미인지 궁금하시면 물어보세요 😊"
-        elif total_cholesterol and total_cholesterol >= 240:
-            return f"{name}님, {hp}콜레스테롤 수치를 한번 살펴봤어요. 자세히 알아볼까요? 📊"
-        elif ldl and ldl >= 160:
-            return f"{name}님, {hp}LDL 콜레스테롤 결과를 정리해 봤어요. 궁금한 점 물어보세요 😊"
-        elif (ast and ast >= 40) or (alt and alt >= 40):
-            return f"{name}님, {hp}간 수치 결과를 확인해 봤어요. 어떤 의미인지 알려드릴게요 🔍"
-        elif bmi and bmi >= 25:
-            return f"{name}님, {hp}체중 관련 수치를 정리해 봤어요. 궁금한 점 있으시면 편하게 물어보세요 😊"
-        elif gfr and gfr < 60:
-            return f"{name}님, {hp}신장 기능 수치를 살펴봤어요. 자세한 내용이 궁금하시면 물어보세요 🔍"
-        else:
-            return f"{name}님, {hp}검진 결과를 정리해 봤어요! 궁금한 항목이 있으면 물어보세요 😊"
+        if data_type == "no_abnormal":
+            return f"{name}님, {hp}검진 결과를 정리해 봤어요! 전반적으로 양호합니다. 궁금한 항목이 있으면 물어보세요 😊"
+        return f"{name}님, {hp}검진 결과를 분석해 봤어요. 주의가 필요한 항목이 있는데, 자세히 알아볼까요? 📊"
 
     async def _preload_rag_context_background(
         self, 

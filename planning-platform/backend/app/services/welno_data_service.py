@@ -1011,16 +1011,20 @@ class WelnoDataService:
             patient_row = await conn.fetchrow(patient_query, uuid, hospital_id)
             
             # 없으면 UUID만으로 조회 (hospital_id가 다를 수 있음)
+            hospital_id_mismatch = False
             if not patient_row:
                 print(f"⚠️ [get_patient_health_data] UUID+hospital_id 조합으로 환자를 찾을 수 없음. UUID만으로 재시도: uuid={uuid}, hospital_id={hospital_id}")
                 patient_query_uuid_only = "SELECT * FROM welno.welno_patients WHERE uuid = $1 ORDER BY last_auth_at DESC NULLS LAST, created_at DESC LIMIT 1"
                 patient_row = await conn.fetchrow(patient_query_uuid_only, uuid)
-                
+
                 if patient_row:
-                    # 실제 DB의 hospital_id로 업데이트
                     actual_hospital_id = dict(patient_row).get('hospital_id')
                     print(f"✅ [get_patient_health_data] UUID만으로 환자 찾음. 실제 hospital_id: {actual_hospital_id} (요청한 hospital_id: {hospital_id})")
-                    hospital_id = actual_hospital_id  # 실제 hospital_id로 업데이트
+                    if actual_hospital_id != hospital_id:
+                        # 다른 병원 환자 데이터 → 이름/건강 데이터 노출 방지
+                        hospital_id_mismatch = True
+                        print(f"⚠️ [get_patient_health_data] hospital_id 불일치! 요청={hospital_id}, 실제={actual_hospital_id} → 이름 마스킹")
+                    hospital_id = actual_hospital_id
             
             if not patient_row:
                 await conn.close()
@@ -1131,10 +1135,22 @@ class WelnoDataService:
             print(f"  - 건강검진 데이터: {len(health_data_formatted)}건")
             print(f"  - 처방전 데이터: {len(prescription_data_formatted)}건")
 
+            result_patient = convert(dict(patient_row))
+
+            # hospital_id 불일치 시 다른 병원 환자 데이터 노출 방지
+            if hospital_id_mismatch:
+                result_patient["name"] = "고객"
+                return {
+                    "patient": result_patient,
+                    "health_data": [],
+                    "prescription_data": [],
+                    "hospital_id_mismatch": True,
+                }
+
             return {
-                "patient": convert(dict(patient_row)),
+                "patient": result_patient,
                 "health_data": health_data_formatted,
-                "prescription_data": prescription_data_formatted
+                "prescription_data": prescription_data_formatted,
             }
             
         except Exception as e:

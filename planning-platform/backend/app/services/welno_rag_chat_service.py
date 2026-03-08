@@ -901,7 +901,24 @@ class WelnoRagChatService:
                     except:
                         pass
 
-                # 모델이 SUGGESTIONS를 생략하면 룰 기반 폴백
+                # 모델이 SUGGESTIONS를 생략하면 1회 LLM 재시도 후 폴백
+                if not suggestions:
+                    try:
+                        retry_prompt = (
+                            f"다음 대화의 마지막 답변을 참고하여 사용자에게 추천할 후속 질문 3개를 생성하세요.\n"
+                            f"형식: 질문1 | 질문2 | 질문3\n각 질문은 20자 이내, 경어체.\n\n"
+                            f"답변 요약: {full_answer[:300]}"
+                        )
+                        retry_res = await gemini_service.call_api(
+                            GeminiRequest(prompt=retry_prompt, model="gemini-3-flash-preview", temperature=0.5),
+                            save_log=False,
+                        )
+                        if retry_res.success and "|" in retry_res.content:
+                            suggestions = [s.strip() for s in retry_res.content.strip().split("|") if s.strip()][:3]
+                            logger.info(f"💡 [서제스천] 재시도 성공 — {len(suggestions)}건 생성")
+                    except Exception as retry_err:
+                        logger.warning(f"⚠️ [서제스천] 재시도 실패: {retry_err}")
+
                 if not suggestions:
                     from .chat_tagging_service import generate_fallback_suggestions
                     _ha = []

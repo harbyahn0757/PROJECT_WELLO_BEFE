@@ -150,15 +150,7 @@ class WelnoRagChatWidget {
     // 세션 ID 생성 (웜업 전 임시용)
     this.state.sessionId = `temp_${this.config.uuid}_${Date.now()}`;
     
-    // 클라이언트 즉시 후킹 메시지 생성 → 티저 버블에만 표시
-    var hookMsg = this._generateHookMessage(this.config.partnerData);
-    if (hookMsg && this.config.mode === 'teaser') {
-      this.config.teaserMessage = hookMsg;
-      if (this.elements.teaserBubble) {
-        var teaserText = this.elements.teaserBubble.querySelector('.' + this.cssPrefix + '-teaser-text');
-        if (teaserText) teaserText.textContent = hookMsg;
-      }
-    }
+    // 후킹 메시지: warmup 응답의 hook_greeting으로 표시 (서버 LLM 생성)
 
     // 첫 메시지: 타이핑 dot → warmup 응답 후 개인화 인사말로 교체
     this._welcomeElement = this.addMessage('assistant', '');
@@ -1664,53 +1656,7 @@ class WelnoRagChatWidget {
     return r + ',' + g + ',' + b;
   }
 
-  /**
-   * 클라이언트 즉시 후킹 메시지 생성 (백엔드 threshold 미러링)
-   */
-  _generateHookMessage(partnerData) {
-    if (!partnerData || !partnerData.checkup_results) return null;
-    var cr = partnerData.checkup_results;
-    if (Array.isArray(cr)) cr = cr[0] || {};
-    var name = (partnerData.patient && partnerData.patient.name) || '고객';
-    var hospital = partnerData.partner_hospital_name || (partnerData.patient && partnerData.patient.hospital_name) || '';
-
-    var keyword = null, emoji = '\uD83D\uDC40';
-    if (cr.systolic_bp >= 140)         { keyword = '혈압'; emoji = '\uD83D\uDC93'; }
-    else if (cr.fasting_glucose >= 126){ keyword = '혈당'; emoji = '\uD83E\uDE78'; }
-    else if (cr.fasting_glucose >= 100){ keyword = '혈당'; emoji = '\uD83D\uDCCA'; }
-    else if (cr.total_cholesterol >= 240){ keyword = '콜레스테롤'; emoji = '\uD83D\uDCCA'; }
-    else if (cr.ldl_cholesterol >= 160){ keyword = 'LDL 콜레스테롤'; emoji = '\uD83D\uDCCA'; }
-    else if ((cr.sgot_ast >= 40) || (cr.sgpt_alt >= 40)){ keyword = '간 수치'; emoji = '\uD83D\uDD2C'; }
-    else if (cr.bmi >= 25)             { keyword = '체중 관리'; emoji = '\u2696\uFE0F'; }
-    else if (cr.gfr && cr.gfr < 60)    { keyword = '신장 기능'; emoji = '\uD83D\uDD2C'; }
-
-    if (!keyword) {
-      var hasAbnormal = Object.keys(cr).some(function(k) { return k.endsWith('_abnormal') && cr[k]; });
-      if (hasAbnormal) keyword = '검진 결과';
-    }
-    if (!keyword) return null;
-
-    // risk_tone 판정 (백엔드 _generate_personalized_greeting 미러링)
-    var tone = 'friendly';
-    if (cr.systolic_bp >= 160)            tone = 'urgent';
-    else if (cr.systolic_bp >= 140)       tone = 'curious';
-    else if (cr.fasting_glucose >= 126)   tone = 'urgent';
-    else if (cr.fasting_glucose >= 100)   tone = 'curious';
-    else if (cr.total_cholesterol >= 240) tone = 'curious';
-    else if (cr.ldl_cholesterol >= 160)   tone = 'curious';
-    else if ((cr.sgot_ast >= 40) || (cr.sgpt_alt >= 40)) tone = 'curious';
-    else if (cr.bmi >= 25)               tone = 'friendly';
-    else if (cr.gfr && cr.gfr < 60)      tone = 'urgent';
-
-    var hp = hospital ? hospital + ' ' : '';
-    if (tone === 'urgent') {
-      return name + '님, ' + hp + keyword + ' 결과 꼭 한번 확인해 보세요 ' + emoji;
-    } else if (tone === 'curious') {
-      return hp + '검진 결과 정리됐어요, ' + name + '님 ' + keyword + ' 한번 살펴보세요 ' + emoji;
-    } else {
-      return name + '님, ' + hp + '검진 결과 정리됐어요! 확인해 보세요 ' + emoji;
-    }
-  }
+  // _generateHookMessage 제거됨 — 모든 후킹 메시지는 서버 LLM 생성 (warmup 응답의 hook_greeting)
 
   /**
    * 채팅 말풍선용 마크다운 렌더.
@@ -2240,21 +2186,30 @@ class WelnoRagChatWidget {
           this.elements.badge.classList.add('visible');
         }
 
-        // 채팅 내부 첫 메시지: dot → 개인화 인사말로 교체
-        var chatGreeting = data.chat_greeting || data.greeting || this.config.welcomeMessage;
+        // 채팅 내부 첫 메시지: data_science_greeting (데이터 기반 인사이트)
+        var chatGreeting = data.data_science_greeting || data.chat_greeting || data.greeting || this.config.welcomeMessage;
         this._showWelcomeText(chatGreeting);
 
-        // 버튼 모드: 외부 웰컴 버블도 업데이트 (후킹용 짧은 greeting)
-        if (data.greeting && this.config.mode !== 'teaser') {
-          var bubbleRaw = (data.greeting || '').replace(/<br\s*\/?>/gi, ' ');
-          var bubbleText = bubbleRaw.replace(/\s+/g, ' ').trim();
-          var welcomeTextEl = this.elements.welcomeBubble && this.elements.welcomeBubble.querySelector('.' + this.cssPrefix + '-welcome-bubble-text');
-          if (welcomeTextEl) welcomeTextEl.textContent = bubbleText;
-          setTimeout(() => {
-            if (!this.state.isOpen) {
-              this.elements.welcomeBubble.classList.add('visible');
-            }
-          }, 1000);
+        // 후킹 메시지: hook_greeting으로 티저/버블 업데이트
+        var hookGreeting = data.hook_greeting || data.greeting;
+        if (hookGreeting) {
+          // 티저 모드: 티저 버블 텍스트 업데이트
+          if (this.config.mode === 'teaser' && this.elements.teaserBubble) {
+            var teaserText = this.elements.teaserBubble.querySelector('.' + this.cssPrefix + '-teaser-text');
+            if (teaserText) teaserText.textContent = hookGreeting.replace(/<br\s*\/?>/gi, ' ').replace(/\s+/g, ' ').trim();
+          }
+          // 버튼 모드: 외부 웰컴 버블 업데이트
+          if (this.config.mode !== 'teaser') {
+            var bubbleRaw = hookGreeting.replace(/<br\s*\/?>/gi, ' ');
+            var bubbleText = bubbleRaw.replace(/\s+/g, ' ').trim();
+            var welcomeTextEl = this.elements.welcomeBubble && this.elements.welcomeBubble.querySelector('.' + this.cssPrefix + '-welcome-bubble-text');
+            if (welcomeTextEl) welcomeTextEl.textContent = bubbleText;
+            setTimeout(() => {
+              if (!this.state.isOpen) {
+                this.elements.welcomeBubble.classList.add('visible');
+              }
+            }, 1000);
+          }
         }
       }
     } catch (error) {

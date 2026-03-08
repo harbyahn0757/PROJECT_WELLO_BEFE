@@ -212,13 +212,24 @@ def build_suggestion_instruction(
     health_alerts: Optional[List[Dict[str, str]]] = None,
     partner_type: str = "healthcare",
 ) -> str:
-    """파트너 방향 + 이상 항목만 전달, 구체적 질문은 모델이 생성."""
+    """파트너 방향 + 이상 항목 + 턴 깊이별 가이드, 구체적 질문은 모델이 생성."""
     pt = partner_type if partner_type in _PARTNER_DIRECTION else "healthcare"
+
+    # 턴 깊이별 서제스천 방향 차별화
+    if turn_number <= 1:
+        depth_guide = "초반 대화입니다. 넓은 건강 주제를 탐색하는 질문을 생성하세요. (예: 다른 수치 궁금, 전체 요약 등)"
+    elif turn_number <= 3:
+        depth_guide = "대화 중반입니다. 이전 대화 맥락을 반영하여 더 구체적인 후속 질문을 생성하세요. (예: 식습관, 운동, 생활습관 등)"
+    else:
+        depth_guide = "대화 후반입니다. 구체적인 행동 제안이나 병원 방문 유도 질문을 생성하세요. (예: 재검 시기, 관리 방법, 전문의 상담 등)"
+
     lines = [
         "[서제스천 생성 규칙]",
         "답변 마지막에 반드시 후속 질문 3개를 아래 형식으로 생성하세요.",
         "형식: [SUGGESTIONS] 질문1 | 질문2 | 질문3 [/SUGGESTIONS]",
         "각 질문은 20자 이내, 경어체.",
+        "",
+        depth_guide,
         "",
         _PARTNER_DIRECTION[pt],
     ]
