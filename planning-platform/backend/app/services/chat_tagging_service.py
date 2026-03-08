@@ -455,7 +455,7 @@ def classify_conversation_intent(messages: List[Dict[str, str]]) -> str:
         for kw in tags if kw in all_text
     )
 
-    if ux_hits >= 2 and health_hits == 0:
+    if ux_hits >= 1 and health_hits == 0:
         return "ux_issue"
 
     if health_hits > 0 or len(user_msgs) >= 2:
@@ -617,8 +617,15 @@ async def llm_analyze_session(
   "nutrition_interests": ["식단관리", "영양제"],
   "commercial_tags": [{{"category": "카테고리", "product_hint": "상품힌트", "segment": "고관여|일반"}}],
   "buying_signal": "high|mid|low",
-  "classification_confidence": 0.0-1.0 (분석 확신도. 1턴+단순질문=0.3-0.5, 구체적 건강대화=0.7-1.0, 명확한 증상+수치 언급=0.9-1.0)
-}}"""
+  "classification_confidence": 0.85
+}}
+
+⚠️ classification_confidence 필드는 반드시 포함하세요 (누락 금지):
+- 0.3-0.5: 1턴 + 단순 질문, 맥락 부족
+- 0.6-0.7: 건강 관련이지만 구체적이지 않음
+- 0.8-0.9: 구체적 건강 대화 (증상/수치 언급)
+- 0.95-1.0: 명확한 증상 + 수치 + 병명 언급
+이 필드가 없으면 분석 결과를 활용할 수 없습니다."""
 
         # ── 병원 전용 추가 분석 (모든 세션에 항상 포함) ──
         prompt += """
