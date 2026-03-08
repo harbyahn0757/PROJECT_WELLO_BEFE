@@ -148,10 +148,18 @@ class WelnoRagChatWidget {
       }
     }
 
-    // 채팅 열릴 때 보이는 첫 메시지는 항상 welcome
-    this.addMessage('assistant', this.config.welcomeMessage);
+    // 첫 메시지: 타이핑 dot → warmup 응답 후 개인화 인사말로 교체
+    this._welcomeElement = this.addMessage('assistant', '');
+    var welcomeBubble = this._welcomeElement && this._welcomeElement.querySelector('.' + this.cssPrefix + '-message-bubble');
+    if (welcomeBubble) {
+      welcomeBubble.innerHTML = '<span style="display:inline-flex;gap:4px;align-items:center;height:20px">'
+        + '<span style="width:6px;height:6px;border-radius:50%;background:' + (this.config.buttonColor || '#A69B8F') + ';opacity:0.4;animation:greetDot 1.2s infinite"></span>'
+        + '<span style="width:6px;height:6px;border-radius:50%;background:' + (this.config.buttonColor || '#A69B8F') + ';opacity:0.4;animation:greetDot 1.2s 0.2s infinite"></span>'
+        + '<span style="width:6px;height:6px;border-radius:50%;background:' + (this.config.buttonColor || '#A69B8F') + ';opacity:0.4;animation:greetDot 1.2s 0.4s infinite"></span>'
+        + '</span>';
+    }
 
-    // 웜업 API 호출 (세션ID + 배지용)
+    // 웜업 API 호출 (세션ID + 배지용 + 개인화 인사말)
     this.warmup();
 
       // 모드별 초기 동작
@@ -729,6 +737,10 @@ class WelnoRagChatWidget {
       @keyframes welnoTypingBounce {
         0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
         30% { transform: translateY(-6px); opacity: 1; }
+      }
+      @keyframes greetDot {
+        0%, 60%, 100% { opacity: 0.3; transform: scale(1); }
+        30% { opacity: 1; transform: scale(1.3); }
       }
 
       /* 입력 영역 */
@@ -2209,16 +2221,9 @@ class WelnoRagChatWidget {
           this.elements.badge.classList.add('visible');
         }
 
-        // greeting → 채팅 내부 첫 메시지 + 외부 웰컴 버블 업데이트
-        // chat_greeting(후킹 맥락 연장)이 있으면 우선, 없으면 greeting 사용
-        var chatGreeting = data.chat_greeting || data.greeting;
-        if (chatGreeting) {
-          var raw = chatGreeting.replace(/<br\s*\/?>/gi, ' ');
-          var normalized = raw.replace(/\s+/g, ' ').trim();
-          // 채팅 내부 첫 어시스턴트 메시지 갈아끼우기
-          var firstMsg = this.elements.messagesContainer.querySelector('.' + this.cssPrefix + '-message.assistant .' + this.cssPrefix + '-message-bubble');
-          if (firstMsg) firstMsg.innerHTML = this._renderMessageHtml(normalized);
-        }
+        // 채팅 내부 첫 메시지: dot → 개인화 인사말로 교체
+        var chatGreeting = data.chat_greeting || data.greeting || this.config.welcomeMessage;
+        this._showWelcomeText(chatGreeting);
 
         // 버튼 모드: 외부 웰컴 버블도 업데이트 (후킹용 짧은 greeting)
         if (data.greeting && this.config.mode !== 'teaser') {
@@ -2235,6 +2240,26 @@ class WelnoRagChatWidget {
       }
     } catch (error) {
       console.warn('[WelnoRagChatWidget] 웜업 실패:', error);
+      // 실패 시 generic 인사말로 fallback
+      this._showWelcomeText(this.config.welcomeMessage);
+    }
+  }
+
+  /**
+   * 첫 메시지 dot → 인사말 텍스트 교체
+   */
+  _showWelcomeText(text) {
+    var bubble = this._welcomeElement && this._welcomeElement.querySelector('.' + this.cssPrefix + '-message-bubble');
+    if (bubble) {
+      var raw = (text || '').replace(/<br\s*\/?>/gi, ' ');
+      var normalized = raw.replace(/\s+/g, ' ').trim();
+      bubble.style.transition = 'opacity 0.3s ease';
+      bubble.style.opacity = '0';
+      var self = this;
+      setTimeout(function() {
+        bubble.innerHTML = self._renderMessageHtml(normalized);
+        bubble.style.opacity = '1';
+      }, 200);
     }
   }
 
