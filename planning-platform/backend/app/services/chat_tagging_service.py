@@ -458,10 +458,9 @@ def classify_conversation_intent(messages: List[Dict[str, str]]) -> str:
     if ux_hits >= 1 and health_hits == 0:
         return "ux_issue"
 
-    if health_hits > 0 or len(user_msgs) >= 2:
-        return "health_question"
-
-    return "off_topic"
+    # 건강검진 RAG 채팅 맥락 — 기본값은 health_question
+    # "알려줘", "읽어주세요", "이상있다고 문의" 등 키워드 없어도 건강 상담임
+    return "health_question"
 
 
 def calculate_data_quality_score(health_metrics: Dict[str, Any]) -> int:
