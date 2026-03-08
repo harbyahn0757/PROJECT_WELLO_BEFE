@@ -932,7 +932,7 @@ async def trigger_report_generation(order_data: Dict[str, Any]):
         decrypted_data = None
         from ....services.welno_data_service import welno_data_service
         from ....services.mediarc.data_mapper import map_checkup_to_twobecon
-        
+
         try:
             health_data_result = await welno_data_service.get_patient_health_data(uuid, settings.welno_default_hospital_id)
             if health_data_result and not health_data_result.get('error'):

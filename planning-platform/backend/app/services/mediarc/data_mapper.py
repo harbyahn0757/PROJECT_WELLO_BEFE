@@ -240,17 +240,74 @@ def map_questionnaire_to_codes(questionnaire_answers: Dict[str, Any]) -> Dict[st
     return codes
 
 
+def map_nhis_questionnaire_to_codes(answers: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    건보공단(NHIS) 문진 응답을 Twobecon 코드로 변환
+    에이전트 설문(agent-health-survey)에서 건보공단 코드를 question.id로 사용
+
+    Args:
+        answers: {questionId: value} 형태의 건보공단 문진 응답
+    Returns:
+        Twobecon 코드 형식 데이터 (drink, smoke, family, disease)
+    """
+    codes = {}
+
+    # 흡연: smkStatTypeRspsCd → SMK 코드
+    smk = answers.get('smkStatTypeRspsCd')
+    if smk:
+        smk_map = {'1': 'SMK0001', '2': 'SMK0002', '3': 'SMK0003'}
+        codes['smoke'] = smk_map.get(str(smk), 'SMK0001')
+
+    # 음주: drnkHabitRspsCd → DRK 코드
+    drk = answers.get('drnkHabitRspsCd')
+    if drk:
+        drk_map = {
+            '0': 'DRK0001',  # 안 마심
+            '1': 'DRK0001',  # 월 1회 (경미)
+            '2': 'DRK0002',  # 월 2~3회 → 주 1~2회 수준
+            '4': 'DRK0002',  # 주 1~2회
+            '7': 'DRK0004',  # 거의 매일
+        }
+        codes['drink'] = drk_map.get(str(drk), 'DRK0001')
+
+    # 가족력: fmly*Yn → FH 코드 리스트
+    family = []
+    if str(answers.get('fmlyHprtsPatienYn')) == '1':
+        family.append('FH0001')  # 고혈압
+    if str(answers.get('fmlyDiabmlPatienYn')) == '1':
+        family.append('FH0002')  # 당뇨
+    if str(answers.get('fmlyCancerPatienYn')) == '1':
+        family.append('FH0003')  # 암
+    if family:
+        codes['family'] = family
+
+    # 개인 병력: hchk*Yn → DIS 코드 리스트
+    disease = []
+    if str(answers.get('hchkHprtsPmhYn')) == '1':
+        disease.append('DIS0001')  # 고혈압
+    if str(answers.get('hchkDiabmlPmhYn')) == '1':
+        disease.append('DIS0002')  # 당뇨
+    if str(answers.get('hchkHplpdmPmhYn')) == '1':
+        disease.append('DIS0003')  # 이상지질혈증
+    if disease:
+        codes['disease'] = disease
+
+    return codes
+
+
 def map_partner_data_to_twobecon(
     partner_data: Dict[str, Any],
-    partner_id: str
+    partner_id: str,
+    questionnaire_codes: Optional[Dict] = None
 ) -> Dict[str, Any]:
     """
     파트너 암호화 데이터를 Twobecon 형식으로 변환 (MediLinx 약어 필드 지원)
-    
+
     Args:
         partner_data: 복호화된 파트너 데이터 (약어 필드 포함)
         partner_id: 파트너 ID
-        
+        questionnaire_codes: 문진 데이터 Twobecon 코드 (있으면 기본값 대신 사용)
+
     Returns:
         Twobecon 형식 데이터
     """
@@ -308,18 +365,25 @@ def map_partner_data_to_twobecon(
     else:
         checkup['bmi'] = to_float(partner_data.get('bmi'))
     
-    # 5. Twobecon 데이터 구조 조립
+    # 5. 문진 데이터 처리: questionnaire_codes > partner_data NHIS 자동변환 > partner_data 직접 > 기본값
+    q_codes = questionnaire_codes or {}
+
+    # partner_data에 건보공단 필드(questionnaire_data dict)가 있으면 자동 변환
+    nhis_data = partner_data.get('questionnaire_data')
+    if nhis_data and isinstance(nhis_data, dict) and not q_codes:
+        q_codes = map_nhis_questionnaire_to_codes(nhis_data)
+
+    # 6. Twobecon 데이터 구조 조립
     twobecon_data = {
         "tid": tid,
         "birth": birth,
         "gender": gender,
         "checkup": checkup,
-        # 문진 데이터 Fallback 처리
-        "drink": partner_data.get('drink', 'DRK0002'),
-        "smoke": partner_data.get('smoke', 'SMK0003'),
-        "family": partner_data.get('family', ['FH0001']),
-        "disease": partner_data.get('disease', ['DIS0001']),
-        "cancer": partner_data.get('cancer', ['CNR0001'])
+        "drink": q_codes.get('drink') or partner_data.get('drink', 'DRK0002'),
+        "smoke": q_codes.get('smoke') or partner_data.get('smoke', 'SMK0003'),
+        "family": q_codes.get('family') or partner_data.get('family', ['FH0001']),
+        "disease": q_codes.get('disease') or partner_data.get('disease', ['DIS0001']),
+        "cancer": q_codes.get('cancer') or partner_data.get('cancer', ['CNR0001'])
     }
-    
+
     return twobecon_data
