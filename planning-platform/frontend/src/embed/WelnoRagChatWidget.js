@@ -122,6 +122,18 @@ class WelnoRagChatWidget {
       return;
     }
 
+    // 데이터 없는 환자 → 위젯 미노출
+    var pd = this.config.partnerData;
+    if (!pd || !pd.checkup_results) {
+      console.info('[WelnoRagChatWidget] 검진 데이터 없음 — 위젯 미노출');
+      return;
+    }
+    var cr = pd.checkup_results;
+    if (Array.isArray(cr) && cr.length === 0) {
+      console.info('[WelnoRagChatWidget] 검진 결과 비어있음 — 위젯 미노출');
+      return;
+    }
+
     try {
       // 0. 서버에서 동적 설정 로드 (파트너 테마 적용)
       await this.fetchRemoteConfig();
@@ -2216,8 +2228,15 @@ class WelnoRagChatWidget {
           this.state.sessionId = data.session_id;
         }
 
+        // has_data=false → 위젯 완전 제거
+        if (!data.has_data) {
+          console.info('[WelnoRagChatWidget] 서버 확인: 유효 검진 데이터 없음 — 위젯 제거');
+          this.destroy();
+          return;
+        }
+
         // has_data=true → 배지 dot 표시
-        if (data.has_data && this.elements.badge) {
+        if (this.elements.badge) {
           this.elements.badge.classList.add('visible');
         }
 
