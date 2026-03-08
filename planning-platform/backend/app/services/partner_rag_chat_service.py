@@ -643,12 +643,22 @@ class PartnerRagChatService(WelnoRagChatService):
                 self._generate_data_science_greeting(partner_info, processed_data),
             )
 
-            # 5. 인사말 + 메타정보를 Redis에 저장 (대화 로그 첫 행에 포함시키기 위해)
+            # 5. 수치 데이터 유무 판별 (0건 감지)
+            metrics = processed_data.get("health_metrics", {})
+            numeric_fields = ["height", "weight", "bmi", "systolic_bp", "diastolic_bp",
+                              "fasting_glucose", "total_cholesterol", "hemoglobin", "sgot_ast", "sgpt_alt"]
+            has_meaningful_data = any(
+                metrics.get(f) and metrics.get(f) not in (0, "0", "", None)
+                for f in numeric_fields
+            )
+
+            # 6. 인사말 + 메타정보를 Redis에 저장 (대화 로그 첫 행에 포함시키기 위해)
             if self.redis_client:
                 greeting_data = {
                     "hook_greeting": hook_greeting,
                     "data_science_greeting": data_science_greeting,
                     "data_type": data_type,
+                    "has_meaningful_data": has_meaningful_data,
                     "model": "gemini-3-flash-preview",
                     "timestamp": datetime.now().isoformat(),
                 }

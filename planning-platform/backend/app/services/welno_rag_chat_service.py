@@ -633,18 +633,30 @@ class WelnoRagChatService:
                         stage_instruction = "추이, 패턴을 분석하되 '자세한 내용은 담당 의료진과 상담하시길 권해요 😊'로 안내하세요."
                         chat_stage = "normal"
                     if is_partner_session:
-                        # 파트너 세션: data_type 확인 (정상인 vs 이상소견)
+                        # 파트너 세션: data_type + 수치 유무 확인
                         _partner_data_type = ""
+                        _has_meaningful_data = True
                         if self.redis_client:
                             try:
                                 _g_key = f"welno:partner_rag:mapping:{session_id}:greetings"
                                 _g_json = self.redis_client.get(_g_key)
                                 if _g_json:
-                                    _partner_data_type = json.loads(_g_json).get("data_type", "")
+                                    _g_data = json.loads(_g_json)
+                                    _partner_data_type = _g_data.get("data_type", "")
+                                    _has_meaningful_data = _g_data.get("has_meaningful_data", True)
                             except Exception:
                                 pass
 
-                        if _partner_data_type == "no_abnormal":
+                        if not _has_meaningful_data:
+                            stage_instruction += (
+                                "\n\n**파트너 위젯 모드 (데이터 없음)**: 이 환자의 검진 수치가 수신되지 않았습니다.\n"
+                                "- 매 답변 첫 문장에 '검진 결과를 모두 불러오지 못했어요'를 반드시 밝히세요.\n"
+                                "- 환자의 질문에만 짧게 답하되, 환자가 묻지 않은 의료 주제(암, 문진, 백신, 생존율, 대사증후군 통계 등)를 먼저 꺼내지 마세요.\n"
+                                "- 일반 의학 상식으로 답할 때도 환자 개인에게 적용하는 식의 표현은 삼가세요.\n"
+                                "- 병원 연락처 안내 후 '정확한 결과는 병원에 문의해 주세요'로 마무리.\n"
+                                "- ###, * 목록 같은 긴 보고서 형식은 쓰지 말고, 짧은 문단으로 읽기 쉽게."
+                            )
+                        elif _partner_data_type == "no_abnormal":
                             stage_instruction += (
                                 "\n\n**파트너 위젯 모드 (정상 소견)**: 이 환자의 검진 결과는 전반적으로 정상입니다.\n"
                                 "- '눈여겨볼 부분', '확인해 볼 부분', '주의가 필요한' 등 이상 암시 표현 절대 금지.\n"
