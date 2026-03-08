@@ -113,6 +113,7 @@ async def warmup_partner_session(
             "success": True,
             "session_id": session_id,
             "greeting": result.get("greeting"),
+            "chat_greeting": result.get("chat_greeting"),
             "has_data": result.get("has_data", False)
         }
         

@@ -636,12 +636,16 @@ class PartnerRagChatService(WelnoRagChatService):
             
             # 3. 개인화된 인사말(Greeting) 생성 (Gemini 1s 이내)
             greeting = await self._generate_personalized_greeting(partner_info, processed_data)
-            
+
+            # 3-1. 채팅 내부 인사말 — 후킹 메시지의 맥락을 이어가는 톤
+            chat_greeting = self._generate_chat_greeting(processed_data)
+
             # 4. 백그라운드 태스크: Gemini Context Caching 미리 수행 (의학 지식 로딩)
             asyncio.create_task(self._preload_rag_context_background(partner_info, uuid, hospital_id, session_id, processed_data))
-            
+
             return {
                 "greeting": greeting,
+                "chat_greeting": chat_greeting,
                 "has_data": processed_data.get("has_data", False)
             }
             
@@ -753,6 +757,47 @@ class PartnerRagChatService(WelnoRagChatService):
         except: pass
         
         return f"{name}님, {hospital_name} {concern_keyword} 결과에서 눈에 띄는 부분이 있어요 👀"
+
+    def _generate_chat_greeting(self, processed_data: Dict[str, Any]) -> str:
+        """채팅 내부 첫 인사말 — 후킹 메시지의 맥락을 이어가는 톤 (규칙 기반, 즉시)"""
+        if not processed_data.get("has_data"):
+            return "안녕하세요! 😊 건강검진 결과에 대해 궁금한 점을 물어보세요."
+
+        patient_info = processed_data.get("patient_info", {})
+        name = patient_info.get("name", "고객")
+        metrics = processed_data.get("health_metrics", {})
+        hospital = processed_data.get("partner_hospital_name", "") or ""
+
+        # 후킹과 동일한 keyword/tone 판정
+        sbp = metrics.get("systolic_bp")
+        fasting_glucose = metrics.get("fasting_glucose")
+        total_cholesterol = metrics.get("total_cholesterol")
+        ldl = metrics.get("ldl_cholesterol")
+        ast = metrics.get("ast")
+        alt = metrics.get("alt")
+        bmi = metrics.get("bmi")
+        gfr = metrics.get("gfr")
+
+        hp = f"{hospital} " if hospital else ""
+
+        if sbp and sbp >= 140:
+            return f"{name}님, {hp}검진에서 혈압이 조금 높게 나왔어요. 어떤 의미인지 같이 살펴볼까요? 😊"
+        elif fasting_glucose and fasting_glucose >= 126:
+            return f"{name}님, {hp}혈당 수치가 눈에 띄네요. 어떤 부분을 확인하면 좋을지 알려드릴게요 📋"
+        elif fasting_glucose and fasting_glucose >= 100:
+            return f"{name}님, {hp}혈당 결과가 정리됐어요. 수치가 어떤 의미인지 궁금하시면 물어보세요 😊"
+        elif total_cholesterol and total_cholesterol >= 240:
+            return f"{name}님, {hp}콜레스테롤 수치를 한번 살펴봤어요. 자세히 알아볼까요? 📊"
+        elif ldl and ldl >= 160:
+            return f"{name}님, {hp}LDL 콜레스테롤 결과를 정리해 봤어요. 궁금한 점 물어보세요 😊"
+        elif (ast and ast >= 40) or (alt and alt >= 40):
+            return f"{name}님, {hp}간 수치 결과를 확인해 봤어요. 어떤 의미인지 알려드릴게요 🔍"
+        elif bmi and bmi >= 25:
+            return f"{name}님, {hp}체중 관련 수치를 정리해 봤어요. 궁금한 점 있으시면 편하게 물어보세요 😊"
+        elif gfr and gfr < 60:
+            return f"{name}님, {hp}신장 기능 수치를 살펴봤어요. 자세한 내용이 궁금하시면 물어보세요 🔍"
+        else:
+            return f"{name}님, {hp}검진 결과를 정리해 봤어요! 궁금한 항목이 있으면 물어보세요 😊"
 
     async def _preload_rag_context_background(
         self, 

@@ -2209,12 +2209,23 @@ class WelnoRagChatWidget {
           this.elements.badge.classList.add('visible');
         }
 
-        // 버튼 모드에서만 greeting으로 웰컴 버블 업데이트
-        // 티저 모드는 클라이언트 hookMessage가 이미 처리함
+        // greeting → 채팅 내부 첫 메시지 + 외부 웰컴 버블 업데이트
+        // chat_greeting(후킹 맥락 연장)이 있으면 우선, 없으면 greeting 사용
+        var chatGreeting = data.chat_greeting || data.greeting;
+        if (chatGreeting) {
+          var raw = chatGreeting.replace(/<br\s*\/?>/gi, ' ');
+          var normalized = raw.replace(/\s+/g, ' ').trim();
+          // 채팅 내부 첫 어시스턴트 메시지 갈아끼우기
+          var firstMsg = this.elements.messagesContainer.querySelector('.' + this.cssPrefix + '-message.assistant .' + this.cssPrefix + '-message-bubble');
+          if (firstMsg) firstMsg.innerHTML = this._renderMessageHtml(normalized);
+        }
+
+        // 버튼 모드: 외부 웰컴 버블도 업데이트 (후킹용 짧은 greeting)
         if (data.greeting && this.config.mode !== 'teaser') {
-          const raw = (data.greeting || '').replace(/<br\s*\/?>/gi, ' ');
-          const normalizedGreeting = raw.replace(/\s+/g, ' ').trim();
-          this.elements.welcomeBubble.querySelector(`.${this.cssPrefix}-welcome-bubble-text`).textContent = normalizedGreeting;
+          var bubbleRaw = (data.greeting || '').replace(/<br\s*\/?>/gi, ' ');
+          var bubbleText = bubbleRaw.replace(/\s+/g, ' ').trim();
+          var welcomeTextEl = this.elements.welcomeBubble && this.elements.welcomeBubble.querySelector('.' + this.cssPrefix + '-welcome-bubble-text');
+          if (welcomeTextEl) welcomeTextEl.textContent = bubbleText;
           setTimeout(() => {
             if (!this.state.isOpen) {
               this.elements.welcomeBubble.classList.add('visible');
