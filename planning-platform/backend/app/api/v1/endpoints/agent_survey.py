@@ -21,8 +21,8 @@ async def verify_agent_survey_token(request: Dict[str, Any]):
     token = request.get("token", "")
     birth_date = request.get("birth_date", "")
 
-    if not token or not birth_date:
-        raise HTTPException(status_code=400, detail="토큰과 생년월일은 필수입니다.")
+    if not token:
+        raise HTTPException(status_code=400, detail="토큰은 필수입니다.")
 
     try:
         payload = pyjwt.decode(token, AGENT_JWT_SECRET, algorithms=["HS256"])
@@ -34,11 +34,12 @@ async def verify_agent_survey_token(request: Dict[str, Any]):
     if payload.get("type") != "agent_survey":
         raise HTTPException(status_code=401, detail="유효하지 않은 토큰 유형입니다.")
 
-    # 생년월일 매칭 (YYYYMMDD 또는 YYYY-MM-DD)
-    token_birth = payload.get("birth_date", "").replace("-", "")
-    input_birth = birth_date.replace("-", "")
-    if token_birth != input_birth:
-        raise HTTPException(status_code=403, detail="생년월일이 일치하지 않습니다.")
+    # 생년월일 매칭: birth_date 미제공 시 토큰 내 birth_date로 자동 인증
+    if birth_date:
+        token_birth = payload.get("birth_date", "").replace("-", "")
+        input_birth = birth_date.replace("-", "")
+        if token_birth != input_birth:
+            raise HTTPException(status_code=403, detail="생년월일이 일치하지 않습니다.")
 
     return {
         "success": True,
