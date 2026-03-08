@@ -1555,3 +1555,24 @@ async def get_partner_type_endpoint(
         return {"partner_type": "healthcare"}
     pt = get_partner_type(partner_id)
     return {"partner_type": pt, "partner_id": partner_id}
+
+
+# ─── 환자 단위 통합 태깅 프로필 ──────────────────────────────
+@router.get("/patient-profile/{user_uuid}")
+async def get_patient_profile(
+    user_uuid: str,
+    hospital_id: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    """환자의 멀티세션 태깅 통합 뷰 반환"""
+    from ....services.chat_tagging_service import get_patient_aggregated_tags
+
+    if not hospital_id:
+        hospital_id = user.get("hospital_id", "")
+    if not hospital_id:
+        raise HTTPException(status_code=400, detail="hospital_id 필요")
+
+    result = await get_patient_aggregated_tags(user_uuid, hospital_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="태깅 데이터 없음")
+    return result

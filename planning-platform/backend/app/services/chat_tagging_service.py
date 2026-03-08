@@ -21,24 +21,27 @@ logger = logging.getLogger(__name__)
 
 INTEREST_KEYWORDS: Dict[str, List[str]] = {
     "다이어트": ["다이어트", "살", "체중", "비만", "BMI", "감량"],
-    "혈압": ["혈압", "고혈압", "저혈압", "수축기", "이완기"],
-    "당뇨": ["당뇨", "혈당", "공복혈당", "인슐린", "HbA1c"],
-    "간기능": ["간", "AST", "ALT", "감마", "GGT", "지방간"],
+    "혈압": ["혈압", "고혈압", "저혈압", "수축기", "이완기", "맥박"],
+    "당뇨": ["당뇨", "혈당", "공복혈당", "인슐린", "HbA1c", "당화혈색소", "A1c"],
+    "간기능": ["간", "AST", "ALT", "감마", "GGT", "지방간", "간수치", "GTP"],
     "콜레스테롤": ["콜레스테롤", "중성지방", "HDL", "LDL", "이상지질"],
-    "신장": ["신장", "크레아티닌", "사구체", "GFR", "콩팥"],
+    "신장": ["신장", "크레아티닌", "사구체", "GFR", "콩팥", "신기능", "요산"],
     "암": ["암", "종양", "용종", "조직검사"],
     "위장": ["위", "위내시경", "위암", "헬리코박터", "역류"],
     "갑상선": ["갑상선", "TSH", "T3", "T4"],
-    "빈혈": ["빈혈", "혈색소", "헤모글로빈", "철분"],
+    "빈혈": ["빈혈", "혈색소", "헤모글로빈", "철분", "적혈구"],
     "심장": ["심장", "심전도", "부정맥", "협심증"],
     "폐": ["폐", "흉부", "X-ray", "결핵"],
+    "검진종류": ["유방", "내시경", "초음파", "CT", "MRI", "X선", "촬영"],
 }
 
 # 감정 키워드 사전 (규칙 기반 폴백용)
 SENTIMENT_KEYWORDS: Dict[str, List[str]] = {
-    "positive": ["감사", "고마워", "좋아", "좋겠", "도움", "이해", "알겠", "고맙"],
-    "negative": ["싫", "아닌데", "틀렸", "이상해", "불만", "화나", "짜증", "걱정"],
-    "confused": ["모르겠", "어렵", "복잡", "이해가 안", "무슨 말", "뭔소리"],
+    "positive": ["감사", "고마워", "좋아", "좋겠", "도움", "이해", "알겠", "고맙", "감사합니다", "안심", "다행", "잘 됐", "넘 좋"],
+    "negative": ["싫", "아닌데", "틀렸", "이상해", "불만", "화나", "짜증", "왜 안", "안 돼", "못 해", "에러", "오류"],
+    "confused": ["모르겠", "어렵", "복잡", "이해가 안", "무슨 말", "뭔소리", "왜", "어떻게", "뭐지", "이상하게"],
+    "curious": ["궁금", "알고 싶", "어떤", "기준이", "정상인가", "괜찮은"],
+    "worried": ["걱정", "불안", "심각", "위험", "의심", "나빠"],
 }
 
 # 검진 데이터 품질 평가용 필수 필드
@@ -306,10 +309,27 @@ def calculate_engagement(messages: List[Dict[str, str]]) -> tuple:
             if any(kw in msg for kw in keywords):
                 topic_counts[tag] = topic_counts.get(tag, 0) + 1
 
-    # engagement_score: 반복 언급 주제가 많을수록 높음
-    repeat_topics = sum(1 for c in topic_counts.values() if c >= 2)  # 2회 이상 언급 주제 수
+    # engagement_score 개선: 질문 구체성 + 메시지 길이 반영
+    repeat_topics = sum(1 for c in topic_counts.values() if c >= 2)
     total_mentions = sum(topic_counts.values())
-    score = min(100, (repeat_topics * 25) + (total_mentions * 5) + (len(user_msgs) * 3))
+    question_specificity = len(topic_counts)  # 매칭된 키워드 카테고리 수
+
+    # 평균 메시지 길이 보너스 (긴 질문 = 더 진지한 관심)
+    avg_msg_len = sum(len(m) for m in user_msgs) / len(user_msgs)
+    if avg_msg_len >= 50:
+        avg_msg_length_bonus = 20
+    elif avg_msg_len >= 20:
+        avg_msg_length_bonus = 10
+    else:
+        avg_msg_length_bonus = 0
+
+    score = min(100,
+        (repeat_topics * 25) +
+        (total_mentions * 5) +
+        (len(user_msgs) * 10) +           # 3→10 (메시지당 가중치 상향)
+        (question_specificity * 8) +       # 키워드 매칭 보너스
+        avg_msg_length_bonus               # 긴 질문 보너스
+    )
 
     # depth: 2회 이상 반복 주제가 있으면 deep, 구체적 질문 있으면 moderate
     if repeat_topics >= 2 or (repeat_topics >= 1 and len(user_msgs) >= 4):
@@ -560,10 +580,11 @@ async def llm_analyze_session(
   "urgent": 위험수준 수치+증상 언급, "borderline": 경계 수치, "normal": 정상 범위
 - anxiety_level: 환자 불안 수준 (적극적으로 판단할 것 — 건강 관련 질문 자체가 걱정의 표현임).
   "high": 걱정/불안 직접 표현, 반복 질문, 증상 호소, "medium": 건강 관련 질문 2회 이상 또는 수치에 대한 우려, "low": 단순 정보 확인 1회
-- prospect_type: 병원 전환 4분류. 대화 내용과 검진 수치를 모두 고려하여 판단.
+- prospect_type: 병원 전환 5분류. 대화 내용과 검진 수치를 모두 고려하여 판단. 주의: "lifestyle_improvable"은 catch-all이 아님!
+  "low_engagement": 1턴 대화 + 구체적 건강 질문 없음 → 인사/단순확인만 하고 이탈
   "needs_visit": 위험수준 수치 + 증상 언급 → 실제 진료 필요
   "borderline_worried": 경계수치이면서 anxiety_level이 medium 이상 → 핵심 전환 대상. 단순 질문 1회만 한 경우는 해당 안됨.
-  "lifestyle_improvable": 경계수치 + 식이/운동/생활습관 대화 → 대부분의 일반 상담
+  "lifestyle_improvable": 환자가 식이/운동/생활습관을 직접 언급한 경우만. 단순히 "내 결과 어때?" 수준은 해당 안됨.
   "chronic_management": 만성질환(혈압/당뇨/간) 관련 지속 관리 대화 + 이미 질환을 인지하고 관리 중인 경우
 - hospital_prospect_score: 0-100 병원 전환 가망 점수 (urgency+anxiety+engagement 종합)
 
@@ -606,7 +627,7 @@ async def llm_analyze_session(
         result = json.loads(raw_text)
 
         # 필드 검증 및 정규화
-        valid_sentiments = {"positive", "negative", "neutral", "worried", "grateful"}
+        valid_sentiments = {"positive", "negative", "neutral", "worried", "grateful", "curious", "confused"}
         if result.get("sentiment") not in valid_sentiments:
             result["sentiment"] = "neutral"
 
@@ -713,7 +734,7 @@ async def llm_analyze_session(
         if result.get("anxiety_level") not in valid_anxiety:
             result["anxiety_level"] = "low"
 
-        valid_prospects = {"chronic_management", "needs_visit", "borderline_worried", "lifestyle_improvable"}
+        valid_prospects = {"chronic_management", "needs_visit", "borderline_worried", "lifestyle_improvable", "low_engagement"}
         if result.get("prospect_type") not in valid_prospects:
             result["prospect_type"] = "chronic_management"
 
@@ -1413,4 +1434,98 @@ async def get_session_tags(session_id: str, partner_id: str) -> Optional[Dict[st
         return result
     except Exception as e:
         logger.warning(f"[태깅] 태그 조회 실패: {session_id} - {e}")
+        return None
+
+
+async def get_patient_aggregated_tags(
+    user_uuid: str,
+    hospital_id: str,
+) -> Optional[Dict[str, Any]]:
+    """
+    환자 단위 태깅 통합 뷰.
+    같은 uuid + hospital_id의 여러 세션을 합산하여 전체 그림을 제공합니다.
+    """
+    try:
+        query = """
+            SELECT t.session_id, t.interest_tags, t.risk_tags, t.keyword_tags,
+                   t.sentiment, t.engagement_score, t.prospect_type,
+                   t.medical_tags, t.lifestyle_tags, t.medical_urgency,
+                   t.hospital_prospect_score, t.conversation_depth,
+                   t.created_at
+            FROM welno.tb_chat_session_tags t
+            JOIN welno.tb_partner_rag_chat_log l
+              ON t.session_id = l.session_id
+            WHERE l.user_uuid = %s AND l.hospital_id = %s
+            ORDER BY t.created_at DESC
+        """
+        rows = await db_manager.execute_all(query, (user_uuid, hospital_id))
+        if not rows:
+            return None
+
+        session_count = len(rows)
+
+        # interest_tags 합산 (중복 제거)
+        all_interest_topics = set()
+        for row in rows:
+            tags = row.get("interest_tags") or []
+            if isinstance(tags, str):
+                try:
+                    tags = json.loads(tags)
+                except json.JSONDecodeError:
+                    tags = []
+            for tag in tags:
+                if isinstance(tag, dict):
+                    all_interest_topics.add(tag.get("topic", ""))
+                elif isinstance(tag, str):
+                    all_interest_topics.add(tag)
+        all_interest_topics.discard("")
+
+        # medical_tags / lifestyle_tags 합산
+        all_medical = set()
+        all_lifestyle = set()
+        for row in rows:
+            for tag in (row.get("medical_tags") or []):
+                if isinstance(tag, str):
+                    all_medical.add(tag)
+            for tag in (row.get("lifestyle_tags") or []):
+                if isinstance(tag, str):
+                    all_lifestyle.add(tag)
+
+        # engagement_score = max
+        max_engagement = max(
+            (row.get("engagement_score") or 0) for row in rows)
+
+        # prospect_type = 가장 높은 등급 우선
+        prospect_priority = {
+            "needs_visit": 5, "borderline_worried": 4,
+            "chronic_management": 3, "lifestyle_improvable": 2,
+            "low_engagement": 1,
+        }
+        best_prospect = max(
+            rows,
+            key=lambda r: prospect_priority.get(
+                r.get("prospect_type", ""), 0)
+        )
+
+        # hospital_prospect_score = max
+        max_hp_score = max(
+            (row.get("hospital_prospect_score") or 0) for row in rows)
+
+        return {
+            "user_uuid": user_uuid,
+            "hospital_id": hospital_id,
+            "session_count": session_count,
+            "interest_tags": sorted(all_interest_topics),
+            "medical_tags": sorted(all_medical),
+            "lifestyle_tags": sorted(all_lifestyle),
+            "engagement_score": max_engagement,
+            "prospect_type": best_prospect.get("prospect_type", "low_engagement"),
+            "hospital_prospect_score": max_hp_score,
+            "latest_sentiment": rows[0].get("sentiment", "neutral"),
+            "latest_session_id": rows[0].get("session_id"),
+            "latest_session_date": str(rows[0].get("created_at", "")),
+        }
+
+    except Exception as e:
+        logger.warning(f"[태깅] 환자 통합 태그 조회 실패: {user_uuid} - {e}")
         return None
