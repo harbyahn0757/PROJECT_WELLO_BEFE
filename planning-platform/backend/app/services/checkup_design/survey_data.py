@@ -289,12 +289,203 @@ PNT_SURVEY = {
     "settings": DEFAULT_SETTINGS
 }
 
+# 3. 에이전트 전용 건강 설문 (건보공단 12필드 1:1 매핑)
+AGENT_HEALTH_SURVEY = {
+    "id": "agent-health-survey",
+    "title": "건강 설문",
+    "description": "건강검진 리포트 생성을 위한 설문입니다.",
+    "pages": [
+        {
+            "id": "smoking-page",
+            "title": "흡연",
+            "sections": [{
+                "id": "smoking-section",
+                "questions": [
+                    {
+                        "id": "smkStatTypeRspsCd",
+                        "title": "흡연 상태",
+                        "type": "radio",
+                        "required": True,
+                        "options": [
+                            {"id": "smk-1", "label": "피워본 적 없음", "value": "1"},
+                            {"id": "smk-2", "label": "이전에 피웠으나 끊음", "value": "2"},
+                            {"id": "smk-3", "label": "현재 피움", "value": "3"}
+                        ]
+                    },
+                    {
+                        "id": "dsqtyRspsCd",
+                        "title": "하루 흡연량",
+                        "type": "radio",
+                        "required": True,
+                        "options": [
+                            {"id": "dsq-0", "label": "해당 없음", "value": "0"},
+                            {"id": "dsq-10", "label": "반 갑 (10개비)", "value": "10"},
+                            {"id": "dsq-20", "label": "한 갑 (20개비)", "value": "20"},
+                            {"id": "dsq-40", "label": "두 갑 이상 (40개비)", "value": "40"}
+                        ]
+                    },
+                    {
+                        "id": "smkTermRspsCd",
+                        "title": "총 흡연 기간",
+                        "type": "radio",
+                        "required": True,
+                        "options": [
+                            {"id": "smt-0", "label": "해당 없음", "value": "0"},
+                            {"id": "smt-1", "label": "1~4년", "value": "1"},
+                            {"id": "smt-5", "label": "5~9년", "value": "5"},
+                            {"id": "smt-10", "label": "10~19년", "value": "10"},
+                            {"id": "smt-20", "label": "20년 이상", "value": "20"}
+                        ]
+                    }
+                ]
+            }]
+        },
+        {
+            "id": "drinking-page",
+            "title": "음주",
+            "sections": [{
+                "id": "drinking-section",
+                "questions": [
+                    {
+                        "id": "drnkHabitRspsCd",
+                        "title": "음주 빈도",
+                        "type": "radio",
+                        "required": True,
+                        "options": [
+                            {"id": "drk-0", "label": "안 마심", "value": "0"},
+                            {"id": "drk-1", "label": "월 1회", "value": "1"},
+                            {"id": "drk-2", "label": "월 2~3회", "value": "2"},
+                            {"id": "drk-4", "label": "주 1~2회", "value": "4"},
+                            {"id": "drk-7", "label": "거의 매일", "value": "7"}
+                        ]
+                    },
+                    {
+                        "id": "tm1DrkqtyRspsCd",
+                        "title": "1회 음주량",
+                        "type": "radio",
+                        "required": True,
+                        "options": [
+                            {"id": "dkq-0", "label": "해당 없음", "value": "0"},
+                            {"id": "dkq-2", "label": "1~2잔", "value": "2"},
+                            {"id": "dkq-5", "label": "3~5잔", "value": "5"},
+                            {"id": "dkq-7", "label": "6~9잔", "value": "7"},
+                            {"id": "dkq-10", "label": "10잔 이상", "value": "10"}
+                        ]
+                    }
+                ]
+            }]
+        },
+        {
+            "id": "exercise-page",
+            "title": "운동",
+            "sections": [{
+                "id": "exercise-section",
+                "questions": [
+                    {
+                        "id": "mov30WekFreqId",
+                        "title": "주당 운동 횟수 (30분 이상)",
+                        "type": "radio",
+                        "required": True,
+                        "options": [
+                            {"id": "mov-0", "label": "안 함", "value": "0"},
+                            {"id": "mov-1", "label": "주 1회", "value": "1"},
+                            {"id": "mov-2", "label": "주 2회", "value": "2"},
+                            {"id": "mov-3", "label": "주 3회", "value": "3"},
+                            {"id": "mov-5", "label": "주 5회 이상", "value": "5"}
+                        ]
+                    }
+                ]
+            }]
+        },
+        {
+            "id": "history-page",
+            "title": "질환 이력",
+            "sections": [
+                {
+                    "id": "family-section",
+                    "title": "가족력",
+                    "questions": [
+                        {
+                            "id": "fmlyDiabmlPatienYn",
+                            "title": "가족 중 당뇨 환자",
+                            "type": "radio",
+                            "required": True,
+                            "options": [
+                                {"id": "fd-0", "label": "없음", "value": "0"},
+                                {"id": "fd-1", "label": "있음", "value": "1"}
+                            ]
+                        },
+                        {
+                            "id": "fmlyHprtsPatienYn",
+                            "title": "가족 중 고혈압 환자",
+                            "type": "radio",
+                            "required": True,
+                            "options": [
+                                {"id": "fh-0", "label": "없음", "value": "0"},
+                                {"id": "fh-1", "label": "있음", "value": "1"}
+                            ]
+                        },
+                        {
+                            "id": "fmlyCancerPatienYn",
+                            "title": "가족 중 암 환자",
+                            "type": "radio",
+                            "required": True,
+                            "options": [
+                                {"id": "fc-0", "label": "없음", "value": "0"},
+                                {"id": "fc-1", "label": "있음", "value": "1"}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "personal-section",
+                    "title": "본인 병력",
+                    "questions": [
+                        {
+                            "id": "hchkDiabmlPmhYn",
+                            "title": "당뇨병 진단 이력",
+                            "type": "radio",
+                            "required": True,
+                            "options": [
+                                {"id": "pd-0", "label": "없음", "value": "0"},
+                                {"id": "pd-1", "label": "있음", "value": "1"}
+                            ]
+                        },
+                        {
+                            "id": "hchkHprtsPmhYn",
+                            "title": "고혈압 진단 이력",
+                            "type": "radio",
+                            "required": True,
+                            "options": [
+                                {"id": "ph-0", "label": "없음", "value": "0"},
+                                {"id": "ph-1", "label": "있음", "value": "1"}
+                            ]
+                        },
+                        {
+                            "id": "hchkHplpdmPmhYn",
+                            "title": "고지혈증 진단 이력",
+                            "type": "radio",
+                            "required": True,
+                            "options": [
+                                {"id": "pl-0", "label": "없음", "value": "0"},
+                                {"id": "pl-1", "label": "있음", "value": "1"}
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "settings": DEFAULT_SETTINGS
+}
+
 # 설문조사 맵핑
 SURVEY_MAP = {
     "health-questionnaire": HEALTH_QUESTIONNAIRE,
-    "health-habits": HEALTH_QUESTIONNAIRE, # 일원화
+    "health-habits": HEALTH_QUESTIONNAIRE,  # 일원화
     "pnt-survey": PNT_SURVEY,
-    "checkup-design": HEALTH_QUESTIONNAIRE # 일원화
+    "checkup-design": HEALTH_QUESTIONNAIRE,  # 일원화
+    "agent-health-survey": AGENT_HEALTH_SURVEY,
 }
 
 def get_survey_data(survey_id: str) -> Dict[str, Any]:

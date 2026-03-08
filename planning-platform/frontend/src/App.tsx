@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import Button from './components/Button';
 import MainPage from './features/main/MainPage';
@@ -19,6 +19,7 @@ import AppointmentPage from './features/appointment/AppointmentPage';
 import ResultsTrendPage from './features/results/ResultsTrendPage';
 import DiseaseReportPage from './features/disease-report/pages/DiseaseReportPage';
 import DiseasePredictionCampaign from './campaigns/disease-prediction';
+import AgentSurveyPage from './features/agent-survey/AgentSurveyPage';
 import PartnerManagementPage from './features/admin/PartnerManagementPage';
 import AdminEmbeddingPage from "./features/admin/AdminEmbeddingPage";
 // import RagTestPage from './pages/RagTestPage';
@@ -498,71 +499,6 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const { state, actions } = useWelnoData();
   
-  // 전역 localStorage 정리를 위한 클릭 카운터
-  const globalDebugClickCount = useRef(0);
-  const globalDebugClickTimer = useRef<NodeJS.Timeout | null>(null);
-
-  // 🔧 전역 localStorage 정리 함수
-  const handleGlobalDebugClick = () => {
-    // 기존 타이머 클리어
-    if (globalDebugClickTimer.current) {
-      clearTimeout(globalDebugClickTimer.current);
-    }
-
-    globalDebugClickCount.current += 1;
-
-    // 3초 내에 7번 클릭했는지 확인 (전역은 좀 더 많이)
-    if (globalDebugClickCount.current >= 7) {
-      globalDebugClickCount.current = 0;
-      
-      // localStorage 정리 확인
-      if (window.confirm('🔧 전역 localStorage 정리\n\n플로팅 버튼 및 상태 문제를 해결하기 위해 localStorage를 정리하시겠습니까?\n\n현재 페이지: ' + location.pathname)) {
-        try {
-          // 플로팅 버튼 관련 localStorage 키들 정리
-          const keysToRemove = [
-            'collectingStatus',
-            'welno_password_modal_open',
-            'welno_tilko_auth_waiting',
-            'welno_tilko_auth_method_selection',
-            'welno_tilko_info_confirming',
-            'manualCollect'
-          ];
-          
-          let removedCount = 0;
-          const removedKeys: string[] = [];
-          
-          keysToRemove.forEach(key => {
-            if (localStorage.getItem(key)) {
-              localStorage.removeItem(key);
-              removedCount++;
-              removedKeys.push(key);
-            }
-          });
-          
-          console.log('[전역 디버그] localStorage 정리 완료:', { 
-            페이지: location.pathname,
-            removedCount, 
-            removedKeys 
-          });
-          
-          alert(`🔧 전역 localStorage 정리 완료!\n\n페이지: ${location.pathname}\n삭제된 항목: ${removedCount}개\n${removedKeys.join(', ')}\n\n페이지를 새로고침합니다.`);
-          
-          // 페이지 새로고침
-          window.location.reload();
-          
-        } catch (error) {
-          console.error('[전역 디버그] localStorage 정리 오류:', error);
-          alert('localStorage 정리 중 오류가 발생했습니다.');
-        }
-      }
-    } else {
-      // 3초 후 카운트 리셋
-      globalDebugClickTimer.current = setTimeout(() => {
-        globalDebugClickCount.current = 0;
-      }, 3000);
-    }
-  };
-
   // iframe 여부 감지
   useEffect(() => {
     try {
@@ -660,6 +596,8 @@ const AppContent: React.FC = () => {
         <Route path="/results" element={<Navigate to="/results-trend" replace />} />
         {/* ⭐ 질병예측 리포트 페이지 */}
         <Route path="/disease-report" element={<DiseaseReportPage />} />
+        {/* ⭐ 에이전트 고객 설문 페이지 */}
+        <Route path="/agent-survey" element={<AgentSurveyPage />} />
         {/* ⭐ 외부 파트너 연동 캠페인 페이지 (결제 포함) */}
         <Route path="/campaigns/disease-prediction" element={<DiseasePredictionCampaign />} />
         {/* ⭐ 파트너 관리 페이지 */}
@@ -684,43 +622,6 @@ const AppContent: React.FC = () => {
       <NotificationContainer />
       {!isIframe && <WelnoRagChatButton />}
       
-      {/* 🔧 전역 localStorage 정리 디버그 버튼 (투명, 우상단) */}
-      {!isIframe && (
-        <div
-          onClick={handleGlobalDebugClick}
-          style={{
-            position: 'fixed',
-            top: 0,
-            right: 0,
-            width: '50px',
-            height: '50px',
-            backgroundColor: 'transparent',
-            zIndex: 9999,
-            cursor: 'pointer'
-          }}
-          title="7번 클릭하면 전역 localStorage 정리"
-        />
-      )}
-      
-      {/* 🔧 전역 페이지 정보 표시 (개발/디버그용) */}
-      {!isIframe && (
-        <div style={{
-          position: 'fixed',
-          bottom: 10,
-          right: 10,
-          padding: '5px 10px',
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          color: 'white',
-          fontSize: '11px',
-          borderRadius: '4px',
-          zIndex: 9998,
-          fontFamily: 'monospace',
-          maxWidth: '200px',
-          textAlign: 'right'
-        }}>
-          🌐 {location.pathname} | 우상단 7번클릭 = 전역localStorage정리
-        </div>
-      )}
     </div>
   );
 };

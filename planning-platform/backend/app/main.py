@@ -40,6 +40,7 @@ from .api.v1.endpoints import (
     slack_bot,
     hospital_survey,
     partner_office,
+    agent_survey,
 )
 from .core.config import settings
 from .data.redis_session_manager import redis_session_manager as session_manager
@@ -125,6 +126,7 @@ app.include_router(terms_agreement.router, prefix="/api/v1/terms", tags=["terms-
 app.include_router(slack_bot.router, prefix="/api/v1/slack", tags=["slack-bot"])
 app.include_router(hospital_survey.router, prefix="/api/v1", tags=["hospital-survey"])
 app.include_router(partner_office.router, prefix="/api/v1", tags=["partner-office"])
+app.include_router(agent_survey.router, prefix="/api/v1", tags=["agent-survey"])
 
 # 배포환경을 위한 welno-api 경로 추가 (프록시 없이 직접 접근)
 app.include_router(health.router, prefix="/welno-api/v1/health", tags=["health-welno"])
@@ -152,6 +154,7 @@ app.include_router(terms_agreement.router, prefix="/welno-api/v1/terms", tags=["
 app.include_router(slack_bot.router, prefix="/welno-api/v1/slack", tags=["slack-bot-welno"])
 app.include_router(hospital_survey.router, prefix="/welno-api/v1", tags=["hospital-survey-welno"])
 app.include_router(partner_office.router, prefix="/welno-api/v1", tags=["partner-office-welno"])
+app.include_router(agent_survey.router, prefix="/welno-api/v1", tags=["agent-survey-welno"])
 
 # 백오피스 SPA (독립 앱) 서빙
 backoffice_dir = os.path.join(static_dir, "backoffice")

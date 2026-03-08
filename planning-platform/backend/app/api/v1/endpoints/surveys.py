@@ -3,6 +3,7 @@
 """
 import json
 import logging
+import asyncio
 from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from typing import Dict, Any, List, Optional
@@ -224,7 +225,13 @@ async def submit_survey(request: Dict[str, Any]) -> Dict[str, Any]:
         except Exception as e:
             logger.warning(f"⚠️ [문진 제출] Mediarc 업데이트 체크 실패: {e}")
         
-        # 7. 채팅에서 문진 트리거됨 표시
+        # 7. 에이전트 설문 완료 콜백 (PJT_P9_API에 알림)
+        if partner_id == 'agent':
+            asyncio.create_task(
+                _notify_agent_survey_complete(uuid, answers, survey_id)
+            )
+
+        # 8. 채팅에서 문진 트리거됨 표시
         if session_id and "rag_chat" in session_id:
             await rag_chat_service.mark_survey_triggered(uuid, hospital_id, session_id)
         
@@ -324,6 +331,38 @@ async def delete_survey_response(survey_id: str, session_id: str) -> Dict[str, A
     설문조사 응답 삭제 - 실제 데이터베이스 기반으로 구현 필요
     """
     raise HTTPException(
-        status_code=501, 
+        status_code=501,
         detail="설문조사 시스템은 실제 데이터베이스 기반으로 재구현이 필요합니다."
     )
+
+
+async def _notify_agent_survey_complete(
+    uuid: str, answers: List[Dict], survey_id: str
+):
+    """에이전트 설문 완료 시 PJT_P9_API에 콜백"""
+    import httpx
+
+    # answers → {questionId: value} dict
+    questionnaire = {}
+    for a in answers:
+        qid = a.get("questionId")
+        val = a.get("value")
+        if qid and val is not None:
+            questionnaire[qid] = val
+
+    callback_url = "https://app.kindhabit.com/api/agent-survey/complete/"
+    payload = {
+        "uuid": uuid,
+        "survey_id": survey_id,
+        "questionnaire_data": questionnaire,
+        "secret": "p9_agent_survey_shared_secret_2026",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(callback_url, json=payload)
+            logger.info(
+                f"[에이전트 콜백] uuid={uuid} status={resp.status_code}"
+            )
+    except Exception as e:
+        logger.warning(f"[에이전트 콜백] 실패: {e}")
