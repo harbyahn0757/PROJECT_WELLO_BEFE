@@ -1,22 +1,18 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import DynamicSurvey from '../../components/DynamicSurvey';
-import { Survey, SurveyResponse } from '../../types/survey';
-import surveyService from '../../services/surveyService';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import apiConfig from '../../config/api';
 
-type Phase = 'loading' | 'survey' | 'complete' | 'error';
+type Phase = 'loading' | 'error';
 
 const AgentSurveyPage: React.FC = () => {
   const [phase, setPhase] = useState<Phase>('loading');
-  const [customerName, setCustomerName] = useState('');
-  const [customerUuid, setCustomerUuid] = useState('');
-  const [survey, setSurvey] = useState<Survey | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const didAutoVerify = useRef(false);
+  const navigate = useNavigate();
 
   const token = new URLSearchParams(window.location.search).get('token') || '';
 
-  // 페이지 로드 시 토큰으로 자동 인증 → 바로 설문 진입
+  // 토큰 인증 → 질병예측 리포트 랜딩으로 리다이렉트
   useEffect(() => {
     if (didAutoVerify.current) return;
     didAutoVerify.current = true;
@@ -43,12 +39,20 @@ const AgentSurveyPage: React.FC = () => {
           return;
         }
 
-        setCustomerName(data.data.name || '');
-        setCustomerUuid(data.data.uuid || '');
+        // link_type에 따라 분기
+        const linkType = data.data.link_type || 'landing';
+        const params = new URLSearchParams();
+        if (data.data.uuid) params.set('uuid', data.data.uuid);
+        if (data.data.name) params.set('name', data.data.name);
+        if (data.data.birth_date) params.set('birth', data.data.birth_date);
 
-        const surveyData = await surveyService.getSurvey('agent-health-survey');
-        setSurvey(surveyData);
-        setPhase('survey');
+        if (linkType === 'survey') {
+          // 설문 포함: 메인(/)으로 이동
+          navigate(`/?${params.toString()}`, { replace: true });
+        } else {
+          // 기본(landing): 질병예측 리포트 랜딩
+          navigate(`/campaigns/disease-prediction?${params.toString()}`, { replace: true });
+        }
       } catch (e: any) {
         setErrorMsg(e.message || '서버 오류가 발생했습니다.');
         setPhase('error');
@@ -56,33 +60,8 @@ const AgentSurveyPage: React.FC = () => {
     };
 
     autoVerify();
-  }, [token]);
+  }, [token, navigate]);
 
-  const handleComplete = useCallback(async (response: SurveyResponse) => {
-    try {
-      const baseUrl = apiConfig.IS_DEVELOPMENT ? '' : apiConfig.API_BASE_URL;
-      await fetch(`${baseUrl}/api/v1/surveys/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uuid: customerUuid,
-          hospital_id: 'agent',
-          partner_id: 'agent',
-          survey_id: 'agent-health-survey',
-          answers: response.answers,
-        }),
-      });
-      setPhase('complete');
-    } catch {
-      setPhase('complete'); // 에러여도 완료 화면 표시
-    }
-  }, [customerUuid]);
-
-  const handleSave = useCallback(async () => {
-    // 중간 저장 — agent 설문은 생략
-  }, []);
-
-  // 스타일
   const containerStyle: React.CSSProperties = {
     maxWidth: 480, margin: '0 auto', padding: '40px 20px',
     fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
@@ -100,42 +79,13 @@ const AgentSurveyPage: React.FC = () => {
     );
   }
 
-  if (phase === 'complete') {
-    return (
-      <div style={containerStyle}>
-        <div style={{ textAlign: 'center', paddingTop: 80 }}>
-          <p style={{ fontSize: 48, marginBottom: 16 }}>OK</p>
-          <p style={{ fontSize: 20, fontWeight: 600, color: '#333', marginBottom: 8 }}>
-            설문이 제출되었습니다
-          </p>
-          <p style={{ fontSize: 14, color: '#999' }}>
-            담당자가 결과를 확인 후 안내드리겠습니다.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (phase === 'loading') {
-    return (
-      <div style={containerStyle}>
-        <div style={{ textAlign: 'center', paddingTop: 80 }}>
-          <p style={{ fontSize: 18, color: '#333' }}>설문을 준비하고 있습니다...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // phase === 'survey'
-  if (!survey) return null;
-
+  // loading
   return (
-    <DynamicSurvey
-      survey={survey}
-      onSave={handleSave}
-      onComplete={handleComplete}
-      onBack={() => {}} // 뒤로가기 비활성
-    />
+    <div style={containerStyle}>
+      <div style={{ textAlign: 'center', paddingTop: 80 }}>
+        <p style={{ fontSize: 18, color: '#333' }}>페이지를 준비하고 있습니다...</p>
+      </div>
+    </div>
   );
 };
 

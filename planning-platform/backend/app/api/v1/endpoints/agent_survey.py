@@ -46,6 +46,8 @@ async def verify_agent_survey_token(request: Dict[str, Any]):
         "data": {
             "uuid": payload.get("uuid"),
             "name": payload.get("name", ""),
+            "birth_date": payload.get("birth_date", ""),
+            "link_type": payload.get("link_type", "landing"),
             "survey_id": "agent-health-survey",
         },
     }
