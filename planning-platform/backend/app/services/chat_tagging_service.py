@@ -531,7 +531,10 @@ async def llm_analyze_session(
 
 분석 규칙:
 - summary: "환자가 ~에 대해 질문하고, 상담사가 ~을 안내함" 형식으로 화자를 구분하여 1-2문장 요약
-- sentiment: 환자의 감정만 기준 (상담사 톤 무시)
+- sentiment: 환자의 감정만 기준 (상담사 톤 무시). 7가지 중 선택:
+  "worried": 건강 걱정/불안 표현, "curious": 궁금해하며 질문, "confused": 결과를 이해 못함/당혹,
+  "negative": 불만/짜증, "positive": 감사/안심, "grateful": 고마움 직접 표현, "neutral": 감정 표현 없음.
+  주의: "왜 다 이상이야", "이해가 안 돼" 같은 표현은 neutral이 아니라 confused. "궁금해서요", "정상인가요?" 같은 표현은 curious.
 - interest_tags: 환자가 직접 물어보거나 걱정한 건강 주제만 추출. 상담사가 일방적으로 언급하거나 안내한 주제는 절대 포함하지 마세요. 각 태그에 관심 강도를 표기:
   - "high": 환자가 후속 질문으로 파고들거나 반복해서 물어본 주제
   - "medium": 환자가 구체적으로 질문한 주제
@@ -555,7 +558,7 @@ async def llm_analyze_session(
 응답 JSON:
 {{
   "summary": "환자가 ~를 질문하고, 상담사가 ~를 안내함",
-  "sentiment": "positive|negative|neutral|worried|grateful 중 하나",
+  "sentiment": "positive|negative|neutral|worried|grateful|curious|confused 중 하나",
   "interest_tags": [{{"topic": "주제", "intensity": "high|medium|low"}}],
   "risk_level": "low|medium|high",
   "key_concerns": ["환자가 표현한 우려사항 -- 최대 3개"],
