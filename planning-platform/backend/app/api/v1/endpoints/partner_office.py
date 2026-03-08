@@ -1327,6 +1327,8 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
                 t.anxiety_level,
                 t.prospect_type,
                 t.hospital_prospect_score,
+                t.conversation_intent,
+                t.classification_confidence,
                 c.created_at AS last_chat_date,
                 EXTRACT(DAY FROM NOW() - c.created_at)::int AS days_since_chat,
                 COALESCE(pc.config->>'partner_type', 'healthcare') AS partner_type
@@ -1388,6 +1390,33 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
                 lt = _json.loads(lt)
             except Exception:
                 lt = []
+        # 통합 필드 계산
+        _interest_topics = set()
+        for tag in it:
+            if isinstance(tag, dict):
+                _interest_topics.add(tag.get("topic", ""))
+            elif isinstance(tag, str):
+                _interest_topics.add(tag)
+        _interest_topics.discard("")
+        _medical_set = set(mt) if mt else set()
+        health_concerns = sorted(_interest_topics | _medical_set)
+
+        eng = r.get("engagement_score") or 0
+        eng_level = "high" if eng >= 60 else "medium" if eng >= 25 else "low"
+
+        pt = r.get("prospect_type", "low_engagement")
+        _action_map = {
+            "needs_visit": "위험수치 확인, 진료 예약 권유",
+            "borderline_worried": "경계수치 상담 권유",
+            "chronic_management": "정기 관리 프로그램 안내",
+            "lifestyle_improvable": "생활습관 개선 정보 제공",
+            "low_engagement": "재참여 유도 메시지 발송",
+            "uncertain": "수동 검토 후 분류 결정",
+        }
+
+        conf = r.get("classification_confidence")
+        conf_label = "low" if conf and conf < 0.7 else "high"
+
         candidates.append({
             "session_id": r["session_id"],
             "patient_name": ci.get("patient_name") or ci.get("name", ""),
@@ -1400,7 +1429,7 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
             "conversation_summary": r.get("conversation_summary"),
             "counselor_recommendations": cr,
             "key_concerns": kc,
-            "engagement_score": r.get("engagement_score"),
+            "engagement_score": eng,
             "buying_signal": r.get("buying_signal"),
             "days_since_chat": r.get("days_since_chat", 0),
             "last_chat_date": str(r["last_chat_date"])[:10] if r.get("last_chat_date") else None,
@@ -1409,9 +1438,15 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
             "lifestyle_tags": lt,
             "medical_urgency": r.get("medical_urgency"),
             "anxiety_level": r.get("anxiety_level"),
-            "prospect_type": r.get("prospect_type"),
+            "prospect_type": pt,
             "hospital_prospect_score": r.get("hospital_prospect_score"),
             "partner_type": r.get("partner_type", "healthcare"),
+            # Phase H 통합 필드
+            "conversation_intent": r.get("conversation_intent", "health_question"),
+            "health_concerns": health_concerns,
+            "engagement_level": eng_level,
+            "confidence": conf_label,
+            "recommended_action": _action_map.get(pt, ""),
         })
 
     return {

@@ -35,6 +35,23 @@ INTEREST_KEYWORDS: Dict[str, List[str]] = {
     "검진종류": ["유방", "내시경", "초음파", "CT", "MRI", "X선", "촬영"],
 }
 
+# 대화 의도 분류 키워드 (1차 전처리용)
+INTENT_KEYWORDS: Dict[str, List[str]] = {
+    "ux_issue": ["출력", "클릭", "로딩", "안 돼", "안됩니다", "오류", "에러",
+                 "페이지", "화면", "버튼", "다운로드", "안 열", "먹통", "렉"],
+    "greeting": ["안녕", "반갑", "처음", "시작", "하이", "헬로"],
+}
+
+# 세그먼트별 권장 액션 매핑
+PROSPECT_ACTION_MAP: Dict[str, str] = {
+    "needs_visit": "위험수치 확인, 진료 예약 권유",
+    "borderline_worried": "경계수치 상담 권유",
+    "chronic_management": "정기 관리 프로그램 안내",
+    "lifestyle_improvable": "생활습관 개선 정보 제공",
+    "low_engagement": "재참여 유도 메시지 발송",
+    "uncertain": "수동 검토 후 분류 결정",
+}
+
 # 감정 키워드 사전 (규칙 기반 폴백용)
 SENTIMENT_KEYWORDS: Dict[str, List[str]] = {
     "positive": ["감사", "고마워", "좋아", "좋겠", "도움", "이해", "알겠", "고맙", "감사합니다", "안심", "다행", "잘 됐", "넘 좋"],
@@ -417,6 +434,36 @@ def detect_sentiment(messages: List[Dict[str, str]]) -> str:
     return "neutral"
 
 
+def classify_conversation_intent(messages: List[Dict[str, str]]) -> str:
+    """대화 의도 1차 분류: health_question / ux_issue / greeting / off_topic.
+    비건강 대화를 LLM 태깅 전에 걸러서 비용 절감 + 잘못된 태깅 방지."""
+    user_msgs = [m.get("content", "") for m in messages if m.get("role") == "user"]
+    if not user_msgs:
+        return "off_topic"
+
+    all_text = " ".join(user_msgs)
+
+    # 1턴 + 짧은 메시지 → 인사 체크
+    if len(user_msgs) == 1 and len(user_msgs[0]) < 15:
+        if any(kw in all_text for kw in INTENT_KEYWORDS["greeting"]):
+            return "greeting"
+
+    # UX/기능 질문 체크
+    ux_hits = sum(1 for kw in INTENT_KEYWORDS["ux_issue"] if kw in all_text)
+    health_hits = sum(
+        1 for tags in INTEREST_KEYWORDS.values()
+        for kw in tags if kw in all_text
+    )
+
+    if ux_hits >= 2 and health_hits == 0:
+        return "ux_issue"
+
+    if health_hits > 0 or len(user_msgs) >= 2:
+        return "health_question"
+
+    return "off_topic"
+
+
 def calculate_data_quality_score(health_metrics: Dict[str, Any]) -> int:
     """검진 데이터 완성도 점수 (0-100)"""
     if not health_metrics:
@@ -569,7 +616,8 @@ async def llm_analyze_session(
   "action_intent": "active|considering|passive",
   "nutrition_interests": ["식단관리", "영양제"],
   "commercial_tags": [{{"category": "카테고리", "product_hint": "상품힌트", "segment": "고관여|일반"}}],
-  "buying_signal": "high|mid|low"
+  "buying_signal": "high|mid|low",
+  "classification_confidence": 0.0-1.0 (분석 확신도. 1턴+단순질문=0.3-0.5, 구체적 건강대화=0.7-1.0, 명확한 증상+수치 언급=0.9-1.0)
 }}"""
 
         # ── 병원 전용 추가 분석 (모든 세션에 항상 포함) ──
@@ -710,6 +758,18 @@ async def llm_analyze_session(
         if result.get("buying_signal") not in valid_signals:
             result["buying_signal"] = "low"
 
+        # classification_confidence 검증 (0.0-1.0)
+        raw_conf = result.get("classification_confidence", 0.5)
+        try:
+            conf_val = float(raw_conf)
+        except (ValueError, TypeError):
+            conf_val = 0.5
+        result["classification_confidence"] = max(0.0, min(1.0, conf_val))
+
+        # confidence가 낮으면 prospect_type override
+        if result["classification_confidence"] < 0.4:
+            result["prospect_type"] = "uncertain"
+
         # ── 병원 전용 필드 검증 (모든 세션에 항상 적용) ──
         def _normalize_tag_list(raw: Any, max_items: int = 15) -> list:
             """LLM이 반환한 태그를 순수 문자열 리스트로 정규화.
@@ -737,7 +797,7 @@ async def llm_analyze_session(
         if result.get("anxiety_level") not in valid_anxiety:
             result["anxiety_level"] = "low"
 
-        valid_prospects = {"chronic_management", "needs_visit", "borderline_worried", "lifestyle_improvable", "low_engagement"}
+        valid_prospects = {"chronic_management", "needs_visit", "borderline_worried", "lifestyle_improvable", "low_engagement", "uncertain"}
         if result.get("prospect_type") not in valid_prospects:
             result["prospect_type"] = "chronic_management"
 
@@ -1018,6 +1078,103 @@ AI 권장: {rec_str}
     }
 
 
+# ─── DB 저장 헬퍼 ─────────────────────────────────────────────────
+
+async def _save_tags_to_db(tag_data: Dict[str, Any]) -> None:
+    """tag_data 딕셔너리를 DB에 upsert (conversation_intent + classification_confidence 포함)."""
+    d = tag_data
+    revisit_msgs = d.get("suggested_revisit_messagess")
+    medical_tags = d.get("medical_tags")
+    lifestyle_tags = d.get("lifestyle_tags")
+
+    upsert_query = """
+        INSERT INTO welno.tb_chat_session_tags
+        (session_id, partner_id, interest_tags, risk_tags, keyword_tags,
+         sentiment, conversation_summary, data_quality_score, has_discrepancy,
+         risk_level, key_concerns, follow_up_needed, tagging_model, tagging_version,
+         counselor_recommendations,
+         conversation_depth, engagement_score, action_intent, nutrition_tags,
+         llm_attempted, llm_failed, llm_error,
+         commercial_tags, buying_signal, conversion_flag,
+         suggested_revisit_messages,
+         medical_tags, lifestyle_tags, medical_urgency,
+         anxiety_level, prospect_type, hospital_prospect_score,
+         conversation_intent, classification_confidence)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 4,
+                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT (session_id, partner_id) DO UPDATE SET
+            interest_tags = EXCLUDED.interest_tags,
+            risk_tags = EXCLUDED.risk_tags,
+            keyword_tags = EXCLUDED.keyword_tags,
+            sentiment = EXCLUDED.sentiment,
+            conversation_summary = EXCLUDED.conversation_summary,
+            data_quality_score = EXCLUDED.data_quality_score,
+            has_discrepancy = EXCLUDED.has_discrepancy,
+            risk_level = EXCLUDED.risk_level,
+            key_concerns = EXCLUDED.key_concerns,
+            follow_up_needed = EXCLUDED.follow_up_needed,
+            tagging_model = EXCLUDED.tagging_model,
+            tagging_version = EXCLUDED.tagging_version,
+            counselor_recommendations = EXCLUDED.counselor_recommendations,
+            conversation_depth = EXCLUDED.conversation_depth,
+            engagement_score = EXCLUDED.engagement_score,
+            action_intent = EXCLUDED.action_intent,
+            nutrition_tags = EXCLUDED.nutrition_tags,
+            llm_attempted = EXCLUDED.llm_attempted,
+            llm_failed = EXCLUDED.llm_failed,
+            llm_error = EXCLUDED.llm_error,
+            commercial_tags = EXCLUDED.commercial_tags,
+            buying_signal = EXCLUDED.buying_signal,
+            conversion_flag = EXCLUDED.conversion_flag,
+            suggested_revisit_messages = EXCLUDED.suggested_revisit_messages,
+            medical_tags = EXCLUDED.medical_tags,
+            lifestyle_tags = EXCLUDED.lifestyle_tags,
+            medical_urgency = EXCLUDED.medical_urgency,
+            anxiety_level = EXCLUDED.anxiety_level,
+            prospect_type = EXCLUDED.prospect_type,
+            hospital_prospect_score = EXCLUDED.hospital_prospect_score,
+            conversation_intent = EXCLUDED.conversation_intent,
+            classification_confidence = EXCLUDED.classification_confidence,
+            updated_at = NOW()
+    """
+    await db_manager.execute_update(upsert_query, (
+        d["session_id"],
+        d["partner_id"],
+        json.dumps(d.get("interest_tags", []), ensure_ascii=False),
+        json.dumps(d.get("risk_tags", []), ensure_ascii=False),
+        json.dumps(d.get("keyword_tags", []), ensure_ascii=False),
+        d.get("sentiment", "neutral"),
+        d.get("conversation_summary", ""),
+        d.get("data_quality_score", 0),
+        d.get("has_discrepancy", False),
+        d.get("risk_level", "low"),
+        json.dumps(d.get("key_concerns", []), ensure_ascii=False),
+        d.get("follow_up_needed", False),
+        d.get("tagging_model", "rule-based"),
+        json.dumps(d.get("counselor_recommendations", []), ensure_ascii=False),
+        d.get("conversation_depth", "shallow"),
+        d.get("engagement_score", 0),
+        d.get("action_intent", "passive"),
+        json.dumps(d.get("nutrition_tags", []), ensure_ascii=False),
+        d.get("llm_attempted", False),
+        d.get("llm_failed", False),
+        d.get("llm_error"),
+        json.dumps(d.get("commercial_tags", []), ensure_ascii=False),
+        d.get("buying_signal", "low"),
+        d.get("conversion_flag", False),
+        json.dumps(revisit_msgs, ensure_ascii=False) if revisit_msgs else None,
+        json.dumps(medical_tags, ensure_ascii=False) if medical_tags else None,
+        json.dumps(lifestyle_tags, ensure_ascii=False) if lifestyle_tags else None,
+        d.get("medical_urgency"),
+        d.get("anxiety_level"),
+        d.get("prospect_type"),
+        d.get("hospital_prospect_score"),
+        d.get("conversation_intent", "health_question"),
+        d.get("classification_confidence", 0.5),
+    ))
+
+
 # ─── 메인 태깅 함수 (LLM + 규칙 기반 하이브리드) ──────────────────
 
 async def tag_chat_session(
@@ -1068,11 +1225,58 @@ async def tag_chat_session(
             es_behavior = await load_es_behavior_for_hospital(
                 context["hospital_id"])
 
+        # ── Phase H: 대화 의도 1차 분류 (LLM 호출 전 전처리) ──
+        conversation_intent = classify_conversation_intent(messages)
+
         # 규칙 기반 결과 (항상 계산 — risk_tags, data_quality는 규칙 기반 유지)
         risk_tags = extract_risk_tags(health_metrics)
         keyword_tags = extract_keyword_tags(messages)
         data_quality = calculate_data_quality_score(health_metrics)
 
+        # 비건강 대화는 LLM 호출 없이 최소 태깅 (비용 절감 + 잘못된 태깅 방지)
+        if conversation_intent in ("ux_issue", "greeting", "off_topic"):
+            sentiment = detect_sentiment(messages)
+            summary = await generate_conversation_summary(messages)
+            tag_data = {
+                "session_id": session_id,
+                "partner_id": partner_id,
+                "conversation_intent": conversation_intent,
+                "classification_confidence": 1.0,
+                "interest_tags": [],
+                "risk_tags": risk_tags,
+                "keyword_tags": keyword_tags,
+                "sentiment": sentiment,
+                "conversation_summary": summary,
+                "data_quality_score": data_quality,
+                "has_discrepancy": has_discrepancy,
+                "risk_level": "low",
+                "key_concerns": [],
+                "follow_up_needed": False,
+                "tagging_model": "intent-filter",
+                "counselor_recommendations": [],
+                "conversation_depth": "shallow",
+                "engagement_score": 0,
+                "action_intent": "passive",
+                "nutrition_tags": [],
+                "llm_attempted": False,
+                "llm_failed": False,
+                "llm_error": None,
+                "commercial_tags": [],
+                "buying_signal": "low",
+                "conversion_flag": False,
+                "medical_tags": [],
+                "lifestyle_tags": [],
+                "medical_urgency": "normal",
+                "anxiety_level": "low",
+                "prospect_type": "low_engagement",
+                "hospital_prospect_score": 0,
+                "suggested_revisit_messagess": None,
+            }
+            await _save_tags_to_db(tag_data)
+            logger.info(f"[태깅] 비건강 대화 최소 태깅: {session_id} intent={conversation_intent}")
+            return tag_data
+
+        # ── health_question: 기존 LLM 태깅 플로우 ──
         # LLM 분석 시도 (멀티채널 통합)
         tagging_model = "rule-based"
         llm_attempted = False
@@ -1136,8 +1340,9 @@ async def tag_chat_session(
             anxiety_level = llm_result.get("anxiety_level")
             prospect_type = llm_result.get("prospect_type")
             hospital_prospect_score = llm_result.get("hospital_prospect_score")
+            classification_confidence = llm_result.get("classification_confidence", 0.5)
         else:
-            # LLM 실패 — 규칙 기반 폴백
+            # LLM 실패 — 규칙 기반 폴백 (병원 필드도 최소한 채움)
             raw_interest = extract_interest_tags(messages)
             interest_tags = [{"topic": t, "intensity": "medium"} for t in raw_interest]
             sentiment = detect_sentiment(messages)
@@ -1151,17 +1356,22 @@ async def tag_chat_session(
             nutrition_tags = extract_nutrition_tags(messages)
             commercial_tags = extract_commercial_tags(interest_tags)
             buying_signal = extract_buying_signal(messages)
-            # 병원 전용 필드 — LLM 폴백 시 None
-            medical_tags = None
-            lifestyle_tags_val = None
-            medical_urgency = None
-            anxiety_level = None
-            prospect_type = None
-            hospital_prospect_score = None
+            # 병원 전용 필드 — 규칙 기반으로 최소한 채움
+            medical_tags = [t["topic"] for t in interest_tags]
+            lifestyle_tags_val = extract_nutrition_tags(messages)
+            medical_urgency = "borderline" if risk_level == "medium" else (
+                "urgent" if risk_level == "high" else "normal")
+            anxiety_level = "low"
+            user_msgs = [m for m in messages if m.get("role") == "user"]
+            prospect_type = "low_engagement" if len(user_msgs) <= 1 else "lifestyle_improvable"
+            hospital_prospect_score = engagement_score
+            classification_confidence = 0.3  # 규칙 기반이므로 낮은 신뢰도
 
         tag_data = {
             "session_id": session_id,
             "partner_id": partner_id,
+            "conversation_intent": conversation_intent,
+            "classification_confidence": classification_confidence,
             "interest_tags": interest_tags,
             "risk_tags": risk_tags,
             "keyword_tags": keyword_tags,
@@ -1197,88 +1407,8 @@ async def tag_chat_session(
         revisit_msgs = await generate_revisit_messages(tag_data, messages)
         tag_data["suggested_revisit_messagess"] = revisit_msgs
 
-        # DB 저장 (Upsert)
-        upsert_query = """
-            INSERT INTO welno.tb_chat_session_tags
-            (session_id, partner_id, interest_tags, risk_tags, keyword_tags,
-             sentiment, conversation_summary, data_quality_score, has_discrepancy,
-             risk_level, key_concerns, follow_up_needed, tagging_model, tagging_version,
-             counselor_recommendations,
-             conversation_depth, engagement_score, action_intent, nutrition_tags,
-             llm_attempted, llm_failed, llm_error,
-             commercial_tags, buying_signal, conversion_flag,
-             suggested_revisit_messages,
-             medical_tags, lifestyle_tags, medical_urgency,
-             anxiety_level, prospect_type, hospital_prospect_score)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 3,
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (session_id, partner_id) DO UPDATE SET
-                interest_tags = EXCLUDED.interest_tags,
-                risk_tags = EXCLUDED.risk_tags,
-                keyword_tags = EXCLUDED.keyword_tags,
-                sentiment = EXCLUDED.sentiment,
-                conversation_summary = EXCLUDED.conversation_summary,
-                data_quality_score = EXCLUDED.data_quality_score,
-                has_discrepancy = EXCLUDED.has_discrepancy,
-                risk_level = EXCLUDED.risk_level,
-                key_concerns = EXCLUDED.key_concerns,
-                follow_up_needed = EXCLUDED.follow_up_needed,
-                tagging_model = EXCLUDED.tagging_model,
-                tagging_version = EXCLUDED.tagging_version,
-                counselor_recommendations = EXCLUDED.counselor_recommendations,
-                conversation_depth = EXCLUDED.conversation_depth,
-                engagement_score = EXCLUDED.engagement_score,
-                action_intent = EXCLUDED.action_intent,
-                nutrition_tags = EXCLUDED.nutrition_tags,
-                llm_attempted = EXCLUDED.llm_attempted,
-                llm_failed = EXCLUDED.llm_failed,
-                llm_error = EXCLUDED.llm_error,
-                commercial_tags = EXCLUDED.commercial_tags,
-                buying_signal = EXCLUDED.buying_signal,
-                conversion_flag = EXCLUDED.conversion_flag,
-                suggested_revisit_messages = EXCLUDED.suggested_revisit_messages,
-                medical_tags = EXCLUDED.medical_tags,
-                lifestyle_tags = EXCLUDED.lifestyle_tags,
-                medical_urgency = EXCLUDED.medical_urgency,
-                anxiety_level = EXCLUDED.anxiety_level,
-                prospect_type = EXCLUDED.prospect_type,
-                hospital_prospect_score = EXCLUDED.hospital_prospect_score,
-                updated_at = NOW()
-        """
-        await db_manager.execute_update(upsert_query, (
-            session_id,
-            partner_id,
-            json.dumps(interest_tags, ensure_ascii=False),
-            json.dumps(risk_tags, ensure_ascii=False),
-            json.dumps(keyword_tags, ensure_ascii=False),
-            sentiment,
-            summary,
-            data_quality,
-            has_discrepancy,
-            risk_level,
-            json.dumps(key_concerns, ensure_ascii=False),
-            follow_up_needed,
-            tagging_model,
-            json.dumps(counselor_recommendations, ensure_ascii=False),
-            conversation_depth,
-            engagement_score,
-            action_intent,
-            json.dumps(nutrition_tags, ensure_ascii=False),
-            llm_attempted,
-            llm_failed,
-            llm_error,
-            json.dumps(commercial_tags, ensure_ascii=False),
-            buying_signal,
-            False,  # conversion_flag
-            json.dumps(revisit_msgs, ensure_ascii=False) if revisit_msgs else None,
-            json.dumps(medical_tags, ensure_ascii=False) if medical_tags else None,
-            json.dumps(lifestyle_tags_val, ensure_ascii=False) if lifestyle_tags_val else None,
-            medical_urgency,
-            anxiety_level,
-            prospect_type,
-            hospital_prospect_score,
-        ))
+        # DB 저장 (_save_tags_to_db 공통 함수 사용)
+        await _save_tags_to_db(tag_data)
 
         logger.info(f"[태깅] 세션 태깅 완료: {session_id} - "
                      f"model={tagging_model}, interest={len(interest_tags)}, "
@@ -1429,6 +1559,7 @@ async def get_session_tags(session_id: str, partner_id: str) -> Optional[Dict[st
                    conversation_depth, engagement_score, action_intent, nutrition_tags,
                    commercial_tags, buying_signal, conversion_flag,
                    llm_attempted, llm_failed, llm_error,
+                   conversation_intent, classification_confidence,
                    created_at, updated_at
             FROM welno.tb_chat_session_tags
             WHERE session_id = %s AND partner_id = %s
@@ -1445,8 +1576,9 @@ async def get_patient_aggregated_tags(
     hospital_id: str,
 ) -> Optional[Dict[str, Any]]:
     """
-    환자 단위 태깅 통합 뷰.
+    환자 단위 태깅 통합 뷰 (시간 감쇠 적용).
     같은 uuid + hospital_id의 여러 세션을 합산하여 전체 그림을 제공합니다.
+    engagement_score에 시간 감쇠 적용: 7일:1.0, 30일:0.7, 90일:0.4, 그 이상:0.1
     """
     try:
         query = """
@@ -1454,6 +1586,7 @@ async def get_patient_aggregated_tags(
                    t.sentiment, t.engagement_score, t.prospect_type,
                    t.medical_tags, t.lifestyle_tags, t.medical_urgency,
                    t.hospital_prospect_score, t.conversation_depth,
+                   t.conversation_intent, t.classification_confidence,
                    t.created_at
             FROM welno.tb_chat_session_tags t
             JOIN welno.tb_partner_rag_chat_log l
@@ -1494,9 +1627,27 @@ async def get_patient_aggregated_tags(
                 if isinstance(tag, str):
                     all_lifestyle.add(tag)
 
-        # engagement_score = max
-        max_engagement = max(
-            (row.get("engagement_score") or 0) for row in rows)
+        # engagement_score = 시간 감쇠 가중 최대값
+        now = datetime.now()
+        max_engagement = 0
+        for row in rows:
+            raw_score = row.get("engagement_score") or 0
+            created = row.get("created_at")
+            if created:
+                try:
+                    if isinstance(created, str):
+                        created = datetime.fromisoformat(created.replace("Z", "+00:00")).replace(tzinfo=None)
+                    elif hasattr(created, 'replace'):
+                        created = created.replace(tzinfo=None)
+                    days = (now - created).days
+                except Exception:
+                    days = 0
+            else:
+                days = 0
+            decay = 1.0 if days <= 7 else 0.7 if days <= 30 else 0.4 if days <= 90 else 0.1
+            weighted = int(raw_score * decay)
+            if weighted > max_engagement:
+                max_engagement = weighted
 
         # prospect_type = 가장 높은 등급 우선
         prospect_priority = {
@@ -1514,6 +1665,14 @@ async def get_patient_aggregated_tags(
         max_hp_score = max(
             (row.get("hospital_prospect_score") or 0) for row in rows)
 
+        # 통합 필드 계산
+        best_prospect_type = best_prospect.get("prospect_type", "low_engagement")
+        eng_level = "high" if max_engagement >= 60 else "medium" if max_engagement >= 25 else "low"
+        recommended_action = PROSPECT_ACTION_MAP.get(best_prospect_type, "")
+
+        # health_concerns 통합 (interest_tags + medical_tags 중복 제거)
+        health_concerns = sorted(all_interest_topics | all_medical)
+
         return {
             "user_uuid": user_uuid,
             "hospital_id": hospital_id,
@@ -1521,9 +1680,12 @@ async def get_patient_aggregated_tags(
             "interest_tags": sorted(all_interest_topics),
             "medical_tags": sorted(all_medical),
             "lifestyle_tags": sorted(all_lifestyle),
+            "health_concerns": health_concerns,
             "engagement_score": max_engagement,
-            "prospect_type": best_prospect.get("prospect_type", "low_engagement"),
+            "engagement_level": eng_level,
+            "prospect_type": best_prospect_type,
             "hospital_prospect_score": max_hp_score,
+            "recommended_action": recommended_action,
             "latest_sentiment": rows[0].get("sentiment", "neutral"),
             "latest_session_id": rows[0].get("session_id"),
             "latest_session_date": str(rows[0].get("created_at", "")),
