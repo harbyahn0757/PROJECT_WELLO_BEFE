@@ -492,13 +492,17 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
     <div className="welno-rag-chat-window">
       {/* 헤더 */}
       <div className="chat-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {frontendConfig?.iconUrl && (
-            <img src={frontendConfig.iconUrl} alt="Logo" style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '4px' }} />
-          )}
-          <h3>{frontendConfig?.partnerName || '웰로'} 건강 상담</h3>
+        <div className="header-bot-info">
+          <div className="bot-text">
+            <span className="bot-name">{frontendConfig?.partnerName || '웰로'} 건강 상담</span>
+            <span className="bot-status">온라인</span>
+          </div>
         </div>
-        <button onClick={handleClose} className="close-button">✕</button>
+        <button onClick={handleClose} className="close-button" aria-label="닫기">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </button>
       </div>
 
       {/* 메시지 영역 (통합 스크롤) */}
@@ -538,12 +542,17 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
               </div>
             );
           }
+          const prevMsg = idx > 0 ? messages[idx - 1] : null;
+          const nextMsg = idx < messages.length - 1 ? messages[idx + 1] : null;
+          const isConsecutive = prevMsg?.role === msg.role && (msg.role === 'user' || msg.role === 'assistant');
+          const isLastInGroup = !nextMsg || nextMsg.role !== msg.role;
           return (
-            <RagChatMessage 
-              key={idx} 
-              message={msg} 
+            <RagChatMessage
+              key={idx}
+              message={msg}
+              isConsecutive={isConsecutive}
+              isLastInGroup={isLastInGroup}
               onTypingUpdate={() => {
-                // 타이핑 중 버블 하단 자동 스크롤
                 requestAnimationFrame(() => {
                   if (messagesEndRef.current) {
                     messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -559,11 +568,11 @@ const WelnoRagChatWindow: React.FC<WelnoRagChatWindowProps> = ({ onClose }) => {
           );
         })}
         {isLoading && (
-          <div className="loading-indicator">
-            <div className="loading-spinner">
-              <span className="spinner-dot"></span>
-              <span className="spinner-dot"></span>
-              <span className="spinner-dot"></span>
+          <div className="typing-bubble">
+            <div className="typing-bubble-content">
+              <span className="dot"></span>
+              <span className="dot"></span>
+              <span className="dot"></span>
             </div>
           </div>
         )}

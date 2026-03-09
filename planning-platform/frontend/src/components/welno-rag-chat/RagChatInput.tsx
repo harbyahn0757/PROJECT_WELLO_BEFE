@@ -25,10 +25,22 @@ const RagChatInput: React.FC<RagChatInputProps> = ({
     }
   }, [disabled]);
 
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+  }, [inputValue]);
+
   const handleSubmit = () => {
     if (inputValue.trim() && !disabled) {
       onSend(inputValue);
       setInputValue('');
+      // Reset textarea height
+      if (inputRef.current) {
+        inputRef.current.style.height = 'auto';
+      }
     }
   };
 

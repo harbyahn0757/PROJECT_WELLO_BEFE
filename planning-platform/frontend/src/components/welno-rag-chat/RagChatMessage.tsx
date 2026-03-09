@@ -16,6 +16,8 @@ interface Message {
 
 interface RagChatMessageProps {
   message: Message;
+  isConsecutive?: boolean;
+  isLastInGroup?: boolean;
   onTypingUpdate?: () => void;
   onTypingComplete?: () => void;
 }
@@ -49,7 +51,7 @@ const SourcesAccordion: React.FC<{ sources: any[] }> = ({ sources }) => {
   );
 };
 
-const RagChatMessage: React.FC<RagChatMessageProps> = ({ message, onTypingUpdate, onTypingComplete }) => {
+const RagChatMessage: React.FC<RagChatMessageProps> = ({ message, isConsecutive, isLastInGroup, onTypingUpdate, onTypingComplete }) => {
   const isUser = message.role === 'user';
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [displayedContent, setDisplayedContent] = useState('');
@@ -120,18 +122,23 @@ const RagChatMessage: React.FC<RagChatMessageProps> = ({ message, onTypingUpdate
     return null;
   }
 
+  const consecutiveClass = !isUser && isConsecutive ? ' consecutive' : '';
+
   return (
-    <div className={`chat-message ${isUser ? 'user' : 'assistant'} ${isTyping ? 'typing' : ''}`}>
+    <div className={`chat-message ${isUser ? 'user' : 'assistant'}${consecutiveClass} ${isTyping ? 'typing' : ''}`}>
       <div className="message-content">
         {parseMarkdownWithLists(displayedContent)}
         {!isUser && !isTyping && message.sources && message.sources.length > 0 && (
           <SourcesAccordion sources={message.sources} />
         )}
       </div>
-      
-      <div className="message-footer">
-        <span className="message-time">{formatTime(message.timestamp)}</span>
-      </div>
+
+      {/* 타임스탬프: 그룹 마지막 메시지에만 표시 */}
+      {(isLastInGroup !== false) && (
+        <div className="message-footer">
+          <span className="message-time">{formatTime(message.timestamp)}</span>
+        </div>
+      )}
 
       {/* PNT 추천 표시 (이전과 동일하게 유지하되 스타일에서 조정) */}
       {!isUser && message.pnt_recommendations && (

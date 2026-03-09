@@ -15,6 +15,7 @@ PARTNER_TYPE_MAP = {
     "welno": PartnerTypes.HEALTHCARE,
     "welno_internal": PartnerTypes.HEALTHCARE,
     "kindhabit": PartnerTypes.COMMERCE,
+    "kindhabit_insu": PartnerTypes.COMMERCE,
     "test_partner": PartnerTypes.COMMERCE,
 }
 
@@ -32,6 +33,7 @@ class PartnerIDs:
     WELNO_INTERNAL = "welno_internal"  # WELNO 내부 회원 (기존 웰노 회원)
     KINDHABIT = "kindhabit"            # KindHabit 파트너
     MEDILINX = "medilinx"              # MediLinx 파트너
+    KINDHABIT_INSU = "kindhabit_insu"  # 착한습관 보험 에이전트
     TEST_PARTNER = "test_partner"      # 테스트 파트너
 
 # 파트너별 특성
@@ -60,6 +62,13 @@ PARTNER_CHARACTERISTICS = {
     PartnerIDs.MEDILINX: {
         "name": "MediLinx",
         "description": "MediLinx 파트너",
+        "is_internal": False,
+        "default_payment_required": True,
+        "default_amount": 7900
+    },
+    PartnerIDs.KINDHABIT_INSU: {
+        "name": "착한습관 보험 에이전트",
+        "description": "착한습관 보험 에이전트 파트너",
         "is_internal": False,
         "default_payment_required": True,
         "default_amount": 7900

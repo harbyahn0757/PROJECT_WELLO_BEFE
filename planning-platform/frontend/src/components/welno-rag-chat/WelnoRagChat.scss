@@ -8,22 +8,23 @@
   background: var(--brand-color, #A69B8F);
   color: white;
   border: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 14px rgba(var(--brand-color-rgb, 123, 94, 79), 0.3);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
   z-index: 1000;
+  animation: buttonPulse 3s ease-in-out infinite;
 
   &:hover {
-    transform: scale(1.1);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-    filter: brightness(0.9);
+    transform: scale(1.08);
+    box-shadow: 0 6px 20px rgba(var(--brand-color-rgb, 123, 94, 79), 0.4);
+    animation: none;
   }
 
   &.active {
-    filter: brightness(0.9);
+    animation: none;
   }
 
   // 플로팅 버튼이 있을 때 위치를 위로 올리기
@@ -38,19 +39,19 @@
 }
 
 .welno-rag-chat-window-container {
-  position: fixed !important; // 모든 페이지에서 동일하게 적용
-  bottom: 90px !important;
-  right: 24px !important;
-  width: 360px !important; // 메인 페이지 기준 크기 고정
-  height: 550px !important; // 메인 페이지 기준 크기 고정
-  z-index: 999 !important; // 모든 페이지에서 동일한 z-index
+  position: fixed;
+  bottom: 90px;
+  right: 24px;
+  width: 380px;
+  height: 600px;
+  z-index: 999;
   display: flex;
   flex-direction: column;
   animation: slideInUp 0.3s ease-out;
 
   // 플로팅 버튼이 있을 때 위치를 위로 올리기
   body:has(.floating-button:not(.hidden)) & {
-    bottom: 162px !important; // 채팅 버튼 위치(96px) + 채팅 버튼 높이(56px) + 여백(10px)
+    bottom: 162px;
   }
 }
 
@@ -68,45 +69,67 @@
 .welno-rag-chat-window {
   width: 100%;
   height: 100%;
-  background: #FFFAF2; // $background-cream 가깝게
+  background: #FFFAF2;
   border-radius: 20px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.04),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    0 12px 32px rgba(0, 0, 0, 0.12);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(123, 94, 79, 0.1);
 
   .chat-header {
-    background: var(--brand-color, #7B5E4F);
+    background: linear-gradient(135deg, var(--brand-color, #7B5E4F) 0%, color-mix(in srgb, var(--brand-color, #7B5E4F) 85%, black) 100%);
     color: white;
-    padding: 12px 16px;
+    padding: 14px 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
 
-    h3 {
-      margin: 0;
-      font-size: 15px;
-      font-weight: 600;
-      letter-spacing: -0.5px;
+    .header-bot-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      .bot-text {
+        display: flex;
+        flex-direction: column;
+
+        .bot-name {
+          font-size: 14px;
+          font-weight: 600;
+          letter-spacing: -0.3px;
+        }
+
+        .bot-status {
+          font-size: 11px;
+          opacity: 0.7;
+        }
+      }
     }
 
     .close-button {
       background: none;
       border: none;
       color: white;
-      font-size: 20px;
       cursor: pointer;
       padding: 4px;
+      width: 28px;
+      height: 28px;
       display: flex;
       align-items: center;
       justify-content: center;
-      opacity: 0.8;
+      opacity: 0.7;
       transition: opacity 0.2s;
+      border-radius: 50%;
 
       &:hover {
         opacity: 1;
+        background: rgba(255, 255, 255, 0.1);
       }
+
+      svg { width: 16px; height: 16px; }
     }
   }
 
@@ -125,6 +148,7 @@
       display: flex;
       flex-direction: column;
       max-width: 85%;
+      animation: messageIn 0.25s ease-out;
 
       &.user {
         align-self: flex-end;
@@ -141,11 +165,17 @@
         align-self: flex-start;
 
         .message-content {
-          background: #F8EDDA; // $brand-brown-light-bg
+          background: #F8EDDA;
           color: #4A3A34;
           border-radius: 18px 18px 18px 2px;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         }
+      }
+
+      // 연속 같은 role 그룹핑
+      &.assistant.consecutive,
+      &.user + .user {
+        margin-top: -12px;
       }
 
       .message-footer {
@@ -341,30 +371,31 @@
       }
     }
 
-    .loading-indicator {
+    .typing-bubble {
       display: flex;
-      flex-direction: row;
-      align-items: center;
+      align-items: flex-end;
       align-self: flex-start;
+      animation: messageIn 0.25s ease-out;
 
-      .loading-spinner {
+      .typing-bubble-content {
+        background: #F8EDDA;
+        border-radius: 18px 18px 18px 2px;
+        padding: 12px 16px;
         display: flex;
-        flex-direction: row;
-        gap: 3px;
+        gap: 4px;
         align-items: center;
-      }
 
-      .spinner-dot {
-        width: 4px;
-        height: 4px;
-        border-radius: 50%;
-        background: #7B5E4F;
-        opacity: 0.4;
-        animation: fadeInOut 1.4s infinite ease-in-out both;
+        .dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--brand-color, #7B5E4F);
+          animation: typingBounce 1.4s infinite;
 
-        &:nth-child(1) { animation-delay: 0s; }
-        &:nth-child(2) { animation-delay: 0.2s; }
-        &:nth-child(3) { animation-delay: 0.4s; }
+          &:nth-child(1) { animation-delay: 0s; }
+          &:nth-child(2) { animation-delay: 0.2s; }
+          &:nth-child(3) { animation-delay: 0.4s; }
+        }
       }
     }
 
@@ -578,22 +609,28 @@
       background: #F8EDDA;
       border: 1px solid rgba(123, 94, 79, 0.2);
       border-radius: 20px;
-      padding: 10px 16px;
+      padding: 10px 18px;
       font-size: 13px;
       color: #4A3A34;
       cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
+      transition: background 0.25s, border-color 0.25s, transform 0.2s, box-shadow 0.2s;
+      white-space: normal;
+      max-width: 200px;
       flex-shrink: 0;
       font-weight: 500;
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      animation: chipIn 0.3s ease-out backwards;
+
+      &:nth-child(1) { animation-delay: 0s; }
+      &:nth-child(2) { animation-delay: 0.1s; }
+      &:nth-child(3) { animation-delay: 0.15s; }
+      &:nth-child(4) { animation-delay: 0.2s; }
 
       &:hover {
-        background: #7B5E4F;
-        color: white;
-        border-color: #7B5E4F;
+        background: color-mix(in srgb, var(--brand-color, #7B5E4F) 15%, #F8EDDA);
+        border-color: var(--brand-color, #7B5E4F);
         transform: translateY(-1px);
-        box-shadow: 0 2px 6px rgba(123, 94, 79, 0.2);
+        box-shadow: 0 2px 6px rgba(123, 94, 79, 0.15);
       }
 
       &:active {
@@ -638,9 +675,9 @@
 
       &:focus {
         outline: none;
-        border-color: #7B5E4F;
+        border-color: var(--brand-color, #7B5E4F);
         background: white;
-        box-shadow: 0 0 0 2px rgba(123, 94, 79, 0.1);
+        box-shadow: 0 0 0 2px rgba(var(--brand-color-rgb, 123, 94, 79), 0.15);
       }
     }
 
@@ -648,27 +685,27 @@
       background: var(--brand-color, #7B5E4F);
       color: white;
       border: none;
-      border-radius: 12px;
-      width: 44px;
-      height: 44px;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
       display: flex;
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: background 0.2s, transform 0.2s;
       flex-shrink: 0;
 
       &:hover:not(:disabled) {
-        filter: brightness(0.9);
-        transform: translateY(-2px);
+        transform: translateY(-1px);
+        background: color-mix(in srgb, var(--brand-color, #7B5E4F) 85%, black);
       }
 
       &:disabled {
-        background: #E0E0E0;
+        background: color-mix(in srgb, var(--brand-color, #7B5E4F) 30%, white);
         cursor: not-allowed;
       }
-      
-      svg { width: 20px; height: 20px; }
+
+      svg { width: 18px; height: 18px; }
     }
   }
 }
@@ -698,18 +735,38 @@
   50% { opacity: 1; }
 }
 
+@keyframes messageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes chipIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+@keyframes buttonPulse {
+  0%, 100% { box-shadow: 0 4px 14px rgba(var(--brand-color-rgb, 123, 94, 79), 0.3); }
+  50% { box-shadow: 0 4px 20px rgba(var(--brand-color-rgb, 123, 94, 79), 0.5); }
+}
+
 // 모바일 대응
 @media (max-width: 480px) {
   .welno-rag-chat-window-container {
-    width: 100%;
-    right: 0;
-    left: 0;
-    bottom: 0;
-    top: 0;
+    width: 100% !important;
+    right: 0 !important;
+    left: 0 !important;
+    bottom: 0 !important;
+    top: 0 !important;
     // 동적 뷰포트 높이 사용 (키보드 대응)
-    height: 100dvh; // Dynamic Viewport Height
-    height: 100vh; // fallback
-    height: -webkit-fill-available; // iOS 대응
+    height: 100dvh !important;
+    height: 100vh !important;
+    height: -webkit-fill-available !important;
     z-index: 2000;
     animation: slideInBottom 0.3s ease-out;
   }

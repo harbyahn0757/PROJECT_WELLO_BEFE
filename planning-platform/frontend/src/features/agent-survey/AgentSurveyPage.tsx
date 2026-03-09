@@ -45,6 +45,7 @@ const AgentSurveyPage: React.FC = () => {
         if (data.data.uuid) params.set('uuid', data.data.uuid);
         if (data.data.name) params.set('name', data.data.name);
         if (data.data.birth_date) params.set('birth', data.data.birth_date);
+        if (data.data.partner_id) params.set('partner', data.data.partner_id);
 
         if (linkType === 'survey') {
           // 설문 포함: 메인(/)으로 이동

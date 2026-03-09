@@ -48,6 +48,7 @@ async def verify_agent_survey_token(request: Dict[str, Any]):
             "name": payload.get("name", ""),
             "birth_date": payload.get("birth_date", ""),
             "link_type": payload.get("link_type", "landing"),
+            "partner_id": payload.get("partner_id", "kindhabit_insu"),
             "survey_id": "agent-health-survey",
         },
     }
