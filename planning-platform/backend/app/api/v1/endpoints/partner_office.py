@@ -1457,6 +1457,61 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
     }
 
 
+@router.post("/revisit-candidates/{session_id}/messages")
+async def revisit_chat_messages(session_id: str):
+    """재방문 후보의 채팅 메시지 + 세션 분석 데이터 (embed 모드 호환: 인증 불필요)"""
+    import json as _json
+
+    messages = await db_manager.execute_query(
+        """SELECT message_type, message_content, created_at
+           FROM welno.tb_partner_rag_chat_log
+           WHERE session_id = %s
+           ORDER BY created_at ASC""",
+        (session_id,),
+    )
+
+    tags = await db_manager.execute_one(
+        """SELECT sentiment, data_quality_score, commercial_tags,
+                  nutrition_tags, tagging_model
+           FROM welno.tb_chat_session_tags
+           WHERE session_id = %s""",
+        (session_id,),
+    )
+
+    # JSONB 파싱
+    tag_data = None
+    if tags:
+        ct = tags.get("commercial_tags") or []
+        if isinstance(ct, str):
+            try:
+                ct = _json.loads(ct)
+            except Exception:
+                ct = []
+        nt = tags.get("nutrition_tags") or []
+        if isinstance(nt, str):
+            try:
+                nt = _json.loads(nt)
+            except Exception:
+                nt = []
+        tag_data = {
+            "sentiment": tags.get("sentiment"),
+            "data_quality_score": tags.get("data_quality_score"),
+            "commercial_tags": ct,
+            "nutrition_tags": nt,
+            "tagging_model": tags.get("tagging_model"),
+        }
+
+    msg_list = []
+    for m in (messages or []):
+        msg_list.append({
+            "message_type": m.get("message_type"),
+            "message_content": m.get("message_content"),
+            "created_at": str(m["created_at"]) if m.get("created_at") else None,
+        })
+
+    return {"messages": msg_list, "session_tags": tag_data}
+
+
 # ─── Tagging Stats (태깅 통계) ──────────────────────────────────
 
 @router.post("/tagging-stats")

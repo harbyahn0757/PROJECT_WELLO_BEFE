@@ -63,6 +63,22 @@ const URGENCY_LABELS: Record<string, string> = { urgent: '긴급', borderline: '
 const daysColor = (d: number) => d <= 3 ? '#059669' : d <= 7 ? '#d97706' : '#dc2626';
 const daysLabel = (d: number) => d <= 3 ? '3일 이내' : d <= 7 ? '1주 이내' : d <= 14 ? '2주 경과' : '14일+';
 
+interface ChatMessage {
+  message_type: string;
+  message_content: string;
+  created_at: string | null;
+}
+
+interface SessionTags {
+  sentiment: string | null;
+  data_quality_score: number | null;
+  commercial_tags: Array<{ category: string; product_hint: string; segment: string }> | null;
+  nutrition_tags: string[] | null;
+  tagging_model: string | null;
+}
+
+type DetailTab = 'suggest' | 'chat';
+
 const RevisitPage: React.FC = () => {
   const { isEmbedMode, embedParams } = useEmbedParams();
   const API = getApiBase();
@@ -79,6 +95,10 @@ const RevisitPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
   const [prospectFilter, setProspectFilter] = useState('');
+  const [detailTab, setDetailTab] = useState<DetailTab>('suggest');
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [sessionTags, setSessionTags] = useState<SessionTags | null>(null);
+  const [chatLoading, setChatLoading] = useState(false);
 
   const hospitalId = embedParams.hospitalId || '';
 
@@ -101,6 +121,35 @@ const RevisitPage: React.FC = () => {
   }, [API, hospitalId, isEmbedMode]);
 
   useEffect(() => { fetchCandidates(); }, [fetchCandidates]);
+
+  // 후보 변경 시 탭/채팅 데이터 리셋
+  useEffect(() => {
+    setDetailTab('suggest');
+    setChatMessages([]);
+    setSessionTags(null);
+  }, [selectedId]);
+
+  const fetchChatMessages = useCallback(async (sessionId: string) => {
+    setChatLoading(true);
+    try {
+      const fetcher = isEmbedMode ? fetch : fetchWithAuth;
+      const res = await fetcher(`${API}/partner-office/revisit-candidates/${encodeURIComponent(sessionId)}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json();
+      setChatMessages(data.messages || []);
+      setSessionTags(data.session_tags || null);
+    } catch { /* ignore */ }
+    setChatLoading(false);
+  }, [API, isEmbedMode]);
+
+  const handleTabChange = useCallback((tab: DetailTab) => {
+    setDetailTab(tab);
+    if (tab === 'chat' && selectedId && chatMessages.length === 0) {
+      fetchChatMessages(selectedId);
+    }
+  }, [selectedId, chatMessages.length, fetchChatMessages]);
 
   const isHospitalMode = useMemo(() => candidates.some(c => c.partner_type === 'hospital'), [candidates]);
   const weeklyNew = useMemo(() => candidates.filter(c => c.days_since_chat <= 7).length, [candidates]);
@@ -292,94 +341,199 @@ const RevisitPage: React.FC = () => {
               </span>
             </div>
 
-            {/* 병원 전용: 분류 + 의료태그 */}
-            {isHospitalMode && selected.prospect_type && (
-              <div className="revisit-page__section">
-                <h4>병원 가망 분석</h4>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                  <span className="revisit-page__badge" style={{ background: PROSPECT_COLORS[selected.prospect_type] }}>
-                    {PROSPECT_LABELS[selected.prospect_type]}
-                  </span>
-                  {selected.medical_urgency && (
-                    <span className="revisit-page__badge" style={{ background: selected.medical_urgency === 'urgent' ? '#dc2626' : selected.medical_urgency === 'borderline' ? '#d97706' : '#059669' }}>
-                      {URGENCY_LABELS[selected.medical_urgency]}
-                    </span>
-                  )}
-                  {selected.hospital_prospect_score != null && (
-                    <span style={{ fontWeight: 600 }}>가망점수 {selected.hospital_prospect_score}점</span>
-                  )}
-                </div>
-                {selected.medical_tags && selected.medical_tags.length > 0 && (
-                  <div>
-                    <strong>의료 관심:</strong>{' '}
-                    {selected.medical_tags.map((t, i) => (
-                      <span key={i} className="revisit-page__tag revisit-page__tag--high">{t}</span>
-                    ))}
-                  </div>
-                )}
-                {selected.lifestyle_tags && selected.lifestyle_tags.length > 0 && (
-                  <div style={{ marginTop: 4 }}>
-                    <strong>생활습관:</strong>{' '}
-                    {selected.lifestyle_tags.map((t, i) => (
-                      <span key={i} className="revisit-page__tag revisit-page__tag--low">{t}</span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+            {/* 탭 헤더 */}
+            <div className="revisit-page__tabs">
+              <button
+                className={`revisit-page__tab${detailTab === 'suggest' ? ' revisit-page__tab--active' : ''}`}
+                onClick={() => handleTabChange('suggest')}
+              >제안</button>
+              <button
+                className={`revisit-page__tab${detailTab === 'chat' ? ' revisit-page__tab--active' : ''}`}
+                onClick={() => handleTabChange('chat')}
+              >상담 내역</button>
+            </div>
 
-            {/* 대화 요약 */}
-            {selected.conversation_summary && (
-              <div className="revisit-page__section">
-                <h4>대화 요약</h4>
-                <p>{selected.conversation_summary}</p>
-              </div>
-            )}
-
-            {/* 주요 우려 */}
-            {selected.key_concerns.length > 0 && (
-              <div className="revisit-page__section">
-                <h4>주요 우려사항</h4>
-                <ul>{selected.key_concerns.map((c, i) => <li key={i}>{c}</li>)}</ul>
-              </div>
-            )}
-
-            {/* AI 조언 */}
-            {selected.counselor_recommendations.length > 0 && (
-              <div className="revisit-page__section">
-                <h4>AI 상담 조언</h4>
-                <ul>{selected.counselor_recommendations.map((r, i) => <li key={i}>{r}</li>)}</ul>
-              </div>
-            )}
-
-            {/* 추천 메시지 3종 카드 */}
-            <div className="revisit-page__section">
-              <h4>추천 메시지</h4>
-              <div className="revisit-page__msg-cards">
-                {(['care_message', 'action_message', 'info_message'] as const).map(key => {
-                  const msg = selected.message_variants?.[key];
-                  if (!msg) return null;
-                  return (
-                    <div key={key} className="revisit-page__msg-card">
-                      <div className="revisit-page__msg-card-head">
-                        <span>{MSG_ICONS[key]} {MSG_LABELS[key]}</span>
-                        <button
-                          className="revisit-page__copy-btn"
-                          onClick={() => handleCopy(key, msg)}
-                        >
-                          {copiedKey === key ? '복사됨!' : '복사'}
-                        </button>
-                      </div>
-                      <p className="revisit-page__msg-text">{msg}</p>
+            {detailTab === 'suggest' && (
+              <>
+                {/* 병원 전용: 분류 + 의료태그 */}
+                {isHospitalMode && selected.prospect_type && (
+                  <div className="revisit-page__section">
+                    <h4>병원 가망 분석</h4>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                      <span className="revisit-page__badge" style={{ background: PROSPECT_COLORS[selected.prospect_type] }}>
+                        {PROSPECT_LABELS[selected.prospect_type]}
+                      </span>
+                      {selected.medical_urgency && (
+                        <span className="revisit-page__badge" style={{ background: selected.medical_urgency === 'urgent' ? '#dc2626' : selected.medical_urgency === 'borderline' ? '#d97706' : '#059669' }}>
+                          {URGENCY_LABELS[selected.medical_urgency]}
+                        </span>
+                      )}
+                      {selected.hospital_prospect_score != null && (
+                        <span style={{ fontWeight: 600 }}>가망점수 {selected.hospital_prospect_score}점</span>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                    {selected.medical_tags && selected.medical_tags.length > 0 && (
+                      <div>
+                        <strong>의료 관심:</strong>{' '}
+                        {selected.medical_tags.map((t, i) => (
+                          <span key={i} className="revisit-page__tag revisit-page__tag--high">{t}</span>
+                        ))}
+                      </div>
+                    )}
+                    {selected.lifestyle_tags && selected.lifestyle_tags.length > 0 && (
+                      <div style={{ marginTop: 4 }}>
+                        <strong>생활습관:</strong>{' '}
+                        {selected.lifestyle_tags.map((t, i) => (
+                          <span key={i} className="revisit-page__tag revisit-page__tag--low">{t}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-            <div className="revisit-page__meta">
-              참여도 {selected.engagement_score}점 · {INTENT_LABELS[selected.action_intent] || selected.action_intent} · 마지막 상담 {selected.last_chat_date || '-'}
-            </div>
+                {selected.conversation_summary && (
+                  <div className="revisit-page__section">
+                    <h4>대화 요약</h4>
+                    <p>{selected.conversation_summary}</p>
+                  </div>
+                )}
+
+                {selected.key_concerns.length > 0 && (
+                  <div className="revisit-page__section">
+                    <h4>주요 우려사항</h4>
+                    <ul>{selected.key_concerns.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                  </div>
+                )}
+
+                {selected.counselor_recommendations.length > 0 && (
+                  <div className="revisit-page__section">
+                    <h4>AI 상담 조언</h4>
+                    <ul>{selected.counselor_recommendations.map((r, i) => <li key={i}>{r}</li>)}</ul>
+                  </div>
+                )}
+
+                <div className="revisit-page__section">
+                  <h4>추천 메시지</h4>
+                  <div className="revisit-page__msg-cards">
+                    {(['care_message', 'action_message', 'info_message'] as const).map(key => {
+                      const msg = selected.message_variants?.[key];
+                      if (!msg) return null;
+                      return (
+                        <div key={key} className="revisit-page__msg-card">
+                          <div className="revisit-page__msg-card-head">
+                            <span>{MSG_ICONS[key]} {MSG_LABELS[key]}</span>
+                            <button
+                              className="revisit-page__copy-btn"
+                              onClick={() => handleCopy(key, msg)}
+                            >
+                              {copiedKey === key ? '복사됨!' : '복사'}
+                            </button>
+                          </div>
+                          <p className="revisit-page__msg-text">{msg}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="revisit-page__meta">
+                  참여도 {selected.engagement_score}점 · {INTENT_LABELS[selected.action_intent] || selected.action_intent} · 마지막 상담 {selected.last_chat_date || '-'}
+                </div>
+              </>
+            )}
+
+            {detailTab === 'chat' && (
+              <div className="revisit-page__chat-tab">
+                {chatLoading ? (
+                  <Spinner />
+                ) : chatMessages.length === 0 ? (
+                  <div className="revisit-page__empty">채팅 내역이 없습니다.</div>
+                ) : (
+                  <>
+                    {/* 채팅 버블 */}
+                    <div className="revisit-page__chat-list">
+                      {chatMessages.map((m, i) => (
+                        <div
+                          key={i}
+                          className={`revisit-page__chat-bubble revisit-page__chat-bubble--${m.message_type === 'user' ? 'user' : 'assistant'}`}
+                        >
+                          <div className="revisit-page__chat-bubble-role">
+                            {m.message_type === 'user' ? '사용자' : 'AI'}
+                          </div>
+                          <div className="revisit-page__chat-bubble-text">
+                            {m.message_content}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 분석 섹션 */}
+                    {sessionTags && (
+                      <div className="revisit-page__chat-analysis">
+                        <h4>세션 분석</h4>
+                        <div className="revisit-page__gauge-row">
+                          <div className="revisit-page__gauge">
+                            <span className="revisit-page__gauge-label">참여도</span>
+                            <div className="revisit-page__gauge-bar">
+                              <div className="revisit-page__gauge-fill" style={{ width: `${selected.engagement_score ?? 0}%` }} />
+                            </div>
+                            <span className="revisit-page__gauge-value">{selected.engagement_score ?? 0}</span>
+                          </div>
+                          <div className="revisit-page__gauge">
+                            <span className="revisit-page__gauge-label">데이터품질</span>
+                            <div className="revisit-page__gauge-bar">
+                              <div className="revisit-page__gauge-fill revisit-page__gauge-fill--quality" style={{ width: `${sessionTags.data_quality_score ?? 0}%` }} />
+                            </div>
+                            <span className="revisit-page__gauge-value">{sessionTags.data_quality_score ?? 0}</span>
+                          </div>
+                        </div>
+
+                        {sessionTags.sentiment && (
+                          <div className="revisit-page__section">
+                            <strong>감정:</strong> {sessionTags.sentiment}
+                          </div>
+                        )}
+
+                        {sessionTags.nutrition_tags && sessionTags.nutrition_tags.length > 0 && (
+                          <div className="revisit-page__section">
+                            <strong>관심사:</strong>
+                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                              {sessionTags.nutrition_tags.map((t, i) => (
+                                <span key={i} className="revisit-page__tag">{t}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {sessionTags.commercial_tags && sessionTags.commercial_tags.length > 0 && (
+                          <div className="revisit-page__section">
+                            <strong>상업 태그:</strong>
+                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                              {sessionTags.commercial_tags.map((ct, i) => (
+                                <span key={i} className="revisit-page__tag revisit-page__tag--medium">
+                                  {ct.category} {ct.product_hint && <small>({ct.product_hint})</small>}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {selected.counselor_recommendations.length > 0 && (
+                          <div className="revisit-page__section">
+                            <strong>상담사 권고:</strong>
+                            <ul>{selected.counselor_recommendations.map((r, i) => <li key={i}>{r}</li>)}</ul>
+                          </div>
+                        )}
+
+                        <div className="revisit-page__meta">
+                          모델: {sessionTags.tagging_model || '-'}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
