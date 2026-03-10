@@ -1462,13 +1462,21 @@ async def revisit_chat_messages(session_id: str):
     """재방문 후보의 채팅 메시지 + 세션 분석 데이터 (embed 모드 호환: 인증 불필요)"""
     import json as _json
 
-    messages = await db_manager.execute_query(
-        """SELECT message_type, message_content, created_at
-           FROM welno.tb_partner_rag_chat_log
-           WHERE session_id = %s
-           ORDER BY created_at ASC""",
+    # conversation은 JSONB 배열: [{role, content, timestamp, type}, ...]
+    row = await db_manager.execute_one(
+        """SELECT conversation FROM welno.tb_partner_rag_chat_log
+           WHERE session_id = %s""",
         (session_id,),
     )
+    conversation = []
+    if row:
+        conv = row.get("conversation") or []
+        if isinstance(conv, str):
+            try:
+                conv = _json.loads(conv)
+            except Exception:
+                conv = []
+        conversation = conv
 
     tags = await db_manager.execute_one(
         """SELECT sentiment, data_quality_score, commercial_tags,
@@ -1478,7 +1486,6 @@ async def revisit_chat_messages(session_id: str):
         (session_id,),
     )
 
-    # JSONB 파싱
     tag_data = None
     if tags:
         ct = tags.get("commercial_tags") or []
@@ -1502,11 +1509,13 @@ async def revisit_chat_messages(session_id: str):
         }
 
     msg_list = []
-    for m in (messages or []):
+    for m in conversation:
+        if not isinstance(m, dict):
+            continue
         msg_list.append({
-            "message_type": m.get("message_type"),
-            "message_content": m.get("message_content"),
-            "created_at": str(m["created_at"]) if m.get("created_at") else None,
+            "message_type": m.get("role", "assistant"),
+            "message_content": m.get("content", ""),
+            "created_at": m.get("timestamp"),
         })
 
     return {"messages": msg_list, "session_tags": tag_data}
