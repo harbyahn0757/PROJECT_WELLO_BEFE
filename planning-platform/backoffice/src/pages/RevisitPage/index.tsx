@@ -356,6 +356,7 @@ const RevisitPage: React.FC = () => {
         {/* 상세 패널 */}
         {selected && (
           <div className="revisit-page__detail">
+            <button className="revisit-page__detail-close" onClick={() => setSelectedId(null)}>&times;</button>
             <div className="revisit-page__detail-header">
               <h3>{selected.patient_name || '(이름 없음)'}</h3>
               <span className="revisit-page__badge" style={{ background: RISK_COLORS[selected.risk_level] }}>

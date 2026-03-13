@@ -79,14 +79,14 @@
 
 /* 본문: 목록 + 상세 */
 .revisit-page__body {
-  display: flex;
-  gap: 16px;
+  position: relative;
   flex: 1;
   overflow: hidden;
 }
 
 .revisit-page__list {
-  flex: 1;
+  width: 100%;
+  height: 100%;
   overflow-y: auto;
   background: $white;
   border-radius: $border-radius-lg;
@@ -159,15 +159,39 @@
   margin-left: 8px;
 }
 
-/* 상세 패널 */
+/* 상세 패널 — 오버레이 */
 .revisit-page__detail {
-  width: 380px;
-  flex-shrink: 0;
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 480px;
+  height: 100%;
   overflow-y: auto;
   background: $white;
   border-radius: $border-radius-lg;
-  box-shadow: $shadow-sm;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
   padding: 20px;
+  z-index: 10;
+}
+
+.revisit-page__detail-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: $gray-100;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+  color: $gray-600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  &:hover { background: $gray-200; color: $gray-900; }
 }
 
 .revisit-page__detail-header {
@@ -389,7 +413,6 @@
 /* 반응형 */
 @media (max-width: $bp-tablet-max) {
   .revisit-page__kpi { grid-template-columns: repeat(2, 1fr); }
-  .revisit-page__body { flex-direction: column; }
   .revisit-page__detail { width: 100%; }
 }
 
