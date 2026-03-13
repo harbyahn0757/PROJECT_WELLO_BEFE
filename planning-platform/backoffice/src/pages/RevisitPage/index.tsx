@@ -170,31 +170,7 @@ const RevisitPage: React.FC = () => {
     }
   }, [selectedId, chatMessages.length, fetchChatMessages]);
 
-  // 키보드 방향키 네비게이션
   const tableRef = useRef<HTMLTableElement>(null);
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
-      if (!filtered.length) return;
-      // 입력 필드에 포커스 시 무시
-      const tag = (e.target as HTMLElement).tagName;
-      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
-      e.preventDefault();
-      const curIdx = selectedId ? filtered.findIndex(c => c.session_id === selectedId) : -1;
-      let nextIdx: number;
-      if (e.key === 'ArrowDown') {
-        nextIdx = curIdx < filtered.length - 1 ? curIdx + 1 : 0;
-      } else {
-        nextIdx = curIdx > 0 ? curIdx - 1 : filtered.length - 1;
-      }
-      setSelectedId(filtered[nextIdx].session_id);
-      // 선택된 행이 보이도록 스크롤
-      const row = tableRef.current?.querySelector(`tbody tr:nth-child(${nextIdx + 1})`) as HTMLElement | null;
-      row?.scrollIntoView({ block: 'nearest' });
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [filtered, selectedId]);
 
   const isHospitalMode = useMemo(() => candidates.some(c => c.partner_type === 'hospital'), [candidates]);
   const weeklyNew = useMemo(() => candidates.filter(c => c.days_since_chat <= 7).length, [candidates]);
@@ -220,6 +196,29 @@ const RevisitPage: React.FC = () => {
   }, [candidates, riskFilter, intentFilter, daysFilter, prospectFilter, search]);
 
   const selected = useMemo(() => filtered.find(c => c.session_id === selectedId), [filtered, selectedId]);
+
+  // 키보드 방향키 네비게이션
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      if (!filtered.length) return;
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      e.preventDefault();
+      const curIdx = selectedId ? filtered.findIndex(c => c.session_id === selectedId) : -1;
+      let nextIdx: number;
+      if (e.key === 'ArrowDown') {
+        nextIdx = curIdx < filtered.length - 1 ? curIdx + 1 : 0;
+      } else {
+        nextIdx = curIdx > 0 ? curIdx - 1 : filtered.length - 1;
+      }
+      setSelectedId(filtered[nextIdx].session_id);
+      const row = tableRef.current?.querySelector(`tbody tr:nth-child(${nextIdx + 1})`) as HTMLElement | null;
+      row?.scrollIntoView({ block: 'nearest' });
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [filtered, selectedId]);
 
   const handleCopy = async (key: string, text: string) => {
     await navigator.clipboard.writeText(text);
