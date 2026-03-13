@@ -101,7 +101,7 @@
 
   th {
     padding: 10px 12px;
-    text-align: left;
+    text-align: center;
     font-weight: 600;
     color: $gray-700;
     background: $gray-50;
@@ -109,13 +109,26 @@
     position: sticky;
     top: 0;
     z-index: 1;
+    white-space: nowrap;
+
+    &.is-sortable {
+      cursor: pointer;
+      user-select: none;
+      &:hover { color: $brand-brown; }
+    }
   }
+
+  // 환자명/전화번호/병원명/관심사는 좌측 정렬
+  th:nth-child(-n+4) { text-align: left; }
 
   td {
     padding: 10px 12px;
+    text-align: center;
     border-bottom: 1px solid $gray-200;
     color: $gray-800;
   }
+
+  td:nth-child(-n+4) { text-align: left; }
 
   tbody tr {
     cursor: pointer;

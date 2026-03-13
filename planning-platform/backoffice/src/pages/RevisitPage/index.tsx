@@ -114,6 +114,10 @@ const RevisitPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
   const [prospectFilter, setProspectFilter] = useState('');
+  type SortKey = 'risk_level' | 'prospect_type' | 'checkup_date' | 'days_since_chat' | 'score';
+  type SortDir = 'asc' | 'desc';
+  const [sortKey, setSortKey] = useState<SortKey | ''>('');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [detailTab, setDetailTab] = useState<DetailTab>('suggest');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [sessionTags, setSessionTags] = useState<SessionTags | null>(null);
@@ -175,6 +179,11 @@ const RevisitPage: React.FC = () => {
   const isHospitalMode = useMemo(() => candidates.some(c => c.partner_type === 'hospital'), [candidates]);
   const weeklyNew = useMemo(() => candidates.filter(c => c.days_since_chat <= 7).length, [candidates]);
 
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortKey(key); setSortDir('desc'); }
+  };
+
   const filtered = useMemo(() => {
     let list = candidates;
     if (riskFilter) list = list.filter(c => c.risk_level === riskFilter);
@@ -192,8 +201,34 @@ const RevisitPage: React.FC = () => {
         c.interest_tags.some(t => t.topic.toLowerCase().includes(q))
       );
     }
+    if (sortKey) {
+      const RISK_ORDER: Record<string, number> = { high: 3, medium: 2, low: 1 };
+      list = [...list].sort((a, b) => {
+        let va: number, vb: number;
+        switch (sortKey) {
+          case 'risk_level':
+            va = RISK_ORDER[a.risk_level] || 0; vb = RISK_ORDER[b.risk_level] || 0; break;
+          case 'prospect_type':
+            return sortDir === 'asc'
+              ? (a.prospect_type || '').localeCompare(b.prospect_type || '')
+              : (b.prospect_type || '').localeCompare(a.prospect_type || '');
+          case 'checkup_date':
+            return sortDir === 'asc'
+              ? (a.checkup_date || '').localeCompare(b.checkup_date || '')
+              : (b.checkup_date || '').localeCompare(a.checkup_date || '');
+          case 'days_since_chat':
+            va = a.days_since_chat; vb = b.days_since_chat; break;
+          case 'score':
+            va = isHospitalMode ? (a.hospital_prospect_score ?? 0) : a.engagement_score;
+            vb = isHospitalMode ? (b.hospital_prospect_score ?? 0) : b.engagement_score;
+            break;
+          default: return 0;
+        }
+        return sortDir === 'asc' ? va - vb : vb - va;
+      });
+    }
     return list;
-  }, [candidates, riskFilter, intentFilter, daysFilter, prospectFilter, search]);
+  }, [candidates, riskFilter, intentFilter, daysFilter, prospectFilter, search, sortKey, sortDir, isHospitalMode]);
 
   const selected = useMemo(() => filtered.find(c => c.session_id === selectedId), [filtered, selectedId]);
 
@@ -317,17 +352,40 @@ const RevisitPage: React.FC = () => {
         {/* 후보 목록 */}
         <div className="revisit-page__list">
           <table className="revisit-page__table" ref={tableRef}>
+            <colgroup>
+              <col style={{width: 90}} />
+              <col style={{width: 110}} />
+              <col style={{width: 120}} />
+              <col />
+              <col style={{width: 70}} />
+              {isHospitalMode && <col style={{width: 90}} />}
+              <col style={{width: 90}} />
+              <col style={{width: 70}} />
+              <col style={{width: 80}} />
+            </colgroup>
             <thead>
               <tr>
                 <th>환자명</th>
                 <th>전화번호</th>
                 <th>병원명</th>
                 <th>관심사</th>
-                <th>위험도</th>
-                {isHospitalMode && <th>분류</th>}
-                <th>검진일</th>
-                <th>경과일</th>
-                {isHospitalMode ? <th>가망점수</th> : <th>참여도</th>}
+                <th className="is-sortable" onClick={() => handleSort('risk_level')}>
+                  위험도{sortKey === 'risk_level' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                {isHospitalMode && (
+                  <th className="is-sortable" onClick={() => handleSort('prospect_type')}>
+                    분류{sortKey === 'prospect_type' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                  </th>
+                )}
+                <th className="is-sortable" onClick={() => handleSort('checkup_date')}>
+                  검진일{sortKey === 'checkup_date' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th className="is-sortable" onClick={() => handleSort('days_since_chat')}>
+                  경과일{sortKey === 'days_since_chat' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
+                <th className="is-sortable" onClick={() => handleSort('score')}>
+                  {isHospitalMode ? '가망점수' : '참여도'}{sortKey === 'score' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+                </th>
               </tr>
             </thead>
             <tbody>
