@@ -20,6 +20,8 @@ interface Candidate {
   session_id: string;
   patient_name: string;
   hospital_name: string;
+  user_phone?: string | null;
+  checkup_date?: string | null;
   interest_tags: Array<{ topic: string; intensity: string }>;
   risk_level: string;
   action_intent: string;
@@ -40,6 +42,12 @@ interface Candidate {
   prospect_type?: string;
   hospital_prospect_score?: number;
   partner_type?: string;
+  // Phase H 통합 필드
+  conversation_intent?: string;
+  health_concerns?: string[];
+  engagement_level?: string;
+  confidence?: string;
+  recommended_action?: string;
 }
 
 const RISK_COLORS: Record<string, string> = { high: '#dc2626', medium: '#d97706', low: '#059669' };
@@ -77,7 +85,7 @@ interface SessionTags {
   tagging_model: string | null;
 }
 
-type DetailTab = 'suggest' | 'chat';
+type DetailTab = 'suggest' | 'chat' | 'tags';
 
 const RevisitPage: React.FC = () => {
   const { isEmbedMode, embedParams } = useEmbedParams();
@@ -146,7 +154,7 @@ const RevisitPage: React.FC = () => {
 
   const handleTabChange = useCallback((tab: DetailTab) => {
     setDetailTab(tab);
-    if (tab === 'chat' && selectedId && chatMessages.length === 0) {
+    if ((tab === 'chat' || tab === 'tags') && selectedId && chatMessages.length === 0) {
       fetchChatMessages(selectedId);
     }
   }, [selectedId, chatMessages.length, fetchChatMessages]);
@@ -185,9 +193,11 @@ const RevisitPage: React.FC = () => {
   const handleExcel = () => {
     const data = filtered.map(c => ({
       '환자명': c.patient_name || '-',
+      '전화번호': c.user_phone || '-',
       '병원명': c.hospital_name || '-',
       '관심사': c.interest_tags.map(t => t.topic).join(', '),
       '위험도': RISK_LABELS[c.risk_level] || c.risk_level,
+      '검진일': c.checkup_date || '-',
       '경과일': c.days_since_chat,
       '참여도': c.engagement_score,
       '의도': INTENT_LABELS[c.action_intent] || c.action_intent,
@@ -274,10 +284,12 @@ const RevisitPage: React.FC = () => {
             <thead>
               <tr>
                 <th>환자명</th>
+                <th>전화번호</th>
                 <th>병원명</th>
                 <th>관심사</th>
                 <th>위험도</th>
                 {isHospitalMode && <th>분류</th>}
+                <th>검진일</th>
                 <th>경과일</th>
                 {isHospitalMode ? <th>가망점수</th> : <th>참여도</th>}
               </tr>
@@ -290,6 +302,7 @@ const RevisitPage: React.FC = () => {
                   onClick={() => setSelectedId(c.session_id)}
                 >
                   <td>{c.patient_name || '-'}</td>
+                  <td>{c.user_phone || '-'}</td>
                   <td>{c.hospital_name || '-'}</td>
                   <td>
                     {(isHospitalMode && c.medical_tags?.length ? c.medical_tags : c.interest_tags.map(t => t.topic))
@@ -313,6 +326,7 @@ const RevisitPage: React.FC = () => {
                       )}
                     </td>
                   )}
+                  <td>{c.checkup_date || '-'}</td>
                   <td>
                     <span style={{ color: daysColor(c.days_since_chat), fontWeight: 600 }}>
                       {c.days_since_chat}일
@@ -322,7 +336,7 @@ const RevisitPage: React.FC = () => {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={isHospitalMode ? 7 : 6} className="revisit-page__empty">재방문 후보가 없습니다.</td></tr>
+                <tr><td colSpan={isHospitalMode ? 9 : 8} className="revisit-page__empty">재방문 후보가 없습니다.</td></tr>
               )}
             </tbody>
           </table>
@@ -339,6 +353,9 @@ const RevisitPage: React.FC = () => {
               <span className="revisit-page__days-badge" style={{ color: daysColor(selected.days_since_chat) }}>
                 {daysLabel(selected.days_since_chat)}
               </span>
+              {selected.checkup_date && (
+                <span className="revisit-page__checkup-date">검진일: {selected.checkup_date}</span>
+              )}
             </div>
 
             {/* 탭 헤더 */}
@@ -351,6 +368,10 @@ const RevisitPage: React.FC = () => {
                 className={`revisit-page__tab${detailTab === 'chat' ? ' revisit-page__tab--active' : ''}`}
                 onClick={() => handleTabChange('chat')}
               >상담 내역</button>
+              <button
+                className={`revisit-page__tab${detailTab === 'tags' ? ' revisit-page__tab--active' : ''}`}
+                onClick={() => handleTabChange('tags')}
+              >태그/분석</button>
             </div>
 
             {detailTab === 'suggest' && (
@@ -528,6 +549,120 @@ const RevisitPage: React.FC = () => {
                         <div className="revisit-page__meta">
                           모델: {sessionTags.tagging_model || '-'}
                         </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {detailTab === 'tags' && (
+              <div className="revisit-page__tags-tab">
+                {chatLoading ? (
+                  <Spinner />
+                ) : (
+                  <>
+                    {selected.conversation_summary && (
+                      <div className="revisit-page__tags-summary">
+                        <h4>대화 요약</h4>
+                        <p>{selected.conversation_summary}</p>
+                      </div>
+                    )}
+                    <div className="revisit-page__tags-grid">
+                      <div className="revisit-page__tags-item revisit-page__tags-item--wide">
+                        <h4>환자 관심사</h4>
+                        {selected.interest_tags.length > 0 ? (
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            {selected.interest_tags.map((t, i) => (
+                              <span key={i} className={`revisit-page__tag revisit-page__tag--${t.intensity || 'medium'}`}>{t.topic}</span>
+                            ))}
+                          </div>
+                        ) : <span style={{ color: '#9ca3af' }}>-</span>}
+                      </div>
+                      <div className="revisit-page__tags-item">
+                        <h4>위험도</h4>
+                        <span className="revisit-page__badge" style={{ background: RISK_COLORS[selected.risk_level] }}>
+                          {RISK_LABELS[selected.risk_level] || selected.risk_level}
+                        </span>
+                      </div>
+                      {sessionTags?.sentiment && (
+                        <div className="revisit-page__tags-item">
+                          <h4>감정 분석</h4>
+                          <span className="revisit-page__badge" style={{ background: '#6b7280' }}>
+                            {({ positive: '긍정', negative: '부정', neutral: '중립', confused: '혼란', worried: '걱정', grateful: '감사' } as Record<string, string>)[sessionTags.sentiment] || sessionTags.sentiment}
+                          </span>
+                        </div>
+                      )}
+                      <div className="revisit-page__tags-item">
+                        <h4>참여도</h4>
+                        <div className="revisit-page__gauge">
+                          <div className="revisit-page__gauge-bar">
+                            <div className="revisit-page__gauge-fill" style={{ width: `${selected.engagement_score ?? 0}%` }} />
+                          </div>
+                          <span className="revisit-page__gauge-value">{selected.engagement_score ?? 0}점</span>
+                        </div>
+                      </div>
+                      <div className="revisit-page__tags-item">
+                        <h4>행동 의향</h4>
+                        <span className="revisit-page__badge" style={{ background: selected.action_intent === 'active' ? '#059669' : selected.action_intent === 'considering' ? '#d97706' : '#6b7280' }}>
+                          {INTENT_LABELS[selected.action_intent] || selected.action_intent}
+                        </span>
+                      </div>
+                      <div className="revisit-page__tags-item">
+                        <h4>후속 조치</h4>
+                        <span className="revisit-page__badge" style={{ background: selected.follow_up_needed ? '#dc2626' : '#059669' }}>
+                          {selected.follow_up_needed ? '필요' : '불필요'}
+                        </span>
+                      </div>
+                      {sessionTags?.nutrition_tags && sessionTags.nutrition_tags.length > 0 && (
+                        <div className="revisit-page__tags-item revisit-page__tags-item--wide">
+                          <h4>식단/영양 관심</h4>
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            {sessionTags.nutrition_tags.map((t, i) => (
+                              <span key={i} className="revisit-page__tag">{t}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {sessionTags?.commercial_tags && sessionTags.commercial_tags.length > 0 && (
+                        <div className="revisit-page__tags-item revisit-page__tags-item--wide">
+                          <h4>상업 태그</h4>
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                            {sessionTags.commercial_tags.map((ct, i) => (
+                              <span key={i} className="revisit-page__tag revisit-page__tag--medium">
+                                {ct.category} {ct.product_hint && <small>({ct.product_hint})</small>}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {selected.key_concerns.length > 0 && (
+                        <div className="revisit-page__tags-item revisit-page__tags-item--wide">
+                          <h4>주요 우려사항</h4>
+                          <ul>{selected.key_concerns.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                        </div>
+                      )}
+                      {selected.counselor_recommendations.length > 0 && (
+                        <div className="revisit-page__tags-item revisit-page__tags-item--wide">
+                          <h4>상담사 핵심 조언</h4>
+                          <ul>{selected.counselor_recommendations.map((r, i) => <li key={i}>{r}</li>)}</ul>
+                        </div>
+                      )}
+                      {sessionTags && (
+                        <div className="revisit-page__tags-item">
+                          <h4>데이터 품질</h4>
+                          <div className="revisit-page__gauge">
+                            <div className="revisit-page__gauge-bar">
+                              <div className="revisit-page__gauge-fill revisit-page__gauge-fill--quality" style={{ width: `${sessionTags.data_quality_score ?? 0}%` }} />
+                            </div>
+                            <span className="revisit-page__gauge-value">{sessionTags.data_quality_score ?? 0}점</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {sessionTags && (
+                      <div className="revisit-page__meta">
+                        모델: {sessionTags.tagging_model || '-'}
                       </div>
                     )}
                   </>

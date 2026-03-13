@@ -1311,6 +1311,7 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
         f"""SELECT
                 t.session_id,
                 c.client_info,
+                c.initial_data,
                 t.interest_tags,
                 t.risk_level,
                 t.action_intent,
@@ -1353,6 +1354,17 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
                 ci = _json.loads(ci)
             except Exception:
                 ci = {}
+        # initial_data에서 전화번호/검진일 추출
+        _id = r.get("initial_data") or {}
+        if isinstance(_id, str):
+            try:
+                _id = _json.loads(_id)
+            except Exception:
+                _id = {}
+        _pi = _id.get("patient_info") or {} if isinstance(_id, dict) else {}
+        _hm = _id.get("health_metrics") or {} if isinstance(_id, dict) else {}
+        user_phone = _pi.get("contact") or ci.get("patient_contact", "")
+        checkup_date = _hm.get("checkup_date", "")
         it = r.get("interest_tags") or []
         if isinstance(it, str):
             try:
@@ -1421,6 +1433,8 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
             "session_id": r["session_id"],
             "patient_name": ci.get("patient_name") or ci.get("name", ""),
             "hospital_name": ci.get("hospital_name", ""),
+            "user_phone": user_phone,
+            "checkup_date": checkup_date,
             "interest_tags": it,
             "risk_level": r.get("risk_level"),
             "action_intent": r.get("action_intent"),

@@ -393,6 +393,74 @@
   .revisit-page__detail { width: 100%; }
 }
 
+/* 검진일 라벨 */
+.revisit-page__checkup-date {
+  font-size: $font-xs;
+  color: $gray-600;
+  margin-left: 8px;
+}
+
+/* 태그/분석 탭 */
+.revisit-page__tags-tab {
+  padding: 4px 0;
+}
+
+.revisit-page__tags-summary {
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  background: rgba($brand-brown, 0.06);
+  border-radius: 8px;
+  border-left: 3px solid $brand-brown;
+
+  h4 {
+    margin: 0 0 6px;
+    font-size: 0.8125rem;
+    color: $gray-700;
+  }
+
+  p {
+    margin: 0;
+    font-size: $font-sm;
+    color: $gray-800;
+    line-height: 1.5;
+  }
+}
+
+.revisit-page__tags-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.revisit-page__tags-item {
+  padding: 12px;
+  background: $gray-50;
+  border-radius: 8px;
+  border: 1px solid $gray-200;
+
+  h4 {
+    margin: 0 0 8px;
+    font-size: $font-xs;
+    font-weight: 600;
+    color: $gray-600;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 16px;
+    li { font-size: $font-sm; color: $gray-800; line-height: 1.6; }
+  }
+
+  &--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: $bp-tablet-max) {
+  .revisit-page__tags-grid { grid-template-columns: 1fr; }
+}
+
 @media (max-width: $bp-mobile-max) {
   .revisit-page { padding: 12px; }
   .revisit-page__kpi { grid-template-columns: 1fr 1fr; gap: 8px; }
