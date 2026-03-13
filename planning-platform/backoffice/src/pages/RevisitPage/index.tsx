@@ -2,7 +2,7 @@
  * 백오피스 — 재환가망고객 관리 페이지
  * CRM 선진사례 기반: 시간 세분화, 위험도 우선순위, 3종 메시지
  */
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useEmbedParams } from '../../hooks/useEmbedParams';
 import { getApiBase, fetchWithAuth } from '../../utils/api';
 import { downloadWorkbook, dateSuffix } from '../../utils/excelExport';
@@ -170,6 +170,32 @@ const RevisitPage: React.FC = () => {
     }
   }, [selectedId, chatMessages.length, fetchChatMessages]);
 
+  // 키보드 방향키 네비게이션
+  const tableRef = useRef<HTMLTableElement>(null);
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      if (!filtered.length) return;
+      // 입력 필드에 포커스 시 무시
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      e.preventDefault();
+      const curIdx = selectedId ? filtered.findIndex(c => c.session_id === selectedId) : -1;
+      let nextIdx: number;
+      if (e.key === 'ArrowDown') {
+        nextIdx = curIdx < filtered.length - 1 ? curIdx + 1 : 0;
+      } else {
+        nextIdx = curIdx > 0 ? curIdx - 1 : filtered.length - 1;
+      }
+      setSelectedId(filtered[nextIdx].session_id);
+      // 선택된 행이 보이도록 스크롤
+      const row = tableRef.current?.querySelector(`tbody tr:nth-child(${nextIdx + 1})`) as HTMLElement | null;
+      row?.scrollIntoView({ block: 'nearest' });
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [filtered, selectedId]);
+
   const isHospitalMode = useMemo(() => candidates.some(c => c.partner_type === 'hospital'), [candidates]);
   const weeklyNew = useMemo(() => candidates.filter(c => c.days_since_chat <= 7).length, [candidates]);
 
@@ -291,7 +317,7 @@ const RevisitPage: React.FC = () => {
       <div className="revisit-page__body">
         {/* 후보 목록 */}
         <div className="revisit-page__list">
-          <table className="revisit-page__table">
+          <table className="revisit-page__table" ref={tableRef}>
             <thead>
               <tr>
                 <th>환자명</th>
