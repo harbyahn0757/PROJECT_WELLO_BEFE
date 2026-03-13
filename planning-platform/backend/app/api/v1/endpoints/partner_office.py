@@ -1435,6 +1435,7 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
             "hospital_name": ci.get("hospital_name", ""),
             "user_phone": user_phone,
             "checkup_date": checkup_date,
+            "health_metrics": _hm if _hm else None,
             "interest_tags": it,
             "risk_level": r.get("risk_level"),
             "action_intent": r.get("action_intent"),

@@ -400,6 +400,77 @@
   margin-left: 8px;
 }
 
+/* 검진결과 탭 */
+.revisit-page__health-tab {
+  overflow-y: auto;
+}
+
+.revisit-page__health-header {
+  display: flex;
+  gap: 16px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: rgba($brand-brown, 0.06);
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  color: $gray-700;
+
+  span:not(:first-child)::before {
+    content: '|';
+    margin-right: 16px;
+    color: $gray-300;
+  }
+}
+
+.revisit-page__health-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+
+  th {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 2px solid $gray-200;
+    color: $gray-600;
+    font-weight: 600;
+    font-size: $font-xs;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 6px 10px;
+    border-bottom: 1px solid $gray-100;
+  }
+
+  tr:hover td { background: $gray-50; }
+
+  tr.is-abnormal td { background: rgba(#d32f2f, 0.04); }
+
+  .td-label {
+    font-weight: 600;
+    color: $gray-700;
+    white-space: nowrap;
+    width: 120px;
+  }
+
+  .td-value {
+    color: $gray-900;
+    font-weight: 500;
+    font-family: monospace;
+  }
+
+  .td-status {
+    font-size: $font-xs;
+    color: #52c41a;
+    &--warn { color: #d32f2f; font-weight: 600; }
+  }
+
+  .td-range {
+    font-size: $font-xs;
+    color: $gray-500;
+  }
+}
+
 /* 태그/분석 탭 */
 .revisit-page__tags-tab {
   padding: 4px 0;

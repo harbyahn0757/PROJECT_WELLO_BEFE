@@ -22,6 +22,7 @@ interface Candidate {
   hospital_name: string;
   user_phone?: string | null;
   checkup_date?: string | null;
+  health_metrics?: Record<string, any> | null;
   interest_tags: Array<{ topic: string; intensity: string }>;
   risk_level: string;
   action_intent: string;
@@ -85,7 +86,17 @@ interface SessionTags {
   tagging_model: string | null;
 }
 
-type DetailTab = 'suggest' | 'chat' | 'tags';
+type DetailTab = 'suggest' | 'chat' | 'health' | 'tags';
+
+const HEALTH_METRIC_LABELS: Record<string, string> = {
+  height: '신장(cm)', weight: '체중(kg)', bmi: 'BMI',
+  waist: '허리둘레(cm)', bp_systolic: '수축기혈압', bp_diastolic: '이완기혈압',
+  fasting_glucose: '공복혈당', total_cholesterol: '총콜레스테롤',
+  hdl_cholesterol: 'HDL', ldl_cholesterol: 'LDL', triglyceride: '중성지방',
+  hemoglobin: '혈색소', ast: 'AST(GOT)', alt: 'ALT(GPT)', ggt: 'γ-GTP',
+  creatinine: '크레아티닌', gfr: '사구체여과율(GFR)',
+  checkup_date: '검진일', checkup_place: '검진기관',
+};
 
 const RevisitPage: React.FC = () => {
   const { isEmbedMode, embedParams } = useEmbedParams();
@@ -369,6 +380,10 @@ const RevisitPage: React.FC = () => {
                 onClick={() => handleTabChange('chat')}
               >상담 내역</button>
               <button
+                className={`revisit-page__tab${detailTab === 'health' ? ' revisit-page__tab--active' : ''}`}
+                onClick={() => handleTabChange('health')}
+              >검진결과</button>
+              <button
                 className={`revisit-page__tab${detailTab === 'tags' ? ' revisit-page__tab--active' : ''}`}
                 onClick={() => handleTabChange('tags')}
               >태그/분석</button>
@@ -553,6 +568,46 @@ const RevisitPage: React.FC = () => {
                     )}
                   </>
                 )}
+              </div>
+            )}
+
+            {detailTab === 'health' && (
+              <div className="revisit-page__health-tab">
+                {(() => {
+                  const metrics = selected.health_metrics;
+                  if (!metrics || Object.keys(metrics).length === 0) {
+                    return <div className="revisit-page__empty">검진 데이터가 없습니다.</div>;
+                  }
+                  const entries = Object.entries(metrics).filter(([k]) => !k.endsWith('_abnormal') && !k.endsWith('_range'));
+                  return (
+                    <>
+                      <div className="revisit-page__health-header">
+                        {metrics.checkup_date && <span>검진일: {metrics.checkup_date}</span>}
+                        {metrics.checkup_place && <span>검진기관: {metrics.checkup_place}</span>}
+                      </div>
+                      <table className="revisit-page__health-table">
+                        <thead>
+                          <tr><th>항목</th><th>수치</th><th>판정</th><th>참고범위</th></tr>
+                        </thead>
+                        <tbody>
+                          {entries.map(([key, val]) => {
+                            const abnormal = metrics[`${key}_abnormal`];
+                            const range = metrics[`${key}_range`];
+                            const isAbnormal = abnormal && abnormal !== '정상' && abnormal !== '';
+                            return (
+                              <tr key={key} className={isAbnormal ? 'is-abnormal' : ''}>
+                                <td className="td-label">{HEALTH_METRIC_LABELS[key] || key}</td>
+                                <td className="td-value">{val || '-'}</td>
+                                <td className={`td-status ${isAbnormal ? 'td-status--warn' : ''}`}>{abnormal || '-'}</td>
+                                <td className="td-range">{range || '-'}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </>
+                  );
+                })()}
               </div>
             )}
 
