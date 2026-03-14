@@ -365,10 +365,10 @@ const RevisitPage: React.FC = () => {
               <col style={{width: 90}} />
               <col style={{width: 110}} />
               <col style={{width: 120}} />
-              <col />
+              <col style={{width: 140}} />
               <col style={{width: 70}} />
               {isHospitalMode && <col style={{width: 90}} />}
-              <col style={{width: 90}} />
+              <col style={{width: 110}} />
               <col style={{width: 70}} />
               <col style={{width: 80}} />
             </colgroup>
