@@ -362,15 +362,15 @@ const RevisitPage: React.FC = () => {
         <div className="revisit-page__list">
           <table className="revisit-page__table" ref={tableRef}>
             <colgroup>
-              <col style={{width: 80}} />
-              <col style={{width: 95}} />
-              <col style={{width: 100}} />
-              <col />
-              <col style={{width: 70}} />
-              {isHospitalMode && <col style={{width: 75}} />}
+              <col style={{width: 60}} />
               <col style={{width: 110}} />
-              <col style={{width: 70}} />
-              <col style={{width: 80}} />
+              <col style={{width: 130}} />
+              <col />
+              <col style={{width: 65}} />
+              {isHospitalMode && <col style={{width: 75}} />}
+              <col style={{width: 95}} />
+              <col style={{width: 55}} />
+              <col style={{width: 65}} />
             </colgroup>
             <thead>
               <tr>
