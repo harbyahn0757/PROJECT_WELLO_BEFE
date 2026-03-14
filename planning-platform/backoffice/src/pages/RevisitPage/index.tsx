@@ -3,7 +3,6 @@
  * CRM 선진사례 기반: 시간 세분화, 위험도 우선순위, 3종 메시지
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useEmbedParams } from '../../hooks/useEmbedParams';
 import { getApiBase, fetchWithAuth } from '../../utils/api';
 import { downloadWorkbook, dateSuffix } from '../../utils/excelExport';
@@ -101,8 +100,8 @@ const HEALTH_METRIC_LABELS: Record<string, string> = {
 
 const RevisitPage: React.FC = () => {
   const { isEmbedMode, embedParams } = useEmbedParams();
-  const navigate = useNavigate();
   const API = getApiBase();
+  const [showEmbedding, setShowEmbedding] = useState(false);
 
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -292,7 +291,7 @@ const RevisitPage: React.FC = () => {
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button
             className="btn-excel"
-            onClick={() => navigate(`/backoffice/embedding${window.location.search}`)}
+            onClick={() => setShowEmbedding(true)}
           >
             상담 이력관리
           </button>
@@ -819,6 +818,22 @@ const RevisitPage: React.FC = () => {
                 )}
             </div>
           )}
+        </div>
+      )}
+
+      {showEmbedding && (
+        <div className="revisit-page__modal-overlay" onClick={() => setShowEmbedding(false)}>
+          <div className="revisit-page__modal" onClick={e => e.stopPropagation()}>
+            <div className="revisit-page__modal-header">
+              <h3>상담 이력관리</h3>
+              <button className="revisit-page__detail-close" onClick={() => setShowEmbedding(false)}>&times;</button>
+            </div>
+            <iframe
+              src={`/backoffice/embedding${window.location.search}`}
+              className="revisit-page__modal-iframe"
+              title="상담 이력관리"
+            />
+          </div>
         </div>
       )}
     </div>
