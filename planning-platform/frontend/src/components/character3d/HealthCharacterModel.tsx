@@ -368,7 +368,11 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
         if (idx.eyeBlinkRight != null) morphMesh.current.morphTargetInfluences![idx.eyeBlinkRight] = blinkVal
       }
       const it = t - PAUSE  // 인사 타임라인 (PAUSE 이후)
-      if (it < 0) { return }  // 대기 중
+      if (it < 0) {
+        // 대기 중에도 그룹 위치 설정
+        if (grp) { grp.position.y = 0.05; grp.position.z = 0 }
+        return
+      }
       if (it < 1.2) {
         const p = smoothStep(Math.min(it / 1.2, 1))
         if (head) head.rotation.x = p * 0.32
