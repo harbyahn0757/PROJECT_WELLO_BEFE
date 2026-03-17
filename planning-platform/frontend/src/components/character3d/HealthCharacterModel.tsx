@@ -1202,9 +1202,10 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
         mesh.visible = true
         mesh.position.x = m.x || 0
         mesh.position.y = m.y
-        // 정상=초록(#4CAF50), 비정상=노랑(#FFB300)
+        // 정상=초록, 비정상=노랑, 판정없음=베이지
         const mat = mesh.material as THREE.MeshBasicMaterial
-        mat.color.set(m.status === 'normal' ? 0x4CAF50 : 0xFFB300)
+        const colorMap = { normal: 0x4CAF50, warning: 0xFFB300, unknown: 0xD4C5A9 }
+        mat.color.set(colorMap[m.status as keyof typeof colorMap] || 0xD4C5A9)
         mat.opacity = baseOp
         const sc = 0.035 + Math.sin(it * 2.0 + i * 0.5) * 0.005
         mesh.scale.setScalar(sc / 0.035)

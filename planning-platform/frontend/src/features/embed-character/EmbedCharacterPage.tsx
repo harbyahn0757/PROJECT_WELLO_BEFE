@@ -92,7 +92,7 @@ export default function EmbedCharacterPage() {
       {showCards && zoneMetrics.map((m, i) => {
         const top = yToPercent(m.y)
         const onLeft = isLeft(m.x)
-        const borderColor = m.status === 'normal' ? '#4CAF50' : '#FFB300'
+        const borderColor = m.status === 'normal' ? '#4CAF50' : m.status === 'warning' ? '#FFB300' : '#D4C5A9'
         return (
           <div key={i} className="embed-character__card" style={{
             position: 'absolute',
@@ -120,7 +120,7 @@ export default function EmbedCharacterPage() {
               <div key={j} style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: j < m.items.length - 1 ? '2px' : 0 }}>
                 <span style={{ color: '#999', fontSize: '9px', fontWeight: 500, minWidth: '24px' }}>{item.label}</span>
                 <span style={{
-                  color: item.status === 'normal' ? '#333' : '#E65100',
+                  color: item.status === 'warning' ? '#E65100' : '#333',
                   fontSize: '13px', fontWeight: 700, fontVariantNumeric: 'tabular-nums'
                 }}>{item.value}</span>
               </div>
