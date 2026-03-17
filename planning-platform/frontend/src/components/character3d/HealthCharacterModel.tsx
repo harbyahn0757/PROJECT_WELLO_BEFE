@@ -29,11 +29,17 @@ export interface ZoneMetric {
   y: number        // 3D Y 좌표
 }
 
+export interface CameraTarget {
+  x: number; y: number; z: number
+  lookY: number  // lookAt y좌표
+}
+
 interface CharacterModelProps {
   onIntroComplete?: () => void
   healthState?: HealthCharacterState
   zoneMetrics?: ZoneMetric[]
   onZoneClick?: (metric: ZoneMetric) => void
+  cameraTarget?: CameraTarget
 }
 
 type BodyZone = 'head' | 'face' | 'body' | 'side' | 'lower'
@@ -131,7 +137,7 @@ function getMoodExpression(mood?: CharacterMood): Record<string, number> {
 }
 
 // ===== COMPONENT =====
-export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics, onZoneClick }: CharacterModelProps) {
+export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics, onZoneClick, cameraTarget }: CharacterModelProps) {
   const group = useRef<THREE.Group>(null)
   const { scene } = useGLTF('/models/kindhabit_character.glb')
   const characterScene = useMemo(() => scene, [scene])
@@ -1250,16 +1256,14 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       }
     }
 
-    // 스캔 후 카메라 전환: 정면 → 약간 아래에서 올려보는 앵글 (2초)
-    if (cameraTransition.current) {
+    // 스캔 후 카메라 전환 (cameraTarget prop으로 제어)
+    if (cameraTransition.current && cameraTarget) {
       cameraTransTimer.current += dt
       const ct = Math.min(cameraTransTimer.current / 2.0, 1)
-      const ease = smoothStep(ct)
-      // 목표: x=0.3 (약간 오른쪽), y=-0.1 (아래에서), z=2.6 (가까이)
-      camera.position.x = damp(camera.position.x, 0.3, 2, dt)
-      camera.position.y = damp(camera.position.y, -0.1, 2, dt)
-      camera.position.z = damp(camera.position.z, 2.6, 2, dt)
-      camera.lookAt(0, 0.15, 0) // 배꼽 쯤 바라봄
+      camera.position.x = damp(camera.position.x, cameraTarget.x, 2, dt)
+      camera.position.y = damp(camera.position.y, cameraTarget.y, 2, dt)
+      camera.position.z = damp(camera.position.z, cameraTarget.z, 2, dt)
+      camera.lookAt(0, cameraTarget.lookY, 0)
       if (ct >= 1) cameraTransition.current = false
     }
 

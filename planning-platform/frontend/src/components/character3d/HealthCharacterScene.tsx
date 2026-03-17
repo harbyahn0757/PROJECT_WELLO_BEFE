@@ -3,6 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber'
 import { CameraControls } from '@react-three/drei'
 import * as THREE from 'three'
 import { HealthCharacterModel, HealthCharacterState, ZoneMetric } from './HealthCharacterModel'
+import type { CameraTarget } from './HealthCharacterModel'
 
 interface CharacterSceneProps {
   width?: string
@@ -13,6 +14,7 @@ interface CharacterSceneProps {
   healthState?: HealthCharacterState
   zoneMetrics?: ZoneMetric[]
   enableRotation?: boolean
+  cameraTarget?: CameraTarget
 }
 
 /** Lights that follow camera — consistent lighting from top-right regardless of rotation */
@@ -68,6 +70,7 @@ export default function HealthCharacterScene({
   healthState,
   zoneMetrics,
   enableRotation = true,
+  cameraTarget,
 }: CharacterSceneProps) {
   return (
     <div style={{ width, height, touchAction: 'none' }}>
@@ -92,6 +95,7 @@ export default function HealthCharacterScene({
             healthState={healthState}
             zoneMetrics={zoneMetrics}
             onZoneClick={onZoneClick}
+            cameraTarget={cameraTarget}
           />
 
           {enableRotation && (

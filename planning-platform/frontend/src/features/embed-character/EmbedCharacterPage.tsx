@@ -76,6 +76,13 @@ export default function EmbedCharacterPage() {
     }
   }, [partnerData, healthState, zoneMetrics.length])
 
+  // 카메라 전환 목표값 — URL param ?cam=x,y,z,lookY 또는 기본값
+  const camTarget = (() => {
+    const p = new URLSearchParams(window.location.search).get('cam')
+    if (p) { const [x, y, z, ly] = p.split(',').map(Number); return { x, y, z, lookY: ly } }
+    return { x: 0.3, y: -0.1, z: 2.6, lookY: 0.15 }
+  })()
+
   // 터치 모달: 인디케이터 터치 시 해당 zone 모달 표시
   const [selectedZone, setSelectedZone] = useState<number | null>(null)
   const [readyForTouch, setReadyForTouch] = useState(false)
@@ -103,6 +110,7 @@ export default function EmbedCharacterPage() {
           healthState={healthState}
           zoneMetrics={zoneMetrics}
           enableRotation={true}
+          cameraTarget={camTarget}
           onZoneClick={readyForTouch ? (metric) => {
             const idx = zoneMetrics.findIndex(m => m.zone === metric.zone && m.y === metric.y)
             setSelectedZone(prev => prev === idx ? null : idx)
