@@ -76,11 +76,11 @@ export default function EmbedCharacterPage() {
     }
   }, [partnerData, healthState, zoneMetrics.length])
 
-  // 카메라 전환 목표값 — URL param ?cam=x,y,z,lookY 또는 기본값
+  // 카메라 전환 목표값 — URL param ?cam=x,y,z,lookY 있을 때만 전환
   const camTarget = (() => {
     const p = new URLSearchParams(window.location.search).get('cam')
     if (p) { const [x, y, z, ly] = p.split(',').map(Number); return { x, y, z, lookY: ly } }
-    return { x: 0, y: 0.3, z: 3.0, lookY: 0.2 }
+    return undefined  // cam 없으면 전환 안 함
   })()
 
   // 터치 모달: 인디케이터 터치 시 해당 zone 모달 표시
