@@ -22,18 +22,23 @@ export default function EmbedCharacterPage() {
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
       if (event.data?.type === 'WELNO_CHARACTER_DATA') {
+        console.log('[CharacterEmbed] postMessage received:', JSON.stringify(event.data.partnerData).slice(0, 200))
         setPartnerData(event.data.partnerData)
       }
     }
     window.addEventListener('message', handleMessage)
 
-    // Also check URL search params as fallback
+    // URL search params fallback (partnerData 또는 data 파라미터)
     const params = new URLSearchParams(window.location.search)
-    const dataParam = params.get('data')
+    const dataParam = params.get('partnerData') || params.get('data')
     if (dataParam) {
       try {
-        setPartnerData(JSON.parse(decodeURIComponent(dataParam)))
-      } catch { /* ignore */ }
+        const parsed = JSON.parse(decodeURIComponent(dataParam))
+        console.log('[CharacterEmbed] URL param data:', JSON.stringify(parsed).slice(0, 200))
+        setPartnerData(parsed)
+      } catch (e) {
+        console.warn('[CharacterEmbed] URL param parse failed:', e)
+      }
     }
 
     // Notify parent that iframe is ready
@@ -44,6 +49,12 @@ export default function EmbedCharacterPage() {
 
   const healthState = partnerData ? mapCheckupToHealthState(partnerData) : undefined
   const metrics = getMetricSummary(partnerData?.checkup_results)
+
+  useEffect(() => {
+    console.log('[CharacterEmbed] partnerData:', partnerData ? 'yes' : 'null')
+    console.log('[CharacterEmbed] healthState:', healthState ? `mood=${healthState.mood}, score=${healthState.overallScore}, alerts=${healthState.alertCount}` : 'null')
+    console.log('[CharacterEmbed] metrics:', metrics.length, 'items')
+  }, [partnerData, healthState, metrics.length])
 
   const handleCharacterClick = useCallback(() => {
     if (introComplete && metrics.length > 0) {

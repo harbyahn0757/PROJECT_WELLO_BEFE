@@ -40,8 +40,8 @@ class WelnoCharacterWidget {
 
       // 동작 설정
       autoOpen: config.autoOpen || false,
-      iframeWidth: config.iframeWidth || 380,
-      iframeHeight: config.iframeHeight || 500,
+      iframeWidth: config.iframeWidth || 320,
+      iframeHeight: config.iframeHeight || 420,
 
       // 콜백
       onOpen: config.onOpen || null,

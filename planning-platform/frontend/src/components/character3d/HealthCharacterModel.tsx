@@ -355,6 +355,12 @@ export function HealthCharacterModel({ onIntroComplete, healthState, onCharacter
       return
     }
 
+    // === HEALTH SCAN TRIGGER (after intro, when healthState arrives) ===
+    if (introComplete && !scanDone.current && healthState) {
+      scanTimer.current = 0
+      scanDone.current = true
+    }
+
     // === IRRITATION DECAY ===
     if (irritation.current > 0) {
       irritation.current = Math.max(0, irritation.current - IRRITATION_DECAY * dt)
