@@ -153,7 +153,8 @@
         var data = getFormData();
         var cx=document.getElementById('cam_x').value, cy=document.getElementById('cam_y').value;
         var cz=document.getElementById('cam_z').value, cly=document.getElementById('cam_ly').value;
-        var camParam = '&cam='+cx+','+cy+','+cz+','+cly;
+        var isDefault = cx==='0' && cy==='0.3' && cz==='3' && cly==='0.2';
+        var camParam = isDefault ? '' : '&cam='+cx+','+cy+','+cz+','+cly;
         var url = BASE+'/embed/character?partnerData='+encodeURIComponent(JSON.stringify(data))+camParam;
         var old = frame.querySelector('iframe');
         if(old) old.remove();
