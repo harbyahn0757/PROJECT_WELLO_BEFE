@@ -328,7 +328,7 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
   }, [introComplete, zoneMetrics, onZoneClick])
 
   // ===== MAIN ANIMATION LOOP =====
-  useFrame((_, delta) => {
+  useFrame(({ camera }, delta) => {
     // Clamp delta to prevent jumps on tab switch
     const dt = Math.min(delta, 0.05)
     elapsed.current += dt
@@ -1224,6 +1224,8 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
         mesh.visible = true
         mesh.position.x = m.x || 0
         mesh.position.y = m.y
+        mesh.position.z = 0.08
+        mesh.quaternion.copy(camera.quaternion) // 빌보드: 항상 카메라를 바라봄
         const mat = mesh.material as THREE.MeshBasicMaterial
         mat.color.set(colorMap[m.status as keyof typeof colorMap] || 0xD4C5A9)
         mat.opacity = isKidney ? baseOp * 0.7 : baseOp
@@ -1236,6 +1238,8 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
           kidneyMirror.visible = true
           kidneyMirror.position.x = -(m.x || 0)
           kidneyMirror.position.y = m.y
+          kidneyMirror.position.z = 0.08
+          kidneyMirror.quaternion.copy(camera.quaternion)
           const mirrorMat = kidneyMirror.material as THREE.MeshBasicMaterial
           mirrorMat.color.set(colorMap[m.status as keyof typeof colorMap] || 0xD4C5A9)
           mirrorMat.opacity = baseOp * 0.7
@@ -1310,14 +1314,14 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       {/* Indicator circles — 0~4: 일반(작은 원), 5: 신장(링), 6: 신장 미러(링) */}
       {indicatorMats.slice(0, 5).map((mat, i) => (
         <mesh key={`ind-${i}`} ref={el => { indicatorRefs.current[i] = el }}
-          position={[0, 0.4, 0.22]} visible={false} material={mat} renderOrder={8}>
+          position={[0, 0.4, 0.08]} visible={false} material={mat} renderOrder={8}>
           <circleGeometry args={[0.022, 20]} />
         </mesh>
       ))}
       {/* 신장 양쪽 링 인디케이터 */}
       {indicatorMats.slice(5, 7).map((mat, i) => (
         <mesh key={`ind-kidney-${i}`} ref={el => { indicatorRefs.current[5 + i] = el }}
-          position={[0, 0.4, 0.22]} visible={false} material={mat} renderOrder={8}>
+          position={[0, 0.4, 0.08]} visible={false} material={mat} renderOrder={8}>
           <ringGeometry args={[0.012, 0.018, 20]} />
         </mesh>
       ))}
