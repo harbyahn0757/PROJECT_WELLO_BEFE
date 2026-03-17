@@ -116,8 +116,15 @@ export default function EmbedCharacterPage() {
             minWidth: '48px',
             textAlign: onLeft ? 'left' : 'right',
           }}>
-            <div style={{ color: '#999', fontSize: '9px', fontWeight: 500 }}>{m.label}</div>
-            <div style={{ color: '#333', fontSize: '14px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{m.value}</div>
+            {m.items.map((item, j) => (
+              <div key={j} style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: j < m.items.length - 1 ? '2px' : 0 }}>
+                <span style={{ color: '#999', fontSize: '9px', fontWeight: 500, minWidth: '24px' }}>{item.label}</span>
+                <span style={{
+                  color: item.status === 'normal' ? '#333' : '#E65100',
+                  fontSize: '13px', fontWeight: 700, fontVariantNumeric: 'tabular-nums'
+                }}>{item.value}</span>
+              </div>
+            ))}
           </div>
         )
       })}

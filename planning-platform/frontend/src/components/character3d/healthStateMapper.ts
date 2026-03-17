@@ -92,13 +92,20 @@ export function mapCheckupToHealthState(data?: PartnerData): HealthCharacterStat
 // 신체 부위별 메트릭 매핑 (3D 캐릭터 인디케이터용)
 type BodyZone = 'head' | 'face' | 'body' | 'side' | 'lower'
 
-export interface ZoneMetric {
-  zone: BodyZone
+export interface ZoneMetricItem {
   label: string
   value: string
   status: HealthStatus
-  x: number  // 3D X position (좌우 오프셋)
-  y: number  // 3D Y position
+}
+
+export interface ZoneMetric {
+  zone: BodyZone
+  label: string       // 대표 라벨 (첫 번째 항목)
+  value: string       // 대표 값
+  status: HealthStatus // 가장 나쁜 상태
+  x: number
+  y: number
+  items: ZoneMetricItem[]  // 해당 zone의 모든 수치
 }
 
 // 값 키 → 신체 부위 매핑 (3D 모델 실측 기준)
@@ -148,46 +155,56 @@ function formatValue(key: string, cr: CheckupResults): string {
   return String(val)
 }
 
-// 우선순위: 같은 zoneKey 안에서 먼저 매칭할 키 (배열 순서 = 우선순위)
+// 우선순위: 같은 zoneKey 안에서 표시 순서
 const ZONE_PRIORITY: Record<string, string[]> = {
-  head: ['total_cholesterol', 'hemoglobin', 'hdl_cholesterol', 'ldl_cholesterol'],
+  head: ['total_cholesterol', 'hdl_cholesterol', 'ldl_cholesterol', 'hemoglobin'],
   heart: ['systolic_bp', 'triglycerides'],
   liver: ['sgot_ast', 'sgpt_alt', 'gamma_gtp'],
-  belly: ['bmi', 'weight', 'height'],
+  belly: ['height', 'weight', 'bmi'],
   legs: ['fasting_glucose', 'creatinine', 'gfr'],
 }
 
 export function mapCheckupToZoneMetrics(cr?: CheckupResults): ZoneMetric[] {
   if (!cr) return []
-  const metrics: ZoneMetric[] = []
-  const usedZones = new Set<string>()
 
-  // KEY_ZONE_MAP 키를 우선순위 순으로 정렬
-  const sortedKeys: string[] = []
-  for (const keys of Object.values(ZONE_PRIORITY)) {
-    for (const k of keys) sortedKeys.push(k)
+  // zoneKey별로 모든 수치 그룹핑
+  const groups: Record<string, { mapping: typeof KEY_ZONE_MAP[string]; items: ZoneMetricItem[] }> = {}
+
+  for (const [zoneKey, keys] of Object.entries(ZONE_PRIORITY)) {
+    for (const key of keys) {
+      const val = cr[key]
+      if (val == null || typeof val === 'string') continue
+      const mapping = KEY_ZONE_MAP[key]
+      if (!mapping) continue
+
+      if (!groups[zoneKey]) {
+        groups[zoneKey] = { mapping, items: [] }
+      }
+
+      const status = parseAbnormal(cr[`${key}_abnormal`])
+      groups[zoneKey].items.push({
+        label: mapping.label,
+        value: formatValue(key, cr),
+        status,
+      })
+    }
   }
 
-  for (const key of sortedKeys) {
-    const val = cr[key]
-    if (val == null || typeof val === 'string') continue
-
-    const mapping = KEY_ZONE_MAP[key]
-    if (!mapping) continue
-    if (usedZones.has(mapping.zoneKey)) continue
-    usedZones.add(mapping.zoneKey)
-
-    // _abnormal 키가 있으면 파트너사 판정 사용, 없으면 정상 처리
-    const abnormalKey = `${key}_abnormal`
-    const status = parseAbnormal(cr[abnormalKey])
-
+  // 그룹 → ZoneMetric 변환
+  const metrics: ZoneMetric[] = []
+  for (const [, group] of Object.entries(groups)) {
+    if (group.items.length === 0) continue
+    // 가장 나쁜 상태를 인디케이터 색상으로
+    const worstStatus = group.items.some(i => i.status === 'danger') ? 'danger'
+      : group.items.some(i => i.status === 'warning') ? 'warning' : 'normal'
     metrics.push({
-      zone: mapping.zone,
-      label: mapping.label,
-      value: formatValue(key, cr),
-      status,
-      x: mapping.x,
-      y: mapping.y,
+      zone: group.mapping.zone,
+      label: group.items[0].label,
+      value: group.items[0].value,
+      status: worstStatus,
+      x: group.mapping.x,
+      y: group.mapping.y,
+      items: group.items,
     })
   }
   return metrics
