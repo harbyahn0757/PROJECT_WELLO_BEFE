@@ -35,7 +35,7 @@
     "build": "CI=false DISABLE_ESLINT_PLUGIN=false TSC_COMPILE_ON_ERROR=true NODE_OPTIONS=\"--max-old-space-size=1024\" react-scripts build",
     "build-craco": "NODE_OPTIONS=\"--max-old-space-size=1024\" craco build",
     "deploy": "../scripts/deploy.sh all",
-    "deploy:simple": "npm run build && rm -rf ../backend/static/* && cp -r build/* ../backend/static/ && cp -r ../backoffice/build ../backend/static/backoffice && cp ../backend/app/static/welno-rag-chat-widget.min.js ../backend/static/ && cp src/embed/WelnoSurveyWidget.js ../backend/static/welno-survey-widget.min.js && cp src/embed/WelnoCharacterWidget.js ../backend/static/welno-character-widget.min.js && cp mdx_icon.png ../backend/static/ 2>/dev/null; echo 'Deploy complete.'",
+    "deploy:simple": "npm run build && rm -rf ../backend/static/* && cp -r build/* ../backend/static/ && cp -r ../backoffice/build ../backend/static/backoffice && cp ../backend/app/static/welno-rag-chat-widget.min.js ../backend/static/ && cp src/embed/WelnoSurveyWidget.js ../backend/static/welno-survey-widget.min.js && cp src/embed/WelnoCharacterWidget.js ../backend/static/welno-character-widget.min.js && cp src/embed/character-demo.html ../backend/static/ && cp mdx_icon.png ../backend/static/ 2>/dev/null; echo 'Deploy complete.'",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
