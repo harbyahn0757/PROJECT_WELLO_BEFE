@@ -76,11 +76,12 @@ export default function EmbedCharacterPage() {
     }
   }, [partnerData, healthState, zoneMetrics.length])
 
-  // 스캔 완료 후 카드 표시 (introComplete + healthState 존재 + 약간 딜레이)
-  const [showCards, setShowCards] = useState(false)
+  // 터치 모달: 인디케이터 터치 시 해당 zone 모달 표시
+  const [selectedZone, setSelectedZone] = useState<number | null>(null)
+  const [readyForTouch, setReadyForTouch] = useState(false)
   useEffect(() => {
     if (introComplete && zoneMetrics.length > 0) {
-      const timer = setTimeout(() => setShowCards(true), 4200) // 스캔 3.5초 + 페이드인 0.7초
+      const timer = setTimeout(() => setReadyForTouch(true), 4200)
       return () => clearTimeout(timer)
     }
   }, [introComplete, zoneMetrics.length])
@@ -111,11 +112,15 @@ export default function EmbedCharacterPage() {
           healthState={healthState}
           zoneMetrics={zoneMetrics}
           enableRotation={false}
+          onZoneClick={readyForTouch ? (metric) => {
+            const idx = zoneMetrics.findIndex(m => m.zone === metric.zone && m.y === metric.y)
+            setSelectedZone(prev => prev === idx ? null : idx)
+          } : undefined}
         />
       </Suspense>
 
-      {/* 실시간 좌표 조정 패널 (확정 후 제거) */}
-      {zoneMetrics.length > 0 && (
+      {/* 실시간 좌표 조정 패널 — 주석 해제하면 슬라이더로 위치 조정 가능 */}
+      {false && zoneMetrics.length > 0 && (
         <div style={{ position: 'absolute', bottom: 4, left: 4, fontSize: '9px', color: '#333', zIndex: 99, background: 'rgba(255,255,255,0.92)', padding: '6px 8px', borderRadius: 6, lineHeight: 1.6, maxWidth: '55%', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
           <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>v5 좌표 조정</span>
@@ -148,46 +153,59 @@ export default function EmbedCharacterPage() {
         </div>
       )}
 
-      {/* 인디케이터 연결 수치 카드 — 스캔 완료 후 표시 */}
-      {showCards && zoneMetrics.map((m, i) => {
+      {/* 터치 모달 — 인디케이터 터치 시 근처에 표시 */}
+      {selectedZone !== null && zoneMetrics[selectedZone] && (() => {
+        const m = zoneMetrics[selectedZone]
+        const zk = (m as any).zoneKey || m.zone
+        const nameMap: Record<string, string> = { blood: '빈혈', cardio: '심혈관', liver: '간', pancreas: '췌장', body_comp: '체성분', kidney: '신장' }
         const top = yToPercent(m.y)
         const onLeft = isLeft(m.x)
-        const borderColor = m.status === 'normal' ? '#4CAF50' : m.status === 'warning' ? '#FFB300' : '#D4C5A9'
+        const statusColor: Record<string, string> = { normal: '#2E7D32', borderline: '#81C784', warning: '#795548', unknown: '#D4C5A9' }
+        const statusLabel: Record<string, string> = { normal: '정상', borderline: '경계', warning: '이상', unknown: '-' }
+        const borderColor = statusColor[m.status] || '#D4C5A9'
         return (
-          <div key={i} className="embed-character__card" style={{
-            position: 'absolute',
-            top: `${top}%`,
-            [onLeft ? 'left' : 'right']: '6px',
-            transform: 'translateY(-50%)',
-            background: 'rgba(255,255,255,0.88)',
-            backdropFilter: 'blur(6px)',
-            borderRadius: '8px',
-            padding: '4px 8px',
-            borderLeft: onLeft ? `3px solid ${borderColor}` : 'none',
-            borderRight: !onLeft ? `3px solid ${borderColor}` : 'none',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-            fontSize: '10px',
-            lineHeight: 1.3,
-            pointerEvents: 'none',
-            zIndex: 20,
-            animation: 'embed-tooltipIn 0.4s ease',
-            animationDelay: `${i * 0.12}s`,
-            animationFillMode: 'backwards',
-            minWidth: '48px',
-            textAlign: onLeft ? 'left' : 'right',
-          }}>
-            {m.items.map((item, j) => (
-              <div key={j} style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: j < m.items.length - 1 ? '2px' : 0 }}>
-                <span style={{ color: '#999', fontSize: '9px', fontWeight: 500, minWidth: '24px' }}>{item.label}</span>
-                <span style={{
-                  color: item.status === 'warning' ? '#E65100' : item.status === 'unknown' ? '#888' : '#333',
-                  fontSize: '13px', fontWeight: 700, fontVariantNumeric: 'tabular-nums'
-                }}>{item.value}</span>
+          <>
+            {/* 배경 터치로 닫기 */}
+            <div style={{ position: 'absolute', inset: 0, zIndex: 25 }}
+              onClick={() => setSelectedZone(null)} />
+            <div style={{
+              position: 'absolute',
+              top: `${Math.max(5, Math.min(75, top - 5))}%`,
+              [onLeft ? 'left' : 'right']: '10px',
+              background: 'rgba(255,255,255,0.95)',
+              backdropFilter: 'blur(8px)',
+              borderRadius: '12px',
+              padding: '10px 14px',
+              borderLeft: onLeft ? `4px solid ${borderColor}` : 'none',
+              borderRight: !onLeft ? `4px solid ${borderColor}` : 'none',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+              fontSize: '11px',
+              lineHeight: 1.5,
+              zIndex: 30,
+              animation: 'embed-tooltipIn 0.25s ease',
+              minWidth: '120px',
+              maxWidth: '200px',
+            }}>
+              <div style={{ fontWeight: 700, fontSize: '12px', color: borderColor, marginBottom: 6 }}>
+                {nameMap[zk] || zk}
               </div>
-            ))}
-          </div>
+              {m.items.map((item, j) => (
+                <div key={j} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: j < m.items.length - 1 ? 4 : 0 }}>
+                  <span style={{ color: '#666', fontSize: '10px' }}>{item.label}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ fontWeight: 700, fontSize: '14px', color: statusColor[item.status] || '#333', fontVariantNumeric: 'tabular-nums' }}>
+                      {item.value}
+                    </span>
+                    <span style={{ fontSize: '8px', color: statusColor[item.status] || '#999', fontWeight: 500 }}>
+                      {statusLabel[item.status] || ''}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )
-      })}
+      })()}
     </div>
   )
 }

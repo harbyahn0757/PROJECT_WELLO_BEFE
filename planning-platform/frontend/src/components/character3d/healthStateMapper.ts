@@ -16,8 +16,8 @@ export interface PartnerData {
   medical_history?: string[]
 }
 
-// normal=정상, warning=비정상/주의, unknown=판정 없음(베이지)
-type HealthStatus = 'normal' | 'warning' | 'unknown'
+// 4단계: normal=정상, borderline=경계, warning=이상, unknown=판정없음
+type HealthStatus = 'normal' | 'borderline' | 'warning' | 'unknown'
 
 // _abnormal 값 파싱 — 파트너사가 준 판정만 사용, 자체 판단 절대 안 함
 function parseAbnormal(abnormalVal?: string | number): HealthStatus {
@@ -25,8 +25,11 @@ function parseAbnormal(abnormalVal?: string | number): HealthStatus {
   const s = String(abnormalVal).trim()
   if (s === '') return 'unknown'
   if (s === '정상' || s === 'normal') return 'normal'
-  return 'warning'  // "비정상", "주의", "질환의심" 등
+  if (s === '경계' || s === '주의' || s === 'borderline') return 'borderline'
+  return 'warning'  // "비정상", "질환의심" 등
 }
+
+const STATUS_PRIORITY: Record<HealthStatus, number> = { warning: 3, borderline: 2, unknown: 1, normal: 0 }
 
 function formatValue(key: string, cr: CheckupResults): string {
   const val = cr[key]
@@ -163,9 +166,9 @@ export function mapCheckupToZoneMetrics(cr?: CheckupResults): ZoneMetric[] {
   const metrics: ZoneMetric[] = []
   for (const [zk, group] of Object.entries(groups)) {
     if (group.items.length === 0) continue
-    // 가장 나쁜 상태: warning > unknown > normal
-    const worstStatus = group.items.some(i => i.status === 'warning') ? 'warning'
-      : group.items.some(i => i.status === 'unknown') ? 'unknown' : 'normal'
+    // 가장 나쁜 상태: warning > borderline > unknown > normal
+    const worstStatus = group.items.reduce<HealthStatus>((w, item) =>
+      STATUS_PRIORITY[item.status] > STATUS_PRIORITY[w] ? item.status : w, 'normal')
     metrics.push({
       zone: group.mapping.zone,
       zoneKey: zk,

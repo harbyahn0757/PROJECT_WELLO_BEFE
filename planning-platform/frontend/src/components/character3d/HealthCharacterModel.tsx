@@ -1211,7 +1211,7 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       const pulse = 0.85 + Math.sin(it * 2.0) * 0.15
       const baseOp = fadeIn * pulse * 0.45
 
-      const colorMap = { normal: 0x4CAF50, warning: 0xFFB300, unknown: 0xD4C5A9 }
+      const colorMap = { normal: 0x2E7D32, borderline: 0x81C784, warning: 0x795548, unknown: 0xD4C5A9 }
       // 신장 미러 (index 6) 초기 숨김
       const kidneyMirror = indicatorRefs.current[6]
       if (kidneyMirror) kidneyMirror.visible = false
