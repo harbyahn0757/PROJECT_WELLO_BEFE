@@ -30,8 +30,9 @@ export default function EmbedCharacterPage() {
     }
     window.addEventListener('message', handleMessage)
 
-    // URL search params fallback
     const params = new URLSearchParams(window.location.search)
+
+    // 방법 1: URL param에서 partnerData 직접 파싱 (위젯 JS가 전달)
     const dataParam = params.get('partnerData') || params.get('data')
     if (dataParam) {
       try {

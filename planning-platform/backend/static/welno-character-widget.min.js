@@ -30,6 +30,8 @@ class WelnoCharacterWidget {
     this.config = {
       apiKey: config.apiKey,
       baseUrl: baseUrl,
+      uuid: config.uuid || 'char_user_' + Date.now(),
+      hospitalId: config.hospitalId || 'widget_partner',
       partnerData: partnerData,
 
       // UI 설정
@@ -69,7 +71,7 @@ class WelnoCharacterWidget {
   /**
    * 위젯 초기화 및 DOM에 추가
    */
-  init() {
+  async init() {
     if (this.state.isInitialized) {
       console.warn('[WelnoCharacterWidget] 이미 초기화됨');
       return;
@@ -83,6 +85,10 @@ class WelnoCharacterWidget {
     }
 
     try {
+      // warmup API 호출 — 채팅 위젯과 동일 엔드포인트 (세션 데이터 저장 + 유효성 확인)
+      var warmupOk = await this.warmup();
+      if (warmupOk === false) return;
+
       this.injectStyles();
       this.createDOM();
       this.bindEvents();
@@ -95,6 +101,48 @@ class WelnoCharacterWidget {
     } catch (error) {
       console.error('[WelnoCharacterWidget] 초기화 실패:', error);
       if (this.config.onError) this.config.onError(error);
+    }
+  }
+
+  /**
+   * warmup API 호출 — 채팅 위젯과 동일 엔드포인트 재사용
+   * 서버에 세션 데이터 저장 + 유효성 확인
+   * @returns {Promise<boolean|undefined>} false면 위젯 미노출
+   */
+  async warmup() {
+    if (!this.config.partnerData) return;
+
+    try {
+      var response = await fetch(
+        this.config.baseUrl + '/welno-api/v1/rag-chat/partner/warmup',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': this.config.apiKey
+          },
+          body: JSON.stringify({
+            uuid: this.config.uuid,
+            hospital_id: this.config.hospitalId,
+            health_data: this.config.partnerData
+          })
+        }
+      );
+
+      if (response.ok) {
+        var data = await response.json();
+
+        if (data.session_id) {
+          this.state.sessionId = data.session_id;
+        }
+
+        if (!data.has_data) {
+          console.info('[WelnoCharacterWidget] 서버 확인: 유효 데이터 없음 — 위젯 미노출');
+          return false;
+        }
+      }
+    } catch (error) {
+      console.warn('[WelnoCharacterWidget] warmup 실패 (계속 진행):', error.message);
     }
   }
 
