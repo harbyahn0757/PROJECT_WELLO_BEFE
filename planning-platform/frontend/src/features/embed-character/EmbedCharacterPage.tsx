@@ -52,12 +52,19 @@ export default function EmbedCharacterPage() {
   const zoneMetrics = mapCheckupToZoneMetrics(partnerData?.checkup_results)
 
   useEffect(() => {
-    console.log('[CharacterEmbed v3] partnerData:', partnerData ? 'yes' : 'null')
-    console.log('[CharacterEmbed v3] healthState:', healthState?.mood, 'zoneMetrics:', zoneMetrics.length)
+    console.log('[CharacterEmbed v4] partnerData:', partnerData ? 'yes' : 'null')
+    console.log('[CharacterEmbed v4] healthState:', healthState?.mood, 'zoneMetrics:', zoneMetrics.length)
     if (partnerData?.checkup_results) {
       const cr = partnerData.checkup_results
       const abnormalKeys = Object.keys(cr).filter(k => k.endsWith('_abnormal'))
-      console.log('[CharacterEmbed v3] _abnormal keys:', abnormalKeys, abnormalKeys.map(k => `${k}=${cr[k]}`))
+      console.log('[CharacterEmbed v4] _abnormal:', abnormalKeys.map(k => `${k}=${cr[k]}`).join(', '))
+      console.log('[CharacterEmbed v4] missing _abnormal:', ['hdl_cholesterol','ldl_cholesterol','triglycerides','creatinine','gfr'].filter(k => cr[`${k}_abnormal`] == null).join(', '))
+    }
+    if (zoneMetrics.length > 0) {
+      console.log('[CharacterEmbed v4] zones:', zoneMetrics.map(m => `${m.zone}(y=${m.y},st=${m.status})`).join(' | '))
+      zoneMetrics.forEach(m => {
+        console.log(`[CharacterEmbed v4] ${m.zone} items:`, m.items.map(i => `${i.label}=${i.value}[${i.status}]`).join(', '))
+      })
     }
   }, [partnerData, healthState, zoneMetrics.length])
 
@@ -92,6 +99,9 @@ export default function EmbedCharacterPage() {
           enableRotation={true}
         />
       </Suspense>
+
+      {/* 버전 확인 마커 (배포 확인 후 제거) */}
+      <div style={{ position: 'absolute', top: 4, left: 4, fontSize: '9px', color: '#ccc', zIndex: 99, opacity: 0.5 }}>v4</div>
 
       {/* 인디케이터 연결 수치 카드 — 스캔 완료 후 표시 */}
       {showCards && zoneMetrics.map((m, i) => {
