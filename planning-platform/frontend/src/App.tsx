@@ -32,6 +32,8 @@ import NotificationContainer from './components/common/NotificationContainer';
 import { sendFrontendStateToServer, sendStateOnPageLoad } from './utils/debugLogger';
 import './App.scss';
 
+const EmbedCharacterPage = React.lazy(() => import('./features/embed-character/EmbedCharacterPage'));
+
 // 전역 함수 타입 선언
 declare global {
   interface Window {
@@ -609,6 +611,11 @@ const AppContent: React.FC = () => {
         {/* 백오피스는 독립 앱으로 /backoffice 경로에서 서빙됨 */}
         {/* <Route path="/kindhait" element={<RagTestPage />} /> */}
         <Route path="/health-comparison" element={<HealthComparison />} />
+        <Route path="/embed/character" element={
+          <React.Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>Loading...</div>}>
+            <EmbedCharacterPage />
+          </React.Suspense>
+        } />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       
