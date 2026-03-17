@@ -11,33 +11,42 @@ export default function EmbedCharacterPage() {
   const [introComplete, setIntroComplete] = useState(false)
 
   // Receive partnerData via postMessage from parent window
+  // 서버 로그 전송 (nginx access log에 남음)
+  const sendLog = useCallback((msg: string, data?: Record<string, unknown>) => {
+    const params = new URLSearchParams({ msg, ...(data ? { d: JSON.stringify(data).slice(0, 500) } : {}) })
+    fetch(`/welno-api/v1/character-log?${params}`).catch(() => {})
+  }, [])
+
   useEffect(() => {
+    sendLog('iframe_loaded')
+
     function handleMessage(event: MessageEvent) {
       if (event.data?.type === 'WELNO_CHARACTER_DATA') {
-        console.log('[CharacterEmbed] postMessage received:', JSON.stringify(event.data.partnerData).slice(0, 200))
-        setPartnerData(event.data.partnerData)
+        const pd = event.data.partnerData
+        const keys = pd?.checkup_results ? Object.keys(pd.checkup_results) : []
+        sendLog('postMessage_received', { keys, hasPatient: !!pd?.patient, resultCount: keys.length })
+        setPartnerData(pd)
       }
     }
     window.addEventListener('message', handleMessage)
 
-    // URL search params fallback (partnerData 또는 data 파라미터)
+    // URL search params fallback
     const params = new URLSearchParams(window.location.search)
     const dataParam = params.get('partnerData') || params.get('data')
     if (dataParam) {
       try {
         const parsed = JSON.parse(decodeURIComponent(dataParam))
-        console.log('[CharacterEmbed] URL param data:', JSON.stringify(parsed).slice(0, 200))
+        const keys = parsed?.checkup_results ? Object.keys(parsed.checkup_results) : []
+        sendLog('url_param_received', { keys, resultCount: keys.length })
         setPartnerData(parsed)
-      } catch (e) {
-        console.warn('[CharacterEmbed] URL param parse failed:', e)
-      }
+      } catch { sendLog('url_param_parse_failed') }
+    } else {
+      sendLog('no_url_data', { search: window.location.search.slice(0, 200) })
     }
 
-    // Notify parent that iframe is ready
     window.parent.postMessage({ type: 'WELNO_CHARACTER_READY' }, '*')
-
     return () => window.removeEventListener('message', handleMessage)
-  }, [])
+  }, [sendLog])
 
   const [activeMetric, setActiveMetric] = useState<ZoneMetric | null>(null)
 
