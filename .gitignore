@@ -95,7 +95,11 @@ lerna-debug.log*
 
 # Gatsby
 .cache/
+# public — CRA 프로젝트에서는 public/ 필요. GLB 등 에셋 포함을 위해 models만 허용
 public
+!planning-platform/frontend/public/
+!planning-platform/frontend/public/models/
+!planning-platform/frontend/public/models/**
 
 # ============================================================================
 # 백엔드 관련 (향후 추가될 수 있음)
