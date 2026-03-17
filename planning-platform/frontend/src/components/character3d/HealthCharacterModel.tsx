@@ -174,6 +174,8 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
 
   // Turn-away 자동 복귀 타이머
   const turnAwayTimer = useRef(0)
+  // 스캔 올라오기 중 Y 위치 (인디케이터 순차 표시용)
+  const scanUpY = useRef(999) // 999=비활성, 실제값=현재 스캔라인 Y
 
   // Effect timers
   const excTimer = useRef(-1)  // <0 = inactive
@@ -1175,49 +1177,64 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       heartRefs.current.forEach(m => { if (m) m.visible = false })
     }
 
-    // Health scan — 3레이어 (라인 + 글로우 + 쉬머) top→bottom
+    // Health scan — 내려가기(5초) → 올라오기(2초, 인디케이터 순차 표시)
     if (scanTimer.current >= 0) {
       scanTimer.current += dt
       const st = scanTimer.current
-      const SCAN_DUR = 3.5
-      const TOP_Y = 0.78
-      const BOT_Y = -0.18
-      const RANGE = TOP_Y - BOT_Y
+      const DOWN_DUR = 5.0   // 내려가기
+      const UP_DUR = 2.0     // 올라오기
+      const TOTAL = DOWN_DUR + UP_DUR
+      const TOP_Y = 0.68     // 머리 꼭대기
+      const BOT_Y = -0.35   // 발목까지
 
-      if (st < SCAN_DUR) {
-        const p = smoothStep(st / SCAN_DUR)
-        const y = TOP_Y - p * RANGE
-        const fadeIn = st < SCAN_DUR * 0.08 ? smoothStep(st / (SCAN_DUR * 0.08)) : 1
-        const fadeOut = st > SCAN_DUR * 0.88 ? smoothStep((SCAN_DUR - st) / (SCAN_DUR * 0.12)) : 1
+      if (st < TOTAL) {
+        const isDown = st < DOWN_DUR
+        let y: number
+        if (isDown) {
+          const p = smoothStep(st / DOWN_DUR)
+          y = TOP_Y - p * (TOP_Y - BOT_Y)
+        } else {
+          const p = smoothStep((st - DOWN_DUR) / UP_DUR)
+          y = BOT_Y + p * (TOP_Y - BOT_Y)
+        }
+        const fadeIn = st < 0.4 ? smoothStep(st / 0.4) : 1
+        const fadeOut = st > TOTAL - 0.5 ? smoothStep((TOTAL - st) / 0.5) : 1
         const base = fadeIn * fadeOut
 
-        // 1) 메인 스캔 라인 (밝은 주황)
+        // 스캔 라인 3레이어
         if (scanLineRef.current) {
           scanLineRef.current.visible = true
           scanLineRef.current.position.y = y
           ;(scanLineRef.current.material as THREE.MeshBasicMaterial).opacity = base * 0.9
         }
-        // 2) 글로우 (같은 y, 넓은 반투명)
         if (scanGlowRef.current) {
           scanGlowRef.current.visible = true
           scanGlowRef.current.position.y = y
           ;(scanGlowRef.current.material as THREE.MeshBasicMaterial).opacity = base * 0.25
         }
-        // 3) 쉬머 (반짝임 — 빠른 주기 + 느린 주기 겹침)
         if (scanShimmerRef.current) {
           scanShimmerRef.current.visible = true
           scanShimmerRef.current.position.y = y
           const beat = 0.3 + 0.5 * Math.sin(st * 12) * Math.sin(st * 5)
           ;(scanShimmerRef.current.material as THREE.MeshBasicMaterial).opacity = base * Math.max(0, beat)
         }
-        // 4) 부르르 떨림 — 스캔 라인이 얼굴~가슴 지날 때
+        // 부르르 떨림
         if (head && y < 0.55 && y > 0.05) {
           const tremble = Math.sin(st * 35) * 0.015 * base
           head.rotation.z = tremble
           head.rotation.y = Math.sin(st * 25) * 0.008 * base
         }
+        // 올라오면서 인디케이터 순차 표시
+        if (!isDown && zoneMetrics) {
+          if (!indicatorsVisible.current) {
+            indicatorsVisible.current = true
+            indicatorTimer.current = 0
+          }
+          scanUpY.current = y  // 현재 스캔 라인 위치 → 인디케이터에서 비교
+        }
       } else {
         scanTimer.current = -1
+        scanUpY.current = 999  // 스캔 완료 → 모든 인디케이터 표시
         if (scanLineRef.current) scanLineRef.current.visible = false
         if (scanGlowRef.current) scanGlowRef.current.visible = false
         if (scanShimmerRef.current) scanShimmerRef.current.visible = false
@@ -1246,6 +1263,8 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
         if (i >= 6) return // 미러는 아래서 처리
         const m = zoneMetrics[i]
         const isKidney = (m as any).zoneKey === 'kidney'
+        // 스캔 올라오는 중: 스캔라인 위의 인디케이터는 아직 숨김
+        if (scanUpY.current < 999 && m.y > scanUpY.current) { mesh.visible = false; return }
         mesh.visible = true
         mesh.position.x = m.x || 0
         mesh.position.y = m.y
@@ -1333,13 +1352,13 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       <primitive object={characterScene} scale={1.5} onPointerDown={handlePointerDown} />
 
       {/* Health scan — 3레이어: glow(뒤) → shimmer(중간) → line(앞) */}
-      <mesh ref={scanGlowRef} position={[0, 0.78, 0.18]} visible={false} material={scanGlowMat} renderOrder={9}>
+      <mesh ref={scanGlowRef} position={[0, 0.68, 0.18]} visible={false} material={scanGlowMat} renderOrder={9}>
         <planeGeometry args={[0.85, 0.08]} />
       </mesh>
-      <mesh ref={scanShimmerRef} position={[0, 0.78, 0.20]} visible={false} material={scanShimmerMat} renderOrder={10}>
+      <mesh ref={scanShimmerRef} position={[0, 0.68, 0.20]} visible={false} material={scanShimmerMat} renderOrder={10}>
         <planeGeometry args={[0.75, 0.025]} />
       </mesh>
-      <mesh ref={scanLineRef} position={[0, 0.78, 0.22]} visible={false} material={scanLineMat} renderOrder={11}>
+      <mesh ref={scanLineRef} position={[0, 0.68, 0.22]} visible={false} material={scanLineMat} renderOrder={11}>
         <planeGeometry args={[0.7, 0.004]} />
       </mesh>
 
