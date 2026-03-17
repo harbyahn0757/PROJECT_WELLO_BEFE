@@ -86,16 +86,7 @@ export default function EmbedCharacterPage() {
     }
   }, [introComplete, zoneMetrics.length])
 
-  // 3D y좌표 → 화면 % 변환 — 실제 스크린샷 기준 구간별 보정
-  // 3D 카메라 원근법이 비선형이라 구간별 선형 보간 사용
-  // 실측: y=0.55→22%, y=0.28→33%, y=0.10→55%
-  const yToPercent = (y: number) => {
-    if (y >= 0.55) return Math.max(5, 22 - (y - 0.55) * 40)
-    if (y >= 0.28) return 22 + (0.55 - y) / 0.27 * 11
-    if (y >= 0.10) return 33 + (0.28 - y) / 0.18 * 22
-    return Math.min(92, 55 + (0.10 - y) / 0.15 * 12)
-  }
-  const isLeft = (x: number) => x < 0
+  // yToPercent/isLeft 제거됨 — 센터 모달이라 좌표→화면% 변환 불필요
 
   return (
     <div className="embed-character">
@@ -111,7 +102,7 @@ export default function EmbedCharacterPage() {
           onIntroComplete={() => setIntroComplete(true)}
           healthState={healthState}
           zoneMetrics={zoneMetrics}
-          enableRotation={false}
+          enableRotation={true}
           onZoneClick={readyForTouch ? (metric) => {
             const idx = zoneMetrics.findIndex(m => m.zone === metric.zone && m.y === metric.y)
             setSelectedZone(prev => prev === idx ? null : idx)
@@ -153,57 +144,43 @@ export default function EmbedCharacterPage() {
         </div>
       )}
 
-      {/* 터치 모달 — 인디케이터 터치 시 근처에 표시 */}
+      {/* 센터 모달 — 인디케이터 터치 시 화면 중앙에 표시 */}
       {selectedZone !== null && zoneMetrics[selectedZone] && (() => {
         const m = zoneMetrics[selectedZone]
         const zk = (m as any).zoneKey || m.zone
         const nameMap: Record<string, string> = { blood: '빈혈', cardio: '심혈관', liver: '간', pancreas: '췌장', body_comp: '체성분', kidney: '신장' }
-        const top = yToPercent(m.y)
-        const onLeft = isLeft(m.x)
         const statusColor: Record<string, string> = { normal: '#4CAF50', borderline: '#8BC34A', warning: '#8B4513', unknown: '#D4C5A9' }
         const statusLabel: Record<string, string> = { normal: '정상', borderline: '경계', warning: '이상', unknown: '-' }
         const borderColor = statusColor[m.status] || '#D4C5A9'
         return (
-          <>
-            {/* 배경 터치로 닫기 */}
-            <div style={{ position: 'absolute', inset: 0, zIndex: 25 }}
-              onClick={() => setSelectedZone(null)} />
+          <div style={{ position: 'absolute', inset: 0, zIndex: 25, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}
+            onClick={() => setSelectedZone(null)}>
             <div style={{
-              position: 'absolute',
-              top: `${Math.max(5, Math.min(75, top - 5))}%`,
-              [onLeft ? 'left' : 'right']: '10px',
-              background: 'rgba(255,255,255,0.95)',
-              backdropFilter: 'blur(8px)',
-              borderRadius: '12px',
-              padding: '10px 14px',
-              borderLeft: onLeft ? `4px solid ${borderColor}` : 'none',
-              borderRight: !onLeft ? `4px solid ${borderColor}` : 'none',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-              fontSize: '11px',
-              lineHeight: 1.5,
-              zIndex: 30,
+              background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)',
+              borderRadius: '16px', padding: '16px 20px',
+              borderTop: `4px solid ${borderColor}`,
+              boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+              minWidth: '200px', maxWidth: '280px',
               animation: 'embed-tooltipIn 0.25s ease',
-              minWidth: '120px',
-              maxWidth: '200px',
-            }}>
-              <div style={{ fontWeight: 700, fontSize: '12px', color: borderColor, marginBottom: 6 }}>
+            }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontWeight: 700, fontSize: '14px', color: borderColor, marginBottom: 10 }}>
                 {nameMap[zk] || zk}
               </div>
               {m.items.map((item, j) => (
-                <div key={j} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: j < m.items.length - 1 ? 4 : 0 }}>
-                  <span style={{ color: '#666', fontSize: '10px' }}>{item.label}</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <span style={{ fontWeight: 700, fontSize: '14px', color: statusColor[item.status] || '#333', fontVariantNumeric: 'tabular-nums' }}>
+                <div key={j} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: j < m.items.length - 1 ? 6 : 0 }}>
+                  <span style={{ color: '#666', fontSize: '11px' }}>{item.label}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontWeight: 700, fontSize: '16px', color: statusColor[item.status] || '#333', fontVariantNumeric: 'tabular-nums' }}>
                       {item.value}
                     </span>
-                    <span style={{ fontSize: '8px', color: statusColor[item.status] || '#999', fontWeight: 500 }}>
+                    <span style={{ fontSize: '9px', color: statusColor[item.status] || '#999', fontWeight: 600, minWidth: '20px' }}>
                       {statusLabel[item.status] || ''}
                     </span>
                   </div>
                 </div>
               ))}
             </div>
-          </>
+          </div>
         )
       })()}
     </div>

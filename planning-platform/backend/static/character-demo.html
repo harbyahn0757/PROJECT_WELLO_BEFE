@@ -2,309 +2,162 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WELNO 3D 건강 캐릭터 데모</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>WELNO 3D Health Character</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #f5f0eb 0%, #e8ddd4 100%);
-            min-height: 100vh;
-        }
-        .demo-header {
-            background: #7B5E4F;
-            color: white;
-            padding: 16px 24px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .demo-header h1 { font-size: 18px; font-weight: 600; }
-        .demo-header span { font-size: 12px; opacity: 0.7; }
-        .demo-body {
-            display: flex;
-            gap: 20px;
-            max-width: 1100px;
-            margin: 20px auto;
-            padding: 0 16px;
-        }
-        .demo-sidebar { flex: 0 0 360px; }
-        .demo-main { flex: 1; min-width: 0; }
-        .card {
-            background: white;
-            border-radius: 14px;
-            padding: 20px;
-            margin-bottom: 16px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-        }
-        .card h2 {
-            font-size: 13px;
-            color: #7B5E4F;
-            margin-bottom: 10px;
-            padding-bottom: 6px;
-            border-bottom: 1px solid #f0ebe6;
-        }
-        .controls {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 8px;
-        }
-        .field { display: flex; flex-direction: column; gap: 2px; }
-        .field label { font-size: 10px; color: #888; font-weight: 500; }
-        .field input {
-            padding: 6px 8px;
-            border: 1px solid #e0d8d0;
-            border-radius: 6px;
-            font-size: 12px;
-            outline: none;
-            width: 100%;
-        }
-        .field input:focus { border-color: #7B5E4F; }
-        .section-label {
-            font-size: 10px;
-            color: #b0a090;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 10px;
-            margin-bottom: 4px;
-            grid-column: 1 / -1;
-        }
-        .presets {
-            display: flex; gap: 6px; flex-wrap: wrap;
-            margin-top: 10px;
-        }
-        .preset-btn {
-            padding: 5px 12px;
-            border: 1px solid #e0d8d0;
-            border-radius: 16px;
-            background: white;
-            font-size: 11px;
-            cursor: pointer;
-        }
-        .preset-btn:hover { border-color: #7B5E4F; background: #faf6f3; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f0eb; height: 100vh; overflow: hidden; }
+        /* 전체화면 캐릭터 */
+        .char-frame { position: fixed; inset: 0; background: #f8f6f4; }
+        .char-frame iframe { width: 100%; height: 100%; border: none; }
+        /* 설정 버튼 */
+        .gear-btn { position: fixed; top: 16px; right: 16px; z-index: 50; width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,0.85); backdrop-filter: blur(4px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .gear-btn:active { transform: scale(0.92); }
+        .gear-btn svg { width: 20px; height: 20px; color: #7B5E4F; }
+        /* 오버레이 */
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.3); z-index: 90; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .overlay.open { opacity: 1; pointer-events: auto; }
+        /* 슬라이드 패널 */
+        .panel { position: fixed; top: 0; right: 0; width: 320px; max-width: 85vw; height: 100vh; z-index: 100; background: white; box-shadow: -4px 0 24px rgba(0,0,0,0.15); transform: translateX(100%); transition: transform 0.3s ease; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+        .panel.open { transform: translateX(0); }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #f0ebe6; position: sticky; top: 0; background: white; z-index: 1; }
+        .panel-header h2 { font-size: 15px; color: #7B5E4F; font-weight: 700; }
+        .close-btn { width: 32px; height: 32px; border: none; background: #f5f0eb; border-radius: 50%; cursor: pointer; font-size: 16px; color: #999; display: flex; align-items: center; justify-content: center; }
+        .panel-body { padding: 12px 20px 100px; }
+        .section-label { font-size: 10px; color: #b0a090; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 6px; }
+        .field-row { display: grid; grid-template-columns: 70px 1fr 72px; gap: 6px; align-items: center; margin-bottom: 6px; }
+        .field-row label { font-size: 10px; color: #888; font-weight: 500; }
+        .field-row input { padding: 5px 6px; border: 1px solid #e0d8d0; border-radius: 6px; font-size: 12px; outline: none; width: 100%; }
+        .field-row input:focus { border-color: #7B5E4F; }
+        .field-row select { padding: 4px 2px; border: 1px solid #e0d8d0; border-radius: 6px; font-size: 9px; outline: none; color: #666; background: white; }
+        .presets { display: flex; gap: 6px; margin: 12px 0; }
+        .preset-btn { flex: 1; padding: 8px; border: 1px solid #e0d8d0; border-radius: 10px; background: white; font-size: 12px; cursor: pointer; text-align: center; }
+        .preset-btn:active { background: #f5f0eb; }
         .preset-btn.active { background: #7B5E4F; color: white; border-color: #7B5E4F; }
-        .btn {
-            width: 100%;
-            padding: 10px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 12px;
-        }
-        .btn-primary { background: #7B5E4F; color: white; }
-        .btn-primary:hover { background: #6B4E3F; }
-        .character-frame {
-            width: 100%;
-            aspect-ratio: 3/4;
-            max-height: 580px;
-            border-radius: 14px;
-            overflow: hidden;
-            background: #f8f6f4;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-            position: relative;
-        }
-        .character-frame iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
-        .character-frame .placeholder {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: #bbb;
-            gap: 12px;
-        }
-        .placeholder svg { opacity: 0.4; }
-        .placeholder span { font-size: 13px; }
-        @media (max-width: 750px) {
-            .demo-body { flex-direction: column; }
-            .demo-sidebar { flex: none; }
-            .controls { grid-template-columns: 1fr 1fr; }
-            .character-frame { aspect-ratio: 3/4; max-height: 400px; }
-        }
+        .apply-btn { position: sticky; bottom: 0; width: 100%; padding: 14px; border: none; border-radius: 0; font-size: 15px; font-weight: 700; cursor: pointer; background: #7B5E4F; color: white; }
+        .apply-btn:active { background: #6B4E3F; }
     </style>
 </head>
 <body>
 
-<div class="demo-header">
-    <h1>WELNO 3D Health Character</h1>
-    <span>Demo</span>
-</div>
+<div class="char-frame" id="charFrame"></div>
 
-<div class="demo-body">
-    <div class="demo-sidebar">
-        <div class="card">
-            <h2>검진 데이터</h2>
-            <div class="controls">
-                <div class="section-label">기본</div>
-                <div class="field">
-                    <label>키 (cm)</label>
-                    <input type="number" id="height" value="172" step="0.1">
-                </div>
-                <div class="field">
-                    <label>체중 (kg)</label>
-                    <input type="number" id="weight" value="75" step="0.1">
-                </div>
-                <div class="field">
-                    <label>BMI</label>
-                    <input type="number" id="bmi" value="25.3" step="0.1">
-                </div>
+<button class="gear-btn" id="gearBtn" onclick="togglePanel()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+</button>
 
-                <div class="section-label">심혈관</div>
-                <div class="field">
-                    <label>수축기 혈압</label>
-                    <input type="number" id="systolic_bp" value="135">
-                </div>
-                <div class="field">
-                    <label>이완기 혈압</label>
-                    <input type="number" id="diastolic_bp" value="85">
-                </div>
-                <div class="field">
-                    <label>총콜레스테롤</label>
-                    <input type="number" id="total_cholesterol" value="220">
-                </div>
+<div class="overlay" id="overlay" onclick="togglePanel()"></div>
 
-                <div class="section-label">혈액</div>
-                <div class="field">
-                    <label>공복혈당</label>
-                    <input type="number" id="fasting_glucose" value="105">
-                </div>
-                <div class="field">
-                    <label>헤모글로빈</label>
-                    <input type="number" id="hemoglobin" value="14.2" step="0.1">
-                </div>
-
-                <div class="section-label">간기능</div>
-                <div class="field">
-                    <label>AST (SGOT)</label>
-                    <input type="number" id="sgot_ast" value="35">
-                </div>
-                <div class="field">
-                    <label>ALT (SGPT)</label>
-                    <input type="number" id="sgpt_alt" value="40">
-                </div>
-                <div class="field">
-                    <label>감마GTP</label>
-                    <input type="number" id="gamma_gtp" value="55">
-                </div>
-
-                <div class="section-label">신장기능</div>
-                <div class="field">
-                    <label>크레아티닌</label>
-                    <input type="number" id="creatinine" value="1.1" step="0.1">
-                </div>
-                <div class="field">
-                    <label>GFR</label>
-                    <input type="number" id="gfr" value="85">
-                </div>
-            </div>
-            <div class="presets">
-                <button class="preset-btn" onclick="applyPreset('healthy')">정상인</button>
-                <button class="preset-btn active" onclick="applyPreset('warning')">주의</button>
-                <button class="preset-btn" onclick="applyPreset('danger')">위험</button>
-            </div>
-            <button class="btn btn-primary" onclick="startCharacter()">캐릭터 보기</button>
-        </div>
+<div class="panel" id="panel">
+    <div class="panel-header">
+        <h2>검진 데이터 설정</h2>
+        <button class="close-btn" onclick="togglePanel()">&times;</button>
     </div>
-
-    <div class="demo-main">
-        <div class="character-frame" id="characterFrame">
-            <div class="placeholder" id="placeholder">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="8" r="5" stroke="currentColor" stroke-width="1.5"/>
-                    <path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                </svg>
-                <span>"캐릭터 보기" 를 눌러주세요</span>
-            </div>
+    <div class="panel-body">
+        <div class="presets">
+            <button class="preset-btn" onclick="applyPreset('healthy',this)">정상</button>
+            <button class="preset-btn active" onclick="applyPreset('warning',this)">주의</button>
+            <button class="preset-btn" onclick="applyPreset('danger',this)">위험</button>
         </div>
+
+        <div class="section-label">체성분</div>
+        <div class="field-row"><label>키 (cm)</label><input type="number" id="height" value="172" step="0.1"><select id="height_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+        <div class="field-row"><label>체중 (kg)</label><input type="number" id="weight" value="75" step="0.1"><select id="weight_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+        <div class="field-row"><label>BMI</label><input type="number" id="bmi" value="25.3" step="0.1"><select id="bmi_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+
+        <div class="section-label">심혈관</div>
+        <div class="field-row"><label>수축기BP</label><input type="number" id="systolic_bp" value="135"><select id="systolic_bp_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+        <div class="field-row"><label>이완기BP</label><input type="number" id="diastolic_bp" value="85"><select id="diastolic_bp_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+        <div class="field-row"><label>총콜레스테롤</label><input type="number" id="total_cholesterol" value="220"><select id="total_cholesterol_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+        <div class="field-row"><label>HDL</label><input type="number" id="hdl_cholesterol" value="45"><select id="hdl_cholesterol_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+        <div class="field-row"><label>LDL</label><input type="number" id="ldl_cholesterol" value="155"><select id="ldl_cholesterol_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+        <div class="field-row"><label>중성지방</label><input type="number" id="triglycerides" value="185"><select id="triglycerides_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+
+        <div class="section-label">빈혈</div>
+        <div class="field-row"><label>헤모글로빈</label><input type="number" id="hemoglobin" value="12.8" step="0.1"><select id="hemoglobin_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+
+        <div class="section-label">췌장 (혈당)</div>
+        <div class="field-row"><label>공복혈당</label><input type="number" id="fasting_glucose" value="105"><select id="fasting_glucose_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+
+        <div class="section-label">간기능</div>
+        <div class="field-row"><label>AST</label><input type="number" id="sgot_ast" value="35"><select id="sgot_ast_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+        <div class="field-row"><label>ALT</label><input type="number" id="sgpt_alt" value="40"><select id="sgpt_alt_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+        <div class="field-row"><label>감마GTP</label><input type="number" id="gamma_gtp" value="55"><select id="gamma_gtp_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+
+        <div class="section-label">신장기능</div>
+        <div class="field-row"><label>크레아티닌</label><input type="number" id="creatinine" value="1.1" step="0.1"><select id="creatinine_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
+        <div class="field-row"><label>GFR</label><input type="number" id="gfr" value="85"><select id="gfr_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
     </div>
+    <button class="apply-btn" onclick="applyAndClose()">적용</button>
 </div>
 
 <script>
     var BASE = 'https://welno.kindhabit.com';
-    var PRESETS = {
-        healthy: {
-            height: 172, weight: 68, bmi: 22.1,
-            systolic_bp: 115, diastolic_bp: 72, total_cholesterol: 185,
-            fasting_glucose: 88, hemoglobin: 14.5,
-            sgot_ast: 22, sgpt_alt: 18, gamma_gtp: 25,
-            creatinine: 0.9, gfr: 95
-        },
-        warning: {
-            height: 172, weight: 75, bmi: 25.3,
-            systolic_bp: 135, diastolic_bp: 85, total_cholesterol: 220,
-            fasting_glucose: 105, hemoglobin: 12.8,
-            sgot_ast: 35, sgpt_alt: 40, gamma_gtp: 55,
-            creatinine: 1.1, gfr: 85
-        },
-        danger: {
-            height: 172, weight: 92, bmi: 31.2,
-            systolic_bp: 155, diastolic_bp: 98, total_cholesterol: 265,
-            fasting_glucose: 140, hemoglobin: 10.5,
-            sgot_ast: 65, sgpt_alt: 72, gamma_gtp: 120,
-            creatinine: 1.8, gfr: 52
-        }
-    };
     var FIELDS = ['height','weight','bmi','systolic_bp','diastolic_bp','total_cholesterol',
+                  'hdl_cholesterol','ldl_cholesterol','triglycerides',
                   'fasting_glucose','hemoglobin','sgot_ast','sgpt_alt','gamma_gtp','creatinine','gfr'];
-    // 정상 기준 상한
     var NORMAL_MAX = {
         bmi: 24.9, systolic_bp: 120, diastolic_bp: 80, total_cholesterol: 200,
+        hdl_cholesterol: 999, ldl_cholesterol: 130, triglycerides: 150,
         fasting_glucose: 100, hemoglobin: 999, sgot_ast: 40, sgpt_alt: 35, gamma_gtp: 50,
         creatinine: 1.2, gfr: 999
     };
+    var PRESETS = {
+        healthy: { height:172, weight:68, bmi:22.1, systolic_bp:115, diastolic_bp:72, total_cholesterol:185, hdl_cholesterol:60, ldl_cholesterol:100, triglycerides:110, fasting_glucose:88, hemoglobin:14.5, sgot_ast:22, sgpt_alt:18, gamma_gtp:25, creatinine:0.9, gfr:95 },
+        warning: { height:172, weight:75, bmi:25.3, systolic_bp:135, diastolic_bp:85, total_cholesterol:220, hdl_cholesterol:45, ldl_cholesterol:155, triglycerides:185, fasting_glucose:105, hemoglobin:12.8, sgot_ast:35, sgpt_alt:40, gamma_gtp:55, creatinine:1.1, gfr:85 },
+        danger:  { height:172, weight:92, bmi:31.2, systolic_bp:155, diastolic_bp:98, total_cholesterol:265, hdl_cholesterol:32, ldl_cholesterol:190, triglycerides:280, fasting_glucose:140, hemoglobin:10.5, sgot_ast:65, sgpt_alt:72, gamma_gtp:120, creatinine:1.8, gfr:52 }
+    };
 
-    function val(id) {
-        var v = document.getElementById(id).value;
-        return v.includes('.') ? parseFloat(v) : parseInt(v);
-    }
+    function val(id) { var v=document.getElementById(id).value; return v.includes('.')?parseFloat(v):parseInt(v); }
 
     function getFormData() {
         var cr = {};
         FIELDS.forEach(function(f) { cr[f] = val(f); });
-        // _abnormal 자동 생성
-        Object.keys(NORMAL_MAX).forEach(function(k) {
-            if (cr[k] != null) {
-                // gfr은 낮을수록 나쁨
-                if (k === 'gfr') cr[k + '_abnormal'] = cr[k] < 60 ? '비정상' : '정상';
-                // hemoglobin도 낮을수록
-                else if (k === 'hemoglobin') cr[k + '_abnormal'] = cr[k] < 12 ? '비정상' : '정상';
-                else cr[k + '_abnormal'] = cr[k] > NORMAL_MAX[k] ? '비정상' : '정상';
-            }
+        FIELDS.forEach(function(k) {
+            if (cr[k] == null) return;
+            var sel = document.getElementById(k + '_st');
+            var manual = sel ? sel.value : '자동';
+            if (manual !== '자동') { cr[k + '_abnormal'] = manual; return; }
+            if (k === 'gfr') cr[k+'_abnormal'] = cr[k]<60?'비정상':'정상';
+            else if (k === 'hemoglobin') cr[k+'_abnormal'] = cr[k]<12?'비정상':'정상';
+            else if (k === 'hdl_cholesterol') cr[k+'_abnormal'] = cr[k]<40?'비정상':'정상';
+            else if (NORMAL_MAX[k] && NORMAL_MAX[k] < 999) cr[k+'_abnormal'] = cr[k]>NORMAL_MAX[k]?'비정상':'정상';
         });
-        return {
-            patient: { name: '데모 사용자', birth_date: '1985-03-15', sex: 'M' },
-            checkup_results: cr
-        };
+        return { patient:{name:'데모',birth_date:'1985-03-15',sex:'M'}, checkup_results:cr };
     }
 
-    function applyPreset(name) {
+    function applyPreset(name, btn) {
         var p = PRESETS[name];
-        FIELDS.forEach(function(f) { if (p[f] != null) document.getElementById(f).value = p[f]; });
-        document.querySelectorAll('.preset-btn').forEach(function(b) { b.classList.remove('active'); });
-        event.target.classList.add('active');
+        FIELDS.forEach(function(f) { if(p[f]!=null) document.getElementById(f).value=p[f]; });
+        document.querySelectorAll('.preset-btn').forEach(function(b){b.classList.remove('active');});
+        if(btn) btn.classList.add('active');
+        document.querySelectorAll('.field-row select').forEach(function(s){s.value='자동';});
     }
 
     function startCharacter() {
-        var frame = document.getElementById('characterFrame');
+        var frame = document.getElementById('charFrame');
         var data = getFormData();
-        var url = BASE + '/embed/character?debug=1&partnerData=' + encodeURIComponent(JSON.stringify(data));
+        var url = BASE+'/embed/character?partnerData='+encodeURIComponent(JSON.stringify(data));
         var old = frame.querySelector('iframe');
-        if (old) old.remove();
-        var ph = document.getElementById('placeholder');
-        if (ph) ph.style.display = 'none';
+        if(old) old.remove();
         var iframe = document.createElement('iframe');
         iframe.src = url;
-        iframe.setAttribute('allow', 'autoplay');
+        iframe.setAttribute('allow','autoplay');
         frame.appendChild(iframe);
     }
-</script>
 
+    function togglePanel() {
+        var p=document.getElementById('panel'), o=document.getElementById('overlay');
+        var isOpen = p.classList.contains('open');
+        p.classList.toggle('open'); o.classList.toggle('open');
+        if(isOpen) document.getElementById('gearBtn').style.display='flex';
+        else document.getElementById('gearBtn').style.display='none';
+    }
+
+    function applyAndClose() { togglePanel(); startCharacter(); }
+
+    // 페이지 로드 시 자동 시작
+    window.addEventListener('load', function() { startCharacter(); });
+</script>
 </body>
 </html>
