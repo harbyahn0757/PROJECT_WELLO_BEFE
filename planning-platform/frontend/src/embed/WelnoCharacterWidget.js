@@ -262,7 +262,8 @@ class WelnoCharacterWidget {
     if (!this.elements.iframe) {
       var iframe = document.createElement('iframe');
       iframe.className = this.cssPrefix + '-iframe';
-      iframe.src = this.config.baseUrl + '/embed/character';
+      var embedPath = this.config.embedPath || '/welno-app/embed/character';
+      iframe.src = this.config.baseUrl + embedPath;
       iframe.setAttribute('allow', 'autoplay');
       iframe.setAttribute('loading', 'lazy');
       this.elements.iframe = iframe;

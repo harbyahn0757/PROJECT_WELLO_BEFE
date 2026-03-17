@@ -205,7 +205,7 @@
 </div>
 
 <!-- Character Widget Script -->
-<script src="WelnoCharacterWidget.js"></script>
+<script src="welno-character-widget.min.js"></script>
 
 <script>
     let widget = null;
@@ -244,9 +244,11 @@
     function startWidget() {
         if (widget) widget.destroy();
 
+        // baseUrl: 현재 도메인 사용 (partner.kindhabit.com에서 접근 시 자동 적용)
         widget = new WelnoCharacterWidget({
             apiKey: 'demo-key',
             baseUrl: window.location.origin,
+            embedPath: '/welno-app/embed/character',
             partnerData: getFormData(),
             position: document.getElementById('position').value,
             buttonColor: '#7B5E4F',
