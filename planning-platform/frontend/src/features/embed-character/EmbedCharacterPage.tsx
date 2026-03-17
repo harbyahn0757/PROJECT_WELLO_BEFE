@@ -7,7 +7,6 @@ const HealthCharacterScene = lazy(() => import('../../components/character3d/Hea
 
 export default function EmbedCharacterPage() {
   const [partnerData, setPartnerData] = useState<PartnerData | null>(null)
-  const [showOverlay, setShowOverlay] = useState(false)
   const [introComplete, setIntroComplete] = useState(false)
 
   // Receive partnerData via postMessage from parent window
@@ -49,8 +48,6 @@ export default function EmbedCharacterPage() {
     return () => window.removeEventListener('message', handleMessage)
   }, [sendLog])
 
-  const [activeMetric, setActiveMetric] = useState<ZoneMetric | null>(null)
-
   const healthState = partnerData ? mapCheckupToHealthState(partnerData) : undefined
   const zoneMetrics = mapCheckupToZoneMetrics(partnerData?.checkup_results)
 
@@ -59,16 +56,19 @@ export default function EmbedCharacterPage() {
     console.log('[CharacterEmbed] healthState:', healthState?.mood, 'zoneMetrics:', zoneMetrics.length)
   }, [partnerData, healthState, zoneMetrics.length])
 
-  const handleZoneClick = useCallback((metric: ZoneMetric) => {
-    setActiveMetric(prev => prev?.zone === metric.zone ? null : metric)
-    // 3초 후 자동 닫기
-    setTimeout(() => setActiveMetric(null), 4000)
-  }, [])
+  // 스캔 완료 후 카드 표시 (introComplete + healthState 존재 + 약간 딜레이)
+  const [showCards, setShowCards] = useState(false)
+  useEffect(() => {
+    if (introComplete && zoneMetrics.length > 0) {
+      const timer = setTimeout(() => setShowCards(true), 4200) // 스캔 3.5초 + 페이드인 0.7초
+      return () => clearTimeout(timer)
+    }
+  }, [introComplete, zoneMetrics.length])
 
-  const handleCloseOverlay = useCallback(() => {
-    setActiveMetric(null)
-    setShowOverlay(false)
-  }, [])
+  // 3D y좌표 → 화면 % 변환 (카메라 고정 기준 근사값)
+  // 캐릭터 top≈0.70 → 15%, bottom≈-0.20 → 90%
+  const yToPercent = (y: number) => Math.max(5, Math.min(92, 15 + (0.70 - y) / 0.90 * 75))
+  const isLeft = (x: number) => x < 0
 
   return (
     <div className="embed-character">
@@ -84,36 +84,43 @@ export default function EmbedCharacterPage() {
           onIntroComplete={() => setIntroComplete(true)}
           healthState={healthState}
           zoneMetrics={zoneMetrics}
-          onZoneClick={handleZoneClick}
           enableRotation={true}
         />
       </Suspense>
 
-      {/* 부위 클릭 시 뜨는 투명 모달 — 캐릭터 옆에 표시 */}
-      {activeMetric && (
-        <div className={`embed-character__zone-tooltip embed-character__zone-tooltip--${activeMetric.status}`} onClick={handleCloseOverlay}>
-          <div className="embed-character__zone-label">{activeMetric.label}</div>
-          <div className="embed-character__zone-value">{activeMetric.value}</div>
-          {activeMetric.status !== 'normal' && (
-            <div className="embed-character__zone-status">주의</div>
-          )}
-        </div>
-      )}
-
-      {/* 디버그: ?debug=1 일 때 zone 매핑 정보 표시 */}
-      {new URLSearchParams(window.location.search).has('debug') && zoneMetrics.length > 0 && (
-        <div style={{
-          position: 'absolute', top: 4, left: 4, background: 'rgba(0,0,0,0.7)',
-          color: '#fff', fontSize: 10, padding: '6px 8px', borderRadius: 6,
-          fontFamily: 'monospace', lineHeight: 1.6, zIndex: 30, pointerEvents: 'none'
-        }}>
-          {zoneMetrics.map((m, i) => (
-            <div key={i} style={{ color: m.status === 'normal' ? '#4CAF50' : '#FFB300' }}>
-              {m.zone} | {m.label} {m.value} | x={m.x} y={m.y}
-            </div>
-          ))}
-        </div>
-      )}
+      {/* 인디케이터 연결 수치 카드 — 스캔 완료 후 표시 */}
+      {showCards && zoneMetrics.map((m, i) => {
+        const top = yToPercent(m.y)
+        const onLeft = isLeft(m.x)
+        const borderColor = m.status === 'normal' ? '#4CAF50' : '#FFB300'
+        return (
+          <div key={i} className="embed-character__card" style={{
+            position: 'absolute',
+            top: `${top}%`,
+            [onLeft ? 'left' : 'right']: '6px',
+            transform: 'translateY(-50%)',
+            background: 'rgba(255,255,255,0.88)',
+            backdropFilter: 'blur(6px)',
+            borderRadius: '8px',
+            padding: '4px 8px',
+            borderLeft: onLeft ? `3px solid ${borderColor}` : 'none',
+            borderRight: !onLeft ? `3px solid ${borderColor}` : 'none',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            fontSize: '10px',
+            lineHeight: 1.3,
+            pointerEvents: 'none',
+            zIndex: 20,
+            animation: 'embed-tooltipIn 0.4s ease',
+            animationDelay: `${i * 0.12}s`,
+            animationFillMode: 'backwards',
+            minWidth: '48px',
+            textAlign: onLeft ? 'left' : 'right',
+          }}>
+            <div style={{ color: '#999', fontSize: '9px', fontWeight: 500 }}>{m.label}</div>
+            <div style={{ color: '#333', fontSize: '14px', fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{m.value}</div>
+          </div>
+        )
+      })}
     </div>
   )
 }
