@@ -155,6 +155,20 @@
     color: #333;
     font-variant-numeric: tabular-nums;
   }
+
+  &__zone-status {
+    font-size: 10px;
+    font-weight: 600;
+    color: #E65100;
+    margin-top: 2px;
+  }
+
+  &__zone-tooltip--normal {
+    border-left: 3px solid #4CAF50;
+  }
+  &__zone-tooltip--warning {
+    border-left: 3px solid #FFB300;
+  }
 }
 
 @keyframes embed-tooltipIn {

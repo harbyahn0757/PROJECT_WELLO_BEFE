@@ -1,14 +1,9 @@
 import type { CharacterMood, HealthCharacterState, BodyHighlight } from './HealthCharacterModel'
 
+// 파트너사 스펙: 값 키 + {키}_abnormal + {키}_range 쌍으로 전달
+// 예: systolic_bp: 128, systolic_bp_abnormal: "정상", systolic_bp_range: "120 미만"
 export interface CheckupResults {
-  height?: number
-  weight?: number
-  bmi?: number
-  systolic_bp?: number
-  diastolic_bp?: number
-  fasting_glucose?: number
-  total_cholesterol?: number
-  exam_date?: string
+  [key: string]: number | string | undefined
 }
 
 export interface PartnerData {
@@ -105,14 +100,37 @@ export interface ZoneMetric {
   y: number  // 3D Y position
 }
 
-// 키 → 부위/라벨 매핑 (판단하지 않고 값만 표시)
+// 값 키 → 신체 부위 매핑
 const KEY_ZONE_MAP: Record<string, { zone: BodyZone; label: string; y: number }> = {
   total_cholesterol: { zone: 'head', label: '콜레스테롤', y: 0.55 },
+  hemoglobin:        { zone: 'head', label: '헤모글로빈', y: 0.55 },
   systolic_bp:       { zone: 'face', label: '혈압', y: 0.38 },
+  sgot_ast:          { zone: 'face', label: 'AST', y: 0.38 },
+  sgpt_alt:          { zone: 'face', label: 'ALT', y: 0.38 },
   bmi:               { zone: 'body', label: 'BMI', y: 0.18 },
   weight:            { zone: 'body', label: '체중', y: 0.18 },
   fasting_glucose:   { zone: 'lower', label: '혈당', y: -0.02 },
-  height:            { zone: 'head', label: '신장', y: 0.55 },
+  creatinine:        { zone: 'lower', label: '크레아티닌', y: -0.02 },
+  gfr:               { zone: 'lower', label: 'GFR', y: -0.02 },
+}
+
+// _abnormal 값에서 정상/비정상 판단 (파트너사가 제공)
+function parseAbnormal(abnormalVal?: string | number): HealthStatus {
+  if (abnormalVal == null) return 'normal'
+  const s = String(abnormalVal).trim()
+  if (s === '정상' || s === 'normal' || s === '') return 'normal'
+  return 'warning'  // "비정상", "주의", "질환의심" 등 → 노랑
+}
+
+function formatValue(key: string, cr: CheckupResults): string {
+  const val = cr[key]
+  if (val == null) return ''
+  // 혈압: 수축기/이완기 조합
+  if (key === 'systolic_bp' && cr.diastolic_bp != null) {
+    return `${val}/${cr.diastolic_bp}`
+  }
+  if (typeof val === 'number') return Number.isInteger(val) ? String(val) : val.toFixed(1)
+  return String(val)
 }
 
 export function mapCheckupToZoneMetrics(cr?: CheckupResults): ZoneMetric[] {
@@ -120,26 +138,25 @@ export function mapCheckupToZoneMetrics(cr?: CheckupResults): ZoneMetric[] {
   const metrics: ZoneMetric[] = []
   const usedZones = new Set<string>()
 
-  // 혈압은 수축기/이완기 조합
-  if (cr.systolic_bp != null && cr.diastolic_bp != null) {
-    metrics.push({
-      zone: 'face', label: '혈압', value: `${cr.systolic_bp}/${cr.diastolic_bp}`,
-      status: 'normal', y: 0.38,
-    })
-    usedZones.add('face')
-  }
-
-  // 나머지 키값 순회 — 들어온 데이터 그대로 매핑
   for (const [key, val] of Object.entries(cr)) {
-    if (val == null || key === 'exam_date' || key === 'diastolic_bp' || key === 'systolic_bp') continue
+    // _abnormal, _range, 문자열 메타 키는 건너뜀
+    if (val == null || key.endsWith('_abnormal') || key.endsWith('_range')) continue
+    if (typeof val === 'string') continue // 값은 숫자만 (문자열은 메타)
+
     const mapping = KEY_ZONE_MAP[key]
     if (!mapping) continue
-    if (usedZones.has(mapping.zone)) continue // 같은 부위 중복 방지
+    if (usedZones.has(mapping.zone)) continue
     usedZones.add(mapping.zone)
+
+    // _abnormal 키가 있으면 파트너사 판정 사용, 없으면 정상 처리
+    const abnormalKey = `${key}_abnormal`
+    const status = parseAbnormal(cr[abnormalKey])
+
     metrics.push({
-      zone: mapping.zone, label: mapping.label,
-      value: typeof val === 'number' ? (Number.isInteger(val) ? String(val) : val.toFixed(1)) : String(val),
-      status: 'normal', // 판단 안 함 — 파트너사 데이터 그대로
+      zone: mapping.zone,
+      label: mapping.label,
+      value: formatValue(key, cr),
+      status,
       y: mapping.y,
     })
   }

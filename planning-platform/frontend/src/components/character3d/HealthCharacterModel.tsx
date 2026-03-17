@@ -1184,19 +1184,23 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       }
     }
 
-    // Pink indicator circles — fade in after scan, gentle pulse
+    // Indicator circles — fade in after scan, color by status (초록/노랑)
     if (indicatorsVisible.current && zoneMetrics) {
       indicatorTimer.current += dt
       const it = indicatorTimer.current
-      const fadeIn = Math.min(it / 0.8, 1) // 0.8s fade in
-      const pulse = 0.85 + Math.sin(it * 2.0) * 0.15 // slow gentle pulse
+      const fadeIn = Math.min(it / 0.8, 1)
+      const pulse = 0.85 + Math.sin(it * 2.0) * 0.15
       const baseOp = fadeIn * pulse * 0.45
 
       indicatorRefs.current.forEach((mesh, i) => {
         if (!mesh || i >= zoneMetrics.length) { if (mesh) mesh.visible = false; return }
+        const m = zoneMetrics[i]
         mesh.visible = true
-        mesh.position.y = zoneMetrics[i].y
-        ;(mesh.material as THREE.MeshBasicMaterial).opacity = baseOp
+        mesh.position.y = m.y
+        // 정상=초록(#4CAF50), 비정상=노랑(#FFB300)
+        const mat = mesh.material as THREE.MeshBasicMaterial
+        mat.color.set(m.status === 'normal' ? 0x4CAF50 : 0xFFB300)
+        mat.opacity = baseOp
         const sc = 0.06 + Math.sin(it * 2.0 + i * 0.5) * 0.008
         mesh.scale.setScalar(sc / 0.06)
       })
@@ -1214,10 +1218,10 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
   }), [])
   // Pink indicator circles — data zone markers
   const indicatorMats = useMemo(() => [
-    new THREE.MeshBasicMaterial({ color: 0xff69b4, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
-    new THREE.MeshBasicMaterial({ color: 0xff69b4, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
-    new THREE.MeshBasicMaterial({ color: 0xff69b4, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
-    new THREE.MeshBasicMaterial({ color: 0xff69b4, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
   ], [])
 
   const blushMat = useMemo(() => new THREE.MeshBasicMaterial({

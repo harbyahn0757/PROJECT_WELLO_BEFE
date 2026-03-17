@@ -90,9 +90,12 @@ export default function EmbedCharacterPage() {
 
       {/* 부위 클릭 시 뜨는 투명 모달 — 캐릭터 옆에 표시 */}
       {activeMetric && (
-        <div className="embed-character__zone-tooltip" onClick={handleCloseOverlay}>
+        <div className={`embed-character__zone-tooltip embed-character__zone-tooltip--${activeMetric.status}`} onClick={handleCloseOverlay}>
           <div className="embed-character__zone-label">{activeMetric.label}</div>
           <div className="embed-character__zone-value">{activeMetric.value}</div>
+          {activeMetric.status !== 'normal' && (
+            <div className="embed-character__zone-status">주의</div>
+          )}
         </div>
       )}
     </div>

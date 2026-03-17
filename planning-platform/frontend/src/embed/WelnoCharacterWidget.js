@@ -263,7 +263,15 @@ class WelnoCharacterWidget {
       var iframe = document.createElement('iframe');
       iframe.className = this.cssPrefix + '-iframe';
       var embedPath = this.config.embedPath || '/embed/character';
-      iframe.src = this.config.baseUrl + embedPath;
+      // partnerData를 URL param으로 전달 (postMessage보다 확실)
+      var iframeUrl = this.config.baseUrl + embedPath;
+      var sep = '?';
+      if (this.config.apiKey) { iframeUrl += sep + 'apiKey=' + encodeURIComponent(this.config.apiKey); sep = '&'; }
+      if (this.config.partnerData) {
+        try { iframeUrl += sep + 'partnerData=' + encodeURIComponent(JSON.stringify(this.config.partnerData)); }
+        catch(e) { /* ignore */ }
+      }
+      iframe.src = iframeUrl;
       iframe.setAttribute('allow', 'autoplay');
       iframe.setAttribute('loading', 'lazy');
       this.elements.iframe = iframe;

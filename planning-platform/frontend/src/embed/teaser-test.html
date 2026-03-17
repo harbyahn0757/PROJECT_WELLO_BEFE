@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>위젯 디자인 테스트 (티저 + 채팅)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 40px;
+            background: #f5f0eb;
+            color: #333;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        h1 { font-size: 1.5em; margin-bottom: 20px; }
+        .controls {
+            display: flex; flex-wrap: wrap; gap: 8px;
+            margin-bottom: 24px;
+        }
+        button {
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        button:hover { background: #f0f0f0; }
+        .checklist {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .checklist h2 { font-size: 14px; margin: 0 0 12px; }
+        .checklist label {
+            display: block;
+            font-size: 13px;
+            padding: 4px 0;
+            color: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>위젯 디자인 테스트</h1>
+        <div class="controls">
+            <button onclick="initTeaser()">티저 모드 초기화</button>
+            <button onclick="initButton()">버튼 모드 초기화</button>
+            <button onclick="widget && widget.open()">위젯 열기</button>
+            <button onclick="widget && widget.destroy()">파괴</button>
+            <button onclick="injectFakeMessages()">가짜 메시지 추가</button>
+            <button onclick="simulateStreaming()" style="background:#7B5E4F;color:white">스트리밍 테스트 (채팅에서 아무거나 입력해도 됨)</button>
+        </div>
+        <div class="checklist">
+            <h2>디자인 체크리스트</h2>
+            <label><input type="checkbox"> AI 메시지에 별 아바타 (28x28) 표시</label>
+            <label><input type="checkbox"> 사용자 말풍선 radius: 18 18 4 18</label>
+            <label><input type="checkbox"> AI 말풍선 radius: 18 18 18 4, 흰 배경 + subtle border</label>
+            <label><input type="checkbox"> 폰트 13px</label>
+            <label><input type="checkbox"> 긴 응답에 좌측 accent 보더 (structured)</label>
+            <label><input type="checkbox"> 로딩: 아바타 + ▌ 커서 pulse</label>
+            <label><input type="checkbox"> 입력창 border-radius 16px</label>
+            <label><input type="checkbox"> 전송 버튼 disabled = glass bg</label>
+            <label><input type="checkbox"> 티저 아바타 = 별 SVG (채팅 아이콘 X)</label>
+            <label><input type="checkbox"> 버튼 모드 회귀 OK</label>
+        </div>
+    </div>
+
+    <script src="WelnoRagChatWidget.js"></script>
+    <script>
+        // fetchRemoteConfig를 모킹하여 API 서버 없이 테스트
+        WelnoRagChatWidget.prototype.fetchRemoteConfig = async function() {
+            console.log('[MOCK] fetchRemoteConfig 스킵');
+        };
+        // warmup도 모킹
+        WelnoRagChatWidget.prototype.warmup = function() {
+            console.log('[MOCK] warmup 스킵');
+        };
+
+        // sendMessage 모킹 — 채팅 입력창에서 보내면 가짜 스트리밍 응답
+        var _origSendMessage = WelnoRagChatWidget.prototype.sendMessage;
+        WelnoRagChatWidget.prototype.sendMessage = async function(message) {
+            console.log('[MOCK] sendMessage:', message);
+            var self = this;
+            var chunks = [
+                '**건강 상담 결과:**\n\n',
+                '입력하신 "' + message + '"에 대해 ',
+                '분석해 드리겠습니다.\n\n',
+                '1. **기본 분석**: 건강 상담 AI가 ',
+                '관련 데이터를 검토했습니다.\n',
+                '2. **권장 사항**: 정기적인 건강검진을 ',
+                '통해 현재 상태를 확인하시길 권장합니다.\n',
+                '3. **생활 습관**: 균형 잡힌 식단과 ',
+                '규칙적인 운동이 도움됩니다.\n',
+                '4. **전문 상담**: 구체적인 증상이 있다면 ',
+                '전문의 상담을 받아보시는 것이 좋습니다.\n\n',
+                '추가로 궁금한 점이 있으시면 언제든 물어보세요!'
+            ];
+
+            var stream = new ReadableStream({
+                start: function(controller) {
+                    var encoder = new TextEncoder();
+                    var i = 0;
+                    function pushNext() {
+                        if (i < chunks.length) {
+                            var sseData = 'data: ' + JSON.stringify({ answer: chunks[i] }) + '\n\n';
+                            controller.enqueue(encoder.encode(sseData));
+                            i++;
+                            setTimeout(pushNext, 150 + Math.random() * 200);
+                        } else {
+                            var doneData = 'data: ' + JSON.stringify({ done: true, sources: [], suggestions: ['건강검진 항목 추천', '혈압 정상 범위'] }) + '\n\n';
+                            controller.enqueue(encoder.encode(doneData));
+                            controller.close();
+                        }
+                    }
+                    pushNext();
+                }
+            });
+
+            this.setLoading(true);
+            await new Promise(function(r) { setTimeout(r, 600); });
+            this.setLoading(false);
+            await this.handleStreamingResponse({ body: stream });
+        };
+
+        var widget = null;
+
+        function initTeaser() {
+            if (widget) widget.destroy();
+            widget = new WelnoRagChatWidget({
+                apiKey: 'test_key',
+                baseUrl: 'http://localhost:8082',
+                uuid: 'design_test_' + Date.now(),
+                hospitalId: 'test_clinic',
+                mode: 'teaser',
+                teaserMessage: '건강 궁금한 점 물어보세요!',
+                teaserDelay: 500,
+                buttonColor: '#7B5E4F',
+                welcomeMessage: '안녕하세요! 건강 상담 AI입니다. 무엇이 궁금하신가요?'
+            });
+            widget.init();
+        }
+
+        function initButton() {
+            if (widget) widget.destroy();
+            widget = new WelnoRagChatWidget({
+                apiKey: 'test_key',
+                baseUrl: 'http://localhost:8082',
+                uuid: 'design_test_' + Date.now(),
+                hospitalId: 'test_clinic',
+                mode: 'button',
+                buttonColor: '#7B5E4F',
+                welcomeMessage: '안녕하세요! 건강 상담 AI입니다.'
+            });
+            widget.init();
+        }
+
+        function injectFakeMessages() {
+            if (!widget || !widget.state.isOpen) {
+                alert('먼저 위젯을 열어주세요');
+                return;
+            }
+            // 짧은 사용자 메시지
+            widget.addMessage('user', 'BMI가 25.3인데 괜찮은가요?');
+            // 짧은 AI 응답
+            widget.addMessage('assistant', 'BMI 25.3은 과체중 범위에 해당합니다.');
+            // 긴 구조화 AI 응답 (structured 테스트)
+            setTimeout(function() {
+                widget.addMessage('assistant',
+                    '**BMI 25.3 분석 결과:**\n\n' +
+                    'BMI 25.3은 과체중 범위(25~29.9)에 해당합니다. 아래 사항을 참고해 주세요.\n\n' +
+                    '1. **식이요법**: 하루 칼로리 섭취를 200~300kcal 줄이는 것이 효과적입니다.\n' +
+                    '2. **운동**: 주 3~5회 30분 이상 유산소 운동을 권장합니다.\n' +
+                    '3. **수면**: 하루 7~8시간 수면이 체중 관리에 도움됩니다.\n' +
+                    '4. **스트레스 관리**: 코르티솔 수치가 높으면 복부 비만이 증가할 수 있습니다.\n\n' +
+                    '**혈압 135/85**도 경계 고혈압에 해당하므로, 체중 감량과 함께 정기적인 혈압 모니터링을 추천합니다.'
+                );
+            }, 500);
+        }
+
+        function simulateStreaming() {
+            if (!widget || !widget.state.isOpen) {
+                alert('먼저 위젯을 열어주세요');
+                return;
+            }
+            // sendMessage를 모킹 — fetch 대신 가짜 SSE 스트림 생성
+            var chunks = [
+                '**BMI 25.3 분석 결과:**\n\n',
+                'BMI 25.3은 **과체중 범위**(25~29.9)에 해당합니다.\n',
+                '아래 사항을 참고해 주세요.\n\n',
+                '1. **식이요법**: 하루 칼로리 섭취를 ',
+                '200~300kcal 줄이는 것이 효과적입니다.\n',
+                '2. **운동**: 주 3~5회 30분 이상 ',
+                '유산소 운동을 권장합니다.\n',
+                '3. **수면**: 하루 7~8시간 수면이 ',
+                '체중 관리에 도움됩니다.\n',
+                '4. **스트레스 관리**: 코르티솔 수치가 ',
+                '높으면 복부 비만이 증가할 수 있습니다.\n\n',
+                '**혈압 135/85**도 경계 고혈압에 해당하므로, ',
+                '체중 감량과 함께 정기적인 혈압 모니터링을 추천합니다.'
+            ];
+
+            // 사용자 메시지 먼저 추가
+            widget.addMessage('user', 'BMI가 25.3인데 괜찮은가요?');
+
+            // handleStreamingResponse에 넘길 가짜 ReadableStream 생성
+            var chunkIndex = 0;
+            var stream = new ReadableStream({
+                start: function(controller) {
+                    var encoder = new TextEncoder();
+                    function pushNext() {
+                        if (chunkIndex < chunks.length) {
+                            var sseData = 'data: ' + JSON.stringify({ answer: chunks[chunkIndex] }) + '\n\n';
+                            controller.enqueue(encoder.encode(sseData));
+                            chunkIndex++;
+                            setTimeout(pushNext, 150 + Math.random() * 200);
+                        } else {
+                            // done 이벤트
+                            var doneData = 'data: ' + JSON.stringify({ done: true, sources: [], suggestions: ['체중 감량 방법은?', '혈압 관리법'] }) + '\n\n';
+                            controller.enqueue(encoder.encode(doneData));
+                            controller.close();
+                        }
+                    }
+                    pushNext();
+                }
+            });
+
+            widget.setLoading(true);
+            setTimeout(function() {
+                widget.setLoading(false);
+                widget.handleStreamingResponse({ body: stream });
+            }, 800);
+        }
+
+        // 페이지 로드 시 티저 모드로 자동 초기화
+        initTeaser();
+    </script>
+</body>
+</html>
