@@ -1208,20 +1208,20 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
   })
 
   // ===== MATERIALS =====
-  // Scan line — bright orange
+  // Scan line — bright orange (depthTest:false → 항상 캐릭터 앞에 렌더링)
   const scanLineMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: 0xff8c00, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide,
+    color: 0xff8c00, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide,
   }), [])
   // Scan glow — wider, softer orange
   const scanGlowMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: 0xffa500, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide,
+    color: 0xffa500, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide,
   }), [])
-  // Pink indicator circles — data zone markers
+  // Indicator circles — data zone markers (depthTest:false → 캐릭터에 가려지지 않음)
   const indicatorMats = useMemo(() => [
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
-    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
   ], [])
 
   const blushMat = useMemo(() => new THREE.MeshBasicMaterial({
@@ -1259,17 +1259,17 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       <primitive object={characterScene} scale={1.5} onPointerDown={handlePointerDown} />
 
       {/* Health scan line — wide horizontal orange bar sweeps top→bottom */}
-      <mesh ref={scanLineRef} position={[0, 0.78, 0.14]} visible={false} material={scanLineMat}>
+      <mesh ref={scanLineRef} position={[0, 0.78, 0.22]} visible={false} material={scanLineMat} renderOrder={10}>
         <planeGeometry args={[0.7, 0.006]} />
       </mesh>
-      <mesh ref={scanGlowRef} position={[0, 0.78, 0.13]} visible={false} material={scanGlowMat}>
+      <mesh ref={scanGlowRef} position={[0, 0.78, 0.20]} visible={false} material={scanGlowMat} renderOrder={9}>
         <planeGeometry args={[0.8, 0.06]} />
       </mesh>
 
-      {/* Pink indicator circles — data zone markers */}
+      {/* Indicator circles — data zone markers */}
       {indicatorMats.map((mat, i) => (
         <mesh key={`ind-${i}`} ref={el => { indicatorRefs.current[i] = el }}
-          position={[0, 0.4, 0.14]} visible={false} material={mat}>
+          position={[0, 0.4, 0.22]} visible={false} material={mat} renderOrder={8}>
           <circleGeometry args={[0.06, 24]} />
         </mesh>
       ))}
