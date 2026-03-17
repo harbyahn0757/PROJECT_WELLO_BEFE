@@ -134,11 +134,11 @@ export default function EmbedCharacterPage() {
                 <div><b>{nameMap[zk] || zk}</b> x={m.x.toFixed(2)} y={m.y.toFixed(2)}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span>x</span>
-                  <input type="range" min={-0.2} max={0.2} step={0.01} value={a.x}
+                  <input type="range" min={-0.3} max={0.3} step={0.01} value={a.x}
                     style={{ width: '80px', height: '12px' }}
                     onChange={e => setAdj(p => ({ ...p, [zk]: { ...a, x: parseFloat(e.target.value) } }))} />
                   <span>y</span>
-                  <input type="range" min={-0.3} max={0.3} step={0.01} value={a.y}
+                  <input type="range" min={-0.5} max={0.5} step={0.01} value={a.y}
                     style={{ width: '80px', height: '12px' }}
                     onChange={e => setAdj(p => ({ ...p, [zk]: { ...a, y: parseFloat(e.target.value) } }))} />
                 </div>
