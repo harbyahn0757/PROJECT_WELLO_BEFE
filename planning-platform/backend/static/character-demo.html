@@ -294,7 +294,7 @@
     function startCharacter() {
         var frame = document.getElementById('characterFrame');
         var data = getFormData();
-        var url = BASE + '/embed/character?partnerData=' + encodeURIComponent(JSON.stringify(data));
+        var url = BASE + '/embed/character?debug=1&partnerData=' + encodeURIComponent(JSON.stringify(data));
         var old = frame.querySelector('iframe');
         if (old) old.remove();
         var ph = document.getElementById('placeholder');

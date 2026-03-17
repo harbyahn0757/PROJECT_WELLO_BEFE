@@ -99,6 +99,21 @@ export default function EmbedCharacterPage() {
           )}
         </div>
       )}
+
+      {/* 디버그: ?debug=1 일 때 zone 매핑 정보 표시 */}
+      {new URLSearchParams(window.location.search).has('debug') && zoneMetrics.length > 0 && (
+        <div style={{
+          position: 'absolute', top: 4, left: 4, background: 'rgba(0,0,0,0.7)',
+          color: '#fff', fontSize: 10, padding: '6px 8px', borderRadius: 6,
+          fontFamily: 'monospace', lineHeight: 1.6, zIndex: 30, pointerEvents: 'none'
+        }}>
+          {zoneMetrics.map((m, i) => (
+            <div key={i} style={{ color: m.status === 'normal' ? '#4CAF50' : '#FFB300' }}>
+              {m.zone} | {m.label} {m.value} | x={m.x} y={m.y}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
