@@ -24,17 +24,12 @@
         .demo-body {
             display: flex;
             gap: 20px;
-            max-width: 1000px;
+            max-width: 1100px;
             margin: 20px auto;
             padding: 0 16px;
         }
-        .demo-sidebar {
-            flex: 0 0 320px;
-        }
-        .demo-main {
-            flex: 1;
-            min-width: 0;
-        }
+        .demo-sidebar { flex: 0 0 360px; }
+        .demo-main { flex: 1; min-width: 0; }
         .card {
             background: white;
             border-radius: 14px;
@@ -43,27 +38,38 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.06);
         }
         .card h2 {
-            font-size: 14px;
+            font-size: 13px;
             color: #7B5E4F;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             padding-bottom: 6px;
             border-bottom: 1px solid #f0ebe6;
         }
         .controls {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
         }
-        .field { display: flex; flex-direction: column; gap: 3px; }
-        .field label { font-size: 11px; color: #888; font-weight: 500; }
+        .field { display: flex; flex-direction: column; gap: 2px; }
+        .field label { font-size: 10px; color: #888; font-weight: 500; }
         .field input {
-            padding: 7px 10px;
+            padding: 6px 8px;
             border: 1px solid #e0d8d0;
             border-radius: 6px;
-            font-size: 13px;
+            font-size: 12px;
             outline: none;
+            width: 100%;
         }
         .field input:focus { border-color: #7B5E4F; }
+        .section-label {
+            font-size: 10px;
+            color: #b0a090;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 10px;
+            margin-bottom: 4px;
+            grid-column: 1 / -1;
+        }
         .presets {
             display: flex; gap: 6px; flex-wrap: wrap;
             margin-top: 10px;
@@ -90,11 +96,10 @@
         }
         .btn-primary { background: #7B5E4F; color: white; }
         .btn-primary:hover { background: #6B4E3F; }
-        /* 캐릭터 뷰어 */
         .character-frame {
             width: 100%;
             aspect-ratio: 3/4;
-            max-height: 520px;
+            max-height: 580px;
             border-radius: 14px;
             overflow: hidden;
             background: #f8f6f4;
@@ -117,10 +122,10 @@
         }
         .placeholder svg { opacity: 0.4; }
         .placeholder span { font-size: 13px; }
-        /* 반응형 */
-        @media (max-width: 700px) {
+        @media (max-width: 750px) {
             .demo-body { flex-direction: column; }
             .demo-sidebar { flex: none; }
+            .controls { grid-template-columns: 1fr 1fr; }
             .character-frame { aspect-ratio: 3/4; max-height: 400px; }
         }
     </style>
@@ -137,10 +142,21 @@
         <div class="card">
             <h2>검진 데이터</h2>
             <div class="controls">
+                <div class="section-label">기본</div>
+                <div class="field">
+                    <label>키 (cm)</label>
+                    <input type="number" id="height" value="172" step="0.1">
+                </div>
+                <div class="field">
+                    <label>체중 (kg)</label>
+                    <input type="number" id="weight" value="75" step="0.1">
+                </div>
                 <div class="field">
                     <label>BMI</label>
                     <input type="number" id="bmi" value="25.3" step="0.1">
                 </div>
+
+                <div class="section-label">심혈관</div>
                 <div class="field">
                     <label>수축기 혈압</label>
                     <input type="number" id="systolic_bp" value="135">
@@ -150,12 +166,42 @@
                     <input type="number" id="diastolic_bp" value="85">
                 </div>
                 <div class="field">
+                    <label>총콜레스테롤</label>
+                    <input type="number" id="total_cholesterol" value="220">
+                </div>
+
+                <div class="section-label">혈액</div>
+                <div class="field">
                     <label>공복혈당</label>
                     <input type="number" id="fasting_glucose" value="105">
                 </div>
                 <div class="field">
-                    <label>총콜레스테롤</label>
-                    <input type="number" id="total_cholesterol" value="220">
+                    <label>헤모글로빈</label>
+                    <input type="number" id="hemoglobin" value="14.2" step="0.1">
+                </div>
+
+                <div class="section-label">간기능</div>
+                <div class="field">
+                    <label>AST (SGOT)</label>
+                    <input type="number" id="sgot_ast" value="35">
+                </div>
+                <div class="field">
+                    <label>ALT (SGPT)</label>
+                    <input type="number" id="sgpt_alt" value="40">
+                </div>
+                <div class="field">
+                    <label>감마GTP</label>
+                    <input type="number" id="gamma_gtp" value="55">
+                </div>
+
+                <div class="section-label">신장기능</div>
+                <div class="field">
+                    <label>크레아티닌</label>
+                    <input type="number" id="creatinine" value="1.1" step="0.1">
+                </div>
+                <div class="field">
+                    <label>GFR</label>
+                    <input type="number" id="gfr" value="85">
                 </div>
             </div>
             <div class="presets">
@@ -183,36 +229,64 @@
 <script>
     var BASE = 'https://welno.kindhabit.com';
     var PRESETS = {
-        healthy: { bmi: 22.1, systolic_bp: 115, diastolic_bp: 72, fasting_glucose: 88, total_cholesterol: 185 },
-        warning: { bmi: 25.3, systolic_bp: 135, diastolic_bp: 85, fasting_glucose: 105, total_cholesterol: 220 },
-        danger:  { bmi: 31.2, systolic_bp: 155, diastolic_bp: 98, fasting_glucose: 140, total_cholesterol: 265 },
+        healthy: {
+            height: 172, weight: 68, bmi: 22.1,
+            systolic_bp: 115, diastolic_bp: 72, total_cholesterol: 185,
+            fasting_glucose: 88, hemoglobin: 14.5,
+            sgot_ast: 22, sgpt_alt: 18, gamma_gtp: 25,
+            creatinine: 0.9, gfr: 95
+        },
+        warning: {
+            height: 172, weight: 75, bmi: 25.3,
+            systolic_bp: 135, diastolic_bp: 85, total_cholesterol: 220,
+            fasting_glucose: 105, hemoglobin: 12.8,
+            sgot_ast: 35, sgpt_alt: 40, gamma_gtp: 55,
+            creatinine: 1.1, gfr: 85
+        },
+        danger: {
+            height: 172, weight: 92, bmi: 31.2,
+            systolic_bp: 155, diastolic_bp: 98, total_cholesterol: 265,
+            fasting_glucose: 140, hemoglobin: 10.5,
+            sgot_ast: 65, sgpt_alt: 72, gamma_gtp: 120,
+            creatinine: 1.8, gfr: 52
+        }
+    };
+    var FIELDS = ['height','weight','bmi','systolic_bp','diastolic_bp','total_cholesterol',
+                  'fasting_glucose','hemoglobin','sgot_ast','sgpt_alt','gamma_gtp','creatinine','gfr'];
+    // 정상 기준 상한
+    var NORMAL_MAX = {
+        bmi: 24.9, systolic_bp: 120, diastolic_bp: 80, total_cholesterol: 200,
+        fasting_glucose: 100, hemoglobin: 999, sgot_ast: 40, sgpt_alt: 35, gamma_gtp: 50,
+        creatinine: 1.2, gfr: 999
     };
 
+    function val(id) {
+        var v = document.getElementById(id).value;
+        return v.includes('.') ? parseFloat(v) : parseInt(v);
+    }
+
     function getFormData() {
+        var cr = {};
+        FIELDS.forEach(function(f) { cr[f] = val(f); });
+        // _abnormal 자동 생성
+        Object.keys(NORMAL_MAX).forEach(function(k) {
+            if (cr[k] != null) {
+                // gfr은 낮을수록 나쁨
+                if (k === 'gfr') cr[k + '_abnormal'] = cr[k] < 60 ? '비정상' : '정상';
+                // hemoglobin도 낮을수록
+                else if (k === 'hemoglobin') cr[k + '_abnormal'] = cr[k] < 12 ? '비정상' : '정상';
+                else cr[k + '_abnormal'] = cr[k] > NORMAL_MAX[k] ? '비정상' : '정상';
+            }
+        });
         return {
             patient: { name: '데모 사용자', birth_date: '1985-03-15', sex: 'M' },
-            checkup_results: {
-                height: 172, weight: 75,
-                bmi: parseFloat(document.getElementById('bmi').value),
-                systolic_bp: parseInt(document.getElementById('systolic_bp').value),
-                diastolic_bp: parseInt(document.getElementById('diastolic_bp').value),
-                fasting_glucose: parseInt(document.getElementById('fasting_glucose').value),
-                total_cholesterol: parseInt(document.getElementById('total_cholesterol').value),
-                bmi_abnormal: parseFloat(document.getElementById('bmi').value) > 24.9 ? '비정상' : '정상',
-                systolic_bp_abnormal: parseInt(document.getElementById('systolic_bp').value) > 120 ? '비정상' : '정상',
-                fasting_glucose_abnormal: parseInt(document.getElementById('fasting_glucose').value) > 100 ? '비정상' : '정상',
-                total_cholesterol_abnormal: parseInt(document.getElementById('total_cholesterol').value) > 200 ? '비정상' : '정상'
-            }
+            checkup_results: cr
         };
     }
 
     function applyPreset(name) {
         var p = PRESETS[name];
-        document.getElementById('bmi').value = p.bmi;
-        document.getElementById('systolic_bp').value = p.systolic_bp;
-        document.getElementById('diastolic_bp').value = p.diastolic_bp;
-        document.getElementById('fasting_glucose').value = p.fasting_glucose;
-        document.getElementById('total_cholesterol').value = p.total_cholesterol;
+        FIELDS.forEach(function(f) { if (p[f] != null) document.getElementById(f).value = p[f]; });
         document.querySelectorAll('.preset-btn').forEach(function(b) { b.classList.remove('active'); });
         event.target.classList.add('active');
     }
@@ -221,16 +295,10 @@
         var frame = document.getElementById('characterFrame');
         var data = getFormData();
         var url = BASE + '/embed/character?partnerData=' + encodeURIComponent(JSON.stringify(data));
-
-        // 기존 iframe 제거
         var old = frame.querySelector('iframe');
         if (old) old.remove();
-
-        // placeholder 숨기기
         var ph = document.getElementById('placeholder');
         if (ph) ph.style.display = 'none';
-
-        // iframe 삽입
         var iframe = document.createElement('iframe');
         iframe.src = url;
         iframe.setAttribute('allow', 'autoplay');
