@@ -443,15 +443,12 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
     const breathCombined = breathPrimary * 0.85 + breathSecondary * 0.15  // 85% primary, 15% micro
 
     if (chest) {
-      chest.scale.y = 1 + breathCombined * 0.10    // 10% 부풀림 (가슴)
-      chest.scale.x = 1 + breathCombined * 0.04    // 옆으로도 약간
-      chest.scale.z = 1 + breathCombined * 0.05    // 앞으로도
-      chest.position.y = breathCombined * 0.003     // 살짝 올라감
+      chest.scale.y = 1 + breathCombined * 0.060
+      chest.scale.x = 1 + breathCombined * 0.020
+      chest.scale.z = 1 + breathCombined * 0.025
     }
     if (spine && !reaction.current) {
-      spine.rotation.x = breathCombined * 0.012     // 숨쉴 때 상체 미세하게 뒤로
-      spine.scale.y = 1 + breathCombined * 0.015    // 배 부풀림
-      spine.scale.z = 1 + breathCombined * 0.02
+      spine.rotation.x = breathCombined * 0.008
       spine.rotation.z = 0
     }
 
