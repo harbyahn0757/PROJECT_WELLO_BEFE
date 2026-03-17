@@ -100,18 +100,25 @@ export interface ZoneMetric {
   y: number  // 3D Y position
 }
 
-// 값 키 → 신체 부위 매핑
+// 값 키 → 신체 부위 매핑 (y좌표는 캐릭터 3D 모델 기준)
+// 참조: blush y=0.47(볼), exclamation y=0.72(머리위), ZONE_FACE_Y=0.43, ZONE_BODY_Y=0.05
 const KEY_ZONE_MAP: Record<string, { zone: BodyZone; label: string; y: number }> = {
-  total_cholesterol: { zone: 'head', label: '콜레스테롤', y: 0.55 },
-  hemoglobin:        { zone: 'head', label: '헤모글로빈', y: 0.55 },
-  systolic_bp:       { zone: 'face', label: '혈압', y: 0.38 },
-  sgot_ast:          { zone: 'face', label: 'AST', y: 0.38 },
-  sgpt_alt:          { zone: 'face', label: 'ALT', y: 0.38 },
-  bmi:               { zone: 'body', label: 'BMI', y: 0.18 },
-  weight:            { zone: 'body', label: '체중', y: 0.18 },
-  fasting_glucose:   { zone: 'lower', label: '혈당', y: -0.02 },
-  creatinine:        { zone: 'lower', label: '크레아티닌', y: -0.02 },
-  gfr:               { zone: 'lower', label: 'GFR', y: -0.02 },
+  // 머리 (y=0.62) — 콜레스테롤, 헤모글로빈
+  total_cholesterol: { zone: 'head', label: '콜레스테롤', y: 0.62 },
+  hemoglobin:        { zone: 'head', label: '헤모글로빈', y: 0.62 },
+  // 심장/가슴 (y=0.32) — 혈압
+  systolic_bp:       { zone: 'face', label: '혈압', y: 0.32 },
+  // 간/옆구리 (y=0.22) — AST, ALT, 감마GTP
+  sgot_ast:          { zone: 'side', label: 'AST', y: 0.22 },
+  sgpt_alt:          { zone: 'side', label: 'ALT', y: 0.22 },
+  gamma_gtp:         { zone: 'side', label: 'GGT', y: 0.22 },
+  // 배 (y=0.12) — BMI, 체중
+  bmi:               { zone: 'body', label: 'BMI', y: 0.12 },
+  weight:            { zone: 'body', label: '체중', y: 0.12 },
+  // 하체 (y=-0.05) — 혈당, 신장기능
+  fasting_glucose:   { zone: 'lower', label: '혈당', y: -0.05 },
+  creatinine:        { zone: 'lower', label: '크레아티닌', y: -0.05 },
+  gfr:               { zone: 'lower', label: 'GFR', y: -0.05 },
 }
 
 // _abnormal 값에서 정상/비정상 판단 (파트너사가 제공)

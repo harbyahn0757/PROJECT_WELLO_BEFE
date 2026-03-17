@@ -186,7 +186,7 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
   // Pink indicator circles (appear after scan, pulse on data zones)
   const indicatorsVisible = useRef(false)
   const indicatorTimer = useRef(0)
-  const indicatorRefs = useRef<(THREE.Mesh | null)[]>([null, null, null, null])
+  const indicatorRefs = useRef<(THREE.Mesh | null)[]>([null, null, null, null, null])
 
   // Morph targets (Shape Keys from Blender)
   const morphMesh = useRef<THREE.Mesh | null>(null)
@@ -1218,6 +1218,7 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
   }), [])
   // Indicator circles — data zone markers (depthTest:false → 캐릭터에 가려지지 않음)
   const indicatorMats = useMemo(() => [
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
