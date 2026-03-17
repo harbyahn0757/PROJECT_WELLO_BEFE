@@ -97,28 +97,32 @@ export interface ZoneMetric {
   label: string
   value: string
   status: HealthStatus
+  x: number  // 3D X position (좌우 오프셋)
   y: number  // 3D Y position
 }
 
-// 값 키 → 신체 부위 매핑 (y좌표는 캐릭터 3D 모델 실측 기준)
-// 스크린샷 참조: 머리꼭대기~0.70, 볼=0.47, 목=0.37, 가슴=0.25, 배=0.10, 무릎=-0.10
-const KEY_ZONE_MAP: Record<string, { zone: BodyZone; label: string; y: number }> = {
-  // 머리 (y=0.52) — 이마~정수리 사이
-  total_cholesterol: { zone: 'head', label: '콜레스테롤', y: 0.52 },
-  hemoglobin:        { zone: 'head', label: '헤모글로빈', y: 0.52 },
-  // 가슴/심장 (y=0.25) — 목 아래, 명치 위
-  systolic_bp:       { zone: 'face', label: '혈압', y: 0.25 },
-  // 간/옆구리 (y=0.15) — 명치~배 사이
-  sgot_ast:          { zone: 'side', label: 'AST', y: 0.15 },
-  sgpt_alt:          { zone: 'side', label: 'ALT', y: 0.15 },
-  gamma_gtp:         { zone: 'side', label: 'GGT', y: 0.15 },
-  // 배 (y=0.05) — 배꼽 부근
-  bmi:               { zone: 'body', label: 'BMI', y: 0.05 },
-  weight:            { zone: 'body', label: '체중', y: 0.05 },
-  // 하체 (y=-0.10) — 골반~허벅지
-  fasting_glucose:   { zone: 'lower', label: '혈당', y: -0.10 },
-  creatinine:        { zone: 'lower', label: '크레아티닌', y: -0.10 },
-  gfr:               { zone: 'lower', label: 'GFR', y: -0.10 },
+// 값 키 → 신체 부위 매핑 (3D 모델 실측 기준)
+// x: 양수=화면 오른쪽(캐릭터 왼쪽), 음수=화면 왼쪽(캐릭터 오른쪽)
+// blush 참조: 볼 y=0.47, x=±0.09
+const KEY_ZONE_MAP: Record<string, { zone: BodyZone; label: string; x: number; y: number }> = {
+  // 머리 (중앙) — 콜레스테롤, 헤모글로빈
+  total_cholesterol: { zone: 'head', label: '콜레스테롤', x: 0, y: 0.52 },
+  hemoglobin:        { zone: 'head', label: '헤모글로빈', x: 0, y: 0.52 },
+  // 심장 (왼쪽 가슴) — 혈압
+  systolic_bp:       { zone: 'face', label: '혈압', x: 0.05, y: 0.24 },
+  // 간 (오른쪽 갈비뼈 아래) — AST, ALT, GGT
+  sgot_ast:          { zone: 'side', label: 'AST', x: -0.06, y: 0.18 },
+  sgpt_alt:          { zone: 'side', label: 'ALT', x: -0.06, y: 0.18 },
+  gamma_gtp:         { zone: 'side', label: 'GGT', x: -0.06, y: 0.18 },
+  // 배 (중앙) — BMI, 체중, 키, 허리둘레
+  bmi:               { zone: 'body', label: 'BMI', x: 0, y: 0.08 },
+  weight:            { zone: 'body', label: '체중', x: 0, y: 0.08 },
+  height:            { zone: 'body', label: '키', x: 0, y: 0.08 },
+  waist:             { zone: 'body', label: '허리둘레', x: 0, y: 0.08 },
+  // 하체 (중앙) — 혈당, 신장기능
+  fasting_glucose:   { zone: 'lower', label: '혈당', x: 0, y: -0.08 },
+  creatinine:        { zone: 'lower', label: '크레아티닌', x: 0, y: -0.08 },
+  gfr:               { zone: 'lower', label: 'GFR', x: 0, y: -0.08 },
 }
 
 // _abnormal 값에서 정상/비정상 판단 (파트너사가 제공)
@@ -164,6 +168,7 @@ export function mapCheckupToZoneMetrics(cr?: CheckupResults): ZoneMetric[] {
       label: mapping.label,
       value: formatValue(key, cr),
       status,
+      x: mapping.x,
       y: mapping.y,
     })
   }

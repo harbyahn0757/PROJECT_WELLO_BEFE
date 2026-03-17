@@ -1196,13 +1196,14 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
         if (!mesh || i >= zoneMetrics.length) { if (mesh) mesh.visible = false; return }
         const m = zoneMetrics[i]
         mesh.visible = true
+        mesh.position.x = m.x || 0
         mesh.position.y = m.y
         // 정상=초록(#4CAF50), 비정상=노랑(#FFB300)
         const mat = mesh.material as THREE.MeshBasicMaterial
         mat.color.set(m.status === 'normal' ? 0x4CAF50 : 0xFFB300)
         mat.opacity = baseOp
-        const sc = 0.06 + Math.sin(it * 2.0 + i * 0.5) * 0.008
-        mesh.scale.setScalar(sc / 0.06)
+        const sc = 0.035 + Math.sin(it * 2.0 + i * 0.5) * 0.005
+        mesh.scale.setScalar(sc / 0.035)
       })
     }
   })
@@ -1271,7 +1272,7 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       {indicatorMats.map((mat, i) => (
         <mesh key={`ind-${i}`} ref={el => { indicatorRefs.current[i] = el }}
           position={[0, 0.4, 0.22]} visible={false} material={mat} renderOrder={8}>
-          <circleGeometry args={[0.06, 24]} />
+          <circleGeometry args={[0.035, 20]} />
         </mesh>
       ))}
 
