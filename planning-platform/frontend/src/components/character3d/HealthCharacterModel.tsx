@@ -1204,6 +1204,12 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
           const beat = 0.3 + 0.5 * Math.sin(st * 12) * Math.sin(st * 5)
           ;(scanShimmerRef.current.material as THREE.MeshBasicMaterial).opacity = base * Math.max(0, beat)
         }
+        // 4) 부르르 떨림 — 스캔 라인이 얼굴~가슴 지날 때
+        if (head && y < 0.55 && y > 0.05) {
+          const tremble = Math.sin(st * 35) * 0.015 * base
+          head.rotation.z = tremble
+          head.rotation.y = Math.sin(st * 25) * 0.008 * base
+        }
       } else {
         scanTimer.current = -1
         if (scanLineRef.current) scanLineRef.current.visible = false
