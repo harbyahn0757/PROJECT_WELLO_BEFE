@@ -54,7 +54,8 @@ export default function EmbedCharacterPage() {
   // 실시간 좌표 조정 (슬라이더)
   const [adj, setAdj] = useState<Record<string, { x: number; y: number }>>({})
   const zoneMetrics = zoneMetricsRaw.map(m => {
-    const a = adj[m.zone]
+    const zk = (m as any).zoneKey || m.zone
+    const a = adj[zk]
     return a ? { ...m, x: m.x + a.x, y: m.y + a.y } : m
   })
 
@@ -119,25 +120,27 @@ export default function EmbedCharacterPage() {
           <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>v5 좌표 조정</span>
             <button style={{ fontSize: '8px', padding: '2px 6px', cursor: 'pointer' }} onClick={() => {
-              const txt = zoneMetrics.map(m => `${m.zone}: x=${m.x.toFixed(2)}, y=${m.y.toFixed(2)}`).join('\n')
+              const txt = zoneMetrics.map(m => `${(m as any).zoneKey || m.zone}: x=${m.x.toFixed(2)}, y=${m.y.toFixed(2)}`).join('\n')
               navigator.clipboard?.writeText(txt)
               alert('좌표 복사됨!\n' + txt)
             }}>좌표 복사</button>
           </div>
           {zoneMetrics.map((m, i) => {
-            const a = adj[m.zone] || { x: 0, y: 0 }
+            const zk = (m as any).zoneKey || m.zone
+            const nameMap: Record<string, string> = { blood: '빈혈', cardio: '심혈관', liver: '간', pancreas: '췌장', body_comp: '체성분', kidney: '신장' }
+            const a = adj[zk] || { x: 0, y: 0 }
             return (
               <div key={i} style={{ marginBottom: 3, borderBottom: '1px solid #eee', paddingBottom: 3 }}>
-                <div><b>{m.zone}</b> x={m.x.toFixed(2)} y={m.y.toFixed(2)}</div>
+                <div><b>{nameMap[zk] || zk}</b> x={m.x.toFixed(2)} y={m.y.toFixed(2)}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <span>x</span>
                   <input type="range" min={-0.2} max={0.2} step={0.01} value={a.x}
                     style={{ width: '80px', height: '12px' }}
-                    onChange={e => setAdj(p => ({ ...p, [m.zone]: { ...a, x: parseFloat(e.target.value) } }))} />
+                    onChange={e => setAdj(p => ({ ...p, [zk]: { ...a, x: parseFloat(e.target.value) } }))} />
                   <span>y</span>
                   <input type="range" min={-0.3} max={0.3} step={0.01} value={a.y}
                     style={{ width: '80px', height: '12px' }}
-                    onChange={e => setAdj(p => ({ ...p, [m.zone]: { ...a, y: parseFloat(e.target.value) } }))} />
+                    onChange={e => setAdj(p => ({ ...p, [zk]: { ...a, y: parseFloat(e.target.value) } }))} />
                 </div>
               </div>
             )

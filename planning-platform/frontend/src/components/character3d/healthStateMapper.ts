@@ -101,6 +101,7 @@ export interface ZoneMetricItem {
 
 export interface ZoneMetric {
   zone: BodyZone
+  zoneKey: string       // 그룹 키: blood, cardio, liver, pancreas, body_comp, kidney
   label: string
   value: string
   status: HealthStatus  // normal=초록, warning=노랑, unknown=베이지
@@ -161,13 +162,14 @@ export function mapCheckupToZoneMetrics(cr?: CheckupResults): ZoneMetric[] {
   }
 
   const metrics: ZoneMetric[] = []
-  for (const [, group] of Object.entries(groups)) {
+  for (const [zk, group] of Object.entries(groups)) {
     if (group.items.length === 0) continue
     // 가장 나쁜 상태: warning > unknown > normal
     const worstStatus = group.items.some(i => i.status === 'warning') ? 'warning'
       : group.items.some(i => i.status === 'unknown') ? 'unknown' : 'normal'
     metrics.push({
       zone: group.mapping.zone,
+      zoneKey: zk,
       label: group.items[0].label,
       value: group.items[0].value,
       status: worstStatus,
