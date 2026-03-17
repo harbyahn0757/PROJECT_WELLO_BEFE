@@ -49,7 +49,14 @@ export default function EmbedCharacterPage() {
   }, [sendLog])
 
   const healthState = partnerData ? mapCheckupToHealthState(partnerData) : undefined
-  const zoneMetrics = mapCheckupToZoneMetrics(partnerData?.checkup_results)
+  const zoneMetricsRaw = mapCheckupToZoneMetrics(partnerData?.checkup_results)
+
+  // 실시간 좌표 조정 (슬라이더)
+  const [adj, setAdj] = useState<Record<string, { x: number; y: number }>>({})
+  const zoneMetrics = zoneMetricsRaw.map(m => {
+    const a = adj[m.zone]
+    return a ? { ...m, x: m.x + a.x, y: m.y + a.y } : m
+  })
 
   useEffect(() => {
     console.log('[CharacterEmbed v4] partnerData:', partnerData ? 'yes' : 'null')
@@ -106,13 +113,37 @@ export default function EmbedCharacterPage() {
         />
       </Suspense>
 
-      {/* 디버그 오버레이 (배포 확인 후 제거) */}
-      <div style={{ position: 'absolute', top: 4, left: 4, fontSize: '8px', color: '#999', zIndex: 99, background: 'rgba(255,255,255,0.7)', padding: '2px 4px', borderRadius: 4, lineHeight: 1.4, maxWidth: '50%' }}>
-        <div>v4 | zones:{zoneMetrics.length} | data:{partnerData ? 'Y' : 'N'}</div>
-        {zoneMetrics.map((m, i) => (
-          <div key={i}>{m.zone} y={m.y} st={m.status} [{m.items.map(it => `${it.label}:${it.status}`).join(',')}]</div>
-        ))}
-      </div>
+      {/* 실시간 좌표 조정 패널 (확정 후 제거) */}
+      {zoneMetrics.length > 0 && (
+        <div style={{ position: 'absolute', bottom: 4, left: 4, fontSize: '9px', color: '#333', zIndex: 99, background: 'rgba(255,255,255,0.92)', padding: '6px 8px', borderRadius: 6, lineHeight: 1.6, maxWidth: '55%', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
+          <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>v5 좌표 조정</span>
+            <button style={{ fontSize: '8px', padding: '2px 6px', cursor: 'pointer' }} onClick={() => {
+              const txt = zoneMetrics.map(m => `${m.zone}: x=${m.x.toFixed(2)}, y=${m.y.toFixed(2)}`).join('\n')
+              navigator.clipboard?.writeText(txt)
+              alert('좌표 복사됨!\n' + txt)
+            }}>좌표 복사</button>
+          </div>
+          {zoneMetrics.map((m, i) => {
+            const a = adj[m.zone] || { x: 0, y: 0 }
+            return (
+              <div key={i} style={{ marginBottom: 3, borderBottom: '1px solid #eee', paddingBottom: 3 }}>
+                <div><b>{m.zone}</b> x={m.x.toFixed(2)} y={m.y.toFixed(2)}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span>x</span>
+                  <input type="range" min={-0.2} max={0.2} step={0.01} value={a.x}
+                    style={{ width: '80px', height: '12px' }}
+                    onChange={e => setAdj(p => ({ ...p, [m.zone]: { ...a, x: parseFloat(e.target.value) } }))} />
+                  <span>y</span>
+                  <input type="range" min={-0.3} max={0.3} step={0.01} value={a.y}
+                    style={{ width: '80px', height: '12px' }}
+                    onChange={e => setAdj(p => ({ ...p, [m.zone]: { ...a, y: parseFloat(e.target.value) } }))} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* 인디케이터 연결 수치 카드 — 스캔 완료 후 표시 */}
       {showCards && zoneMetrics.map((m, i) => {
