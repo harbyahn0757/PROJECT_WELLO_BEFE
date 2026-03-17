@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WELNO 3D 건강 캐릭터 위젯 데모</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5f0eb 0%, #e8ddd4 100%);
+            min-height: 100vh;
+        }
+        .demo-header {
+            background: #7B5E4F;
+            color: white;
+            padding: 20px 32px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .demo-header h1 { font-size: 20px; font-weight: 600; }
+        .demo-header span { font-size: 13px; opacity: 0.7; }
+        .demo-content {
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .demo-card {
+            background: white;
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .demo-card h2 {
+            font-size: 16px;
+            color: #7B5E4F;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #f0ebe6;
+        }
+        .demo-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .control-group { display: flex; flex-direction: column; gap: 4px; }
+        .control-group label {
+            font-size: 12px;
+            color: #888;
+            font-weight: 500;
+        }
+        .control-group input, .control-group select {
+            padding: 8px 12px;
+            border: 1px solid #e0d8d0;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+        .control-group input:focus, .control-group select:focus {
+            border-color: #7B5E4F;
+        }
+        .btn-group { display: flex; gap: 8px; margin-top: 16px; }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #7B5E4F;
+            color: white;
+        }
+        .btn-primary:hover { background: #6B4E3F; }
+        .btn-secondary {
+            background: #f0ebe6;
+            color: #7B5E4F;
+        }
+        .btn-secondary:hover { background: #e8ddd4; }
+        .btn-danger {
+            background: #fef0f0;
+            color: #c62828;
+        }
+        .btn-danger:hover { background: #fce4e4; }
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            padding: 8px 12px;
+            background: #f8f6f4;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #666;
+        }
+        .status-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+        .status-dot.active { background: #4CAF50; }
+        .preset-buttons {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            margin-top: 12px;
+        }
+        .preset-btn {
+            padding: 6px 14px;
+            border: 1px solid #e0d8d0;
+            border-radius: 20px;
+            background: white;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .preset-btn:hover {
+            border-color: #7B5E4F;
+            background: #faf6f3;
+        }
+        .hint {
+            margin-top: 16px;
+            padding: 12px;
+            background: #fff9f0;
+            border-left: 3px solid #FF9800;
+            border-radius: 0 8px 8px 0;
+            font-size: 13px;
+            color: #795548;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+<div class="demo-header">
+    <h1>WELNO 3D Health Character Widget</h1>
+    <span>Demo Page</span>
+</div>
+
+<div class="demo-content">
+    <div class="demo-card">
+        <h2>검진 데이터 설정</h2>
+        <div class="demo-controls">
+            <div class="control-group">
+                <label>BMI</label>
+                <input type="number" id="bmi" value="25.3" step="0.1">
+            </div>
+            <div class="control-group">
+                <label>수축기 혈압 (mmHg)</label>
+                <input type="number" id="systolic_bp" value="135">
+            </div>
+            <div class="control-group">
+                <label>공복혈당 (mg/dL)</label>
+                <input type="number" id="fasting_glucose" value="105">
+            </div>
+            <div class="control-group">
+                <label>총콜레스테롤 (mg/dL)</label>
+                <input type="number" id="total_cholesterol" value="220">
+            </div>
+            <div class="control-group">
+                <label>이완기 혈압 (mmHg)</label>
+                <input type="number" id="diastolic_bp" value="85">
+            </div>
+            <div class="control-group">
+                <label>위젯 위치</label>
+                <select id="position">
+                    <option value="bottom-left" selected>좌하단</option>
+                    <option value="bottom-right">우하단</option>
+                    <option value="top-left">좌상단</option>
+                    <option value="top-right">우상단</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="preset-buttons">
+            <button class="preset-btn" onclick="applyPreset('healthy')">정상인</button>
+            <button class="preset-btn" onclick="applyPreset('warning')">주의 단계</button>
+            <button class="preset-btn" onclick="applyPreset('danger')">위험 단계</button>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="startWidget()">위젯 시작</button>
+            <button class="btn btn-secondary" onclick="updateData()">데이터 업데이트</button>
+            <button class="btn btn-danger" onclick="destroyWidget()">위젯 제거</button>
+        </div>
+
+        <div class="status-bar">
+            <span class="status-dot" id="statusDot"></span>
+            <span id="statusText">위젯 미초기화</span>
+        </div>
+    </div>
+
+    <div class="demo-card">
+        <h2>사용법</h2>
+        <div class="hint">
+            <strong>1.</strong> 좌하단의 캐릭터 버튼을 클릭하면 3D 캐릭터가 나타납니다.<br>
+            <strong>2.</strong> 캐릭터를 터치/클릭하면 반응하고 (12종 반응), 검진 결과 오버레이가 표시됩니다.<br>
+            <strong>3.</strong> 인트로 인사 후 주황색 스캔 라인이 위→아래로 훑습니다.<br>
+            <strong>4.</strong> 상단 프리셋 버튼으로 정상/주의/위험 데이터를 빠르게 전환할 수 있습니다.<br>
+            <strong>5.</strong> 배지 색상: 초록=정상, 주황=주의, 빨강=위험
+        </div>
+    </div>
+</div>
+
+<!-- Character Widget Script -->
+<script src="WelnoCharacterWidget.js"></script>
+
+<script>
+    let widget = null;
+
+    const PRESETS = {
+        healthy: { bmi: 22.1, systolic_bp: 115, diastolic_bp: 72, fasting_glucose: 88, total_cholesterol: 185 },
+        warning: { bmi: 25.3, systolic_bp: 135, diastolic_bp: 85, fasting_glucose: 105, total_cholesterol: 220 },
+        danger:  { bmi: 31.2, systolic_bp: 155, diastolic_bp: 98, fasting_glucose: 140, total_cholesterol: 265 },
+    };
+
+    function getFormData() {
+        return {
+            patient: { name: '데모 사용자', birth_date: '1985-03-15', sex: 'M' },
+            checkup_results: {
+                height: 172, weight: 75,
+                bmi: parseFloat(document.getElementById('bmi').value),
+                systolic_bp: parseInt(document.getElementById('systolic_bp').value),
+                diastolic_bp: parseInt(document.getElementById('diastolic_bp').value),
+                fasting_glucose: parseInt(document.getElementById('fasting_glucose').value),
+                total_cholesterol: parseInt(document.getElementById('total_cholesterol').value),
+                exam_date: new Date().toISOString().slice(0, 10)
+            },
+            medical_history: []
+        };
+    }
+
+    function applyPreset(name) {
+        const p = PRESETS[name];
+        document.getElementById('bmi').value = p.bmi;
+        document.getElementById('systolic_bp').value = p.systolic_bp;
+        document.getElementById('diastolic_bp').value = p.diastolic_bp;
+        document.getElementById('fasting_glucose').value = p.fasting_glucose;
+        document.getElementById('total_cholesterol').value = p.total_cholesterol;
+    }
+
+    function startWidget() {
+        if (widget) widget.destroy();
+
+        widget = new WelnoCharacterWidget({
+            apiKey: 'demo-key',
+            baseUrl: window.location.origin,
+            partnerData: getFormData(),
+            position: document.getElementById('position').value,
+            buttonColor: '#7B5E4F',
+            onOpen: function() { setStatus(true, '위젯 열림'); },
+            onClose: function() { setStatus(true, '위젯 닫힘 (백그라운드)'); }
+        });
+        widget.init();
+        setStatus(true, '위젯 초기화 완료 — 좌하단 버튼 클릭');
+    }
+
+    function updateData() {
+        if (!widget) { alert('먼저 위젯을 시작하세요'); return; }
+        widget.config.partnerData = getFormData();
+        widget.sendDataToIframe();
+        setStatus(true, '데이터 업데이트 전송됨');
+    }
+
+    function destroyWidget() {
+        if (widget) { widget.destroy(); widget = null; }
+        setStatus(false, '위젯 제거됨');
+    }
+
+    function setStatus(active, text) {
+        document.getElementById('statusDot').className = 'status-dot' + (active ? ' active' : '');
+        document.getElementById('statusText').textContent = text;
+    }
+</script>
+
+</body>
+</html>
