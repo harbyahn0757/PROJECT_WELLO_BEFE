@@ -189,7 +189,7 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
   // Pink indicator circles (appear after scan, pulse on data zones)
   const indicatorsVisible = useRef(false)
   const indicatorTimer = useRef(0)
-  const indicatorRefs = useRef<(THREE.Mesh | null)[]>([null, null, null, null, null, null])
+  const indicatorRefs = useRef<(THREE.Mesh | null)[]>([null, null, null, null, null, null, null])
 
   // Morph targets (Shape Keys from Blender)
   const morphMesh = useRef<THREE.Mesh | null>(null)
@@ -1211,19 +1211,36 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       const pulse = 0.85 + Math.sin(it * 2.0) * 0.15
       const baseOp = fadeIn * pulse * 0.45
 
+      const colorMap = { normal: 0x4CAF50, warning: 0xFFB300, unknown: 0xD4C5A9 }
+      // 신장 미러 (index 6) 초기 숨김
+      const kidneyMirror = indicatorRefs.current[6]
+      if (kidneyMirror) kidneyMirror.visible = false
+
       indicatorRefs.current.forEach((mesh, i) => {
-        if (!mesh || i >= zoneMetrics.length) { if (mesh) mesh.visible = false; return }
+        if (!mesh || i >= zoneMetrics.length) { if (mesh && i < 6) mesh.visible = false; return }
+        if (i >= 6) return // 미러는 아래서 처리
         const m = zoneMetrics[i]
+        const isKidney = (m as any).zoneKey === 'kidney'
         mesh.visible = true
         mesh.position.x = m.x || 0
         mesh.position.y = m.y
-        // 정상=초록, 비정상=노랑, 판정없음=베이지
         const mat = mesh.material as THREE.MeshBasicMaterial
-        const colorMap = { normal: 0x4CAF50, warning: 0xFFB300, unknown: 0xD4C5A9 }
         mat.color.set(colorMap[m.status as keyof typeof colorMap] || 0xD4C5A9)
-        mat.opacity = baseOp
-        const sc = 0.035 + Math.sin(it * 2.0 + i * 0.5) * 0.005
-        mesh.scale.setScalar(sc / 0.035)
+        mat.opacity = isKidney ? baseOp * 0.7 : baseOp
+        const baseSize = isKidney ? 0.018 : 0.022
+        const sc = baseSize + Math.sin(it * 2.0 + i * 0.5) * 0.003
+        mesh.scale.setScalar(sc / 0.022)
+
+        // 신장 미러: 반대편에 같은 스타일
+        if (isKidney && kidneyMirror) {
+          kidneyMirror.visible = true
+          kidneyMirror.position.x = -(m.x || 0)
+          kidneyMirror.position.y = m.y
+          const mirrorMat = kidneyMirror.material as THREE.MeshBasicMaterial
+          mirrorMat.color.set(colorMap[m.status as keyof typeof colorMap] || 0xD4C5A9)
+          mirrorMat.opacity = baseOp * 0.7
+          kidneyMirror.scale.setScalar(sc / 0.022)
+        }
       })
     }
   })
@@ -1239,6 +1256,7 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
   }), [])
   // Indicator circles — data zone markers (depthTest:false → 캐릭터에 가려지지 않음)
   const indicatorMats = useMemo(() => [
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
     new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide }),
@@ -1289,11 +1307,18 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
         <planeGeometry args={[0.8, 0.06]} />
       </mesh>
 
-      {/* Indicator circles — data zone markers */}
-      {indicatorMats.map((mat, i) => (
+      {/* Indicator circles — 0~4: 일반(작은 원), 5: 신장(링), 6: 신장 미러(링) */}
+      {indicatorMats.slice(0, 5).map((mat, i) => (
         <mesh key={`ind-${i}`} ref={el => { indicatorRefs.current[i] = el }}
           position={[0, 0.4, 0.22]} visible={false} material={mat} renderOrder={8}>
-          <circleGeometry args={[0.035, 20]} />
+          <circleGeometry args={[0.022, 20]} />
+        </mesh>
+      ))}
+      {/* 신장 양쪽 링 인디케이터 */}
+      {indicatorMats.slice(5, 7).map((mat, i) => (
+        <mesh key={`ind-kidney-${i}`} ref={el => { indicatorRefs.current[5 + i] = el }}
+          position={[0, 0.4, 0.22]} visible={false} material={mat} renderOrder={8}>
+          <ringGeometry args={[0.012, 0.018, 20]} />
         </mesh>
       ))}
 
