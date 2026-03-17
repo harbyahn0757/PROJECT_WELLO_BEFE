@@ -77,9 +77,15 @@ export default function EmbedCharacterPage() {
     }
   }, [introComplete, zoneMetrics.length])
 
-  // 3D y좌표 → 화면 % 변환 (해부학 좌표 기준 보정)
-  // head(0.55)→22%, heart(0.28)→42%, liver(0.22)→47%, belly(0.10)→56%, legs(-0.05)→67%
-  const yToPercent = (y: number) => Math.max(5, Math.min(92, 11 + (0.70 - y) * 75))
+  // 3D y좌표 → 화면 % 변환 — 실제 스크린샷 기준 구간별 보정
+  // 3D 카메라 원근법이 비선형이라 구간별 선형 보간 사용
+  // 실측: y=0.55→22%, y=0.28→33%, y=0.10→55%
+  const yToPercent = (y: number) => {
+    if (y >= 0.55) return Math.max(5, 22 - (y - 0.55) * 40)
+    if (y >= 0.28) return 22 + (0.55 - y) / 0.27 * 11
+    if (y >= 0.10) return 33 + (0.28 - y) / 0.18 * 22
+    return Math.min(92, 55 + (0.10 - y) / 0.15 * 12)
+  }
   const isLeft = (x: number) => x < 0
 
   return (
