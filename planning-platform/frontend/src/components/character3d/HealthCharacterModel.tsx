@@ -260,14 +260,18 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
     if (!introComplete) return
     e.stopPropagation()
 
-    // Zone-specific metric click — find matching metric for touched zone
+    // Zone-specific metric click — find closest indicator by Y distance
     const hitLocal = group.current ? group.current.worldToLocal(e.point.clone()) : e.point
-    const clickedZone = getBodyZone(hitLocal)
-    if (zoneMetrics && onZoneClick) {
-      const metric = zoneMetrics.find(m => m.zone === clickedZone
-        || (clickedZone === 'face' && m.zone === 'head')
-        || (clickedZone === 'side' && m.zone === 'body'))
-      if (metric) { onZoneClick(metric); return }
+    if (zoneMetrics && zoneMetrics.length > 0 && onZoneClick) {
+      let closest: typeof zoneMetrics[0] | null = null
+      let minDist = Infinity
+      for (const m of zoneMetrics) {
+        const dy = Math.abs(hitLocal.y - m.y)
+        const dx = Math.abs(hitLocal.x - (m.x || 0))
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        if (dist < minDist) { minDist = dist; closest = m }
+      }
+      if (closest && minDist < 0.15) { onZoneClick(closest); return }
     }
 
     // Don't interrupt dere

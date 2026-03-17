@@ -119,8 +119,10 @@ const KEY_ZONE_MAP: Record<string, { zone: BodyZone; zoneKey: ZoneKey; label: st
   sgot_ast:          { zone: 'side', zoneKey: 'liver', label: 'AST', x: -0.06, y: 0.12 },
   sgpt_alt:          { zone: 'side', zoneKey: 'liver', label: 'ALT', x: -0.06, y: 0.12 },
   gamma_gtp:         { zone: 'side', zoneKey: 'liver', label: 'GGT', x: -0.06, y: 0.12 },
-  // 배 (y=0.02) — BMI
+  // 배 (y=0.02) — BMI, 체중, 키 (BMI가 먼저 매칭되어 대표)
   bmi:               { zone: 'body', zoneKey: 'belly', label: 'BMI', x: 0, y: 0.02 },
+  weight:            { zone: 'body', zoneKey: 'belly', label: '체중', x: 0, y: 0.02 },
+  height:            { zone: 'body', zoneKey: 'belly', label: '키', x: 0, y: 0.02 },
   // 하체 (y=-0.12) — 혈당, 신장기능
   fasting_glucose:   { zone: 'lower', zoneKey: 'legs', label: '혈당', x: 0, y: -0.12 },
   creatinine:        { zone: 'lower', zoneKey: 'legs', label: '크레아티닌', x: 0, y: -0.12 },
@@ -146,15 +148,29 @@ function formatValue(key: string, cr: CheckupResults): string {
   return String(val)
 }
 
+// 우선순위: 같은 zoneKey 안에서 먼저 매칭할 키 (배열 순서 = 우선순위)
+const ZONE_PRIORITY: Record<string, string[]> = {
+  head: ['total_cholesterol', 'hemoglobin', 'hdl_cholesterol', 'ldl_cholesterol'],
+  heart: ['systolic_bp', 'triglycerides'],
+  liver: ['sgot_ast', 'sgpt_alt', 'gamma_gtp'],
+  belly: ['bmi', 'weight', 'height'],
+  legs: ['fasting_glucose', 'creatinine', 'gfr'],
+}
+
 export function mapCheckupToZoneMetrics(cr?: CheckupResults): ZoneMetric[] {
   if (!cr) return []
   const metrics: ZoneMetric[] = []
   const usedZones = new Set<string>()
 
-  for (const [key, val] of Object.entries(cr)) {
-    // _abnormal, _range, 문자열 메타 키는 건너뜀
-    if (val == null || key.endsWith('_abnormal') || key.endsWith('_range')) continue
-    if (typeof val === 'string') continue // 값은 숫자만 (문자열은 메타)
+  // KEY_ZONE_MAP 키를 우선순위 순으로 정렬
+  const sortedKeys: string[] = []
+  for (const keys of Object.values(ZONE_PRIORITY)) {
+    for (const k of keys) sortedKeys.push(k)
+  }
+
+  for (const key of sortedKeys) {
+    const val = cr[key]
+    if (val == null || typeof val === 'string') continue
 
     const mapping = KEY_ZONE_MAP[key]
     if (!mapping) continue
