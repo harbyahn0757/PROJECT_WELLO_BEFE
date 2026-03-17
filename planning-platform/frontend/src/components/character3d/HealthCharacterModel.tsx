@@ -185,6 +185,7 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
   const scanDone = useRef(false)
   const scanLineRef = useRef<THREE.Mesh>(null)
   const scanGlowRef = useRef<THREE.Mesh>(null)
+  const scanShimmerRef = useRef<THREE.Mesh>(null)
 
   // Pink indicator circles (appear after scan, pulse on data zones)
   const indicatorsVisible = useRef(false)
@@ -1164,11 +1165,11 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       heartRefs.current.forEach(m => { if (m) m.visible = false })
     }
 
-    // Health scan line (orange sweep top→bottom) — wide & slow
+    // Health scan — 3레이어 (라인 + 글로우 + 쉬머) top→bottom
     if (scanTimer.current >= 0) {
       scanTimer.current += dt
       const st = scanTimer.current
-      const SCAN_DUR = 3.5   // slower sweep
+      const SCAN_DUR = 3.5
       const TOP_Y = 0.78
       const BOT_Y = -0.18
       const RANGE = TOP_Y - BOT_Y
@@ -1176,26 +1177,34 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       if (st < SCAN_DUR) {
         const p = smoothStep(st / SCAN_DUR)
         const y = TOP_Y - p * RANGE
+        const fadeIn = st < SCAN_DUR * 0.08 ? smoothStep(st / (SCAN_DUR * 0.08)) : 1
+        const fadeOut = st > SCAN_DUR * 0.88 ? smoothStep((SCAN_DUR - st) / (SCAN_DUR * 0.12)) : 1
+        const base = fadeIn * fadeOut
 
+        // 1) 메인 스캔 라인 (밝은 주황)
         if (scanLineRef.current) {
           scanLineRef.current.visible = true
           scanLineRef.current.position.y = y
-          const fadeIn = st < SCAN_DUR * 0.08 ? smoothStep(st / (SCAN_DUR * 0.08)) : 1
-          const fadeOut = st > SCAN_DUR * 0.88 ? smoothStep((SCAN_DUR - st) / (SCAN_DUR * 0.12)) : 1
-          ;(scanLineRef.current.material as THREE.MeshBasicMaterial).opacity = fadeIn * fadeOut * 0.85
+          ;(scanLineRef.current.material as THREE.MeshBasicMaterial).opacity = base * 0.9
         }
+        // 2) 글로우 (같은 y, 넓은 반투명)
         if (scanGlowRef.current) {
           scanGlowRef.current.visible = true
-          scanGlowRef.current.position.y = y + 0.015
-          const fadeIn = st < SCAN_DUR * 0.08 ? smoothStep(st / (SCAN_DUR * 0.08)) : 1
-          const fadeOut = st > SCAN_DUR * 0.88 ? smoothStep((SCAN_DUR - st) / (SCAN_DUR * 0.12)) : 1
-          ;(scanGlowRef.current.material as THREE.MeshBasicMaterial).opacity = fadeIn * fadeOut * 0.3
+          scanGlowRef.current.position.y = y
+          ;(scanGlowRef.current.material as THREE.MeshBasicMaterial).opacity = base * 0.25
+        }
+        // 3) 쉬머 (반짝임 — 빠른 주기 + 느린 주기 겹침)
+        if (scanShimmerRef.current) {
+          scanShimmerRef.current.visible = true
+          scanShimmerRef.current.position.y = y
+          const beat = 0.3 + 0.5 * Math.sin(st * 12) * Math.sin(st * 5)
+          ;(scanShimmerRef.current.material as THREE.MeshBasicMaterial).opacity = base * Math.max(0, beat)
         }
       } else {
         scanTimer.current = -1
         if (scanLineRef.current) scanLineRef.current.visible = false
         if (scanGlowRef.current) scanGlowRef.current.visible = false
-        // After scan → show pink indicators
+        if (scanShimmerRef.current) scanShimmerRef.current.visible = false
         if (zoneMetrics && zoneMetrics.length > 0) {
           indicatorsVisible.current = true
           indicatorTimer.current = 0
@@ -1254,9 +1263,13 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
   const scanLineMat = useMemo(() => new THREE.MeshBasicMaterial({
     color: 0xff8c00, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide,
   }), [])
-  // Scan glow — wider, softer orange
+  // Scan glow — wider, softer warm
   const scanGlowMat = useMemo(() => new THREE.MeshBasicMaterial({
-    color: 0xffa500, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide,
+    color: 0xff9500, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide,
+  }), [])
+  // Scan shimmer — white sparkle layer
+  const scanShimmerMat = useMemo(() => new THREE.MeshBasicMaterial({
+    color: 0xffffff, transparent: true, opacity: 0, depthWrite: false, depthTest: false, side: THREE.DoubleSide,
   }), [])
   // Indicator circles — data zone markers (depthTest:false → 캐릭터에 가려지지 않음)
   const indicatorMats = useMemo(() => [
@@ -1303,12 +1316,15 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
     <group ref={group} position={[0, 0.05, 0]}>
       <primitive object={characterScene} scale={1.5} onPointerDown={handlePointerDown} />
 
-      {/* Health scan line — wide horizontal orange bar sweeps top→bottom */}
-      <mesh ref={scanLineRef} position={[0, 0.78, 0.22]} visible={false} material={scanLineMat} renderOrder={10}>
-        <planeGeometry args={[0.7, 0.006]} />
+      {/* Health scan — 3레이어: glow(뒤) → shimmer(중간) → line(앞) */}
+      <mesh ref={scanGlowRef} position={[0, 0.78, 0.18]} visible={false} material={scanGlowMat} renderOrder={9}>
+        <planeGeometry args={[0.85, 0.08]} />
       </mesh>
-      <mesh ref={scanGlowRef} position={[0, 0.78, 0.20]} visible={false} material={scanGlowMat} renderOrder={9}>
-        <planeGeometry args={[0.8, 0.06]} />
+      <mesh ref={scanShimmerRef} position={[0, 0.78, 0.20]} visible={false} material={scanShimmerMat} renderOrder={10}>
+        <planeGeometry args={[0.75, 0.025]} />
+      </mesh>
+      <mesh ref={scanLineRef} position={[0, 0.78, 0.22]} visible={false} material={scanLineMat} renderOrder={11}>
+        <planeGeometry args={[0.7, 0.004]} />
       </mesh>
 
       {/* Indicator circles — 0~4: 일반(작은 원), 5: 신장(링), 6: 신장 미러(링) */}
