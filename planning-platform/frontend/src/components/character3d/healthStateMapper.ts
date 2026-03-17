@@ -110,22 +110,23 @@ export interface ZoneMetric {
 }
 
 type ZoneKey = 'head' | 'heart' | 'liver' | 'belly' | 'legs'
+// 해부학 기반 고정 좌표 (blush y=0.47이 볼 위치 기준)
 const KEY_ZONE_MAP: Record<string, { zone: BodyZone; zoneKey: ZoneKey; label: string; x: number; y: number }> = {
-  total_cholesterol: { zone: 'head', zoneKey: 'head', label: '콜레스테롤', x: 0, y: 0.48 },
-  hdl_cholesterol:   { zone: 'head', zoneKey: 'head', label: 'HDL', x: 0, y: 0.48 },
-  ldl_cholesterol:   { zone: 'head', zoneKey: 'head', label: 'LDL', x: 0, y: 0.48 },
-  hemoglobin:        { zone: 'head', zoneKey: 'head', label: '헤모글로빈', x: 0, y: 0.48 },
-  systolic_bp:       { zone: 'face', zoneKey: 'heart', label: '혈압', x: 0.05, y: 0.18 },
-  triglycerides:     { zone: 'face', zoneKey: 'heart', label: '중성지방', x: 0.05, y: 0.18 },
-  sgot_ast:          { zone: 'side', zoneKey: 'liver', label: 'AST', x: -0.06, y: 0.12 },
-  sgpt_alt:          { zone: 'side', zoneKey: 'liver', label: 'ALT', x: -0.06, y: 0.12 },
-  gamma_gtp:         { zone: 'side', zoneKey: 'liver', label: 'GGT', x: -0.06, y: 0.12 },
-  bmi:               { zone: 'body', zoneKey: 'belly', label: 'BMI', x: 0, y: 0.02 },
-  weight:            { zone: 'body', zoneKey: 'belly', label: '체중', x: 0, y: 0.02 },
-  height:            { zone: 'body', zoneKey: 'belly', label: '키', x: 0, y: 0.02 },
-  fasting_glucose:   { zone: 'lower', zoneKey: 'legs', label: '혈당', x: 0, y: -0.12 },
-  creatinine:        { zone: 'lower', zoneKey: 'legs', label: '크레아티닌', x: 0, y: -0.12 },
-  gfr:               { zone: 'lower', zoneKey: 'legs', label: 'GFR', x: 0, y: -0.12 },
+  total_cholesterol: { zone: 'head', zoneKey: 'head', label: '콜레스테롤', x: 0, y: 0.55 },
+  hdl_cholesterol:   { zone: 'head', zoneKey: 'head', label: 'HDL', x: 0, y: 0.55 },
+  ldl_cholesterol:   { zone: 'head', zoneKey: 'head', label: 'LDL', x: 0, y: 0.55 },
+  hemoglobin:        { zone: 'head', zoneKey: 'head', label: '헤모글로빈', x: 0, y: 0.55 },
+  systolic_bp:       { zone: 'face', zoneKey: 'heart', label: '혈압', x: 0.04, y: 0.28 },
+  triglycerides:     { zone: 'face', zoneKey: 'heart', label: '중성지방', x: 0.04, y: 0.28 },
+  sgot_ast:          { zone: 'side', zoneKey: 'liver', label: 'AST', x: -0.05, y: 0.22 },
+  sgpt_alt:          { zone: 'side', zoneKey: 'liver', label: 'ALT', x: -0.05, y: 0.22 },
+  gamma_gtp:         { zone: 'side', zoneKey: 'liver', label: 'GGT', x: -0.05, y: 0.22 },
+  bmi:               { zone: 'body', zoneKey: 'belly', label: 'BMI', x: 0, y: 0.10 },
+  weight:            { zone: 'body', zoneKey: 'belly', label: '체중', x: 0, y: 0.10 },
+  height:            { zone: 'body', zoneKey: 'belly', label: '키', x: 0, y: 0.10 },
+  fasting_glucose:   { zone: 'lower', zoneKey: 'legs', label: '혈당', x: 0, y: -0.05 },
+  creatinine:        { zone: 'lower', zoneKey: 'legs', label: '크레아티닌', x: 0, y: -0.05 },
+  gfr:               { zone: 'lower', zoneKey: 'legs', label: 'GFR', x: 0, y: -0.05 },
 }
 
 const ZONE_PRIORITY: Record<string, string[]> = {

@@ -65,9 +65,9 @@ export default function EmbedCharacterPage() {
     }
   }, [introComplete, zoneMetrics.length])
 
-  // 3D y좌표 → 화면 % 변환 (카메라 고정 기준 근사값)
-  // 캐릭터 top≈0.70 → 15%, bottom≈-0.20 → 90%
-  const yToPercent = (y: number) => Math.max(5, Math.min(92, 15 + (0.70 - y) / 0.90 * 75))
+  // 3D y좌표 → 화면 % 변환 (해부학 좌표 기준 보정)
+  // head(0.55)→22%, heart(0.28)→42%, liver(0.22)→47%, belly(0.10)→56%, legs(-0.05)→67%
+  const yToPercent = (y: number) => Math.max(5, Math.min(92, 11 + (0.70 - y) * 75))
   const isLeft = (x: number) => x < 0
 
   return (
@@ -120,7 +120,7 @@ export default function EmbedCharacterPage() {
               <div key={j} style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: j < m.items.length - 1 ? '2px' : 0 }}>
                 <span style={{ color: '#999', fontSize: '9px', fontWeight: 500, minWidth: '24px' }}>{item.label}</span>
                 <span style={{
-                  color: item.status === 'warning' ? '#E65100' : '#333',
+                  color: item.status === 'warning' ? '#E65100' : item.status === 'unknown' ? '#888' : '#333',
                   fontSize: '13px', fontWeight: 700, fontVariantNumeric: 'tabular-nums'
                 }}>{item.value}</span>
               </div>
