@@ -344,32 +344,39 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
     const chest = chestBone.current
     const grp = group.current
 
-    // === INTRO (smoother version with gentle settle) ===
+    // === INTRO (눈 깜빡 → 잠깐 대기 → 인사) ===
     if (!introComplete) {
-      if (t < 1.2) {
-        // Smooth bow down — cubic ease in
-        const p = smoothStep(Math.min(t / 1.2, 1))
+      const BLINK_END = 0.5   // 눈 깜빡 구간
+      const PAUSE = 0.8       // 대기 후 인사 시작
+      // 눈 깜빡임 (0~0.5초)
+      if (t < BLINK_END && morphMesh.current) {
+        const bp = t < 0.15 ? cubicOut(t / 0.15) : t < 0.25 ? 1 : 1 - cubicOut((t - 0.25) / 0.15)
+        const blinkVal = Math.max(0, Math.min(1, bp))
+        const idx = morphIndices.current
+        if (idx.eyeBlinkLeft != null) morphMesh.current.morphTargetInfluences![idx.eyeBlinkLeft] = blinkVal
+        if (idx.eyeBlinkRight != null) morphMesh.current.morphTargetInfluences![idx.eyeBlinkRight] = blinkVal
+      }
+      const it = t - PAUSE  // 인사 타임라인 (PAUSE 이후)
+      if (it < 0) { return }  // 대기 중
+      if (it < 1.2) {
+        const p = smoothStep(Math.min(it / 1.2, 1))
         if (head) head.rotation.x = p * 0.32
         if (neck) neck.rotation.x = p * 0.06
         if (spine) spine.rotation.x = p * 0.015
-      } else if (t < 1.8) {
-        // Hold bow
+      } else if (it < 1.8) {
         if (head) head.rotation.x = 0.32
         if (neck) neck.rotation.x = 0.06
-      } else if (t < 2.2) {
-        // Small nod during bow
-        const p = (t - 1.8) / 0.4
+      } else if (it < 2.2) {
+        const p = (it - 1.8) / 0.4
         if (head) head.rotation.x = 0.32 - Math.sin(p * Math.PI) * 0.10
-      } else if (t < 3.2) {
-        // Rise up — smooth cubic out with slight overshoot
-        const p = cubicOut((t - 2.2) / 1.0)
-        const overshoot = Math.sin(p * Math.PI) * 0.02 // tiny backward overshoot
+      } else if (it < 3.2) {
+        const p = cubicOut((it - 2.2) / 1.0)
+        const overshoot = Math.sin(p * Math.PI) * 0.02
         if (head) head.rotation.x = 0.32 * (1 - p) - overshoot
         if (neck) neck.rotation.x = 0.06 * (1 - p) - overshoot * 0.3
         if (spine) spine.rotation.x = 0.015 * (1 - p)
-      } else if (t < 3.6) {
-        // Gentle settle — spring back to neutral
-        const p = (t - 3.2) / 0.4
+      } else if (it < 3.6) {
+        const p = (it - 3.2) / 0.4
         const settle = Math.sin(p * Math.PI * 2) * 0.015 * (1 - p)
         if (head) { head.rotation.x = settle; head.rotation.y = 0 }
         if (neck) { neck.rotation.x = settle * 0.3; neck.rotation.y = 0 }
@@ -380,7 +387,6 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
         if (spine) spine.rotation.x = 0
         setIntroComplete(true)
         onIntroComplete?.()
-        // Trigger health scan effect after intro
         if (!scanDone.current && healthState) {
           scanTimer.current = 0
           scanDone.current = true

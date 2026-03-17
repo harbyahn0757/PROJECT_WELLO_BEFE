@@ -152,19 +152,29 @@ export default function EmbedCharacterPage() {
         const statusColor: Record<string, string> = { normal: '#4CAF50', borderline: '#8BC34A', warning: '#8B4513', unknown: '#D4C5A9' }
         const statusLabel: Record<string, string> = { normal: '정상', borderline: '경계', warning: '이상', unknown: '-' }
         const borderColor = statusColor[m.status] || '#D4C5A9'
+        const organSvg: Record<string, string> = {
+          blood: '<circle cx="12" cy="8" r="4" fill="currentColor" opacity="0.8"/><path d="M12 2C12 2 6 8 6 12a6 6 0 0 0 12 0c0-4-6-10-6-10z" fill="currentColor" opacity="0.15"/>',
+          cardio: '<path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="currentColor" opacity="0.8"/>',
+          liver: '<path d="M4 8c0-2 2-4 5-4 2 0 3 1 4 1s2-1 4-1c3 0 5 2 5 5 0 4-3 7-6 9l-3 2-3-2c-3-2-6-5-6-9z" fill="currentColor" opacity="0.8"/>',
+          pancreas: '<ellipse cx="12" cy="12" rx="8" ry="5" fill="currentColor" opacity="0.15"/><ellipse cx="12" cy="12" rx="5" ry="3" fill="currentColor" opacity="0.8"/>',
+          body_comp: '<rect x="6" y="3" width="12" height="18" rx="2" fill="currentColor" opacity="0.15"/><line x1="8" y1="10" x2="16" y2="10" stroke="currentColor" stroke-width="1.5"/><line x1="8" y1="14" x2="16" y2="14" stroke="currentColor" stroke-width="1.5"/>',
+          kidney: '<path d="M8 4c-3 0-5 3-5 6 0 4 3 7 5 10 2-3 5-6 5-10 0-3-2-6-5-6z" fill="currentColor" opacity="0.6"/><path d="M16 4c-3 0-5 3-5 6 0 4 3 7 5 10 2-3 5-6 5-10 0-3-2-6-5-6z" fill="currentColor" opacity="0.6"/>',
+        }
         return (
-          <div style={{ position: 'absolute', inset: 0, zIndex: 25, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}
+          <div style={{ position: 'absolute', inset: 0, zIndex: 25, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.15)' }}
             onClick={() => setSelectedZone(null)}>
             <div style={{
-              background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(12px)',
+              background: 'rgba(255,255,255,0.78)', backdropFilter: 'blur(16px)',
               borderRadius: '16px', padding: '16px 20px',
               borderTop: `4px solid ${borderColor}`,
-              boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
               minWidth: '200px', maxWidth: '280px',
               animation: 'embed-tooltipIn 0.25s ease',
             }} onClick={e => e.stopPropagation()}>
-              <div style={{ fontWeight: 700, fontSize: '14px', color: borderColor, marginBottom: 10 }}>
-                {nameMap[zk] || zk}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" style={{ color: borderColor, flexShrink: 0 }}
+                  dangerouslySetInnerHTML={{ __html: organSvg[zk] || '' }} />
+                <span style={{ fontWeight: 700, fontSize: '14px', color: borderColor }}>{nameMap[zk] || zk}</span>
               </div>
               {m.items.map((item, j) => (
                 <div key={j} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: j < m.items.length - 1 ? 6 : 0 }}>
