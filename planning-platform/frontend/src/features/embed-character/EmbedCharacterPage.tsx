@@ -80,7 +80,7 @@ export default function EmbedCharacterPage() {
   const camTarget = (() => {
     const p = new URLSearchParams(window.location.search).get('cam')
     if (p) { const [x, y, z, ly] = p.split(',').map(Number); return { x, y, z, lookY: ly } }
-    return { x: 0.3, y: -0.1, z: 2.6, lookY: 0.15 }
+    return { x: 0, y: 0.3, z: 3.0, lookY: 0.2 }
   })()
 
   // 터치 모달: 인디케이터 터치 시 해당 zone 모달 표시

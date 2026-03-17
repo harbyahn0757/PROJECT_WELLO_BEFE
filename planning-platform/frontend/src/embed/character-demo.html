@@ -89,10 +89,10 @@
         <div class="field-row"><label>GFR</label><input type="number" id="gfr" value="85"><select id="gfr_st"><option>자동</option><option>정상</option><option>경계</option><option>비정상</option></select></div>
 
         <div class="section-label">카메라 앵글 (스캔 후)</div>
-        <div class="field-row"><label>cam X</label><input type="range" id="cam_x" min="-1" max="1" step="0.05" value="0.3" oninput="updateCamLabel()"><span id="cam_x_v" style="font-size:10px;min-width:30px">0.3</span></div>
-        <div class="field-row"><label>cam Y</label><input type="range" id="cam_y" min="-1" max="1" step="0.05" value="-0.1" oninput="updateCamLabel()"><span id="cam_y_v" style="font-size:10px;min-width:30px">-0.1</span></div>
-        <div class="field-row"><label>cam Z</label><input type="range" id="cam_z" min="1.5" max="4" step="0.1" value="2.6" oninput="updateCamLabel()"><span id="cam_z_v" style="font-size:10px;min-width:30px">2.6</span></div>
-        <div class="field-row"><label>lookAt Y</label><input type="range" id="cam_ly" min="-0.5" max="0.5" step="0.05" value="0.15" oninput="updateCamLabel()"><span id="cam_ly_v" style="font-size:10px;min-width:30px">0.15</span></div>
+        <div class="field-row"><label>cam X</label><input type="range" id="cam_x" min="-1" max="1" step="0.05" value="0" oninput="updateCamLabel()"><span id="cam_x_v" style="font-size:10px;min-width:30px">0</span></div>
+        <div class="field-row"><label>cam Y</label><input type="range" id="cam_y" min="-1" max="1" step="0.05" value="0.3" oninput="updateCamLabel()"><span id="cam_y_v" style="font-size:10px;min-width:30px">0.3</span></div>
+        <div class="field-row"><label>cam Z</label><input type="range" id="cam_z" min="1.5" max="4" step="0.1" value="3.0" oninput="updateCamLabel()"><span id="cam_z_v" style="font-size:10px;min-width:30px">3.0</span></div>
+        <div class="field-row"><label>lookAt Y</label><input type="range" id="cam_ly" min="-0.5" max="0.5" step="0.05" value="0.2" oninput="updateCamLabel()"><span id="cam_ly_v" style="font-size:10px;min-width:30px">0.2</span></div>
     </div>
     <button class="apply-btn" onclick="applyAndClose()">적용</button>
 </div>
