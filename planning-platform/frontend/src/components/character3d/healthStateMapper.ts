@@ -114,11 +114,8 @@ const KEY_ZONE_MAP: Record<string, { zone: BodyZone; label: string; x: number; y
   sgot_ast:          { zone: 'side', label: 'AST', x: -0.06, y: 0.18 },
   sgpt_alt:          { zone: 'side', label: 'ALT', x: -0.06, y: 0.18 },
   gamma_gtp:         { zone: 'side', label: 'GGT', x: -0.06, y: 0.18 },
-  // 배 (중앙) — BMI, 체중, 키, 허리둘레
+  // 배 (중앙) — BMI가 대표 (키/체중은 원시 측정값이라 제외)
   bmi:               { zone: 'body', label: 'BMI', x: 0, y: 0.08 },
-  weight:            { zone: 'body', label: '체중', x: 0, y: 0.08 },
-  height:            { zone: 'body', label: '키', x: 0, y: 0.08 },
-  waist:             { zone: 'body', label: '허리둘레', x: 0, y: 0.08 },
   // 하체 (중앙) — 혈당, 신장기능
   fasting_glucose:   { zone: 'lower', label: '혈당', x: 0, y: -0.08 },
   creatinine:        { zone: 'lower', label: '크레아티닌', x: 0, y: -0.08 },
