@@ -100,8 +100,13 @@ export default function EmbedCharacterPage() {
         />
       </Suspense>
 
-      {/* 버전 확인 마커 (배포 확인 후 제거) */}
-      <div style={{ position: 'absolute', top: 4, left: 4, fontSize: '9px', color: '#ccc', zIndex: 99, opacity: 0.5 }}>v4</div>
+      {/* 디버그 오버레이 (배포 확인 후 제거) */}
+      <div style={{ position: 'absolute', top: 4, left: 4, fontSize: '8px', color: '#999', zIndex: 99, background: 'rgba(255,255,255,0.7)', padding: '2px 4px', borderRadius: 4, lineHeight: 1.4, maxWidth: '50%' }}>
+        <div>v4 | zones:{zoneMetrics.length} | data:{partnerData ? 'Y' : 'N'}</div>
+        {zoneMetrics.map((m, i) => (
+          <div key={i}>{m.zone} y={m.y} st={m.status} [{m.items.map(it => `${it.label}:${it.status}`).join(',')}]</div>
+        ))}
+      </div>
 
       {/* 인디케이터 연결 수치 카드 — 스캔 완료 후 표시 */}
       {showCards && zoneMetrics.map((m, i) => {
