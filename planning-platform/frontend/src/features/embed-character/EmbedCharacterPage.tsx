@@ -85,6 +85,15 @@ export default function EmbedCharacterPage() {
 
   // 터치 모달: 인디케이터 터치 시 해당 zone 모달 표시
   const [selectedZone, setSelectedZone] = useState<number | null>(null)
+  const modalOpenTime = React.useRef(0)
+  const openModal = (idx: number | null) => {
+    if (idx !== null) modalOpenTime.current = Date.now()
+    setSelectedZone(idx)
+  }
+  const closeModal = () => {
+    if (Date.now() - modalOpenTime.current < 300) return // 열린 직후 닫기 방지
+    setSelectedZone(null)
+  }
   const [readyForTouch, setReadyForTouch] = useState(false)
   useEffect(() => {
     if (introComplete && zoneMetrics.length > 0) {
@@ -113,7 +122,7 @@ export default function EmbedCharacterPage() {
           cameraTarget={camTarget}
           onZoneClick={readyForTouch ? (metric) => {
             const idx = zoneMetrics.findIndex(m => m.zone === metric.zone && m.y === metric.y)
-            setSelectedZone(prev => prev === idx ? null : idx)
+            openModal(selectedZone === idx ? null : idx)
           } : undefined}
         />
       </Suspense>
@@ -170,7 +179,7 @@ export default function EmbedCharacterPage() {
         }
         return (
           <div style={{ position: 'absolute', inset: 0, zIndex: 25, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.15)' }}
-            onClick={() => setSelectedZone(null)}>
+            onClick={closeModal}>
             <div style={{
               background: 'rgba(255,255,255,0.78)', backdropFilter: 'blur(16px)',
               borderRadius: '16px', padding: '16px 20px',
