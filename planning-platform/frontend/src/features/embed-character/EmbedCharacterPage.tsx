@@ -21,7 +21,7 @@ export default function EmbedCharacterPage() {
     sendLog('iframe_loaded')
 
     function handleMessage(event: MessageEvent) {
-      if (event.data?.type === 'WELNO_CHARACTER_DATA') {
+      if (event.data?.type === 'WELNO_CHARACTER_DATA' || event.data?.type === 'WELNO_PARTNER_DATA') {
         const pd = event.data.partnerData
         const keys = pd?.checkup_results ? Object.keys(pd.checkup_results) : []
         sendLog('postMessage_received', { keys, hasPatient: !!pd?.patient, resultCount: keys.length })
