@@ -172,6 +172,9 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
   // Micro-movement — very subtle life-like idle sway
   const microMove = useRef({ phase: Math.random() * Math.PI * 2 })
 
+  // Turn-away 자동 복귀 타이머
+  const turnAwayTimer = useRef(0)
+
   // Effect timers
   const excTimer = useRef(-1)  // <0 = inactive
   const steamTimer = useRef(-1)
@@ -390,6 +393,17 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
     // === IRRITATION DECAY ===
     if (irritation.current > 0) {
       irritation.current = Math.max(0, irritation.current - IRRITATION_DECAY * dt)
+    }
+
+    // === TURN-AWAY AUTO RETURN (5초 후 자동 복귀) ===
+    if (isTurnedAway.current) {
+      turnAwayTimer.current += dt
+      if (turnAwayTimer.current > 5) {
+        reaction.current = { type: 'peek-back', timer: 0, lookX: 0, lookY: 0, zone: 'body' }
+        isTurnedAway.current = false
+        targetRotY.current = 0
+        irritation.current = Math.max(0, irritation.current - 3)
+      }
     }
 
     // === GROUP TRANSFORM LERP (damped for smoothness) ===
@@ -741,6 +755,7 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
             }
           } else {
             isTurnedAway.current = true
+            turnAwayTimer.current = 0
             targetRotY.current = Math.PI
             if (head) { head.rotation.y = 0; head.rotation.x = breathCombined * 0.008 }
             headCtrl = false

@@ -109,7 +109,7 @@ export default function EmbedCharacterPage() {
           onIntroComplete={() => setIntroComplete(true)}
           healthState={healthState}
           zoneMetrics={zoneMetrics}
-          enableRotation={true}
+          enableRotation={false}
         />
       </Suspense>
 
