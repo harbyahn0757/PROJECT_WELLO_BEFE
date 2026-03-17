@@ -104,22 +104,27 @@ export interface ZoneMetric {
 // 값 키 → 신체 부위 매핑 (3D 모델 실측 기준)
 // x: 양수=화면 오른쪽(캐릭터 왼쪽), 음수=화면 왼쪽(캐릭터 오른쪽)
 // blush 참조: 볼 y=0.47, x=±0.09
-const KEY_ZONE_MAP: Record<string, { zone: BodyZone; label: string; x: number; y: number }> = {
-  // 머리 (중앙) — 콜레스테롤, 헤모글로빈
-  total_cholesterol: { zone: 'head', label: '콜레스테롤', x: 0, y: 0.52 },
-  hemoglobin:        { zone: 'head', label: '헤모글로빈', x: 0, y: 0.52 },
-  // 심장 (왼쪽 가슴) — 혈압
-  systolic_bp:       { zone: 'face', label: '혈압', x: 0.05, y: 0.24 },
-  // 간 (오른쪽 갈비뼈 아래) — AST, ALT, GGT
-  sgot_ast:          { zone: 'side', label: 'AST', x: -0.06, y: 0.18 },
-  sgpt_alt:          { zone: 'side', label: 'ALT', x: -0.06, y: 0.18 },
-  gamma_gtp:         { zone: 'side', label: 'GGT', x: -0.06, y: 0.18 },
-  // 배 (중앙) — BMI가 대표 (키/체중은 원시 측정값이라 제외)
-  bmi:               { zone: 'body', label: 'BMI', x: 0, y: 0.08 },
-  // 하체 (중앙) — 혈당, 신장기능
-  fasting_glucose:   { zone: 'lower', label: '혈당', x: 0, y: -0.08 },
-  creatinine:        { zone: 'lower', label: '크레아티닌', x: 0, y: -0.08 },
-  gfr:               { zone: 'lower', label: 'GFR', x: 0, y: -0.08 },
+// zone당 1개만 표시 → 먼저 매칭되는 필드가 대표
+type ZoneKey = 'head' | 'heart' | 'liver' | 'belly' | 'legs'
+const KEY_ZONE_MAP: Record<string, { zone: BodyZone; zoneKey: ZoneKey; label: string; x: number; y: number }> = {
+  // 머리 (y=0.48) — 콜레스테롤 계열 + 헤모글로빈
+  total_cholesterol: { zone: 'head', zoneKey: 'head', label: '콜레스테롤', x: 0, y: 0.48 },
+  hdl_cholesterol:   { zone: 'head', zoneKey: 'head', label: 'HDL', x: 0, y: 0.48 },
+  ldl_cholesterol:   { zone: 'head', zoneKey: 'head', label: 'LDL', x: 0, y: 0.48 },
+  hemoglobin:        { zone: 'head', zoneKey: 'head', label: '헤모글로빈', x: 0, y: 0.48 },
+  // 심장 (y=0.18) — 혈압 + 중성지방
+  systolic_bp:       { zone: 'face', zoneKey: 'heart', label: '혈압', x: 0.05, y: 0.18 },
+  triglycerides:     { zone: 'face', zoneKey: 'heart', label: '중성지방', x: 0.05, y: 0.18 },
+  // 간 (y=0.12) — AST, ALT, GGT
+  sgot_ast:          { zone: 'side', zoneKey: 'liver', label: 'AST', x: -0.06, y: 0.12 },
+  sgpt_alt:          { zone: 'side', zoneKey: 'liver', label: 'ALT', x: -0.06, y: 0.12 },
+  gamma_gtp:         { zone: 'side', zoneKey: 'liver', label: 'GGT', x: -0.06, y: 0.12 },
+  // 배 (y=0.02) — BMI
+  bmi:               { zone: 'body', zoneKey: 'belly', label: 'BMI', x: 0, y: 0.02 },
+  // 하체 (y=-0.12) — 혈당, 신장기능
+  fasting_glucose:   { zone: 'lower', zoneKey: 'legs', label: '혈당', x: 0, y: -0.12 },
+  creatinine:        { zone: 'lower', zoneKey: 'legs', label: '크레아티닌', x: 0, y: -0.12 },
+  gfr:               { zone: 'lower', zoneKey: 'legs', label: 'GFR', x: 0, y: -0.12 },
 }
 
 // _abnormal 값에서 정상/비정상 판단 (파트너사가 제공)
@@ -153,8 +158,8 @@ export function mapCheckupToZoneMetrics(cr?: CheckupResults): ZoneMetric[] {
 
     const mapping = KEY_ZONE_MAP[key]
     if (!mapping) continue
-    if (usedZones.has(mapping.zone)) continue
-    usedZones.add(mapping.zone)
+    if (usedZones.has(mapping.zoneKey)) continue
+    usedZones.add(mapping.zoneKey)
 
     // _abnormal 키가 있으면 파트너사 판정 사용, 없으면 정상 처리
     const abnormalKey = `${key}_abnormal`
