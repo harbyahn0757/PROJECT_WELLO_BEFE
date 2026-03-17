@@ -109,33 +109,34 @@ export interface ZoneMetric {
   items: ZoneMetricItem[]
 }
 
-type ZoneKey = 'head' | 'heart' | 'liver' | 'belly' | 'legs'
-// 해부학 기반 고정 좌표 — 실제 3D 렌더링 스크린샷 기준 보정
-// blush y=0.47(볼), y=0.55→이마(22%), y=0.28→턱(33%), y=0.10→배꼽(55%)
+type ZoneKey = 'blood' | 'cardio' | 'liver' | 'pancreas' | 'body_comp' | 'kidney'
+// 6그룹: 빈혈(머리), 심혈관(가슴), 간(갈비), 췌장(왼배), 체성분(배꼽), 신장(골반)
+// 1차 좌표 — 슬라이더로 조정 후 확정
 const KEY_ZONE_MAP: Record<string, { zone: BodyZone; zoneKey: ZoneKey; label: string; x: number; y: number }> = {
-  total_cholesterol: { zone: 'head', zoneKey: 'head', label: '콜레스테롤', x: 0, y: 0.55 },
-  hdl_cholesterol:   { zone: 'head', zoneKey: 'head', label: 'HDL', x: 0, y: 0.55 },
-  ldl_cholesterol:   { zone: 'head', zoneKey: 'head', label: 'LDL', x: 0, y: 0.55 },
-  hemoglobin:        { zone: 'head', zoneKey: 'head', label: '헤모글로빈', x: 0, y: 0.55 },
-  systolic_bp:       { zone: 'face', zoneKey: 'heart', label: '혈압', x: 0.04, y: 0.20 },
-  triglycerides:     { zone: 'face', zoneKey: 'heart', label: '중성지방', x: 0.04, y: 0.20 },
+  hemoglobin:        { zone: 'head', zoneKey: 'blood', label: '헤모글로빈', x: 0, y: 0.55 },
+  systolic_bp:       { zone: 'face', zoneKey: 'cardio', label: '혈압', x: 0.04, y: 0.25 },
+  total_cholesterol: { zone: 'face', zoneKey: 'cardio', label: '콜레스테롤', x: 0.04, y: 0.25 },
+  hdl_cholesterol:   { zone: 'face', zoneKey: 'cardio', label: 'HDL', x: 0.04, y: 0.25 },
+  ldl_cholesterol:   { zone: 'face', zoneKey: 'cardio', label: 'LDL', x: 0.04, y: 0.25 },
+  triglycerides:     { zone: 'face', zoneKey: 'cardio', label: '중성지방', x: 0.04, y: 0.25 },
   sgot_ast:          { zone: 'side', zoneKey: 'liver', label: 'AST', x: -0.10, y: 0.16 },
   sgpt_alt:          { zone: 'side', zoneKey: 'liver', label: 'ALT', x: -0.10, y: 0.16 },
   gamma_gtp:         { zone: 'side', zoneKey: 'liver', label: 'GGT', x: -0.10, y: 0.16 },
-  bmi:               { zone: 'body', zoneKey: 'belly', label: 'BMI', x: 0, y: 0.10 },
-  weight:            { zone: 'body', zoneKey: 'belly', label: '체중', x: 0, y: 0.10 },
-  height:            { zone: 'body', zoneKey: 'belly', label: '키', x: 0, y: 0.10 },
-  fasting_glucose:   { zone: 'lower', zoneKey: 'legs', label: '혈당', x: 0, y: -0.03 },
-  creatinine:        { zone: 'lower', zoneKey: 'legs', label: '크레아티닌', x: 0, y: -0.03 },
-  gfr:               { zone: 'lower', zoneKey: 'legs', label: 'GFR', x: 0, y: -0.03 },
+  fasting_glucose:   { zone: 'body', zoneKey: 'pancreas', label: '혈당', x: 0.08, y: 0.06 },
+  height:            { zone: 'body', zoneKey: 'body_comp', label: '키', x: 0, y: 0.10 },
+  weight:            { zone: 'body', zoneKey: 'body_comp', label: '체중', x: 0, y: 0.10 },
+  bmi:               { zone: 'body', zoneKey: 'body_comp', label: 'BMI', x: 0, y: 0.10 },
+  creatinine:        { zone: 'lower', zoneKey: 'kidney', label: '크레아티닌', x: 0, y: -0.03 },
+  gfr:               { zone: 'lower', zoneKey: 'kidney', label: 'GFR', x: 0, y: -0.03 },
 }
 
 const ZONE_PRIORITY: Record<string, string[]> = {
-  head: ['total_cholesterol', 'hdl_cholesterol', 'ldl_cholesterol', 'hemoglobin'],
-  heart: ['systolic_bp', 'triglycerides'],
+  blood: ['hemoglobin'],
+  cardio: ['systolic_bp', 'total_cholesterol', 'hdl_cholesterol', 'ldl_cholesterol', 'triglycerides'],
   liver: ['sgot_ast', 'sgpt_alt', 'gamma_gtp'],
-  belly: ['height', 'weight', 'bmi'],
-  legs: ['fasting_glucose', 'creatinine', 'gfr'],
+  pancreas: ['fasting_glucose'],
+  body_comp: ['height', 'weight', 'bmi'],
+  kidney: ['creatinine', 'gfr'],
 }
 
 export function mapCheckupToZoneMetrics(cr?: CheckupResults): ZoneMetric[] {
