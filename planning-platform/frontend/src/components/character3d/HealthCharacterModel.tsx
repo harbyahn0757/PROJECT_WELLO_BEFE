@@ -264,8 +264,16 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
     if (!introComplete) return
     e.stopPropagation()
 
-    // Zone-specific metric click — find closest indicator by Y distance
+    const hit = e.point
+    const now = Date.now()
     const hitLocal = group.current ? group.current.worldToLocal(e.point.clone()) : e.point
+    const zone = getBodyZone(hitLocal)
+
+    // 시선 방향 계산 (모든 클릭에 공통)
+    const lookX = Math.max(-0.25, Math.min(0.25, (0.4 - hit.y) * 0.4))
+    const lookY = Math.max(-0.3, Math.min(0.3, hit.x * 0.5))
+
+    // Zone-specific metric click — 인디케이터 근처 클릭
     if (zoneMetrics && zoneMetrics.length > 0 && onZoneClick) {
       let closest: typeof zoneMetrics[0] | null = null
       let minDist = Infinity
@@ -275,14 +283,18 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
         const dist = Math.sqrt(dx * dx + dy * dy)
         if (dist < minDist) { minDist = dist; closest = m }
       }
-      if (closest && minDist < 0.15) { onZoneClick(closest); return }
+      if (closest && minDist < 0.15) {
+        // 모달 표시 + 캐릭터가 해당 방향 쳐다봄 (가벼운 반응)
+        onZoneClick(closest)
+        if (!reaction.current || reaction.current.type !== 'dere') {
+          reaction.current = { type: 'flinch-look', timer: 0, lookX, lookY, zone }
+        }
+        return
+      }
     }
 
     // Don't interrupt dere
     if (reaction.current?.type === 'dere') return
-
-    const hit = e.point
-    const now = Date.now()
 
     // If turned away → peek back
     if (isTurnedAway.current) {
@@ -292,14 +304,6 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       irritation.current = Math.max(0, irritation.current - 3)
       return
     }
-
-    // Convert to group-local for zone detection
-    const localHit = group.current ? group.current.worldToLocal(hit.clone()) : hit
-    const zone = getBodyZone(localHit)
-
-    // Look direction (world-space based)
-    const lookX = Math.max(-0.25, Math.min(0.25, (0.4 - hit.y) * 0.4))
-    const lookY = Math.max(-0.3, Math.min(0.3, hit.x * 0.5))
 
     // Irritation
     const isRapid = (now - lastTouchTime.current) < RAPID_WINDOW
