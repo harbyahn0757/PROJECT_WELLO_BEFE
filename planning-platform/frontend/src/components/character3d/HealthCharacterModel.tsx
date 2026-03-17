@@ -20,10 +20,20 @@ export interface BodyHighlight {
   label: string
 }
 
+// 검진 데이터 ↔ 신체 부위 매핑
+export interface ZoneMetric {
+  zone: BodyZone
+  label: string
+  value: string
+  status: 'normal' | 'warning' | 'danger'
+  y: number        // 3D Y 좌표
+}
+
 interface CharacterModelProps {
   onIntroComplete?: () => void
   healthState?: HealthCharacterState
-  onCharacterClick?: () => void
+  zoneMetrics?: ZoneMetric[]
+  onZoneClick?: (metric: ZoneMetric) => void
 }
 
 type BodyZone = 'head' | 'face' | 'body' | 'side' | 'lower'
@@ -121,7 +131,7 @@ function getMoodExpression(mood?: CharacterMood): Record<string, number> {
 }
 
 // ===== COMPONENT =====
-export function HealthCharacterModel({ onIntroComplete, healthState, onCharacterClick }: CharacterModelProps) {
+export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics, onZoneClick }: CharacterModelProps) {
   const group = useRef<THREE.Group>(null)
   const { scene } = useGLTF('/models/kindhabit_character.glb')
   const characterScene = useMemo(() => scene, [scene])
@@ -172,6 +182,11 @@ export function HealthCharacterModel({ onIntroComplete, healthState, onCharacter
   const scanDone = useRef(false)
   const scanLineRef = useRef<THREE.Mesh>(null)
   const scanGlowRef = useRef<THREE.Mesh>(null)
+
+  // Pink indicator circles (appear after scan, pulse on data zones)
+  const indicatorsVisible = useRef(false)
+  const indicatorTimer = useRef(0)
+  const indicatorRefs = useRef<(THREE.Mesh | null)[]>([null, null, null, null])
 
   // Morph targets (Shape Keys from Blender)
   const morphMesh = useRef<THREE.Mesh | null>(null)
@@ -245,8 +260,15 @@ export function HealthCharacterModel({ onIntroComplete, healthState, onCharacter
     if (!introComplete) return
     e.stopPropagation()
 
-    // Notify parent about character click (for health overlay)
-    onCharacterClick?.()
+    // Zone-specific metric click — find matching metric for touched zone
+    const hitLocal = group.current ? group.current.worldToLocal(e.point.clone()) : e.point
+    const clickedZone = getBodyZone(hitLocal)
+    if (zoneMetrics && onZoneClick) {
+      const metric = zoneMetrics.find(m => m.zone === clickedZone
+        || (clickedZone === 'face' && m.zone === 'head')
+        || (clickedZone === 'side' && m.zone === 'body'))
+      if (metric) { onZoneClick(metric); return }
+    }
 
     // Don't interrupt dere
     if (reaction.current?.type === 'dere') return
@@ -296,7 +318,7 @@ export function HealthCharacterModel({ onIntroComplete, healthState, onCharacter
     if (reactionType === 'shy') {
       blushActive.current = true; blushTimer.current = 0; blushDuration.current = 2.5
     }
-  }, [introComplete, onCharacterClick])
+  }, [introComplete, zoneMetrics, onZoneClick])
 
   // ===== MAIN ANIMATION LOOP =====
   useFrame((_, delta) => {
@@ -1123,42 +1145,61 @@ export function HealthCharacterModel({ onIntroComplete, healthState, onCharacter
       heartRefs.current.forEach(m => { if (m) m.visible = false })
     }
 
-    // Health scan line (orange sweep top→bottom)
+    // Health scan line (orange sweep top→bottom) — wide & slow
     if (scanTimer.current >= 0) {
       scanTimer.current += dt
       const st = scanTimer.current
-      const SCAN_DUR = 1.8   // total duration
-      const TOP_Y = 0.75     // start (above head)
-      const BOT_Y = -0.15    // end (below feet)
+      const SCAN_DUR = 3.5   // slower sweep
+      const TOP_Y = 0.78
+      const BOT_Y = -0.18
       const RANGE = TOP_Y - BOT_Y
 
       if (st < SCAN_DUR) {
         const p = smoothStep(st / SCAN_DUR)
         const y = TOP_Y - p * RANGE
 
-        // Scan line
         if (scanLineRef.current) {
           scanLineRef.current.visible = true
           scanLineRef.current.position.y = y
-          // Fade in first 10%, fade out last 15%
-          const fadeIn = st < SCAN_DUR * 0.1 ? smoothStep(st / (SCAN_DUR * 0.1)) : 1
-          const fadeOut = st > SCAN_DUR * 0.85 ? smoothStep((SCAN_DUR - st) / (SCAN_DUR * 0.15)) : 1
-          const op = fadeIn * fadeOut * 0.9
-          ;(scanLineRef.current.material as THREE.MeshBasicMaterial).opacity = op
+          const fadeIn = st < SCAN_DUR * 0.08 ? smoothStep(st / (SCAN_DUR * 0.08)) : 1
+          const fadeOut = st > SCAN_DUR * 0.88 ? smoothStep((SCAN_DUR - st) / (SCAN_DUR * 0.12)) : 1
+          ;(scanLineRef.current.material as THREE.MeshBasicMaterial).opacity = fadeIn * fadeOut * 0.85
         }
-        // Glow trail (wider, softer, slightly behind)
         if (scanGlowRef.current) {
           scanGlowRef.current.visible = true
-          scanGlowRef.current.position.y = y + 0.02
-          const glowOp = (st < SCAN_DUR * 0.1 ? smoothStep(st / (SCAN_DUR * 0.1)) : 1)
-            * (st > SCAN_DUR * 0.85 ? smoothStep((SCAN_DUR - st) / (SCAN_DUR * 0.15)) : 1)
-          ;(scanGlowRef.current.material as THREE.MeshBasicMaterial).opacity = glowOp * 0.35
+          scanGlowRef.current.position.y = y + 0.015
+          const fadeIn = st < SCAN_DUR * 0.08 ? smoothStep(st / (SCAN_DUR * 0.08)) : 1
+          const fadeOut = st > SCAN_DUR * 0.88 ? smoothStep((SCAN_DUR - st) / (SCAN_DUR * 0.12)) : 1
+          ;(scanGlowRef.current.material as THREE.MeshBasicMaterial).opacity = fadeIn * fadeOut * 0.3
         }
       } else {
         scanTimer.current = -1
         if (scanLineRef.current) scanLineRef.current.visible = false
         if (scanGlowRef.current) scanGlowRef.current.visible = false
+        // After scan → show pink indicators
+        if (zoneMetrics && zoneMetrics.length > 0) {
+          indicatorsVisible.current = true
+          indicatorTimer.current = 0
+        }
       }
+    }
+
+    // Pink indicator circles — fade in after scan, gentle pulse
+    if (indicatorsVisible.current && zoneMetrics) {
+      indicatorTimer.current += dt
+      const it = indicatorTimer.current
+      const fadeIn = Math.min(it / 0.8, 1) // 0.8s fade in
+      const pulse = 0.85 + Math.sin(it * 2.0) * 0.15 // slow gentle pulse
+      const baseOp = fadeIn * pulse * 0.45
+
+      indicatorRefs.current.forEach((mesh, i) => {
+        if (!mesh || i >= zoneMetrics.length) { if (mesh) mesh.visible = false; return }
+        mesh.visible = true
+        mesh.position.y = zoneMetrics[i].y
+        ;(mesh.material as THREE.MeshBasicMaterial).opacity = baseOp
+        const sc = 0.06 + Math.sin(it * 2.0 + i * 0.5) * 0.008
+        mesh.scale.setScalar(sc / 0.06)
+      })
     }
   })
 
@@ -1171,6 +1212,13 @@ export function HealthCharacterModel({ onIntroComplete, healthState, onCharacter
   const scanGlowMat = useMemo(() => new THREE.MeshBasicMaterial({
     color: 0xffa500, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide,
   }), [])
+  // Pink indicator circles — data zone markers
+  const indicatorMats = useMemo(() => [
+    new THREE.MeshBasicMaterial({ color: 0xff69b4, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color: 0xff69b4, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color: 0xff69b4, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+    new THREE.MeshBasicMaterial({ color: 0xff69b4, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }),
+  ], [])
 
   const blushMat = useMemo(() => new THREE.MeshBasicMaterial({
     color: 0xff8fa0, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide,
@@ -1206,13 +1254,21 @@ export function HealthCharacterModel({ onIntroComplete, healthState, onCharacter
     <group ref={group} position={[0, 0.05, 0]}>
       <primitive object={characterScene} scale={1.5} onPointerDown={handlePointerDown} />
 
-      {/* Health scan line — horizontal orange bar sweeps top→bottom */}
-      <mesh ref={scanLineRef} position={[0, 0.75, 0.14]} visible={false} material={scanLineMat}>
-        <planeGeometry args={[0.45, 0.005]} />
+      {/* Health scan line — wide horizontal orange bar sweeps top→bottom */}
+      <mesh ref={scanLineRef} position={[0, 0.78, 0.14]} visible={false} material={scanLineMat}>
+        <planeGeometry args={[0.7, 0.006]} />
       </mesh>
-      <mesh ref={scanGlowRef} position={[0, 0.75, 0.13]} visible={false} material={scanGlowMat}>
-        <planeGeometry args={[0.5, 0.04]} />
+      <mesh ref={scanGlowRef} position={[0, 0.78, 0.13]} visible={false} material={scanGlowMat}>
+        <planeGeometry args={[0.8, 0.06]} />
       </mesh>
+
+      {/* Pink indicator circles — data zone markers */}
+      {indicatorMats.map((mat, i) => (
+        <mesh key={`ind-${i}`} ref={el => { indicatorRefs.current[i] = el }}
+          position={[0, 0.4, 0.14]} visible={false} material={mat}>
+          <circleGeometry args={[0.06, 24]} />
+        </mesh>
+      ))}
 
       {/* Blush circles on cheeks */}
       <mesh ref={leftBlush} position={[-0.09, 0.47, 0.12]} visible={false} material={blushMat}>

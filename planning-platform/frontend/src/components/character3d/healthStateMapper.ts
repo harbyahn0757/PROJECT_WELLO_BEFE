@@ -94,6 +94,58 @@ export function mapCheckupToHealthState(data?: PartnerData): HealthCharacterStat
   return { mood, highlights, overallScore, alertCount: warningCount + dangerCount }
 }
 
+// 신체 부위별 메트릭 매핑 (3D 캐릭터 인디케이터용)
+type BodyZone = 'head' | 'face' | 'body' | 'side' | 'lower'
+
+export interface ZoneMetric {
+  zone: BodyZone
+  label: string
+  value: string
+  status: HealthStatus
+  y: number  // 3D Y position
+}
+
+// 키 → 부위/라벨 매핑 (판단하지 않고 값만 표시)
+const KEY_ZONE_MAP: Record<string, { zone: BodyZone; label: string; y: number }> = {
+  total_cholesterol: { zone: 'head', label: '콜레스테롤', y: 0.55 },
+  systolic_bp:       { zone: 'face', label: '혈압', y: 0.38 },
+  bmi:               { zone: 'body', label: 'BMI', y: 0.18 },
+  weight:            { zone: 'body', label: '체중', y: 0.18 },
+  fasting_glucose:   { zone: 'lower', label: '혈당', y: -0.02 },
+  height:            { zone: 'head', label: '신장', y: 0.55 },
+}
+
+export function mapCheckupToZoneMetrics(cr?: CheckupResults): ZoneMetric[] {
+  if (!cr) return []
+  const metrics: ZoneMetric[] = []
+  const usedZones = new Set<string>()
+
+  // 혈압은 수축기/이완기 조합
+  if (cr.systolic_bp != null && cr.diastolic_bp != null) {
+    metrics.push({
+      zone: 'face', label: '혈압', value: `${cr.systolic_bp}/${cr.diastolic_bp}`,
+      status: 'normal', y: 0.38,
+    })
+    usedZones.add('face')
+  }
+
+  // 나머지 키값 순회 — 들어온 데이터 그대로 매핑
+  for (const [key, val] of Object.entries(cr)) {
+    if (val == null || key === 'exam_date' || key === 'diastolic_bp' || key === 'systolic_bp') continue
+    const mapping = KEY_ZONE_MAP[key]
+    if (!mapping) continue
+    if (usedZones.has(mapping.zone)) continue // 같은 부위 중복 방지
+    usedZones.add(mapping.zone)
+    metrics.push({
+      zone: mapping.zone, label: mapping.label,
+      value: typeof val === 'number' ? (Number.isInteger(val) ? String(val) : val.toFixed(1)) : String(val),
+      status: 'normal', // 판단 안 함 — 파트너사 데이터 그대로
+      y: mapping.y,
+    })
+  }
+  return metrics
+}
+
 export function getMetricSummary(cr?: CheckupResults): Array<{
   label: string
   value: string

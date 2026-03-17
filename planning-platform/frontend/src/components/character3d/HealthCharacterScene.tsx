@@ -2,15 +2,16 @@ import { Suspense, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { CameraControls } from '@react-three/drei'
 import * as THREE from 'three'
-import { HealthCharacterModel, HealthCharacterState } from './HealthCharacterModel'
+import { HealthCharacterModel, HealthCharacterState, ZoneMetric } from './HealthCharacterModel'
 
 interface CharacterSceneProps {
   width?: string
   height?: string
   backgroundColor?: string
   onIntroComplete?: () => void
-  onCharacterClick?: () => void
+  onZoneClick?: (metric: ZoneMetric) => void
   healthState?: HealthCharacterState
+  zoneMetrics?: ZoneMetric[]
   enableRotation?: boolean
 }
 
@@ -63,8 +64,9 @@ export default function HealthCharacterScene({
   height = '400px',
   backgroundColor = 'transparent',
   onIntroComplete,
-  onCharacterClick,
+  onZoneClick,
   healthState,
+  zoneMetrics,
   enableRotation = true,
 }: CharacterSceneProps) {
   return (
@@ -87,8 +89,9 @@ export default function HealthCharacterScene({
         <Suspense fallback={null}>
           <HealthCharacterModel
             onIntroComplete={onIntroComplete}
-            onCharacterClick={onCharacterClick}
             healthState={healthState}
+            zoneMetrics={zoneMetrics}
+            onZoneClick={onZoneClick}
           />
 
           {enableRotation && (
