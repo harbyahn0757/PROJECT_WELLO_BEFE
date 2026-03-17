@@ -52,8 +52,13 @@ export default function EmbedCharacterPage() {
   const zoneMetrics = mapCheckupToZoneMetrics(partnerData?.checkup_results)
 
   useEffect(() => {
-    console.log('[CharacterEmbed] partnerData:', partnerData ? 'yes' : 'null')
-    console.log('[CharacterEmbed] healthState:', healthState?.mood, 'zoneMetrics:', zoneMetrics.length)
+    console.log('[CharacterEmbed v3] partnerData:', partnerData ? 'yes' : 'null')
+    console.log('[CharacterEmbed v3] healthState:', healthState?.mood, 'zoneMetrics:', zoneMetrics.length)
+    if (partnerData?.checkup_results) {
+      const cr = partnerData.checkup_results
+      const abnormalKeys = Object.keys(cr).filter(k => k.endsWith('_abnormal'))
+      console.log('[CharacterEmbed v3] _abnormal keys:', abnormalKeys, abnormalKeys.map(k => `${k}=${cr[k]}`))
+    }
   }, [partnerData, healthState, zoneMetrics.length])
 
   // 스캔 완료 후 카드 표시 (introComplete + healthState 존재 + 약간 딜레이)
