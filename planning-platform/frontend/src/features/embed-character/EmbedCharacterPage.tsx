@@ -160,7 +160,7 @@ export default function EmbedCharacterPage() {
         const nameMap: Record<string, string> = { blood: '빈혈', cardio: '심혈관', liver: '간', pancreas: '췌장', body_comp: '체성분', kidney: '신장' }
         const top = yToPercent(m.y)
         const onLeft = isLeft(m.x)
-        const statusColor: Record<string, string> = { normal: '#4CAF50', borderline: '#8BC34A', warning: '#A1887F', unknown: '#D4C5A9' }
+        const statusColor: Record<string, string> = { normal: '#4CAF50', borderline: '#8BC34A', warning: '#8B4513', unknown: '#D4C5A9' }
         const statusLabel: Record<string, string> = { normal: '정상', borderline: '경계', warning: '이상', unknown: '-' }
         const borderColor = statusColor[m.status] || '#D4C5A9'
         return (
