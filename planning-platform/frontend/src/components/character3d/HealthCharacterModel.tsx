@@ -1243,8 +1243,10 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       } else {
         scanTimer.current = -1
         scanUpY.current = 999
-        cameraTransition.current = true
-        cameraTransTimer.current = 0
+        if (cameraTarget) {
+          cameraTransition.current = true
+          cameraTransTimer.current = 0
+        }
         if (scanLineRef.current) scanLineRef.current.visible = false
         if (scanGlowRef.current) scanGlowRef.current.visible = false
         if (scanShimmerRef.current) scanShimmerRef.current.visible = false
