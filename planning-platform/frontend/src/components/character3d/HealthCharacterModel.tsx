@@ -176,6 +176,9 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
   const turnAwayTimer = useRef(0)
   // 스캔 올라오기 중 Y 위치 (인디케이터 순차 표시용)
   const scanUpY = useRef(999) // 999=비활성, 실제값=현재 스캔라인 Y
+  // 스캔 후 카메라 전환
+  const cameraTransition = useRef(false)
+  const cameraTransTimer = useRef(0)
 
   // Effect timers
   const excTimer = useRef(-1)  // <0 = inactive
@@ -1234,7 +1237,9 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
         }
       } else {
         scanTimer.current = -1
-        scanUpY.current = 999  // 스캔 완료 → 모든 인디케이터 표시
+        scanUpY.current = 999
+        cameraTransition.current = true
+        cameraTransTimer.current = 0
         if (scanLineRef.current) scanLineRef.current.visible = false
         if (scanGlowRef.current) scanGlowRef.current.visible = false
         if (scanShimmerRef.current) scanShimmerRef.current.visible = false
@@ -1243,6 +1248,19 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
           indicatorTimer.current = 0
         }
       }
+    }
+
+    // 스캔 후 카메라 전환: 정면 → 약간 아래에서 올려보는 앵글 (2초)
+    if (cameraTransition.current) {
+      cameraTransTimer.current += dt
+      const ct = Math.min(cameraTransTimer.current / 2.0, 1)
+      const ease = smoothStep(ct)
+      // 목표: x=0.3 (약간 오른쪽), y=-0.1 (아래에서), z=2.6 (가까이)
+      camera.position.x = damp(camera.position.x, 0.3, 2, dt)
+      camera.position.y = damp(camera.position.y, -0.1, 2, dt)
+      camera.position.z = damp(camera.position.z, 2.6, 2, dt)
+      camera.lookAt(0, 0.15, 0) // 배꼽 쯤 바라봄
+      if (ct >= 1) cameraTransition.current = false
     }
 
     // Indicator circles — fade in after scan, color by status (초록/노랑)

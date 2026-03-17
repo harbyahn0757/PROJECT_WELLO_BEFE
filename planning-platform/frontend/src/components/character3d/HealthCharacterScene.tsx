@@ -72,7 +72,7 @@ export default function HealthCharacterScene({
   return (
     <div style={{ width, height, touchAction: 'none' }}>
       <Canvas
-        camera={{ position: [0.3, 0.45, 2.6], fov: 38 }}
+        camera={{ position: [0, 0.3, 3.0], fov: 40 }}
         gl={{
           antialias: true,
           alpha: true,
