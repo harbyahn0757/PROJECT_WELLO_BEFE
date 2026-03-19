@@ -135,7 +135,14 @@ class WelnoRagChatWidget {
     }
 
     try {
-      // 0. 서버에서 동적 설정 로드 (파트너 테마 적용)
+      // 0-a. 서비스 헬스체크 (Gemini API 장애 시 위젯 미노출)
+      var healthOk = await this.checkServiceHealth();
+      if (!healthOk) {
+        console.warn('[WelnoRagChatWidget] 서비스 점검 중 — 위젯 미노출');
+        return;
+      }
+
+      // 0-b. 서버에서 동적 설정 로드 (파트너 테마 적용)
       await this.fetchRemoteConfig();
 
       // 1. CSS 스타일 주입
@@ -181,6 +188,29 @@ class WelnoRagChatWidget {
       console.warn('[WelnoRagChatWidget] 위젯 활성화 조건 미충족 (등록되지 않은 파트너/병원):', error.message);
       // 에러 시 위젯 생성을 중단하고 아무것도 렌더링하지 않음
       this.destroy(); 
+    }
+  }
+
+  /**
+   * 서비스 헬스체크 — Gemini API 장애 시 위젯 로드 차단
+   */
+  async checkServiceHealth() {
+    try {
+      var resp = await fetch(
+        this.config.baseUrl + '/welno-api/v1/rag-chat/partner/status',
+        { headers: { 'X-API-Key': this.config.apiKey } }
+      );
+      if (!resp.ok) return false;
+      var data = await resp.json();
+      var ss = data.service_status || {};
+      if (ss.gemini_healthy === false || ss.rag_service === 'unavailable') {
+        console.error('[WelnoRagChatWidget] Gemini 서비스 장애 감지');
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error('[WelnoRagChatWidget] 헬스체크 실패:', e.message);
+      return false;
     }
   }
 
