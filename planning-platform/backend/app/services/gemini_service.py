@@ -286,7 +286,7 @@ class GeminiService:
 
         except Exception as e:
             logger.error(f"❌ [Gemini] 호출 실패: {str(e)}")
-            yield f"오류 발생: {str(e)}"
+            yield "죄송합니다. 일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요."
     
     def _format_chat_history(self, history: List[Dict[str, Any]]) -> List[types.Content]:
         """채팅 히스토리를 Gemini Chat 형식(types.Content)으로 변환"""
