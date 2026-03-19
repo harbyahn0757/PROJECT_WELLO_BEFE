@@ -432,6 +432,9 @@ async def get_partner_status(
     파트너 상태 및 설정 정보 조회
     """
     try:
+        from ....services.gemini_service import gemini_service
+        gemini_health = await gemini_service.check_health()
+
         return {
             "success": True,
             "partner_info": {
@@ -441,14 +444,15 @@ async def get_partner_status(
                 "allowed_domains": partner_info.allowed_domains
             },
             "service_status": {
-                "rag_service": "available",
+                "rag_service": "available" if gemini_health.get("healthy") else "unavailable",
+                "gemini_healthy": gemini_health.get("healthy", False),
                 "redis_connected": partner_rag_service.redis_client is not None,
                 "api_version": "v1"
             }
         }
-    
+
     except Exception as e:
-        logger.error(f"❌ [파트너 RAG API] 상태 조회 실패: {str(e)}")
+        logger.error(f"[파트너 RAG API] 상태 조회 실패: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

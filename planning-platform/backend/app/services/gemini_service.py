@@ -62,11 +62,46 @@ class GeminiService:
         if self._api_key and self._api_key != "dev-gemini-key":
             self._client = genai.Client(api_key=self._api_key)
             self._initialized = True
-            logger.info("✅ [Gemini Service] 초기화 완료")
+            logger.info("[Gemini Service] 초기화 완료")
         else:
-            logger.warning("⚠️ [Gemini Service] API 키 없음 또는 유효하지 않음")
+            logger.warning("[Gemini Service] API 키 없음 또는 유효하지 않음")
             self._initialized = False
-        
+            await self._notify_slack("Gemini API 키 미설정", "initialize", "API 키가 없거나 유효하지 않습니다.")
+
+    async def check_health(self) -> dict:
+        """Gemini API 키 유효성 검증 (위젯 로드 전 호출)"""
+        if not self._initialized:
+            await self.initialize()
+        if not self._initialized:
+            return {"healthy": False, "error": "Gemini 서비스 미초기화"}
+        try:
+            response = self._client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents="ping",
+                config=types.GenerateContentConfig(max_output_tokens=5),
+            )
+            return {"healthy": True}
+        except Exception as e:
+            error_msg = str(e)
+            logger.error(f"[Gemini] 헬스체크 실패: {error_msg}")
+            await self._notify_slack("Gemini 헬스체크 실패", "check_health", error_msg)
+            return {"healthy": False, "error": error_msg}
+
+    async def _notify_slack(self, title: str, location: str, error_message: str):
+        """Gemini 에러 Slack 알림 (내부 유틸)"""
+        try:
+            from .slack_service import get_slack_service, AlertType
+            if settings.slack_webhook_url:
+                slack = get_slack_service(settings.slack_webhook_url)
+                await slack.send_error_alert(AlertType.API_ERROR, {
+                    "error_type": title,
+                    "location": f"gemini_service.py:{location}",
+                    "error_message": error_message,
+                    "uuid": "system",
+                })
+        except Exception:
+            pass  # Slack 전송 실패는 무시
+
     async def call_api(
         self,
         request: GeminiRequest,
@@ -213,7 +248,8 @@ class GeminiService:
             )
 
         except Exception as e:
-            logger.error(f"❌ [Gemini Service] API 호출 실패: {str(e)}")
+            logger.error(f"[Gemini Service] API 호출 실패: {str(e)}")
+            await self._notify_slack("Gemini API 호출 실패", "call_api", str(e))
             return GeminiResponse(success=False, error=str(e))
 
     async def stream_api(self, request: GeminiRequest, session_id: Optional[str] = None):
@@ -285,7 +321,8 @@ class GeminiService:
                         await asyncio.sleep(0)
 
         except Exception as e:
-            logger.error(f"❌ [Gemini] 호출 실패: {str(e)}")
+            logger.error(f"[Gemini] 스트리밍 실패: {str(e)}")
+            asyncio.ensure_future(self._notify_slack("Gemini 스트리밍 실패", "stream_api", str(e)))
             yield "죄송합니다. 일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요."
     
     def _format_chat_history(self, history: List[Dict[str, Any]]) -> List[types.Content]:
