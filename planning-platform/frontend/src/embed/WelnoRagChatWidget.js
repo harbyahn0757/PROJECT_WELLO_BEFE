@@ -1692,14 +1692,29 @@ class WelnoRagChatWidget {
       }, delay);
     }
 
-    // 4) 상담예약 CTA (첫 응답만, consultation_options 활성 시)
+    // 4) 상담예약 CTA (consultation_options 활성 + 미신청 시)
+    //    - 첫 응답(0): 항상 표시
+    //    - 이상 수치 있으면: 3번째 응답(2)에 한 번 더
     var co = self.config.partnerData && self.config.partnerData.consultation_options;
-    if (self.state.assistantMsgCount === 0 && co && (co.revisit || co.checkup) && !self.state.consultationSubmitted) {
-      delay += 400;
-      setTimeout(function() {
-        self.addConsultationCTA(messageElement);
-        self.scrollToBottom();
-      }, delay);
+    if (co && (co.revisit || co.checkup) && !self.state.consultationSubmitted) {
+      var showCTA = false;
+      if (self.state.assistantMsgCount === 0) {
+        showCTA = true;
+      } else if (self.state.assistantMsgCount === 2) {
+        // 검진 데이터에 이상 수치가 있으면 한 번 더 제안
+        var cr = (self.config.partnerData && self.config.partnerData.checkup_results) || {};
+        var hasAbnormal = Object.keys(cr).some(function(k) {
+          return k.indexOf('_abnormal') > -1 && cr[k] && cr[k] !== '정상';
+        });
+        if (hasAbnormal) showCTA = true;
+      }
+      if (showCTA) {
+        delay += 400;
+        setTimeout(function() {
+          self.addConsultationCTA(messageElement);
+          self.scrollToBottom();
+        }, delay);
+      }
     }
 
     // 5) 마무리 멘트
