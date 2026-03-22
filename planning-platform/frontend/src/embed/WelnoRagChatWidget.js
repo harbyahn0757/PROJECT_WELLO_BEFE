@@ -1624,6 +1624,9 @@ class WelnoRagChatWidget {
         if (data.answer) {
           assistantMessage += data.answer;
           if (!messageElement) {
+            // 스트리밍 시작 → 점 세개 로딩 즉시 제거
+            var loadingEl = document.getElementById('loading-indicator');
+            if (loadingEl) loadingEl.remove();
             messageElement = this.addMessage('assistant', '');
             startTyping();
           }
@@ -2323,21 +2326,35 @@ class WelnoRagChatWidget {
   }
 
   /**
-   * 첫 메시지 dot → 인사말 텍스트 교체
+   * 첫 메시지 dot → 인사말 타이핑 효과
    */
   _showWelcomeText(text) {
     var bubble = this._welcomeElement && this._welcomeElement.querySelector('.' + this.cssPrefix + '-message-bubble');
-    if (bubble) {
-      var raw = (text || '').replace(/<br\s*\/?>/gi, ' ');
-      var normalized = raw.replace(/\s+/g, ' ').trim();
-      bubble.style.transition = 'opacity 0.3s ease';
-      bubble.style.opacity = '0';
-      var self = this;
-      setTimeout(function() {
-        bubble.innerHTML = self._renderMessageHtml(normalized);
-        bubble.style.opacity = '1';
-      }, 200);
-    }
+    if (!bubble) return;
+
+    var raw = (text || '').replace(/<br\s*\/?>/gi, ' ');
+    var normalized = raw.replace(/\s+/g, ' ').trim();
+    var self = this;
+
+    // dot 제거 → 빈 상태로 시작
+    bubble.style.transition = 'opacity 0.2s ease';
+    bubble.style.opacity = '0';
+
+    setTimeout(function() {
+      bubble.style.opacity = '1';
+      // 타이핑 효과: 25ms 간격
+      var shown = '';
+      var cursor = '<span style="color:' + (self.config.buttonColor || '#A69B8F') + ';animation:cursorPulse 1s infinite">\u258C</span>';
+      var timer = setInterval(function() {
+        if (shown.length < normalized.length) {
+          shown = normalized.slice(0, shown.length + 1);
+          bubble.innerHTML = self._renderMessageHtml(shown) + cursor;
+        } else {
+          clearInterval(timer);
+          bubble.innerHTML = self._renderMessageHtml(normalized);
+        }
+      }, 25);
+    }, 300);
   }
 
   /**

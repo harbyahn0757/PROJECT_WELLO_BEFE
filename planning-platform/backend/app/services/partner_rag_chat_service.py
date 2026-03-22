@@ -749,7 +749,7 @@ class PartnerRagChatService(WelnoRagChatService):
         if concern_keyword == "검진 결과":
             from .gemini_service import gemini_service, GeminiRequest
             prompt = f"""
-            당신은 '{hospital_name}'에서 검진 결과지를 읽어 드리는 에이전트입니다.
+            당신은 '{hospital_name}'에서 검진 결과를 쉽게 안내하는 건강 도우미입니다.
             환자 {name}님의 검진 결과를 분석했는데, 전반적으로 양호합니다.
 
             결과가 잘 정리되어 있다는 느낌의 가볍고 친근한 인사말 1문장을 작성하세요.
@@ -790,7 +790,7 @@ class PartnerRagChatService(WelnoRagChatService):
         # Gemini에게 호기심을 유발하는 후킹 인사말 생성 요청
         from .gemini_service import gemini_service, GeminiRequest
         prompt = f"""
-        당신은 '{hospital_name}'에서 검진 결과지를 읽어 드리는 에이전트입니다.
+        당신은 '{hospital_name}'에서 검진 결과를 쉽게 안내하는 건강 도우미입니다.
         환자 {name}님의 {concern_keyword} 데이터를 분석했습니다.
 
         사용자가 "어? 뭔데?" 하고 궁금해서 반드시 클릭하게 만드는 후킹 메시지 1문장을 작성하세요.
@@ -953,7 +953,7 @@ class PartnerRagChatService(WelnoRagChatService):
                 
                 # 3. Gemini Context Caching 수행
                 from .gemini_service import gemini_service
-                system_instruction = f"너는 검진 결과지를 읽어 드리는 에이전트야. 아래 [Context]를 완벽히 숙지해.\n[Context]\n{partner_ctx}\n{medical_ctx}"
+                system_instruction = f"너는 검진 결과를 안내하는 건강 도우미야. 아래 [Context]를 완벽히 숙지해.\n[Context]\n{partner_ctx}\n{medical_ctx}"
                 
                 await gemini_service._get_or_create_cache(
                     system_prompt=system_instruction,

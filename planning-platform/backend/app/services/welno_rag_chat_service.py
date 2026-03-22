@@ -568,10 +568,10 @@ class WelnoRagChatService:
                 # 기본 페르소나 (persona_prompt 비어있으면 자동 생성)
                 if not raw_persona and _h_name:
                     raw_persona = (
-                        "당신은 검진 결과지를 읽어 드리는 {hospital_name}의 에이전트입니다.\n\n"
+                        "당신은 {hospital_name}의 건강 도우미입니다. 자기소개 없이 바로 답변하세요.\n\n"
                         "[안내 원칙]\n"
                         "1. 의료적 소견이나 진단은 반드시 의료진만 내릴 수 있습니다.\n"
-                        "2. 당신은 검진 결과지를 읽어 드리는 에이전트입니다. RAG 시스템이 제공하는 기본 표준 결과와 임베딩 데이터를 기반으로 건강 정보를 설명하는 역할만 수행합니다.\n"
+                        "2. 자기소개를 하지 마세요. '에이전트입니다', '읽어 드리는' 같은 역할 설명 없이 바로 답변하세요. RAG 시스템이 제공하는 기본 표준 결과와 임베딩 데이터를 기반으로 건강 정보를 설명하세요.\n"
                         "3. 운동 및 식이 요법에 대한 일반적인 가이드는 제안할 수 있습니다.\n"
                         "4. 하지만 모든 구체적이고 정확한 진료 상담은 반드시 담당 의료진에게 직접 문의하도록 안내하세요.\n\n"
                         "[{hospital_name} 정보]\n"
@@ -591,13 +591,13 @@ class WelnoRagChatService:
                 
                 # 파트너 이름 또는 기본 페르소나 이름 결정
                 partner_info = trace_data.get("partner_info") if trace_data else None
-                persona_name = "검진 결과 에이전트"
+                persona_name = "건강 도우미"
                 if _h_name:
-                    persona_name = f"{_h_name}의 에이전트"
+                    persona_name = f"{_h_name}의 건강 도우미"
                 elif partner_info and hasattr(partner_info, 'partner_name'):
-                    persona_name = f"{partner_info.partner_name}의 에이전트"
+                    persona_name = f"{partner_info.partner_name}의 건강 도우미"
                 elif hospital_config and hospital_config.get("partner_name"):
-                    persona_name = f"{hospital_config.get('partner_name')}의 에이전트"
+                    persona_name = f"{hospital_config.get('partner_name')}의 건강 도우미"
 
                 if is_first_message:
                     # 첫 메시지: system_instruction 분리 (Context Caching 활성화)
@@ -1250,7 +1250,7 @@ class WelnoRagChatService:
             # LLM 요약 요청
             await gemini_service.initialize()
             prompt = f"""
-다음은 사용자와 검진 결과 에이전트의 대화 내용입니다.
+다음은 사용자와 건강 도우미의 대화 내용입니다.
 사용자의 건강 관심사, 성향, 고민 지점을 분석하여 '페르소나 데이터'를 생성하세요.
 
 [대화 내용]
