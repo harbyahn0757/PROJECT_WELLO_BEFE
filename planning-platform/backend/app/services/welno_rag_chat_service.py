@@ -722,7 +722,7 @@ class WelnoRagChatService:
                         trace_data["system_instruction_length"] = len(system_instruction)
                         trace_data["is_first_message"] = True
 
-                    gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", system_instruction=system_instruction, chat_history=None)
+                    gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", system_instruction=system_instruction, chat_history=None, temperature=0.7)
                 else:
                     # 이후 메시지: 히스토리 + 검진/복약/문진 데이터 요약 포함
                     # Redis에서 저장된 검진/복약 데이터 요약 가져오기
@@ -848,7 +848,7 @@ class WelnoRagChatService:
                         trace_data["system_instruction_length"] = len(system_instruction)
                         trace_data["is_first_message"] = False
 
-                    gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", system_instruction=system_instruction, chat_history=chat_history)
+                    gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", system_instruction=system_instruction, chat_history=chat_history, temperature=0.7)
                 
                 # Gemini API 호출 타이밍
                 gemini_start = time.time()
