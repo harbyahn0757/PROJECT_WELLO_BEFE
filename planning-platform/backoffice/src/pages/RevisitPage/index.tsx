@@ -135,7 +135,7 @@ const RevisitPage: React.FC = () => {
   const [sessionTags, setSessionTags] = useState<SessionTags | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
 
-  const hospitalId = embedParams.hospitalId || '';
+  const hospitalId = searchParams.get('hospital_id') || embedParams.hospitalId || '';
 
   const fetchCandidates = useCallback(async () => {
     setLoading(true);
