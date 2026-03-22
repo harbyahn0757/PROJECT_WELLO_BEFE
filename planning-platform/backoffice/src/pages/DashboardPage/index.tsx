@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -54,6 +55,7 @@ const renderPieLabel = ({ name, percent, cx, outerRadius, midAngle, x, y }: any)
 
 const DashboardPage: React.FC = () => {
   useAuth(); // ensure authenticated
+  const navigate = useNavigate();
   const [partners, setPartners] = useState<Partner[]>([]);
   const [partnerId, setPartnerId] = useState('');
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
@@ -72,6 +74,7 @@ const DashboardPage: React.FC = () => {
   const [journey, setJourney] = useState<any>(null);
   const [overview, setOverview] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [pendingConsultations, setPendingConsultations] = useState(0);
 
   // 병원 목록 + 파트너 목록
   useEffect(() => {
@@ -143,6 +146,14 @@ const DashboardPage: React.FC = () => {
 
     setOverview(overviewData);
     setJourney(journeyData);
+
+    // 대기 중 상담 요청 카운트
+    fetchWithAuth(`${API}/partner-office/revisit-candidates`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ hospital_id: hospitalId || null, days: 90, limit: 1, filter_type: 'user_requested' }),
+    }).then(r => r.json()).then(d => setPendingConsultations(d.total || 0)).catch(() => {});
+
     setLoading(false);
   }, [partnerId, hospitalId, presetIdx]);
 
@@ -329,6 +340,17 @@ const DashboardPage: React.FC = () => {
         <div className="dashboard-page__card">
           <div className="dashboard-page__card-label">평균 참여도</div>
           <div className="dashboard-page__card-value">{summary?.avg_engagement ?? '-'}</div>
+        </div>
+        <div
+          className="dashboard-page__card"
+          style={{ cursor: 'pointer', border: pendingConsultations > 0 ? '2px solid #2563eb' : undefined }}
+          onClick={() => navigate('/backoffice/revisit?filter=user_requested')}
+          title="클릭하여 상담요청 목록으로 이동"
+        >
+          <div className="dashboard-page__card-label">대기 중 상담</div>
+          <div className="dashboard-page__card-value" style={{ color: pendingConsultations > 0 ? '#2563eb' : undefined }}>
+            {fmtNum(pendingConsultations)}
+          </div>
         </div>
       </div>
 

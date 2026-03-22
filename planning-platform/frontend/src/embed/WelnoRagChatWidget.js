@@ -95,7 +95,8 @@ class WelnoRagChatWidget {
       sessionId: null,
       suggestions: [],
       isInitialized: false,
-      assistantMsgCount: 0
+      assistantMsgCount: 0,
+      consultationSubmitted: false
     };
 
     // DOM 요소들
@@ -1004,6 +1005,53 @@ class WelnoRagChatWidget {
         to { opacity: 1; transform: translateY(0) scale(1); }
       }
 
+      /* 상담예약 CTA */
+      .${this.cssPrefix}-consultation-cta {
+        margin-top: 12px;
+        animation: welnoChipIn 0.4s ease-out backwards;
+        animation-delay: 0.3s;
+      }
+      .${this.cssPrefix}-consultation-btn {
+        width: 100%;
+        padding: 10px 16px;
+        border-radius: 12px;
+        border: 1.5px solid ${primaryColor};
+        background: rgba(${this._hexToRgb(primaryColor)}, 0.06);
+        color: ${primaryColor};
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .${this.cssPrefix}-consultation-btn:hover {
+        background: rgba(${this._hexToRgb(primaryColor)}, 0.15);
+      }
+      .${this.cssPrefix}-consultation-btn:disabled {
+        cursor: default;
+        border-color: #ccc;
+        color: #999;
+      }
+
+      /* 상담 모달 */
+      .${this.cssPrefix}-consultation-overlay {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+        border-radius: 16px;
+      }
+      .${this.cssPrefix}-consultation-modal {
+        background: #fff;
+        border-radius: 16px;
+        padding: 24px;
+        width: calc(100% - 32px);
+        max-width: 320px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+      }
+
       /* 피드백 버튼 */
       .${this.cssPrefix}-feedback {
         display: flex;
@@ -1644,14 +1692,24 @@ class WelnoRagChatWidget {
       }, delay);
     }
 
-    // 4) 마무리 멘트 (1200ms)
+    // 4) 상담예약 CTA (첫 응답만, consultation_options 활성 시)
+    var co = self.config.partnerData && self.config.partnerData.consultation_options;
+    if (self.state.assistantMsgCount === 0 && co && (co.rehab || co.checkup) && !self.state.consultationSubmitted) {
+      delay += 400;
+      setTimeout(function() {
+        self.addConsultationCTA(messageElement);
+        self.scrollToBottom();
+      }, delay);
+    }
+
+    // 5) 마무리 멘트
     delay += 500;
     setTimeout(function() {
       self.addClosingNote();
       self.scrollToBottom();
     }, delay);
 
-    // 5) 면책 안내 (첫 응답만)
+    // 6) 면책 안내 (첫 응답만)
     if (self.state.assistantMsgCount === 0) {
       setTimeout(function() {
         self.addDisclaimer();
@@ -2298,6 +2356,121 @@ class WelnoRagChatWidget {
     }
 
     this.state.isInitialized = false;
+  }
+
+  /**
+   * 상담예약 CTA 버튼 추가
+   */
+  addConsultationCTA(messageElement) {
+    var self = this;
+    var co = self.config.partnerData && self.config.partnerData.consultation_options;
+    if (!co) return;
+
+    var ctaDiv = document.createElement('div');
+    ctaDiv.className = self.cssPrefix + '-consultation-cta';
+    ctaDiv.innerHTML =
+      '<button class="' + self.cssPrefix + '-consultation-btn">' +
+      '<span style="margin-right:6px">🏥</span>병원에 상담예약을 하시겠어요?' +
+      '</button>';
+    ctaDiv.querySelector('button').addEventListener('click', function() {
+      self.openConsultationModal();
+    });
+    messageElement.appendChild(ctaDiv);
+  }
+
+  /**
+   * 상담 동의 모달
+   */
+  openConsultationModal() {
+    var self = this;
+    var pd = self.config.partnerData || {};
+    var pt = pd.patient || {};
+    var co = pd.consultation_options || {};
+
+    // 모달 오버레이 생성
+    var overlay = document.createElement('div');
+    overlay.className = self.cssPrefix + '-consultation-overlay';
+
+    var typesHtml = '';
+    if (co.rehab) typesHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="ctype" value="rehab" checked style="accent-color:' + (self.config.buttonColor || '#7B5E4F') + '"> 재활 상담</label>';
+    if (co.checkup) typesHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="ctype" value="checkup"' + (!co.rehab ? ' checked' : '') + ' style="accent-color:' + (self.config.buttonColor || '#7B5E4F') + '"> 검진예약 상담</label>';
+
+    var name = pt.name || '—';
+    var phone = pt.phone || pt.contact || '—';
+    var maskedPhone = phone.length > 4 ? phone.slice(0, -4).replace(/./g, '*') + phone.slice(-4) : phone;
+
+    overlay.innerHTML =
+      '<div class="' + self.cssPrefix + '-consultation-modal">' +
+        '<div style="font-size:15px;font-weight:600;margin-bottom:12px">상담 예약 신청</div>' +
+        '<div style="font-size:12px;color:#666;margin-bottom:16px">상담을 위해 아래 정보가 병원에 전달됩니다.</div>' +
+        '<div style="background:#f8f8f8;border-radius:10px;padding:12px;margin-bottom:16px;font-size:13px">' +
+          '<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#888">이름</span><span>' + name + '</span></div>' +
+          '<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#888">연락처</span><span>' + maskedPhone + '</span></div>' +
+          '<div style="display:flex;justify-content:space-between"><span style="color:#888">병원</span><span>' + (pd.partner_hospital_name || '—') + '</span></div>' +
+        '</div>' +
+        '<div style="margin-bottom:16px;display:flex;flex-direction:column;gap:8px">' + typesHtml + '</div>' +
+        '<div style="display:flex;gap:8px">' +
+          '<button class="' + self.cssPrefix + '-modal-cancel" style="flex:1;padding:10px;border-radius:10px;border:1px solid #ddd;background:#fff;cursor:pointer;font-size:13px">취소</button>' +
+          '<button class="' + self.cssPrefix + '-modal-submit" style="flex:1;padding:10px;border-radius:10px;border:none;background:' + (self.config.buttonColor || '#7B5E4F') + ';color:#fff;cursor:pointer;font-size:13px;font-weight:600">동의하고 신청</button>' +
+        '</div>' +
+      '</div>';
+
+    overlay.querySelector('.' + self.cssPrefix + '-modal-cancel').addEventListener('click', function() {
+      overlay.remove();
+    });
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) overlay.remove();
+    });
+    overlay.querySelector('.' + self.cssPrefix + '-modal-submit').addEventListener('click', function() {
+      var selected = overlay.querySelector('input[name="ctype"]:checked');
+      var ctype = selected ? selected.value : 'rehab';
+      self.submitConsultation(ctype, overlay);
+    });
+
+    self.elements.window.appendChild(overlay);
+  }
+
+  /**
+   * 상담 신청 API 호출
+   */
+  async submitConsultation(consultationType, overlayElement) {
+    var self = this;
+    var submitBtn = overlayElement.querySelector('.' + self.cssPrefix + '-modal-submit');
+    submitBtn.textContent = '신청 중...';
+    submitBtn.disabled = true;
+
+    try {
+      var resp = await fetch(self.config.baseUrl + '/welno-api/v1/partner-office/consultation-request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': self.config.apiKey },
+        body: JSON.stringify({
+          session_id: self.state.sessionId,
+          consultation_type: consultationType,
+          hospital_id: self.config.hospitalId,
+          hospital_name: (self.config.partnerData && self.config.partnerData.partner_hospital_name) || ''
+        })
+      });
+
+      if (resp.ok) {
+        self.state.consultationSubmitted = true;
+        overlayElement.remove();
+        self.addMessage('assistant', '✅ 상담 신청이 완료되었습니다. 병원에서 곧 연락드릴 예정이에요.');
+        // CTA 버튼 비활성화
+        var ctaBtns = self.elements.messagesContainer.querySelectorAll('.' + self.cssPrefix + '-consultation-btn');
+        ctaBtns.forEach(function(btn) {
+          btn.disabled = true;
+          btn.textContent = '✅ 신청 완료';
+          btn.style.opacity = '0.5';
+        });
+      } else {
+        submitBtn.textContent = '다시 시도';
+        submitBtn.disabled = false;
+      }
+    } catch (e) {
+      console.error('[WelnoRagChatWidget] 상담 신청 실패:', e);
+      submitBtn.textContent = '다시 시도';
+      submitBtn.disabled = false;
+    }
   }
 }
 

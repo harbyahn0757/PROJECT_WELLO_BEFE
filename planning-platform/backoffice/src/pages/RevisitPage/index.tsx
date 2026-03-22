@@ -3,6 +3,7 @@
  * CRM 선진사례 기반: 시간 세분화, 위험도 우선순위, 3종 메시지
  */
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useEmbedParams } from '../../hooks/useEmbedParams';
 import { getApiBase, fetchWithAuth } from '../../utils/api';
 import { downloadWorkbook, dateSuffix } from '../../utils/excelExport';
@@ -49,6 +50,11 @@ interface Candidate {
   engagement_level?: string;
   confidence?: string;
   recommended_action?: string;
+  // 상담 요청 필드
+  consultation_requested?: boolean;
+  consultation_type?: string;
+  consultation_status?: string;
+  consultation_consent_at?: string;
 }
 
 const RISK_COLORS: Record<string, string> = { high: '#dc2626', medium: '#d97706', low: '#059669' };
@@ -99,6 +105,7 @@ const HEALTH_METRIC_LABELS: Record<string, string> = {
 };
 
 const RevisitPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const { isEmbedMode, embedParams } = useEmbedParams();
   const API = getApiBase();
   const [showEmbedding, setShowEmbedding] = useState(false);
@@ -115,6 +122,10 @@ const RevisitPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [copiedKey, setCopiedKey] = useState('');
   const [prospectFilter, setProspectFilter] = useState('');
+  const initialFilter = searchParams.get('filter');
+  const [filterType, setFilterType] = useState<'all' | 'ai_recommended' | 'user_requested'>(
+    initialFilter === 'user_requested' || initialFilter === 'ai_recommended' ? initialFilter : 'all'
+  );
   type SortKey = 'risk_level' | 'prospect_type' | 'checkup_date' | 'days_since_chat' | 'score';
   type SortDir = 'asc' | 'desc';
   const [sortKey, setSortKey] = useState<SortKey | ''>('');
@@ -133,7 +144,7 @@ const RevisitPage: React.FC = () => {
       const res = await fetcher(`${API}/partner-office/revisit-candidates`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ hospital_id: hospitalId, days: 30, limit: 100 }),
+        body: JSON.stringify({ hospital_id: hospitalId, days: 30, limit: 100, filter_type: filterType }),
       });
       const data = await res.json();
       setCandidates(data.candidates || []);
@@ -142,7 +153,7 @@ const RevisitPage: React.FC = () => {
       setAvgEngagement(data.avg_engagement || 0);
     } catch { /* ignore */ }
     setLoading(false);
-  }, [API, hospitalId, isEmbedMode]);
+  }, [API, hospitalId, isEmbedMode, filterType]);
 
   useEffect(() => { fetchCandidates(); }, [fetchCandidates]);
 
@@ -319,6 +330,22 @@ const RevisitPage: React.FC = () => {
         </div>
       </div>
 
+      {/* 유형 필터 탭 */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
+        {([['all', '전체'], ['ai_recommended', 'AI 추천'], ['user_requested', '상담요청']] as const).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setFilterType(key)}
+            style={{
+              padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
+              fontSize: 13, fontWeight: filterType === key ? 600 : 400,
+              background: filterType === key ? '#2563eb' : '#f1f5f9',
+              color: filterType === key ? '#fff' : '#64748b',
+            }}
+          >{label}</button>
+        ))}
+      </div>
+
       {/* 필터 */}
       <div className="revisit-page__filters">
         <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)}>
@@ -404,8 +431,15 @@ const RevisitPage: React.FC = () => {
                   className={selectedId === c.session_id ? 'is-selected' : ''}
                   onClick={() => setSelectedId(c.session_id)}
                 >
-                  <td>{c.patient_name || '-'}</td>
-                  <td>{c.user_phone || '-'}</td>
+                  <td>
+                    {c.patient_name || '-'}
+                    {c.consultation_requested && (
+                      <span style={{ marginLeft: 6, padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: c.consultation_status === 'completed' ? '#d1fae5' : c.consultation_status === 'contacted' ? '#fef3c7' : '#dbeafe', color: c.consultation_status === 'completed' ? '#065f46' : c.consultation_status === 'contacted' ? '#92400e' : '#1e40af' }}>
+                        {c.consultation_type === 'rehab' ? '재활' : '검진'} {c.consultation_status === 'completed' ? '완료' : c.consultation_status === 'contacted' ? '연락됨' : '상담요청'}
+                      </span>
+                    )}
+                  </td>
+                  <td>{c.user_phone ? <a href={`tel:${c.user_phone}`} style={{ color: '#2563eb', textDecoration: 'none' }} onClick={e => e.stopPropagation()}>{c.user_phone}</a> : '-'}</td>
                   <td>{c.hospital_name || '-'}</td>
                   <td>
                     {(isHospitalMode && c.medical_tags?.length ? c.medical_tags : c.interest_tags.map(t => t.topic))
@@ -460,6 +494,21 @@ const RevisitPage: React.FC = () => {
               </span>
               {selected.checkup_date && (
                 <span className="revisit-page__checkup-date">검진일: {selected.checkup_date}</span>
+              )}
+              {selected.consultation_requested && selected.consultation_status === 'pending' && (
+                <button
+                  style={{ marginLeft: 'auto', padding: '4px 12px', borderRadius: 6, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const fetcher = isEmbedMode ? fetch : fetchWithAuth;
+                    await fetcher(`${API}/partner-office/consultation-status`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ session_id: selected.session_id, status: 'contacted' }),
+                    });
+                    fetchCandidates();
+                  }}
+                >📞 연락완료</button>
               )}
             </div>
 

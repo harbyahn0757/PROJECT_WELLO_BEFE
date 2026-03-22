@@ -73,6 +73,19 @@ class RevisitCandidatesRequest(BaseModel):
     hospital_id: Optional[str] = None
     days: int = 30
     limit: int = 50
+    filter_type: str = "all"  # 'all' | 'ai_recommended' | 'user_requested'
+
+
+class ConsultationRequest(BaseModel):
+    session_id: str
+    consultation_type: str  # 'rehab' | 'checkup'
+    hospital_id: Optional[str] = None
+    hospital_name: Optional[str] = None
+
+
+class ConsultationStatusRequest(BaseModel):
+    session_id: str
+    status: str  # 'contacted' | 'completed'
 
 # ─── Auth helpers ─────────────────────────────────────────
 
@@ -1282,8 +1295,16 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
     """재방문 후보 목록 — follow_up_needed=true인 세션 + 추천 메시지 (embed 모드 호환: 인증 불필요)"""
     import json as _json
 
-    conditions = ["t.follow_up_needed = true"]
+    conditions: list = []
     params: list = []
+
+    if req.filter_type == "user_requested":
+        conditions.append("t.consultation_requested = true")
+    elif req.filter_type == "ai_recommended":
+        conditions.append("t.follow_up_needed = true")
+        conditions.append("(t.consultation_requested IS NULL OR t.consultation_requested = false)")
+    else:
+        conditions.append("(t.follow_up_needed = true OR t.consultation_requested = true)")
 
     if req.hospital_id:
         conditions.append("c.hospital_id = %s")
@@ -1330,6 +1351,10 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
                 t.hospital_prospect_score,
                 t.conversation_intent,
                 t.classification_confidence,
+                t.consultation_requested,
+                t.consultation_type,
+                t.consultation_status,
+                t.consultation_consent_at,
                 c.created_at AS last_chat_date,
                 EXTRACT(DAY FROM NOW() - c.created_at)::int AS days_since_chat,
                 COALESCE(pc.config->>'partner_type', 'healthcare') AS partner_type
@@ -1462,6 +1487,11 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
             "engagement_level": eng_level,
             "confidence": conf_label,
             "recommended_action": _action_map.get(pt, ""),
+            # 상담 요청 필드
+            "consultation_requested": r.get("consultation_requested", False),
+            "consultation_type": r.get("consultation_type"),
+            "consultation_status": r.get("consultation_status"),
+            "consultation_consent_at": str(r["consultation_consent_at"])[:19] if r.get("consultation_consent_at") else None,
         })
 
     return {
@@ -1690,3 +1720,51 @@ async def get_patient_profile(
     if not result:
         raise HTTPException(status_code=404, detail="태깅 데이터 없음")
     return result
+
+
+# ─── Consultation Request (상담 요청) ──────────────────────────
+
+@router.post("/consultation-request")
+async def consultation_request(req: ConsultationRequest):
+    """위젯에서 사용자가 상담 동의 시 호출 — session_tags에 상담 상태 기록"""
+    if req.consultation_type not in ("rehab", "checkup"):
+        raise HTTPException(status_code=400, detail="consultation_type은 'rehab' 또는 'checkup'")
+
+    # 해당 session이 존재하는지 확인
+    existing = await db_manager.execute_one(
+        "SELECT session_id FROM welno.tb_chat_session_tags WHERE session_id = %s",
+        (req.session_id,),
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
+
+    await db_manager.execute_query(
+        """UPDATE welno.tb_chat_session_tags
+           SET consultation_requested = true,
+               consultation_type = %s,
+               consultation_status = 'pending',
+               consultation_consent_at = NOW()
+           WHERE session_id = %s""",
+        (req.consultation_type, req.session_id),
+    )
+
+    return {"status": "ok", "session_id": req.session_id, "consultation_type": req.consultation_type}
+
+
+@router.post("/consultation-status")
+async def consultation_status(req: ConsultationStatusRequest):
+    """백오피스에서 상담 상태 변경 (contacted / completed)"""
+    if req.status not in ("contacted", "completed"):
+        raise HTTPException(status_code=400, detail="status는 'contacted' 또는 'completed'")
+
+    result = await db_manager.execute_query(
+        """UPDATE welno.tb_chat_session_tags
+           SET consultation_status = %s
+           WHERE session_id = %s AND consultation_requested = true
+           RETURNING session_id""",
+        (req.status, req.session_id),
+    )
+    if not result:
+        raise HTTPException(status_code=404, detail="상담 요청을 찾을 수 없습니다")
+
+    return {"status": "ok", "session_id": req.session_id, "new_status": req.status}
