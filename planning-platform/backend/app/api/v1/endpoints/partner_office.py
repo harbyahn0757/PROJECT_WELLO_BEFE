@@ -78,7 +78,7 @@ class RevisitCandidatesRequest(BaseModel):
 
 class ConsultationRequest(BaseModel):
     session_id: str
-    consultation_type: str  # 'rehab' | 'checkup'
+    consultation_type: str  # 'revisit' | 'checkup'
     hospital_id: Optional[str] = None
     hospital_name: Optional[str] = None
 
@@ -1727,8 +1727,8 @@ async def get_patient_profile(
 @router.post("/consultation-request")
 async def consultation_request(req: ConsultationRequest):
     """위젯에서 사용자가 상담 동의 시 호출 — session_tags에 상담 상태 기록"""
-    if req.consultation_type not in ("rehab", "checkup"):
-        raise HTTPException(status_code=400, detail="consultation_type은 'rehab' 또는 'checkup'")
+    if req.consultation_type not in ("revisit", "checkup"):
+        raise HTTPException(status_code=400, detail="consultation_type은 'revisit' 또는 'checkup'")
 
     # 해당 session이 존재하는지 확인
     existing = await db_manager.execute_one(

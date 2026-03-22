@@ -1694,7 +1694,7 @@ class WelnoRagChatWidget {
 
     // 4) 상담예약 CTA (첫 응답만, consultation_options 활성 시)
     var co = self.config.partnerData && self.config.partnerData.consultation_options;
-    if (self.state.assistantMsgCount === 0 && co && (co.rehab || co.checkup) && !self.state.consultationSubmitted) {
+    if (self.state.assistantMsgCount === 0 && co && (co.revisit || co.checkup) && !self.state.consultationSubmitted) {
       delay += 400;
       setTimeout(function() {
         self.addConsultationCTA(messageElement);
@@ -2392,8 +2392,8 @@ class WelnoRagChatWidget {
     overlay.className = self.cssPrefix + '-consultation-overlay';
 
     var typesHtml = '';
-    if (co.rehab) typesHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="ctype" value="rehab" checked style="accent-color:' + (self.config.buttonColor || '#7B5E4F') + '"> 재활 상담</label>';
-    if (co.checkup) typesHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="ctype" value="checkup"' + (!co.rehab ? ' checked' : '') + ' style="accent-color:' + (self.config.buttonColor || '#7B5E4F') + '"> 검진예약 상담</label>';
+    if (co.revisit) typesHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="ctype" value="revisit" checked style="accent-color:' + (self.config.buttonColor || '#7B5E4F') + '"> 재환 상담</label>';
+    if (co.checkup) typesHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="ctype" value="checkup"' + (!co.revisit ? ' checked' : '') + ' style="accent-color:' + (self.config.buttonColor || '#7B5E4F') + '"> 검진예약 상담</label>';
 
     var name = pt.name || '—';
     var phone = pt.phone || pt.contact || '—';
@@ -2423,7 +2423,7 @@ class WelnoRagChatWidget {
     });
     overlay.querySelector('.' + self.cssPrefix + '-modal-submit').addEventListener('click', function() {
       var selected = overlay.querySelector('input[name="ctype"]:checked');
-      var ctype = selected ? selected.value : 'rehab';
+      var ctype = selected ? selected.value : 'revisit';
       self.submitConsultation(ctype, overlay);
     });
 

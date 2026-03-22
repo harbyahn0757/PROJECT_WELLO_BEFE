@@ -435,7 +435,7 @@ const RevisitPage: React.FC = () => {
                     {c.patient_name || '-'}
                     {c.consultation_requested && (
                       <span style={{ marginLeft: 6, padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: c.consultation_status === 'completed' ? '#d1fae5' : c.consultation_status === 'contacted' ? '#fef3c7' : '#dbeafe', color: c.consultation_status === 'completed' ? '#065f46' : c.consultation_status === 'contacted' ? '#92400e' : '#1e40af' }}>
-                        {c.consultation_type === 'rehab' ? '재활' : '검진'} {c.consultation_status === 'completed' ? '완료' : c.consultation_status === 'contacted' ? '연락됨' : '상담요청'}
+                        {c.consultation_type === 'revisit' ? '재환' : '검진'} {c.consultation_status === 'completed' ? '완료' : c.consultation_status === 'contacted' ? '연락됨' : '상담요청'}
                       </span>
                     )}
                   </td>

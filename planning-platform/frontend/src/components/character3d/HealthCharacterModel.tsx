@@ -25,8 +25,11 @@ export interface ZoneMetric {
   zone: BodyZone
   label: string
   value: string
-  status: 'normal' | 'warning' | 'danger'
-  y: number        // 3D Y 좌표
+  status: 'normal' | 'borderline' | 'warning' | 'unknown'
+  x: number
+  y: number
+  zoneKey?: string
+  items?: { label: string; value: string; status: string }[]
 }
 
 export interface CameraTarget {

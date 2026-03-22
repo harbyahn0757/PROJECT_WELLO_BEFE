@@ -8,7 +8,7 @@ ALTER TABLE welno.tb_chat_session_tags
   ADD COLUMN IF NOT EXISTS consultation_consent_at TIMESTAMPTZ;
 
 COMMENT ON COLUMN welno.tb_chat_session_tags.consultation_requested IS '사용자 명시적 상담 동의 여부';
-COMMENT ON COLUMN welno.tb_chat_session_tags.consultation_type IS '상담 유형: rehab(재활) / checkup(검진예약)';
+COMMENT ON COLUMN welno.tb_chat_session_tags.consultation_type IS '상담 유형: revisit(재환) / checkup(검진예약)';
 COMMENT ON COLUMN welno.tb_chat_session_tags.consultation_status IS '상담 상태: pending / contacted / completed';
 COMMENT ON COLUMN welno.tb_chat_session_tags.consultation_consent_at IS '동의 시점';
 
