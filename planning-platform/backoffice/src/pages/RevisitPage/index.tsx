@@ -422,6 +422,7 @@ const RevisitPage: React.FC = () => {
                 <th className="is-sortable" onClick={() => handleSort('score')}>
                   {isHospitalMode ? '가망점수' : '참여도'}{sortKey === 'score' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
+                <th>상담</th>
               </tr>
             </thead>
             <tbody>
@@ -431,14 +432,7 @@ const RevisitPage: React.FC = () => {
                   className={selectedId === c.session_id ? 'is-selected' : ''}
                   onClick={() => setSelectedId(c.session_id)}
                 >
-                  <td>
-                    {c.patient_name || '-'}
-                    {c.consultation_requested && (
-                      <span style={{ marginLeft: 6, padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: c.consultation_status === 'completed' ? '#d1fae5' : c.consultation_status === 'contacted' ? '#fef3c7' : '#dbeafe', color: c.consultation_status === 'completed' ? '#065f46' : c.consultation_status === 'contacted' ? '#92400e' : '#1e40af' }}>
-                        {c.consultation_type === 'revisit' ? '재환' : '검진'} {c.consultation_status === 'completed' ? '완료' : c.consultation_status === 'contacted' ? '연락됨' : '상담요청'}
-                      </span>
-                    )}
-                  </td>
+                  <td>{c.patient_name || '-'}</td>
                   <td>{c.user_phone ? <a href={`tel:${c.user_phone}`} style={{ color: '#2563eb', textDecoration: 'none' }} onClick={e => e.stopPropagation()}>{c.user_phone}</a> : '-'}</td>
                   <td>{c.hospital_name || '-'}</td>
                   <td>
@@ -470,10 +464,19 @@ const RevisitPage: React.FC = () => {
                     </span>
                   </td>
                   <td>{isHospitalMode ? `${c.hospital_prospect_score ?? '-'}점` : `${c.engagement_score}점`}</td>
+                  <td>
+                    {c.consultation_requested ? (
+                      <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
+                        background: c.consultation_status === 'completed' ? '#d1fae5' : c.consultation_status === 'contacted' ? '#fef3c7' : '#dbeafe',
+                        color: c.consultation_status === 'completed' ? '#065f46' : c.consultation_status === 'contacted' ? '#92400e' : '#1e40af' }}>
+                        {c.consultation_status === 'completed' ? '완료' : c.consultation_status === 'contacted' ? '연락됨' : '상담요청'}
+                      </span>
+                    ) : '-'}
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={isHospitalMode ? 9 : 8} className="revisit-page__empty">재방문 후보가 없습니다.</td></tr>
+                <tr><td colSpan={isHospitalMode ? 10 : 9} className="revisit-page__empty">재방문 후보가 없습니다.</td></tr>
               )}
             </tbody>
           </table>
