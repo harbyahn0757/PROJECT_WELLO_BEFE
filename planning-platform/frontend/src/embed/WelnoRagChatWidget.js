@@ -175,9 +175,10 @@ class WelnoRagChatWidget {
     this.warmup();
 
       // 모드별 초기 동작
+      // 티저/웰컴 버블은 warmup 응답 후에만 표시 (기본 메시지로 먼저 뜨는 현상 방지)
       if (this.config.mode === 'teaser') {
-        // 티저 모드: 딜레이 후 티저 말풍선 표시
-        this.showTeaser();
+        // showTeaser()는 warmup 완료 후 호출하도록 지연
+        // this.showTeaser(); ← warmup()에서 처리
       } else if (this.config.autoOpen) {
         // 버튼 모드: 자동 열기
         setTimeout(() => this.open(), 500);
@@ -2299,10 +2300,12 @@ class WelnoRagChatWidget {
         // 후킹 메시지: hook_greeting으로 티저/버블 업데이트
         var hookGreeting = data.hook_greeting || data.greeting;
         if (hookGreeting) {
-          // 티저 모드: 티저 버블 텍스트 업데이트
+          // 티저 모드: hook_greeting으로 텍스트 교체 후 한 번만 표시
           if (this.config.mode === 'teaser' && this.elements.teaserBubble) {
             var teaserText = this.elements.teaserBubble.querySelector('.' + this.cssPrefix + '-teaser-text');
             if (teaserText) teaserText.textContent = hookGreeting.replace(/<br\s*\/?>/gi, ' ').replace(/\s+/g, ' ').trim();
+            // warmup 완료 후 티저 표시 (init에서는 건너뜀)
+            this.showTeaser();
           }
           // 버튼 모드: 외부 웰컴 버블 업데이트
           if (this.config.mode !== 'teaser') {
