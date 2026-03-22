@@ -337,8 +337,8 @@ const RevisitPage: React.FC = () => {
             key={key}
             onClick={() => setFilterType(key)}
             style={{
-              padding: '6px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
-              fontSize: 13, fontWeight: filterType === key ? 600 : 400,
+              padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+              fontSize: 12, fontWeight: filterType === key ? 600 : 400,
               background: filterType === key ? '#2563eb' : '#f1f5f9',
               color: filterType === key ? '#fff' : '#64748b',
             }}
@@ -389,19 +389,21 @@ const RevisitPage: React.FC = () => {
         <div className="revisit-page__list">
           <table className="revisit-page__table" ref={tableRef}>
             <colgroup>
-              <col style={{width: 60}} />
+              <col style={{width: 58}} />
+              <col style={{width: 45}} />
+              <col style={{width: 100}} />
+              <col style={{width: 140}} />
               <col style={{width: 110}} />
-              <col style={{width: 130}} />
-              <col />
-              <col style={{width: 65}} />
-              {isHospitalMode && <col style={{width: 75}} />}
-              <col style={{width: 95}} />
               <col style={{width: 55}} />
-              <col style={{width: 65}} />
+              {isHospitalMode && <col style={{width: 80}} />}
+              <col style={{width: 85}} />
+              <col style={{width: 45}} />
+              <col style={{width: 55}} />
             </colgroup>
             <thead>
               <tr>
                 <th>환자명</th>
+                <th style={{width: 55}}>상담</th>
                 <th>전화번호</th>
                 <th>병원명</th>
                 <th>관심사</th>
@@ -422,7 +424,6 @@ const RevisitPage: React.FC = () => {
                 <th className="is-sortable" onClick={() => handleSort('score')}>
                   {isHospitalMode ? '가망점수' : '참여도'}{sortKey === 'score' ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
                 </th>
-                <th>상담</th>
               </tr>
             </thead>
             <tbody>
@@ -433,6 +434,15 @@ const RevisitPage: React.FC = () => {
                   onClick={() => setSelectedId(c.session_id)}
                 >
                   <td>{c.patient_name || '-'}</td>
+                  <td>
+                    {c.consultation_requested ? (
+                      <span style={{ padding: '2px 6px', borderRadius: 4, fontSize: 10, fontWeight: 600,
+                        background: c.consultation_status === 'completed' ? '#d1fae5' : c.consultation_status === 'contacted' ? '#fef3c7' : '#dbeafe',
+                        color: c.consultation_status === 'completed' ? '#065f46' : c.consultation_status === 'contacted' ? '#92400e' : '#1e40af' }}>
+                        {c.consultation_status === 'completed' ? '완료' : c.consultation_status === 'contacted' ? '연락됨' : '요청'}
+                      </span>
+                    ) : <span style={{ color: '#ccc' }}>-</span>}
+                  </td>
                   <td>{c.user_phone ? <a href={`tel:${c.user_phone}`} style={{ color: '#2563eb', textDecoration: 'none' }} onClick={e => e.stopPropagation()}>{c.user_phone}</a> : '-'}</td>
                   <td>{c.hospital_name || '-'}</td>
                   <td>
@@ -464,19 +474,10 @@ const RevisitPage: React.FC = () => {
                     </span>
                   </td>
                   <td>{isHospitalMode ? `${c.hospital_prospect_score ?? '-'}점` : `${c.engagement_score}점`}</td>
-                  <td>
-                    {c.consultation_requested ? (
-                      <span style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600,
-                        background: c.consultation_status === 'completed' ? '#d1fae5' : c.consultation_status === 'contacted' ? '#fef3c7' : '#dbeafe',
-                        color: c.consultation_status === 'completed' ? '#065f46' : c.consultation_status === 'contacted' ? '#92400e' : '#1e40af' }}>
-                        {c.consultation_status === 'completed' ? '완료' : c.consultation_status === 'contacted' ? '연락됨' : '상담요청'}
-                      </span>
-                    ) : '-'}
-                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={isHospitalMode ? 10 : 9} className="revisit-page__empty">재방문 후보가 없습니다.</td></tr>
+                <tr><td colSpan={isHospitalMode ? 10 : 9} className="revisit-page__empty">후보가 없습니다.</td></tr>
               )}
             </tbody>
           </table>
