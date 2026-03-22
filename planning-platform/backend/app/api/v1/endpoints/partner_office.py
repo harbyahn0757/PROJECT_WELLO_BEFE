@@ -1738,7 +1738,7 @@ async def consultation_request(req: ConsultationRequest):
     if not existing:
         raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다")
 
-    await db_manager.execute_query(
+    await db_manager.execute_update(
         """UPDATE welno.tb_chat_session_tags
            SET consultation_requested = true,
                consultation_type = %s,
@@ -1757,11 +1757,10 @@ async def consultation_status(req: ConsultationStatusRequest):
     if req.status not in ("contacted", "completed"):
         raise HTTPException(status_code=400, detail="status는 'contacted' 또는 'completed'")
 
-    result = await db_manager.execute_query(
+    result = await db_manager.execute_update(
         """UPDATE welno.tb_chat_session_tags
            SET consultation_status = %s
-           WHERE session_id = %s AND consultation_requested = true
-           RETURNING session_id""",
+           WHERE session_id = %s AND consultation_requested = true""",
         (req.status, req.session_id),
     )
     if not result:
