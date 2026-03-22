@@ -2391,9 +2391,8 @@ class WelnoRagChatWidget {
     var overlay = document.createElement('div');
     overlay.className = self.cssPrefix + '-consultation-overlay';
 
-    var typesHtml = '';
-    if (co.revisit) typesHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="ctype" value="revisit" checked style="accent-color:' + (self.config.buttonColor || '#7B5E4F') + '"> 재환 상담</label>';
-    if (co.checkup) typesHtml += '<label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="ctype" value="checkup"' + (!co.revisit ? ' checked' : '') + ' style="accent-color:' + (self.config.buttonColor || '#7B5E4F') + '"> 검진예약 상담</label>';
+    // 타입 자동 결정 (활성화된 옵션 중 첫 번째)
+    var autoType = co.revisit ? 'revisit' : 'checkup';
 
     var name = pt.name || '—';
     var phone = pt.phone || pt.contact || '—';
@@ -2408,7 +2407,6 @@ class WelnoRagChatWidget {
           '<div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#888">연락처</span><span>' + maskedPhone + '</span></div>' +
           '<div style="display:flex;justify-content:space-between"><span style="color:#888">병원</span><span>' + (pd.partner_hospital_name || '—') + '</span></div>' +
         '</div>' +
-        '<div style="margin-bottom:16px;display:flex;flex-direction:column;gap:8px">' + typesHtml + '</div>' +
         '<div style="display:flex;gap:8px">' +
           '<button class="' + self.cssPrefix + '-modal-cancel" style="flex:1;padding:10px;border-radius:10px;border:1px solid #ddd;background:#fff;cursor:pointer;font-size:13px">취소</button>' +
           '<button class="' + self.cssPrefix + '-modal-submit" style="flex:1;padding:10px;border-radius:10px;border:none;background:' + (self.config.buttonColor || '#7B5E4F') + ';color:#fff;cursor:pointer;font-size:13px;font-weight:600">동의하고 신청</button>' +
@@ -2422,9 +2420,7 @@ class WelnoRagChatWidget {
       if (e.target === overlay) overlay.remove();
     });
     overlay.querySelector('.' + self.cssPrefix + '-modal-submit').addEventListener('click', function() {
-      var selected = overlay.querySelector('input[name="ctype"]:checked');
-      var ctype = selected ? selected.value : 'revisit';
-      self.submitConsultation(ctype, overlay);
+      self.submitConsultation(autoType, overlay);
     });
 
     self.elements.window.appendChild(overlay);
