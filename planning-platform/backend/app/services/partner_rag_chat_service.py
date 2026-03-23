@@ -153,7 +153,7 @@ class PartnerRagChatService(WelnoRagChatService):
             
             # 최종 추적 보고서 저장
             trace_data["timings"]["total_process_ms"] = (time.time() - start_time) * 1000
-            with open(f"/home/workspace/PROJECT_WELNO_BEFE/planning-platform/backend/logs/trace_{uuid}_{int(time.time())}.json", "w", encoding="utf-8") as f:
+            with open(f"/home/welno/workspace/PROJECT_WELNO_BEFE/planning-platform/backend/logs/trace_{uuid}_{int(time.time())}.json", "w", encoding="utf-8") as f:
                 json.dump(trace_data, f, ensure_ascii=False, indent=2)
                 
         except Exception as e:

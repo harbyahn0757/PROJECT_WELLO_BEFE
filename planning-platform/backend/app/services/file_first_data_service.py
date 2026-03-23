@@ -19,7 +19,7 @@ class FileFirstDataService:
     """파일 우선 저장 후 DB 입력 서비스"""
     
     def __init__(self):
-        self.base_dir = Path("/home/workspace/PROJECT_WELNO_BEFE/tilko_data")
+        self.base_dir = Path("/home/welno/workspace/PROJECT_WELNO_BEFE/tilko_data")
         self.pending_dir = self.base_dir / "pending"  # DB 입력 대기 중
         self.completed_dir = self.base_dir / "completed"  # DB 입력 완료
         self.failed_dir = self.base_dir / "failed"  # DB 입력 실패

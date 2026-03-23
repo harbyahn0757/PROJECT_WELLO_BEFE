@@ -36,7 +36,7 @@ async def call_claude(prompt: str, timeout: int = 60) -> str:
             f'/usr/local/bin/node /usr/local/lib/node_modules/@anthropic-ai/claude-code/cli.js -p {shlex.quote(prompt)}',
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
-            cwd="/home/workspace/PROJECT_WELNO_BEFE",
+            cwd="/home/welno/workspace/PROJECT_WELNO_BEFE",
             env=env,
         )
         stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
