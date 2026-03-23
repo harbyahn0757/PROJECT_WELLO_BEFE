@@ -1767,3 +1767,510 @@ async def consultation_status(req: ConsultationStatusRequest):
         raise HTTPException(status_code=404, detail="상담 요청을 찾을 수 없습니다")
 
     return {"status": "ok", "session_id": req.session_id, "new_status": req.status}
+
+
+# ── 검진설계 관리 API (Phase 3) ────────────────────────────────
+
+
+class PersonaSummaryRequest(BaseModel):
+    hospital_id: Optional[str] = None
+    partner_id: Optional[str] = None
+    date_from: Optional[str] = None
+    date_to: Optional[str] = None
+
+
+@router.post("/persona-analytics/summary")
+async def persona_analytics_summary(req: PersonaSummaryRequest):
+    """페르소나 분포 + 위험도 집계"""
+    where = ["status = 'step2_completed'", "design_result IS NOT NULL"]
+    params = []
+    idx = 1
+
+    if req.hospital_id:
+        where.append(f"hospital_id = %s")
+        params.append(req.hospital_id)
+    if req.partner_id:
+        where.append(f"partner_id = %s")
+        params.append(req.partner_id)
+    if req.date_from:
+        where.append(f"created_at >= %s")
+        params.append(req.date_from)
+    if req.date_to:
+        where.append(f"created_at <= %s")
+        params.append(req.date_to + " 23:59:59")
+
+    where_clause = " AND ".join(where)
+
+    rows = await db_manager.execute_query(
+        f"""SELECT
+              design_result->'persona'->>'primary_persona' AS persona_type,
+              COUNT(*) AS cnt
+            FROM welno.welno_checkup_design_requests
+            WHERE {where_clause}
+            GROUP BY persona_type
+            ORDER BY cnt DESC""",
+        tuple(params),
+    )
+
+    total = sum(r["cnt"] for r in rows)
+    distribution = [
+        {"type": r["persona_type"] or "Unknown", "count": r["cnt"],
+         "ratio": round(r["cnt"] / total * 100, 1) if total else 0}
+        for r in rows
+    ]
+
+    return {"success": True, "total": total, "distribution": distribution}
+
+
+class PersonaPatientsRequest(BaseModel):
+    hospital_id: Optional[str] = None
+    partner_id: Optional[str] = None
+    persona_type: Optional[str] = None
+    date_from: Optional[str] = None
+    date_to: Optional[str] = None
+    page: int = 1
+    limit: int = 20
+
+
+@router.post("/persona-analytics/patients")
+async def persona_analytics_patients(req: PersonaPatientsRequest):
+    """페르소나별 환자 목록 (필터, 페이징)"""
+    where = ["d.status = 'step2_completed'", "d.design_result IS NOT NULL"]
+    params = []
+
+    if req.hospital_id:
+        where.append("d.hospital_id = %s")
+        params.append(req.hospital_id)
+    if req.partner_id:
+        where.append("d.partner_id = %s")
+        params.append(req.partner_id)
+    if req.persona_type:
+        where.append("d.design_result->'persona'->>'primary_persona' = %s")
+        params.append(req.persona_type)
+    if req.date_from:
+        where.append("d.created_at >= %s")
+        params.append(req.date_from)
+    if req.date_to:
+        where.append("d.created_at <= %s")
+        params.append(req.date_to + " 23:59:59")
+
+    where_clause = " AND ".join(where)
+    offset = (req.page - 1) * req.limit
+    params_count = list(params)
+    params.extend([req.limit, offset])
+
+    rows = await db_manager.execute_query(
+        f"""SELECT d.id, d.uuid, d.hospital_id, d.partner_id,
+              d.design_result->'persona'->>'primary_persona' AS persona_type,
+              d.design_result->>'patient_summary' AS patient_summary,
+              d.trigger_source, d.created_at,
+              p.name AS patient_name
+            FROM welno.welno_checkup_design_requests d
+            LEFT JOIN welno.welno_patients p ON d.uuid = p.uuid
+            WHERE {where_clause}
+            ORDER BY d.created_at DESC
+            LIMIT %s OFFSET %s""",
+        tuple(params),
+    )
+
+    count_rows = await db_manager.execute_query(
+        f"SELECT COUNT(*) AS cnt FROM welno.welno_checkup_design_requests d WHERE {where_clause}",
+        tuple(params_count),
+    )
+    total = count_rows[0]["cnt"] if count_rows else 0
+
+    return {"success": True, "total": total, "page": req.page, "patients": rows}
+
+
+@router.get("/persona-analytics/patient/{request_id}")
+async def persona_analytics_patient_detail(request_id: int):
+    """개별 검진설계 결과 상세"""
+    rows = await db_manager.execute_query(
+        """SELECT d.*, p.name AS patient_name, p.birth_date, p.gender
+           FROM welno.welno_checkup_design_requests d
+           LEFT JOIN welno.welno_patients p ON d.uuid = p.uuid
+           WHERE d.id = %s""",
+        (request_id,),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="검진설계 결과를 찾을 수 없습니다")
+
+    row = rows[0]
+    # JSONB 필드 파싱
+    for key in ("design_result", "step1_result", "step2_result",
+                "selected_concerns", "survey_responses", "auto_concerns"):
+        if row.get(key) and isinstance(row[key], str):
+            try:
+                row[key] = json.loads(row[key])
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    return {"success": True, "data": row}
+
+
+# ── 트리거 관리 API ─────────────────────────────────────────
+
+
+@router.get("/trigger/config/{partner_id}")
+async def get_trigger_config(partner_id: str):
+    """파트너별 자동 트리거 설정 조회"""
+    rows = await db_manager.execute_query(
+        "SELECT config FROM welno.tb_partner_config WHERE partner_id = %s",
+        (partner_id,),
+    )
+    if not rows:
+        return {"success": True, "config": {"auto_planning": {"enabled": False}}}
+
+    config = rows[0]["config"]
+    if isinstance(config, str):
+        config = json.loads(config)
+    cd_config = config.get("checkup_design", {})
+    return {"success": True, "config": cd_config}
+
+
+class TriggerConfigUpdateRequest(BaseModel):
+    enabled: bool = False
+    min_data_count: int = 1
+    cooldown_hours: int = 24
+
+
+@router.put("/trigger/config/{partner_id}")
+async def update_trigger_config(partner_id: str, req: TriggerConfigUpdateRequest):
+    """파트너별 자동 트리거 설정 변경"""
+    new_config = {
+        "auto_planning": {
+            "enabled": req.enabled,
+            "min_data_count": req.min_data_count,
+            "cooldown_hours": req.cooldown_hours,
+        }
+    }
+    await db_manager.execute_update(
+        """UPDATE welno.tb_partner_config
+           SET config = jsonb_set(
+             COALESCE(config, '{}'::jsonb),
+             '{checkup_design}',
+             %s::jsonb
+           )
+           WHERE partner_id = %s""",
+        (json.dumps(new_config), partner_id),
+    )
+    return {"success": True, "partner_id": partner_id, "config": new_config}
+
+
+class ManualTriggerRequest(BaseModel):
+    patient_uuid: str
+    hospital_id: str = "PEERNINE"
+    partner_id: str = "welno"
+
+
+@router.post("/trigger/manual")
+async def trigger_manual(req: ManualTriggerRequest):
+    """수동 트리거 — 특정 환자에 대해 검진설계 Step1 즉시 실행"""
+    import asyncio
+    from ....services.auto_trigger_service import trigger_auto_checkup_design
+
+    asyncio.create_task(
+        trigger_auto_checkup_design(req.patient_uuid, req.hospital_id, req.partner_id)
+    )
+    return {
+        "success": True,
+        "message": f"{req.patient_uuid} 검진설계 트리거 실행 예약됨",
+    }
+
+
+class TriggerHistoryRequest(BaseModel):
+    partner_id: Optional[str] = None
+    trigger_type: Optional[str] = None
+    status: Optional[str] = None
+    limit: int = 50
+
+
+@router.post("/trigger/history")
+async def trigger_history(req: TriggerHistoryRequest):
+    """트리거 실행 이력 조회"""
+    where = ["1=1"]
+    params = []
+
+    if req.partner_id:
+        where.append("partner_id = %s")
+        params.append(req.partner_id)
+    if req.trigger_type:
+        where.append("trigger_type = %s")
+        params.append(req.trigger_type)
+    if req.status:
+        where.append("status = %s")
+        params.append(req.status)
+
+    params.append(req.limit)
+    where_clause = " AND ".join(where)
+
+    rows = await db_manager.execute_query(
+        f"""SELECT * FROM welno.welno_trigger_log
+            WHERE {where_clause}
+            ORDER BY created_at DESC
+            LIMIT %s""",
+        tuple(params),
+    )
+
+    for row in rows:
+        if row.get("result") and isinstance(row["result"], str):
+            try:
+                row["result"] = json.loads(row["result"])
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    return {"success": True, "logs": rows}
+
+
+# ── 캠페인 관리 API ─────────────────────────────────────────
+
+
+class CampaignTargetsRequest(BaseModel):
+    hospital_id: Optional[str] = None
+    partner_id: Optional[str] = None
+    has_health_data: bool = True
+    no_existing_design: bool = True
+    date_from: Optional[str] = None
+    date_to: Optional[str] = None
+    limit: int = 100
+
+
+@router.post("/checkup-design/campaign/targets")
+async def campaign_targets(req: CampaignTargetsRequest):
+    """검진설계 캠페인 대상 추출 — DB에서 조건에 맞는 환자 목록"""
+    where = ["p.has_health_data = true"]
+    params = []
+
+    if req.hospital_id:
+        where.append("p.hospital_id = %s")
+        params.append(req.hospital_id)
+    if req.partner_id:
+        where.append("p.partner_id = %s")
+        params.append(req.partner_id)
+    if req.date_from:
+        where.append("p.last_data_update >= %s")
+        params.append(req.date_from)
+    if req.date_to:
+        where.append("p.last_data_update <= %s")
+        params.append(req.date_to + " 23:59:59")
+
+    # 기존 설계가 없는 환자만
+    no_design_join = ""
+    if req.no_existing_design:
+        no_design_join = """
+            LEFT JOIN welno.welno_checkup_design_requests d
+              ON p.uuid = d.uuid AND d.status = 'step2_completed'
+        """
+        where.append("d.id IS NULL")
+
+    where_clause = " AND ".join(where)
+    params.append(req.limit)
+
+    rows = await db_manager.execute_query(
+        f"""SELECT p.uuid, p.name, p.hospital_id, p.partner_id,
+              p.last_data_update, p.data_source, p.gender, p.birth_date
+            FROM welno.welno_patients p
+            {no_design_join}
+            WHERE {where_clause}
+            ORDER BY p.last_data_update DESC
+            LIMIT %s""",
+        tuple(params),
+    )
+
+    return {"success": True, "count": len(rows), "targets": rows}
+
+
+class CampaignSendRequest(BaseModel):
+    target_uuids: list
+    channel: str = "email"
+    subject: Optional[str] = None
+    template_text: Optional[str] = None
+    partner_id: str = "welno"
+    hospital_id: Optional[str] = None
+
+
+@router.post("/checkup-design/campaign/send")
+async def campaign_send(req: CampaignSendRequest):
+    """대상에게 검진설계 캠페인 링크 발송"""
+    if req.channel != "email":
+        raise HTTPException(status_code=400, detail="현재 email 채널만 지원")
+
+    from ....services.campaigns.email_service import send_disease_prediction_report_email
+
+    sent = 0
+    failed = 0
+
+    for uuid in req.target_uuids:
+        # 환자 이메일 조회
+        patients = await db_manager.execute_query(
+            "SELECT name, uuid FROM welno.welno_patients WHERE uuid = %s",
+            (uuid,),
+        )
+        if not patients:
+            failed += 1
+            continue
+
+        patient = patients[0]
+        name = patient.get("name", "고객")
+
+        # 검진설계 캠페인 링크
+        design_url = (
+            f"https://welno.kindhabit.com/campaigns/checkup-design"
+            f"?uuid={uuid}&partner={req.partner_id}"
+        )
+        if req.hospital_id:
+            design_url += f"&hospital={req.hospital_id}"
+
+        try:
+            # email_service 재사용 (report_url 대신 design_url)
+            send_disease_prediction_report_email(
+                email="",  # TODO: welno_patients에 email 컬럼 확인 필요
+                user_name=name,
+                report_url=design_url,
+            )
+            sent += 1
+        except Exception as e:
+            logger.error(f"[캠페인발송] {uuid} 실패: {e}")
+            failed += 1
+
+    return {"success": True, "sent": sent, "failed": failed, "total": len(req.target_uuids)}
+
+
+@router.post("/checkup-design/campaign/history")
+async def campaign_send_history(req: PersonaSummaryRequest):
+    """캠페인 발송 이력 조회 (트리거 로그에서 campaign 소스 필터)"""
+    where = ["trigger_source = 'campaign'"]
+    params = []
+
+    if req.partner_id:
+        where.append("partner_id = %s")
+        params.append(req.partner_id)
+    if req.date_from:
+        where.append("created_at >= %s")
+        params.append(req.date_from)
+    if req.date_to:
+        where.append("created_at <= %s")
+        params.append(req.date_to + " 23:59:59")
+
+    where_clause = " AND ".join(where)
+
+    rows = await db_manager.execute_query(
+        f"""SELECT * FROM welno.welno_trigger_log
+            WHERE {where_clause}
+            ORDER BY created_at DESC
+            LIMIT 100""",
+        tuple(params),
+    )
+
+    return {"success": True, "history": rows}
+
+
+# ── Maria 연동 API (Phase 4) ───────────────────────────────
+
+
+class CheckupDesignResultsRequest(BaseModel):
+    hospital_id: Optional[str] = None
+    partner_id: Optional[str] = None
+    date_from: Optional[str] = None
+    date_to: Optional[str] = None
+    limit: int = 20
+    offset: int = 0
+
+
+@router.post("/checkup-design/results")
+async def checkup_design_results(req: CheckupDesignResultsRequest):
+    """검진설계 완료 환자 목록 (Maria 파트너 포털용)"""
+    where = ["d.status = 'step2_completed'", "d.design_result IS NOT NULL"]
+    params = []
+
+    if req.hospital_id:
+        where.append("d.hospital_id = %s")
+        params.append(req.hospital_id)
+    if req.partner_id:
+        where.append("d.partner_id = %s")
+        params.append(req.partner_id)
+    if req.date_from:
+        where.append("d.created_at >= %s")
+        params.append(req.date_from)
+    if req.date_to:
+        where.append("d.created_at <= %s")
+        params.append(req.date_to + " 23:59:59")
+
+    where_clause = " AND ".join(where)
+    params.extend([req.limit, req.offset])
+
+    rows = await db_manager.execute_query(
+        f"""SELECT d.id, d.uuid, d.hospital_id, d.partner_id,
+              d.design_result->'persona'->>'primary_persona' AS persona_type,
+              d.design_result->>'patient_summary' AS patient_summary,
+              d.trigger_source, d.created_at,
+              p.name AS patient_name, p.gender, p.birth_date
+            FROM welno.welno_checkup_design_requests d
+            LEFT JOIN welno.welno_patients p ON d.uuid = p.uuid
+            WHERE {where_clause}
+            ORDER BY d.created_at DESC
+            LIMIT %s OFFSET %s""",
+        tuple(params),
+    )
+
+    count_params = params[:-2]  # limit, offset 제외
+    count_rows = await db_manager.execute_query(
+        f"SELECT COUNT(*) AS cnt FROM welno.welno_checkup_design_requests d WHERE {where_clause}",
+        tuple(count_params),
+    )
+    total = count_rows[0]["cnt"] if count_rows else 0
+
+    return {"success": True, "total": total, "results": rows}
+
+
+@router.get("/checkup-design/result/{patient_uuid}")
+async def checkup_design_result_detail(patient_uuid: str, hospital_id: Optional[str] = None):
+    """특정 환자의 검진설계 결과 상세 (Maria용)"""
+    hid_clause = "AND d.hospital_id = %s" if hospital_id else ""
+    params = [patient_uuid]
+    if hospital_id:
+        params.append(hospital_id)
+
+    rows = await db_manager.execute_query(
+        f"""SELECT d.*, p.name AS patient_name, p.gender, p.birth_date
+            FROM welno.welno_checkup_design_requests d
+            LEFT JOIN welno.welno_patients p ON d.uuid = p.uuid
+            WHERE d.uuid = %s AND d.status = 'step2_completed'
+              {hid_clause}
+            ORDER BY d.created_at DESC LIMIT 1""",
+        tuple(params),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="검진설계 결과를 찾을 수 없습니다")
+
+    row = rows[0]
+    for key in ("design_result", "step1_result", "step2_result",
+                "selected_concerns", "survey_responses", "auto_concerns"):
+        if row.get(key) and isinstance(row[key], str):
+            try:
+                row[key] = json.loads(row[key])
+            except (json.JSONDecodeError, TypeError):
+                pass
+
+    return {"success": True, "data": row}
+
+
+class MariaDesignTriggerRequest(BaseModel):
+    patient_uuid: str
+    hospital_id: str = "PEERNINE"
+    partner_id: str = "welno"
+
+
+@router.post("/checkup-design/trigger")
+async def checkup_design_trigger_from_maria(req: MariaDesignTriggerRequest):
+    """Maria에서 특정 환자의 검진설계 트리거 (데이터가 있는 경우)"""
+    import asyncio
+    from ....services.auto_trigger_service import trigger_auto_checkup_design
+
+    asyncio.create_task(
+        trigger_auto_checkup_design(req.patient_uuid, req.hospital_id, req.partner_id)
+    )
+    return {
+        "success": True,
+        "message": f"{req.patient_uuid} 검진설계 트리거 실행 예약됨",
+    }

@@ -19,6 +19,7 @@ import AppointmentPage from './features/appointment/AppointmentPage';
 import ResultsTrendPage from './features/results/ResultsTrendPage';
 import DiseaseReportPage from './features/disease-report/pages/DiseaseReportPage';
 import DiseasePredictionCampaign from './campaigns/disease-prediction';
+import CheckupDesignCampaign from './campaigns/checkup-design';
 import AgentSurveyPage from './features/agent-survey/AgentSurveyPage';
 import PartnerManagementPage from './features/admin/PartnerManagementPage';
 import AdminEmbeddingPage from "./features/admin/AdminEmbeddingPage";
@@ -602,6 +603,8 @@ const AppContent: React.FC = () => {
         <Route path="/agent-survey" element={<AgentSurveyPage />} />
         {/* ⭐ 외부 파트너 연동 캠페인 페이지 (결제 포함) */}
         <Route path="/campaigns/disease-prediction" element={<DiseasePredictionCampaign />} />
+        {/* ⭐ 검진설계 캠페인 */}
+        <Route path="/campaigns/checkup-design" element={<CheckupDesignCampaign />} />
         {/* ⭐ 파트너 관리 페이지 */}
         <Route path="/partner-management" element={<PartnerManagementPage />} />
         <Route path="/prescription-history" element={<PrescriptionHistory />} />

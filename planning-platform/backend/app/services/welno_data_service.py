@@ -710,8 +710,21 @@ class WelnoDataService:
                 await update_conn.close()
             
             print(f"✅ [건강검진저장] {saved_count}건 저장 완료 (출처: {data_source})")
+
+            # 자동 검진설계 트리거 (백그라운드)
+            if saved_count > 0:
+                try:
+                    import asyncio
+                    from .auto_trigger_service import trigger_auto_checkup_design
+                    asyncio.create_task(
+                        trigger_auto_checkup_design(patient_uuid, hospital_id, partner_id or "welno")
+                    )
+                    print(f"🤖 [자동트리거] 검진설계 자동 트리거 예약됨 — {patient_uuid}")
+                except Exception as trigger_err:
+                    print(f"⚠️ [자동트리거] 트리거 예약 실패 (메인 흐름 영향 없음): {trigger_err}")
+
             return True
-            
+
         except Exception as e:
             print(f"❌ [건강검진저장] 오류: {e}")
             # 트랜잭션 자동 롤백됨

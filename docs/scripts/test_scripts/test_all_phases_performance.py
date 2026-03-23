@@ -14,7 +14,7 @@ from typing import Dict, Any
 
 # 환경 변수 설정
 from dotenv import load_dotenv
-load_dotenv('/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/.env.local')
+load_dotenv('/home/welno/workspace/PROJECT_WELNO_BEFE/planning-platform/backend/.env.local')
 
 # API 설정
 DEFAULT_API_BASE_URL = "http://localhost:8082"

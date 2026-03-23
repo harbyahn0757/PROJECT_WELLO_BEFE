@@ -19,6 +19,7 @@ const API_BASE_URL = getApiBaseUrl();
 export interface CheckupDesignRequest {
   uuid: string;
   hospital_id: string;
+  partner_id?: string;
   selected_concerns: ConcernItem[];
   survey_responses?: {
     // 기본 질문

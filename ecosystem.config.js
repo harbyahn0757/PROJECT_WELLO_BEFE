@@ -1,8 +1,8 @@
 module.exports = {
   apps: [
     {
-      name: 'WELLO_BE',
-      script: './start_wello.sh',
+      name: 'WELNO_BE',
+      script: './start_welno.sh',
       cwd: './planning-platform/backend',
       instances: 1,
       autorestart: true,
@@ -10,11 +10,11 @@ module.exports = {
       max_memory_restart: '1G',
       env: {
         ENVIRONMENT: 'production',
-        PYTHONPATH: '/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend'
+        PYTHONPATH: '/home/welno/workspace/PROJECT_WELNO_BEFE/planning-platform/backend'
       },
-      error_file: './logs/WELLO_BE-error.log',
-      out_file: './logs/WELLO_BE-out.log',
-      log_file: './logs/WELLO_BE-combined.log',
+      error_file: './logs/WELNO_BE-error.log',
+      out_file: './logs/WELNO_BE-out.log',
+      log_file: './logs/WELNO_BE-combined.log',
       time: true
     }
   ]

@@ -13,6 +13,7 @@ const PAGE_TITLES: Record<string, string> = {
   survey: '만족도 조사',
   revisit: '재환가망고객',
   analytics: '데이터 분석',
+  'checkup-design': '검진설계 관리',
 };
 
 const NAV_ITEMS = [
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { key: 'survey', label: '만족도 조사', path: '/backoffice/survey' },
   { key: 'revisit', label: '재환가망고객', path: '/backoffice/revisit' },
   { key: 'analytics', label: '데이터 분석', path: '/backoffice/analytics' },
+  { key: 'checkup-design', label: '검진설계 관리', path: '/backoffice/checkup-design' },
 ];
 
 interface HospitalOption {

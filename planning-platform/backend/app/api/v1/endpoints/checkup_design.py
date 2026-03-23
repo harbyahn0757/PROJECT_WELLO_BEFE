@@ -194,7 +194,7 @@ class CheckupDesignRequest(BaseModel):
     uuid: str = Field(..., description="환자 UUID")
     hospital_id: str = Field(..., description="병원 ID")
     partner_id: str = Field("welno", description="파트너 ID")  # 파트너 ID 추가
-    selected_concerns: List[ConcernItem] = Field(..., description="선택한 염려 항목 리스트")
+    selected_concerns: Optional[List[ConcernItem]] = Field(None, description="선택한 염려 항목 리스트 (None이면 자동 추출)")
     survey_responses: Optional[Dict[str, Any]] = Field(None, description="설문 응답 (체중 변화, 운동, 가족력 등)")
     additional_info: Optional[Dict[str, Any]] = Field(None, description="추가 정보")
     # 약품 분석 결과 텍스트 (전체 처방 데이터 대신 사용)
@@ -256,7 +256,8 @@ async def create_checkup_design(
     overall_start = time.time()
     
     try:
-        logger.info(f"🔍 [검진설계] 요청 시작 - UUID: {request.uuid}, 선택 항목: {len(request.selected_concerns)}개")
+        concerns_count = len(request.selected_concerns) if request.selected_concerns else 0
+        logger.info(f"🔍 [검진설계] 요청 시작 - UUID: {request.uuid}, 선택 항목: {concerns_count}개")
         logger.info(f"⏱️  [타이밍] 전체 시작: 0.0초")
         logger.info(f"🔍 [검진설계] request 타입: {type(request)}")
         logger.info(f"🔍 [검진설계] request.uuid 타입: {type(request.uuid)}")
@@ -363,10 +364,20 @@ async def create_checkup_design(
         else:
             logger.info(f"📝 [검진설계] 약품 분석 결과 텍스트 사용 (원본 데이터 스킵)")
         
-        # 4. 선택한 염려 항목 변환
+        # 4. 선택한 염려 항목 변환 (없으면 자동 추출)
         selected_concerns = []
-        
-        for concern in request.selected_concerns:
+
+        if not request.selected_concerns:
+            # 자동 추출 모드
+            from ....services.checkup_design.auto_concerns import auto_extract_concerns
+            patient_gender = patient_info.get("gender", "M")
+            auto_concerns = auto_extract_concerns(
+                health_data, prescription_data, patient_gender
+            )
+            logger.info(f"🤖 [검진설계] 자동 추출 concerns: {len(auto_concerns)}개")
+            selected_concerns = auto_concerns
+
+        for concern in (request.selected_concerns or []):
             concern_dict = {
                 "type": concern.type,
                 "id": concern.id
@@ -812,7 +823,7 @@ async def create_checkup_design_step1(
     빠른 응답을 위해 빠른 모델 사용 (GPT-4o-mini)
     """
     try:
-        logger.info(f"🔍 [STEP1-분석] 요청 시작 - UUID: {request.uuid}, 선택 항목: {len(request.selected_concerns)}개")
+        logger.info(f"🔍 [STEP1-분석] 요청 시작 - UUID: {request.uuid}, 선택 항목: {len(request.selected_concerns) if request.selected_concerns else 0}개")
         
         # 세션 로거 시작
         session_logger = get_session_logger()
@@ -868,10 +879,15 @@ async def create_checkup_design_step1(
             else:
                 prescription_data = prescription_data_result.get("prescription_data", [])
         logger.info(f"💊 [STEP1-분석] 처방전 데이터: {len(prescription_data)}건")
-        
-        # 5. 선택한 염려 항목 변환
+
+        # 5. 선택한 염려 항목 변환 (없으면 자동 추출)
         selected_concerns = []
-        for concern in request.selected_concerns:
+        if not request.selected_concerns:
+            from ....services.checkup_design.auto_concerns import auto_extract_concerns
+            patient_gender = patient_info.get("gender", "M") if isinstance(patient_info, dict) else "M"
+            selected_concerns = auto_extract_concerns(health_data, prescription_data, patient_gender)
+            logger.info(f"🤖 [STEP1-분석] 자동 추출 concerns: {len(selected_concerns)}개")
+        for concern in (request.selected_concerns or []):
             concern_dict = {
                 "type": concern.type,
                 "id": concern.id,
@@ -1351,10 +1367,10 @@ async def create_checkup_design_step2(
             else:
                 prescription_data = prescription_data_result.get("prescription_data", [])
         logger.info(f"💊 [STEP2-설계] 처방전 데이터: {len(prescription_data)}건")
-        
+
         # 5. 선택한 염려 항목 변환
         selected_concerns = []
-        for concern in request.selected_concerns:
+        for concern in (request.selected_concerns or []):
             concern_dict = {
                 "type": concern.type,
                 "id": concern.id,
@@ -2317,3 +2333,98 @@ async def retry_checkup_design(
             pass
         
         raise HTTPException(status_code=500, detail=f"재시도 실패: {str(e)}")
+
+
+# ── 캠페인 상태 체크 API (disease_report_unified.py 패턴) ──────────────────
+
+
+class CheckStatusRequest(BaseModel):
+    """검진설계 캠페인 상태 체크 요청"""
+    uuid: str = Field(..., description="환자 UUID")
+    partner_id: str = Field("welno", description="파트너 ID")
+    hospital_id: Optional[str] = Field(None, description="병원 ID")
+    api_key: Optional[str] = Field(None, description="파트너 API Key")
+
+
+class CheckStatusResponse(BaseModel):
+    """검진설계 캠페인 상태 체크 응답"""
+    success: bool
+    case_id: str
+    action: str
+    has_design: bool = False
+    has_health_data: bool = False
+    design_status: Optional[str] = None
+    design_request_id: Optional[int] = None
+    message: Optional[str] = None
+
+
+@router.post("/check-status", response_model=CheckStatusResponse)
+async def check_checkup_design_status(request: CheckStatusRequest):
+    """
+    검진설계 캠페인 상태 체크 — 질병예측 check-partner-status 패턴.
+
+    상태 머신:
+      A: 설계 완료 (step2_completed) → show_result
+      B: Step1만 완료 (step1_completed) → show_step2_ready
+      C: 데이터 있음 + 설계 없음 → show_design_start
+      D: 데이터 없음 → redirect_to_auth
+      E: 자동 설계 진행 중 (pending/step1 auto) → show_processing
+    """
+    try:
+        uuid = request.uuid
+        hospital_id = request.hospital_id or "PEERNINE"
+
+        # 1. 기존 설계 상태 확인
+        design = await welno_data_service.get_latest_checkup_design(uuid, hospital_id)
+        incomplete = await welno_data_service.get_incomplete_checkup_design(uuid, hospital_id)
+
+        if design:
+            return CheckStatusResponse(
+                success=True, case_id="A", action="show_result",
+                has_design=True, has_health_data=True,
+                design_status="step2_completed",
+                message="검진설계가 완료되었습니다.",
+            )
+
+        if incomplete:
+            inc_status = incomplete.get("status", "")
+            if inc_status == "step1_completed":
+                return CheckStatusResponse(
+                    success=True, case_id="B", action="show_step2_ready",
+                    has_design=True, has_health_data=True,
+                    design_status="step1_completed",
+                    design_request_id=incomplete.get("id"),
+                    message="Step1 분석이 완료되었습니다. Step2를 진행해주세요.",
+                )
+            # pending 또는 auto 진행 중
+            return CheckStatusResponse(
+                success=True, case_id="E", action="show_processing",
+                has_design=False, has_health_data=True,
+                design_status=inc_status,
+                message="검진설계가 진행 중입니다.",
+            )
+
+        # 2. 건강 데이터 유무 확인
+        health = await welno_data_service.get_patient_health_data(uuid, hospital_id)
+        has_data = bool(health and not health.get("error") and health.get("health_data"))
+
+        if has_data:
+            return CheckStatusResponse(
+                success=True, case_id="C", action="show_design_start",
+                has_design=False, has_health_data=True,
+                message="건강 데이터가 있습니다. 검진설계를 시작할 수 있습니다.",
+            )
+
+        # 3. 데이터 없음
+        return CheckStatusResponse(
+            success=True, case_id="D", action="redirect_to_auth",
+            has_design=False, has_health_data=False,
+            message="건강 데이터가 없습니다. 본인 인증이 필요합니다.",
+        )
+
+    except Exception as e:
+        logger.error(f"❌ [check-status] 실패: {e}", exc_info=True)
+        return CheckStatusResponse(
+            success=False, case_id="ERR", action="error",
+            message=f"상태 확인 실패: {str(e)}",
+        )

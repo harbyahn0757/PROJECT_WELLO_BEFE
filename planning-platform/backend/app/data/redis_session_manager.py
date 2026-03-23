@@ -491,7 +491,7 @@ class RedisSessionManager:
             from datetime import datetime
             
             # 저장 디렉토리 생성
-            data_dir = "/home/workspace/PROJECT_WELLO_BEFE/tilko_data"
+            data_dir = "/home/welno/workspace/PROJECT_WELNO_BEFE/tilko_data"
             os.makedirs(data_dir, exist_ok=True)
             
             # 파일명: session_id_data_type_timestamp.json

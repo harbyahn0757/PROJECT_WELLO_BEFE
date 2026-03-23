@@ -42,7 +42,7 @@ async def download_recent_logs(
         ZIP 파일 스트림
     """
     try:
-        logs_dir = Path("/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs")
+        logs_dir = Path("/home/welno/workspace/PROJECT_WELNO_BEFE/planning-platform/backend/logs")
         
         if not logs_dir.exists():
             raise HTTPException(status_code=404, detail="로그 디렉토리를 찾을 수 없습니다")
@@ -163,7 +163,7 @@ async def get_log_statistics() -> Dict[str, Any]:
     로그 파일 통계 정보 조회
     """
     try:
-        logs_dir = Path("/home/workspace/PROJECT_WELLO_BEFE/planning-platform/backend/logs")
+        logs_dir = Path("/home/welno/workspace/PROJECT_WELNO_BEFE/planning-platform/backend/logs")
         
         if not logs_dir.exists():
             return {
