@@ -1,5 +1,6 @@
 import logging
 import asyncio
+import time
 from typing import Optional, List, Dict, Any
 from dataclasses import dataclass
 from datetime import datetime
@@ -44,6 +45,8 @@ class GeminiService:
         types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
     ]
 
+    HEALTH_CACHE_TTL = 300  # 헬스체크 캐시 5분
+
     def __init__(self):
         self._api_key: Optional[str] = None
         self._client: Optional[genai.Client] = None
@@ -51,6 +54,8 @@ class GeminiService:
         self._chat_sessions: Dict[str, Any] = {}  # 세션별 ChatSession 저장
         self._content_caches: Dict[str, Any] = {}  # 세션별 CachedContent 저장
         self._cache_enabled: bool = True  # Context Caching 활성화 여부
+        self._health_cache: Optional[dict] = None  # 헬스체크 결과 캐시
+        self._health_cache_time: float = 0  # 캐시 갱신 시각
 
     async def initialize(self):
         """Gemini 클라이언트 초기화"""
@@ -69,23 +74,39 @@ class GeminiService:
             await self._notify_slack("Gemini API 키 미설정", "initialize", "API 키가 없거나 유효하지 않습니다.")
 
     async def check_health(self) -> dict:
-        """Gemini API 키 유효성 검증 (위젯 로드 전 호출)"""
+        """Gemini API 키 유효성 검증 (위젯 로드 전 호출, 5분 캐싱)"""
+        # 캐시 유효하면 API 호출 없이 반환
+        if self._health_cache and (time.monotonic() - self._health_cache_time) < self.HEALTH_CACHE_TTL:
+            return self._health_cache
+
         if not self._initialized:
             await self.initialize()
         if not self._initialized:
             return {"healthy": False, "error": "Gemini 서비스 미초기화"}
         try:
-            response = self._client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents="ping",
-                config=types.GenerateContentConfig(max_output_tokens=5),
+            response = await asyncio.wait_for(
+                self._client.aio.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents="ping",
+                    config=types.GenerateContentConfig(max_output_tokens=5),
+                ),
+                timeout=5.0,
             )
-            return {"healthy": True}
+            result = {"healthy": True}
+        except asyncio.TimeoutError:
+            error_msg = "헬스체크 타임아웃 (5초)"
+            logger.error(f"[Gemini] {error_msg}")
+            await self._notify_slack("Gemini 헬스체크 실패", "check_health", error_msg)
+            result = {"healthy": False, "error": error_msg}
         except Exception as e:
             error_msg = str(e)
             logger.error(f"[Gemini] 헬스체크 실패: {error_msg}")
             await self._notify_slack("Gemini 헬스체크 실패", "check_health", error_msg)
-            return {"healthy": False, "error": error_msg}
+            result = {"healthy": False, "error": error_msg}
+
+        self._health_cache = result
+        self._health_cache_time = time.monotonic()
+        return result
 
     async def _notify_slack(self, title: str, location: str, error_message: str):
         """Gemini 에러 Slack 알림 (내부 유틸)"""
