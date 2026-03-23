@@ -36,7 +36,10 @@ const CheckupDesignManagementPage: React.FC = () => {
 
   // ── 캠페인 ──
   const [targets, setTargets] = useState<any[]>([]);
+  const [totalTargets, setTotalTargets] = useState(0);
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
+  const [hospitals, setHospitals] = useState<any[]>([]);
+  const [selectedHospital, setSelectedHospital] = useState('');
 
   // ── API ──
   const api = useCallback(async (path: string, body?: any) => {
@@ -69,14 +72,24 @@ const CheckupDesignManagementPage: React.FC = () => {
         if (cfg.success) setTriggerEnabled(cfg.config?.auto_planning?.enabled || false);
         if (hist.success) setTriggerLogs(hist.logs || []);
       } else {
-        const data = await api('/checkup-design/campaign/targets', {
-          ...filters, has_health_data: true, no_existing_design: true, limit: 100,
-        });
-        if (data.success) setTargets(data.targets || []);
+        // 병원 목록 로드 (최초 1회)
+        if (hospitals.length === 0) {
+          const h = await fetch(`${API}/partner-office/checkup-design/campaign/hospitals`).then(r => r.json());
+          if (h.success) setHospitals(h.hospitals || []);
+        }
+        // 대상 조회 (병원 선택 필수)
+        if (selectedHospital) {
+          const data = await api('/checkup-design/campaign/targets', {
+            hosnm: selectedHospital, limit: 100,
+          });
+          if (data.success) { setTargets(data.targets || []); setTotalTargets(data.total || 0); }
+        } else {
+          setTargets([]); setTotalTargets(0);
+        }
       }
     } catch (e) { console.error(`[${tab}] 로드 실패:`, e); }
     finally { setLoading(false); }
-  }, [api, hospitalId, partnerId, personaFilter, page]);
+  }, [api, hospitalId, partnerId, personaFilter, page, selectedHospital, hospitals.length]);
 
   useEffect(() => { load(activeTab); }, [activeTab, load]);
 
@@ -101,12 +114,16 @@ const CheckupDesignManagementPage: React.FC = () => {
   // ── 캠페인 발송 ──
   const sendCampaign = async () => {
     if (!selectedTargets.length) return alert('발송 대상을 선택해주세요');
+    if (!window.confirm(`${selectedTargets.length}명에게 검진설계 캠페인을 발송합니다.\n계속할까요?`)) return;
     const r = await api('/checkup-design/campaign/send', {
-      target_uuids: selectedTargets, channel: 'email',
-      partner_id: partnerId || 'welno', hospital_id: hospitalId || undefined,
+      target_uuids: selectedTargets, hosnm: selectedHospital,
+      partner_id: partnerId || 'welno',
     });
-    if (r.success) alert(`발송 완료: 성공 ${r.sent}건, 실패 ${r.failed}건`);
-    setSelectedTargets([]);
+    if (r.success) {
+      alert(`발송 처리 완료: ${r.updated}명`);
+      setSelectedTargets([]);
+      load('campaign');
+    }
   };
 
   const toggleAll = () => {
@@ -135,49 +152,75 @@ const CheckupDesignManagementPage: React.FC = () => {
       {/* ── 캠페인 관리 ── */}
       {activeTab === 'campaign' && !loading && (
         <div className="cdm-section">
-          <div className="cdm-page__kpi">
-            <div className="cdm-page__kpi-card">
-              <span className="cdm-page__kpi-label">발송 가능 대상</span>
-              <span className="cdm-page__kpi-value">{targets.length}<small>명</small></span>
-            </div>
-            <div className="cdm-page__kpi-card">
-              <span className="cdm-page__kpi-label">선택됨</span>
-              <span className="cdm-page__kpi-value">{selectedTargets.length}<small>명</small></span>
-            </div>
+          {/* 병원 선택 */}
+          <div className="cdm-hospital-select">
+            <label>병원 선택</label>
+            <select value={selectedHospital} onChange={e => { setSelectedHospital(e.target.value); setSelectedTargets([]); }}>
+              <option value="">-- 병원을 선택하세요 ({hospitals.length}개) --</option>
+              {hospitals.map((h: any) => (
+                <option key={h.hosnm} value={h.hosnm}>
+                  {h.hosnm} ({h.mkt_consent}명 동의 / {h.pln_sent}명 발송완료)
+                </option>
+              ))}
+            </select>
           </div>
 
-          <p className="cdm-desc">건강 데이터가 있지만 검진설계를 아직 받지 않은 환자 목록입니다.</p>
+          {selectedHospital && (
+            <>
+              <div className="cdm-page__kpi">
+                <div className="cdm-page__kpi-card">
+                  <span className="cdm-page__kpi-label">미발송 대상</span>
+                  <span className="cdm-page__kpi-value">{totalTargets}<small>명</small></span>
+                </div>
+                <div className="cdm-page__kpi-card">
+                  <span className="cdm-page__kpi-label">선택됨</span>
+                  <span className="cdm-page__kpi-value">{selectedTargets.length}<small>명</small></span>
+                </div>
+              </div>
 
-          <div className="cdm-actions">
-            <button className="btn-outline" onClick={toggleAll}>
-              {selectedTargets.length === targets.length && targets.length > 0 ? '전체 해제' : '전체 선택'}
-            </button>
-            <button className="btn-primary" onClick={sendCampaign} disabled={!selectedTargets.length}>
-              선택 대상 발송 ({selectedTargets.length}명)
-            </button>
-          </div>
+              <div className="cdm-actions">
+                <button className="btn-outline" onClick={toggleAll}>
+                  {selectedTargets.length === targets.length && targets.length > 0 ? '전체 해제' : '전체 선택'}
+                </button>
+                <button className="btn-primary" onClick={sendCampaign} disabled={!selectedTargets.length}>
+                  선택 대상 발송 ({selectedTargets.length}명)
+                </button>
+              </div>
 
-          <div className="table-scroll-wrap">
-            <table className="data-table">
-              <thead>
-                <tr><th style={{width:40}}></th><th>이름</th><th>병원</th><th>데이터 소스</th><th>성별</th><th>생년월일</th><th>최근 업데이트</th></tr>
-              </thead>
-              <tbody>
-                {targets.map(t => (
-                  <tr key={t.uuid}>
-                    <td><input type="checkbox" checked={selectedTargets.includes(t.uuid)} onChange={() => setSelectedTargets(p => p.includes(t.uuid) ? p.filter(u => u !== t.uuid) : [...p, t.uuid])} /></td>
-                    <td>{t.name || t.uuid?.slice(0, 8)}</td>
-                    <td>{t.hospital_id}</td>
-                    <td>{t.data_source}</td>
-                    <td>{t.gender === 'M' ? '남' : t.gender === 'F' ? '여' : '-'}</td>
-                    <td>{t.birth_date || '-'}</td>
-                    <td>{t.last_data_update ? new Date(t.last_data_update).toLocaleDateString('ko-KR') : '-'}</td>
-                  </tr>
-                ))}
-                {targets.length === 0 && <tr><td colSpan={7} className="empty-state__text">발송 가능한 대상이 없습니다</td></tr>}
-              </tbody>
-            </table>
-          </div>
+              <div className="table-scroll-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr><th style={{width:40}}></th><th>이름</th><th>성별</th><th>생년월일</th><th>방문일</th><th>BMI</th><th>혈압</th><th>혈당</th><th>상태</th></tr>
+                  </thead>
+                  <tbody>
+                    {targets.map((t: any) => {
+                      const bmiWarn = t.bmi && parseFloat(t.bmi) >= 25;
+                      const bpWarn = t.bphigh && parseFloat(t.bphigh) >= 140;
+                      const bsWarn = t.blds && parseFloat(t.blds) >= 100;
+                      return (
+                        <tr key={t.uuid}>
+                          <td><input type="checkbox" checked={selectedTargets.includes(t.uuid)} onChange={() => setSelectedTargets(p => p.includes(t.uuid) ? p.filter(u => u !== t.uuid) : [...p, t.uuid])} /></td>
+                          <td>{t.name || '-'}</td>
+                          <td>{t.gender === 'M' ? '남' : t.gender === 'F' ? '여' : '-'}</td>
+                          <td>{t.birthday || '-'}</td>
+                          <td>{t.visitdate || '-'}</td>
+                          <td style={{color: bmiWarn ? '#dc2626' : undefined, fontWeight: bmiWarn ? 600 : undefined}}>{t.bmi || '-'}</td>
+                          <td style={{color: bpWarn ? '#dc2626' : undefined, fontWeight: bpWarn ? 600 : undefined}}>{t.bphigh ? `${t.bphigh}/${t.bplwst}` : '-'}</td>
+                          <td style={{color: bsWarn ? '#dc2626' : undefined, fontWeight: bsWarn ? 600 : undefined}}>{t.blds || '-'}</td>
+                          <td>{t.pln_mkt === 'Y' ? <span className="badge badge--success">발송완료</span> : <span className="badge badge--muted">미발송</span>}</td>
+                        </tr>
+                      );
+                    })}
+                    {targets.length === 0 && <tr><td colSpan={9} className="empty-state__text">{selectedHospital ? '해당 병원에 발송 가능한 대상이 없습니다' : '병원을 선택해주세요'}</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {!selectedHospital && hospitals.length > 0 && (
+            <p className="empty-state__text" style={{textAlign:'center', padding:'40px 0'}}>위에서 병원을 선택하면 캠페인 대상이 표시됩니다</p>
+          )}
         </div>
       )}
 

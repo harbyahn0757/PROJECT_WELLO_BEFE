@@ -275,3 +275,78 @@ def _extract_medication_concerns(
                 break  # 한 처방에서 하나만
 
     return concerns
+
+
+# ── mdx_agr_list 평탄 컬럼용 ─────────────────────────────────
+
+# 컬럼명 → (지표명, 단위, warning, abnormal)
+_FLAT_THRESHOLDS = {
+    'bmi':         ('BMI',            'kg/m²', 25.0, 30.0),
+    'bphigh':      ('혈압 (수축기)',   'mmHg',  120.0, 140.0),
+    'bplwst':      ('혈압 (이완기)',   'mmHg',  80.0, 90.0),
+    'blds':        ('혈당',           'mg/dL', 100.0, 126.0),
+    'hdlchole':    ('HDL 콜레스테롤', 'mg/dL', None, None),  # 역방향
+    'ldlchole':    ('LDL 콜레스테롤', 'mg/dL', 130.0, 160.0),
+    'triglyceride': ('중성지방',       'mg/dL', 150.0, 200.0),
+    'gfr':         ('GFR',           'mL/min', None, None),  # 역방향
+}
+
+
+def auto_extract_concerns_from_flat(row: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """mdx_agr_list 행에서 직접 concerns 추출 (Tilko raw_data 없이).
+
+    Args:
+        row: mdx_agr_list 레코드 (bmi, bphigh, blds 등 평탄 컬럼)
+
+    Returns:
+        ConcernItem 리스트
+    """
+    concerns: List[Dict[str, Any]] = []
+
+    for col, (metric, unit, warn_th, abnormal_th) in _FLAT_THRESHOLDS.items():
+        val = row.get(col)
+        if val is None:
+            continue
+        try:
+            v = float(val)
+        except (ValueError, TypeError):
+            continue
+        if v <= 0:
+            continue
+
+        # HDL: 낮을수록 위험 (역방향)
+        if col == 'hdlchole':
+            if v < 40:
+                status = 'abnormal'
+            elif v < 60:
+                status = 'warning'
+            else:
+                continue
+        # GFR: 낮을수록 위험 (역방향)
+        elif col == 'gfr':
+            if v < 60:
+                status = 'abnormal'
+            elif v < 90:
+                status = 'warning'
+            else:
+                continue
+        # 일반: 높을수록 위험
+        else:
+            if abnormal_th and v >= abnormal_th:
+                status = 'abnormal'
+            elif warn_th and v >= warn_th:
+                status = 'warning'
+            else:
+                continue
+
+        concerns.append({
+            'type': 'checkup',
+            'id': f"flat-{col}",
+            'name': metric,
+            'value': v,
+            'unit': unit,
+            'status': status,
+        })
+
+    logger.info(f"[auto_concerns_flat] 추출 완료: {len(concerns)}개")
+    return concerns

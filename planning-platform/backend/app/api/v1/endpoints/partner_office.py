@@ -2026,114 +2026,103 @@ async def trigger_history(req: TriggerHistoryRequest):
 
 
 class CampaignTargetsRequest(BaseModel):
-    hospital_id: Optional[str] = None
-    partner_id: Optional[str] = None
-    has_health_data: bool = True
-    no_existing_design: bool = True
+    hosnm: Optional[str] = None
+    has_checkup: bool = False
+    show_sent: bool = False  # True면 pln_mkt=Y도 표시
     date_from: Optional[str] = None
     date_to: Optional[str] = None
     limit: int = 100
+    offset: int = 0
 
 
 @router.post("/checkup-design/campaign/targets")
 async def campaign_targets(req: CampaignTargetsRequest):
-    """검진설계 캠페인 대상 추출 — DB에서 조건에 맞는 환자 목록"""
-    where = ["p.has_health_data = true"]
+    """검진설계 캠페인 대상 — mdx_agr_list 기반 (마케팅 동의 + 미발송)"""
+    where = ["mdx_mkt = 'Y'"]
     params = []
 
-    if req.hospital_id:
-        where.append("p.hospital_id = %s")
-        params.append(req.hospital_id)
-    if req.partner_id:
-        where.append("p.partner_id = %s")
-        params.append(req.partner_id)
+    if not req.show_sent:
+        where.append("(pln_mkt IS NULL OR pln_mkt != 'Y')")
+
+    if req.hosnm:
+        where.append("hosnm = %s")
+        params.append(req.hosnm)
+    if req.has_checkup:
+        where.append("blds IS NOT NULL")
     if req.date_from:
-        where.append("p.last_data_update >= %s")
+        where.append("visitdate >= %s")
         params.append(req.date_from)
     if req.date_to:
-        where.append("p.last_data_update <= %s")
-        params.append(req.date_to + " 23:59:59")
-
-    # 기존 설계가 없는 환자만
-    no_design_join = ""
-    if req.no_existing_design:
-        no_design_join = """
-            LEFT JOIN welno.welno_checkup_design_requests d
-              ON p.uuid = d.uuid AND d.status = 'step2_completed'
-        """
-        where.append("d.id IS NULL")
+        where.append("visitdate <= %s")
+        params.append(req.date_to)
 
     where_clause = " AND ".join(where)
-    params.append(req.limit)
+    count_params = list(params)
+    params.extend([req.limit, req.offset])
 
     rows = await db_manager.execute_query(
-        f"""SELECT p.uuid, p.name, p.hospital_id, p.partner_id,
-              p.last_data_update, p.data_source, p.gender, p.birth_date
-            FROM welno.welno_patients p
-            {no_design_join}
+        f"""SELECT uuid::text, hosnm, name, birthday, gender, phoneno,
+              regdate, visitdate, bmi, bphigh, bplwst, blds,
+              hdlchole, ldlchole, triglyceride, gfr,
+              pln_mkt, pln_mkt_ts
+            FROM p9_mkt_biz.mdx_agr_list
             WHERE {where_clause}
-            ORDER BY p.last_data_update DESC
-            LIMIT %s""",
+            ORDER BY visitdate DESC NULLS LAST
+            LIMIT %s OFFSET %s""",
         tuple(params),
     )
 
-    return {"success": True, "count": len(rows), "targets": rows}
+    count_rows = await db_manager.execute_query(
+        f"SELECT COUNT(*) AS cnt FROM p9_mkt_biz.mdx_agr_list WHERE {where_clause}",
+        tuple(count_params),
+    )
+    total = count_rows[0]["cnt"] if count_rows else 0
+
+    return {"success": True, "total": total, "count": len(rows), "targets": rows}
+
+
+@router.get("/checkup-design/campaign/hospitals")
+async def campaign_hospitals():
+    """캠페인 병원 목록 + 카운트 (mdx_agr_list 기반)"""
+    rows = await db_manager.execute_query(
+        """SELECT hosnm, COUNT(*) AS total,
+              COUNT(CASE WHEN mdx_mkt = 'Y' THEN 1 END) AS mkt_consent,
+              COUNT(CASE WHEN pln_mkt = 'Y' THEN 1 END) AS pln_sent
+           FROM p9_mkt_biz.mdx_agr_list
+           GROUP BY hosnm
+           ORDER BY total DESC""",
+    )
+    return {"success": True, "hospitals": rows}
 
 
 class CampaignSendRequest(BaseModel):
     target_uuids: list
+    hosnm: Optional[str] = None
     channel: str = "email"
-    subject: Optional[str] = None
-    template_text: Optional[str] = None
     partner_id: str = "welno"
-    hospital_id: Optional[str] = None
 
 
 @router.post("/checkup-design/campaign/send")
 async def campaign_send(req: CampaignSendRequest):
-    """대상에게 검진설계 캠페인 링크 발송"""
-    if req.channel != "email":
-        raise HTTPException(status_code=400, detail="현재 email 채널만 지원")
-
-    from ....services.campaigns.email_service import send_disease_prediction_report_email
-
-    sent = 0
-    failed = 0
-
+    """대상에게 검진설계 캠페인 발송 + pln_mkt 업데이트"""
+    # pln_mkt 업데이트
+    updated = 0
     for uuid in req.target_uuids:
-        # 환자 이메일 조회
-        patients = await db_manager.execute_query(
-            "SELECT name, uuid FROM welno.welno_patients WHERE uuid = %s",
+        result = await db_manager.execute_update(
+            """UPDATE p9_mkt_biz.mdx_agr_list
+               SET pln_mkt = 'Y', pln_mkt_ts = NOW()
+               WHERE uuid = %s::uuid AND (pln_mkt IS NULL OR pln_mkt != 'Y')""",
             (uuid,),
         )
-        if not patients:
-            failed += 1
-            continue
+        if result:
+            updated += 1
 
-        patient = patients[0]
-        name = patient.get("name", "고객")
-
-        # 검진설계 캠페인 링크
-        design_url = (
-            f"https://welno.kindhabit.com/campaigns/checkup-design"
-            f"?uuid={uuid}&partner={req.partner_id}"
-        )
-        if req.hospital_id:
-            design_url += f"&hospital={req.hospital_id}"
-
-        try:
-            # email_service 재사용 (report_url 대신 design_url)
-            send_disease_prediction_report_email(
-                email="",  # TODO: welno_patients에 email 컬럼 확인 필요
-                user_name=name,
-                report_url=design_url,
-            )
-            sent += 1
-        except Exception as e:
-            logger.error(f"[캠페인발송] {uuid} 실패: {e}")
-            failed += 1
-
-    return {"success": True, "sent": sent, "failed": failed, "total": len(req.target_uuids)}
+    return {
+        "success": True,
+        "updated": updated,
+        "total": len(req.target_uuids),
+        "message": f"{updated}명 발송 처리 완료",
+    }
 
 
 @router.post("/checkup-design/campaign/history")
