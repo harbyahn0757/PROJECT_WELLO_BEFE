@@ -272,3 +272,25 @@
     &__kpi { grid-template-columns: repeat(2, 1fr); }
   }
 }
+
+.cdm-alimtalk-config {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  margin-bottom: 16px;
+
+  &__row {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+    label { font-size: 13px; font-weight: 600; min-width: 100px; }
+    select { flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; }
+  }
+  &__vars { margin: 12px 0;
+    h4 { font-size: 13px; margin: 0 0 8px; font-weight: 600; }
+  }
+  &__var-row {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    label { font-size: 12px; min-width: 80px; color: #6b7280; font-family: monospace; }
+    input { flex: 1; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; }
+  }
+}

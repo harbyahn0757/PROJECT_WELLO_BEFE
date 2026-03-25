@@ -7,6 +7,7 @@
 import json
 import re
 import logging
+import uuid as uuid_lib
 from typing import List, Dict, Optional, Tuple
 
 import pymysql
@@ -18,6 +19,10 @@ from ...utils.wiset_agent import (
 )
 
 logger = logging.getLogger(__name__)
+
+# WELNO 도메인 (버튼 URL 생성용)
+WELNO_DOMAIN = 'welno.kindhabit.com'
+WELNO_WELLO_PATH = '/wello/'
 
 # MariaDB (WiseT Agent) 연결 정보
 MYSQL_CONFIG = {
@@ -260,6 +265,27 @@ async def _send_one(
         or ''
     )
 
+    # wello_uuid 생성 + URL 치환
+    needs_wello_uuid = (
+        attachment and
+        any(v in attachment for v in ('#{wello_uuid}', '#{sub}', '#{URL}'))
+    )
+    wello_uuid = None
+    if needs_wello_uuid and hospital_id:
+        variables = recipient.get('variables', {})
+        r_name = (
+            variables.get('고객명') or variables.get('이름') or
+            variables.get('name') or variables.get('성명') or ''
+        )
+        wello_uuid = await _get_or_create_welno_patient(
+            db_manager, phone, r_name or '고객', hospital_id, variables,
+        )
+
+    if attachment:
+        attachment = await _substitute_attachment_urls(
+            db_manager, attachment, wello_uuid, hospital_id,
+        )
+
     # AT 타입 → title에 병원명
     title = None
     if msg_type == 'AT' and hospital_id:
@@ -292,10 +318,10 @@ async def _send_one(
 
 
 async def _get_hospital_name(db_manager, hospital_id: str) -> str:
-    """wello_hospitals에서 병원명 조회"""
+    """welno_hospitals에서 병원명 조회"""
     try:
         rows = await db_manager.execute_query(
-            """SELECT hospital_name FROM wello.wello_hospitals
+            """SELECT hospital_name FROM welno.welno_hospitals
                WHERE hospital_id = %s AND is_active = true LIMIT 1""",
             (hospital_id,),
         )
@@ -304,3 +330,143 @@ async def _get_hospital_name(db_manager, hospital_id: str) -> str:
     except Exception as e:
         logger.warning(f"병원명 조회 실패 ({hospital_id}): {e}")
     return 'PEERNINE'
+
+
+async def _get_or_create_welno_patient(
+    db_manager, phone: str, name: str, hospital_id: str,
+    variables: Dict = None,
+) -> Optional[str]:
+    """welno_patients에서 기존 환자 조회 or 신규 생성 → uuid 반환"""
+    if not variables:
+        variables = {}
+    phone = normalize_phone_number(phone)
+
+    # 생년월일 파싱
+    birth_raw = (
+        variables.get('생년월일') or variables.get('birth_date') or
+        variables.get('birthday') or variables.get('생일') or ''
+    )
+    birth_date = None
+    if birth_raw:
+        digits = re.sub(r'[^0-9]', '', str(birth_raw))
+        if len(digits) == 8:
+            birth_date = f"{digits[:4]}-{digits[4:6]}-{digits[6:8]}"
+        elif len(digits) == 6:
+            yy = int(digits[:2])
+            prefix = '19' if yy > 30 else '20'
+            birth_date = f"{prefix}{digits[:2]}-{digits[2:4]}-{digits[4:6]}"
+
+    # 성별 정규화
+    gender_raw = (
+        variables.get('성별') or variables.get('gender') or ''
+    )
+    gender = None
+    if gender_raw:
+        g = gender_raw.strip().upper()
+        if g in ('M', '남', '남성', 'MALE'):
+            gender = 'M'
+        elif g in ('F', '여', '여성', 'FEMALE'):
+            gender = 'F'
+
+    try:
+        # 기존 환자 조회
+        if birth_date:
+            rows = await db_manager.execute_query(
+                """SELECT uuid::text FROM welno.welno_patients
+                   WHERE phone_number = %s AND name = %s
+                     AND birth_date = %s LIMIT 1""",
+                (phone, name, birth_date),
+            )
+        else:
+            rows = await db_manager.execute_query(
+                """SELECT uuid::text FROM welno.welno_patients
+                   WHERE phone_number = %s AND name = %s LIMIT 1""",
+                (phone, name),
+            )
+
+        if rows:
+            return rows[0]['uuid']
+
+        # 신규 생성
+        new_uuid = str(uuid_lib.uuid4())
+        await db_manager.execute_one(
+            """INSERT INTO welno.welno_patients
+               (uuid, hospital_id, name, phone_number, birth_date,
+                gender, created_at, updated_at)
+               VALUES (%s, %s, %s, %s, %s, %s, NOW(), NOW())
+               RETURNING uuid::text""",
+            (new_uuid, hospital_id, name, phone,
+             birth_date, gender),
+        )
+        logger.info(f"welno_patient 생성: {phone} ({name}) → {new_uuid}")
+        return new_uuid
+
+    except Exception as e:
+        logger.error(f"welno_patient 조회/생성 실패 ({phone}): {e}")
+        return None
+
+
+async def _substitute_attachment_urls(
+    db_manager, attachment: str,
+    wello_uuid: Optional[str], hospital_id: str,
+) -> str:
+    """attachment JSON의 버튼 URL 변수 치환 + TN tel_number 설정"""
+    try:
+        att = json.loads(attachment) if isinstance(attachment, str) else attachment
+    except (json.JSONDecodeError, TypeError):
+        return attachment
+
+    buttons = att.get('button', [])
+    if not buttons:
+        return attachment
+
+    # WELNO URL 생성
+    wello_url_full = None
+    wello_url_no_proto = None
+    if wello_uuid:
+        wello_url_full = (
+            f"https://{WELNO_DOMAIN}{WELNO_WELLO_PATH}"
+            f"?uuid={wello_uuid}&hospital={hospital_id}"
+        )
+        wello_url_no_proto = (
+            f"{WELNO_DOMAIN}{WELNO_WELLO_PATH}"
+            f"?uuid={wello_uuid}&hospital={hospital_id}"
+        )
+
+    for btn in buttons:
+        btn_type = btn.get('type', '')
+
+        # TN 타입: tel_number 비어있으면 병원 전화번호 조회
+        if btn_type == 'TN':
+            tel = btn.get('tel_number', '')
+            if not tel or not str(tel).strip():
+                try:
+                    rows = await db_manager.execute_query(
+                        """SELECT phone FROM welno.welno_hospitals
+                           WHERE hospital_id = %s AND is_active = true
+                           LIMIT 1""",
+                        (hospital_id,),
+                    )
+                    if rows and rows[0].get('phone'):
+                        btn['tel_number'] = rows[0]['phone']
+                    else:
+                        btn['tel_number'] = '02-780-8003'
+                except Exception:
+                    btn['tel_number'] = '02-780-8003'
+            continue
+
+        # WL/MD 타입: URL 변수 치환
+        if btn_type in ('WL', 'MD') and wello_uuid:
+            for key in ('url_mobile', 'url_pc'):
+                url = btn.get(key, '')
+                if not url:
+                    continue
+                url = url.replace('#{wello_uuid}', wello_uuid)
+                url = url.replace('#{client_id}', hospital_id)
+                if wello_url_no_proto:
+                    url = url.replace('#{sub}', wello_url_no_proto)
+                if wello_url_full:
+                    url = url.replace('#{URL}', wello_url_full)
+                btn[key] = url
+
+    return json.dumps(att, ensure_ascii=False)

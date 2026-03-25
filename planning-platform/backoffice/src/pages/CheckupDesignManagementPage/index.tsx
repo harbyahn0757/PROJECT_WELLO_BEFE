@@ -8,7 +8,7 @@ import { getApiBase } from '../../utils/api';
 import { useEmbedParams } from '../../hooks/useEmbedParams';
 import './styles.scss';
 
-type TabKey = 'campaign' | 'persona';
+type TabKey = 'campaign' | 'persona' | 'history';
 
 const API = getApiBase();
 
@@ -37,6 +37,16 @@ const CheckupDesignManagementPage: React.FC = () => {
   const [hospitalSearch, setHospitalSearch] = useState('');
   const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
   const hospitalRef = useRef<HTMLDivElement>(null);
+
+  // ── 알림톡 ──
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [templateVars, setTemplateVars] = useState<string[]>([]);
+  const [templateContent, setTemplateContent] = useState('');
+  const [fixedVars, setFixedVars] = useState<Record<string, string>>({});
+  const [alimtalkSending, setAlimtalkSending] = useState(false);
+  const [historyList, setHistoryList] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // 병원 검색 필터
   const filteredHospitals = useMemo(() => {
@@ -79,11 +89,21 @@ const CheckupDesignManagementPage: React.FC = () => {
         ]);
         if (summary.success) setDistribution(summary.distribution || []);
         if (list.success) { setPatients(list.patients || []); setTotalPatients(list.total || 0); }
+      } else if (tab === 'history') {
+        setHistoryLoading(true);
+        try {
+          const h = await fetch(`${API}/partner-office/alimtalk/history?limit=50`).then(r => r.json());
+          if (h.success) setHistoryList(h.history || []);
+        } finally { setHistoryLoading(false); }
       } else {
-        // 병원 목록 로드 (최초 1회)
+        // 병원 목록 + 템플릿 로드 (최초 1회)
         if (hospitals.length === 0) {
           const h = await fetch(`${API}/partner-office/checkup-design/campaign/hospitals`).then(r => r.json());
           if (h.success) setHospitals(h.hospitals || []);
+        }
+        if (templates.length === 0) {
+          const t = await fetch(`${API}/partner-office/alimtalk/templates`).then(r => r.json());
+          if (t.success) setTemplates(t.templates || []);
         }
         // 대상 조회
         if (selectedHospital) {
@@ -97,7 +117,7 @@ const CheckupDesignManagementPage: React.FC = () => {
       }
     } catch (e) { console.error(`[${tab}] 로드 실패:`, e); }
     finally { setLoading(false); }
-  }, [api, hospitalId, partnerId, personaFilter, page, selectedHospital, hospitals.length]);
+  }, [api, hospitalId, partnerId, personaFilter, page, selectedHospital, hospitals.length, templates.length]);
 
   useEffect(() => { load(activeTab); }, [activeTab, load]);
 
@@ -128,6 +148,52 @@ const CheckupDesignManagementPage: React.FC = () => {
     setSelectedTargets(prev => prev.length === targets.length ? [] : targets.map(t => t.uuid));
   };
 
+  // ── 알림톡 ──
+  const selectTemplate = async (code: string) => {
+    setSelectedTemplate(code);
+    setFixedVars({});
+    if (!code) { setTemplateVars([]); setTemplateContent(''); return; }
+    const d = await api(`/alimtalk/templates/${code}/variables`);
+    if (d.success) {
+      setTemplateVars(d.variables || []);
+      setTemplateContent(d.template_content || '');
+    }
+  };
+
+  const sendAlimtalk = async () => {
+    if (!selectedTargets.length) return alert('발송 대상을 선택해주세요');
+    if (!selectedTemplate) return alert('알림톡 템플릿을 선택해주세요');
+    if (!window.confirm(`${selectedTargets.length}명에게 알림톡을 발송합니다.\n계속할까요?`)) return;
+
+    setAlimtalkSending(true);
+    try {
+      const selected = targets.filter(t => selectedTargets.includes(t.uuid));
+      const recipients = selected.map(t => {
+        let content = templateContent;
+        const vars: Record<string, string> = { ...fixedVars, '고객명': t.name || '' };
+        if (selectedHospital) vars['병원명'] = selectedHospital;
+        Object.entries(vars).forEach(([k, v]) => {
+          content = content.replace(new RegExp(`#\\{${k}\\}`, 'g'), v);
+        });
+        return {
+          phone: t.phoneno || '', hospital_id: hospitalId || '',
+          variables: vars,
+          message: { template_code: selectedTemplate, content },
+        };
+      });
+      const r = await api(`/alimtalk/campaigns/WELNO_BASIC_PACKAGE/send`, {
+        campaign_id: 'WELNO_BASIC_PACKAGE', recipients,
+      });
+      if (r.success) {
+        alert(`발송 완료: 성공 ${r.success_count}건, 실패 ${r.fail_count}건`);
+        setSelectedTargets([]);
+      } else {
+        alert(`발송 실패: ${r.detail || '알 수 없는 오류'}`);
+      }
+    } catch (e: any) { alert(`오류: ${e.message}`); }
+    finally { setAlimtalkSending(false); }
+  };
+
   const totalDesigns = distribution.reduce((s, d) => s + d.count, 0);
 
   return (
@@ -138,7 +204,7 @@ const CheckupDesignManagementPage: React.FC = () => {
 
       {/* 탭 */}
       <div className="tabs">
-        {([['campaign', '캠페인 관리'], ['persona', '페르소나 분석']] as [TabKey, string][]).map(([key, label]) => (
+        {([['campaign', '캠페인 관리'], ['persona', '페르소나 분석'], ['history', '발송 이력']] as [TabKey, string][]).map(([key, label]) => (
           <button key={key} className={`tabs__item ${activeTab === key ? 'active' : ''}`} onClick={() => setActiveTab(key)}>
             {label}
           </button>
@@ -202,6 +268,31 @@ const CheckupDesignManagementPage: React.FC = () => {
                 </button>
                 <button className="btn-primary" onClick={sendCampaign} disabled={!selectedTargets.length}>
                   선택 대상 발송 ({selectedTargets.length}명)
+                </button>
+              </div>
+
+              {/* 알림톡 발송 설정 */}
+              <div className="cdm-alimtalk-config">
+                <div className="cdm-alimtalk-config__row">
+                  <label>알림톡 템플릿</label>
+                  <select value={selectedTemplate} onChange={e => selectTemplate(e.target.value)}>
+                    <option value="">템플릿 선택...</option>
+                    {templates.map(t => <option key={t.template_code} value={t.template_code}>{t.template_name}</option>)}
+                  </select>
+                </div>
+                {templateVars.length > 0 && (
+                  <div className="cdm-alimtalk-config__vars">
+                    <h4>변수 설정 ({templateVars.length}개)</h4>
+                    {templateVars.map(v => (
+                      <div key={v} className="cdm-alimtalk-config__var-row">
+                        <label>{'#{'}{v}{'}'}</label>
+                        <input type="text" placeholder={`${v} 입력`} value={fixedVars[v] || ''} onChange={e => setFixedVars(prev => ({...prev, [v]: e.target.value}))} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button className="btn-primary" onClick={sendAlimtalk} disabled={!selectedTargets.length || !selectedTemplate || alimtalkSending}>
+                  {alimtalkSending ? '발송 중...' : `알림톡 발송 (${selectedTargets.length}명)`}
                 </button>
               </div>
 
@@ -298,6 +389,43 @@ const CheckupDesignManagementPage: React.FC = () => {
               </div>
             </>
           )}
+        </div>
+      )}
+      {/* ── 발송 이력 ── */}
+      {activeTab === 'history' && !loading && (
+        <div className="cdm-section">
+          <div className="cdm-page__kpi">
+            <div className="cdm-page__kpi-card">
+              <span className="cdm-page__kpi-label">전체 발송</span>
+              <span className="cdm-page__kpi-value">{historyList.length}<small>건</small></span>
+            </div>
+            <div className="cdm-page__kpi-card">
+              <span className="cdm-page__kpi-label">성공</span>
+              <span className="cdm-page__kpi-value">{historyList.filter(h => h.is_success).length}<small>건</small></span>
+            </div>
+            <div className="cdm-page__kpi-card">
+              <span className="cdm-page__kpi-label">실패</span>
+              <span className="cdm-page__kpi-value">{historyList.filter(h => !h.is_success).length}<small>건</small></span>
+            </div>
+          </div>
+          {historyLoading && <p className="empty-state__text">로딩 중...</p>}
+          <div className="table-scroll-wrap">
+            <table className="data-table">
+              <thead><tr><th>발송일시</th><th>수신번호</th><th>템플릿</th><th>결과</th><th>상세</th></tr></thead>
+              <tbody>
+                {historyList.map((h: any, i: number) => (
+                  <tr key={h.SN || i}>
+                    <td>{h.request_datetime || '-'}</td>
+                    <td>{h.phone || '-'}</td>
+                    <td>{h.template_code || '-'}</td>
+                    <td>{h.is_success ? <span className="badge badge--success">성공</span> : <span className="badge badge--danger">실패</span>}</td>
+                    <td>{h.result_message || h.result_code || '-'}</td>
+                  </tr>
+                ))}
+                {historyList.length === 0 && <tr><td colSpan={5} className="empty-state__text">발송 이력이 없습니다</td></tr>}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
