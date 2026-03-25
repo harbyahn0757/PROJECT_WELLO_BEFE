@@ -2298,8 +2298,7 @@ async def alimtalk_template_variables(template_code: str):
 
 
 class AlimtalkSendRequest(BaseModel):
-    campaign_id: str
-    recipients: list
+    recipients: list  # [{phone, hospital_id?, variables?, message: {template_code, content, attachment?}}]
 
 
 @router.post("/alimtalk/campaigns/{campaign_id}/send")

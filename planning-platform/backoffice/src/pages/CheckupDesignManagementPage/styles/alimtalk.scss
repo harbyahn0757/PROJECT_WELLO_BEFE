@@ -1,0 +1,132 @@
+@import '../../../styles/variables';
+
+// ── 아코디언 템플릿 ──
+.tmpl-accordion {
+  border: 1px solid $gray-300;
+  border-radius: $border-radius-lg;
+  margin: 12px 0;
+  overflow: hidden;
+
+  &--open { border-color: $brand-brown; }
+
+  &__header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; cursor: pointer; background: $gray-50;
+    &:hover { background: $gray-100; }
+  }
+  &__info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  &__badge {
+    padding: 2px 8px; border-radius: 10px; font-size: $font-xs;
+    background: $beige-cream; color: $brand-brown-darker; font-weight: 600;
+  }
+  &__name { font-size: $font-sm; font-weight: 600; color: $gray-800; }
+  &__code { font-size: $font-xs; color: $gray-500; }
+  &__arrow { font-size: 10px; color: $gray-500; }
+
+  &__body { padding: 16px; border-top: 1px solid $gray-200; }
+
+  &__preview {
+    margin-bottom: 16px;
+    &-label { font-size: $font-xs; font-weight: 600; color: $gray-600; display: block; margin-bottom: 8px; }
+    &-content {
+      background: $gray-50; border-radius: $border-radius-md; padding: 14px;
+      font-size: $font-xs; line-height: 1.7; white-space: pre-wrap; word-break: break-all;
+      max-height: 220px; overflow-y: auto;
+    }
+  }
+
+  &__vars {
+    margin-bottom: 12px;
+    &-label { font-size: $font-xs; font-weight: 600; color: $gray-600; display: block; margin-bottom: 6px; }
+    &-list { display: flex; flex-wrap: wrap; gap: 6px; }
+  }
+  &__var-badge {
+    padding: 3px 8px; border-radius: 12px; font-size: 11px;
+    background: $gray-100; color: $gray-600; font-family: 'SF Mono', monospace;
+    &--set { background: #d1fae5; color: #065f46; }
+  }
+  &__var-value { font-family: sans-serif; margin-left: 4px; font-weight: 600; }
+
+  &__buttons { margin-top: 12px; }
+  &__btn-list { display: flex; flex-direction: column; gap: 6px; }
+  &__btn-item {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    background: $gray-50; border-radius: $border-radius-md;
+  }
+  &__btn-type {
+    padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700;
+    background: $accent-orange; color: $white; min-width: 42px; text-align: center;
+  }
+  &__btn-name { font-size: $font-sm; font-weight: 500; color: $gray-800; }
+  &__btn-url { font-size: 11px; color: $gray-500; word-break: break-all; }
+}
+
+// ── 변수 하이라이트 ──
+.tmpl-var {
+  &--filled { background: #d1fae5; color: #065f46; padding: 0 2px; border-radius: 3px; font-weight: 600; }
+  &--empty { background: #fef3c7; color: #92400e; padding: 0 2px; border-radius: 3px; font-family: monospace; }
+}
+
+// ── 변수 매핑 ──
+.var-mapping {
+  margin: 16px 0; padding: 16px; background: $white;
+  border: 1px solid $gray-200; border-radius: $border-radius-lg;
+
+  &__title { font-size: $font-sm; font-weight: 600; color: $gray-800; margin: 0 0 12px; }
+  &__table { width: 100%; border-collapse: collapse;
+    th { font-size: $font-xs; color: $gray-600; font-weight: 600; text-align: left;
+      padding: 6px 8px; border-bottom: 1px solid $gray-200; }
+    td { padding: 6px 8px; border-bottom: 1px solid $gray-100; vertical-align: middle; }
+  }
+  &__name { font-family: 'SF Mono', monospace; font-size: $font-xs; color: $brand-brown; font-weight: 500; }
+  &__source {
+    select { padding: 4px 8px; border: 1px solid $gray-300; border-radius: 4px; font-size: $font-xs; }
+    &-badge { padding: 2px 8px; background: $gray-100; border-radius: 10px; font-size: 11px; color: $gray-600; }
+  }
+  &__value {
+    input { width: 100%; padding: 6px 10px; border: 1px solid $gray-300; border-radius: $border-radius-md;
+      font-size: $font-sm; &:focus { outline: none; border-color: $brand-brown; } }
+    select { width: 100%; padding: 6px 10px; border: 1px solid $gray-300; border-radius: $border-radius-md; font-size: $font-sm; }
+  }
+}
+
+// ── 엑셀 업로드 ──
+.excel-uploader {
+  margin: 16px 0;
+
+  &__dropzone {
+    border: 2px dashed $gray-300; border-radius: $border-radius-lg; padding: 24px;
+    text-align: center; cursor: pointer; transition: border-color 0.2s;
+    &:hover { border-color: $brand-brown; background: $gray-50; }
+  }
+  &__placeholder {
+    span { display: block; font-size: $font-sm; color: $gray-600; margin-bottom: 4px; }
+    small { font-size: $font-xs; color: $gray-500; }
+  }
+  &__file-info { display: flex; flex-direction: column; gap: 4px; }
+  &__file-name { font-size: $font-sm; font-weight: 600; color: $gray-800; }
+  &__file-count { font-size: $font-xs; color: $gray-600; }
+  &__phone-col { font-size: $font-xs; color: $success; font-weight: 500; }
+  &__phone-header { background: #d1fae5 !important; }
+  &__error { font-size: $font-xs; color: $error; margin-top: 8px; }
+  &__preview {
+    margin-top: 12px;
+    h4 { font-size: $font-sm; font-weight: 600; color: $gray-800; margin: 0 0 8px; }
+  }
+  &__export { margin-top: 12px; }
+}
+
+// ── 발송 소스 선택 ──
+.cdm-alimtalk-config__source {
+  margin: 16px 0;
+  label { font-size: $font-sm; font-weight: 600; color: $gray-700; display: block; margin-bottom: 8px; }
+  &-btns { display: flex; gap: 8px; }
+}
+.btn-outline--active {
+  background: $brand-brown-light; border-color: $brand-brown; color: $brand-brown-darker; font-weight: 600;
+}
+
+// ── 이력 테이블 ──
+.history-table {
+  &__detail { font-size: $font-xs; color: $gray-600; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}

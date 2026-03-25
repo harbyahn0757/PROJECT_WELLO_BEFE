@@ -192,7 +192,7 @@ async def send_campaign_messages(
 
 async def _get_campaign_info(db_manager, campaign_id: str) -> Optional[Dict]:
     """캠페인 정보 조회 (order_campaigns / orders)"""
-    if campaign_id == 'WELLO_BASIC_PACKAGE':
+    if campaign_id == 'WELNO_BASIC_PACKAGE':
         rows = await db_manager.execute_query(
             """SELECT campaign_id, campaign_name, order_name,
                       '' AS partner_id, '' AS client_id,
@@ -237,7 +237,7 @@ async def _send_one(
     db_manager, mysql_cursor,
     campaign: Dict, template_map: Dict, recipient: Dict,
 ) -> Dict:
-    """단건 MZSENDTRAN INSERT"""
+    """단건 MZSENDTRAN INSERT — 변수 치환 + wello_uuid + URL 치환 통합"""
     phone = normalize_phone_number(recipient.get('phone', ''))
     if not phone or len(phone) < 10:
         return {'phone': recipient.get('phone', ''), 'success': False,
@@ -248,6 +248,7 @@ async def _send_one(
     content = message.get('content', '')
     attachment = message.get('attachment', '')
     subject = message.get('subject', '')
+    variables = recipient.get('variables', {})
 
     # msg_type 결정 (button → AI, 그 외 → AT)
     tmpl_info = template_map.get(template_code, {})
@@ -257,22 +258,27 @@ async def _send_one(
     # sender_key
     sender_key = tmpl_info.get('sender_key') or SENDER_KEY_XOG
 
-    # hospital_id (WELNO 기본형 지원)
+    # hospital_id — 다중 fallback
     hospital_id = (
         campaign.get('client_id')
         or recipient.get('hospital_id')
-        or recipient.get('variables', {}).get('hospital_id')
+        or variables.get('hospital_id')
         or ''
     )
 
-    # wello_uuid 생성 + URL 치환
-    needs_wello_uuid = (
-        attachment and
-        any(v in attachment for v in ('#{wello_uuid}', '#{sub}', '#{URL}'))
+    # ── BE 통합 변수 치환 (FE는 원문 + variables만 전달) ──
+    if content and variables:
+        for k, v in variables.items():
+            if v:
+                content = content.replace(f'#{{{k}}}', str(v))
+
+    # wello_uuid 생성 (attachment에 변수가 있거나, content에 #{sub} 등 있을 때)
+    all_text = (attachment or '') + (content or '')
+    needs_wello_uuid = any(
+        v in all_text for v in ('#{wello_uuid}', '#{sub}', '#{URL}')
     )
     wello_uuid = None
     if needs_wello_uuid and hospital_id:
-        variables = recipient.get('variables', {})
         r_name = (
             variables.get('고객명') or variables.get('이름') or
             variables.get('name') or variables.get('성명') or ''
@@ -281,6 +287,7 @@ async def _send_one(
             db_manager, phone, r_name or '고객', hospital_id, variables,
         )
 
+    # attachment URL 치환 (wello_uuid + TN 전화번호)
     if attachment:
         attachment = await _substitute_attachment_urls(
             db_manager, attachment, wello_uuid, hospital_id,
