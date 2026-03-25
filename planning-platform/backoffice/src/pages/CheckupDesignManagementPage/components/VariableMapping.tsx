@@ -5,7 +5,7 @@
  * - 빈값 경고: 빨간 테두리 + "필수" 표시
  * - 버튼 URL 미리보기
  */
-import React from 'react';
+import React, { useState } from 'react';
 
 interface Props {
   variables: string[];
@@ -15,31 +15,45 @@ interface Props {
   excelHeaders?: string[];
   excelMapping?: Record<string, string>;
   onMappingChange?: (varName: string, header: string) => void;
-  buttonUrls?: string[]; // 버튼 URL 목록 (미리보기용)
+  buttonUrls?: string[];
 }
 
-// 시스템 자동 변수 (BE에서 처리)
 const SYSTEM_VARS = ['wello_uuid', 'sub', 'URL', 'client_id'];
 
-// 대상자별 자동 채움 변수
 const AUTO_VARS: Record<string, string> = {
   '고객명': '대상자 이름 (자동)',
   '신청일자': '등록일 regdate (자동)',
 };
 
+type SourceType = 'system' | 'auto' | 'fixed' | 'table';
+
 const VariableMapping: React.FC<Props> = ({
   variables, fixedVars, onVarChange, selectedHospital,
   excelHeaders, excelMapping, onMappingChange, buttonUrls,
 }) => {
+  // 사용자가 소스를 수동 전환한 변수 (auto → fixed 등)
+  const [overrides, setOverrides] = useState<Record<string, SourceType>>({});
+
   if (!variables.length) return null;
 
   const hasExcel = excelHeaders && excelHeaders.length > 0;
 
-  const getVarType = (v: string): 'system' | 'auto' | 'fixed' | 'table' => {
+  const getDefaultType = (v: string): SourceType => {
     if (SYSTEM_VARS.includes(v)) return 'system';
     if (AUTO_VARS[v]) return 'auto';
     if (hasExcel && excelMapping?.[v]) return 'table';
     return 'fixed';
+  };
+
+  const getVarType = (v: string): SourceType => {
+    if (SYSTEM_VARS.includes(v)) return 'system'; // 시스템은 전환 불가
+    return overrides[v] || getDefaultType(v);
+  };
+
+  const switchSource = (v: string, newType: SourceType) => {
+    setOverrides(prev => ({ ...prev, [v]: newType }));
+    // fixed로 전환 시 기존 값 초기화
+    if (newType === 'fixed') onVarChange(v, '');
   };
 
   const isEmpty = (v: string): boolean => {
@@ -72,17 +86,18 @@ const VariableMapping: React.FC<Props> = ({
                   {empty && <span className="var-mapping__required">필수</span>}
                 </td>
                 <td className="var-mapping__source">
-                  {type === 'system' && (
+                  {type === 'system' ? (
                     <span className="var-mapping__badge var-mapping__badge--system">시스템 자동</span>
-                  )}
-                  {type === 'auto' && (
-                    <span className="var-mapping__badge var-mapping__badge--auto">자동</span>
-                  )}
-                  {type === 'table' && (
-                    <span className="var-mapping__badge var-mapping__badge--table">엑셀</span>
-                  )}
-                  {type === 'fixed' && (
-                    <span className="var-mapping__badge var-mapping__badge--fixed">고정값</span>
+                  ) : (
+                    <select
+                      className="var-mapping__source-select"
+                      value={type}
+                      onChange={e => switchSource(v, e.target.value as SourceType)}
+                    >
+                      {AUTO_VARS[v] && <option value="auto">자동</option>}
+                      <option value="fixed">고정값</option>
+                      {hasExcel && <option value="table">엑셀</option>}
+                    </select>
                   )}
                 </td>
                 <td className="var-mapping__value">

@@ -96,6 +96,11 @@
   &__input--empty { border-color: $error !important; }
   &__source {
     select { padding: 4px 8px; border: 1px solid $gray-300; border-radius: 4px; font-size: $font-xs; }
+    &-select {
+      padding: 4px 8px; border: 1px solid $gray-300; border-radius: 6px;
+      font-size: 11px; font-weight: 500; cursor: pointer;
+      &:focus { outline: none; border-color: $brand-brown; }
+    }
   }
   &__value {
     input { width: 100%; padding: 6px 10px; border: 1px solid $gray-300; border-radius: $border-radius-md;
