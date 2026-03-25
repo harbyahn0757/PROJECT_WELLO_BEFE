@@ -26,8 +26,27 @@
 
   &__body { padding: 16px; border-top: 1px solid $gray-200; }
 
+  // 2컬럼 레이아웃
+  &__columns { display: flex; gap: 16px; margin-bottom: 16px; }
+  &__col-left { flex: 6; min-width: 0; }
+  &__col-right {
+    flex: 4; min-width: 180px; display: flex; flex-direction: column; gap: 8px;
+  }
+  &__section-label { font-size: $font-xs; font-weight: 600; color: $gray-600; display: block; margin-bottom: 6px; }
+  &__var-btn {
+    margin-top: auto; padding: 8px 12px; background: $brand-brown; color: $white;
+    border: none; border-radius: $border-radius-md; font-size: $font-xs; font-weight: 600;
+    cursor: pointer; &:hover { background: $brand-brown-hover; }
+  }
+  &__var-badges { display: flex; flex-direction: column; gap: 4px; }
+
+  &__preview-content {
+    background: $gray-50; border-radius: $border-radius-md; padding: 14px;
+    font-size: $font-xs; line-height: 1.7; white-space: pre-wrap; word-break: break-all;
+    max-height: 220px; overflow-y: auto;
+  }
+
   &__preview {
-    margin-bottom: 16px;
     &-label { font-size: $font-xs; font-weight: 600; color: $gray-600; display: block; margin-bottom: 8px; }
     &-content {
       background: $gray-50; border-radius: $border-radius-md; padding: 14px;
@@ -159,4 +178,80 @@
 // ── 이력 테이블 ──
 .history-table {
   &__detail { font-size: $font-xs; color: $gray-600; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+// ── 변수 뱃지 ──
+.tmpl-var-badge {
+  display: flex; align-items: center; gap: 6px; padding: 5px 10px;
+  border-radius: $border-radius-md; font-size: 12px;
+  &--filled { background: #d1fae5; }
+  &--auto { background: #dbeafe; }
+  &--system { background: $gray-100; }
+  &--empty { background: #fef3c7; }
+  &__name { font-family: 'SF Mono', monospace; font-weight: 500; color: $gray-800; }
+  &__val { font-size: 11px; color: #065f46; font-weight: 600; }
+  &__tag {
+    font-size: 10px; padding: 1px 5px; border-radius: 8px;
+    background: rgba(0,0,0,0.08); color: $gray-600;
+    &--warn { background: #fef3c7; color: #92400e; }
+  }
+}
+
+// ── 변수 설정 모달 ──
+.var-modal {
+  max-width: 640px; width: 90%;
+  &__header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-bottom: 16px; border-bottom: 1px solid $gray-200; margin-bottom: 16px;
+    h3 { font-size: $font-lg; font-weight: 700; color: $gray-900; margin: 0; }
+  }
+  &__close {
+    border: none; background: none; font-size: 18px; color: $gray-500;
+    cursor: pointer; &:hover { color: $gray-800; }
+  }
+  &__body { max-height: 50vh; overflow-y: auto; }
+  &__footer {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding-top: 16px; border-top: 1px solid $gray-200; margin-top: 16px;
+  }
+}
+
+// ── 발송 대상 탭 ──
+.send-target {
+  margin-top: 16px; background: $white;
+  border-radius: $border-radius-lg; box-shadow: $shadow-sm; overflow: hidden;
+
+  &__tabs {
+    display: flex; border-bottom: 2px solid $gray-200;
+  }
+  &__tab {
+    flex: 1; padding: 10px 16px; border: none; background: none;
+    font-size: $font-sm; font-weight: 500; color: $gray-500; cursor: pointer;
+    border-bottom: 2px solid transparent; margin-bottom: -2px;
+    &:hover { color: $gray-700; }
+    &--active { color: $brand-brown; border-bottom-color: $brand-brown; font-weight: 600; }
+  }
+
+  &__toolbar {
+    display: flex; gap: 8px; padding: 12px 16px; align-items: center;
+  }
+  &__search {
+    flex: 1; padding: 7px 12px; border: 1px solid $gray-300;
+    border-radius: $border-radius-md; font-size: $font-sm;
+    &:focus { outline: none; border-color: $brand-brown; }
+  }
+  &__sort {
+    padding: 7px 12px; border: 1px solid $gray-300;
+    border-radius: $border-radius-md; font-size: $font-sm;
+  }
+  &__footer {
+    padding: 8px 16px; font-size: $font-xs; color: $gray-500;
+    text-align: right; border-top: 1px solid $gray-100;
+  }
+}
+
+// 모바일
+@media (max-width: $bp-mobile-max) {
+  .tmpl-accordion__columns { flex-direction: column; }
+  .var-modal { max-width: 100%; border-radius: 16px 16px 0 0; }
 }

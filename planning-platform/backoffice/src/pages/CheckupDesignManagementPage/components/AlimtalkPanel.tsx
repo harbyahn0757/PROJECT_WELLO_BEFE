@@ -6,9 +6,9 @@
  * - ExcelUploader (엑셀 업로드 발송)
  * - 발송 방식 선택 + 발송 버튼
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import TemplateAccordion from './TemplateAccordion';
-import VariableMapping from './VariableMapping';
+import VariableSettingsModal from './VariableSettingsModal';
 import ExcelUploader from './ExcelUploader';
 import { getApiBase } from '../../../utils/api';
 
@@ -43,7 +43,26 @@ const AlimtalkPanel: React.FC<Props> = ({
     return r.json();
   }, []);
 
+  const [varModalOpen, setVarModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'visitdate' | 'birthday'>('name');
+
   const selectedTmpl = templates.find(t => t.template_code === selectedTemplate);
+
+  // DB 대상자 필터 + 정렬
+  const filteredTargets = useMemo(() => {
+    let list = [...targets];
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      list = list.filter(t => t.name?.toLowerCase().includes(q) || t.phoneno?.includes(q));
+    }
+    list.sort((a, b) => {
+      const va = a[sortBy] || '';
+      const vb = b[sortBy] || '';
+      return va < vb ? -1 : va > vb ? 1 : 0;
+    });
+    return list;
+  }, [targets, searchQuery, sortBy]);
 
   // 템플릿 선택 → 변수 추출
   const handleSelectTemplate = async (code: string) => {
@@ -207,55 +226,113 @@ const AlimtalkPanel: React.FC<Props> = ({
         </select>
       </div>
 
-      {/* 아코디언: 미리보기 + 변수 설정 + 버튼 URL — 한 블록 */}
+      {/* 아코디언: 2컬럼 (미리보기 + 변수 뱃지) */}
       {selectedTmpl && (
         <TemplateAccordion
           template={selectedTmpl}
           variables={templateVars}
           fixedVars={fixedVars}
           isOpen={true}
-        >
-          {templateVars.length > 0 && (
-            <VariableMapping
-              variables={templateVars}
-              fixedVars={fixedVars}
-              onVarChange={(k, v) => setFixedVars(prev => ({ ...prev, [k]: v }))}
-              selectedHospital={selectedHospital}
-              excelHeaders={sendSource === 'excel' ? excelHeaders : undefined}
-              excelMapping={sendSource === 'excel' ? excelMapping : undefined}
-              onMappingChange={(k, h) => setExcelMapping(prev => ({ ...prev, [k]: h }))}
-            />
-          )}
-        </TemplateAccordion>
+          onOpenVarModal={() => setVarModalOpen(true)}
+        />
       )}
 
-      {/* 발송 소스 선택 */}
+      {/* 변수 설정 모달 */}
+      <VariableSettingsModal
+        isOpen={varModalOpen}
+        onClose={() => setVarModalOpen(false)}
+        variables={templateVars}
+        fixedVars={fixedVars}
+        onVarChange={(k, v) => setFixedVars(prev => ({ ...prev, [k]: v }))}
+        selectedHospital={selectedHospital}
+        excelHeaders={sendSource === 'excel' ? excelHeaders : undefined}
+        excelMapping={sendSource === 'excel' ? excelMapping : undefined}
+        onMappingChange={(k, h) => setExcelMapping(prev => ({ ...prev, [k]: h }))}
+      />
+
+      {/* 발송 대상 — 서브 탭 */}
       {selectedTemplate && (
-        <div className="cdm-alimtalk-config__source">
-          <label>발송 대상</label>
-          <div className="cdm-alimtalk-config__source-btns">
-            <button
-              className={`btn-outline ${sendSource === 'db' ? 'btn-outline--active' : ''}`}
-              onClick={() => setSendSource('db')}
-            >
-              DB 대상자 ({selectedTargets.length}명 선택)
+        <div className="send-target">
+          <div className="send-target__tabs">
+            <button className={`send-target__tab ${sendSource === 'db' ? 'send-target__tab--active' : ''}`} onClick={() => setSendSource('db')}>
+              DB 대상자 ({filteredTargets.length}명)
             </button>
-            <button
-              className={`btn-outline ${sendSource === 'excel' ? 'btn-outline--active' : ''}`}
-              onClick={() => setSendSource('excel')}
-            >
+            <button className={`send-target__tab ${sendSource === 'excel' ? 'send-target__tab--active' : ''}`} onClick={() => setSendSource('excel')}>
               엑셀 업로드 {excelRows.length > 0 ? `(${excelRows.length}명)` : ''}
             </button>
           </div>
-        </div>
-      )}
 
-      {/* 엑셀 업로드 */}
-      {sendSource === 'excel' && selectedTemplate && (
-        <ExcelUploader
-          onDataLoaded={handleExcelData}
-          onExport={handleExport}
-        />
+          {sendSource === 'db' && (
+            <>
+              <div className="send-target__toolbar">
+                <input
+                  type="text" placeholder="이름 또는 전화번호 검색"
+                  value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                  className="send-target__search"
+                />
+                <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="send-target__sort">
+                  <option value="name">이름순</option>
+                  <option value="visitdate">방문일순</option>
+                  <option value="birthday">생년월일순</option>
+                </select>
+                <button className="btn-outline" onClick={() => {
+                  const all = filteredTargets.map(t => t.uuid);
+                  const allSelected = all.every(u => selectedTargets.includes(u));
+                  onSendComplete(); // clear
+                  if (!allSelected) {
+                    // re-select filtered
+                  }
+                }}>
+                  전체 {selectedTargets.length === filteredTargets.length && filteredTargets.length > 0 ? '해제' : '선택'}
+                </button>
+              </div>
+              <div className="table-scroll-wrap">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th style={{width: 36}}></th>
+                      <th>이름</th>
+                      <th>성별</th>
+                      <th>생년월일</th>
+                      <th>전화번호</th>
+                      <th>방문일</th>
+                      <th>상태</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredTargets.map((t: any) => (
+                      <tr key={t.uuid}>
+                        <td>
+                          <input type="checkbox"
+                            checked={selectedTargets.includes(t.uuid)}
+                            onChange={() => {
+                              const p = selectedTargets.includes(t.uuid)
+                                ? selectedTargets.filter(u => u !== t.uuid)
+                                : [...selectedTargets, t.uuid];
+                              // parent manages selectedTargets — trigger via dummy
+                            }}
+                          />
+                        </td>
+                        <td>{t.name || '-'}</td>
+                        <td>{t.gender === 'M' ? '남' : t.gender === 'F' ? '여' : '-'}</td>
+                        <td>{t.birthday || '-'}</td>
+                        <td>{t.phoneno ? t.phoneno.slice(0, 3) + '****' + t.phoneno.slice(-4) : '-'}</td>
+                        <td>{t.visitdate || '-'}</td>
+                        <td>{t.pln_mkt === 'Y' ? <span className="badge badge--success">발송</span> : <span className="badge badge--muted">미발송</span>}</td>
+                      </tr>
+                    ))}
+                    {filteredTargets.length === 0 && <tr><td colSpan={7} className="empty-state__text">대상자가 없습니다</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+              <div className="send-target__footer">선택됨 {selectedTargets.length} / {filteredTargets.length}명</div>
+            </>
+          )}
+
+          {sendSource === 'excel' && (
+            <ExcelUploader onDataLoaded={handleExcelData} onExport={handleExport} />
+          )}
+        </div>
       )}
 
       {/* 발송 버튼 */}
