@@ -1,15 +1,14 @@
 /**
  * 백오피스 — 검진설계 관리 페이지
- * 3탭: 페르소나 분석 | 트리거 관리 | 캠페인 관리
- * 레이아웃: revisit-page 패턴 (공통 tabs, data-table, kpi-card)
+ * 2탭: 캠페인 관리 | 페르소나 분석
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getApiBase } from '../../utils/api';
 import { useEmbedParams } from '../../hooks/useEmbedParams';
 import './styles.scss';
 
-type TabKey = 'persona' | 'trigger' | 'campaign';
+type TabKey = 'campaign' | 'persona';
 
 const API = getApiBase();
 
@@ -29,17 +28,33 @@ const CheckupDesignManagementPage: React.FC = () => {
   const [personaFilter, setPersonaFilter] = useState('');
   const [page, setPage] = useState(1);
 
-  // ── 트리거 ──
-  const [triggerEnabled, setTriggerEnabled] = useState(false);
-  const [triggerLogs, setTriggerLogs] = useState<any[]>([]);
-  const [manualUuid, setManualUuid] = useState('');
-
   // ── 캠페인 ──
   const [targets, setTargets] = useState<any[]>([]);
   const [totalTargets, setTotalTargets] = useState(0);
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [hospitals, setHospitals] = useState<any[]>([]);
   const [selectedHospital, setSelectedHospital] = useState('');
+  const [hospitalSearch, setHospitalSearch] = useState('');
+  const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
+  const hospitalRef = useRef<HTMLDivElement>(null);
+
+  // 병원 검색 필터
+  const filteredHospitals = useMemo(() => {
+    if (!hospitalSearch.trim()) return hospitals;
+    const q = hospitalSearch.trim().toLowerCase();
+    return hospitals.filter((h: any) => h.hosnm?.toLowerCase().includes(q));
+  }, [hospitals, hospitalSearch]);
+
+  // 드롭다운 외부 클릭 닫기
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (hospitalRef.current && !hospitalRef.current.contains(e.target as Node)) {
+        setShowHospitalDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   // ── API ──
   const api = useCallback(async (path: string, body?: any) => {
@@ -64,20 +79,13 @@ const CheckupDesignManagementPage: React.FC = () => {
         ]);
         if (summary.success) setDistribution(summary.distribution || []);
         if (list.success) { setPatients(list.patients || []); setTotalPatients(list.total || 0); }
-      } else if (tab === 'trigger') {
-        const [cfg, hist] = await Promise.all([
-          api(`/trigger/config/${partnerId || 'welno'}`),
-          api('/trigger/history', { ...filters, limit: 50 }),
-        ]);
-        if (cfg.success) setTriggerEnabled(cfg.config?.auto_planning?.enabled || false);
-        if (hist.success) setTriggerLogs(hist.logs || []);
       } else {
         // 병원 목록 로드 (최초 1회)
         if (hospitals.length === 0) {
           const h = await fetch(`${API}/partner-office/checkup-design/campaign/hospitals`).then(r => r.json());
           if (h.success) setHospitals(h.hospitals || []);
         }
-        // 대상 조회 (병원 선택 필수)
+        // 대상 조회
         if (selectedHospital) {
           const data = await api('/checkup-design/campaign/targets', {
             hosnm: selectedHospital, limit: 100,
@@ -93,22 +101,12 @@ const CheckupDesignManagementPage: React.FC = () => {
 
   useEffect(() => { load(activeTab); }, [activeTab, load]);
 
-  // ── 트리거 토글 ──
-  const toggleTrigger = async () => {
-    await fetch(`${API}/partner-office/trigger/config/${partnerId || 'welno'}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: !triggerEnabled }),
-    });
-    setTriggerEnabled(!triggerEnabled);
-  };
-
-  // ── 수동 트리거 ──
-  const fireTrigger = async () => {
-    if (!manualUuid.trim()) return;
-    await api('/trigger/manual', { patient_uuid: manualUuid.trim(), hospital_id: hospitalId || 'PEERNINE', partner_id: partnerId || 'welno' });
-    alert(`${manualUuid} 트리거 실행 예약됨`);
-    setManualUuid('');
-    load('trigger');
+  // ── 병원 선택 ──
+  const selectHospital = (hosnm: string) => {
+    setSelectedHospital(hosnm);
+    setHospitalSearch(hosnm);
+    setShowHospitalDropdown(false);
+    setSelectedTargets([]);
   };
 
   // ── 캠페인 발송 ──
@@ -140,7 +138,7 @@ const CheckupDesignManagementPage: React.FC = () => {
 
       {/* 탭 */}
       <div className="tabs">
-        {([['campaign', '캠페인 관리'], ['persona', '페르소나 분석'], ['trigger', '트리거 관리']] as [TabKey, string][]).map(([key, label]) => (
+        {([['campaign', '캠페인 관리'], ['persona', '페르소나 분석']] as [TabKey, string][]).map(([key, label]) => (
           <button key={key} className={`tabs__item ${activeTab === key ? 'active' : ''}`} onClick={() => setActiveTab(key)}>
             {label}
           </button>
@@ -152,17 +150,37 @@ const CheckupDesignManagementPage: React.FC = () => {
       {/* ── 캠페인 관리 ── */}
       {activeTab === 'campaign' && !loading && (
         <div className="cdm-section">
-          {/* 병원 선택 */}
-          <div className="cdm-hospital-select">
-            <label>병원 선택</label>
-            <select value={selectedHospital} onChange={e => { setSelectedHospital(e.target.value); setSelectedTargets([]); }}>
-              <option value="">-- 병원을 선택하세요 ({hospitals.length}개) --</option>
-              {hospitals.map((h: any) => (
-                <option key={h.hosnm} value={h.hosnm}>
-                  {h.hosnm} ({h.mkt_consent}명 동의 / {h.pln_sent}명 발송완료)
-                </option>
-              ))}
-            </select>
+          {/* 병원 검색 드롭다운 */}
+          <div className="cdm-hospital-select" ref={hospitalRef}>
+            <label>병원</label>
+            <div className="cdm-hospital-search">
+              <input
+                type="text"
+                placeholder={`병원명 검색 (${hospitals.length}개)`}
+                value={hospitalSearch}
+                onChange={e => { setHospitalSearch(e.target.value); setShowHospitalDropdown(true); }}
+                onFocus={() => setShowHospitalDropdown(true)}
+              />
+              {selectedHospital && (
+                <button className="cdm-hospital-search__clear" onClick={() => { setSelectedHospital(''); setHospitalSearch(''); setSelectedTargets([]); }}>✕</button>
+              )}
+              {showHospitalDropdown && (
+                <div className="cdm-hospital-dropdown">
+                  {filteredHospitals.length === 0 && <div className="cdm-hospital-dropdown__empty">검색 결과 없음</div>}
+                  {filteredHospitals.slice(0, 50).map((h: any) => (
+                    <div
+                      key={h.hosnm}
+                      className={`cdm-hospital-dropdown__item ${selectedHospital === h.hosnm ? 'cdm-hospital-dropdown__item--active' : ''}`}
+                      onClick={() => selectHospital(h.hosnm)}
+                    >
+                      <span className="cdm-hospital-dropdown__name">{h.hosnm}</span>
+                      <span className="cdm-hospital-dropdown__count">{h.mkt_consent}명 동의 / {h.pln_sent}명 발송</span>
+                    </div>
+                  ))}
+                  {filteredHospitals.length > 50 && <div className="cdm-hospital-dropdown__more">+{filteredHospitals.length - 50}개 더...</div>}
+                </div>
+              )}
+            </div>
           </div>
 
           {selectedHospital && (
@@ -218,8 +236,8 @@ const CheckupDesignManagementPage: React.FC = () => {
             </>
           )}
 
-          {!selectedHospital && hospitals.length > 0 && (
-            <p className="empty-state__text" style={{textAlign:'center', padding:'40px 0'}}>위에서 병원을 선택하면 캠페인 대상이 표시됩니다</p>
+          {!selectedHospital && hospitals.length > 0 && !showHospitalDropdown && (
+            <p className="empty-state__text" style={{textAlign:'center', padding:'40px 0'}}>병원을 검색하여 선택하면 캠페인 대상이 표시됩니다</p>
           )}
         </div>
       )}
@@ -280,40 +298,6 @@ const CheckupDesignManagementPage: React.FC = () => {
               </div>
             </>
           )}
-        </div>
-      )}
-
-      {/* ── 트리거 관리 ── */}
-      {activeTab === 'trigger' && !loading && (
-        <div className="cdm-section">
-          <div className="cdm-trigger-toggle">
-            <label><input type="checkbox" checked={triggerEnabled} onChange={toggleTrigger} /> 데이터 수신 시 자동 Step1 실행</label>
-            <span className={`badge ${triggerEnabled ? 'badge--success' : 'badge--muted'}`}>{triggerEnabled ? 'ON' : 'OFF'}</span>
-          </div>
-
-          <h3 className="cdm-subtitle">수동 트리거</h3>
-          <div className="cdm-manual-trigger">
-            <input type="text" placeholder="환자 UUID 입력" value={manualUuid} onChange={e => setManualUuid(e.target.value)} className="input" />
-            <button className="btn-primary" onClick={fireTrigger}>실행</button>
-          </div>
-
-          <h3 className="cdm-subtitle">실행 이력</h3>
-          <div className="table-scroll-wrap">
-            <table className="data-table">
-              <thead><tr><th>UUID</th><th>소스</th><th>상태</th><th>시각</th></tr></thead>
-              <tbody>
-                {triggerLogs.map((log: any) => (
-                  <tr key={log.id}>
-                    <td>{log.patient_uuid?.slice(0, 16)}...</td>
-                    <td>{log.trigger_source}</td>
-                    <td><span className={`badge badge--${log.status === 'success' ? 'success' : log.status === 'failed' ? 'danger' : 'muted'}`}>{log.status}</span></td>
-                    <td>{log.created_at ? new Date(log.created_at).toLocaleString('ko-KR') : '-'}</td>
-                  </tr>
-                ))}
-                {triggerLogs.length === 0 && <tr><td colSpan={4} className="empty-state__text">실행 이력이 없습니다</td></tr>}
-              </tbody>
-            </table>
-          </div>
         </div>
       )}
     </div>

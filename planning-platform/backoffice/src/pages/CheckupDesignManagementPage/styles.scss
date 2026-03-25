@@ -91,14 +91,69 @@
   box-shadow: $shadow-sm;
 
   label { font-size: $font-sm; font-weight: 600; color: $gray-700; white-space: nowrap; }
-  select {
-    flex: 1;
-    padding: 8px 12px;
+}
+
+.cdm-hospital-search {
+  flex: 1;
+  position: relative;
+
+  input {
+    width: 100%;
+    padding: 8px 36px 8px 12px;
     border: 1px solid $gray-300;
     border-radius: $border-radius-md;
     font-size: $font-sm;
     color: $gray-800;
-    background: $white;
+    box-sizing: border-box;
+    &:focus { outline: none; border-color: $brand-brown; }
+  }
+
+  &__clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: none;
+    background: none;
+    color: $gray-500;
+    cursor: pointer;
+    font-size: $font-sm;
+    padding: 4px;
+    &:hover { color: $gray-800; }
+  }
+}
+
+.cdm-hospital-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 300px;
+  overflow-y: auto;
+  background: $white;
+  border: 1px solid $gray-300;
+  border-top: none;
+  border-radius: 0 0 $border-radius-md $border-radius-md;
+  box-shadow: $shadow-md;
+  z-index: 100;
+
+  &__item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid $gray-100;
+    &:hover { background: $gray-50; }
+    &--active { background: $beige-cream; }
+  }
+  &__name { font-size: $font-sm; color: $gray-800; }
+  &__count { font-size: $font-xs; color: $gray-500; white-space: nowrap; }
+  &__empty, &__more {
+    padding: 12px;
+    text-align: center;
+    font-size: $font-xs;
+    color: $gray-500;
   }
 }
 
