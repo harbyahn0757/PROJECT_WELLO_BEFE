@@ -274,23 +274,72 @@
 }
 
 .cdm-alimtalk-config {
-  background: #fff;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  background: $white;
+  border-radius: $border-radius-lg;
+  padding: 20px;
+  box-shadow: $shadow-sm;
   margin-bottom: 16px;
+  border-left: 4px solid $accent-orange;
+
+  &__header {
+    font-size: $font-md;
+    font-weight: 600;
+    color: $gray-800;
+    margin: 0 0 16px;
+  }
 
   &__row {
     display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
-    label { font-size: 13px; font-weight: 600; min-width: 100px; }
-    select { flex: 1; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; }
+    label { font-size: $font-sm; font-weight: 600; min-width: 100px; color: $gray-700; }
+    select {
+      flex: 1; padding: 8px 12px; border: 1px solid $gray-300;
+      border-radius: $border-radius-md; font-size: $font-sm; color: $gray-800;
+      &:focus { outline: none; border-color: $brand-brown; }
+    }
   }
-  &__vars { margin: 12px 0;
-    h4 { font-size: 13px; margin: 0 0 8px; font-weight: 600; }
+
+  &__preview {
+    background: $gray-50; border: 1px solid $gray-300;
+    border-radius: $border-radius-md; padding: 16px; margin: 12px 0;
+    &-label { font-size: $font-xs; font-weight: 600; color: $gray-600; margin-bottom: 8px; display: block; }
+    pre {
+      font-size: $font-xs; white-space: pre-wrap; word-break: break-all;
+      margin: 0; color: $gray-800; line-height: 1.6; max-height: 200px; overflow-y: auto;
+    }
+    &-buttons {
+      margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    &-btn {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 16px; font-size: $font-xs;
+      background: $beige-cream; color: $brand-brown-darker; border: 1px solid $beige-200;
+      &__type { font-weight: 600; }
+    }
+  }
+
+  &__vars {
+    margin: 16px 0;
+    h4 { font-size: $font-sm; margin: 0 0 10px; font-weight: 600; color: $gray-800; }
   }
   &__var-row {
     display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
-    label { font-size: 12px; min-width: 80px; color: #6b7280; font-family: monospace; }
-    input { flex: 1; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; }
+    label {
+      font-size: $font-xs; min-width: 100px; color: $brand-brown;
+      font-family: 'SF Mono', monospace; font-weight: 500;
+    }
+    input {
+      flex: 1; padding: 7px 10px; border: 1px solid $gray-300;
+      border-radius: $border-radius-md; font-size: $font-sm; color: $gray-800;
+      &:focus { outline: none; border-color: $brand-brown; }
+    }
+  }
+
+  .btn-alimtalk {
+    margin-top: 16px; width: 100%; padding: 10px 16px;
+    background: $accent-orange; color: $white; border: none;
+    border-radius: $border-radius-md; font-size: $font-sm; font-weight: 600;
+    cursor: pointer; transition: background 0.15s;
+    &:hover { background: $accent-orange-dark; }
+    &:disabled { opacity: 0.4; cursor: default; }
   }
 }

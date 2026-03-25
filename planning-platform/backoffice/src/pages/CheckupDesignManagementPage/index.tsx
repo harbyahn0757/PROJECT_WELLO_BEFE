@@ -273,25 +273,62 @@ const CheckupDesignManagementPage: React.FC = () => {
 
               {/* 알림톡 발송 설정 */}
               <div className="cdm-alimtalk-config">
+                <h3 className="cdm-alimtalk-config__header">알림톡 발송</h3>
                 <div className="cdm-alimtalk-config__row">
-                  <label>알림톡 템플릿</label>
+                  <label>템플릿</label>
                   <select value={selectedTemplate} onChange={e => selectTemplate(e.target.value)}>
                     <option value="">템플릿 선택...</option>
-                    {templates.map(t => <option key={t.template_code} value={t.template_code}>{t.template_name}</option>)}
+                    {templates.map(t => (
+                      <option key={t.template_code} value={t.template_code}>
+                        {t.template_name} ({t.message_type})
+                      </option>
+                    ))}
                   </select>
                 </div>
+
+                {selectedTemplate && templateContent && (
+                  <div className="cdm-alimtalk-config__preview">
+                    <span className="cdm-alimtalk-config__preview-label">
+                      미리보기 — {selectedTemplate}
+                    </span>
+                    <pre>{(() => {
+                      let text = templateContent;
+                      Object.entries(fixedVars).forEach(([k, v]) => {
+                        if (v) text = text.replace(new RegExp(`#\\{${k}\\}`, 'g'), v);
+                      });
+                      return text;
+                    })()}</pre>
+                    {(() => {
+                      const tmpl = templates.find(t => t.template_code === selectedTemplate);
+                      const btns = tmpl?.button_config?.buttons || [];
+                      if (!btns.length) return null;
+                      return (
+                        <div className="cdm-alimtalk-config__preview-buttons">
+                          {btns.map((b: any, i: number) => (
+                            <span key={i} className="cdm-alimtalk-config__preview-btn">
+                              <span className="cdm-alimtalk-config__preview-btn__type">[{b.type}]</span>
+                              {b.name}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
                 {templateVars.length > 0 && (
                   <div className="cdm-alimtalk-config__vars">
                     <h4>변수 설정 ({templateVars.length}개)</h4>
                     {templateVars.map(v => (
                       <div key={v} className="cdm-alimtalk-config__var-row">
                         <label>{'#{'}{v}{'}'}</label>
-                        <input type="text" placeholder={`${v} 입력`} value={fixedVars[v] || ''} onChange={e => setFixedVars(prev => ({...prev, [v]: e.target.value}))} />
+                        <input type="text" placeholder={`${v} 값 입력`} value={fixedVars[v] || ''} onChange={e => setFixedVars(prev => ({...prev, [v]: e.target.value}))} />
                       </div>
                     ))}
                   </div>
                 )}
-                <button className="btn-primary" onClick={sendAlimtalk} disabled={!selectedTargets.length || !selectedTemplate || alimtalkSending}>
+
+                <button className="btn-alimtalk" onClick={sendAlimtalk} disabled={!selectedTargets.length || !selectedTemplate || alimtalkSending}>
                   {alimtalkSending ? '발송 중...' : `알림톡 발송 (${selectedTargets.length}명)`}
                 </button>
               </div>
