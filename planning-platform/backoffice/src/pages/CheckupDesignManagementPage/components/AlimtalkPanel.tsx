@@ -207,30 +207,26 @@ const AlimtalkPanel: React.FC<Props> = ({
         </select>
       </div>
 
-      {/* 아코디언 미리보기 */}
+      {/* 아코디언: 미리보기 + 변수 설정 + 버튼 URL — 한 블록 */}
       {selectedTmpl && (
         <TemplateAccordion
           template={selectedTmpl}
           variables={templateVars}
           fixedVars={fixedVars}
           isOpen={true}
-        />
-      )}
-
-      {/* 변수 매핑 */}
-      {templateVars.length > 0 && (
-        <VariableMapping
-          variables={templateVars}
-          fixedVars={fixedVars}
-          onVarChange={(k, v) => setFixedVars(prev => ({ ...prev, [k]: v }))}
-          selectedHospital={selectedHospital}
-          excelHeaders={sendSource === 'excel' ? excelHeaders : undefined}
-          excelMapping={sendSource === 'excel' ? excelMapping : undefined}
-          onMappingChange={(k, h) => setExcelMapping(prev => ({ ...prev, [k]: h }))}
-          buttonUrls={selectedTmpl?.button_config?.buttons
-            ?.filter((b: any) => b.url_mobile)
-            .map((b: any) => b.url_mobile) || []}
-        />
+        >
+          {templateVars.length > 0 && (
+            <VariableMapping
+              variables={templateVars}
+              fixedVars={fixedVars}
+              onVarChange={(k, v) => setFixedVars(prev => ({ ...prev, [k]: v }))}
+              selectedHospital={selectedHospital}
+              excelHeaders={sendSource === 'excel' ? excelHeaders : undefined}
+              excelMapping={sendSource === 'excel' ? excelMapping : undefined}
+              onMappingChange={(k, h) => setExcelMapping(prev => ({ ...prev, [k]: h }))}
+            />
+          )}
+        </TemplateAccordion>
       )}
 
       {/* 발송 소스 선택 */}
