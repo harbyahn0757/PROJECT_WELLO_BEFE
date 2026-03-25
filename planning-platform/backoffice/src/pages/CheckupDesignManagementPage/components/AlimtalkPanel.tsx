@@ -90,28 +90,56 @@ const AlimtalkPanel: React.FC<Props> = ({
   };
 
   // 발송 실행
+  // 자동 채움 변수 (대상자별 동적)
+  const AUTO_VARS: Record<string, { label: string; field: string }> = {
+    '고객명': { label: '대상자 이름', field: 'name' },
+    '신청일자': { label: '등록일(regdate)', field: 'regdate' },
+  };
+
+  // 빈변수 검증
+  const getEmptyVars = () => {
+    return templateVars.filter(v => {
+      if (AUTO_VARS[v]) return false; // 자동 채움 → OK
+      if (v === '병원명' && selectedHospital) return false; // 병원 자동
+      if (['wello_uuid', 'sub', 'URL'].includes(v)) return false; // 시스템 자동
+      return !fixedVars[v]; // 고정값 없으면 빈값
+    });
+  };
+
   const handleSend = async () => {
     if (!selectedTemplate) return alert('템플릿을 선택해주세요');
+
+    const emptyVars = getEmptyVars();
+    if (emptyVars.length > 0) {
+      return alert(`다음 변수의 값을 입력해주세요:\n${emptyVars.map(v => `#{${v}}`).join(', ')}`);
+    }
 
     let recipients: any[] = [];
 
     if (sendSource === 'db') {
-      // DB 대상자 발송
       if (!selectedTargets.length) return alert('발송 대상을 선택해주세요');
       const selected = targets.filter(t => selectedTargets.includes(t.uuid));
       const tmpl = selectedTmpl;
       const attachment = tmpl?.button_config ? JSON.stringify(tmpl.button_config) : '';
 
-      recipients = selected.map(t => ({
-        phone: t.phoneno || '',
-        hospital_id: '',
-        variables: { ...fixedVars, '고객명': t.name || '' },
-        message: {
-          template_code: selectedTemplate,
-          content: tmpl?.template_content || '',
-          attachment,
-        },
-      }));
+      recipients = selected.map(t => {
+        const vars: Record<string, string> = {
+          ...fixedVars,
+          '고객명': t.name || '',
+          '병원명': selectedHospital || fixedVars['병원명'] || '',
+          '신청일자': t.regdate || fixedVars['신청일자'] || new Date().toISOString().slice(0, 10),
+        };
+        return {
+          phone: t.phoneno || '',
+          hospital_id: '',
+          variables: vars,
+          message: {
+            template_code: selectedTemplate,
+            content: tmpl?.template_content || '',
+            attachment,
+          },
+        };
+      });
     } else {
       // 엑셀 발송
       if (!excelRows.length) return alert('엑셀 파일을 업로드해주세요');
@@ -195,9 +223,13 @@ const AlimtalkPanel: React.FC<Props> = ({
           variables={templateVars}
           fixedVars={fixedVars}
           onVarChange={(k, v) => setFixedVars(prev => ({ ...prev, [k]: v }))}
+          selectedHospital={selectedHospital}
           excelHeaders={sendSource === 'excel' ? excelHeaders : undefined}
           excelMapping={sendSource === 'excel' ? excelMapping : undefined}
           onMappingChange={(k, h) => setExcelMapping(prev => ({ ...prev, [k]: h }))}
+          buttonUrls={selectedTmpl?.button_config?.buttons
+            ?.filter((b: any) => b.url_mobile)
+            .map((b: any) => b.url_mobile) || []}
         />
       )}
 

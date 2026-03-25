@@ -78,15 +78,38 @@
       padding: 6px 8px; border-bottom: 1px solid $gray-200; }
     td { padding: 6px 8px; border-bottom: 1px solid $gray-100; vertical-align: middle; }
   }
-  &__name { font-family: 'SF Mono', monospace; font-size: $font-xs; color: $brand-brown; font-weight: 500; }
+  &__name {
+    font-family: 'SF Mono', monospace; font-size: $font-xs; color: $brand-brown; font-weight: 500;
+    display: flex; align-items: center; gap: 6px;
+  }
+  &__required { font-size: 10px; padding: 1px 5px; background: #fee2e2; color: #991b1b; border-radius: 8px; font-family: sans-serif; }
+  &__badge {
+    padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 500; white-space: nowrap;
+    &--system { background: #dbeafe; color: #1e40af; }
+    &--auto { background: #d1fae5; color: #065f46; }
+    &--table { background: #fef3c7; color: #92400e; }
+    &--fixed { background: $gray-100; color: $gray-600; }
+  }
+  &__system-desc { font-size: 11px; color: #0369a1; font-style: italic; }
+  &__auto-desc { font-size: 11px; color: #059669; font-style: italic; }
+  &__row--empty td { background: #fef2f2; }
+  &__input--empty { border-color: $error !important; }
   &__source {
     select { padding: 4px 8px; border: 1px solid $gray-300; border-radius: 4px; font-size: $font-xs; }
-    &-badge { padding: 2px 8px; background: $gray-100; border-radius: 10px; font-size: 11px; color: $gray-600; }
   }
   &__value {
     input { width: 100%; padding: 6px 10px; border: 1px solid $gray-300; border-radius: $border-radius-md;
-      font-size: $font-sm; &:focus { outline: none; border-color: $brand-brown; } }
+      font-size: $font-sm; &:focus { outline: none; border-color: $brand-brown; }
+      &:disabled { background: $gray-50; color: $gray-500; } }
     select { width: 100%; padding: 6px 10px; border: 1px solid $gray-300; border-radius: $border-radius-md; font-size: $font-sm; }
+  }
+  &__url-preview {
+    margin-top: 12px; padding: 12px; background: $gray-50; border-radius: $border-radius-md;
+    h4 { font-size: $font-xs; font-weight: 600; color: $gray-600; margin: 0 0 8px; }
+  }
+  &__url-item {
+    margin-bottom: 4px;
+    code { font-size: 11px; color: $gray-700; word-break: break-all; }
   }
 }
 

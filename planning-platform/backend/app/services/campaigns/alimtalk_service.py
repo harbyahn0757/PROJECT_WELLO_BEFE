@@ -258,13 +258,17 @@ async def _send_one(
     # sender_key
     sender_key = tmpl_info.get('sender_key') or SENDER_KEY_XOG
 
-    # hospital_id — 다중 fallback
+    # hospital_id — 다중 fallback + hosnm 매핑
     hospital_id = (
         campaign.get('client_id')
         or recipient.get('hospital_id')
         or variables.get('hospital_id')
         or ''
     )
+    if not hospital_id:
+        hosnm = variables.get('병원명', '')
+        if hosnm:
+            hospital_id = await _resolve_hospital_id(db_manager, hosnm) or '*'
 
     # ── BE 통합 변수 치환 (FE는 원문 + variables만 전달) ──
     if content and variables:
@@ -322,6 +326,39 @@ async def _send_one(
     except Exception as e:
         logger.error(f"MZSENDTRAN INSERT 실패 ({phone}): {e}")
         return {'phone': phone, 'success': False, 'error': str(e)}
+
+
+async def _resolve_hospital_id(db_manager, hosnm: str) -> Optional[str]:
+    """hosnm(병원이름) → hospital_id 매핑"""
+    if not hosnm:
+        return None
+    try:
+        # 1. 정확 매칭
+        rows = await db_manager.execute_query(
+            """SELECT hospital_id FROM welno.welno_hospitals
+               WHERE hospital_name = %s AND is_active = true LIMIT 1""",
+            (hosnm,),
+        )
+        if rows:
+            return rows[0]['hospital_id']
+
+        # 2. 괄호 접두사 제거 후 부분 매칭 (예: "(서울)메디링스병원" → "메디링스병원")
+        import re as _re
+        clean = _re.sub(r'^\([^)]+\)', '', hosnm).strip()
+        if clean and clean != hosnm:
+            rows = await db_manager.execute_query(
+                """SELECT hospital_id FROM welno.welno_hospitals
+                   WHERE hospital_name LIKE %s AND is_active = true LIMIT 1""",
+                (f"%{clean}%",),
+            )
+            if rows:
+                return rows[0]['hospital_id']
+
+        # 3. 기본값
+        return '*'
+    except Exception as e:
+        logger.warning(f"hospital_id 매핑 실패 ({hosnm}): {e}")
+        return '*'
 
 
 async def _get_hospital_name(db_manager, hospital_id: str) -> str:
@@ -423,7 +460,9 @@ async def _substitute_attachment_urls(
     except (json.JSONDecodeError, TypeError):
         return attachment
 
-    buttons = att.get('button', [])
+    # DB는 'buttons', 카카오 API는 'button' — 둘 다 지원
+    btn_key = 'buttons' if 'buttons' in att else 'button'
+    buttons = att.get('buttons', att.get('button', []))
     if not buttons:
         return attachment
 
@@ -475,5 +514,10 @@ async def _substitute_attachment_urls(
                 if wello_url_full:
                     url = url.replace('#{URL}', wello_url_full)
                 btn[key] = url
+
+    # 카카오 API는 'button' 키 사용 — 통일
+    att['button'] = buttons
+    if 'buttons' in att and btn_key == 'buttons':
+        del att['buttons']
 
     return json.dumps(att, ensure_ascii=False)
