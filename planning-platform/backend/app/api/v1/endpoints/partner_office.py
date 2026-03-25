@@ -2263,3 +2263,95 @@ async def checkup_design_trigger_from_maria(req: MariaDesignTriggerRequest):
         "success": True,
         "message": f"{req.patient_uuid} 검진설계 트리거 실행 예약됨",
     }
+
+
+# ── 알림톡 캠페인 API (2026-03-25 포팅) ─────────────────────
+
+
+from ....services.campaigns import (
+    get_kakao_templates,
+    get_template_variables,
+    send_campaign_messages,
+    send_test_message,
+    get_alimtalk_history,
+    get_alimtalk_status,
+    save_order_log,
+)
+
+
+@router.get("/alimtalk/templates")
+async def alimtalk_templates():
+    """알림톡 템플릿 목록 조회"""
+    ok, data = await get_kakao_templates(db_manager)
+    if not ok:
+        raise HTTPException(status_code=500, detail=data)
+    return {"success": True, "templates": data}
+
+
+@router.get("/alimtalk/templates/{template_code}/variables")
+async def alimtalk_template_variables(template_code: str):
+    """템플릿 변수 목록 (#{변수명} 추출)"""
+    ok, data = await get_template_variables(db_manager, template_code)
+    if not ok:
+        raise HTTPException(status_code=404, detail=data)
+    return {"success": True, **data}
+
+
+class AlimtalkSendRequest(BaseModel):
+    campaign_id: str
+    recipients: list
+
+
+@router.post("/alimtalk/campaigns/{campaign_id}/send")
+async def alimtalk_campaign_send(campaign_id: str, req: AlimtalkSendRequest):
+    """캠페인 알림톡 발송 (MZSENDTRAN INSERT)"""
+    ok, data = await send_campaign_messages(
+        db_manager, campaign_id, req.recipients,
+    )
+    if not ok:
+        raise HTTPException(status_code=400, detail=data)
+
+    if data.get('success_count', 0) > 0:
+        await save_order_log(db_manager, campaign_id, data['success_count'])
+
+    return {"success": True, **data}
+
+
+class AlimtalkTestRequest(BaseModel):
+    phone: str
+    name: str = "테스트"
+    template_code: str
+    content: str
+    attachment: Optional[str] = None
+
+
+@router.post("/alimtalk/test-send")
+async def alimtalk_test_send(req: AlimtalkTestRequest):
+    """테스트 알림톡 발송"""
+    ok, sn_or_error = await send_test_message(
+        req.phone, req.name, req.template_code,
+        req.content, req.attachment,
+    )
+    if not ok:
+        raise HTTPException(status_code=500, detail=sn_or_error)
+    return {"success": True, "sn": sn_or_error, "message": "테스트 발송 완료"}
+
+
+@router.get("/alimtalk/history")
+async def alimtalk_history_list(
+    campaign_id: Optional[str] = None,
+    phone: Optional[str] = None,
+    limit: int = 50,
+):
+    """알림톡 발송 이력 조회"""
+    rows = await get_alimtalk_history(db_manager, campaign_id, phone, limit)
+    return {"success": True, "history": rows}
+
+
+@router.get("/alimtalk/status/{sn}")
+async def alimtalk_status_detail(sn: str):
+    """알림톡 개별 상태 조회"""
+    row = await get_alimtalk_status(sn)
+    if not row:
+        raise HTTPException(status_code=404, detail="발송 내역 없음")
+    return {"success": True, **row}
