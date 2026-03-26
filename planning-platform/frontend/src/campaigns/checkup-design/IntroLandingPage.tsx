@@ -1,9 +1,9 @@
 /**
- * 검진설계 캠페인 소개 랜딩 페이지
- * - 알림톡 링크의 검진 데이터 유무에 따른 분기
- * - 기존 데이터로 바로 설계 vs Tilko 다년간 정밀 설계
+ * 검진설계 캠페인 랜딩 페이지
+ * 알림톡 → 이 페이지 → 검진설계 시작
  */
 import React from 'react';
+import './landing.scss';
 
 interface CheckupDesignStatus {
   success: boolean;
@@ -21,13 +21,28 @@ interface Props {
   partnerId: string;
   hospitalId: string;
   status: CheckupDesignStatus | null;
-  healthData: any; // 알림톡 링크에서 복호화된 검진 데이터
+  healthData: any;
   onStartDesign: () => void;
-  onStartDesignWithData: (data: any) => void; // 기존 데이터로 바로 시작
+  onStartDesignWithData: (data: any) => void;
   onAuth: () => void;
-  onAuthMultiYear: () => void; // Tilko 다년간 데이터 수집 후 설계
+  onAuthMultiYear: () => void;
   onViewResult: () => void;
 }
+
+// 수치 상태 판정
+const getLevel = (type: string, val: number): 'normal' | 'warning' | 'danger' => {
+  if (type === 'bmi') return val < 23 ? 'normal' : val < 25 ? 'warning' : 'danger';
+  if (type === 'bphigh') return val < 120 ? 'normal' : val < 140 ? 'warning' : 'danger';
+  if (type === 'blds') return val < 100 ? 'normal' : val < 126 ? 'warning' : 'danger';
+  if (type === 'totchole') return val < 200 ? 'normal' : val < 240 ? 'warning' : 'danger';
+  return 'normal';
+};
+const statusLabel: Record<string, Record<string, string>> = {
+  bmi: { normal: '정상', warning: '과체중', danger: '비만' },
+  bphigh: { normal: '정상', warning: '경계', danger: '고혈압' },
+  blds: { normal: '정상', warning: '경계', danger: '고혈당' },
+  totchole: { normal: '정상', warning: '경계', danger: '주의' },
+};
 
 const IntroLandingPage: React.FC<Props> = ({
   uuid, partnerId, hospitalId, status, healthData,
@@ -37,156 +52,170 @@ const IntroLandingPage: React.FC<Props> = ({
   const hasDbData = status?.has_health_data;
   const hasAnyData = hasLinkData || hasDbData;
   const isProcessing = status?.action === 'show_processing';
+  const name = healthData?.name || '';
+  const hospitalName = healthData?.hosnm || '';
 
-  // 설계 완료 상태
+  // 결과 보기
   if (status?.action === 'show_result') {
     return (
-      <div style={pageStyle}>
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <h1 style={titleStyle}>AI 검진설계 결과</h1>
-          <p style={subtitleStyle}>검진설계가 완료되었습니다</p>
+      <div className="landing">
+        <div className="landing__hero">
+          <div className="landing__hero-inner">
+            {hospitalName && <div className="landing__hospital">{hospitalName}</div>}
+            <h1 className="landing__title">검진설계가<br />완료되었습니다</h1>
+            <p className="landing__subtitle">맞춤 검진 항목을 확인해보세요</p>
+          </div>
         </div>
-        <button onClick={onViewResult} style={primaryBtnStyle}>
-          내 검진설계 결과 보기
-        </button>
+        <div className="landing__cta">
+          <button className="landing__cta-primary" onClick={onViewResult}>
+            <span className="landing__cta-primary-text">내 검진설계 결과 보기</span>
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={pageStyle}>
-      <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-        <h1 style={titleStyle}>AI 맞춤 건강검진 설계</h1>
-        <p style={subtitleStyle}>
-          건강검진 데이터를 AI가 분석하여<br />
-          나에게 꼭 필요한 검진 항목을 추천합니다
-        </p>
+    <div className="landing">
+      {/* 히어로 */}
+      <div className="landing__hero">
+        <div className="landing__hero-inner">
+          {hospitalName && <div className="landing__hospital">{hospitalName} 검진설계</div>}
+          {name && <div className="landing__greeting">{name}님,</div>}
+          <h1 className="landing__title">
+            올해 검진,<br />
+            뭘 받아야 할지<br />
+            모르겠다면
+          </h1>
+          <p className="landing__subtitle">
+            검진 데이터를 분석해서<br />
+            꼭 필요한 항목만 알려드립니다
+          </p>
+        </div>
       </div>
 
-      {/* 혜택 리스트 */}
-      <div style={cardStyle}>
-        {[
-          { icon: '🔬', text: '3-Layer 페르소나 분석으로 맞춤 설계' },
-          { icon: '📊', text: '과거 검진 데이터 추이 기반 위험도 평가' },
-          { icon: '📚', text: '의학 근거 기반 검진항목 추천 (RAG)' },
-          { icon: '💊', text: '약물 복용 이력 반영 정밀 분석' },
-        ].map((item, i) => (
-          <div key={i} style={{
-            display: 'flex', alignItems: 'center', gap: '12px',
-            padding: '10px 0', borderBottom: i < 3 ? '1px solid #f3f4f6' : 'none',
-          }}>
-            <span style={{ fontSize: '20px' }}>{item.icon}</span>
-            <span style={{ fontSize: '14px', color: '#374151' }}>{item.text}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* ── 데이터 있음: 2가지 선택 ── */}
-      {hasAnyData && !isProcessing && (
-        <>
-          <div style={infoBannerStyle('#ecfdf5', '#a7f3d0', '#065f46')}>
-            ✅ 검진 데이터가 확인되었습니다. 설계 방식을 선택해주세요.
-          </div>
-
-          {/* 선택 1: 기존 데이터로 바로 설계 */}
-          <div
-            onClick={() => hasLinkData ? onStartDesignWithData(healthData) : onStartDesign()}
-            style={choiceCardStyle}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '28px' }}>⚡</span>
-              <div>
-                <div style={{ fontSize: '15px', fontWeight: 700, color: '#1e3a5f' }}>
-                  기존 데이터로 설계
+      {/* 건강 데이터 카드 */}
+      {hasLinkData && (
+        <div className="landing__health">
+          <div className="landing__health-title">최근 검진 결과 요약</div>
+          <div className="landing__health-grid">
+            {healthData.bmi && (() => {
+              const v = parseFloat(healthData.bmi);
+              const lv = getLevel('bmi', v);
+              return (
+                <div className="landing__health-item">
+                  <span className="landing__health-label">BMI</span>
+                  <span className={`landing__health-value landing__health-value--${lv}`}>{v.toFixed(1)}</span>
+                  <span className={`landing__health-status landing__health-status--${lv}`}>{statusLabel.bmi[lv]}</span>
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                  {status?.latest_year ? `${status.latest_year}년 검진 결과 기반` : '현재 보유 데이터 기반'}
-                  {' · 바로 시작 (약 1분)'}
+              );
+            })()}
+            {healthData.bphigh && (() => {
+              const v = parseFloat(healthData.bphigh);
+              const lv = getLevel('bphigh', v);
+              return (
+                <div className="landing__health-item">
+                  <span className="landing__health-label">혈압</span>
+                  <span className={`landing__health-value landing__health-value--${lv}`}>
+                    {healthData.bphigh}/{healthData.bplwst || '-'}
+                  </span>
+                  <span className={`landing__health-status landing__health-status--${lv}`}>{statusLabel.bphigh[lv]}</span>
                 </div>
-              </div>
-            </div>
+              );
+            })()}
+            {healthData.blds && (() => {
+              const v = parseFloat(healthData.blds);
+              const lv = getLevel('blds', v);
+              return (
+                <div className="landing__health-item">
+                  <span className="landing__health-label">혈당</span>
+                  <span className={`landing__health-value landing__health-value--${lv}`}>{healthData.blds}</span>
+                  <span className={`landing__health-status landing__health-status--${lv}`}>{statusLabel.blds[lv]}</span>
+                </div>
+              );
+            })()}
+            {healthData.totchole && (() => {
+              const v = parseFloat(healthData.totchole);
+              const lv = getLevel('totchole', v);
+              return (
+                <div className="landing__health-item">
+                  <span className="landing__health-label">콜레스테롤</span>
+                  <span className={`landing__health-value landing__health-value--${lv}`}>{healthData.totchole}</span>
+                  <span className={`landing__health-status landing__health-status--${lv}`}>{statusLabel.totchole[lv]}</span>
+                </div>
+              );
+            })()}
           </div>
-
-          {/* 선택 2: Tilko 다년간 정밀 설계 */}
-          <div onClick={onAuthMultiYear} style={{...choiceCardStyle, borderColor: '#c7d2fe'}}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <span style={{ fontSize: '28px' }}>🔍</span>
-              <div>
-                <div style={{ fontSize: '15px', fontWeight: 700, color: '#1e3a5f' }}>
-                  다년간 데이터로 정밀 설계
-                </div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
-                  건보공단 본인인증 → 과거~현재 검진 추이 분석
-                  {' · 약 2-3분 소요'}
-                </div>
-              </div>
-            </div>
+          <div className="landing__health-note">
+            이 수치들을 기반으로 맞춤 검진을 설계합니다
           </div>
-        </>
+        </div>
       )}
 
-      {/* ── 데이터 없음: 인증 유도 ── */}
-      {!hasAnyData && !isProcessing && (
-        <>
-          <div style={infoBannerStyle('#fef3c7', '#fcd34d', '#92400e')}>
-            건강검진 데이터가 필요합니다. 본인 인증 후 데이터를 불러옵니다.
-          </div>
-          <button onClick={onAuth} style={primaryBtnStyle}>
-            본인 인증하고 검진설계 받기
+      {/* 가치 */}
+      <div className="landing__value">
+        <div className="landing__value-question">
+          같은 검진비인데<br />
+          나한테 안 맞는 항목을<br />
+          받고 있진 않으셨나요?
+        </div>
+        <ul className="landing__value-list">
+          <li className="landing__value-item">
+            과거 검진 추이를 분석해서 위험 요인을 미리 파악합니다
+          </li>
+          <li className="landing__value-item">
+            불필요한 검사는 줄이고 꼭 필요한 항목을 추천합니다
+          </li>
+          <li className="landing__value-item">
+            약물 복용과 생활습관까지 반영한 정밀 설계입니다
+          </li>
+        </ul>
+      </div>
+
+      {/* CTA */}
+      <div className="landing__cta">
+        {hasAnyData && !isProcessing && (
+          <>
+            <button
+              className="landing__cta-primary"
+              onClick={() => hasLinkData ? onStartDesignWithData(healthData) : onStartDesign()}
+            >
+              <span className="landing__cta-primary-text">지금 바로 설계 시작</span>
+              <span className="landing__cta-primary-sub">
+                {status?.latest_year ? `${status.latest_year}년 검진 데이터 기반` : '기존 검진 데이터 기반'} · 약 1분
+              </span>
+            </button>
+            <button className="landing__cta-secondary" onClick={onAuthMultiYear}>
+              건보공단 인증으로 과거 기록까지 종합 분석
+            </button>
+          </>
+        )}
+
+        {!hasAnyData && !isProcessing && (
+          <button className="landing__cta-primary" onClick={onAuth}>
+            <span className="landing__cta-primary-text">본인 인증하고 시작하기</span>
+            <span className="landing__cta-primary-sub">건보공단 검진 기록 연동 · 약 2분</span>
           </button>
-        </>
-      )}
+        )}
 
-      {/* 진행 중 */}
-      {isProcessing && (
-        <button disabled style={{...primaryBtnStyle, background: '#9ca3af', cursor: 'default'}}>
-          분석 진행 중...
-        </button>
-      )}
+        {isProcessing && (
+          <button className="landing__cta-primary" style={{ opacity: 0.5, cursor: 'default' }} disabled>
+            <span className="landing__cta-primary-text">분석 진행 중...</span>
+            <span className="landing__cta-primary-sub">잠시만 기다려주세요</span>
+          </button>
+        )}
+      </div>
 
-      {!uuid && (
-        <p style={{ marginTop: '16px', fontSize: '12px', color: '#9ca3af' }}>
-          파트너 링크를 통해 접속해주세요
-        </p>
-      )}
+      {/* 하단 */}
+      <div className="landing__footer">
+        <div className="landing__footer-item">개인정보는 암호화 처리됩니다</div>
+        <div className="landing__footer-item">소요 시간 약 1~3분</div>
+        {hospitalName && <div className="landing__footer-item">{hospitalName} 제공</div>}
+      </div>
+
+      {!uuid && <p className="landing__no-link">파트너 링크를 통해 접속해주세요</p>}
     </div>
   );
 };
-
-// 스타일 상수
-const pageStyle: React.CSSProperties = {
-  minHeight: '100vh', display: 'flex', flexDirection: 'column',
-  alignItems: 'center', justifyContent: 'center',
-  padding: '40px 20px', background: 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)',
-};
-const titleStyle: React.CSSProperties = {
-  fontSize: '28px', fontWeight: 800, color: '#1e3a5f', marginBottom: '12px',
-};
-const subtitleStyle: React.CSSProperties = {
-  fontSize: '16px', color: '#4b5563', lineHeight: 1.6, maxWidth: '400px',
-};
-const cardStyle: React.CSSProperties = {
-  background: 'white', borderRadius: '16px', padding: '24px',
-  width: '100%', maxWidth: '400px', marginBottom: '32px',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-};
-const primaryBtnStyle: React.CSSProperties = {
-  width: '100%', maxWidth: '400px', padding: '16px',
-  background: '#2563eb', color: 'white', border: 'none', borderRadius: '12px',
-  fontSize: '16px', fontWeight: 700, cursor: 'pointer',
-  boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)',
-};
-const choiceCardStyle: React.CSSProperties = {
-  width: '100%', maxWidth: '400px', padding: '18px 20px',
-  background: 'white', border: '2px solid #d1fae5', borderRadius: '14px',
-  marginBottom: '12px', cursor: 'pointer',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-  transition: 'border-color 0.2s, box-shadow 0.2s',
-};
-const infoBannerStyle = (bg: string, border: string, color: string): React.CSSProperties => ({
-  background: bg, border: `1px solid ${border}`, borderRadius: '10px',
-  padding: '12px 20px', marginBottom: '16px', maxWidth: '400px', width: '100%',
-  fontSize: '13px', color, margin: '0 0 16px',
-});
 
 export default IntroLandingPage;

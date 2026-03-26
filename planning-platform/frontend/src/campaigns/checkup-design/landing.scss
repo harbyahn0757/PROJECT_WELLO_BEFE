@@ -1,0 +1,239 @@
+.landing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  max-width: 440px;
+  margin: 0 auto;
+  background: #f9fafb;
+}
+
+/* ── 히어로 ── */
+.landing__hero {
+  position: relative;
+  padding: 48px 24px 40px;
+  background: url('/images/landing-hero.webp') center/cover no-repeat;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(254, 249, 238, 0.82);
+  }
+}
+
+.landing__hero-inner {
+  position: relative;
+  z-index: 1;
+}
+
+.landing__hospital {
+  font-size: 13px;
+  font-weight: 500;
+  color: #7c746a;
+  margin-bottom: 20px;
+  letter-spacing: -0.3px;
+}
+
+.landing__greeting {
+  font-size: 15px;
+  font-weight: 600;
+  color: #7c746a;
+  margin-bottom: 8px;
+}
+
+.landing__title {
+  font-size: 26px;
+  font-weight: 800;
+  color: #1a202c;
+  line-height: 1.35;
+  margin: 0 0 16px;
+  letter-spacing: -0.5px;
+}
+
+.landing__subtitle {
+  font-size: 15px;
+  color: #4a5568;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ── 건강 데이터 카드 ── */
+.landing__health {
+  margin: -16px 16px 0;
+  padding: 20px;
+  background: #fff;
+  border-radius: 16px;
+  border-left: 4px solid #7c746a;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  position: relative;
+  z-index: 2;
+}
+
+.landing__health-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 16px;
+}
+
+.landing__health-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.landing__health-item {
+  text-align: center;
+}
+
+.landing__health-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: #718096;
+  margin-bottom: 4px;
+}
+
+.landing__health-value {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.landing__health-status {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.landing__health-value--normal { color: #059669; }
+.landing__health-value--warning { color: #d97706; }
+.landing__health-value--danger { color: #dc2626; }
+.landing__health-status--normal { color: #059669; }
+.landing__health-status--warning { color: #d97706; }
+.landing__health-status--danger { color: #dc2626; }
+
+.landing__health-note {
+  font-size: 12px;
+  color: #718096;
+  text-align: center;
+  margin: 14px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid #f3f4f6;
+}
+
+/* ── 가치 (공감) ── */
+.landing__value {
+  padding: 28px 24px;
+}
+
+.landing__value-question {
+  background: #FEF9EE;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #55433B;
+  line-height: 1.6;
+}
+
+.landing__value-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.landing__value-item {
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.8;
+  padding: 6px 0;
+  padding-left: 16px;
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 14px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #7c746a;
+  }
+}
+
+/* ── CTA ── */
+.landing__cta {
+  padding: 0 24px 20px;
+}
+
+.landing__cta-primary {
+  display: block;
+  width: 100%;
+  padding: 18px 20px;
+  background: #7c746a;
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 4px 12px rgba(124, 116, 106, 0.3);
+  transition: background 0.2s;
+
+  &:hover { background: #696158; }
+  &:active { transform: scale(0.99); }
+}
+
+.landing__cta-primary-text {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.landing__cta-primary-sub {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.8;
+  margin-top: 4px;
+}
+
+.landing__cta-secondary {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 14px;
+  font-size: 13px;
+  color: #FF8A00;
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── 하단 ── */
+.landing__footer {
+  padding: 20px 24px 32px;
+  text-align: center;
+}
+
+.landing__footer-item {
+  font-size: 11px;
+  color: #a0aec0;
+  line-height: 1.8;
+}
+
+.landing__no-link {
+  text-align: center;
+  padding: 16px;
+  font-size: 12px;
+  color: #a0aec0;
+}
