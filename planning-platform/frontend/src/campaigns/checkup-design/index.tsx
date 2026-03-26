@@ -144,6 +144,22 @@ const CheckupDesignCampaign: React.FC = () => {
     navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=campaign`);
   };
 
+  // ── "기존 데이터로 바로 설계" (알림톡 링크 검진 데이터 사용) ──
+  const handleStartDesignWithData = (data: any) => {
+    const params = new URLSearchParams();
+    if (uuid) params.set('uuid', uuid);
+    if (hospitalId) params.set('hospital', hospitalId);
+    params.set('partner', partnerId);
+    params.set('mode', 'link_data'); // 링크 데이터 모드
+    navigate(`/checkup-design?${params.toString()}`, { state: { linkHealthData: data } });
+  };
+
+  // ── "Tilko 다년간 정밀 설계" ──
+  const handleAuthMultiYear = () => {
+    const returnTo = `/campaigns/checkup-design?uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}`;
+    navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=multi_year`);
+  };
+
   // ── "결과 보기" ──
   const handleViewResult = () => {
     setCurrentPage('result');
@@ -199,8 +215,11 @@ const CheckupDesignCampaign: React.FC = () => {
           partnerId={partnerId}
           hospitalId={hospitalId}
           status={status}
+          healthData={healthData}
           onStartDesign={handleStartDesign}
+          onStartDesignWithData={handleStartDesignWithData}
           onAuth={handleAuth}
+          onAuthMultiYear={handleAuthMultiYear}
           onViewResult={handleViewResult}
         />
       );

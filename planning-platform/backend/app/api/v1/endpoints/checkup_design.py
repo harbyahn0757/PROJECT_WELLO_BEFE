@@ -2356,6 +2356,9 @@ class CheckStatusResponse(BaseModel):
     design_status: Optional[str] = None
     design_request_id: Optional[int] = None
     message: Optional[str] = None
+    available_years: Optional[list] = None
+    latest_year: Optional[int] = None
+    can_get_more: bool = True
 
 
 @router.post("/check-status", response_model=CheckStatusResponse)
@@ -2409,9 +2412,17 @@ async def check_checkup_design_status(request: CheckStatusRequest):
         has_data = bool(health and not health.get("error") and health.get("health_data"))
 
         if has_data:
+            # 보유 연도 목록 추출
+            health_data_list = health.get("health_data", [])
+            years = sorted(set(
+                int(h.get("year", 0)) for h in health_data_list if h.get("year")
+            ), reverse=True)
             return CheckStatusResponse(
                 success=True, case_id="C", action="show_design_start",
                 has_design=False, has_health_data=True,
+                available_years=years if years else None,
+                latest_year=years[0] if years else None,
+                can_get_more=True,
                 message="건강 데이터가 있습니다. 검진설계를 시작할 수 있습니다.",
             )
 
