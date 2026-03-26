@@ -605,6 +605,8 @@ const AppContent: React.FC = () => {
         <Route path="/campaigns/disease-prediction" element={<DiseasePredictionCampaign />} />
         {/* ⭐ 검진설계 캠페인 */}
         <Route path="/campaigns/checkup-design" element={<CheckupDesignCampaign />} />
+        <Route path="/welno/campaigns/checkup-design" element={<CheckupDesignCampaign />} />
+        <Route path="/welno/campaigns/disease-prediction" element={<DiseasePredictionCampaign />} />
         {/* ⭐ 파트너 관리 페이지 */}
         <Route path="/partner-management" element={<PartnerManagementPage />} />
         <Route path="/prescription-history" element={<PrescriptionHistory />} />
