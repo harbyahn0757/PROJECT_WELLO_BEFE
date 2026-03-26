@@ -11,7 +11,7 @@
 .landing__hero {
   position: relative;
   padding: 48px 24px 40px;
-  background: url('/images/landing-hero.webp') center/cover no-repeat;
+  background: linear-gradient(135deg, #c4a882 0%, #e8d5c0 40%, #FEF9EE 100%);
   overflow: hidden;
 
   &::after {
