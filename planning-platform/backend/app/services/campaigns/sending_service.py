@@ -19,8 +19,8 @@ from ...utils.wiset_agent import (
 logger = logging.getLogger(__name__)
 
 MYSQL_CONFIG = {
-    'host': '10.0.1.10',
-    'port': 3306,
+    'host': '127.0.0.1',
+    'port': 13306,
     'user': 'root',
     'password': 'dksrhkdtn!23',
     'database': 'p9_mkt_ata',
