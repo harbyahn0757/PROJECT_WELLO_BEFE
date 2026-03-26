@@ -478,12 +478,25 @@ async def _substitute_attachment_urls(
             'uuid': wello_uuid,
             'hospital': hospital_id,
         }
+        # 한글변수명 → DB필드명 역매핑
+        KR_TO_FIELD = {
+            '고객명': 'name', '환자명': 'name', '이름': 'name',
+            '병원명': 'hosnm', '생년월일': 'birthday', '성별': 'gender',
+            '신청일자': 'regdate', '방문일': 'visitdate',
+        }
         if variables:
             for field in ('name', 'birthday', 'gender', 'bmi', 'bphigh',
                           'bplwst', 'blds', 'hdlchole', 'ldlchole',
-                          'triglyceride', 'gfr', 'regdate', 'visitdate'):
-                val = variables.get(field) or variables.get(
-                    {'name': '고객명', 'bmi': 'BMI'}.get(field, ''), '')
+                          'triglyceride', 'gfr', 'regdate', 'visitdate',
+                          'hosnm', 'hosaddr', 'phoneno'):
+                # DB 필드명 직접 매칭
+                val = variables.get(field, '')
+                # 한글 변수명으로도 찾기
+                if not val:
+                    for kr, f in KR_TO_FIELD.items():
+                        if f == field and variables.get(kr):
+                            val = variables[kr]
+                            break
                 if val:
                     encrypt_payload[field] = str(val)
 
