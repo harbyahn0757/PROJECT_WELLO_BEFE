@@ -2414,9 +2414,15 @@ async def check_checkup_design_status(request: CheckStatusRequest):
         if has_data:
             # 보유 연도 목록 추출
             health_data_list = health.get("health_data", [])
-            years = sorted(set(
-                int(h.get("year", 0)) for h in health_data_list if h.get("year")
-            ), reverse=True)
+            years = []
+            for h in health_data_list:
+                y = h.get("year", "")
+                if y:
+                    try:
+                        years.append(int(str(y).replace("년", "").strip()))
+                    except (ValueError, TypeError):
+                        pass
+            years = sorted(set(years), reverse=True)
             return CheckStatusResponse(
                 success=True, case_id="C", action="show_design_start",
                 has_design=False, has_health_data=True,
