@@ -150,7 +150,7 @@ const AlimtalkPanel: React.FC<Props> = ({
       const attachment = tmpl?.button_config ? JSON.stringify(tmpl.button_config) : '';
 
       recipients = selected.map(t => {
-        // 매핑 기반으로 변수 구성
+        // 매핑 기반으로 템플릿 변수 구성
         const vars: Record<string, string> = {};
         Object.entries(varMappings).forEach(([varName, m]) => {
           if (m.source === 'field' && m.field) {
@@ -158,8 +158,12 @@ const AlimtalkPanel: React.FC<Props> = ({
           } else if (m.source === 'fixed' && m.value) {
             vars[varName] = m.value;
           }
-          // system은 BE에서 처리
         });
+        // 검진 데이터 전체를 DB 필드명으로 항상 포함 (URL 암호화용)
+        const healthFields = ['name','hosnm','hosaddr','birthday','gender','phoneno',
+          'regdate','visitdate','bmi','bphigh','bplwst','blds',
+          'hdlchole','ldlchole','triglyceride','gfr'];
+        healthFields.forEach(f => { if (t[f] && !vars[f]) vars[f] = String(t[f]); });
         return {
           phone: t.phoneno || '',
           hospital_id: '',
