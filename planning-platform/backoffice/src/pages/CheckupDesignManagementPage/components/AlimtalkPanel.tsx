@@ -18,6 +18,7 @@ interface Props {
   templates: any[];
   targets: any[];
   selectedTargets: string[];
+  onSelectTargets: (targets: string[]) => void;
   selectedHospital: string;
   onSendComplete: () => void;
 }
@@ -25,7 +26,7 @@ interface Props {
 type SendSource = 'db' | 'excel';
 
 const AlimtalkPanel: React.FC<Props> = ({
-  templates, targets, selectedTargets, selectedHospital, onSendComplete,
+  templates, targets, selectedTargets, onSelectTargets, selectedHospital, onSendComplete,
 }) => {
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [templateVars, setTemplateVars] = useState<string[]>([]);
@@ -278,12 +279,9 @@ const AlimtalkPanel: React.FC<Props> = ({
                   <option value="birthday">생년월일순</option>
                 </select>
                 <button className="btn-outline" onClick={() => {
-                  const all = filteredTargets.map(t => t.uuid);
-                  const allSelected = all.every(u => selectedTargets.includes(u));
-                  onSendComplete(); // clear
-                  if (!allSelected) {
-                    // re-select filtered
-                  }
+                  const all = filteredTargets.map((t: any) => t.uuid);
+                  const allSelected = all.every((u: string) => selectedTargets.includes(u));
+                  onSelectTargets(allSelected ? [] : all);
                 }}>
                   전체 {selectedTargets.length === filteredTargets.length && filteredTargets.length > 0 ? '해제' : '선택'}
                 </button>
@@ -308,10 +306,10 @@ const AlimtalkPanel: React.FC<Props> = ({
                           <input type="checkbox"
                             checked={selectedTargets.includes(t.uuid)}
                             onChange={() => {
-                              const p = selectedTargets.includes(t.uuid)
+                              const next = selectedTargets.includes(t.uuid)
                                 ? selectedTargets.filter(u => u !== t.uuid)
                                 : [...selectedTargets, t.uuid];
-                              // parent manages selectedTargets — trigger via dummy
+                              onSelectTargets(next);
                             }}
                           />
                         </td>

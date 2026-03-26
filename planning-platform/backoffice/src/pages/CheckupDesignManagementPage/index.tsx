@@ -212,6 +212,7 @@ const CheckupDesignManagementPage: React.FC = () => {
               templates={templates}
               targets={targets}
               selectedTargets={selectedTargets}
+              onSelectTargets={setSelectedTargets}
               selectedHospital={selectedHospital}
               onSendComplete={handleAlimtalkSendComplete}
             />
