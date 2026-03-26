@@ -44,6 +44,13 @@ async def trigger_auto_checkup_design(
     """
     log_id = None
     try:
+        # 0. Gemini API 상태 체크 (쿼터 소진 시 스킵)
+        from .gemini_service import gemini_service
+        health = await gemini_service.check_health()
+        if not health.get("healthy"):
+            logger.info(f"[auto_trigger] {patient_uuid} Gemini 비가용 — 스킵")
+            return
+
         # 트리거 로그 시작
         log_id = await _create_trigger_log(patient_uuid, partner_id, "pending")
 
