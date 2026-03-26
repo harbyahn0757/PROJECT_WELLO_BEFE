@@ -65,25 +65,75 @@ const TemplateAccordion: React.FC<Props> = ({
     return m && ((m.source === 'field' && m.field) || (m.source === 'fixed' && m.value));
   }).length;
 
-  // 미리보기 렌더링
+  // 미리보기 렌더링 — 각 변수 위치별 개별 매핑 지원
   const renderPreview = () => {
     const parts = (template.template_content || '').split(/(#\{[^}]+\})/g);
+    const counter: Record<string, number> = {};
+
     return parts.map((part: string, i: number) => {
       const match = part.match(/^#\{([^}]+)\}$/);
       if (!match) return <span key={i}>{part}</span>;
       const v = match[1];
+      const idx = counter[v] || 0;
+      counter[v] = idx + 1;
+      const posKey = `${v}_${idx}`;
+
       if (SYS_VARS.includes(v)) return <span key={i} className="tmpl-var tmpl-var--system">[{v}]</span>;
-      const m = mappings[v];
-      if (m?.source === 'fixed' && m.value) return <span key={i} className="tmpl-var tmpl-var--filled">{m.value}</span>;
-      if (m?.source === 'field' && m.field) return <span key={i} className="tmpl-var tmpl-var--field">[{m.field}]</span>;
-      return <span key={i} className="tmpl-var tmpl-var--empty">{'#{'}{v}{'}'}</span>;
+
+      // 위치별 매핑 우선, 없으면 일반 매핑
+      const m = mappings[posKey] || mappings[v];
+      const isEditing = editingVar === posKey;
+
+      return (
+        <span key={i} className="tmpl-var-inline-wrap">
+          <span
+            className={`tmpl-var ${m?.source === 'fixed' && m.value ? 'tmpl-var--filled' : m?.source === 'field' && m.field ? 'tmpl-var--field' : 'tmpl-var--empty'}`}
+            onClick={() => { if (!SYS_VARS.includes(v)) setEditingVar(isEditing ? null : posKey); }}
+            style={{ cursor: 'pointer' }}
+          >
+            {m?.source === 'fixed' && m.value ? m.value : m?.source === 'field' && m.field ? `[${m.field}]` : `#{${v}}`}
+          </span>
+          {isEditing && (
+            <span className="tmpl-var-edit" onClick={e => e.stopPropagation()}>
+              <select
+                value={(m?.source) || 'field'}
+                onChange={e => {
+                  const src = e.target.value as 'field' | 'fixed';
+                  onMappingChange(posKey, src === 'field' ? { source: 'field', field: '' } : { source: 'fixed', value: '' });
+                }}
+              >
+                <option value="field">DB 필드</option>
+                <option value="fixed">고정값</option>
+              </select>
+              {(!m || m.source === 'field') && (
+                <select
+                  value={m?.field || ''}
+                  onChange={e => onMappingChange(posKey, { source: 'field', field: e.target.value })}
+                >
+                  <option value="">필드 선택...</option>
+                  {DB_FIELDS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                </select>
+              )}
+              {m?.source === 'fixed' && (
+                <input
+                  type="text"
+                  placeholder="값 입력"
+                  value={m.value || ''}
+                  onChange={e => onMappingChange(posKey, { source: 'fixed', value: e.target.value })}
+                  autoFocus
+                />
+              )}
+            </span>
+          )}
+        </span>
+      );
     });
   };
 
-  // 변수 뱃지 클릭 핸들러
-  const handleBadgeClick = (v: string) => {
-    if (SYS_VARS.includes(v)) return; // 시스템은 클릭 불가
-    setEditingVar(editingVar === v ? null : v);
+  // 우측 뱃지용 — 위치 정보 포함
+  const handleBadgeClick = (posKey: string) => {
+    if (SYS_VARS.includes(posKey.replace(/_\d+$/, ''))) return;
+    setEditingVar(editingVar === posKey ? null : posKey);
   };
 
   const getVarLabel = (v: string) => {

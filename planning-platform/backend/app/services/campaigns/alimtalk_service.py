@@ -270,11 +270,27 @@ async def _send_one(
         if hosnm:
             hospital_id = await _resolve_hospital_id(db_manager, hosnm) or '*'
 
-    # ── BE 통합 변수 치환 (FE는 원문 + variables만 전달) ──
+    # ── BE 통합 변수 치환 — 위치별 개별 치환 지원 ──
+    # FE에서 '고객명_0', '고객명_1' 형태의 위치별 매핑을 보내면
+    # 같은 변수명이라도 위치별로 다른 값 치환 가능
     if content and variables:
-        for k, v in variables.items():
-            if v:
-                content = content.replace(f'#{{{k}}}', str(v))
+        import re as _re
+        occurrence_counter: Dict[str, int] = {}
+
+        def _replace_var(match):
+            var_name = match.group(1)
+            idx = occurrence_counter.get(var_name, 0)
+            occurrence_counter[var_name] = idx + 1
+            # 위치별 키 우선 (예: 고객명_0)
+            positional_key = f'{var_name}_{idx}'
+            if positional_key in variables and variables[positional_key]:
+                return str(variables[positional_key])
+            # 일반 키 (예: 고객명)
+            if var_name in variables and variables[var_name]:
+                return str(variables[var_name])
+            return match.group(0)  # 치환 안 됨
+
+        content = _re.sub(r'#\{([^}]+)\}', _replace_var, content)
 
     # wello_uuid 생성 (attachment에 변수가 있거나, content에 #{sub} 등 있을 때)
     all_text = (attachment or '') + (content or '')

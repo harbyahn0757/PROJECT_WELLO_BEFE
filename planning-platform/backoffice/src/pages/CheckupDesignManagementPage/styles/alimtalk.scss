@@ -204,6 +204,9 @@
   }
 }
 
+// 미리보기 내 인라인 변수 편집
+.tmpl-var-inline-wrap { position: relative; display: inline; }
+
 // 인라인 편집 (뱃지 아래 드롭다운)
 .tmpl-var-badge-wrap { position: relative; }
 .tmpl-var-edit {
