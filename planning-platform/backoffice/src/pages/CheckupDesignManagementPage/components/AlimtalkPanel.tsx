@@ -10,6 +10,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import TemplateAccordion from './TemplateAccordion';
 import VariableSettingsModal from './VariableSettingsModal';
 import ExcelUploader from './ExcelUploader';
+import { VarMapping, buildInitialMappings } from './VariableMapping';
 import { getApiBase } from '../../../utils/api';
 
 const API = getApiBase();
@@ -29,7 +30,7 @@ const AlimtalkPanel: React.FC<Props> = ({
 }) => {
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [templateVars, setTemplateVars] = useState<string[]>([]);
-  const [fixedVars, setFixedVars] = useState<Record<string, string>>({});
+  const [varMappings, setVarMappings] = useState<Record<string, VarMapping>>({});
   const [sending, setSending] = useState(false);
   const [sendSource, setSendSource] = useState<SendSource>('db');
   const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
@@ -64,15 +65,17 @@ const AlimtalkPanel: React.FC<Props> = ({
     return list;
   }, [targets, searchQuery, sortBy]);
 
-  // 템플릿 선택 → 변수 추출
+  // 템플릿 선택 → 변수 추출 → 자동 매핑 초기화
   const handleSelectTemplate = async (code: string) => {
     setSelectedTemplate(code);
-    setFixedVars({});
+    setVarMappings({});
     setExcelMapping({});
     if (!code) { setTemplateVars([]); return; }
     const d = await api(`/alimtalk/templates/${code}/variables`);
     if (d.success) {
-      setTemplateVars(d.variables || []);
+      const vars = d.variables || [];
+      setTemplateVars(vars);
+      setVarMappings(buildInitialMappings(vars, selectedHospital));
       // 병원명 자동 채움
       if (selectedHospital) {
         setFixedVars(prev => ({ ...prev, '병원명': selectedHospital }));
@@ -109,21 +112,27 @@ const AlimtalkPanel: React.FC<Props> = ({
   };
 
   // 발송 실행
-  // 자동 채움 변수 (대상자별 동적)
-  const AUTO_VARS: Record<string, { label: string; field: string }> = {
-    '고객명': { label: '대상자 이름', field: 'name' },
-    '신청일자': { label: '등록일(regdate)', field: 'regdate' },
-  };
-
-  // 빈변수 검증
+  // 빈변수 검증 (매핑 기반)
   const getEmptyVars = () => {
     return templateVars.filter(v => {
-      if (AUTO_VARS[v]) return false; // 자동 채움 → OK
-      if (v === '병원명' && selectedHospital) return false; // 병원 자동
-      if (['wello_uuid', 'sub', 'URL'].includes(v)) return false; // 시스템 자동
-      return !fixedVars[v]; // 고정값 없으면 빈값
+      const m = varMappings[v];
+      if (!m) return true;
+      if (m.source === 'system') return false;
+      if (m.source === 'field') return !m.field; // 필드 미선택
+      if (m.source === 'fixed') return !m.value;
+      return true;
     });
   };
+
+  // 매핑 기반으로 fixedVars 생성 (TemplateAccordion 미리보기용)
+  const fixedVarsForPreview = useMemo(() => {
+    const result: Record<string, string> = {};
+    Object.entries(varMappings).forEach(([v, m]) => {
+      if (m.source === 'fixed' && m.value) result[v] = m.value;
+      if (m.source === 'field' && m.field) result[v] = `[${m.field}]`;
+    });
+    return result;
+  }, [varMappings]);
 
   const handleSend = async () => {
     if (!selectedTemplate) return alert('템플릿을 선택해주세요');
@@ -142,12 +151,16 @@ const AlimtalkPanel: React.FC<Props> = ({
       const attachment = tmpl?.button_config ? JSON.stringify(tmpl.button_config) : '';
 
       recipients = selected.map(t => {
-        const vars: Record<string, string> = {
-          ...fixedVars,
-          '고객명': t.name || '',
-          '병원명': selectedHospital || fixedVars['병원명'] || '',
-          '신청일자': t.regdate || fixedVars['신청일자'] || new Date().toISOString().slice(0, 10),
-        };
+        // 매핑 기반으로 변수 구성
+        const vars: Record<string, string> = {};
+        Object.entries(varMappings).forEach(([varName, m]) => {
+          if (m.source === 'field' && m.field) {
+            vars[varName] = String(t[m.field] || '');
+          } else if (m.source === 'fixed' && m.value) {
+            vars[varName] = m.value;
+          }
+          // system은 BE에서 처리
+        });
         return {
           phone: t.phoneno || '',
           hospital_id: '',
@@ -231,7 +244,7 @@ const AlimtalkPanel: React.FC<Props> = ({
         <TemplateAccordion
           template={selectedTmpl}
           variables={templateVars}
-          fixedVars={fixedVars}
+          fixedVars={fixedVarsForPreview}
           isOpen={true}
           onOpenVarModal={() => setVarModalOpen(true)}
         />
@@ -242,12 +255,9 @@ const AlimtalkPanel: React.FC<Props> = ({
         isOpen={varModalOpen}
         onClose={() => setVarModalOpen(false)}
         variables={templateVars}
-        fixedVars={fixedVars}
-        onVarChange={(k, v) => setFixedVars(prev => ({ ...prev, [k]: v }))}
+        mappings={varMappings}
+        onMappingChange={(k, m) => setVarMappings(prev => ({ ...prev, [k]: m }))}
         selectedHospital={selectedHospital}
-        excelHeaders={sendSource === 'excel' ? excelHeaders : undefined}
-        excelMapping={sendSource === 'excel' ? excelMapping : undefined}
-        onMappingChange={(k, h) => setExcelMapping(prev => ({ ...prev, [k]: h }))}
       />
 
       {/* 발송 대상 — 서브 탭 */}

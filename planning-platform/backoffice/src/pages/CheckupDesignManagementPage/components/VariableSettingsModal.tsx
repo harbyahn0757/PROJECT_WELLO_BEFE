@@ -1,25 +1,20 @@
 /**
  * 변수 설정 모달
- * WELNO _modals.scss 패턴 (overlay + content)
  */
 import React from 'react';
-import VariableMapping from './VariableMapping';
+import VariableMapping, { VarMapping } from './VariableMapping';
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   variables: string[];
-  fixedVars: Record<string, string>;
-  onVarChange: (k: string, v: string) => void;
+  mappings: Record<string, VarMapping>;
+  onMappingChange: (varName: string, mapping: VarMapping) => void;
   selectedHospital?: string;
-  excelHeaders?: string[];
-  excelMapping?: Record<string, string>;
-  onMappingChange?: (k: string, h: string) => void;
 }
 
 const VariableSettingsModal: React.FC<Props> = ({
-  isOpen, onClose, variables, fixedVars, onVarChange,
-  selectedHospital, excelHeaders, excelMapping, onMappingChange,
+  isOpen, onClose, variables, mappings, onMappingChange, selectedHospital,
 }) => {
   if (!isOpen) return null;
 
@@ -33,12 +28,9 @@ const VariableSettingsModal: React.FC<Props> = ({
         <div className="var-modal__body">
           <VariableMapping
             variables={variables}
-            fixedVars={fixedVars}
-            onVarChange={onVarChange}
-            selectedHospital={selectedHospital}
-            excelHeaders={excelHeaders}
-            excelMapping={excelMapping}
+            mappings={mappings}
             onMappingChange={onMappingChange}
+            selectedHospital={selectedHospital}
           />
         </div>
         <div className="var-modal__footer">

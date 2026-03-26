@@ -2061,7 +2061,7 @@ async def campaign_targets(req: CampaignTargetsRequest):
     params.extend([req.limit, req.offset])
 
     rows = await db_manager.execute_query(
-        f"""SELECT uuid::text, hosnm, name, birthday, gender, phoneno,
+        f"""SELECT uuid::text, hosnm, hosaddr, name, birthday, gender, phoneno,
               regdate, visitdate, bmi, bphigh, bplwst, blds,
               hdlchole, ldlchole, triglyceride, gfr,
               pln_mkt, pln_mkt_ts
