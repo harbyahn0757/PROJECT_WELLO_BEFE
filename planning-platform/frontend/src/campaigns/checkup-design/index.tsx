@@ -40,13 +40,34 @@ const CheckupDesignCampaign: React.FC = () => {
   const [status, setStatus] = useState<CheckupDesignStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // URL 파라미터
+  // URL 파라미터 (평문 또는 암호화)
   const urlParams = new URLSearchParams(location.search);
-  const uuid = urlParams.get('uuid') || '';
-  const partnerId = urlParams.get('partner') || 'welno';
-  const hospitalId = urlParams.get('hospital') || '';
+  const [uuid, setUuid] = useState(urlParams.get('uuid') || '');
+  const [partnerId, setPartnerId] = useState(urlParams.get('partner') || 'welno');
+  const [hospitalId, setHospitalId] = useState(urlParams.get('hospital') || '');
+  const [healthData, setHealthData] = useState<any>(null); // 암호화 링크의 검진 데이터
+  const encryptedData = urlParams.get('data') || '';
 
-  // ── 상태 체크 (disease-prediction의 checkUserStatus 패턴) ──
+  // 암호화된 data 파라미터 복호화
+  useEffect(() => {
+    if (!encryptedData) return;
+    fetch(`${API_BASE}/partner-office/alimtalk/decrypt-landing`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: encryptedData }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success) {
+          setUuid(d.uuid || '');
+          setHospitalId(d.hospital || '');
+          setHealthData(d); // bmi, bphigh 등 검진 데이터 저장
+        }
+      })
+      .catch(e => console.error('복호화 실패:', e));
+  }, [encryptedData]);
+
+  // ── 상태 체크 ──
   const checkUserStatus = useCallback(async () => {
     if (!uuid) {
       setLoading(false);

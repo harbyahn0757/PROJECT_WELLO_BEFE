@@ -2354,3 +2354,25 @@ async def alimtalk_status_detail(sn: str):
     if not row:
         raise HTTPException(status_code=404, detail="발송 내역 없음")
     return {"success": True, **row}
+
+
+@router.post("/alimtalk/decrypt-landing")
+async def alimtalk_decrypt_landing(req: dict):
+    """알림톡 랜딩 URL의 data 파라미터 복호화 (인증 불필요 — 공개 엔드포인트)"""
+    from ....utils.partner_encryption import decrypt_user_data
+    data = req.get('data', '')
+    if not data:
+        raise HTTPException(status_code=400, detail="data 파라미터 필요")
+    try:
+        from urllib.parse import unquote
+        decoded = unquote(data)
+        result = decrypt_user_data(
+            decoded,
+            aes_key=getattr(settings, 'PARTNER_AES_KEY', 'kindhabit_disease_predict_key_32'),
+            aes_iv=getattr(settings, 'PARTNER_AES_IV', 'kindhabit_iv_16 '),
+        )
+        if not result:
+            raise HTTPException(status_code=400, detail="복호화 실패")
+        return {"success": True, **result}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"복호화 오류: {str(e)}")

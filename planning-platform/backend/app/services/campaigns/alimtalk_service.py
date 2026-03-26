@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 # WELNO 도메인 (버튼 URL 생성용)
 WELNO_DOMAIN = 'welno.kindhabit.com'
-WELNO_WELLO_PATH = '/wello/'
+WELNO_LANDING_PATH = '/welno/campaigns/checkup-design'
 
 # MariaDB (WiseT Agent) 연결 정보
 MYSQL_CONFIG = {
@@ -291,10 +291,10 @@ async def _send_one(
             db_manager, phone, r_name or '고객', hospital_id, variables,
         )
 
-    # attachment URL 치환 (wello_uuid + TN 전화번호)
+    # attachment URL 치환 (검진데이터 암호화 + TN 전화번호)
     if attachment:
         attachment = await _substitute_attachment_urls(
-            db_manager, attachment, wello_uuid, hospital_id,
+            db_manager, attachment, wello_uuid, hospital_id, variables,
         )
 
     # AT 타입 → title에 병원명
@@ -453,31 +453,65 @@ async def _get_or_create_welno_patient(
 async def _substitute_attachment_urls(
     db_manager, attachment: str,
     wello_uuid: Optional[str], hospital_id: str,
+    variables: Dict = None,
 ) -> str:
-    """attachment JSON의 버튼 URL 변수 치환 + TN tel_number 설정"""
+    """attachment JSON의 버튼 URL 변수 치환 + 검진데이터 암호화 + TN tel_number"""
+    from ...utils.partner_encryption import encrypt_user_data
+    from ...core.config import settings
+
     try:
         att = json.loads(attachment) if isinstance(attachment, str) else attachment
     except (json.JSONDecodeError, TypeError):
         return attachment
 
-    # DB는 'buttons', 카카오 API는 'button' — 둘 다 지원
     btn_key = 'buttons' if 'buttons' in att else 'button'
     buttons = att.get('buttons', att.get('button', []))
     if not buttons:
         return attachment
 
-    # WELNO URL 생성
+    # 검진 데이터 암호화하여 URL 생성
     wello_url_full = None
     wello_url_no_proto = None
     if wello_uuid:
-        wello_url_full = (
-            f"https://{WELNO_DOMAIN}{WELNO_WELLO_PATH}"
-            f"?uuid={wello_uuid}&hospital={hospital_id}"
+        # 암호화할 데이터: uuid + hospital + 검진결과
+        encrypt_payload = {
+            'uuid': wello_uuid,
+            'hospital': hospital_id,
+        }
+        if variables:
+            for field in ('name', 'birthday', 'gender', 'bmi', 'bphigh',
+                          'bplwst', 'blds', 'hdlchole', 'ldlchole',
+                          'triglyceride', 'gfr', 'regdate', 'visitdate'):
+                val = variables.get(field) or variables.get(
+                    {'name': '고객명', 'bmi': 'BMI'}.get(field, ''), '')
+                if val:
+                    encrypt_payload[field] = str(val)
+
+        encrypted = encrypt_user_data(
+            encrypt_payload,
+            aes_key=getattr(settings, 'PARTNER_AES_KEY', 'kindhabit_disease_predict_key_32'),
+            aes_iv=getattr(settings, 'PARTNER_AES_IV', 'kindhabit_iv_16 '),
         )
-        wello_url_no_proto = (
-            f"{WELNO_DOMAIN}{WELNO_WELLO_PATH}"
-            f"?uuid={wello_uuid}&hospital={hospital_id}"
-        )
+
+        if encrypted:
+            from urllib.parse import quote
+            encoded = quote(encrypted, safe='')
+            wello_url_full = (
+                f"https://{WELNO_DOMAIN}{WELNO_LANDING_PATH}?data={encoded}"
+            )
+            wello_url_no_proto = (
+                f"{WELNO_DOMAIN}{WELNO_LANDING_PATH}?data={encoded}"
+            )
+        else:
+            # 암호화 실패 시 평문 fallback
+            wello_url_full = (
+                f"https://{WELNO_DOMAIN}{WELNO_LANDING_PATH}"
+                f"?uuid={wello_uuid}&hospital={hospital_id}"
+            )
+            wello_url_no_proto = (
+                f"{WELNO_DOMAIN}{WELNO_LANDING_PATH}"
+                f"?uuid={wello_uuid}&hospital={hospital_id}"
+            )
 
     for btn in buttons:
         btn_type = btn.get('type', '')
