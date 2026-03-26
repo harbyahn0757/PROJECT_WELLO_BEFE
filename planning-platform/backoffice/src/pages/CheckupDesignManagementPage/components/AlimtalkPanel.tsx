@@ -231,7 +231,11 @@ const AlimtalkPanel: React.FC<Props> = ({
         <label>템플릿</label>
         <select value={selectedTemplate} onChange={e => handleSelectTemplate(e.target.value)}>
           <option value="">템플릿 선택...</option>
-          {templates.map(t => (
+          {templates.filter(t => {
+            const code = (t.template_code || '').toLowerCase();
+            const name = (t.template_name || '').toLowerCase();
+            return code.includes('welno') || name.includes('welno') || name.includes('웰노');
+          }).map(t => (
             <option key={t.template_code} value={t.template_code}>
               {t.template_name} ({t.message_type})
             </option>
