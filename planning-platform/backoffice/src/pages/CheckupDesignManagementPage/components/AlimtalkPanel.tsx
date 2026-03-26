@@ -8,7 +8,6 @@
  */
 import React, { useState, useCallback, useMemo } from 'react';
 import TemplateAccordion from './TemplateAccordion';
-import VariableSettingsModal from './VariableSettingsModal';
 import ExcelUploader from './ExcelUploader';
 import { VarMapping, buildInitialMappings } from './VariableMapping';
 import { getApiBase } from '../../../utils/api';
@@ -44,7 +43,6 @@ const AlimtalkPanel: React.FC<Props> = ({
     return r.json();
   }, []);
 
-  const [varModalOpen, setVarModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'visitdate' | 'birthday'>('name');
 
@@ -243,26 +241,16 @@ const AlimtalkPanel: React.FC<Props> = ({
         </select>
       </div>
 
-      {/* 아코디언: 2컬럼 (미리보기 + 변수 뱃지) */}
+      {/* 아코디언: 2컬럼 (미리보기 + 변수 인라인 편집) */}
       {selectedTmpl && (
         <TemplateAccordion
           template={selectedTmpl}
           variables={templateVars}
-          fixedVars={fixedVarsForPreview}
+          mappings={varMappings}
+          onMappingChange={(k, m) => setVarMappings(prev => ({ ...prev, [k]: m }))}
           isOpen={true}
-          onOpenVarModal={() => setVarModalOpen(true)}
         />
       )}
-
-      {/* 변수 설정 모달 */}
-      <VariableSettingsModal
-        isOpen={varModalOpen}
-        onClose={() => setVarModalOpen(false)}
-        variables={templateVars}
-        mappings={varMappings}
-        onMappingChange={(k, m) => setVarMappings(prev => ({ ...prev, [k]: m }))}
-        selectedHospital={selectedHospital}
-      />
 
       {/* 발송 대상 — 서브 탭 */}
       {selectedTemplate && (

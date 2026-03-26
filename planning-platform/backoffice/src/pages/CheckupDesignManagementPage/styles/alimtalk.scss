@@ -86,6 +86,7 @@
   &--filled { background: #d1fae5; color: #065f46; padding: 0 2px; border-radius: 3px; font-weight: 600; }
   &--empty { background: #fef3c7; color: #92400e; padding: 0 2px; border-radius: 3px; font-family: monospace; }
   &--system { background: #dbeafe; color: #1e40af; padding: 0 2px; border-radius: 3px; font-size: 11px; }
+  &--field { background: #ede9fe; color: #5b21b6; padding: 0 2px; border-radius: 3px; font-size: 11px; font-style: italic; }
 }
 
 // ── 변수 매핑 ──
@@ -199,6 +200,22 @@
     font-size: 10px; padding: 1px 5px; border-radius: 8px;
     background: rgba(0,0,0,0.08); color: $gray-600;
     &--warn { background: #fef3c7; color: #92400e; }
+    &--btn { background: #dbeafe; color: #1e40af; }
+  }
+}
+
+// 인라인 편집 (뱃지 아래 드롭다운)
+.tmpl-var-badge-wrap { position: relative; }
+.tmpl-var-edit {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 100;
+  background: $white; border: 1px solid $gray-300; border-radius: $border-radius-md;
+  box-shadow: $shadow-md; padding: 8px; margin-top: 4px;
+  display: flex; flex-direction: column; gap: 6px; min-width: 200px;
+
+  select, input {
+    width: 100%; padding: 6px 8px; border: 1px solid $gray-300;
+    border-radius: 4px; font-size: $font-xs;
+    &:focus { outline: none; border-color: $brand-brown; }
   }
 }
 

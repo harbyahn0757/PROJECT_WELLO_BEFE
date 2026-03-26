@@ -208,65 +208,13 @@ const CheckupDesignManagementPage: React.FC = () => {
           </div>
 
           {selectedHospital && (
-            <>
-              <div className="cdm-page__kpi">
-                <div className="cdm-page__kpi-card">
-                  <span className="cdm-page__kpi-label">미발송 대상</span>
-                  <span className="cdm-page__kpi-value">{totalTargets}<small>명</small></span>
-                </div>
-                <div className="cdm-page__kpi-card">
-                  <span className="cdm-page__kpi-label">선택됨</span>
-                  <span className="cdm-page__kpi-value">{selectedTargets.length}<small>명</small></span>
-                </div>
-              </div>
-
-              <div className="cdm-actions">
-                <button className="btn-outline" onClick={toggleAll}>
-                  {selectedTargets.length === targets.length && targets.length > 0 ? '전체 해제' : '전체 선택'}
-                </button>
-                <button className="btn-primary" onClick={sendCampaign} disabled={!selectedTargets.length}>
-                  선택 대상 발송 ({selectedTargets.length}명)
-                </button>
-              </div>
-
-              {/* 알림톡 발송 패널 */}
-              <AlimtalkPanel
-                templates={templates}
-                targets={targets}
-                selectedTargets={selectedTargets}
-                selectedHospital={selectedHospital}
-                onSendComplete={handleAlimtalkSendComplete}
-              />
-
-              <div className="table-scroll-wrap">
-                <table className="data-table">
-                  <thead>
-                    <tr><th style={{width:40}}></th><th>이름</th><th>성별</th><th>생년월일</th><th>방문일</th><th>BMI</th><th>혈압</th><th>혈당</th><th>상태</th></tr>
-                  </thead>
-                  <tbody>
-                    {targets.map((t: any) => {
-                      const bmiWarn = t.bmi && parseFloat(t.bmi) >= 25;
-                      const bpWarn = t.bphigh && parseFloat(t.bphigh) >= 140;
-                      const bsWarn = t.blds && parseFloat(t.blds) >= 100;
-                      return (
-                        <tr key={t.uuid}>
-                          <td><input type="checkbox" checked={selectedTargets.includes(t.uuid)} onChange={() => setSelectedTargets(p => p.includes(t.uuid) ? p.filter(u => u !== t.uuid) : [...p, t.uuid])} /></td>
-                          <td>{t.name || '-'}</td>
-                          <td>{t.gender === 'M' ? '남' : t.gender === 'F' ? '여' : '-'}</td>
-                          <td>{t.birthday || '-'}</td>
-                          <td>{t.visitdate || '-'}</td>
-                          <td style={{color: bmiWarn ? '#dc2626' : undefined, fontWeight: bmiWarn ? 600 : undefined}}>{t.bmi || '-'}</td>
-                          <td style={{color: bpWarn ? '#dc2626' : undefined, fontWeight: bpWarn ? 600 : undefined}}>{t.bphigh ? `${t.bphigh}/${t.bplwst}` : '-'}</td>
-                          <td style={{color: bsWarn ? '#dc2626' : undefined, fontWeight: bsWarn ? 600 : undefined}}>{t.blds || '-'}</td>
-                          <td>{t.pln_mkt === 'Y' ? <span className="badge badge--success">발송완료</span> : <span className="badge badge--muted">미발송</span>}</td>
-                        </tr>
-                      );
-                    })}
-                    {targets.length === 0 && <tr><td colSpan={9} className="empty-state__text">{selectedHospital ? '해당 병원에 발송 가능한 대상이 없습니다' : '병원을 선택해주세요'}</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-            </>
+            <AlimtalkPanel
+              templates={templates}
+              targets={targets}
+              selectedTargets={selectedTargets}
+              selectedHospital={selectedHospital}
+              onSendComplete={handleAlimtalkSendComplete}
+            />
           )}
 
           {!selectedHospital && hospitals.length > 0 && !showHospitalDropdown && (
