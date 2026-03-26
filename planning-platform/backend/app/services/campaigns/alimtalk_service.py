@@ -26,8 +26,8 @@ WELNO_LANDING_PATH = '/welno/campaigns/checkup-design'
 
 # MariaDB (WiseT Agent) 연결 정보
 MYSQL_CONFIG = {
-    'host': '127.0.0.1',
-    'port': 13306,
+    'host': '10.0.1.10',
+    'port': 3306,
     'user': 'root',
     'password': 'dksrhkdtn!23',
     'database': 'p9_mkt_ata',
