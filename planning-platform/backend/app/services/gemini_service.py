@@ -86,7 +86,7 @@ class GeminiService:
         try:
             response = await asyncio.wait_for(
                 self._client.aio.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-3-flash-preview",
                     contents="ping",
                     config=types.GenerateContentConfig(max_output_tokens=5),
                 ),
