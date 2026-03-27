@@ -190,6 +190,33 @@ const IntroLandingPage: React.FC<Props> = ({
         </ul>
       </div>
 
+      {/* 프리뷰 */}
+      <div className="landing__preview">
+        <h3 className="landing__preview-title">
+          설계하면 이런 분석을<br />받아보실 수 있어요
+        </h3>
+        <div className="landing__preview-scroll">
+          <div className="landing__preview-card">
+            <div className="landing__preview-phone">
+              <img src="/images/preview-planning.png" alt="검진항목 추천" />
+            </div>
+            <div className="landing__preview-label">이번 검진 시 유의 깊게 보실 항목</div>
+          </div>
+          <div className="landing__preview-card">
+            <div className="landing__preview-phone">
+              <img src="/images/preview-trend.png" alt="건강 추이" />
+            </div>
+            <div className="landing__preview-label">내 건강 추이 한눈에</div>
+          </div>
+          <div className="landing__preview-card">
+            <div className="landing__preview-phone">
+              <img src="/images/preview-timeline.png" alt="의료기록" />
+            </div>
+            <div className="landing__preview-label">나의 의료기록 타임라인</div>
+          </div>
+        </div>
+      </div>
+
       {/* 하단 */}
       <div className="landing__footer">
         <div className="landing__footer-item">개인정보는 암호화 처리됩니다</div>
