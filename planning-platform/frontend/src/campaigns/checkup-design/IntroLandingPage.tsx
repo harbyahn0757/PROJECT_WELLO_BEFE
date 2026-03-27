@@ -122,6 +122,7 @@ const IntroLandingPage: React.FC<Props> = ({
               const lv = getLevel('bmi', v);
               return (
                 <div className="landing__health-item">
+                  <img className="landing__health-icon" src="/images/icon-bmi.png" alt="" />
                   <span className="landing__health-label">BMI</span>
                   <span className={`landing__health-value landing__health-value--${lv}`}>{v.toFixed(1)}</span>
                   <span className={`landing__health-status landing__health-status--${lv}`}>{statusLabel.bmi[lv]}</span>
@@ -133,6 +134,7 @@ const IntroLandingPage: React.FC<Props> = ({
               const lv = getLevel('bphigh', v);
               return (
                 <div className="landing__health-item">
+                  <img className="landing__health-icon" src="/images/icon-heart.png" alt="" />
                   <span className="landing__health-label">혈압</span>
                   <span className={`landing__health-value landing__health-value--${lv}`}>
                     {healthData.bphigh}/{healthData.bplwst || '-'}
@@ -146,6 +148,7 @@ const IntroLandingPage: React.FC<Props> = ({
               const lv = getLevel('blds', v);
               return (
                 <div className="landing__health-item">
+                  <img className="landing__health-icon" src="/images/icon-blood.png" alt="" />
                   <span className="landing__health-label">혈당</span>
                   <span className={`landing__health-value landing__health-value--${lv}`}>{healthData.blds}</span>
                   <span className={`landing__health-status landing__health-status--${lv}`}>{statusLabel.blds[lv]}</span>
@@ -157,6 +160,7 @@ const IntroLandingPage: React.FC<Props> = ({
               const lv = getLevel('totchole', v);
               return (
                 <div className="landing__health-item">
+                  <img className="landing__health-icon" src="/images/icon-artery.png" alt="" />
                   <span className="landing__health-label">콜레스테롤</span>
                   <span className={`landing__health-value landing__health-value--${lv}`}>{healthData.totchole}</span>
                   <span className={`landing__health-status landing__health-status--${lv}`}>{statusLabel.totchole[lv]}</span>

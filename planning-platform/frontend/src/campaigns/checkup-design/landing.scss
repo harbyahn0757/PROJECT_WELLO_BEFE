@@ -82,9 +82,9 @@
   margin: 0;
 }
 
-/* ── 건강 데이터 ── */
+/* ── 건강 데이터 (히어로 오버랩) ── */
 .landing__health {
-  margin: 0 16px;
+  margin: -32px 16px 0;
   padding: 16px 0 0;
   position: relative;
   z-index: 2;
@@ -109,7 +109,19 @@
   padding: 14px 8px;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  background: transparent;
+  background: #fff;
+  position: relative;
+  overflow: hidden;
+}
+
+.landing__health-icon {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 26px;
+  height: 26px;
+  opacity: 0.15;
+  filter: grayscale(100%);
 }
 
 .landing__health-label {
