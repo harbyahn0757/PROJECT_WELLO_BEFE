@@ -2390,22 +2390,17 @@ async def alimtalk_decrypt_landing(req: dict):
 @router.get("/alimtalk/link-data/{key}")
 async def alimtalk_link_data(key: str):
     """lookup_key로 알림톡 링크 데이터 조회 (인증 불필요 — 공개 엔드포인트)"""
-    from ....core.database import DatabaseManager
-    db = DatabaseManager()
-    try:
-        rows = await db.execute_query(
-            """SELECT data, wello_uuid, hospital_id
-               FROM welno.welno_link_data
-               WHERE lookup_key = %s AND expires_at > NOW()
-               LIMIT 1""",
-            (key,),
-        )
-        if not rows:
-            raise HTTPException(status_code=404, detail="링크 데이터 없음 또는 만료")
-        row = rows[0]
-        result = row['data'] if isinstance(row['data'], dict) else {}
-        health_fields = {k: result.get(k) for k in ('bmi','bphigh','bplwst','blds','totchole','hdlchole','ldlchole','triglyceride','hmg','gfr') if result.get(k)}
-        print(f"📋 [link-data] key={key}, uuid={result.get('uuid')}, name={result.get('name')}, 건강필드={health_fields}")
-        return {"success": True, **result}
-    finally:
-        await db.close()
+    rows = await db_manager.execute_query(
+        """SELECT data, wello_uuid, hospital_id
+           FROM welno.welno_link_data
+           WHERE lookup_key = %s AND expires_at > NOW()
+           LIMIT 1""",
+        (key,),
+    )
+    if not rows:
+        raise HTTPException(status_code=404, detail="링크 데이터 없음 또는 만료")
+    row = rows[0]
+    result = row['data'] if isinstance(row['data'], dict) else {}
+    health_fields = {k: result.get(k) for k in ('bmi','bphigh','bplwst','blds','totchole','hdlchole','ldlchole','triglyceride','hmg','gfr') if result.get(k)}
+    print(f"📋 [link-data] key={key}, uuid={result.get('uuid')}, name={result.get('name')}, 건강필드={health_fields}")
+    return {"success": True, **result}
