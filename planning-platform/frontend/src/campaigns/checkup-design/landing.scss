@@ -84,61 +84,36 @@
   margin: 0;
 }
 
-/* ── 검진설계 미리보기 (히어로 아래) ── */
-.landing__design-preview {
-  padding: 20px 24px;
-  text-align: center;
+/* ── 검진설계 미리보기 (하단 fade + 카드 오버랩) ── */
+.landing__design-img {
+  position: relative;
+  margin: 0 16px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
 
-  &-phone {
-    max-width: 280px;
-    margin: 0 auto;
-    border: 5px solid #2d3748;
-    border-radius: 24px;
-    overflow: hidden;
-    position: relative;
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 60px;
-      height: 14px;
-      background: #2d3748;
-      border-radius: 0 0 8px 8px;
-      z-index: 2;
-    }
-
-    &::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 60px;
-      background: linear-gradient(transparent, rgba(249,250,251,0.8));
-      z-index: 1;
-    }
-
-    img {
-      width: 100%;
-      display: block;
-      padding-top: 16px;
-    }
+  img {
+    width: 100%;
+    display: block;
   }
 
-  &-caption {
-    font-size: 13px;
-    color: #718096;
-    margin-top: 12px;
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 100px;
+    background: linear-gradient(transparent, #f9fafb);
   }
 }
 
-/* ── 건강 데이터 ── */
+/* ── 건강 데이터 (planning 위에 오버랩) ── */
 .landing__health {
-  margin: 0 16px;
-  padding: 20px 0 0;
+  margin: -30px 16px 0;
+  padding: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .landing__health-title {
@@ -169,10 +144,8 @@
   position: absolute;
   top: 8px;
   left: 8px;
-  width: 36px;
-  height: 36px;
-  opacity: 0.25;
-  filter: grayscale(50%);
+  width: 28px;
+  height: 28px;
 }
 
 .landing__health-label {
