@@ -1294,37 +1294,70 @@ class WelnoDataService:
 
             # 2. 중복 체크 (같은 data_source + 같은 연도)
             year = health_fields.get('checkup_year', str(datetime.now().year))
+            year_str = f"{year}년" if not str(year).endswith('년') else str(year)
             existing = await conn.fetchval("""
                 SELECT id FROM welno.welno_checkup_data
                 WHERE patient_uuid = $1 AND hospital_id = $2
                     AND data_source = 'partner' AND year = $3
-            """, uuid, hospital_id, year)
+            """, uuid, hospital_id, year_str)
 
             if existing:
                 await conn.close()
                 return {"success": True, "message": "이미 저장된 데이터", "skipped": True}
 
-            # 3. raw_data JSON (Tilko 형식 호환)
+            # 3. raw_data — 실제 Tilko DB 구조에 정확히 맞춤
+            def _item(name, val, unit):
+                return {"Name": name, "Value": str(val), "Unit": unit, "ItemReferences": []}
+
+            hf = health_fields
+            # 계측검사 Illnesses
+            body_items = []
+            if hf.get('height'): body_items.append(_item("신장", hf['height'], "Cm"))
+            if hf.get('weight'): body_items.append(_item("체중", hf['weight'], "Kg"))
+            if hf.get('bmi'): body_items.append(_item("체질량지수", hf['bmi'], "kg/m2"))
+            bp_illness = []
+            if hf.get('bphigh') and hf.get('bplwst'):
+                bp_illness = [{"Items": [_item("혈압(최고/최저)", f"{hf['bphigh']}/{hf['bplwst']}", "mmHg")]}]
+            elif hf.get('bphigh'):
+                bp_illness = [{"Items": [_item("혈압(최고/최저)", f"{hf['bphigh']}/-", "mmHg")]}]
+
+            body_illnesses = []
+            if body_items: body_illnesses.append({"Items": body_items})
+            body_illnesses.extend(bp_illness)
+
+            # 혈액검사 Illnesses
+            blood_illnesses = []
+            if hf.get('hmg'):
+                blood_illnesses.append({"Items": [_item("혈색소", hf['hmg'], "g/dL")]})
+            if hf.get('blds'):
+                blood_illnesses.append({"Items": [_item("공복혈당", hf['blds'], "mg/dL")]})
+            chol_items = []
+            if hf.get('totchole'): chol_items.append(_item("총콜레스테롤", hf['totchole'], "mg/dL"))
+            if hf.get('hdlchole'): chol_items.append(_item("고밀도(HDL) 콜레스테롤", hf['hdlchole'], "mg/dL"))
+            if hf.get('triglyceride'): chol_items.append(_item("중성지방", hf['triglyceride'], "mg/dL"))
+            if hf.get('ldlchole'): chol_items.append(_item("저밀도(LDL) 콜레스테롤", hf['ldlchole'], "mg/dL"))
+            if chol_items: blood_illnesses.append({"Items": chol_items})
+            kidney_items = []
+            if hf.get('creatinine'): kidney_items.append(_item("혈청크레아티닌", hf['creatinine'], "mg/dL"))
+            if hf.get('gfr'): kidney_items.append(_item("신사구체여과율(GFR)", hf['gfr'], "mL/min/1.73m2"))
+            if kidney_items: blood_illnesses.append({"Items": kidney_items})
+            liver_items = []
+            if hf.get('sgotast'): liver_items.append(_item("에이에스티(AST, SGOT)", hf['sgotast'], "U/L"))
+            if hf.get('sgptalt'): liver_items.append(_item("에이엘티(ALT, SGPT)", hf['sgptalt'], "U/L"))
+            if liver_items: blood_illnesses.append({"Items": liver_items})
+
+            inspections = []
+            if body_illnesses: inspections.append({"Gubun": "계측검사", "Illnesses": body_illnesses})
+            if blood_illnesses: inspections.append({"Gubun": "혈액검사", "Illnesses": blood_illnesses})
+
             raw_data = {
-                "resCheckupYear": year,
-                "resBMI": health_fields.get('bmi'),
-                "resHeight": health_fields.get('height'),
-                "resWeight": health_fields.get('weight'),
-                "resBpHigh": health_fields.get('bphigh'),
-                "resBpLwst": health_fields.get('bplwst'),
-                "resBlds": health_fields.get('blds'),
-                "resTotchole": health_fields.get('totchole'),
-                "resHdlchole": health_fields.get('hdlchole'),
-                "resLdlchole": health_fields.get('ldlchole'),
-                "resTriglyceride": health_fields.get('triglyceride'),
-                "resHmg": health_fields.get('hmg'),
-                "resSgotAst": health_fields.get('sgotast'),
-                "resSgptAlt": health_fields.get('sgptalt'),
-                "resGFR": health_fields.get('gfr'),
-                "resCreatinine": health_fields.get('creatinine'),
+                "Code": "",
+                "Year": year_str,
+                "Location": "국민건강보험공단",
+                "CheckUpDate": "",
+                "Description": "",
+                "Inspections": inspections,
             }
-            # None 값 제거
-            raw_data = {k: v for k, v in raw_data.items() if v is not None}
 
             def safe_int(v):
                 try: return int(float(v)) if v else None
@@ -1347,7 +1380,7 @@ class WelnoDataService:
                     NOW(), NOW(), NOW()
                 )
             """,
-                uuid, hospital_id, json.dumps(raw_data), year,
+                uuid, hospital_id, json.dumps(raw_data), year_str,
                 safe_float(health_fields.get('bmi')),
                 safe_int(health_fields.get('bphigh')),
                 safe_int(health_fields.get('bplwst')),
