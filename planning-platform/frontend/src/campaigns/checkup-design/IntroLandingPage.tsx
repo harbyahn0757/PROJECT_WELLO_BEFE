@@ -200,7 +200,13 @@ const IntroLandingPage: React.FC<Props> = ({
             <div className="landing__preview-phone">
               <img src="/images/preview-planning.png" alt="검진항목 추천" />
             </div>
-            <div className="landing__preview-label">이번 검진 시 유의 깊게 보실 항목</div>
+            <div className="landing__preview-label">맞춤 검진항목 추천</div>
+          </div>
+          <div className="landing__preview-card">
+            <div className="landing__preview-phone">
+              <img src="/images/preview-report.png" alt="질병예측 리포트" />
+            </div>
+            <div className="landing__preview-label">AI 질병예측 리포트</div>
           </div>
           <div className="landing__preview-card">
             <div className="landing__preview-phone">
