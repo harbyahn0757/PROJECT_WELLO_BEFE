@@ -80,17 +80,33 @@ const IntroLandingPage: React.FC<Props> = ({
       {/* 히어로 */}
       <div className="landing__hero">
         <div className="landing__hero-inner">
-          {hospitalName && <div className="landing__hospital">{hospitalName} 검진설계</div>}
-          {name && <div className="landing__greeting">{name}님,</div>}
-          <h1 className="landing__title">
-            올해 검진,<br />
-            뭘 받아야 할지<br />
-            모르겠다면
-          </h1>
-          <p className="landing__subtitle">
-            검진 데이터를 분석해서<br />
-            꼭 필요한 항목만 알려드립니다
-          </p>
+          <div className="landing__logo">
+            <img src="/welno_logo.png" alt="WELNO" className="landing__logo-img" />
+          </div>
+
+          {hospitalName && (
+            <div className="landing__hospital-greeting">
+              안녕하세요. {hospitalName}입니다.
+            </div>
+          )}
+
+          <div className="landing__hero-content">
+            <div className="landing__hero-text">
+              {name && <div className="landing__greeting">{name}님,</div>}
+              <h1 className="landing__title">
+                올해 검진,<br />
+                뭘 받아야 할지<br />
+                모르겠다면
+              </h1>
+              <p className="landing__subtitle">
+                검진 데이터를 분석해서<br />
+                꼭 필요한 항목만 알려드립니다
+              </p>
+            </div>
+            <div className="landing__hero-illust">
+              <img src="/images/landing-illust.webp" alt="" />
+            </div>
+          </div>
         </div>
       </div>
 

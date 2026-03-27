@@ -28,12 +28,34 @@
   z-index: 1;
 }
 
-.landing__hospital {
-  font-size: 13px;
+.landing__logo {
+  margin-bottom: 16px;
+  &-img { height: 24px; opacity: 0.7; }
+}
+
+.landing__hospital-greeting {
+  font-size: 14px;
   font-weight: 500;
-  color: #7c746a;
+  color: #55433B;
   margin-bottom: 20px;
-  letter-spacing: -0.3px;
+  padding: 10px 16px;
+  background: rgba(255,255,255,0.6);
+  border-radius: 10px;
+  display: inline-block;
+}
+
+.landing__hero-content {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.landing__hero-text { flex: 1; }
+
+.landing__hero-illust {
+  flex-shrink: 0;
+  width: 120px;
+  img { width: 100%; height: auto; border-radius: 12px; }
 }
 
 .landing__greeting {
