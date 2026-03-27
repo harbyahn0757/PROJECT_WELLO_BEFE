@@ -90,15 +90,19 @@ const CheckupDesignManagementPage: React.FC = () => {
       } else if (tab === 'history') {
         setHistoryLoading(true);
         try {
-          const h = await fetch(`${API}/partner-office/alimtalk/history?limit=50`).then(r => r.json());
+          const historyUrl = selectedHospital
+            ? `${API}/partner-office/alimtalk/history?limit=50&hosnm=${encodeURIComponent(selectedHospital)}`
+            : `${API}/partner-office/alimtalk/history?limit=50`;
+          const h = await fetch(historyUrl).then(r => r.json());
           if (h.success) setHistoryList(h.history || []);
         } finally { setHistoryLoading(false); }
-      } else {
-        // 병원 목록 + 템플릿 로드 (최초 1회)
-        if (hospitals.length === 0) {
-          const h = await fetch(`${API}/partner-office/checkup-design/campaign/hospitals`).then(r => r.json());
-          if (h.success) setHospitals(h.hospitals || []);
-        }
+      }
+      // 병원 목록 + 템플릿: 모든 탭에서 공통 로드 (최초 1회)
+      if (hospitals.length === 0) {
+        const h = await fetch(`${API}/partner-office/checkup-design/campaign/hospitals`).then(r => r.json());
+        if (h.success) setHospitals(h.hospitals || []);
+      }
+      if (tab === 'campaign') {
         if (templates.length === 0) {
           const t = await fetch(`${API}/partner-office/alimtalk/templates`).then(r => r.json());
           if (t.success) setTemplates(t.templates || []);
@@ -158,6 +162,36 @@ const CheckupDesignManagementPage: React.FC = () => {
     <div className="cdm-page">
       <div className="cdm-page__header">
         <h2 className="cdm-page__title">검진설계 관리</h2>
+        <div className="cdm-hospital-select" ref={hospitalRef} style={{position:'relative'}}>
+          <div className="cdm-hospital-search" style={{minWidth:'260px'}}>
+            <input
+              type="text"
+              placeholder={`병원 검색 (${hospitals.length}개)`}
+              value={hospitalSearch}
+              onChange={e => { setHospitalSearch(e.target.value); setShowHospitalDropdown(true); }}
+              onFocus={() => setShowHospitalDropdown(true)}
+              style={{fontSize:'13px',padding:'6px 10px',border:'1px solid #d1d5db',borderRadius:'6px',width:'100%'}}
+            />
+            {selectedHospital && (
+              <button className="cdm-hospital-search__clear" onClick={() => { setSelectedHospital(''); setHospitalSearch(''); setSelectedTargets([]); }}>✕</button>
+            )}
+            {showHospitalDropdown && (
+              <div className="cdm-hospital-dropdown">
+                {filteredHospitals.length === 0 && <div className="cdm-hospital-dropdown__empty">검색 결과 없음</div>}
+                {filteredHospitals.slice(0, 50).map((h: any) => (
+                  <div
+                    key={h.hosnm}
+                    className={`cdm-hospital-dropdown__item ${selectedHospital === h.hosnm ? 'cdm-hospital-dropdown__item--active' : ''}`}
+                    onClick={() => selectHospital(h.hosnm)}
+                  >
+                    <span className="cdm-hospital-dropdown__name">{h.hosnm}</span>
+                    <span className="cdm-hospital-dropdown__count">{h.mkt_consent}명 / {h.pln_sent}명 발송</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* 탭 */}
@@ -174,39 +208,6 @@ const CheckupDesignManagementPage: React.FC = () => {
       {/* ── 캠페인 관리 ── */}
       {activeTab === 'campaign' && !loading && (
         <div className="cdm-section">
-          {/* 병원 검색 드롭다운 */}
-          <div className="cdm-hospital-select" ref={hospitalRef}>
-            <label>병원</label>
-            <div className="cdm-hospital-search">
-              <input
-                type="text"
-                placeholder={`병원명 검색 (${hospitals.length}개)`}
-                value={hospitalSearch}
-                onChange={e => { setHospitalSearch(e.target.value); setShowHospitalDropdown(true); }}
-                onFocus={() => setShowHospitalDropdown(true)}
-              />
-              {selectedHospital && (
-                <button className="cdm-hospital-search__clear" onClick={() => { setSelectedHospital(''); setHospitalSearch(''); setSelectedTargets([]); }}>✕</button>
-              )}
-              {showHospitalDropdown && (
-                <div className="cdm-hospital-dropdown">
-                  {filteredHospitals.length === 0 && <div className="cdm-hospital-dropdown__empty">검색 결과 없음</div>}
-                  {filteredHospitals.slice(0, 50).map((h: any) => (
-                    <div
-                      key={h.hosnm}
-                      className={`cdm-hospital-dropdown__item ${selectedHospital === h.hosnm ? 'cdm-hospital-dropdown__item--active' : ''}`}
-                      onClick={() => selectHospital(h.hosnm)}
-                    >
-                      <span className="cdm-hospital-dropdown__name">{h.hosnm}</span>
-                      <span className="cdm-hospital-dropdown__count">{h.mkt_consent}명 동의 / {h.pln_sent}명 발송</span>
-                    </div>
-                  ))}
-                  {filteredHospitals.length > 50 && <div className="cdm-hospital-dropdown__more">+{filteredHospitals.length - 50}개 더...</div>}
-                </div>
-              )}
-            </div>
-          </div>
-
           {selectedHospital && (
             <AlimtalkPanel
               templates={templates}
