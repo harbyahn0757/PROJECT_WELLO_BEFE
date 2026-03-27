@@ -155,14 +155,12 @@
 }
 
 .landing__value-question {
-  background: #FEF9EE;
-  border-radius: 12px;
-  padding: 18px 20px;
-  margin-bottom: 20px;
-  font-size: 15px;
+  text-align: center;
+  margin-bottom: 24px;
+  font-size: 16px;
   font-weight: 600;
   color: #55433B;
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
 .landing__value-cards {
@@ -186,6 +184,8 @@
   height: 48px;
   flex-shrink: 0;
   border-radius: 10px;
+  opacity: 0.4;
+  filter: grayscale(100%);
 }
 
 .landing__value-card-text {
