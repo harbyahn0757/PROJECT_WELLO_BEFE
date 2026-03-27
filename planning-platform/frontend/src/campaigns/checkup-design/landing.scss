@@ -51,9 +51,10 @@
 
 .landing__hero-illust {
   flex-shrink: 0;
-  width: 110px;
-  margin-bottom: -8px;
-  img { width: 100%; height: auto; }
+  width: 150px;
+  align-self: flex-end;
+  margin-bottom: -20px;
+  img { width: 100%; height: auto; opacity: 0.35; filter: grayscale(30%); }
 }
 
 .landing__greeting {
