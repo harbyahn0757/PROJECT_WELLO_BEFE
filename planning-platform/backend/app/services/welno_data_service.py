@@ -1286,7 +1286,7 @@ class WelnoDataService:
             await conn.execute("""
                 INSERT INTO welno.welno_patients (uuid, hospital_id, name, birth_date, gender,
                     has_health_data, data_source, created_at, updated_at)
-                VALUES ($1, $2, $3, $4::date, $5, true, 'campaign_link', NOW(), NOW())
+                VALUES ($1, $2, $3, $4::date, $5, true, 'partner', NOW(), NOW())
                 ON CONFLICT (uuid, hospital_id) DO UPDATE SET
                     has_health_data = true, updated_at = NOW(),
                     name = COALESCE(EXCLUDED.name, welno.welno_patients.name)
@@ -1297,7 +1297,7 @@ class WelnoDataService:
             existing = await conn.fetchval("""
                 SELECT id FROM welno.welno_checkup_data
                 WHERE patient_uuid = $1 AND hospital_id = $2
-                    AND data_source = 'campaign_link' AND year = $3
+                    AND data_source = 'partner' AND year = $3
             """, uuid, hospital_id, year)
 
             if existing:
@@ -1342,7 +1342,7 @@ class WelnoDataService:
                     cholesterol, hdl_cholesterol, ldl_cholesterol, triglyceride,
                     hemoglobin, height, weight, collected_at, created_at, updated_at
                 ) VALUES (
-                    $1, $2, $3::jsonb, $4, 'campaign_link',
+                    $1, $2, $3::jsonb, $4, 'partner',
                     $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
                     NOW(), NOW(), NOW()
                 )
