@@ -87,14 +87,14 @@
 /* ── 검진설계 미리보기 (하단 fade + 카드 오버랩) ── */
 .landing__design-img {
   position: relative;
-  margin: 0 16px;
-  border-radius: 16px;
+  margin: 0;
   overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  max-height: 320px;
 
   img {
     width: 100%;
     display: block;
+    opacity: 0.9;
   }
 
   &::after {
@@ -103,14 +103,14 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 100px;
-    background: linear-gradient(transparent, #f9fafb);
+    height: 140px;
+    background: linear-gradient(transparent 0%, #f9fafb 85%);
   }
 }
 
-/* ── 건강 데이터 (planning 위에 오버랩) ── */
+/* ── 건강 데이터 (planning 이미지 fade 위에 오버랩) ── */
 .landing__health {
-  margin: -30px 16px 0;
+  margin: -40px 16px 0;
   padding: 0;
   position: relative;
   z-index: 2;
@@ -220,8 +220,8 @@
   height: 48px;
   flex-shrink: 0;
   border-radius: 10px;
-  opacity: 0.4;
-  filter: grayscale(100%);
+  opacity: 0.2;
+  filter: grayscale(100%) brightness(1.2);
 }
 
 .landing__value-card-text {
@@ -398,6 +398,8 @@
     object-fit: cover;
     object-position: top center;
     padding-top: 18px;
+    filter: grayscale(30%);
+    opacity: 0.85;
   }
 }
 

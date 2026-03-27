@@ -127,7 +127,7 @@ const IntroLandingPage: React.FC<Props> = ({
               const lv = getLevel('bmi', v);
               return (
                 <div className="landing__health-item">
-                  <svg className="landing__health-icon" viewBox="0 0 24 24" fill="none" stroke="#7c746a" strokeWidth="1.5"><rect x="3" y="10" width="18" height="10" rx="2"/><circle cx="12" cy="15" r="3"/><line x1="12" y1="12" x2="14" y2="14"/></svg>
+                  <svg className="landing__health-icon" viewBox="0 0 24 24" fill="none" stroke="#7c746a" strokeWidth="1.5" strokeLinecap="round"><rect x="3" y="10" width="18" height="10" rx="2"/><circle cx="12" cy="15" r="3"/><line x1="12" y1="12" x2="14" y2="14"/></svg>
                   <span className="landing__health-label">BMI</span>
                   <span className={`landing__health-value landing__health-value--${lv}`}>{v.toFixed(1)}</span>
                   <span className={`landing__health-status landing__health-status--${lv}`}>{statusLabel.bmi[lv]}</span>
@@ -139,7 +139,7 @@ const IntroLandingPage: React.FC<Props> = ({
               const lv = getLevel('bphigh', v);
               return (
                 <div className="landing__health-item">
-                  <svg className="landing__health-icon" viewBox="0 0 24 24" fill="#dc2626" opacity="0.7"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                  <svg className="landing__health-icon" viewBox="0 0 24 24" fill="none" stroke="#7c746a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/></svg>
                   <span className="landing__health-label">혈압</span>
                   <span className={`landing__health-value landing__health-value--${lv}`}>
                     {healthData.bphigh}/{healthData.bplwst || '-'}
@@ -153,7 +153,7 @@ const IntroLandingPage: React.FC<Props> = ({
               const lv = getLevel('blds', v);
               return (
                 <div className="landing__health-item">
-                  <svg className="landing__health-icon" viewBox="0 0 24 24" fill="#d97706" opacity="0.7"><path d="M12 2C12 2 5 10 5 15a7 7 0 0014 0c0-5-7-13-7-13z"/><line x1="10" y1="15" x2="14" y2="15" stroke="#fff" strokeWidth="1.5"/><line x1="12" y1="13" x2="12" y2="17" stroke="#fff" strokeWidth="1.5"/></svg>
+                  <svg className="landing__health-icon" viewBox="0 0 24 24" fill="none" stroke="#7c746a" strokeWidth="1.5" strokeLinecap="round"><path d="M12 2C12 2 5 10 5 15a7 7 0 0014 0c0-5-7-13-7-13z"/><line x1="10" y1="15" x2="14" y2="15"/><line x1="12" y1="13" x2="12" y2="17"/></svg>
                   <span className="landing__health-label">혈당</span>
                   <span className={`landing__health-value landing__health-value--${lv}`}>{healthData.blds}</span>
                   <span className={`landing__health-status landing__health-status--${lv}`}>{statusLabel.blds[lv]}</span>
@@ -165,7 +165,7 @@ const IntroLandingPage: React.FC<Props> = ({
               const lv = getLevel('totchole', v);
               return (
                 <div className="landing__health-item">
-                  <svg className="landing__health-icon" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" opacity="0.7"><path d="M4 12h16" strokeLinecap="round"/><path d="M4 8c0-2 2-4 4-4h8c2 0 4 2 4 4" strokeLinecap="round"/><path d="M4 16c0 2 2 4 4 4h8c2 0 4-2 4-4" strokeLinecap="round"/><ellipse cx="10" cy="12" rx="2" ry="1.5" fill="#fbbf24" stroke="none"/><ellipse cx="15" cy="12" rx="1.5" ry="1" fill="#fbbf24" stroke="none"/></svg>
+                  <svg className="landing__health-icon" viewBox="0 0 24 24" fill="none" stroke="#7c746a" strokeWidth="1.5" strokeLinecap="round"><path d="M4 12h16"/><path d="M4 8c0-2 2-4 4-4h8c2 0 4 2 4 4"/><path d="M4 16c0 2 2 4 4 4h8c2 0 4-2 4-4"/><ellipse cx="10" cy="12" rx="2" ry="1.5" fill="#7c746a" opacity="0.3" stroke="none"/><ellipse cx="15" cy="12" rx="1.5" ry="1" fill="#7c746a" opacity="0.3" stroke="none"/></svg>
                   <span className="landing__health-label">콜레스테롤</span>
                   <span className={`landing__health-value landing__health-value--${lv}`}>{healthData.totchole}</span>
                   <span className={`landing__health-status landing__health-status--${lv}`}>{statusLabel.totchole[lv]}</span>
