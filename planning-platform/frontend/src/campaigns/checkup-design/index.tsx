@@ -52,23 +52,46 @@ const CheckupDesignCampaign: React.FC = () => {
     return match ? decodeURIComponent(match[1]) : '';
   })();
 
-  // 암호화된 data 파라미터 복호화
+  // 암호화된 data 파라미터 복호화 → DB 저장 → uuid 세팅(→ check-status 트리거)
   useEffect(() => {
     if (!encryptedData) return;
-    fetch(`${API_BASE}/partner-office/alimtalk/decrypt-landing`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: encryptedData }),
-    })
-      .then(r => r.json())
-      .then(d => {
-        if (d.success) {
-          setUuid(d.uuid || '');
-          setHospitalId(d.hospital || '');
-          setHealthData(d); // bmi, bphigh 등 검진 데이터 저장
+    (async () => {
+      try {
+        const r = await fetch(`${API_BASE}/partner-office/alimtalk/decrypt-landing`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: encryptedData }),
+        });
+        const d = await r.json();
+        if (!d.success) return;
+
+        const decryptedUuid = d.uuid || '';
+        const decryptedHospital = d.hospital || '';
+        setHealthData(d);
+
+        // 건강데이터가 있으면 welno_checkup_data에 먼저 저장 (check-status 전에)
+        if (d.bmi || d.bphigh || d.blds) {
+          try {
+            await fetch(`${API_BASE}/checkup-design/save-link-health-data`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                uuid: decryptedUuid, hospital_id: decryptedHospital,
+                name: d.name, birthday: d.birthday, gender: d.gender,
+                bmi: d.bmi, height: d.height, weight: d.weight,
+                bphigh: d.bphigh, bplwst: d.bplwst, blds: d.blds,
+                totchole: d.totchole, hdlchole: d.hdlchole, ldlchole: d.ldlchole,
+                triglyceride: d.triglyceride, hmg: d.hmg, gfr: d.gfr,
+              }),
+            });
+          } catch (e) { console.error('링크 데이터 DB 저장 실패:', e); }
         }
-      })
-      .catch(e => console.error('복호화 실패:', e));
+
+        // uuid 세팅 → checkUserStatus 트리거
+        setUuid(decryptedUuid);
+        setHospitalId(decryptedHospital);
+      } catch (e) { console.error('복호화 실패:', e); }
+    })();
   }, [encryptedData]);
 
   // ── 상태 체크 ──

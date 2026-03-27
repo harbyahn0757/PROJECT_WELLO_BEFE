@@ -4,7 +4,7 @@
   flex-direction: column;
   max-width: 440px;
   margin: 0 auto;
-  background: #f9fafb;
+  background: linear-gradient(180deg, #FEF9EE 0%, #f9fafb 30%);
   padding-bottom: 100px;
   font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
 }
@@ -37,7 +37,7 @@
 }
 
 .landing__hospital-greeting {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 500;
   color: #55433B;
   margin-bottom: 20px;
@@ -61,7 +61,7 @@
 }
 
 .landing__greeting {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: #7c746a;
   margin-bottom: 8px;
@@ -69,7 +69,7 @@
 }
 
 .landing__title {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 800;
   color: #1a202c;
   line-height: 1.35;
@@ -78,7 +78,7 @@
 }
 
 .landing__subtitle {
-  font-size: 15px;
+  font-size: 17px;
   color: #4a5568;
   line-height: 1.6;
   margin: 0;
@@ -131,7 +131,7 @@
 }
 
 .landing__health-title {
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
   color: #718096;
   margin: 0 0 12px;
@@ -164,7 +164,7 @@
 
 .landing__health-label {
   display: block;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
   color: #718096;
   margin-bottom: 4px;
@@ -172,14 +172,14 @@
 
 .landing__health-value {
   display: block;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   line-height: 1.2;
 }
 
 .landing__health-status {
   display: block;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   margin-top: 2px;
 }
@@ -192,7 +192,7 @@
 .landing__health-status--danger { color: #dc2626; }
 
 .landing__health-note {
-  font-size: 11px;
+  font-size: 13px;
   color: #a0aec0;
   text-align: center;
   margin: 10px 0 0;
@@ -207,7 +207,7 @@
 .landing__value-question {
   text-align: center;
   margin-bottom: 24px;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
   color: #55433B;
   line-height: 1.7;
@@ -244,12 +244,12 @@
   gap: 3px;
 
   strong {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     color: #1a202c;
   }
   span {
-    font-size: 12px;
+    font-size: 14px;
     color: #718096;
     line-height: 1.5;
   }
@@ -279,13 +279,13 @@
 
 .landing__cta-primary-text {
   display: block;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
 }
 
 .landing__cta-primary-sub {
   display: block;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
   opacity: 0.8;
   margin-top: 4px;
