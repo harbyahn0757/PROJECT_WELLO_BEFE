@@ -177,17 +177,29 @@ const IntroLandingPage: React.FC<Props> = ({
           나한테 안 맞는 항목을<br />
           받고 있진 않으셨나요?
         </div>
-        <ul className="landing__value-list">
-          <li className="landing__value-item">
-            과거 검진 추이를 분석해서 위험 요인을 미리 파악합니다
-          </li>
-          <li className="landing__value-item">
-            불필요한 검사는 줄이고 꼭 필요한 항목을 추천합니다
-          </li>
-          <li className="landing__value-item">
-            약물 복용과 생활습관까지 반영한 정밀 설계입니다
-          </li>
-        </ul>
+        <div className="landing__value-cards">
+          <div className="landing__value-card">
+            <img className="landing__value-icon" src="/images/value-trend.png" alt="" />
+            <div className="landing__value-card-text">
+              <strong>과거 검진 추이 분석</strong>
+              <span>연도별 변화를 추적해서 위험 요인을 미리 파악합니다</span>
+            </div>
+          </div>
+          <div className="landing__value-card">
+            <img className="landing__value-icon" src="/images/value-recommend.png" alt="" />
+            <div className="landing__value-card-text">
+              <strong>꼭 필요한 항목만 추천</strong>
+              <span>불필요한 검사는 줄이고 나에게 맞는 항목을 설계합니다</span>
+            </div>
+          </div>
+          <div className="landing__value-card">
+            <img className="landing__value-icon" src="/images/value-lifestyle.png" alt="" />
+            <div className="landing__value-card-text">
+              <strong>약물·생활습관 반영</strong>
+              <span>복용 중인 약과 생활습관까지 고려한 정밀 설계입니다</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* 프리뷰 */}

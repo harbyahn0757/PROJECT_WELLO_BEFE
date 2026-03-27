@@ -165,29 +165,43 @@
   line-height: 1.6;
 }
 
-.landing__value-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+.landing__value-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-.landing__value-item {
-  font-size: 14px;
-  color: #374151;
-  line-height: 1.8;
-  padding: 6px 0;
-  padding-left: 16px;
-  position: relative;
+.landing__value-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #e8e0d8;
+}
 
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 14px;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #7c746a;
+.landing__value-icon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 10px;
+}
+
+.landing__value-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+
+  strong {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a202c;
+  }
+  span {
+    font-size: 12px;
+    color: #718096;
+    line-height: 1.5;
   }
 }
 
