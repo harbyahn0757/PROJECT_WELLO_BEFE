@@ -305,16 +305,17 @@
 
 .landing__preview-card {
   flex-shrink: 0;
-  width: 220px;
+  width: 200px;
   scroll-snap-align: center;
 }
 
 .landing__preview-phone {
   position: relative;
-  border: 6px solid #1a202c;
-  border-radius: 28px;
+  border: 5px solid #2d3748;
+  border-radius: 24px;
   overflow: hidden;
-  background: #fff;
+  background: #f9fafb;
+  height: 380px;
 
   &::before {
     content: '';
@@ -322,10 +323,10 @@
     top: 0;
     left: 50%;
     transform: translateX(-50%);
-    width: 80px;
-    height: 20px;
-    background: #1a202c;
-    border-radius: 0 0 12px 12px;
+    width: 60px;
+    height: 16px;
+    background: #2d3748;
+    border-radius: 0 0 10px 10px;
     z-index: 2;
   }
 
@@ -335,18 +336,18 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 60px;
-    background: linear-gradient(transparent, #fff);
+    height: 80px;
+    background: linear-gradient(transparent, rgba(249,250,251,0.95));
     z-index: 1;
   }
 
   img {
     width: 100%;
-    height: auto;
+    height: 100%;
     display: block;
-    max-height: 360px;
     object-fit: cover;
-    object-position: top;
+    object-position: top center;
+    padding-top: 18px;
   }
 }
 
@@ -356,6 +357,7 @@
   font-weight: 600;
   color: #4a5568;
   margin-top: 10px;
+  line-height: 1.4;
 }
 
 /* ── 설계 방식 선택 모달 ── */
