@@ -14,6 +14,20 @@
   position: relative;
   padding: 48px 24px 40px;
   background: linear-gradient(135deg, #c4a882 0%, #e8d5c0 40%, #FEF9EE 100%);
+
+  // 검진항목 추천 이미지를 우측 배경으로
+  &::before {
+    content: '';
+    position: absolute;
+    top: 60px;
+    right: -20px;
+    width: 220px;
+    height: 400px;
+    background: url('/images/preview-planning.png') top right/contain no-repeat;
+    opacity: 0.08;
+    filter: grayscale(100%);
+    z-index: 0;
+  }
   overflow: hidden;
 
   &::after {
@@ -116,12 +130,12 @@
 
 .landing__health-icon {
   position: absolute;
-  top: 6px;
-  left: 6px;
-  width: 26px;
-  height: 26px;
-  opacity: 0.15;
-  filter: grayscale(100%);
+  top: 8px;
+  left: 8px;
+  width: 36px;
+  height: 36px;
+  opacity: 0.25;
+  filter: grayscale(50%);
 }
 
 .landing__health-label {
