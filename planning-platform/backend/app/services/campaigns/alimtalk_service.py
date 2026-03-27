@@ -502,8 +502,9 @@ async def _substitute_attachment_urls(
         }
         if variables:
             for field in ('name', 'birthday', 'gender', 'bmi', 'bphigh',
-                          'bplwst', 'blds', 'hdlchole', 'ldlchole',
-                          'triglyceride', 'gfr', 'regdate', 'visitdate',
+                          'bplwst', 'blds', 'totchole', 'hdlchole', 'ldlchole',
+                          'triglyceride', 'hmg', 'sgotast', 'sgptalt',
+                          'creatinine', 'gfr', 'regdate', 'visitdate',
                           'hosnm', 'hosaddr', 'phoneno'):
                 # DB 필드명 직접 매칭
                 val = variables.get(field, '')

@@ -152,14 +152,29 @@ const CheckupDesignCampaign: React.FC = () => {
     navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=campaign`);
   };
 
-  // ── "기존 데이터로 바로 설계" (알림톡 링크 검진 데이터 사용) ──
-  const handleStartDesignWithData = (data: any) => {
-    const params = new URLSearchParams();
-    if (uuid) params.set('uuid', uuid);
-    if (hospitalId) params.set('hospital', hospitalId);
-    params.set('partner', partnerId);
-    params.set('mode', 'link_data'); // 링크 데이터 모드
-    navigate(`/checkup-design?${params.toString()}`, { state: { linkHealthData: data } });
+  // ── "기존 데이터로 바로 설계" (알림톡 링크 데이터 → DB 저장 → 일반 설계) ──
+  const handleStartDesignWithData = async (data: any) => {
+    try {
+      // 링크 건강데이터를 welno_checkup_data에 저장 (기존 파이프라인 호환)
+      await fetch(`${API_BASE}/checkup-design/save-link-health-data`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uuid, hospital_id: hospitalId,
+          name: data.name, birthday: data.birthday, gender: data.gender,
+          bmi: data.bmi, height: data.height, weight: data.weight,
+          bphigh: data.bphigh, bplwst: data.bplwst, blds: data.blds,
+          totchole: data.totchole, hdlchole: data.hdlchole, ldlchole: data.ldlchole,
+          triglyceride: data.triglyceride, hmg: data.hmg, gfr: data.gfr,
+          sgotast: data.sgotast, sgptalt: data.sgptalt, creatinine: data.creatinine,
+          checkup_year: data.checkup_year,
+        }),
+      });
+    } catch (e) {
+      console.error('링크 데이터 저장 실패:', e);
+    }
+    // DB에 저장 후 일반 모드로 설계 진입
+    handleStartDesign();
   };
 
   // ── "Tilko 다년간 정밀 설계" ──

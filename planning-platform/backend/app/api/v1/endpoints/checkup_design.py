@@ -2361,6 +2361,46 @@ class CheckStatusResponse(BaseModel):
     can_get_more: bool = True
 
 
+class SaveLinkHealthRequest(BaseModel):
+    uuid: str
+    hospital_id: str
+    name: Optional[str] = None
+    birthday: Optional[str] = None
+    gender: Optional[str] = None
+    bmi: Optional[str] = None
+    height: Optional[str] = None
+    weight: Optional[str] = None
+    bphigh: Optional[str] = None
+    bplwst: Optional[str] = None
+    blds: Optional[str] = None
+    totchole: Optional[str] = None
+    hdlchole: Optional[str] = None
+    ldlchole: Optional[str] = None
+    triglyceride: Optional[str] = None
+    hmg: Optional[str] = None
+    sgotast: Optional[str] = None
+    sgptalt: Optional[str] = None
+    gfr: Optional[str] = None
+    creatinine: Optional[str] = None
+    checkup_year: Optional[str] = None
+
+
+@router.post("/save-link-health-data")
+async def save_link_health_data(request: SaveLinkHealthRequest):
+    """알림톡 링크 건강데이터를 welno 구조체(welno_checkup_data)에 저장"""
+    health_fields = {k: v for k, v in request.dict().items()
+                     if k not in ('uuid', 'hospital_id', 'name', 'birthday', 'gender') and v}
+    result = await welno_data_service.save_link_health_data(
+        uuid=request.uuid,
+        hospital_id=request.hospital_id,
+        health_fields=health_fields,
+        name=request.name,
+        birthday=request.birthday,
+        gender=request.gender,
+    )
+    return result
+
+
 @router.post("/check-status", response_model=CheckStatusResponse)
 async def check_checkup_design_status(request: CheckStatusRequest):
     """

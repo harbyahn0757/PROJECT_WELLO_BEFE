@@ -1274,6 +1274,101 @@ class WelnoDataService:
             print(f"❌ [페르소나] 업데이트 오류: {e}")
             return False
 
+    async def save_link_health_data(
+        self, uuid: str, hospital_id: str, health_fields: dict, name: str = None,
+        birthday: str = None, gender: str = None
+    ) -> dict:
+        """알림톡 링크 건강데이터를 welno_patients + welno_checkup_data에 저장"""
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+
+            # 1. welno_patients UPSERT
+            await conn.execute("""
+                INSERT INTO welno.welno_patients (uuid, hospital_id, name, birth_date, gender,
+                    has_health_data, data_source, created_at, updated_at)
+                VALUES ($1, $2, $3, $4::date, $5, true, 'campaign_link', NOW(), NOW())
+                ON CONFLICT (uuid, hospital_id) DO UPDATE SET
+                    has_health_data = true, updated_at = NOW(),
+                    name = COALESCE(EXCLUDED.name, welno.welno_patients.name)
+            """, uuid, hospital_id, name or '고객', birthday, gender)
+
+            # 2. 중복 체크 (같은 data_source + 같은 연도)
+            year = health_fields.get('checkup_year', str(datetime.now().year))
+            existing = await conn.fetchval("""
+                SELECT id FROM welno.welno_checkup_data
+                WHERE patient_uuid = $1 AND hospital_id = $2
+                    AND data_source = 'campaign_link' AND year = $3
+            """, uuid, hospital_id, year)
+
+            if existing:
+                await conn.close()
+                return {"success": True, "message": "이미 저장된 데이터", "skipped": True}
+
+            # 3. raw_data JSON (Tilko 형식 호환)
+            raw_data = {
+                "resCheckupYear": year,
+                "resBMI": health_fields.get('bmi'),
+                "resHeight": health_fields.get('height'),
+                "resWeight": health_fields.get('weight'),
+                "resBpHigh": health_fields.get('bphigh'),
+                "resBpLwst": health_fields.get('bplwst'),
+                "resBlds": health_fields.get('blds'),
+                "resTotchole": health_fields.get('totchole'),
+                "resHdlchole": health_fields.get('hdlchole'),
+                "resLdlchole": health_fields.get('ldlchole'),
+                "resTriglyceride": health_fields.get('triglyceride'),
+                "resHmg": health_fields.get('hmg'),
+                "resSgotAst": health_fields.get('sgotast'),
+                "resSgptAlt": health_fields.get('sgptalt'),
+                "resGFR": health_fields.get('gfr'),
+                "resCreatinine": health_fields.get('creatinine'),
+            }
+            # None 값 제거
+            raw_data = {k: v for k, v in raw_data.items() if v is not None}
+
+            def safe_int(v):
+                try: return int(float(v)) if v else None
+                except: return None
+
+            def safe_float(v):
+                try: return float(v) if v else None
+                except: return None
+
+            # 4. welno_checkup_data INSERT
+            await conn.execute("""
+                INSERT INTO welno.welno_checkup_data (
+                    patient_uuid, hospital_id, raw_data, year, data_source,
+                    bmi, blood_pressure_high, blood_pressure_low, blood_sugar,
+                    cholesterol, hdl_cholesterol, ldl_cholesterol, triglyceride,
+                    hemoglobin, height, weight, collected_at, created_at, updated_at
+                ) VALUES (
+                    $1, $2, $3::jsonb, $4, 'campaign_link',
+                    $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+                    NOW(), NOW(), NOW()
+                )
+            """,
+                uuid, hospital_id, json.dumps(raw_data), year,
+                safe_float(health_fields.get('bmi')),
+                safe_int(health_fields.get('bphigh')),
+                safe_int(health_fields.get('bplwst')),
+                safe_int(health_fields.get('blds')),
+                safe_int(health_fields.get('totchole')),
+                safe_int(health_fields.get('hdlchole')),
+                safe_int(health_fields.get('ldlchole')),
+                safe_int(health_fields.get('triglyceride')),
+                safe_float(health_fields.get('hmg')),
+                safe_float(health_fields.get('height')),
+                safe_float(health_fields.get('weight')),
+            )
+
+            await conn.close()
+            print(f"✅ [save_link_health_data] uuid={uuid}, hospital={hospital_id}, year={year}")
+            return {"success": True}
+        except Exception as e:
+            print(f"❌ [save_link_health_data] 오류: {e}")
+            import traceback; traceback.print_exc()
+            return {"success": False, "error": str(e)}
+
     async def save_checkup_design_request(
         self,
         uuid: str,
