@@ -2,7 +2,7 @@
  * 검진설계 캠페인 랜딩 페이지
  * 알림톡 → 이 페이지 → 검진설계 시작
  */
-import React from 'react';
+import React, { useState } from 'react';
 import './landing.scss';
 
 interface CheckupDesignStatus {
@@ -54,6 +54,8 @@ const IntroLandingPage: React.FC<Props> = ({
   const isProcessing = status?.action === 'show_processing';
   const name = healthData?.name || '';
   const hospitalName = healthData?.hosnm || '';
+
+  const [showModal, setShowModal] = useState(false);
 
   // 결과 보기
   if (status?.action === 'show_result') {
@@ -203,7 +205,7 @@ const IntroLandingPage: React.FC<Props> = ({
       {/* 하단 고정 CTA */}
       <div className="landing__sticky-cta">
         {hasAnyData && !isProcessing && (
-          <button className="landing__cta-primary" onClick={() => hasLinkData ? onStartDesignWithData(healthData) : onStartDesign()}>
+          <button className="landing__cta-primary" onClick={() => setShowModal(true)}>
             <span className="landing__cta-primary-text">지금 바로 설계 시작</span>
             <span className="landing__cta-primary-sub">
               {status?.latest_year ? `${status.latest_year}년 데이터 기반` : '기존 데이터 기반'} · 약 1분
@@ -222,6 +224,39 @@ const IntroLandingPage: React.FC<Props> = ({
           </button>
         )}
       </div>
+
+      {/* 설계 방식 선택 모달 */}
+      {showModal && (
+        <div className="landing__modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="landing__modal" onClick={e => e.stopPropagation()}>
+            <button className="landing__modal-close" onClick={() => setShowModal(false)}>×</button>
+            <h3 className="landing__modal-title">검진설계 방식 선택</h3>
+            <p className="landing__modal-desc">
+              어떤 데이터를 기반으로 설계할까요?
+            </p>
+
+            <button
+              className="landing__modal-option landing__modal-option--primary"
+              onClick={() => { setShowModal(false); hasLinkData ? onStartDesignWithData(healthData) : onStartDesign(); }}
+            >
+              <span className="landing__modal-option-title">기존 검진 데이터로 설계</span>
+              <span className="landing__modal-option-desc">
+                {status?.latest_year ? `${status.latest_year}년 검진 결과 기반` : '보유 데이터 기반'} · 바로 시작
+              </span>
+            </button>
+
+            <button
+              className="landing__modal-option"
+              onClick={() => { setShowModal(false); onAuthMultiYear(); }}
+            >
+              <span className="landing__modal-option-title">과거 검진 기록까지 종합 분석</span>
+              <span className="landing__modal-option-desc">
+                건보공단 본인인증으로 다년간 데이터 수집 · 약 2분
+              </span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {!uuid && <p className="landing__no-link">파트너 링크를 통해 접속해주세요</p>}
     </div>

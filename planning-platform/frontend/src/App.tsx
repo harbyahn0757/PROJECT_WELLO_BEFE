@@ -633,7 +633,7 @@ const AppContent: React.FC = () => {
       />
       
       <NotificationContainer />
-      {!isIframe && <WelnoRagChatButton />}
+      {!isIframe && !location.pathname.includes('/campaigns/checkup-design') && <WelnoRagChatButton />}
       
     </div>
   );
