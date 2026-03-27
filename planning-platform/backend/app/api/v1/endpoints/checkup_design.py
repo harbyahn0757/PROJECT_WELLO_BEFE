@@ -2390,6 +2390,7 @@ async def save_link_health_data(request: SaveLinkHealthRequest):
     """알림톡 링크 건강데이터를 welno 구조체(welno_checkup_data)에 저장"""
     health_fields = {k: v for k, v in request.dict().items()
                      if k not in ('uuid', 'hospital_id', 'name', 'birthday', 'gender') and v}
+    print(f"📥 [save-link-health-data] uuid={request.uuid}, hospital={request.hospital_id}, name={request.name}, fields={health_fields}")
     result = await welno_data_service.save_link_health_data(
         uuid=request.uuid,
         hospital_id=request.hospital_id,

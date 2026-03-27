@@ -2371,6 +2371,9 @@ async def alimtalk_decrypt_landing(req: dict):
         )
         if not result:
             raise HTTPException(status_code=400, detail="복호화 실패")
+        # 파이프라인 로그
+        health_fields = {k: result.get(k) for k in ('bmi','bphigh','bplwst','blds','totchole','hdlchole','ldlchole','triglyceride','hmg','gfr') if result.get(k)}
+        print(f"📋 [decrypt-landing] uuid={result.get('uuid')}, hospital={result.get('hospital')}, name={result.get('name')}, 건강필드={health_fields}")
         return {"success": True, **result}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"복호화 오류: {str(e)}")
