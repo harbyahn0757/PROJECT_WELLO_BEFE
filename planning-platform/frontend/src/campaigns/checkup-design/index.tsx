@@ -46,7 +46,11 @@ const CheckupDesignCampaign: React.FC = () => {
   const [partnerId, setPartnerId] = useState(urlParams.get('partner') || 'welno');
   const [hospitalId, setHospitalId] = useState(urlParams.get('hospital') || '');
   const [healthData, setHealthData] = useState<any>(null); // 암호화 링크의 검진 데이터
-  const encryptedData = urlParams.get('data') || '';
+  // urlParams.get()은 +를 공백으로 변환하므로, 원본 URL에서 직접 추출
+  const encryptedData = (() => {
+    const match = location.search.match(/[?&]data=([^&]*)/);
+    return match ? decodeURIComponent(match[1]) : '';
+  })();
 
   // 암호화된 data 파라미터 복호화
   useEffect(() => {

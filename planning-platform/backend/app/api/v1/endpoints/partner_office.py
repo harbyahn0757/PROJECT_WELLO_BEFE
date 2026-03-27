@@ -2364,10 +2364,8 @@ async def alimtalk_decrypt_landing(req: dict):
     if not data:
         raise HTTPException(status_code=400, detail="data 파라미터 필요")
     try:
-        from urllib.parse import unquote
-        decoded = unquote(data)
         result = decrypt_user_data(
-            decoded,
+            data,
             aes_key=getattr(settings, 'PARTNER_AES_KEY', 'kindhabit_disease_predict_key_32'),
             aes_iv=getattr(settings, 'PARTNER_AES_IV', 'kindhabit_iv_16 '),
         )
