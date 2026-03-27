@@ -81,7 +81,6 @@ const IntroLandingPage: React.FC<Props> = ({
     <div className="landing">
       {/* 히어로 */}
       <div className="landing__hero">
-        <img src="/images/preview-planning.png" alt="" className="landing__hero-bg" />
         <div className="landing__hero-inner">
           <div className="landing__logo">
             <img src="/welno_logo.png" alt="WELNO" className="landing__logo-img" />
@@ -110,6 +109,16 @@ const IntroLandingPage: React.FC<Props> = ({
               <img src="/images/landing-illust.png" alt="" />
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* 검진설계 미리보기 */}
+      <div className="landing__design-preview">
+        <div className="landing__design-preview-phone">
+          <img src="/images/preview-planning.png" alt="검진설계 미리보기" />
+        </div>
+        <div className="landing__design-preview-caption">
+          이런 맞춤 분석을 받아보실 수 있어요
         </div>
       </div>
 
