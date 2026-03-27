@@ -87,7 +87,7 @@
 /* ── 검진설계 미리보기 (하단 fade + 카드 오버랩) ── */
 .landing__design-img {
   position: relative;
-  margin: 0 24px;
+  margin: 24px 24px 0;
   overflow: hidden;
   max-height: 480px;
   border-radius: 12px;
@@ -124,7 +124,7 @@
 
 /* ── 건강 데이터 (planning 이미지 fade 위에 오버랩) ── */
 .landing__health {
-  margin: -40px 16px 0;
+  margin: 16px 16px 0;
   padding: 0;
   position: relative;
   z-index: 2;
