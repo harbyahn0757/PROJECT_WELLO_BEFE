@@ -56,6 +56,30 @@ const CheckupDesignPage: React.FC = () => {
           return;
         }
 
+        // ── 알림톡 링크 데이터 모드: state에서 직접 사용 ──
+        const mode = urlParams.get('mode');
+        const linkData = (location.state as any)?.linkHealthData;
+        if (mode === 'link_data' && linkData) {
+          console.log('📋 [검진설계] 알림톡 링크 데이터 모드 — state에서 직접 사용');
+          const year = linkData.checkup_year || String(new Date().getFullYear());
+          const resultItem: Record<string, any> = { resCheckupYear: year };
+          if (linkData.bmi) resultItem.resBMI = linkData.bmi;
+          if (linkData.height) resultItem.resHeight = linkData.height;
+          if (linkData.weight) resultItem.resWeight = linkData.weight;
+          if (linkData.bphigh) resultItem.resBpHigh = linkData.bphigh;
+          if (linkData.bplwst) resultItem.resBpLwst = linkData.bplwst;
+          if (linkData.blds) resultItem.resBlds = linkData.blds;
+          if (linkData.totchole) resultItem.resTotchole = linkData.totchole;
+          if (linkData.hmg) resultItem.resHmg = linkData.hmg;
+          if (linkData.sgotast) resultItem.resSgotAst = linkData.sgotast;
+          if (linkData.sgptalt) resultItem.resSgptAlt = linkData.sgptalt;
+          if (linkData.gfr) resultItem.resGFR = linkData.gfr;
+          if (linkData.creatinine) resultItem.resCreatinine = linkData.creatinine;
+          setHealthData({ ResultList: [resultItem] });
+          setLoading(false);
+          return;
+        }
+
         // 설계 완료 여부 확인 (새로고침 플래그가 없을 때만)
         const shouldRefresh = urlParams.get('refresh') === 'true';
         const resumeId = urlParams.get('resume'); // ✅ 알림톡 재시도 파라미터

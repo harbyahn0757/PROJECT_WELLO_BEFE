@@ -107,7 +107,11 @@ const CheckupDesignCampaign: React.FC = () => {
           setCurrentPage('design');
           break;
         case 'show_design_start':
-          // 데이터 있음 → 검진설계 시작 가능
+          // Tilko 인증 복귀 → 데이터 있으면 바로 설계 시작
+          if (urlParams.get('from_auth') === 'true') {
+            handleStartDesign();
+            return;
+          }
           setCurrentPage('intro');
           break;
         case 'redirect_to_auth':
@@ -144,7 +148,7 @@ const CheckupDesignCampaign: React.FC = () => {
 
   // ── "본인 인증" 버튼 클릭 ──
   const handleAuth = () => {
-    const returnTo = `/campaigns/checkup-design?uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}`;
+    const returnTo = `/campaigns/checkup-design?uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}&from_auth=true`;
     navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=campaign`);
   };
 
@@ -160,7 +164,7 @@ const CheckupDesignCampaign: React.FC = () => {
 
   // ── "Tilko 다년간 정밀 설계" ──
   const handleAuthMultiYear = () => {
-    const returnTo = `/campaigns/checkup-design?uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}`;
+    const returnTo = `/campaigns/checkup-design?uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}&from_auth=true`;
     navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=multi_year`);
   };
 

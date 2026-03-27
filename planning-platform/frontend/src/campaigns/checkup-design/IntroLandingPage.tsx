@@ -244,18 +244,6 @@ const IntroLandingPage: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* 하단 */}
-      <div className="landing__footer">
-        <div className="landing__footer-item">개인정보는 암호화 처리됩니다</div>
-        <div className="landing__footer-item">소요 시간 약 1~3분</div>
-        {hospitalName && <div className="landing__footer-item">{hospitalName} 제공</div>}
-        {hasAnyData && !isProcessing && (
-          <button className="landing__footer-link" onClick={onAuthMultiYear}>
-            과거 검진 기록까지 종합 분석하기
-          </button>
-        )}
-      </div>
-
       {/* 하단 고정 CTA */}
       <div className="landing__sticky-cta">
         {hasAnyData && !isProcessing && (
