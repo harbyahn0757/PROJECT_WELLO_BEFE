@@ -172,45 +172,39 @@ const IntroLandingPage: React.FC<Props> = ({
         </ul>
       </div>
 
-      {/* CTA */}
-      <div className="landing__cta">
-        {hasAnyData && !isProcessing && (
-          <>
-            <button
-              className="landing__cta-primary"
-              onClick={() => hasLinkData ? onStartDesignWithData(healthData) : onStartDesign()}
-            >
-              <span className="landing__cta-primary-text">지금 바로 설계 시작</span>
-              <span className="landing__cta-primary-sub">
-                {status?.latest_year ? `${status.latest_year}년 검진 데이터 기반` : '기존 검진 데이터 기반'} · 약 1분
-              </span>
-            </button>
-            <button className="landing__cta-secondary" onClick={onAuthMultiYear}>
-              건보공단 인증으로 과거 기록까지 종합 분석
-            </button>
-          </>
-        )}
-
-        {!hasAnyData && !isProcessing && (
-          <button className="landing__cta-primary" onClick={onAuth}>
-            <span className="landing__cta-primary-text">본인 인증하고 시작하기</span>
-            <span className="landing__cta-primary-sub">건보공단 검진 기록 연동 · 약 2분</span>
-          </button>
-        )}
-
-        {isProcessing && (
-          <button className="landing__cta-primary" style={{ opacity: 0.5, cursor: 'default' }} disabled>
-            <span className="landing__cta-primary-text">분석 진행 중...</span>
-            <span className="landing__cta-primary-sub">잠시만 기다려주세요</span>
-          </button>
-        )}
-      </div>
-
       {/* 하단 */}
       <div className="landing__footer">
         <div className="landing__footer-item">개인정보는 암호화 처리됩니다</div>
         <div className="landing__footer-item">소요 시간 약 1~3분</div>
         {hospitalName && <div className="landing__footer-item">{hospitalName} 제공</div>}
+        {hasAnyData && !isProcessing && (
+          <button className="landing__footer-link" onClick={onAuthMultiYear}>
+            과거 검진 기록까지 종합 분석하기
+          </button>
+        )}
+      </div>
+
+      {/* 하단 고정 CTA */}
+      <div className="landing__sticky-cta">
+        {hasAnyData && !isProcessing && (
+          <button className="landing__cta-primary" onClick={() => hasLinkData ? onStartDesignWithData(healthData) : onStartDesign()}>
+            <span className="landing__cta-primary-text">지금 바로 설계 시작</span>
+            <span className="landing__cta-primary-sub">
+              {status?.latest_year ? `${status.latest_year}년 데이터 기반` : '기존 데이터 기반'} · 약 1분
+            </span>
+          </button>
+        )}
+        {!hasAnyData && !isProcessing && (
+          <button className="landing__cta-primary" onClick={onAuth}>
+            <span className="landing__cta-primary-text">본인 인증하고 시작하기</span>
+            <span className="landing__cta-primary-sub">검진 기록 연동 · 약 2분</span>
+          </button>
+        )}
+        {isProcessing && (
+          <button className="landing__cta-primary" style={{ opacity: 0.5 }} disabled>
+            <span className="landing__cta-primary-text">분석 진행 중...</span>
+          </button>
+        )}
       </div>
 
       {!uuid && <p className="landing__no-link">파트너 링크를 통해 접속해주세요</p>}

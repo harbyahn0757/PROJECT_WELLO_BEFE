@@ -2407,9 +2407,13 @@ async def check_checkup_design_status(request: CheckStatusRequest):
                 message="검진설계가 진행 중입니다.",
             )
 
-        # 2. 건강 데이터 유무 확인
+        # 2. 건강 데이터 유무 확인 (hospital_id '*'이면 전체 조회 fallback)
         health = await welno_data_service.get_patient_health_data(uuid, hospital_id)
         has_data = bool(health and not health.get("error") and health.get("health_data"))
+        if not has_data and hospital_id == '*':
+            # '*'로 데이터 없으면 hospital_id 없이 재조회
+            health = await welno_data_service.get_patient_health_data(uuid, 'PEERNINE')
+            has_data = bool(health and not health.get("error") and health.get("health_data"))
 
         if has_data:
             # 보유 연도 목록 추출

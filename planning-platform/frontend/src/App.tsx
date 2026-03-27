@@ -157,10 +157,11 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       const isMainPage = location.pathname === '/' || location.pathname === '';
       
       // 검진 설계 및 문진 페이지에서도 숨김
-      const isSpecialPage = location.pathname === '/checkup-design' || 
+      const isSpecialPage = location.pathname === '/checkup-design' ||
                            location.pathname === '/questionnaire' ||
                            location.pathname === '/survey' ||
-                           location.pathname === '/habits';
+                           location.pathname === '/habits' ||
+                           location.pathname.includes('/campaigns/checkup-design');
       
       // 캠페인 페이지는 항상 플로팅 버튼 표시 (파트너 플로우)
       const isCampaignPage = location.pathname.includes('/campaigns/disease-prediction');
