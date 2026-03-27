@@ -485,16 +485,15 @@ async def _substitute_attachment_urls(
     if not buttons:
         return attachment
 
-    # 검진 데이터 암호화하여 URL 생성
+    # 검진 데이터를 DB에 저장하고 짧은 lookup_key로 URL 생성
+    # (기존 암호화 URL 방식은 카카오 인앱에서 잘림 → CBC 패딩 에러)
     wello_url_full = None
     wello_url_no_proto = None
     if wello_uuid:
-        # 암호화할 데이터: uuid + hospital + 검진결과
-        encrypt_payload = {
+        link_payload = {
             'uuid': wello_uuid,
             'hospital': hospital_id,
         }
-        # 한글변수명 → DB필드명 역매핑
         KR_TO_FIELD = {
             '고객명': 'name', '환자명': 'name', '이름': 'name',
             '병원명': 'hosnm', '생년월일': 'birthday', '성별': 'gender',
@@ -506,34 +505,36 @@ async def _substitute_attachment_urls(
                           'triglyceride', 'hmg', 'sgotast', 'sgptalt',
                           'creatinine', 'gfr', 'regdate', 'visitdate',
                           'hosnm', 'hosaddr', 'phoneno'):
-                # DB 필드명 직접 매칭
                 val = variables.get(field, '')
-                # 한글 변수명으로도 찾기
                 if not val:
                     for kr, f in KR_TO_FIELD.items():
                         if f == field and variables.get(kr):
                             val = variables[kr]
                             break
                 if val:
-                    encrypt_payload[field] = str(val)
+                    link_payload[field] = str(val)
 
-        encrypted = encrypt_user_data(
-            encrypt_payload,
-            aes_key=getattr(settings, 'PARTNER_AES_KEY', 'kindhabit_disease_predict_key_32'),
-            aes_iv=getattr(settings, 'PARTNER_AES_IV', 'kindhabit_iv_16 '),
-        )
-
-        if encrypted:
-            from urllib.parse import quote
-            encoded = quote(encrypted, safe='')
+        # DB에 저장 + lookup_key 생성
+        lookup_key = str(uuid_lib.uuid4())[:8]  # 8자리 short key
+        try:
+            await db_manager.execute_update(
+                """INSERT INTO welno.welno_link_data
+                   (lookup_key, wello_uuid, hospital_id, data)
+                   VALUES (%s, %s, %s, %s)""",
+                (lookup_key, wello_uuid, hospital_id,
+                 json.dumps(link_payload, ensure_ascii=False)),
+            )
             wello_url_full = (
-                f"https://{WELNO_DOMAIN}{WELNO_LANDING_PATH}?data={encoded}"
+                f"https://{WELNO_DOMAIN}{WELNO_LANDING_PATH}"
+                f"?key={lookup_key}"
             )
             wello_url_no_proto = (
-                f"{WELNO_DOMAIN}{WELNO_LANDING_PATH}?data={encoded}"
+                f"{WELNO_DOMAIN}{WELNO_LANDING_PATH}"
+                f"?key={lookup_key}"
             )
-        else:
-            # 암호화 실패 시 평문 fallback
+            logger.info(f"link_data 저장: key={lookup_key}, uuid={wello_uuid}")
+        except Exception as e:
+            logger.error(f"link_data 저장 실패: {e}, 평문 fallback")
             wello_url_full = (
                 f"https://{WELNO_DOMAIN}{WELNO_LANDING_PATH}"
                 f"?uuid={wello_uuid}&hospital={hospital_id}"

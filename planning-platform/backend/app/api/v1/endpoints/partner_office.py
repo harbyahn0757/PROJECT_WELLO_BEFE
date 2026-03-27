@@ -2376,4 +2376,36 @@ async def alimtalk_decrypt_landing(req: dict):
         print(f"📋 [decrypt-landing] uuid={result.get('uuid')}, hospital={result.get('hospital')}, name={result.get('name')}, 건강필드={health_fields}")
         return {"success": True, **result}
     except Exception as e:
+        print(f"❌ [Decryption Error] {e}")
+        # 복호화된 원본 데이터의 hex 샘플 출력 (디버깅용)
+        try:
+            from base64 import b64decode
+            raw = b64decode(data)
+            print(f"   - Decrypted sample(hex): {raw[:20].hex()}")
+        except Exception:
+            print(f"   - Decrypted sample(hex): N/A")
         raise HTTPException(status_code=400, detail=f"복호화 오류: {str(e)}")
+
+
+@router.get("/alimtalk/link-data/{key}")
+async def alimtalk_link_data(key: str):
+    """lookup_key로 알림톡 링크 데이터 조회 (인증 불필요 — 공개 엔드포인트)"""
+    from ....core.database import DatabaseManager
+    db = DatabaseManager()
+    try:
+        rows = await db.execute_query(
+            """SELECT data, wello_uuid, hospital_id
+               FROM welno.welno_link_data
+               WHERE lookup_key = %s AND expires_at > NOW()
+               LIMIT 1""",
+            (key,),
+        )
+        if not rows:
+            raise HTTPException(status_code=404, detail="링크 데이터 없음 또는 만료")
+        row = rows[0]
+        result = row['data'] if isinstance(row['data'], dict) else {}
+        health_fields = {k: result.get(k) for k in ('bmi','bphigh','bplwst','blds','totchole','hdlchole','ldlchole','triglyceride','hmg','gfr') if result.get(k)}
+        print(f"📋 [link-data] key={key}, uuid={result.get('uuid')}, name={result.get('name')}, 건강필드={health_fields}")
+        return {"success": True, **result}
+    finally:
+        await db.close()

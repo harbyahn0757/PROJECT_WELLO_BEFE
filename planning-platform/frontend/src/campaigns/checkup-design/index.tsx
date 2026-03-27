@@ -40,59 +40,73 @@ const CheckupDesignCampaign: React.FC = () => {
   const [status, setStatus] = useState<CheckupDesignStatus | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // URL 파라미터 (평문 또는 암호화)
+  // URL 파라미터 (평문 / lookup_key / 레거시 암호화)
   const urlParams = new URLSearchParams(location.search);
   const [uuid, setUuid] = useState(urlParams.get('uuid') || '');
   const [partnerId, setPartnerId] = useState(urlParams.get('partner') || 'welno');
   const [hospitalId, setHospitalId] = useState(urlParams.get('hospital') || '');
-  const [healthData, setHealthData] = useState<any>(null); // 암호화 링크의 검진 데이터
-  // urlParams.get()은 +를 공백으로 변환하므로, 원본 URL에서 직접 추출
+  const [healthData, setHealthData] = useState<any>(null);
+  const linkKey = urlParams.get('key') || '';
   const encryptedData = (() => {
     const match = location.search.match(/[?&]data=([^&]*)/);
     return match ? decodeURIComponent(match[1]) : '';
   })();
 
-  // 암호화된 data 파라미터 복호화 → DB 저장 → uuid 세팅(→ check-status 트리거)
+  // 링크 데이터 로드 (key 방식 우선 → data 암호화 fallback)
   useEffect(() => {
-    if (!encryptedData) return;
-    (async () => {
-      try {
-        const r = await fetch(`${API_BASE}/partner-office/alimtalk/decrypt-landing`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: encryptedData }),
-        });
-        const d = await r.json();
-        if (!d.success) return;
+    const loadLinkData = async () => {
+      let d: any = null;
 
-        const decryptedUuid = d.uuid || '';
-        const decryptedHospital = d.hospital || '';
-        setHealthData(d);
+      // 1) lookup_key 방식 (신규)
+      if (linkKey) {
+        try {
+          const r = await fetch(`${API_BASE}/partner-office/alimtalk/link-data/${linkKey}`);
+          if (r.ok) d = await r.json();
+        } catch (e) { /* fallback */ }
+      }
 
-        // 건강데이터가 있으면 welno_checkup_data에 먼저 저장 (check-status 전에)
-        if (d.bmi || d.bphigh || d.blds) {
-          try {
-            await fetch(`${API_BASE}/checkup-design/save-link-health-data`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                uuid: decryptedUuid, hospital_id: decryptedHospital,
-                name: d.name, birthday: d.birthday, gender: d.gender,
-                bmi: d.bmi, height: d.height, weight: d.weight,
-                bphigh: d.bphigh, bplwst: d.bplwst, blds: d.blds,
-                totchole: d.totchole, hdlchole: d.hdlchole, ldlchole: d.ldlchole,
-                triglyceride: d.triglyceride, hmg: d.hmg, gfr: d.gfr,
-              }),
-            });
-          } catch (e) { console.error('링크 데이터 DB 저장 실패:', e); }
-        }
+      // 2) 레거시 암호화 data 방식
+      if (!d && encryptedData) {
+        try {
+          const r = await fetch(`${API_BASE}/partner-office/alimtalk/decrypt-landing`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: encryptedData }),
+          });
+          if (r.ok) d = await r.json();
+        } catch (e) { /* fallback */ }
+      }
 
-        // uuid 세팅 → checkUserStatus 트리거
-        setUuid(decryptedUuid);
-        setHospitalId(decryptedHospital);
-      } catch (e) { console.error('복호화 실패:', e); }
-    })();
-  }, [encryptedData]);
+      if (!d || !d.success) return;
+
+      const resolvedUuid = d.uuid || '';
+      const resolvedHospital = d.hospital || '';
+      setHealthData(d);
+
+      // 건강데이터 DB 저장
+      if (d.bmi || d.bphigh || d.blds) {
+        try {
+          await fetch(`${API_BASE}/checkup-design/save-link-health-data`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uuid: resolvedUuid, hospital_id: resolvedHospital,
+              name: d.name, birthday: d.birthday, gender: d.gender,
+              bmi: d.bmi, height: d.height, weight: d.weight,
+              bphigh: d.bphigh, bplwst: d.bplwst, blds: d.blds,
+              totchole: d.totchole, hdlchole: d.hdlchole, ldlchole: d.ldlchole,
+              triglyceride: d.triglyceride, hmg: d.hmg, gfr: d.gfr,
+            }),
+          });
+        } catch (e) { /* ignore */ }
+      }
+
+      setUuid(resolvedUuid);
+      setHospitalId(resolvedHospital);
+    };
+
+    if (linkKey || encryptedData) loadLinkData();
+  }, [linkKey, encryptedData]);
 
   // ── 상태 체크 ──
   const checkUserStatus = useCallback(async () => {
