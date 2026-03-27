@@ -15,18 +15,16 @@
   padding: 48px 24px 40px;
   background: linear-gradient(135deg, #c4a882 0%, #e8d5c0 40%, #FEF9EE 100%);
 
-  // 검진항목 추천 이미지를 우측 배경으로
-  &::before {
-    content: '';
+  .landing__hero-bg {
     position: absolute;
-    top: 60px;
-    right: -20px;
-    width: 220px;
-    height: 400px;
-    background: url('/images/preview-planning.png') top right/contain no-repeat;
-    opacity: 0.08;
+    top: 50px;
+    right: -30px;
+    width: 200px;
+    height: auto;
+    opacity: 0.06;
     filter: grayscale(100%);
     z-index: 0;
+    pointer-events: none;
   }
   overflow: hidden;
 
