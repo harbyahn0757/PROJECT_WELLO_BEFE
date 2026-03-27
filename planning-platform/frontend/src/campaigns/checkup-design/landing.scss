@@ -5,7 +5,8 @@
   max-width: 440px;
   margin: 0 auto;
   background: #f9fafb;
-  padding-bottom: 100px; // sticky CTA 높이 확보
+  padding-bottom: 100px;
+  font-family: var(--font-family-primary, 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif);
 }
 
 /* ── 히어로 ── */
@@ -29,33 +30,32 @@
 }
 
 .landing__logo {
-  margin-bottom: 16px;
-  &-img { height: 24px; opacity: 0.7; }
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  &-img { height: 22px; opacity: 0.7; }
 }
 
 .landing__hospital-greeting {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
-  color: #55433B;
-  margin-bottom: 20px;
-  padding: 10px 16px;
-  background: rgba(255,255,255,0.6);
-  border-radius: 10px;
-  display: inline-block;
+  color: #7c746a;
 }
 
 .landing__hero-content {
   display: flex;
   align-items: flex-end;
-  gap: 12px;
+  gap: 8px;
 }
 
 .landing__hero-text { flex: 1; }
 
 .landing__hero-illust {
   flex-shrink: 0;
-  width: 120px;
-  img { width: 100%; height: auto; border-radius: 12px; }
+  width: 110px;
+  margin-bottom: -8px;
+  img { width: 100%; height: auto; mix-blend-mode: multiply; }
 }
 
 .landing__greeting {
@@ -63,6 +63,7 @@
   font-weight: 600;
   color: #7c746a;
   margin-bottom: 8px;
+  font-family: var(--font-family-primary, 'Pretendard', sans-serif);
 }
 
 .landing__title {
@@ -81,33 +82,34 @@
   margin: 0;
 }
 
-/* ── 건강 데이터 카드 ── */
+/* ── 건강 데이터 ── */
 .landing__health {
-  margin: -16px 16px 0;
-  padding: 20px;
-  background: #fff;
-  border-radius: 16px;
-  border-left: 4px solid #7c746a;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  margin: 0 16px;
+  padding: 16px 0 0;
   position: relative;
   z-index: 2;
 }
 
 .landing__health-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #1a202c;
-  margin: 0 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #718096;
+  margin: 0 0 12px;
+  padding: 0 8px;
 }
 
 .landing__health-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 8px;
 }
 
 .landing__health-item {
   text-align: center;
+  padding: 14px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: transparent;
 }
 
 .landing__health-label {
@@ -140,12 +142,11 @@
 .landing__health-status--danger { color: #dc2626; }
 
 .landing__health-note {
-  font-size: 12px;
-  color: #718096;
+  font-size: 11px;
+  color: #a0aec0;
   text-align: center;
-  margin: 14px 0 0;
-  padding-top: 12px;
-  border-top: 1px solid #f3f4f6;
+  margin: 10px 0 0;
+  padding: 0 8px;
 }
 
 /* ── 가치 (공감) ── */

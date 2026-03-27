@@ -82,13 +82,10 @@ const IntroLandingPage: React.FC<Props> = ({
         <div className="landing__hero-inner">
           <div className="landing__logo">
             <img src="/welno_logo.png" alt="WELNO" className="landing__logo-img" />
+            {hospitalName && (
+              <span className="landing__hospital-greeting">{hospitalName}</span>
+            )}
           </div>
-
-          {hospitalName && (
-            <div className="landing__hospital-greeting">
-              안녕하세요. {hospitalName}입니다.
-            </div>
-          )}
 
           <div className="landing__hero-content">
             <div className="landing__hero-text">
