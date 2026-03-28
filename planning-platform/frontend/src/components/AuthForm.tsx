@@ -1126,7 +1126,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             console.log('✅ [사전체크] 기존 환자 발견:', foundPatient.uuid);
             
             // 데이터가 있는 경우에만 로드 제안
-            if (foundPatient.has_health_data || foundPatient.has_prescription_data) {
+            // 단, 처방 데이터 없이 검진만 있으면 (partner 소스) → Tilko 바로 진행
+            if (foundPatient.has_health_data && !foundPatient.has_prescription_data) {
+              console.log('📋 [사전체크] 검진 데이터만 있고 처방 없음 → Tilko 인증 바로 진행');
+              // partner 데이터 보존하면서 Tilko로 처방 추가 수집
+            } else if (foundPatient.has_health_data || foundPatient.has_prescription_data) {
               // 비밀번호 존재 여부 확인
               try {
                 const passwordCheckResponse = await fetch(
