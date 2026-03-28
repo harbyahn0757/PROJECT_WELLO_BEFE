@@ -1282,15 +1282,25 @@ class WelnoDataService:
         try:
             conn = await asyncpg.connect(**self.db_config)
 
+            # birthday 문자열 → date 객체 변환
+            birth_date_obj = None
+            if birthday:
+                try:
+                    bd = birthday.replace('-', '')
+                    if len(bd) >= 8:
+                        birth_date_obj = datetime.strptime(bd[:8], "%Y%m%d").date()
+                except (ValueError, TypeError):
+                    pass
+
             # 1. welno_patients UPSERT
             await conn.execute("""
                 INSERT INTO welno.welno_patients (uuid, hospital_id, name, birth_date, gender,
                     has_health_data, data_source, created_at, updated_at)
-                VALUES ($1, $2, $3, $4::date, $5, true, 'partner', NOW(), NOW())
+                VALUES ($1, $2, $3, $4, $5, true, 'partner', NOW(), NOW())
                 ON CONFLICT (uuid, hospital_id) DO UPDATE SET
                     has_health_data = true, updated_at = NOW(),
                     name = COALESCE(EXCLUDED.name, welno.welno_patients.name)
-            """, uuid, hospital_id, name or '고객', birthday, gender)
+            """, uuid, hospital_id, name or '고객', birth_date_obj, gender)
 
             # 2. 중복 체크 (같은 data_source + 같은 연도)
             year = health_fields.get('checkup_year', str(datetime.now().year))

@@ -217,7 +217,8 @@ const IntroLandingPage: React.FC<Props> = ({
 
       {/* 건강 노트 */}
       <div className="landing__health-note">
-        이 결과로 나만의 검진을 만들어요
+        내 몸에 맞는 검진,<br />
+        같이 만들어볼까요?
       </div>
 
       {/* 가치 카드 */}
