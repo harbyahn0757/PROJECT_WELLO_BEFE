@@ -404,9 +404,12 @@ const CheckupDesignPage: React.FC = () => {
           `[확인] 지금 다시 시도\n[취소] 나중에 알림 받기`
         );
         
+        if (shouldRetry && !designRequestId) {
+          console.log('⚠️ [폴백] designRequestId 없음 - 새로 시작');
+          navigate(`/checkup-design${location.search}&refresh=true`);
+          return;
+        }
         if (shouldRetry && designRequestId) {
-          // 즉시 재시도
-          console.log('🔄 [폴백] 즉시 재시도 선택 - ID:', designRequestId);
           setShowProcessingModal(true);
           setProcessingStage('designing');
           setProcessingProgress(50);
@@ -510,8 +513,7 @@ const CheckupDesignPage: React.FC = () => {
           <p>{error}</p>
           <button 
             onClick={() => {
-              const queryString = location.search;
-              navigate(`/${queryString}`);
+              navigate(-1);
             }}
             className="checkup-design-page__back-button"
           >
@@ -533,8 +535,7 @@ const CheckupDesignPage: React.FC = () => {
           <p>아직 건강 데이터가 없어요</p>
           <button 
             onClick={() => {
-              const queryString = location.search;
-              navigate(`/${queryString}`);
+              navigate(-1);
             }}
             className="checkup-design-page__back-button"
           >

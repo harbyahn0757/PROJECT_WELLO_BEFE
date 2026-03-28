@@ -221,7 +221,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           }, MESSAGE_DELAY * 2);
         } else {
           setTimeout(() => {
-            addBotMessage('bot_analysis', '처방 이력이 없어서 설계를 완료하겠습니다.');
+            addBotMessage('bot_analysis', '처방 이력 없이도 검진 설계가 가능해요. 바로 시작할게요!');
             setTimeout(() => {
               handleComplete();
             }, MESSAGE_DELAY + THINKING_DELAY);

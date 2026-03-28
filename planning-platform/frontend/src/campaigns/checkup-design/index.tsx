@@ -175,9 +175,9 @@ const CheckupDesignCampaign: React.FC = () => {
 
   // ── "검진설계 시작" 버튼 클릭 ──
   const handleStartDesign = () => {
-    // 검진설계 메인 페이지로 이동 (기존 CheckupDesignPage 재사용)
+    if (!uuid) return;
     const params = new URLSearchParams();
-    if (uuid) params.set('uuid', uuid);
+    params.set('uuid', uuid);
     if (hospitalId) params.set('hospital', hospitalId);
     params.set('partner', partnerId);
     navigate(`/checkup-design?${params.toString()}`);
@@ -185,6 +185,7 @@ const CheckupDesignCampaign: React.FC = () => {
 
   // ── "본인 인증" 버튼 클릭 ──
   const handleAuth = () => {
+    if (!uuid) return;
     const returnTo = `/campaigns/checkup-design?uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}&from_auth=true`;
     navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=campaign`);
   };
@@ -216,6 +217,7 @@ const CheckupDesignCampaign: React.FC = () => {
 
   // ── "Tilko 다년간 정밀 설계" ──
   const handleAuthMultiYear = () => {
+    if (!uuid) return;
     const returnTo = `/campaigns/checkup-design?uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}&from_auth=true`;
     navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=multi_year`);
   };
