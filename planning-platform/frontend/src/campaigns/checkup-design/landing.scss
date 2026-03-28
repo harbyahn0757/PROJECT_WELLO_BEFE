@@ -124,14 +124,14 @@
 
 /* ── 건강 데이터 (planning 이미지 fade 위에 오버랩) ── */
 .landing__health {
-  margin: -50px 16px 0;
+  margin: -50px 16px 24px;
   padding: 0;
   position: relative;
   z-index: 2;
 }
 
 .landing__health-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: #718096;
   margin: 0 0 12px;
@@ -195,6 +195,7 @@
 
 .landing__health-note {
   font-size: 13px;
+  font-weight: 400;
   color: #a0aec0;
   text-align: center;
   margin: 10px 0 0;
@@ -204,9 +205,9 @@
 /* ── 가치 (공감) ── */
 .landing__value-question {
   text-align: center;
-  padding: 28px 24px 0;
-  font-size: 18px;
-  font-weight: 600;
+  padding: 24px 24px 0;
+  font-size: 17px;
+  font-weight: 700;
   color: #55433B;
   line-height: 1.4;
 }
@@ -215,6 +216,7 @@
   display: flex;
   flex-direction: column;
   padding: 0 24px;
+  margin-bottom: 24px;
   > * + * { margin-top: 12px; }
 }
 
@@ -344,13 +346,13 @@
 
 /* ── 프리뷰 섹션 ── */
 .landing__preview {
-  padding: 28px 0 20px;
+  padding: 24px 0 20px;
 }
 
 .landing__preview-title {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
-  color: #1a202c;
+  color: #55433B;
   padding: 0 24px;
   margin: 0 0 16px;
 }
