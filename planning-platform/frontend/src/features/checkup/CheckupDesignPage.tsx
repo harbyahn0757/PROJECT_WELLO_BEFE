@@ -15,7 +15,7 @@ const CheckupDesignPage: React.FC = () => {
   const { state } = useWelnoData();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [loadingMessage, setLoadingMessage] = useState('건강 데이터를 불러오는 중...');
+  const [loadingMessage, setLoadingMessage] = useState('건강 데이터를 가져오고 있어요');
   const [loadingStage, setLoadingStage] = useState<'loading_data' | 'sending' | 'processing' | 'complete'>('loading_data');
   
   // 처리 모달 상태
@@ -51,7 +51,7 @@ const CheckupDesignPage: React.FC = () => {
         }
 
         if (!uuid || !hospital) {
-          setError('환자 정보가 없습니다.');
+          setError('정보를 찾지 못했어요');
           setLoading(false);
           return;
         }
@@ -114,7 +114,7 @@ const CheckupDesignPage: React.FC = () => {
                     }
                   } catch (retryError) {
                     console.error('❌ [검진설계] 재시도 실패:', retryError);
-                    setError('재시도 실패. 처음부터 다시 시작합니다.');
+                    setError('다시 시도했지만 안 됐어요. 처음부터 시작할게요');
                     setShowProcessingModal(false);
                     navigate(`/checkup-design?uuid=${uuid}&hospital=${hospital}&refresh=true`);
                   }
@@ -125,9 +125,8 @@ const CheckupDesignPage: React.FC = () => {
               
               // ✅ 수동 진입: 복구 확인 모달 표시
               const shouldResume = window.confirm(
-                `이전에 중단된 검진설계가 있습니다.\n\n` +
-                `일부 분석이 완료되어 있어, 이어서 진행하실 수 있습니다.\n\n` +
-                `[확인] 이어서 진행\n[취소] 처음부터 다시`
+                `이전에 하던 설계가 있어요. 이어서 할까요?\n\n` +
+                `[확인] 이어서 하기\n[취소] 처음부터`
               );
               
               if (shouldResume && requestId) {
@@ -157,11 +156,11 @@ const CheckupDesignPage: React.FC = () => {
                     }
                   } catch (retryError) {
                     console.error('❌ [검진설계] 재시도 실패:', retryError);
-                    setError('재시도에 실패했습니다. 다시 시도해주세요.');
+                    setError('잠시 후 다시 시도해주세요');
                     setShowProcessingModal(false);
                   }
                 }, 1000);
-                
+
                 return;
               } else {
                 // 취소: refresh=true로 새로 시작
@@ -190,7 +189,7 @@ const CheckupDesignPage: React.FC = () => {
         setLoading(false);
       } catch (err) {
         console.error('❌ [검진설계] 데이터 로드 실패:', err);
-        setError('건강 데이터를 불러오는데 실패했습니다.');
+        setError('건강 데이터를 불러오지 못했어요');
         setLoading(false);
       }
     };
@@ -235,7 +234,7 @@ const CheckupDesignPage: React.FC = () => {
       }
       
       if (!uuid || !hospital) {
-        setError('환자 정보가 없습니다.');
+        setError('정보를 찾지 못했어요');
         return;
       }
       
@@ -257,7 +256,7 @@ const CheckupDesignPage: React.FC = () => {
       // STEP 1: 빠른 분석 수행
       setProcessingStage('analyzing');
       setLoadingStage('sending');
-      setLoadingMessage('데이터를 보내는 중...');
+      setLoadingMessage('데이터를 보내고 있어요');
       
       console.log('🔍 [CheckupDesignPage] STEP 1 API 호출 시작');
       // events 파라미터가 있다면 API 호출에 포함
@@ -307,7 +306,7 @@ const CheckupDesignPage: React.FC = () => {
       // STEP 2: 설계 및 근거 확보 (스피너는 계속 돌면서 타이핑 텍스트 유지)
       setProcessingStage('designing');
       setLoadingStage('processing');
-      setLoadingMessage('검진 항목 설계 중...');
+      setLoadingMessage('검진 항목을 고르고 있어요');
       
       // STEP 1 결과를 STEP 2 요청에 포함 (타입 안전성 보장)
       if (!step1Response.success || !step1Response.data) {
@@ -377,7 +376,7 @@ const CheckupDesignPage: React.FC = () => {
         setProcessingProgress(100);
         
         setLoadingStage('complete');
-        setLoadingMessage('검진 설계가 완료되었습니다.');
+        setLoadingMessage('검진 설계가 완료됐어요!');
         
         // 모달 닫기 전 짧은 딜레이
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -401,9 +400,7 @@ const CheckupDesignPage: React.FC = () => {
         
         // STEP1 결과는 이미 DB에 저장되었음을 알림
         const shouldRetry = window.confirm(
-          `검진 설계 중 오류가 발생했습니다.\n\n` +
-          `일부 분석은 완료되어 저장되었으며,\n` +
-          `나중에 이어서 진행할 수 있습니다.\n\n` +
+          `중간에 멈췄지만, 여기까지 분석한 건 저장했어요\n\n` +
           `[확인] 지금 다시 시도\n[취소] 나중에 알림 받기`
         );
         
@@ -437,7 +434,7 @@ const CheckupDesignPage: React.FC = () => {
           } catch (retryError) {
             console.error('❌ [폴백] 재시도 실패:', retryError);
             setShowProcessingModal(false);
-            setError('재시도에 실패했습니다. 나중에 다시 시도해주세요.');
+            setError('지금은 안 되네요. 나중에 다시 해볼게요');
           }
         } else {
           // 나중에 알림 받기
@@ -478,13 +475,13 @@ const CheckupDesignPage: React.FC = () => {
            * ============================================
            */
           
-          setError('분석이 일부 완료되었습니다.\n나중에 알림을 보내드리겠습니다.');
+          setError('여기까지 저장했어요. 나중에 알림 보내드릴게요');
         }
       }
       
     } catch (error) {
       console.error('❌ [검진설계] 전체 실패:', error);
-      setError('검진 설계 생성에 실패했습니다. 다시 시도해주세요.');
+      setError('설계를 만들지 못했어요. 다시 시도해주세요');
       setLoading(false);
       setShowProcessingModal(false);
     }
@@ -533,7 +530,7 @@ const CheckupDesignPage: React.FC = () => {
     return (
       <div className="checkup-design-page">
         <div className="checkup-design-page__error">
-          <p>건강 데이터가 없습니다.</p>
+          <p>아직 건강 데이터가 없어요</p>
           <button 
             onClick={() => {
               const queryString = location.search;

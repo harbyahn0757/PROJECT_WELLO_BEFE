@@ -1014,6 +1014,84 @@ class WelnoDataService:
             traceback.print_exc()
             return False
     
+    def _merge_year_records(self, rows: list) -> list:
+        """같은 연도 다소스 레코드를 1건으로 머지.
+        정책: tilko 베이스 + partner 보완, 같은 항목은 최신 값, 없는 항목은 추가."""
+        from collections import defaultdict
+        year_groups = defaultdict(list)
+        for r in rows:
+            year_groups[r.get('year', '')].append(r)
+
+        merged = []
+        for year, group in year_groups.items():
+            if len(group) == 1:
+                merged.append(group[0])
+                continue
+
+            group.sort(key=lambda x: str(x.get('collected_at', '')), reverse=True)
+            base = next((r for r in group if r.get('data_source') == 'tilko'), group[0])
+            others = [r for r in group if r is not base]
+
+            base_raw = base.get('raw_data')
+            if isinstance(base_raw, str):
+                try: base_raw = json.loads(base_raw)
+                except: base_raw = {}
+            if not base_raw:
+                base_raw = {}
+            base_inspections = base_raw.get('Inspections', [])
+
+            # base Item Name → Item 참조 맵
+            base_items_map = {}
+            for insp in base_inspections:
+                for ill in insp.get('Illnesses', []):
+                    for item in ill.get('Items', []):
+                        base_items_map[item.get('Name', '')] = item
+
+            for other in others:
+                other_raw = other.get('raw_data')
+                if isinstance(other_raw, str):
+                    try: other_raw = json.loads(other_raw)
+                    except: other_raw = {}
+                if not other_raw:
+                    continue
+                is_newer = str(other.get('collected_at', '')) > str(base.get('collected_at', ''))
+
+                for insp in other_raw.get('Inspections', []):
+                    gubun = insp.get('Gubun', '')
+                    for ill in insp.get('Illnesses', []):
+                        for item in ill.get('Items', []):
+                            name = item.get('Name', '')
+                            if not name:
+                                continue
+                            if name not in base_items_map:
+                                # 없는 항목 → base의 같은 Gubun에 추가
+                                target = next((i for i in base_inspections if i.get('Gubun') == gubun), None)
+                                if not target:
+                                    target = {"Gubun": gubun, "Illnesses": [{"Items": []}]}
+                                    base_inspections.append(target)
+                                if target['Illnesses']:
+                                    target['Illnesses'][-1]['Items'].append(item)
+                                base_items_map[name] = item
+                                print(f"  🔀 [머지] 항목 추가: {name} ({gubun})")
+                            elif is_newer and item.get('Value') != base_items_map[name].get('Value'):
+                                old_val = base_items_map[name].get('Value')
+                                base_items_map[name]['Value'] = item['Value']
+                                print(f"  🔀 [머지] 값 교체: {name} {old_val}→{item['Value']}")
+
+                # 파싱 필드 머지 (base NULL이면 other에서 채움)
+                for field in ('bmi','blood_pressure_high','blood_pressure_low','blood_sugar',
+                             'cholesterol','hdl_cholesterol','ldl_cholesterol','triglyceride',
+                             'hemoglobin','height','weight'):
+                    if not base.get(field) and other.get(field):
+                        base[field] = other[field]
+
+            base['raw_data'] = base_raw
+            base['data_source'] = 'merged'
+            merged.append(base)
+
+        merged.sort(key=lambda x: str(x.get('year', '')), reverse=True)
+        return merged
+
     async def get_patient_health_data(self, uuid: str, hospital_id: str) -> Dict[str, Any]:
         """환자의 모든 건강정보 조회 (hospital_id가 없으면 UUID만으로 조회)"""
         try:
@@ -1081,6 +1159,12 @@ class WelnoDataService:
                 if isinstance(obj, dict): return {k: convert(v) for k, v in obj.items()}
                 if isinstance(obj, list): return [convert(i) for i in obj]
                 return obj
+
+            # ── 같은 연도 다소스 머지 ──
+            health_rows = self._merge_year_records(
+                [dict(r) for r in health_rows]
+            )
+            print(f"🔀 [머지] 결과: {len(health_rows)}건 (연도별 1건)")
 
             # raw_data JSON 파싱 (에러 처리 추가)
             health_data_formatted = []

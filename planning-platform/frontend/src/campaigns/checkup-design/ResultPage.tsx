@@ -35,10 +35,10 @@ const ResultPage: React.FC<Props> = ({ uuid, hospitalId, partnerId }) => {
         if (data.success !== false && data) {
           setResult(data);
         } else {
-          setError('검진설계 결과를 찾을 수 없습니다.');
+          setError('결과를 찾지 못했어요');
         }
       } catch (e) {
-        setError('결과 조회 중 오류가 발생했습니다.');
+        setError('결과를 불러오지 못했어요');
       } finally {
         setLoading(false);
       }
@@ -49,7 +49,7 @@ const ResultPage: React.FC<Props> = ({ uuid, hospitalId, partnerId }) => {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <p style={{ color: '#6b7280' }}>결과 불러오는 중...</p>
+        <p style={{ color: '#6b7280' }}>결과를 가져오고 있어요</p>
       </div>
     );
   }

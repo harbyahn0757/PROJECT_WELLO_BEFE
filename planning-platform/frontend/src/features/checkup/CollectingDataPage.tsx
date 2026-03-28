@@ -89,42 +89,42 @@ const CollectingDataPage: React.FC = () => {
         case 'auth_completed':
           newProgress.progress = 10;
           newProgress.currentStep = '인증 완료';
-          newProgress.message = '인증이 완료되었습니다. 데이터 수집을 시작합니다...';
+          newProgress.message = '인증 완료! 데이터를 가져올게요';
           break;
 
         case 'fetching_health_data':
           newProgress.progress = 30;
           newProgress.currentStep = '건강검진 데이터 수집';
-          newProgress.message = '건강검진 데이터를 수집하고 있습니다...';
+          newProgress.message = '가져오고 있어요';
           break;
 
         case 'fetching_prescription_data':
           newProgress.progress = 70;
           newProgress.currentStep = '처방전 데이터 수집';
-          newProgress.message = '처방전 데이터를 수집하고 있습니다...';
+          newProgress.message = '가져오고 있어요';
           break;
 
         case 'completed':
           newProgress.progress = 100;
           newProgress.currentStep = '수집 완료';
-          newProgress.message = '모든 데이터 수집이 완료되었습니다!';
+          newProgress.message = '모든 데이터를 가져왔어요!';
           newProgress.isCompleted = true;
           break;
 
         case 'info_required':
           newProgress.hasError = true;
-          newProgress.currentStep = '정보 확인 필요';
-          newProgress.message = '입력하신 정보를 확인해주세요.';
+          newProgress.currentStep = '정보를 확인해주세요';
+          newProgress.message = '정보를 확인해주세요';
           // 에러 메시지에서 상세 정보 추출
           const errorMessages = result.messages || [];
           const lastError = errorMessages[errorMessages.length - 1];
           if (lastError && lastError.message) {
             const errorMsg = typeof lastError.message === 'object' 
-              ? lastError.message.message || lastError.message.title || '입력하신 정보를 확인해주세요.'
+              ? lastError.message.message || lastError.message.title || '정보를 확인해주세요'
               : lastError.message;
             newProgress.errorMessage = errorMsg;
           } else {
-            newProgress.errorMessage = '이름, 생년월일, 전화번호가 정확한지 확인 후 다시 시도해주세요.';
+            newProgress.errorMessage = '이름, 생년월일, 전화번호가 맞는지 한번 확인해주세요';
           }
           // 정보 확인 페이지로 리다이렉트
           setTimeout(() => {
@@ -135,8 +135,8 @@ const CollectingDataPage: React.FC = () => {
 
         case 'error':
           newProgress.hasError = true;
-          newProgress.currentStep = '오류 발생';
-          newProgress.message = '데이터 수집 중 오류가 발생했습니다.';
+          newProgress.currentStep = '문제가 생겼어요';
+          newProgress.message = '수집 중 문제가 생겼어요';
           // 에러 메시지에서 상세 정보 추출
           const errorMsgs = result.messages || [];
           const lastErr = errorMsgs[errorMsgs.length - 1];
@@ -237,8 +237,8 @@ const CollectingDataPage: React.FC = () => {
       setProgress(prev => ({
         ...prev,
         hasError: true,
-        currentStep: '연결 오류',
-        message: '서버와의 연결에 문제가 발생했습니다.',
+        currentStep: '연결이 끊겼어요',
+        message: '연결이 잠시 끊겼어요',
         errorMessage: error instanceof Error ? error.message : '알 수 없는 오류'
       }));
       
@@ -290,7 +290,7 @@ const CollectingDataPage: React.FC = () => {
       <div className="collecting-container">
         <div className="collecting-header">
           <h1>건강정보 수집 중</h1>
-          <p>잠시만 기다려 주세요. 안전하게 데이터를 수집하고 있습니다.</p>
+          <p>안전하게 가져오고 있어요. 조금만 기다려주세요</p>
         </div>
 
         <div className="progress-section">

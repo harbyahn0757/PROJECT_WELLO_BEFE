@@ -229,7 +229,7 @@ const CheckupDesignCampaign: React.FC = () => {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', gap: '12px' }}>
         <div style={{ width: '40px', height: '40px', border: '3px solid #e5e7eb', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-        <p style={{ color: '#6b7280', fontSize: '14px' }}>검진설계 상태 확인 중...</p>
+        <p style={{ color: '#6b7280', fontSize: '14px' }}>확인하고 있어요...</p>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
@@ -250,8 +250,8 @@ const CheckupDesignCampaign: React.FC = () => {
       return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', gap: '16px' }}>
           <div style={{ width: '48px', height: '48px', border: '3px solid #e5e7eb', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-          <p style={{ color: '#374151', fontSize: '16px', fontWeight: 600 }}>AI 검진설계 분석 중...</p>
-          <p style={{ color: '#6b7280', fontSize: '14px' }}>잠시만 기다려주세요. 자동으로 결과가 표시됩니다.</p>
+          <p style={{ color: '#374151', fontSize: '16px', fontWeight: 600 }}>만들고 있어요...</p>
+          <p style={{ color: '#6b7280', fontSize: '14px' }}>조금만 기다려주세요</p>
           <button
             onClick={() => checkUserStatus()}
             style={{ marginTop: '20px', padding: '8px 20px', background: '#f3f4f6', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' }}
