@@ -131,10 +131,11 @@
 }
 
 .landing__health-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #718096;
-  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #55433B;
+  text-align: center;
+  margin: 0 0 16px;
   padding: 0 8px;
 }
 
@@ -194,11 +195,11 @@
 .landing__health-status--danger { color: #dc2626; }
 
 .landing__health-note {
-  font-size: 13px;
-  font-weight: 400;
-  color: #a0aec0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #55433B;
   text-align: center;
-  margin: 10px 0 0;
+  margin: 16px 0 0;
   padding: 0 8px;
 }
 
@@ -353,6 +354,7 @@
   font-size: 17px;
   font-weight: 700;
   color: #55433B;
+  text-align: center;
   padding: 0 24px;
   margin: 0 0 16px;
 }
