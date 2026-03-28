@@ -332,7 +332,7 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
                   className="password-forgot-link"
                   onClick={onForgotPassword}
                   style={{
-                    background: 'none', border: 'none', color: '#718096',
+                    background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)',
                     fontSize: '13px', marginTop: '16px', cursor: 'pointer',
                     textDecoration: 'underline', textUnderlineOffset: '3px'
                   }}

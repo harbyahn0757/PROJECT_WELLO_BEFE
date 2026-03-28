@@ -145,6 +145,10 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       if (targetUrl && passwordSetupData.uuid && targetUrl.includes('uuid=')) {
         targetUrl = targetUrl.replace(/uuid=[^&]+/, `uuid=${passwordSetupData.uuid}`);
       }
+      // 비밀번호 성공 후에는 refresh=true 제거 (기존 설계 확인 모달이 떠야 함)
+      targetUrl = targetUrl.replace(/[?&]refresh=true/, '');
+      // from_auth 제거 (자동 설계 시작 방지)
+      targetUrl = targetUrl.replace(/[?&]from_auth=true/, '');
 
       // targetUrl에 uuid/hospital이 없으면 추가 (단, 외부 URL인 경우 제외)
       if (targetUrl.startsWith('/') && !targetUrl.includes('uuid=')) {
