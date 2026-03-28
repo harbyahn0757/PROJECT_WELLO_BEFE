@@ -101,8 +101,8 @@ const IntroLandingPage: React.FC<Props> = ({
                 모르겠다면
               </h1>
               <p className="landing__subtitle">
-                검진 데이터를 분석해서<br />
-                꼭 필요한 항목만 알려드립니다
+                내 검진 결과를 보고,<br />
+                꼭 필요한 항목만 골라줘요
               </p>
             </div>
             <div className="landing__hero-illust">
@@ -114,8 +114,8 @@ const IntroLandingPage: React.FC<Props> = ({
 
       {/* 질문 텍스트 (히어로 → 플래닝 사이) */}
       <div className="landing__value-question">
-        나한테 안 맞는 항목을<br />
-        받고 있진 않으셨나요?
+        나한테 딱 맞는 검진,<br />
+        받고 있나요?
       </div>
 
       {/* 검진설계 미리보기 */}
@@ -180,7 +180,7 @@ const IntroLandingPage: React.FC<Props> = ({
             })()}
           </div>
           <div className="landing__health-note">
-            이 수치들을 기반으로 맞춤 검진을 설계합니다
+            이 결과로 나만의 검진을 만들어요
           </div>
         </div>
       )}
@@ -190,22 +190,22 @@ const IntroLandingPage: React.FC<Props> = ({
         <div className="landing__value-card">
           <img className="landing__value-icon" src="/images/value-trend.png" alt="" />
           <div className="landing__value-card-text">
-            <strong>과거 검진 추이 분석</strong>
-            <span>연도별 변화를 추적해서 위험 요인을 미리 파악합니다</span>
+            <strong>내 건강 변화 추이</strong>
+            <span>해마다 달라진 건강 변화를 미리 살펴봐요</span>
           </div>
         </div>
         <div className="landing__value-card">
           <img className="landing__value-icon" src="/images/value-recommend.png" alt="" />
           <div className="landing__value-card-text">
-            <strong>꼭 필요한 항목만 추천</strong>
-            <span>불필요한 검사는 줄이고 나에게 맞는 항목을 설계합니다</span>
+            <strong>나한테 맞는 항목만</strong>
+            <span>남들 다 받는 거 말고, 나한테 필요한 것만 골라줘요</span>
           </div>
         </div>
         <div className="landing__value-card">
           <img className="landing__value-icon" src="/images/value-lifestyle.png" alt="" />
           <div className="landing__value-card-text">
-            <strong>약물·생활습관 반영</strong>
-            <span>복용 중인 약과 생활습관까지 고려한 정밀 설계입니다</span>
+            <strong>약, 생활습관도 반영</strong>
+            <span>지금 드시는 약, 생활습관까지 같이 봐요</span>
           </div>
         </div>
       </div>
@@ -213,7 +213,7 @@ const IntroLandingPage: React.FC<Props> = ({
       {/* 프리뷰 */}
       <div className="landing__preview">
         <h3 className="landing__preview-title">
-          설계하면 이런 분석을<br />받아보실 수 있어요
+          이런 결과를<br />받아볼 수 있어요
         </h3>
         <div className="landing__preview-scroll">
           <div className="landing__preview-card">
@@ -226,7 +226,7 @@ const IntroLandingPage: React.FC<Props> = ({
             <div className="landing__preview-phone">
               <img src="/images/preview-report.png" alt="질병예측 리포트" />
             </div>
-            <div className="landing__preview-label">AI 질병예측 리포트</div>
+            <div className="landing__preview-label">AI 건강 리포트</div>
           </div>
           <div className="landing__preview-card">
             <div className="landing__preview-phone">
@@ -247,21 +247,21 @@ const IntroLandingPage: React.FC<Props> = ({
       <div className="landing__sticky-cta">
         {hasAnyData && !isProcessing && (
           <button className="landing__cta-primary" onClick={() => setShowModal(true)}>
-            <span className="landing__cta-primary-text">지금 바로 설계 시작</span>
+            <span className="landing__cta-primary-text">나만의 검진 시작하기</span>
             <span className="landing__cta-primary-sub">
-              {status?.latest_year ? `${status.latest_year}년 데이터 기반` : '기존 데이터 기반'} · 약 1분
+              {status?.latest_year ? `${status.latest_year}년 검진 결과로` : '내 검진 결과로'} · 약 1분
             </span>
           </button>
         )}
         {!hasAnyData && !isProcessing && (
           <button className="landing__cta-primary" onClick={onAuth}>
-            <span className="landing__cta-primary-text">본인 인증하고 시작하기</span>
+            <span className="landing__cta-primary-text">간편 인증하고 시작하기</span>
             <span className="landing__cta-primary-sub">검진 기록 연동 · 약 2분</span>
           </button>
         )}
         {isProcessing && (
           <button className="landing__cta-primary" style={{ opacity: 0.5 }} disabled>
-            <span className="landing__cta-primary-text">분석 진행 중...</span>
+            <span className="landing__cta-primary-text">만들고 있어요...</span>
           </button>
         )}
       </div>
@@ -271,18 +271,18 @@ const IntroLandingPage: React.FC<Props> = ({
         <div className="landing__modal-overlay" onClick={() => setShowModal(false)}>
           <div className="landing__modal" onClick={e => e.stopPropagation()}>
             <button className="landing__modal-close" onClick={() => setShowModal(false)}>×</button>
-            <h3 className="landing__modal-title">검진설계 방식 선택</h3>
+            <h3 className="landing__modal-title">어떻게 시작할까요?</h3>
             <p className="landing__modal-desc">
-              어떤 데이터를 기반으로 설계할까요?
+              어떤 결과를 가지고 만들어볼까요?
             </p>
 
             <button
               className="landing__modal-option landing__modal-option--primary"
               onClick={() => { setShowModal(false); hasLinkData ? onStartDesignWithData(healthData) : onStartDesign(); }}
             >
-              <span className="landing__modal-option-title">기존 검진 데이터로 설계</span>
+              <span className="landing__modal-option-title">내 검진 결과로 바로 시작</span>
               <span className="landing__modal-option-desc">
-                {status?.latest_year ? `${status.latest_year}년 검진 결과 기반` : '보유 데이터 기반'} · 바로 시작
+                {status?.latest_year ? `${status.latest_year}년 결과 활용` : '지금 가진 결과로'} · 약 1분
               </span>
             </button>
 
@@ -290,9 +290,9 @@ const IntroLandingPage: React.FC<Props> = ({
               className="landing__modal-option"
               onClick={() => { setShowModal(false); onAuthMultiYear(); }}
             >
-              <span className="landing__modal-option-title">과거 검진 기록까지 종합 분석</span>
+              <span className="landing__modal-option-title">과거 기록까지 같이 보기</span>
               <span className="landing__modal-option-desc">
-                건보공단 본인인증으로 다년간 데이터 수집 · 약 2분
+                건보공단 간편인증으로 몇 년치 결과 한번에 · 약 2분
               </span>
             </button>
           </div>
