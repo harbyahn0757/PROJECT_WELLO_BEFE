@@ -1,3 +1,5 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+
 .landing {
   min-height: 100vh;
   display: flex;
@@ -6,7 +8,7 @@
   margin: 0 auto;
   background: linear-gradient(180deg, #FEF9EE 0%, #f9fafb 30%);
   padding-bottom: 100px;
-  font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, 'Noto Sans KR', sans-serif;
 }
 
 /* ── 히어로 ── */
@@ -124,7 +126,7 @@
 
 /* ── 건강 데이터 (planning 이미지 fade 위에 오버랩) ── */
 .landing__health {
-  margin: -50px 16px 24px;
+  margin: -50px 16px 32px;
   padding: 0;
   position: relative;
   z-index: 2;
@@ -199,14 +201,14 @@
   font-weight: 700;
   color: #55433B;
   text-align: center;
-  margin: 16px 0 0;
-  padding: 0 8px;
+  margin: 0;
+  padding: 32px 24px 0;
 }
 
 /* ── 가치 (공감) ── */
 .landing__value-question {
   text-align: center;
-  padding: 24px 24px 0;
+  padding: 32px 24px 0;
   font-size: 17px;
   font-weight: 700;
   color: #55433B;
@@ -217,7 +219,7 @@
   display: flex;
   flex-direction: column;
   padding: 0 24px;
-  margin-bottom: 24px;
+  margin-bottom: 32px;
   > * + * { margin-top: 12px; }
 }
 
@@ -347,7 +349,7 @@
 
 /* ── 프리뷰 섹션 ── */
 .landing__preview {
-  padding: 24px 0 20px;
+  padding: 32px 0 20px;
 }
 
 .landing__preview-title {

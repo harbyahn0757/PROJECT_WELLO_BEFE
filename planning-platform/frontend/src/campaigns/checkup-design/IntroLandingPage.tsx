@@ -179,36 +179,8 @@ const IntroLandingPage: React.FC<Props> = ({
               );
             })()}
           </div>
-          <div className="landing__health-note">
-            이 결과로 나만의 검진을 만들어요
-          </div>
         </div>
       )}
-
-      {/* 가치 카드 */}
-      <div className="landing__value-cards">
-        <div className="landing__value-card">
-          <img className="landing__value-icon" src="/images/value-trend.png" alt="" />
-          <div className="landing__value-card-text">
-            <strong>내 건강 변화 추이</strong>
-            <span>해마다 달라진 건강 변화를 미리 살펴봐요</span>
-          </div>
-        </div>
-        <div className="landing__value-card">
-          <img className="landing__value-icon" src="/images/value-recommend.png" alt="" />
-          <div className="landing__value-card-text">
-            <strong>나한테 맞는 항목만</strong>
-            <span>남들 다 받는 거 말고, 나한테 필요한 것만 골라줘요</span>
-          </div>
-        </div>
-        <div className="landing__value-card">
-          <img className="landing__value-icon" src="/images/value-lifestyle.png" alt="" />
-          <div className="landing__value-card-text">
-            <strong>약, 생활습관도 반영</strong>
-            <span>지금 드시는 약, 생활습관까지 같이 봐요</span>
-          </div>
-        </div>
-      </div>
 
       {/* 프리뷰 */}
       <div className="landing__preview">
@@ -239,6 +211,36 @@ const IntroLandingPage: React.FC<Props> = ({
               <img src="/images/preview-timeline.png" alt="의료기록" />
             </div>
             <div className="landing__preview-label">나의 의료기록 타임라인</div>
+          </div>
+        </div>
+      </div>
+
+      {/* 건강 노트 */}
+      <div className="landing__health-note">
+        이 결과로 나만의 검진을 만들어요
+      </div>
+
+      {/* 가치 카드 */}
+      <div className="landing__value-cards">
+        <div className="landing__value-card">
+          <img className="landing__value-icon" src="/images/value-trend.png" alt="" />
+          <div className="landing__value-card-text">
+            <strong>내 건강 변화 추이</strong>
+            <span>해마다 달라진 건강 변화를 미리 살펴봐요</span>
+          </div>
+        </div>
+        <div className="landing__value-card">
+          <img className="landing__value-icon" src="/images/value-recommend.png" alt="" />
+          <div className="landing__value-card-text">
+            <strong>나한테 맞는 항목만</strong>
+            <span>남들 다 받는 거 말고, 나한테 필요한 것만 골라줘요</span>
+          </div>
+        </div>
+        <div className="landing__value-card">
+          <img className="landing__value-icon" src="/images/value-lifestyle.png" alt="" />
+          <div className="landing__value-card-text">
+            <strong>약, 생활습관도 반영</strong>
+            <span>지금 드시는 약, 생활습관까지 같이 봐요</span>
           </div>
         </div>
       </div>
