@@ -223,10 +223,10 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
         setHasInitialized(true);
         setTimeout(() => {
           addBotMessageWithOptions('bot_question',
-            '약 복용 정보도 반영하면 더 정확한 설계를 할 수 있어요.\n간편 인증으로 처방 이력을 가져올까요?',
+            '지금 드시는 약 정보까지 반영하면 더 잘 골라줄 수 있어요.\n간편 인증으로 가져올까요?',
             [
-              { id: 'auth_tilko', label: '인증하고 가져오기', description: '건보공단 간편인증 · 약 2분' },
-              { id: 'skip_prescription', label: '이대로 진행할게요', description: '검진 결과만으로 설계' },
+              { id: 'auth_tilko', label: '간편 인증하기', description: '건보공단 인증 · 약 2분' },
+              { id: 'skip_prescription', label: '이대로 할게요', description: '지금 결과만으로 시작' },
             ]
           );
         }, MESSAGE_DELAY);
