@@ -29,14 +29,39 @@ interface Props {
   onViewResult: () => void;
 }
 
-// 수치 상태 판정
-const getLevel = (type: string, val: number): 'normal' | 'warning' | 'danger' => {
-  if (type === 'bmi') return val < 23 ? 'normal' : val < 25 ? 'warning' : 'danger';
-  if (type === 'bphigh') return val < 120 ? 'normal' : val < 140 ? 'warning' : 'danger';
-  if (type === 'blds') return val < 100 ? 'normal' : val < 126 ? 'warning' : 'danger';
-  if (type === 'totchole') return val < 200 ? 'normal' : val < 240 ? 'warning' : 'danger';
-  return 'normal';
+// 건강 항목 정의 (동적 카드용)
+interface HealthItemDef {
+  key: string;
+  label: string;
+  icon: string;
+  subKey?: string;
+  format?: (v: number, data: any) => string;
+  inverted?: boolean; // true면 높을수록 좋음
+  thresholds: [number, number]; // [정상 상한, 경계 상한]
+  labels: [string, string, string]; // [정상, 경계, 위험]
+}
+
+const HEALTH_ITEMS: HealthItemDef[] = [
+  { key: 'bmi', label: 'BMI', icon: '/icons/health-body.png', thresholds: [23, 25], labels: ['정상', '과체중', '비만'] },
+  { key: 'bphigh', label: '혈압', icon: '/icons/health-blood-pressure.png', subKey: 'bplwst', thresholds: [120, 140], labels: ['정상', '경계', '고혈압'], format: (v, d) => `${v}/${d.bplwst || '-'}` },
+  { key: 'blds', label: '혈당', icon: '/icons/health-diabetes.png', thresholds: [100, 126], labels: ['정상', '경계', '고혈당'] },
+  { key: 'totchole', label: '콜레스테롤', icon: '/icons/health-cholesterol.png', thresholds: [200, 240], labels: ['정상', '경계', '주의'] },
+  { key: 'hdlchole', label: 'HDL', icon: '/icons/health-cholesterol.png', thresholds: [40, 60], labels: ['낮음', '경계', '정상'], inverted: true },
+  { key: 'ldlchole', label: 'LDL', icon: '/icons/health-cholesterol.png', thresholds: [130, 160], labels: ['정상', '경계', '주의'] },
+  { key: 'triglyceride', label: '중성지방', icon: '/icons/health-cholesterol.png', thresholds: [150, 200], labels: ['정상', '경계', '주의'] },
+  { key: 'hmg', label: '혈색소', icon: '/icons/health-anemia.png', thresholds: [12, 13], labels: ['낮음', '경계', '정상'], inverted: true },
+  { key: 'gfr', label: 'GFR', icon: '/icons/health-kidney.png', thresholds: [60, 90], labels: ['주의', '경계', '정상'], inverted: true },
+];
+
+const getLevel = (item: HealthItemDef, val: number): 'normal' | 'warning' | 'danger' => {
+  const [t1, t2] = item.thresholds;
+  if (item.inverted) {
+    return val >= t2 ? 'normal' : val >= t1 ? 'warning' : 'danger';
+  }
+  return val < t1 ? 'normal' : val < t2 ? 'warning' : 'danger';
 };
+
+// 하위 호환용
 const statusLabel: Record<string, Record<string, string>> = {
   bmi: { normal: '정상', warning: '과체중', danger: '비만' },
   bphigh: { normal: '정상', warning: '경계', danger: '고혈압' },
@@ -128,56 +153,22 @@ const IntroLandingPage: React.FC<Props> = ({
         <div className="landing__health">
           <div className="landing__health-title">최근 검진 결과 요약</div>
           <div className="landing__health-grid">
-            {healthData.bmi && (() => {
-              const v = parseFloat(healthData.bmi);
-              const lv = getLevel('bmi', v);
+            {HEALTH_ITEMS.map(item => {
+              const rawVal = healthData[item.key];
+              if (!rawVal) return null;
+              const v = parseFloat(rawVal);
+              if (isNaN(v)) return null;
+              const lv = getLevel(item, v);
+              const displayVal = item.format ? item.format(v, healthData) : (item.key === 'bmi' ? v.toFixed(1) : String(rawVal));
               return (
-                <div className="landing__health-item">
-                  <svg className="landing__health-icon" viewBox="0 0 24 24" fill="none" stroke="#7c746a" strokeWidth="1.5" strokeLinecap="round"><rect x="3" y="10" width="18" height="10" rx="2"/><circle cx="12" cy="15" r="3"/><line x1="12" y1="12" x2="14" y2="14"/></svg>
-                  <span className="landing__health-label">BMI</span>
-                  <span className={`landing__health-value landing__health-value--${lv}`}>{v.toFixed(1)}</span>
-                  <span className={`landing__health-status landing__health-status--${lv}`}>{statusLabel.bmi[lv]}</span>
+                <div key={item.key} className="landing__health-item">
+                  <img className="landing__health-icon" src={item.icon} alt={item.label} />
+                  <span className="landing__health-label">{item.label}</span>
+                  <span className={`landing__health-value landing__health-value--${lv}`}>{displayVal}</span>
+                  <span className={`landing__health-status landing__health-status--${lv}`}>{item.labels[lv === 'normal' ? 0 : lv === 'warning' ? 1 : 2]}</span>
                 </div>
               );
-            })()}
-            {healthData.bphigh && (() => {
-              const v = parseFloat(healthData.bphigh);
-              const lv = getLevel('bphigh', v);
-              return (
-                <div className="landing__health-item">
-                  <svg className="landing__health-icon" viewBox="0 0 24 24" fill="none" stroke="#7c746a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z"/></svg>
-                  <span className="landing__health-label">혈압</span>
-                  <span className={`landing__health-value landing__health-value--${lv}`}>
-                    {healthData.bphigh}/{healthData.bplwst || '-'}
-                  </span>
-                  <span className={`landing__health-status landing__health-status--${lv}`}>{statusLabel.bphigh[lv]}</span>
-                </div>
-              );
-            })()}
-            {healthData.blds && (() => {
-              const v = parseFloat(healthData.blds);
-              const lv = getLevel('blds', v);
-              return (
-                <div className="landing__health-item">
-                  <svg className="landing__health-icon" viewBox="0 0 24 24" fill="none" stroke="#7c746a" strokeWidth="1.5" strokeLinecap="round"><path d="M12 2C12 2 5 10 5 15a7 7 0 0014 0c0-5-7-13-7-13z"/><line x1="10" y1="15" x2="14" y2="15"/><line x1="12" y1="13" x2="12" y2="17"/></svg>
-                  <span className="landing__health-label">혈당</span>
-                  <span className={`landing__health-value landing__health-value--${lv}`}>{healthData.blds}</span>
-                  <span className={`landing__health-status landing__health-status--${lv}`}>{statusLabel.blds[lv]}</span>
-                </div>
-              );
-            })()}
-            {healthData.totchole && (() => {
-              const v = parseFloat(healthData.totchole);
-              const lv = getLevel('totchole', v);
-              return (
-                <div className="landing__health-item">
-                  <svg className="landing__health-icon" viewBox="0 0 24 24" fill="none" stroke="#7c746a" strokeWidth="1.5" strokeLinecap="round"><path d="M4 12h16"/><path d="M4 8c0-2 2-4 4-4h8c2 0 4 2 4 4"/><path d="M4 16c0 2 2 4 4 4h8c2 0 4-2 4-4"/><ellipse cx="10" cy="12" rx="2" ry="1.5" fill="#7c746a" opacity="0.3" stroke="none"/><ellipse cx="15" cy="12" rx="1.5" ry="1" fill="#7c746a" opacity="0.3" stroke="none"/></svg>
-                  <span className="landing__health-label">콜레스테롤</span>
-                  <span className={`landing__health-value landing__health-value--${lv}`}>{healthData.totchole}</span>
-                  <span className={`landing__health-status landing__health-status--${lv}`}>{statusLabel.totchole[lv]}</span>
-                </div>
-              );
-            })()}
+            })}
           </div>
         </div>
       )}
