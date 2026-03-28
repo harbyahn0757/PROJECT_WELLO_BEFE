@@ -112,43 +112,18 @@ const IntroLandingPage: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* 가치 (히어로 바로 아래) */}
-      <div className="landing__value">
-        <div className="landing__value-question">
-          나한테 안 맞는 항목을<br />
-          받고 있진 않으셨나요?
-        </div>
-        <div className="landing__value-cards">
-          <div className="landing__value-card">
-            <img className="landing__value-icon" src="/images/value-trend.png" alt="" />
-            <div className="landing__value-card-text">
-              <strong>과거 검진 추이 분석</strong>
-              <span>연도별 변화를 추적해서 위험 요인을 미리 파악합니다</span>
-            </div>
-          </div>
-          <div className="landing__value-card">
-            <img className="landing__value-icon" src="/images/value-recommend.png" alt="" />
-            <div className="landing__value-card-text">
-              <strong>꼭 필요한 항목만 추천</strong>
-              <span>불필요한 검사는 줄이고 나에게 맞는 항목을 설계합니다</span>
-            </div>
-          </div>
-          <div className="landing__value-card">
-            <img className="landing__value-icon" src="/images/value-lifestyle.png" alt="" />
-            <div className="landing__value-card-text">
-              <strong>약물·생활습관 반영</strong>
-              <span>복용 중인 약과 생활습관까지 고려한 정밀 설계입니다</span>
-            </div>
-          </div>
-        </div>
+      {/* 질문 텍스트 (히어로 → 플래닝 사이) */}
+      <div className="landing__value-question">
+        나한테 안 맞는 항목을<br />
+        받고 있진 않으셨나요?
       </div>
 
-      {/* 검진설계 미리보기 (폰프레임 없이 직접 + 하단 fade) */}
+      {/* 검진설계 미리보기 */}
       <div className="landing__design-img">
         <img src="/images/preview-planning.png" alt="검진설계 미리보기" />
       </div>
 
-      {/* 건강 데이터 카드 (planning 이미지 위에 오버랩) */}
+      {/* 건강 데이터 카드 */}
       {hasLinkData && (
         <div className="landing__health">
           <div className="landing__health-title">최근 검진 결과 요약</div>
@@ -209,6 +184,31 @@ const IntroLandingPage: React.FC<Props> = ({
           </div>
         </div>
       )}
+
+      {/* 가치 카드 */}
+      <div className="landing__value-cards">
+        <div className="landing__value-card">
+          <img className="landing__value-icon" src="/images/value-trend.png" alt="" />
+          <div className="landing__value-card-text">
+            <strong>과거 검진 추이 분석</strong>
+            <span>연도별 변화를 추적해서 위험 요인을 미리 파악합니다</span>
+          </div>
+        </div>
+        <div className="landing__value-card">
+          <img className="landing__value-icon" src="/images/value-recommend.png" alt="" />
+          <div className="landing__value-card-text">
+            <strong>꼭 필요한 항목만 추천</strong>
+            <span>불필요한 검사는 줄이고 나에게 맞는 항목을 설계합니다</span>
+          </div>
+        </div>
+        <div className="landing__value-card">
+          <img className="landing__value-icon" src="/images/value-lifestyle.png" alt="" />
+          <div className="landing__value-card-text">
+            <strong>약물·생활습관 반영</strong>
+            <span>복용 중인 약과 생활습관까지 고려한 정밀 설계입니다</span>
+          </div>
+        </div>
+      </div>
 
       {/* 프리뷰 */}
       <div className="landing__preview">

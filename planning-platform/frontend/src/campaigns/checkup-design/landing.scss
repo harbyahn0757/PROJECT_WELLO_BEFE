@@ -21,7 +21,7 @@
   &::after {
     content: '';
     position: absolute;
-    inset: 0;
+    top: 0; right: 0; bottom: 0; left: 0;
     background: rgba(254, 249, 238, 0.82);
   }
 }
@@ -46,7 +46,7 @@
 .landing__hero-content {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  > * + * { margin-left: 8px; }
 }
 
 .landing__hero-text { flex: 1; }
@@ -139,9 +139,11 @@
 }
 
 .landing__health-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  display: -webkit-flex;
+  display: flex;
+  flex-wrap: wrap;
+  > * { width: calc(50% - 4px); margin-bottom: 8px; }
+  > *:nth-child(odd) { margin-right: 8px; }
 }
 
 .landing__health-item {
@@ -200,13 +202,9 @@
 }
 
 /* ── 가치 (공감) ── */
-.landing__value {
-  padding: 28px 24px;
-}
-
 .landing__value-question {
   text-align: center;
-  margin-bottom: 24px;
+  padding: 28px 24px 0;
   font-size: 18px;
   font-weight: 600;
   color: #55433B;
@@ -216,17 +214,18 @@
 .landing__value-cards {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  padding: 0 24px;
+  > * + * { margin-top: 12px; }
 }
 
 .landing__value-card {
   display: flex;
   align-items: center;
-  gap: 14px;
   padding: 14px 16px;
   background: #fff;
   border-radius: 14px;
   border: 1px solid #e8e0d8;
+  > img { margin-right: 14px; }
 }
 
 .landing__value-icon {
@@ -241,7 +240,6 @@
 .landing__value-card-text {
   display: flex;
   flex-direction: column;
-  gap: 3px;
 
   strong {
     font-size: 16px;
@@ -359,7 +357,7 @@
 
 .landing__preview-scroll {
   display: flex;
-  gap: 14px;
+  > * + * { margin-left: 14px; }
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   padding: 0 24px;
@@ -429,7 +427,7 @@
 /* ── 설계 방식 선택 모달 ── */
 .landing__modal-overlay {
   position: fixed;
-  inset: 0;
+  top: 0; right: 0; bottom: 0; left: 0;
   background: rgba(0, 0, 0, 0.5);
   z-index: 200;
   display: flex;
