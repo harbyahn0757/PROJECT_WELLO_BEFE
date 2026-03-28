@@ -6,8 +6,20 @@ import ChatInterface from '../../components/checkup-design/ChatInterface';
 import checkupDesignService, { Step1Result, CheckupDesignStep2Request } from '../../services/checkupDesignService';
 import { loadHealthData } from '../../utils/healthDataLoader';
 import ProcessingModal, { ProcessingStage } from '../../components/checkup-design/ProcessingModal';
+import WelnoModal from '../../components/common/WelnoModal';
 import { InteractionEvent } from '../../components/checkup-design/CheckupDesignSurveyPanel/useSurveyTracker';
 import './CheckupDesignPage.scss';
+
+// WelnoModal 확인 다이얼로그 (window.confirm 대체)
+interface ConfirmModalState {
+  isOpen: boolean;
+  title: string;
+  desc: string;
+  confirmLabel: string;
+  cancelLabel: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
 
 const CheckupDesignPage: React.FC = () => {
   const navigate = useNavigate();
@@ -17,7 +29,13 @@ const CheckupDesignPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState('건강 데이터를 가져오고 있어요');
   const [loadingStage, setLoadingStage] = useState<'loading_data' | 'sending' | 'processing' | 'complete'>('loading_data');
-  
+
+  // WelnoModal 확인 다이얼로그 상태
+  const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
+    isOpen: false, title: '', desc: '', confirmLabel: '', cancelLabel: '',
+    onConfirm: () => {}, onCancel: () => {},
+  });
+
   // 처리 모달 상태
   const [showProcessingModal, setShowProcessingModal] = useState(false);
   const [processingStage, setProcessingStage] = useState<ProcessingStage>('preparing');
@@ -67,13 +85,25 @@ const CheckupDesignPage: React.FC = () => {
             // 1순위: 완료된 설계 확인
             const designResult = await checkupDesignService.getLatestCheckupDesign(uuid, hospital);
             if (designResult.success && designResult.data) {
-              console.log('✅ [검진설계] 완료된 설계 발견 - 결과 페이지로 이동');
-              const queryString = location.search.replace(/[?&]refresh=true/, '');
-              navigate(`/recommendations${queryString}`, {
-                state: {
-                  checkupDesign: designResult.data,
-                  fromExisting: true
-                }
+              console.log('✅ [검진설계] 완료된 설계 발견 - 선택 모달');
+              const savedData = designResult.data;
+              setLoading(false);
+              setConfirmModal({
+                isOpen: true,
+                title: '이전에 받은 설계가 있어요',
+                desc: '어떻게 할까요?',
+                confirmLabel: '결과 보기',
+                cancelLabel: '새로 만들기',
+                onConfirm: () => {
+                  setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                  navigate(`/recommendations${location.search}`, {
+                    state: { checkupDesign: savedData, fromExisting: true }
+                  });
+                },
+                onCancel: () => {
+                  setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                  navigate(`/checkup-design?uuid=${uuid}&hospital=${hospital}&refresh=true`);
+                },
               });
               return;
             }
@@ -123,51 +153,46 @@ const CheckupDesignPage: React.FC = () => {
                 return;
               }
               
-              // ✅ 수동 진입: 복구 확인 모달 표시
-              const shouldResume = window.confirm(
-                `이전에 하던 설계가 있어요. 이어서 할까요?\n\n` +
-                `[확인] 이어서 하기\n[취소] 처음부터`
-              );
-              
-              if (shouldResume && requestId) {
-                console.log('🔄 [검진설계] 사용자 재시도 선택');
-                setShowProcessingModal(true);
-                setProcessingStage('preparing');
-                setProcessingProgress(0);
-                
-                setTimeout(async () => {
-                  try {
-                    setProcessingStage('designing');
-                    setProcessingProgress(50);
-                    
-                    const retryResult = await checkupDesignService.retryCheckupDesign(requestId);
-                    
-                    setProcessingProgress(100);
-                    setProcessingStage('saving');
-                    
-                    if (retryResult.success && retryResult.data) {
-                      console.log('✅ [검진설계] 재시도 성공');
-                      await new Promise(resolve => setTimeout(resolve, 500));
+              // ✅ 수동 진입: WelnoModal로 복구 확인
+              setLoading(false);
+              setConfirmModal({
+                isOpen: true,
+                title: '이전에 하던 설계가 있어요',
+                desc: '이어서 할까요?',
+                confirmLabel: '이어서 하기',
+                cancelLabel: '처음부터',
+                onConfirm: () => {
+                  setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                  if (!requestId) return;
+                  setShowProcessingModal(true);
+                  setProcessingStage('preparing');
+                  setProcessingProgress(0);
+                  setTimeout(async () => {
+                    try {
+                      setProcessingStage('designing');
+                      setProcessingProgress(50);
+                      const retryResult = await checkupDesignService.retryCheckupDesign(requestId);
+                      setProcessingProgress(100);
+                      setProcessingStage('saving');
+                      if (retryResult.success && retryResult.data) {
+                        await new Promise(resolve => setTimeout(resolve, 500));
+                        setShowProcessingModal(false);
+                        navigate(`/recommendations${location.search}`, {
+                          state: { checkupDesign: retryResult.data }
+                        });
+                      }
+                    } catch (retryError) {
+                      setError('잠시 후 다시 시도해주세요');
                       setShowProcessingModal(false);
-                      
-                      navigate(`/recommendations${location.search}`, {
-                        state: { checkupDesign: retryResult.data }
-                      });
                     }
-                  } catch (retryError) {
-                    console.error('❌ [검진설계] 재시도 실패:', retryError);
-                    setError('잠시 후 다시 시도해주세요');
-                    setShowProcessingModal(false);
-                  }
-                }, 1000);
-
-                return;
-              } else {
-                // 취소: refresh=true로 새로 시작
-                console.log('🔄 [검진설계] 처음부터 다시 시작');
-                navigate(`/checkup-design?uuid=${uuid}&hospital=${hospital}&refresh=true`);
-                return;
-              }
+                  }, 1000);
+                },
+                onCancel: () => {
+                  setConfirmModal(prev => ({ ...prev, isOpen: false }));
+                  navigate(`/checkup-design?uuid=${uuid}&hospital=${hospital}&refresh=true`);
+                },
+              });
+              return;
             }
           } catch (err) {
             console.warn('⚠️ [검진설계] 설계 결과 조회 실패 (계속 진행):', err);
@@ -398,88 +423,44 @@ const CheckupDesignPage: React.FC = () => {
         console.error('❌ [STEP2] 실패:', step2Error);
         setShowProcessingModal(false);
         
-        // STEP1 결과는 이미 DB에 저장되었음을 알림
-        const shouldRetry = window.confirm(
-          `중간에 멈췄지만, 여기까지 분석한 건 저장했어요\n\n` +
-          `[확인] 지금 다시 시도\n[취소] 나중에 알림 받기`
-        );
-        
-        if (shouldRetry && !designRequestId) {
-          console.log('⚠️ [폴백] designRequestId 없음 - 새로 시작');
-          navigate(`/checkup-design${location.search}&refresh=true`);
-          return;
-        }
-        if (shouldRetry && designRequestId) {
-          setShowProcessingModal(true);
-          setProcessingStage('designing');
-          setProcessingProgress(50);
-          
-          try {
-            const retryResult = await checkupDesignService.retryCheckupDesign(designRequestId);
-            
-            setProcessingProgress(100);
-            setProcessingStage('saving');
-            
-            if (retryResult.success && retryResult.data) {
-              console.log('✅ [폴백] 재시도 성공');
-              await new Promise(resolve => setTimeout(resolve, 500));
-              setShowProcessingModal(false);
-              
-              navigate(`/recommendations${location.search}`, {
-                state: {
-                  checkupDesign: retryResult.data,
-                  selectedConcerns: selectedConcerns,
-                  surveyResponses: surveyResponses,
-                  events
-                }
-              });
+        // STEP1 결과는 이미 DB에 저장되었음 → WelnoModal
+        const savedDesignRequestId = designRequestId;
+        setConfirmModal({
+          isOpen: true,
+          title: '중간에 멈췄어요',
+          desc: '여기까지 분석한 건 저장했어요',
+          confirmLabel: '다시 시도하기',
+          cancelLabel: '나중에 할게요',
+          onConfirm: async () => {
+            setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            if (!savedDesignRequestId) {
+              navigate(`/checkup-design${location.search}&refresh=true`);
+              return;
             }
-          } catch (retryError) {
-            console.error('❌ [폴백] 재시도 실패:', retryError);
-            setShowProcessingModal(false);
-            setError('지금은 안 되네요. 나중에 다시 해볼게요');
-          }
-        } else {
-          // 나중에 알림 받기
-          console.log('📲 [폴백] 나중에 알림 받기 선택');
-          
-          /*
-           * ============================================
-           * 알림톡 재전송 로직 (향후 구현)
-           * ============================================
-           * 
-           * TODO: 백엔드 API 호출하여 알림톡 예약
-           * 
-           * await fetch('/api/v1/notifications/schedule', {
-           *   method: 'POST',
-           *   headers: { 'Content-Type': 'application/json' },
-           *   body: JSON.stringify({
-           *     request_id: designRequestId,
-           *     patient_uuid: uuid,
-           *     patient_name: state.patient?.name,
-           *     phone_number: state.patient?.phone,
-           *     notification_type: 'checkup_design_retry',
-           *     scheduled_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-           *   })
-           * });
-           * 
-           * 알림톡 메시지:
-           * "안녕하세요, {환자명}님!
-           * 
-           * 이전에 진행하시던 맞춤 검진 설계가 있습니다.
-           * 이미 분석이 일부 완료되어 있어, 클릭 한 번으로 바로 이어서 진행하실 수 있습니다.
-           * 
-           * [검진 설계 이어하기]
-           * {baseURL}/checkup-design?uuid={uuid}&hospital={hospital}&resume={request_id}
-           * 
-           * 건강한 하루 되세요!
-           * 웰노 드림"
-           * 
-           * ============================================
-           */
-          
-          setError('여기까지 저장했어요. 나중에 알림 보내드릴게요');
-        }
+            setShowProcessingModal(true);
+            setProcessingStage('designing');
+            setProcessingProgress(50);
+            try {
+              const retryResult = await checkupDesignService.retryCheckupDesign(savedDesignRequestId);
+              setProcessingProgress(100);
+              setProcessingStage('saving');
+              if (retryResult.success && retryResult.data) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                setShowProcessingModal(false);
+                navigate(`/recommendations${location.search}`, {
+                  state: { checkupDesign: retryResult.data }
+                });
+              }
+            } catch (retryError) {
+              setShowProcessingModal(false);
+              setError('지금은 안 되네요. 나중에 다시 해볼게요');
+            }
+          },
+          onCancel: () => {
+            setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            setError('여기까지 저장했어요. 나중에 알림 보내드릴게요');
+          },
+        });
       }
       
     } catch (error) {
@@ -548,6 +529,21 @@ const CheckupDesignPage: React.FC = () => {
 
   return (
     <>
+      {/* 확인 다이얼로그 (window.confirm 대체) */}
+      <WelnoModal isOpen={confirmModal.isOpen} size="small" showWelnoIcon={false}>
+        <div style={{ textAlign: 'center', padding: '8px 0' }}>
+          <p style={{ fontSize: '17px', fontWeight: 700, color: '#1a202c', margin: '0 0 8px' }}>{confirmModal.title}</p>
+          <p style={{ fontSize: '14px', color: '#718096', margin: '0 0 20px' }}>{confirmModal.desc}</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button onClick={confirmModal.onConfirm} style={{ padding: '14px', background: '#7c746a', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}>
+              {confirmModal.confirmLabel}
+            </button>
+            <button onClick={confirmModal.onCancel} style={{ padding: '14px', background: '#f3f4f6', color: '#4a5568', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}>
+              {confirmModal.cancelLabel}
+            </button>
+          </div>
+        </div>
+      </WelnoModal>
       <ProcessingModal
         isOpen={showProcessingModal}
         stage={processingStage}
