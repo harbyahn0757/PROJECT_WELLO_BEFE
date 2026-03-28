@@ -160,10 +160,17 @@ const CheckupDesignManagementPage: React.FC = () => {
 
   return (
     <div className="cdm-page">
-      <div className="cdm-page__header">
-        <h2 className="cdm-page__title">검진설계 관리</h2>
+      {/* 탭 + 병원 검색 (한 줄) */}
+      <div className="cdm-page__toolbar">
+        <div className="tabs">
+          {([['campaign', '캠페인 관리'], ['persona', '페르소나 분석'], ['history', '발송 이력']] as [TabKey, string][]).map(([key, label]) => (
+            <button key={key} className={`tabs__item ${activeTab === key ? 'active' : ''}`} onClick={() => setActiveTab(key)}>
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="cdm-hospital-select" ref={hospitalRef} style={{position:'relative'}}>
-          <div className="cdm-hospital-search" style={{minWidth:'260px'}}>
+          <div className="cdm-hospital-search" style={{minWidth:'240px'}}>
             <input
               type="text"
               placeholder={`병원 검색 (${hospitals.length}개)`}
@@ -192,15 +199,6 @@ const CheckupDesignManagementPage: React.FC = () => {
             )}
           </div>
         </div>
-      </div>
-
-      {/* 탭 */}
-      <div className="tabs">
-        {([['campaign', '캠페인 관리'], ['persona', '페르소나 분석'], ['history', '발송 이력']] as [TabKey, string][]).map(([key, label]) => (
-          <button key={key} className={`tabs__item ${activeTab === key ? 'active' : ''}`} onClick={() => setActiveTab(key)}>
-            {label}
-          </button>
-        ))}
       </div>
 
       {loading && <div className="empty-state"><p>로딩 중...</p></div>}
