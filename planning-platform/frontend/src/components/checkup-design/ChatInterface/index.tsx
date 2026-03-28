@@ -219,10 +219,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           }, MESSAGE_DELAY);
         }
       } else {
-        // 처방 이력 0건 → 처방 단계 전체 스킵, 바로 완료
+        // 처방 이력 0건 → 인증 여부 물어보기
         setHasInitialized(true);
         setTimeout(() => {
-          handleComplete();
+          addBotMessageWithOptions('bot_question',
+            '약 복용 정보도 반영하면 더 정확한 설계를 할 수 있어요.\n간편 인증으로 처방 이력을 가져올까요?',
+            [
+              { id: 'auth_tilko', label: '인증하고 가져오기', description: '건보공단 간편인증 · 약 2분' },
+              { id: 'skip_prescription', label: '이대로 진행할게요', description: '검진 결과만으로 설계' },
+            ]
+          );
         }, MESSAGE_DELAY);
       }
     }
@@ -546,6 +552,28 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // 옵션 선택 핸들러
   const handleOptionClick = (option: ChatOption) => {
+    // 처방 없을 때 인증/스킵 선택
+    if (option.id === 'auth_tilko') {
+      addUserMessage('인증하고 가져오기');
+      setTimeout(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const uuid = urlParams.get('uuid') || '';
+        const hospital = urlParams.get('hospital') || '';
+        const partner = urlParams.get('partner') || 'welno';
+        const returnTo = `/checkup-design?uuid=${uuid}&hospital=${hospital}&partner=${partner}&refresh=true`;
+        navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=multi_year`);
+      }, USER_RESPONSE_DELAY);
+      return;
+    }
+    if (option.id === 'skip_prescription') {
+      addUserMessage('이대로 진행할게요');
+      setTimeout(() => {
+        handleComplete();
+      }, USER_RESPONSE_DELAY + CONFIRMATION_DELAY);
+      return;
+    }
+
+    if (!option.data) return;
     const { type, ...data } = option.data;
 
     if (type === 'prescription') {
