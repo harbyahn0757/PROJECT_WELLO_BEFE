@@ -165,25 +165,21 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       if (prescriptionList.length > 0) {
         const analysis = analyzePrescriptionPatterns(prescriptionList);
         setPrescriptionAnalysis(analysis);
-        setHasInitialized(true); // 초기화 완료 표시
-        
-        // 처방 이력 확인 메시지 추가
+        setHasInitialized(true);
+
         setTimeout(() => {
           addBotMessage('bot_intro', '이제 처방 이력을 확인해볼게요.', undefined, false);
         }, MESSAGE_DELAY);
-        
-        // 분석 결과 메시지 추가 (순차적으로)
+
         if (analysis.topEffects.length > 0) {
           setTimeout(() => {
-            // 분석 결과 메시지 전에 스피너 표시 (오른쪽) - 띵킹 모드
             setIsThinkingForOptions(true);
-            // 실제 데이터 기반 중얼중얼 효과 시작
             const prescriptionCount = prescriptionList.length;
             const effectCount = analysis.topEffects.length;
             const thinkingTexts = [
               `처방 이력 ${prescriptionCount}건 확인 중...`,
               `약품 효과 ${effectCount}개 분석 중...`,
-              ...analysis.topEffects.slice(0, 2).map((pattern: MedicationEffectPattern) => 
+              ...analysis.topEffects.slice(0, 2).map((pattern: MedicationEffectPattern) =>
                 `${pattern.effect} 약품 확인 중...`
               )
             ];
@@ -196,7 +192,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
                 clearInterval(thinkingInterval);
               }
             }, THINKING_TEXT_DELAY);
-            
+
             setTimeout(() => {
               clearInterval(thinkingInterval);
               setIsThinkingForOptions(false);
@@ -205,14 +201,11 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
               analysis.topEffects.slice(0, 5).forEach((pattern, index) => {
                 analysisText += `\n${index + 1}. ${formatEffectPatternMessage(pattern)}`;
               });
-              // 프롬프트용 분석 결과 텍스트 저장
               setPrescriptionAnalysisText(analysisText);
-              // 왼쪽 스피너 없이 바로 메시지 표시 (오른쪽 스피너만 사용)
               addBotMessage('bot_analysis', analysisText, undefined, false);
-            
-              // 선택 옵션 메시지 추가 (동일한 템포)
+
               setTimeout(() => {
-                addBotMessageWithOptions('bot_question', 
+                addBotMessageWithOptions('bot_question',
                   '특히 고민해야 할 처방 이력을 선택해주세요:',
                   generatePrescriptionOptions(analysis.topEffects)
                 );
@@ -220,13 +213,17 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
             }, THINKING_DELAY);
           }, MESSAGE_DELAY * 2);
         } else {
+          setHasInitialized(true);
           setTimeout(() => {
-            addBotMessage('bot_analysis', '처방 이력 없이도 검진 설계가 가능해요. 바로 시작할게요!');
-            setTimeout(() => {
-              handleComplete();
-            }, MESSAGE_DELAY + THINKING_DELAY);
-          }, MESSAGE_DELAY * 2);
+            handleComplete();
+          }, MESSAGE_DELAY);
         }
+      } else {
+        // 처방 이력 0건 → 처방 단계 전체 스킵, 바로 완료
+        setHasInitialized(true);
+        setTimeout(() => {
+          handleComplete();
+        }, MESSAGE_DELAY);
       }
     }
   }, [prescriptionData, state.currentStep, hasInitialized]);
