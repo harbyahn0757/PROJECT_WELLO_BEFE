@@ -13,6 +13,7 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
   onClose,
   onSuccess,
   onCancel,
+  onForgotPassword,
   type,
   uuid,
   hospitalId,
@@ -326,6 +327,19 @@ const PasswordModal: React.FC<PasswordModalProps> = ({
                 disabled={loading}
                 showConfirmButton={false}
               />
+              {isConfirmMode && onForgotPassword && (
+                <button
+                  className="password-forgot-link"
+                  onClick={onForgotPassword}
+                  style={{
+                    background: 'none', border: 'none', color: '#718096',
+                    fontSize: '13px', marginTop: '16px', cursor: 'pointer',
+                    textDecoration: 'underline', textUnderlineOffset: '3px'
+                  }}
+                >
+                  비밀번호를 모르겠어요
+                </button>
+              )}
             </>
           )}
 

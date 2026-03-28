@@ -140,7 +140,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       const from = (location.state as any)?.from;
       
       let targetUrl = redirectParam || returnToParam || from || `/results-trend?uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
-      
+
+      // 인증된 UUID로 return_to URL의 uuid 교체 (UUID 불일치 방지)
+      if (targetUrl && passwordSetupData.uuid && targetUrl.includes('uuid=')) {
+        targetUrl = targetUrl.replace(/uuid=[^&]+/, `uuid=${passwordSetupData.uuid}`);
+      }
+
       // targetUrl에 uuid/hospital이 없으면 추가 (단, 외부 URL인 경우 제외)
       if (targetUrl.startsWith('/') && !targetUrl.includes('uuid=')) {
         const separator = targetUrl.includes('?') ? '&' : '?';
@@ -1546,6 +1551,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             handlePasswordSetupSuccess(type);
           }}
           onCancel={handlePasswordSetupCancel}
+          onForgotPassword={() => {
+            console.log('🔐 [비밀번호] 모르겠어요 → Tilko 재인증으로 전환');
+            setShowPasswordSetupModal(false);
+            // 인증 수단 선택 단계로 진행 (기존 데이터 유지)
+            authFlow.goToStep('auth_method');
+          }}
           type={passwordSetupData.type || 'setup'}
           uuid={passwordSetupData.uuid}
           hospitalId={passwordSetupData.hospital}

@@ -9,6 +9,7 @@ export interface PasswordModalProps {
   onClose: () => void;
   onSuccess: (type: PasswordModalType) => void;
   onCancel?: () => void;
+  onForgotPassword?: () => void;
   type: PasswordModalType;
   uuid: string;
   hospitalId: string;
