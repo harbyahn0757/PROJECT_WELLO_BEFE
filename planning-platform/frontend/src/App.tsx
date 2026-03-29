@@ -88,21 +88,18 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
   const cleanupAllStorage = useCallback(() => {
     console.log('🧹 [전체초기화] 모든 로컬/세션 스토리지 초기화 실행');
     
-    // Tilko 관련 핵심 키들 삭제
+    // Tilko 세션 키들 삭제 (영구 키 tilko_terms_agreed, welno_intro_teaser_shown 제외)
     const keysToRemove = [
-      STORAGE_KEYS.TILKO_SESSION_ID, STORAGE_KEYS.TILKO_SESSION_DATA, 
+      STORAGE_KEYS.TILKO_SESSION_ID, STORAGE_KEYS.TILKO_SESSION_DATA,
       STORAGE_KEYS.LOGIN_INPUT_DATA, STORAGE_KEYS.LOGIN_INPUT_LAST_UPDATED,
-      STORAGE_KEYS.TILKO_INFO_CONFIRMING, 
+      STORAGE_KEYS.TILKO_INFO_CONFIRMING,
       STORAGE_KEYS.TILKO_AUTH_REQUESTED, STORAGE_KEYS.TILKO_AUTH_WAITING, STORAGE_KEYS.TILKO_AUTH_METHOD_SELECTION,
-      STORAGE_KEYS.TILKO_MANUAL_COLLECT, STORAGE_KEYS.TILKO_COLLECTING_STATUS, STORAGE_KEYS.TILKO_TERMS_AGREED,
+      STORAGE_KEYS.TILKO_MANUAL_COLLECT, STORAGE_KEYS.TILKO_COLLECTING_STATUS,
+      STORAGE_KEYS.PASSWORD_MODAL_OPEN,
       'last_forced_cleanup'
     ];
-    
+
     keysToRemove.forEach(key => localStorage.removeItem(key));
-    
-    // Wello 관련
-    localStorage.removeItem(STORAGE_KEYS.PASSWORD_MODAL_OPEN);
-    localStorage.removeItem(STORAGE_KEYS.INTRO_TEASER_SHOWN);
     
     // 세션 스토리지
     sessionStorage.clear();

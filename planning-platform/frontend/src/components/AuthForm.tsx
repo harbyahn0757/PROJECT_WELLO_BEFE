@@ -1030,7 +1030,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         try {
           const termsData = JSON.parse(termsAgreedStr);
           
-          if (termsData && termsData.agreed && termsData.expires_at) {
+          if (termsData && termsData.agreed_at && termsData.expires_at) {
             const now = new Date();
             const expiresAt = new Date(termsData.expires_at);
             const agreedAt = new Date(termsData.agreed_at);

@@ -556,14 +556,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     if (option.id === 'auth_tilko') {
       addUserMessage('인증하고 가져오기');
       setTimeout(() => {
-        // 이전 Tilko 세션 찌꺼기 정리 (카카오 인앱 localStorage 잔존 방지)
+        // 세션 플래그 전부 삭제 (campaigns/checkup-design/index.tsx clearStaleAuth와 동일 목록)
+        // tilko_terms_agreed는 유지 (동의 중복 방지)
         try {
-          const { StorageManager } = require('../../../constants/storage');
-          StorageManager.clearTilkoSession();
-          StorageManager.resetAuthPage();
-          localStorage.removeItem('password_modal_open');
-          localStorage.removeItem('tilko_info_confirming');
-          // tilko_terms_agreed는 유지 (동의 중복 방지)
+          ['tilko_info_confirming', 'tilko_auth_waiting', 'tilko_auth_completed',
+           'tilko_auth_requested', 'tilko_collecting_status', 'tilko_manual_collect',
+           'password_modal_open', 'tilko_session_id', 'tilko_session_data',
+           'start_info_confirmation', 'tilko_selected_auth_type',
+           'tilko_auth_method_selection', 'checkup_survey_panel_open'].forEach(k => localStorage.removeItem(k));
         } catch (e) { /* ignore */ }
 
         const urlParams = new URLSearchParams(window.location.search);

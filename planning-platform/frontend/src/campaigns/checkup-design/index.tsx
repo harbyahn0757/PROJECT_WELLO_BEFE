@@ -208,12 +208,14 @@ const CheckupDesignCampaign: React.FC = () => {
   };
 
   // ── 이전 Tilko 세션 정리 (카카오 인앱 localStorage 잔존 방지) ──
+  // ChatInterface에서도 재사용 (auth_tilko 분기)
   const clearStaleAuth = () => {
     try {
       ['tilko_info_confirming', 'tilko_auth_waiting', 'tilko_auth_completed',
        'tilko_auth_requested', 'tilko_collecting_status', 'tilko_manual_collect',
        'password_modal_open', 'tilko_session_id', 'tilko_session_data',
-       'start_info_confirmation', 'tilko_selected_auth_type'].forEach(k => localStorage.removeItem(k));
+       'start_info_confirmation', 'tilko_selected_auth_type',
+       'tilko_auth_method_selection', 'checkup_survey_panel_open'].forEach(k => localStorage.removeItem(k));
     } catch (e) { /* ignore */ }
   };
 
