@@ -556,6 +556,16 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
     if (option.id === 'auth_tilko') {
       addUserMessage('인증하고 가져오기');
       setTimeout(() => {
+        // 이전 Tilko 세션 찌꺼기 정리 (카카오 인앱 localStorage 잔존 방지)
+        try {
+          const { StorageManager } = require('../../../constants/storage');
+          StorageManager.clearTilkoSession();
+          StorageManager.resetAuthPage();
+          localStorage.removeItem('password_modal_open');
+          localStorage.removeItem('tilko_info_confirming');
+          localStorage.removeItem('tilko_terms_agreed');
+        } catch (e) { /* ignore */ }
+
         const urlParams = new URLSearchParams(window.location.search);
         const uuid = urlParams.get('uuid') || '';
         const hospital = urlParams.get('hospital') || '';

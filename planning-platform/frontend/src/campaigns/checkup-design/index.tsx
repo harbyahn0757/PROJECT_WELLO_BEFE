@@ -207,9 +207,20 @@ const CheckupDesignCampaign: React.FC = () => {
     doNavigateDesign();
   };
 
+  // ── 이전 Tilko 세션 정리 (카카오 인앱 localStorage 잔존 방지) ──
+  const clearStaleAuth = () => {
+    try {
+      ['tilko_info_confirming', 'tilko_auth_waiting', 'tilko_auth_completed',
+       'tilko_auth_requested', 'tilko_collecting_status', 'tilko_manual_collect',
+       'password_modal_open', 'tilko_session_id', 'tilko_session_data',
+       'start_info_confirmation', 'tilko_selected_auth_type'].forEach(k => localStorage.removeItem(k));
+    } catch (e) { /* ignore */ }
+  };
+
   // ── "본인 인증" 버튼 클릭 ──
   const handleAuth = () => {
     if (!uuid) return;
+    clearStaleAuth();
     const returnTo = `/campaigns/checkup-design?uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}&from_auth=true`;
     navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=campaign`);
   };
@@ -242,6 +253,7 @@ const CheckupDesignCampaign: React.FC = () => {
   // ── "Tilko 다년간 정밀 설계" ──
   const handleAuthMultiYear = () => {
     if (!uuid) return;
+    clearStaleAuth();
     const returnTo = `/campaigns/checkup-design?uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}&from_auth=true`;
     navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=multi_year`);
   };
