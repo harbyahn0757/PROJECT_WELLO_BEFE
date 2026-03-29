@@ -563,7 +563,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
           StorageManager.resetAuthPage();
           localStorage.removeItem('password_modal_open');
           localStorage.removeItem('tilko_info_confirming');
-          localStorage.removeItem('tilko_terms_agreed');
+          // tilko_terms_agreed는 유지 (동의 중복 방지)
         } catch (e) { /* ignore */ }
 
         const urlParams = new URLSearchParams(window.location.search);
