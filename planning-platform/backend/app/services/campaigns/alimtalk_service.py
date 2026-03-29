@@ -429,22 +429,22 @@ async def _get_or_create_welno_patient(
             gender = 'F'
 
     try:
-        # 기존 환자 조회
-        if birth_date:
-            rows = await db_manager.execute_query(
-                """SELECT uuid::text FROM welno.welno_patients
-                   WHERE phone_number = %s AND name = %s
-                     AND birth_date = %s LIMIT 1""",
-                (phone, name, birth_date),
-            )
-        else:
-            rows = await db_manager.execute_query(
-                """SELECT uuid::text FROM welno.welno_patients
-                   WHERE phone_number = %s AND name = %s LIMIT 1""",
-                (phone, name),
-            )
-
+        # 기존 환자 조회 — phone+name 우선 (birth 불일치해도 기존 UUID 재사용)
+        rows = await db_manager.execute_query(
+            """SELECT uuid::text, birth_date::text FROM welno.welno_patients
+               WHERE phone_number = %s AND name = %s
+               ORDER BY last_auth_at DESC NULLS LAST, created_at DESC
+               LIMIT 5""",
+            (phone, name),
+        )
         if rows:
+            # birth 일치하는 게 있으면 우선
+            if birth_date:
+                match = next((r for r in rows if r.get('birth_date') == birth_date), None)
+                if match:
+                    return match['uuid']
+            # birth 불일치해도 phone+name으로 찾은 최신 UUID 재사용
+            logger.info(f"welno_patient 기존 재사용 (phone+name): {phone} → {rows[0]['uuid']}")
             return rows[0]['uuid']
 
         # 신규 생성
