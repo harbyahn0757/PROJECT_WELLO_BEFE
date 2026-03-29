@@ -10,6 +10,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import IntroLandingPage from './IntroLandingPage';
 import ResultPage from './ResultPage';
+import TermsAgreementModal from '../../components/terms/TermsAgreementModal';
+import { checkAllTermsAgreement } from '../../utils/termsAgreement';
 
 type PageType = 'intro' | 'design' | 'processing' | 'result';
 
@@ -39,6 +41,8 @@ const CheckupDesignCampaign: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<PageType>('intro');
   const [status, setStatus] = useState<CheckupDesignStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [pendingDesignAction, setPendingDesignAction] = useState<(() => void) | null>(null);
 
   // URL 파라미터 (평문 / lookup_key / 레거시 암호화)
   const urlParams = new URLSearchParams(location.search);
@@ -173,14 +177,34 @@ const CheckupDesignCampaign: React.FC = () => {
     checkUserStatus();
   }, [checkUserStatus]);
 
-  // ── "검진설계 시작" 버튼 클릭 ──
-  const handleStartDesign = () => {
+  // ── 설계 진입 (동의 체크 후) ──
+  const doNavigateDesign = useCallback(() => {
     if (!uuid) return;
     const params = new URLSearchParams();
     params.set('uuid', uuid);
     if (hospitalId) params.set('hospital', hospitalId);
     params.set('partner', partnerId);
     navigate(`/checkup-design?${params.toString()}`);
+  }, [uuid, hospitalId, partnerId, navigate]);
+
+  // ── "검진설계 시작" 버튼 클릭 ──
+  const handleStartDesign = async () => {
+    if (!uuid) return;
+    // 약관 동의 체크
+    try {
+      const termsResult = await checkAllTermsAgreement(uuid, partnerId);
+      if (termsResult.needsAgreement) {
+        setPendingDesignAction(() => doNavigateDesign);
+        setShowTermsModal(true);
+        return;
+      }
+    } catch (e) {
+      // 체크 실패 시 동의 모달 띄우기
+      setPendingDesignAction(() => doNavigateDesign);
+      setShowTermsModal(true);
+      return;
+    }
+    doNavigateDesign();
   };
 
   // ── "본인 인증" 버튼 클릭 ──
@@ -272,18 +296,28 @@ const CheckupDesignCampaign: React.FC = () => {
     case 'intro':
     default:
       return (
-        <IntroLandingPage
-          uuid={uuid}
-          partnerId={partnerId}
-          hospitalId={hospitalId}
-          status={status}
-          healthData={healthData}
-          onStartDesign={handleStartDesign}
-          onStartDesignWithData={handleStartDesignWithData}
-          onAuth={handleAuth}
-          onAuthMultiYear={handleAuthMultiYear}
-          onViewResult={handleViewResult}
-        />
+        <>
+          <TermsAgreementModal
+            isOpen={showTermsModal}
+            onClose={() => setShowTermsModal(false)}
+            onConfirm={() => {
+              setShowTermsModal(false);
+              if (pendingDesignAction) pendingDesignAction();
+            }}
+          />
+          <IntroLandingPage
+            uuid={uuid}
+            partnerId={partnerId}
+            hospitalId={hospitalId}
+            status={status}
+            healthData={healthData}
+            onStartDesign={handleStartDesign}
+            onStartDesignWithData={handleStartDesignWithData}
+            onAuth={handleAuth}
+            onAuthMultiYear={handleAuthMultiYear}
+            onViewResult={handleViewResult}
+          />
+        </>
       );
   }
 };

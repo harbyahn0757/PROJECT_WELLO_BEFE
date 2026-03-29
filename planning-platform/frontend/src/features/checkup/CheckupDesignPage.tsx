@@ -406,7 +406,29 @@ const CheckupDesignPage: React.FC = () => {
         // 모달 닫기 전 짧은 딜레이
         await new Promise(resolve => setTimeout(resolve, 500));
         setShowProcessingModal(false);
-        
+
+        // 비밀번호 미설정 시 설정 유도
+        const urlParams = new URLSearchParams(location.search);
+        const designUuid = urlParams.get('uuid') || '';
+        const designHospital = urlParams.get('hospital') || '';
+        if (designUuid && designHospital) {
+          try {
+            const pwCheck = await fetch(
+              `/api/v1/patients/${designUuid}/password/check?hospital_id=${designHospital}`
+            );
+            if (pwCheck.ok) {
+              const pwResult = await pwCheck.json();
+              if (pwResult.success && !pwResult.data?.hasPassword) {
+                // 비밀번호 없음 → 설정 모달 (PasswordModal은 이미 import 안 됐으므로 prompt 방식)
+                // TODO: PasswordModal 통합 시 여기서 모달 표시
+                console.log('⚠️ [설계완료] 비밀번호 미설정 — 설정 유도 필요');
+              }
+            }
+          } catch (e) {
+            console.warn('비밀번호 체크 실패:', e);
+          }
+        }
+
         // 결과 페이지로 이동 (병합된 데이터 사용)
         const queryString = location.search;
         navigate(`/recommendations${queryString}`, { 
