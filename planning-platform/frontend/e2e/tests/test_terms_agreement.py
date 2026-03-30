@@ -23,49 +23,56 @@ from helpers.storage import (
 class TestTermsAgreement:
     """약관 동의 모달 표시/저장/재방문 검증."""
 
-    def test_terms_modal_shows_on_first_visit(
+    def test_terms_modal_shows_on_start_click(
         self, page: Page, campaign_url_uuid: str, screenshot_path
     ):
-        """약관 미동의 상태에서 페이지 방문 시 약관 모달이 표시되는지 확인."""
-        page.goto(campaign_url_uuid, wait_until="networkidle")
+        """약관 미동의 상태에서 "시작" 버튼 클릭 시 약관 모달이 표시되는지 확인.
 
-        # localStorage 완전 초기화 (약관 미동의 상태 보장)
+        캠페인 랜딩에서 약관 모달은 자동으로 뜨지 않음 — handleStartDesign() 호출 시 뜸.
+        """
+        page.goto(campaign_url_uuid, wait_until="networkidle")
         clear_all(page)
         page.reload(wait_until="networkidle")
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(3000)
 
-        # 약관 모달 또는 약관 관련 UI 요소 탐색
-        modal_selectors = [
-            "[class*='terms']",
-            "[class*='modal']",
-            "[class*='Terms']",
-            "[class*='Modal']",
-            "text=약관",
-            "text=이용약관",
-            "text=개인정보",
-            "text=동의",
+        # "시작" 관련 버튼 클릭 (handleStartDesign 트리거)
+        start_selectors = [
+            "button:has-text('나만의 검진')",
+            "button:has-text('검진 시작')",
+            "button:has-text('바로 시작')",
+            "button:has-text('시작하기')",
+            "button:has-text('시작')",
         ]
 
-        found_terms_ui = False
-        for selector in modal_selectors:
+        clicked = False
+        for selector in start_selectors:
             try:
-                if page.locator(selector).count() > 0:
-                    found_terms_ui = True
+                loc = page.locator(selector).first
+                if loc.is_visible():
+                    loc.click()
+                    clicked = True
                     break
             except Exception:
                 continue
 
-        page.screenshot(path=screenshot_path("terms_first_visit"))
+        if not clicked:
+            page.screenshot(path=screenshot_path("terms_no_start_button"))
+            pytest.skip("시작 버튼을 찾을 수 없음 (데이터 없는 사용자일 수 있음)")
+            return
 
-        # 약관 UI가 나타나거나, 최소한 페이지에 약관 관련 텍스트가 있어야 함
+        page.wait_for_timeout(2000)
+
+        # 약관 모달이 뜨는지 확인
         page_text = page.evaluate("() => document.body.innerText")
         has_terms_text = any(
             kw in page_text
             for kw in ["약관", "동의", "개인정보", "이용약관"]
         )
 
-        assert found_terms_ui or has_terms_text, \
-            "첫 방문 시 약관 관련 UI가 표시되지 않음"
+        page.screenshot(path=screenshot_path("terms_after_start_click"))
+
+        assert has_terms_text, \
+            "시작 클릭 후 약관 관련 UI가 표시되지 않음"
 
     def test_terms_saved_after_agree(
         self, page: Page, campaign_url_uuid: str, screenshot_path

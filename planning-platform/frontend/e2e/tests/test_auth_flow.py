@@ -23,14 +23,12 @@ class TestAuthFlow:
         page.goto(campaign_url_uuid, wait_until="networkidle")
         page.wait_for_timeout(2000)
 
-        # 인증 버튼 찾기
+        # 인증 버튼 찾기 (데이터 없는 사용자만 "인증" 버튼 표시)
+        # 데이터 있는 사용자는 "나만의 검진 시작하기" 만 있으므로 skip
         auth_selectors = [
+            "button:has-text('간편 인증')",
+            "button:has-text('인증하고 시작')",
             "button:has-text('인증')",
-            "button:has-text('본인 인증')",
-            "button:has-text('인증하기')",
-            "button:has-text('시작하기')",
-            "button:has-text('건강검진 결과 가져오기')",
-            "[class*='auth'] button",
         ]
 
         clicked = False
@@ -46,15 +44,17 @@ class TestAuthFlow:
 
         if not clicked:
             page.screenshot(path=screenshot_path("auth_no_button"))
-            pytest.skip("인증 버튼을 찾을 수 없음")
+            pytest.skip("인증 버튼 없음 (파트너 데이터가 있는 사용자 — 설계 시작 경로)")
             return
 
         # /login으로 이동 대기
-        page.wait_for_timeout(2000)
+        try:
+            page.wait_for_url("**/login**", timeout=5000)
+        except Exception:
+            page.wait_for_timeout(2000)
 
         page.screenshot(path=screenshot_path("auth_after_click"))
 
-        # URL에 /login이 포함되어야 함
         current_url = page.url
         assert "/login" in current_url, \
             f"인증 버튼 클릭 후 /login으로 이동하지 않음. 현재 URL: {current_url}"

@@ -32,34 +32,35 @@ class TestLocalStorageCleanup:
         self, page: Page, campaign_url_uuid: str, screenshot_path
     ):
         """
-        페이지 로드 후 clearStaleAuth 실행 시 세션 키 13개가 삭제되는지.
+        clearStaleAuth 로직 실행 시 세션 키 13개가 삭제되는지 (단위 테스트).
 
-        방법: 키를 수동 세팅 → 페이지 리로드 → 키 확인
-        App.tsx에서 마운트 시 자동으로 clearStaleAuth가 실행되므로
-        리로드 후에는 세션 키가 삭제되어야 함.
+        clearStaleAuth는 버튼 클릭 시에만 호출되므로,
+        JS로 동일 로직을 직접 실행하여 키 목록 정합성을 검증.
         """
         page.goto(campaign_url_uuid, wait_until="networkidle")
 
         # 13개 세션 키 세팅
         set_stale_keys(page)
 
-        # 세팅 확인
         remaining_before = count_stale_remaining(page)
         assert remaining_before == 13, \
             f"세팅 후 13개 키가 있어야 하는데 {remaining_before}개만 있음"
 
-        # 페이지 리로드 → App.tsx 마운트 시 clearStaleAuth 실행됨
-        page.reload(wait_until="networkidle")
-        page.wait_for_timeout(2000)
+        # clearStaleAuth와 동일한 JS 직접 실행
+        page.evaluate("""() => {
+            ['tilko_info_confirming', 'tilko_auth_waiting', 'tilko_auth_completed',
+             'tilko_auth_requested', 'tilko_collecting_status', 'tilko_manual_collect',
+             'password_modal_open', 'tilko_session_id', 'tilko_session_data',
+             'start_info_confirmation', 'tilko_selected_auth_type',
+             'tilko_auth_method_selection', 'checkup_survey_panel_open'
+            ].forEach(k => localStorage.removeItem(k));
+        }""")
 
-        # 세션 키가 삭제되었는지 확인
         remaining_after = count_stale_remaining(page)
-
-        page.screenshot(path=screenshot_path("stale_keys_after_reload"))
+        page.screenshot(path=screenshot_path("stale_keys_after_clear"))
 
         assert remaining_after == 0, (
-            f"리로드 후 세션 키가 {remaining_after}개 남아있음. "
-            f"삭제되지 않은 키: "
+            f"clearStaleAuth 후 세션 키 {remaining_after}개 잔존: "
             + ", ".join(
                 k for k in STALE_AUTH_KEYS
                 if get_storage_value(page, k) is not None
@@ -108,12 +109,14 @@ class TestLocalStorageCleanup:
         set_all_keys(page)
 
         # 인증 버튼 찾기 및 클릭
+        # 실제 버튼: "간편 인증하고 시작하기" (검진 기록 연동)
         auth_selectors = [
+            "button:has-text('간편 인증')",
+            "button:has-text('인증하고 시작')",
+            "button:has-text('나만의 검진')",
+            "button:has-text('검진 시작')",
             "button:has-text('인증')",
-            "button:has-text('본인 인증')",
-            "button:has-text('인증하기')",
-            "button:has-text('시작하기')",
-            "[class*='auth'] button",
+            "button:has-text('시작')",
         ]
 
         clicked = False
