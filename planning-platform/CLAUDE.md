@@ -101,9 +101,29 @@ psql "postgresql://peernine:autumn3334%21@localhost:5434/p9_mkt_biz"
 
 ---
 
-## 서버 배포
+## 서버 아키텍처
 
-### SSH 접근 경로
+```
+사용자 (카카오 인앱 / 모바일 브라우저)
+  ↓ HTTPS
+welno.kindhabit.com → nginx (223.130.142.105)
+  ├── /welno-api/*  → 10.0.1.6:8082 (WELNO_BE, FastAPI)
+  ├── /static/*     → 10.0.1.6:9281 (WELNO_FE, serve)
+  ├── /backoffice   → 10.0.1.6:9283 (백오피스)
+  └── /* (SPA)      → 10.0.1.6:8082/static/ (FastAPI StaticFiles)
+```
+
+**API prefix 차이**: 로컬 `/api/v1/` → 실서버 `/welno-api/v1/`
+
+### PM2 프로세스 (10.0.1.6, welno 유저)
+| id | name | port | 역할 |
+|----|------|------|------|
+| 18 | WELNO_BE | 8082 | FastAPI 백엔드 |
+| 4 | WELNO_FE | 9281 | static serve |
+| 6 | Todayon_Studio | 3507 | Next.js |
+| 13 | mediarc-daemon | - | mediArc |
+
+### SSH 접근
 ```
 로컬 → 223.130.142.105 (root / dksrhkdtn!23)
      → 10.0.1.6 (root / P2*mh?MUJqRt)
@@ -111,15 +131,20 @@ psql "postgresql://peernine:autumn3334%21@localhost:5434/p9_mkt_biz"
 
 ### 배포 절차
 ```bash
-# 1. 로컬에서 push
+# 1. 프론트엔드 빌드 + static 복사
+cd frontend && npm run deploy:simple
+
+# 2. 커밋 + 푸시
 git push origin main
 
-# 2. 서버에서 pull + restart
-ssh root@223.130.142.105  # → ssh root@10.0.1.6
+# 3. 서버 배포 (2-hop SSH)
+ssh root@223.130.142.105 → ssh root@10.0.1.6
 cd /home/welno/workspace/PROJECT_WELNO_BEFE
-sudo -u welno git pull
+sudo -u welno git pull origin main
 sudo -u welno pm2 restart WELNO_BE
 ```
+
+**`/welno-deploy` 명령어 사용 가능**
 
 ---
 

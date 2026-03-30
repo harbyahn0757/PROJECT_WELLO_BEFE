@@ -34,6 +34,12 @@ class SystemInfoResponse(BaseModel):
     config: dict
 
 
+@router.get("", response_model=dict)
+async def health_ping():
+    """간단 헬스체크 (nginx/모니터링용)"""
+    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+
+
 @router.get("/status", response_model=HealthResponse)
 async def health_status():
     """시스템 헬스체크"""

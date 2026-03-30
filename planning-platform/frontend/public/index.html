@@ -50,14 +50,16 @@
           }
         }, { passive: false });
         
-        // 프로덕션 환경에서는 모든 console 완전 비활성화
+        // 프로덕션 환경: console 선택적 비활성화
+        // error/warn은 유지 (디버깅 필수), ?debug=1 시 전부 유지
         if (window.location.hostname !== 'localhost' && !window.location.hostname.startsWith('192.168')) {
-          if (typeof console !== 'undefined') {
+          var isDebugMode = window.location.search.indexOf('debug=1') !== -1;
+          if (!isDebugMode && typeof console !== 'undefined') {
             console.log = function() {};
             console.info = function() {};
             console.debug = function() {};
-            console.warn = function() {};
-            console.error = function() {};  // 에러 로그도 제거
+            // console.warn — 유지 (경고 추적)
+            // console.error — 유지 (에러 추적)
             console.trace = function() {};
             console.table = function() {};
             console.group = function() {};
