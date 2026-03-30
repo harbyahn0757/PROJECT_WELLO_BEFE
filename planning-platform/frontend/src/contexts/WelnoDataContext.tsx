@@ -1163,16 +1163,22 @@ export const WelnoDataProvider: React.FC<WelnoDataProviderProps> = ({ children }
           userFriendlyMessage = 'API 서버에 문제가 있습니다. 잠시 후 다시 시도해주세요.';
         }
 
-        addNotification({
-          type: 'error',
-          title: '데이터 로딩 실패',
-          message: userFriendlyMessage,
-          action: {
-            label: '다시 시도',
-            onClick: () => loadPatientData(uuid, hospital, { force: true }),
-          },
-          autoClose: false,
-        });
+        // 캠페인 경로에서는 에러 배너 억제 (캠페인 오케스트레이터가 자체 데이터 관리)
+        const isCampaignPath = window.location.pathname.includes('/campaigns/');
+        if (!isCampaignPath) {
+          addNotification({
+            type: 'error',
+            title: '데이터 로딩 실패',
+            message: userFriendlyMessage,
+            action: {
+              label: '다시 시도',
+              onClick: () => loadPatientData(uuid, hospital, { force: true }),
+            },
+            autoClose: false,
+          });
+        } else {
+          console.warn('[WelnoDataContext] 캠페인 경로 — 에러 배너 억제:', errorMessage);
+        }
       }
 
       // 로딩 완료 (에러 발생 시에도 리셋)

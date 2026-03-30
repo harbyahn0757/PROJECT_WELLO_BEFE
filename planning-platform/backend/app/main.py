@@ -6,6 +6,7 @@ import logging
 import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 from fastapi.staticfiles import StaticFiles
@@ -52,6 +53,19 @@ app = FastAPI(
     docs_url="/docs",
     openapi_url="/openapi.json"
 )
+
+# 글로벌 예외 핸들러 — 잡히지 않은 500 에러를 구조화된 JSON으로 반환
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(
+        "[UNHANDLED] %s %s — %s: %s",
+        request.method, request.url.path, type(exc).__name__, str(exc),
+        exc_info=True,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "서버 내부 오류가 발생했습니다.", "error_type": type(exc).__name__},
+    )
 
 # CORS 설정
 # 파트너 위젯 임베드를 위해 모든 Origin 허용 (Credentials 지원을 위해 Regex 사용)

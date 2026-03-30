@@ -11,7 +11,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import IntroLandingPage from './IntroLandingPage';
 import ResultPage from './ResultPage';
 import TermsAgreementModal from '../../components/terms/TermsAgreementModal';
-import { checkAllTermsAgreement } from '../../utils/termsAgreement';
+import { checkAllTermsAgreement, saveTermsAgreement } from '../../utils/termsAgreement';
 
 type PageType = 'intro' | 'design' | 'processing' | 'result';
 
@@ -314,7 +314,16 @@ const CheckupDesignCampaign: React.FC = () => {
           <TermsAgreementModal
             isOpen={showTermsModal}
             onClose={() => setShowTermsModal(false)}
-            onConfirm={() => {
+            onConfirm={async (agreedTerms, termsAgreement) => {
+              // 약관 동의 저장 (API + localStorage) — 미저장 시 재방문마다 모달 재표시
+              if (uuid) {
+                await saveTermsAgreement(uuid, partnerId, termsAgreement || {
+                  terms_service: agreedTerms.includes('terms-service'),
+                  terms_privacy: agreedTerms.includes('terms-privacy'),
+                  terms_sensitive: agreedTerms.includes('terms-sensitive'),
+                  terms_marketing: agreedTerms.includes('terms-marketing'),
+                });
+              }
               setShowTermsModal(false);
               if (pendingDesignAction) pendingDesignAction();
             }}

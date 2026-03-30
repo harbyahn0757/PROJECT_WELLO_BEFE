@@ -129,6 +129,25 @@ scope: `backend`, `frontend`, `backoffice`, `rag`, `payment`, `tilko`
 
 ---
 
+## E2E 테스트 (Playwright Python)
+
+```bash
+# 로컬 dev 서버 대상
+cd frontend && python3 -m pytest e2e/ -v
+
+# 실서버 대상
+WELNO_E2E_URL=https://welno.kindhabit.com python3 -m pytest e2e/ -v
+
+# 특정 테스트
+python3 -m pytest e2e/tests/test_terms_agreement.py -v
+```
+
+### 디버그 패널
+URL에 `?debug=1` 추가 → 하단에 localStorage 뷰어 + 환경 정보 패널 표시.
+Playwright에서 `data-testid="debug-panel"` 로 접근.
+
+---
+
 ## 알려진 이슈
 
 1. **FAISS aretrieve 버그** — `vector_search.py` FAISSVectorSearch에 `aretrieve()` 없음 → 캐시 미생성

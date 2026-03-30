@@ -30,6 +30,7 @@ import { WelnoDataProvider, useWelnoData } from './contexts/WelnoDataContext';
 import { STORAGE_KEYS, StorageManager } from './constants/storage';
 import { WelnoRagChatButton } from './components/welno-rag-chat';
 import NotificationContainer from './components/common/NotificationContainer';
+import DebugPanel from './components/debug/DebugPanel';
 import { sendFrontendStateToServer, sendStateOnPageLoad } from './utils/debugLogger';
 import './App.scss';
 
@@ -631,7 +632,7 @@ const AppContent: React.FC = () => {
       
       <NotificationContainer />
       {!isIframe && !location.pathname.includes('/campaigns/checkup-design') && <WelnoRagChatButton />}
-      
+      <DebugPanel />
     </div>
   );
 };

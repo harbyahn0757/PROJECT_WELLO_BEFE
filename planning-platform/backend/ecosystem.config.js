@@ -18,6 +18,8 @@ module.exports = {
       error_file: '/data/wello_logs/pm2/welno-be/error.log',
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
+      max_size: '50M',
+      retain: 7,
       // 재시작 정책
       kill_timeout: 8000,       // uvicorn graceful shutdown 대기 (기본 1600ms → 8초)
       listen_timeout: 10000,    // 시작 시 포트 바인딩 대기
