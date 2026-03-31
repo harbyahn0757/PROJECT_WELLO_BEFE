@@ -295,7 +295,7 @@ async def consultation_detail(
                       blood_sugar, cholesterol, raw_data,
                       collected_at, data_source
                FROM welno.welno_checkup_data
-               WHERE uuid = %s
+               WHERE patient_uuid = %s
                ORDER BY collected_at DESC""",
             (uuid,),
         )
