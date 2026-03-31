@@ -56,10 +56,33 @@ interface DesignResult {
   data_source: string;
 }
 
+interface SessionTags {
+  interest_tags: any[] | null;
+  risk_tags: any[] | null;
+  key_concerns: any[] | null;
+  conversation_summary: string | null;
+  sentiment: string | null;
+  risk_level: string | null;
+  counselor_recommendations: any[] | null;
+  commercial_tags: any[] | null;
+  buying_signal: string | null;
+  prospect_type: string | null;
+  action_intent: string | null;
+  medical_tags: any[] | null;
+  lifestyle_tags: any[] | null;
+  nutrition_tags: any[] | null;
+  anxiety_level: string | null;
+  hospital_prospect_score: number | null;
+  medical_urgency: string | null;
+  engagement_score: number | null;
+  suggested_revisit_messages: any[] | null;
+}
+
 interface DetailData {
   patient: PatientInfo | null;
   healthData: HealthRecord[];
   designResult: DesignResult[];
+  sessionTags: SessionTags | null;
 }
 
 /* ── 상수 ── */
@@ -80,6 +103,19 @@ const SOURCE_LABELS: Record<string, { text: string; cls: string }> = {
   welno_checkup_data: { text: '공단 데이터', cls: 'nhis' },
   partner: { text: '파트너 제공', cls: 'partner' },
 };
+
+const RISK_COLORS: Record<string, string> = { high: '#dc2626', medium: '#d97706', low: '#059669' };
+const RISK_LABELS: Record<string, string> = { high: '고위험', medium: '중위험', low: '저위험' };
+const PROSPECT_LABELS: Record<string, string> = {
+  borderline_worried: '경계+걱정', needs_visit: '진료필요',
+  lifestyle_improvable: '생활습관개선', chronic_management: '만성관리',
+};
+const SENTIMENT_LABELS: Record<string, string> = {
+  positive: '긍정', negative: '부정', neutral: '중립', anxious: '불안', worried: '걱정',
+};
+const ANXIETY_LABELS: Record<string, string> = { high: '높음', medium: '보통', low: '낮음' };
+const URGENCY_LABELS: Record<string, string> = { urgent: '긴급', borderline: '경계', normal: '정상' };
+const BUYING_LABELS: Record<string, string> = { high: '높음', medium: '보통', low: '낮음' };
 
 const SourceLabel: React.FC<{ source: string }> = ({ source }) => {
   const info = SOURCE_LABELS[source] || { text: source, cls: 'user' };
@@ -241,6 +277,7 @@ const ConsultationPage: React.FC = () => {
               patientSummary={patientSummary}
               statusUpdating={statusUpdating}
               onStatusChange={handleStatusChange}
+              sessionTags={detail.sessionTags}
             />
           )}
         </div>
@@ -257,11 +294,12 @@ interface DetailPanelProps {
   patientSummary: string;
   statusUpdating: boolean;
   onStatusChange: (s: string) => void;
+  sessionTags: SessionTags | null;
 }
 
 const DetailPanel: React.FC<DetailPanelProps> = ({
   detail, selectedItem, recommendations,
-  patientSummary, statusUpdating, onStatusChange,
+  patientSummary, statusUpdating, onStatusChange, sessionTags,
 }) => {
   const p = detail.patient;
   const currentStatus = selectedItem?.status || 'pending';
@@ -327,6 +365,112 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
         </div>
       )}
 
+      {/* 고객 프로파일 카드 */}
+      {sessionTags && (
+        <div className="consultation-page__section">
+          <h3>고객 프로파일</h3>
+          <div className="consultation-page__profile-grid">
+            {/* 페르소나 */}
+            <div className="consultation-page__profile-item">
+              <dt>페르소나</dt>
+              <dd>
+                {sessionTags.prospect_type && (
+                  <span className="consultation-page__tag consultation-page__tag--blue">
+                    {PROSPECT_LABELS[sessionTags.prospect_type] || sessionTags.prospect_type}
+                  </span>
+                )}
+                {sessionTags.sentiment && (
+                  <span className="consultation-page__tag">
+                    {SENTIMENT_LABELS[sessionTags.sentiment] || sessionTags.sentiment}
+                  </span>
+                )}
+                {sessionTags.anxiety_level && (
+                  <span className="consultation-page__tag consultation-page__tag--warn">
+                    불안: {ANXIETY_LABELS[sessionTags.anxiety_level] || sessionTags.anxiety_level}
+                  </span>
+                )}
+              </dd>
+            </div>
+            {/* 위험도 */}
+            <div className="consultation-page__profile-item">
+              <dt>위험도</dt>
+              <dd>
+                {sessionTags.risk_level ? (
+                  <span
+                    className="consultation-page__risk-badge"
+                    style={{ background: RISK_COLORS[sessionTags.risk_level] || '#6b7280' }}
+                  >
+                    {RISK_LABELS[sessionTags.risk_level] || sessionTags.risk_level}
+                  </span>
+                ) : '-'}
+                {sessionTags.medical_urgency && (
+                  <span className="consultation-page__tag consultation-page__tag--warn" style={{ marginLeft: 4 }}>
+                    {URGENCY_LABELS[sessionTags.medical_urgency] || sessionTags.medical_urgency}
+                  </span>
+                )}
+              </dd>
+            </div>
+            {/* 참여도 */}
+            <div className="consultation-page__profile-item">
+              <dt>참여도</dt>
+              <dd>
+                {sessionTags.engagement_score != null ? (
+                  <div className="consultation-page__gauge">
+                    <div
+                      className="consultation-page__gauge-fill"
+                      style={{ width: `${Math.min(sessionTags.engagement_score, 100)}%` }}
+                    />
+                    <span className="consultation-page__gauge-value">
+                      {sessionTags.engagement_score}점
+                    </span>
+                  </div>
+                ) : '-'}
+              </dd>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 대화 요약 */}
+      {sessionTags && (sessionTags.conversation_summary || sessionTags.key_concerns?.length || sessionTags.interest_tags?.length) && (
+        <div className="consultation-page__section">
+          <h3>대화 요약</h3>
+          {sessionTags.conversation_summary && (
+            <p className="consultation-page__summary-text">{sessionTags.conversation_summary}</p>
+          )}
+          {sessionTags.key_concerns && sessionTags.key_concerns.length > 0 && (
+            <div className="consultation-page__tag-group">
+              <strong>주요 고민:</strong>{' '}
+              {sessionTags.key_concerns.map((c: any, i: number) => (
+                <span key={i} className="consultation-page__tag consultation-page__tag--warn">
+                  {typeof c === 'string' ? c : c?.topic || JSON.stringify(c)}
+                </span>
+              ))}
+            </div>
+          )}
+          {sessionTags.interest_tags && sessionTags.interest_tags.length > 0 && (
+            <div className="consultation-page__tag-group">
+              <strong>관심사:</strong>{' '}
+              {sessionTags.interest_tags.map((t: any, i: number) => (
+                <span key={i} className="consultation-page__tag consultation-page__tag--blue">
+                  {typeof t === 'string' ? t : t?.topic || JSON.stringify(t)}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 상담 가이드 */}
+      {sessionTags && (sessionTags.counselor_recommendations?.length || sessionTags.suggested_revisit_messages?.length || sessionTags.buying_signal || sessionTags.commercial_tags?.length) && (
+        <SessionGuideSection sessionTags={sessionTags} />
+      )}
+
+      {/* 의료/생활 태그 */}
+      {sessionTags && (sessionTags.risk_tags?.length || sessionTags.medical_tags?.length || sessionTags.lifestyle_tags?.length || sessionTags.nutrition_tags?.length) && (
+        <SessionMedicalSection sessionTags={sessionTags} />
+      )}
+
       {/* 상태 변경 */}
       <div className="consultation-page__section">
         <h3>상담 상태</h3>
@@ -359,5 +503,101 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
     </>
   );
 };
+
+/* ── 상담 가이드 서브 컴포넌트 ── */
+const SessionGuideSection: React.FC<{ sessionTags: SessionTags }> = ({ sessionTags }) => (
+  <div className="consultation-page__section">
+    <h3>상담 가이드</h3>
+    {sessionTags.counselor_recommendations && sessionTags.counselor_recommendations.length > 0 && (
+      <div style={{ marginBottom: 12 }}>
+        <strong style={{ fontSize: 13, color: '#4a5568' }}>AI 상담 추천:</strong>
+        <ul className="consultation-page__guide-list">
+          {sessionTags.counselor_recommendations.map((r: any, i: number) => (
+            <li key={i}>{typeof r === 'string' ? r : JSON.stringify(r)}</li>
+          ))}
+        </ul>
+      </div>
+    )}
+    {sessionTags.suggested_revisit_messages && sessionTags.suggested_revisit_messages.length > 0 && (
+      <div style={{ marginBottom: 12 }}>
+        <strong style={{ fontSize: 13, color: '#4a5568' }}>재방문 스크립트:</strong>
+        <div className="consultation-page__script-cards">
+          {sessionTags.suggested_revisit_messages.map((m: any, i: number) => (
+            <div key={i} className="consultation-page__script-card">
+              {typeof m === 'string' ? m : m?.message || m?.text || JSON.stringify(m)}
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+    <div className="consultation-page__tag-group">
+      {sessionTags.buying_signal && (
+        <span>
+          <strong>구매신호:</strong>{' '}
+          <span className="consultation-page__tag consultation-page__tag--signal" data-level={sessionTags.buying_signal}>
+            {BUYING_LABELS[sessionTags.buying_signal] || sessionTags.buying_signal}
+          </span>
+        </span>
+      )}
+      {sessionTags.commercial_tags && sessionTags.commercial_tags.length > 0 && (
+        <span style={{ marginLeft: sessionTags.buying_signal ? 12 : 0 }}>
+          <strong>업셀링:</strong>{' '}
+          {sessionTags.commercial_tags.map((t: any, i: number) => (
+            <span key={i} className="consultation-page__tag consultation-page__tag--commercial">
+              {typeof t === 'string' ? t : t?.category || t?.product_hint || JSON.stringify(t)}
+            </span>
+          ))}
+        </span>
+      )}
+    </div>
+  </div>
+);
+
+/* ── 의료/생활 태그 서브 컴포넌트 ── */
+const SessionMedicalSection: React.FC<{ sessionTags: SessionTags }> = ({ sessionTags }) => (
+  <div className="consultation-page__section">
+    <h3>의료 / 생활 태그</h3>
+    {sessionTags.risk_tags && sessionTags.risk_tags.length > 0 && (
+      <div className="consultation-page__tag-group">
+        <strong>위험 태그:</strong>{' '}
+        {sessionTags.risk_tags.map((t: any, i: number) => (
+          <span key={i} className="consultation-page__tag consultation-page__tag--danger">
+            {typeof t === 'string' ? t : t?.tag || t?.name || JSON.stringify(t)}
+          </span>
+        ))}
+      </div>
+    )}
+    {sessionTags.medical_tags && sessionTags.medical_tags.length > 0 && (
+      <div className="consultation-page__tag-group">
+        <strong>의료:</strong>{' '}
+        {sessionTags.medical_tags.map((t: any, i: number) => (
+          <span key={i} className="consultation-page__tag consultation-page__tag--warn">
+            {typeof t === 'string' ? t : JSON.stringify(t)}
+          </span>
+        ))}
+      </div>
+    )}
+    {sessionTags.lifestyle_tags && sessionTags.lifestyle_tags.length > 0 && (
+      <div className="consultation-page__tag-group">
+        <strong>생활습관:</strong>{' '}
+        {sessionTags.lifestyle_tags.map((t: any, i: number) => (
+          <span key={i} className="consultation-page__tag">
+            {typeof t === 'string' ? t : JSON.stringify(t)}
+          </span>
+        ))}
+      </div>
+    )}
+    {sessionTags.nutrition_tags && sessionTags.nutrition_tags.length > 0 && (
+      <div className="consultation-page__tag-group">
+        <strong>영양:</strong>{' '}
+        {sessionTags.nutrition_tags.map((t: any, i: number) => (
+          <span key={i} className="consultation-page__tag consultation-page__tag--green">
+            {typeof t === 'string' ? t : JSON.stringify(t)}
+          </span>
+        ))}
+      </div>
+    )}
+  </div>
+);
 
 export default ConsultationPage;

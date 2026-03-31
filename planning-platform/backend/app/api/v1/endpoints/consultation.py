@@ -353,7 +353,71 @@ async def consultation_detail(
                 "data_source": "welno_checkup_design_requests",
             })
 
-        # 4) 데이터 라벨링
+        # 4) 세션 태그 (tb_chat_session_tags)
+        session_tags = None
+        try:
+            tag_row = await db_manager.execute_one(
+                """SELECT interest_tags, risk_tags, key_concerns,
+                          conversation_summary, sentiment, risk_level,
+                          counselor_recommendations, commercial_tags,
+                          buying_signal, prospect_type, action_intent,
+                          medical_tags, lifestyle_tags, nutrition_tags,
+                          anxiety_level, hospital_prospect_score,
+                          medical_urgency, engagement_score,
+                          suggested_revisit_messages
+                   FROM welno.tb_chat_session_tags
+                   WHERE session_id IN (
+                     SELECT session_id
+                     FROM welno.tb_partner_rag_chat_log
+                     WHERE user_uuid = %s
+                   )
+                   ORDER BY created_at DESC LIMIT 1""",
+                (uuid,),
+            )
+            if tag_row:
+                def _parse_json(val):
+                    if val is None:
+                        return None
+                    if isinstance(val, (list, dict)):
+                        return val
+                    if isinstance(val, str):
+                        try:
+                            return json.loads(val)
+                        except (json.JSONDecodeError, TypeError):
+                            return val
+                    return val
+
+                session_tags = {
+                    "interest_tags": _parse_json(tag_row.get("interest_tags")),
+                    "risk_tags": _parse_json(tag_row.get("risk_tags")),
+                    "key_concerns": _parse_json(tag_row.get("key_concerns")),
+                    "conversation_summary": tag_row.get("conversation_summary"),
+                    "sentiment": tag_row.get("sentiment"),
+                    "risk_level": tag_row.get("risk_level"),
+                    "counselor_recommendations": _parse_json(
+                        tag_row.get("counselor_recommendations")
+                    ),
+                    "commercial_tags": _parse_json(tag_row.get("commercial_tags")),
+                    "buying_signal": tag_row.get("buying_signal"),
+                    "prospect_type": tag_row.get("prospect_type"),
+                    "action_intent": tag_row.get("action_intent"),
+                    "medical_tags": _parse_json(tag_row.get("medical_tags")),
+                    "lifestyle_tags": _parse_json(tag_row.get("lifestyle_tags")),
+                    "nutrition_tags": _parse_json(tag_row.get("nutrition_tags")),
+                    "anxiety_level": tag_row.get("anxiety_level"),
+                    "hospital_prospect_score": tag_row.get(
+                        "hospital_prospect_score"
+                    ),
+                    "medical_urgency": tag_row.get("medical_urgency"),
+                    "engagement_score": tag_row.get("engagement_score"),
+                    "suggested_revisit_messages": _parse_json(
+                        tag_row.get("suggested_revisit_messages")
+                    ),
+                }
+        except Exception as tag_err:
+            logger.warning(f"[consultation] session_tags 조회 실패: {tag_err}")
+
+        # 5) 데이터 라벨링
         data_labels = {
             "patient": "welno_patients",
             "healthData": "welno_checkup_data (Tilko)",
@@ -364,6 +428,7 @@ async def consultation_detail(
             "patient": patient,
             "healthData": health_data,
             "designResult": design_results,
+            "sessionTags": session_tags,
             "dataLabels": data_labels,
         }
 
