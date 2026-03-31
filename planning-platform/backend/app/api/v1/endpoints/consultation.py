@@ -293,11 +293,10 @@ async def consultation_detail(
                       height, weight,
                       blood_pressure_high, blood_pressure_low,
                       blood_sugar, cholesterol, raw_data,
-                      collected_at
-               FROM welno.welno_checkup_data cd
-               JOIN welno.welno_patients p ON p.id = cd.patient_id
-               WHERE p.uuid = %s
-               ORDER BY cd.collected_at DESC""",
+                      collected_at, data_source
+               FROM welno.welno_checkup_data
+               WHERE uuid = %s
+               ORDER BY collected_at DESC""",
             (uuid,),
         )
         health_data = []

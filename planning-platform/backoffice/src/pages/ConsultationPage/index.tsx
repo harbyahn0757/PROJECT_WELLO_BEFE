@@ -417,9 +417,9 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
       )}
 
       {/* 건강검진 데이터 */}
-      {detail.healthData.length > 0 && (
+      {(detail.healthData || []).length > 0 && (
         <div className="consultation-page__section">
-          <h3>건강검진 데이터 <SourceLabel source={detail.healthData[0]?.data_source || 'welno_checkup_data'} /></h3>
+          <h3>건강검진 데이터 <SourceLabel source={(detail.healthData || [])[0]?.data_source || 'welno_checkup_data'} /></h3>
           <table className="consultation-page__health-table">
             <thead>
               <tr>
@@ -428,7 +428,7 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
               </tr>
             </thead>
             <tbody>
-              {detail.healthData.map((h, i) => (
+              {(detail.healthData || []).map((h, i) => (
                 <tr key={i}>
                   <td>{h.year || '-'}</td>
                   <td>{h.height ?? '-'}</td>
