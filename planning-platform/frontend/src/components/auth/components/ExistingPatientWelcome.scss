@@ -1,0 +1,119 @@
+// ExistingPatientWelcome — WelnoModal 디자인 시스템 기반
+// 색상/라운딩/버튼은 WelnoModal/PasswordModal/DataDeletionWarningModal과 통일
+
+.existing-welcome {
+  text-align: center;
+
+  &__title {
+    font-size: 20px;
+    font-weight: 700;
+    color: white;
+    margin: 0 0 8px;
+    line-height: 1.3;
+  }
+
+  &__subtitle {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.75);
+    margin: 0 0 20px;
+    line-height: 1.4;
+  }
+
+  // 데이터 요약 카드 — 반투명 흰 배경 (다크 모달 위)
+  &__card {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    text-align: left;
+  }
+
+  &__card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 10px;
+  }
+
+  &__card-item {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.7);
+    line-height: 1.6;
+    padding-left: 12px;
+    position: relative;
+
+    &::before {
+      content: '\2022'; // bullet
+      position: absolute;
+      left: 0;
+      color: rgba(255, 255, 255, 0.5);
+    }
+  }
+
+  // 버튼 영역
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  &__btn {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+    border: none;
+  }
+
+  &__btn--primary {
+    background: white;
+    color: #4b5563;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.9);
+      transform: translateY(-1px);
+    }
+
+    .existing-welcome__btn-title {
+      font-weight: 600;
+    }
+  }
+
+  &__btn--secondary {
+    background: transparent;
+    color: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.5);
+      color: white;
+    }
+  }
+
+  &__btn-title {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 2px;
+  }
+
+  &__btn-desc {
+    display: block;
+    font-size: 12px;
+    opacity: 0.7;
+    line-height: 1.4;
+  }
+
+  // 하단 안내 문구
+  &__hint {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.5;
+    margin: 0;
+  }
+}
