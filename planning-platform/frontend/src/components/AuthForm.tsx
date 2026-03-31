@@ -959,12 +959,24 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         setDescriptionMessage('리포트 생성을 위한 정보를 확인해주세요');
       }
       
-      // 3. 약관 동의 여부 체크 (한번만) - 캠페인/일반 모드 공통
-      // 새로운 약관 체크 유틸 사용 (로컬/서버 통합 체크)
+      // 3. 약관 동의 여부 체크 (한번만)
       const urlParams = new URLSearchParams(location.search);
+      const mode = urlParams.get('mode');
       const uuid = urlParams.get('uuid');
       const partnerId = urlParams.get('partner') || urlParams.get('partner_id');
-      
+
+      // 캠페인/multi_year 모드: 약관은 캠페인 컴포넌트에서 이미 처리됨 → 스킵
+      if (mode === 'campaign' || mode === 'multi_year') {
+        console.log('📜 [AuthForm] 캠페인 모드 — 약관 스킵 (캠페인에서 이미 처리)');
+        setShowTermsModal(false);
+        if (isCampaignMode) {
+          setShowConfirmation(false);
+        } else {
+          setShowConfirmation(true);
+        }
+        return;
+      }
+
       console.log('📜 [AuthForm] 약관 동의 체크 시작:', { uuid, partnerId });
       
       if (uuid && partnerId) {
