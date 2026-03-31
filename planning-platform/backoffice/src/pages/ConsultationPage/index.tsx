@@ -52,6 +52,11 @@ interface DesignResult {
   status: string;
   trigger_source: string | null;
   design_result: any;
+  selected_concerns: any[] | null;
+  auto_concerns: any[] | null;
+  survey_responses: any | null;
+  selected_medication_texts: any[] | null;
+  step1_result: any | null;
   created_at: string | null;
   data_source: string;
 }
@@ -319,11 +324,61 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
         </dl>
       </div>
 
+      {/* 수검자 선택 항목 */}
+      {(() => {
+        const dr = detail.designResult?.[0];
+        const sc = dr?.selected_concerns || [];
+        const ac = dr?.auto_concerns || [];
+        const meds = dr?.selected_medication_texts || [];
+        if (sc.length === 0 && ac.length === 0) return null;
+        return (
+          <div className="consultation-page__section">
+            <h3>수검자 관심 항목 <SourceLabel source="user_input" /></h3>
+            {sc.length > 0 && (
+              <>
+                <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 6 }}>직접 선택한 항목</div>
+                <div className="consultation-page__tag-group">
+                  {sc.map((c: any, i: number) => (
+                    <span key={i} className="consultation-page__tag consultation-page__tag--blue">
+                      {c.category ? `${c.category} · ` : ''}{c.name || c.label || JSON.stringify(c)}
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
+            {ac.length > 0 && (
+              <>
+                <div style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 6px' }}>AI 자동 추출 항목</div>
+                <div className="consultation-page__tag-group">
+                  {ac.map((c: any, i: number) => (
+                    <span key={i} className="consultation-page__tag consultation-page__tag--purple">
+                      {c.category ? `${c.category} · ` : ''}{c.name || c.label || JSON.stringify(c)}
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
+            {meds.length > 0 && (
+              <>
+                <div style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 6px' }}>복약 내역</div>
+                <div className="consultation-page__tag-group">
+                  {meds.map((m: any, i: number) => (
+                    <span key={i} className="consultation-page__tag consultation-page__tag--green">
+                      {typeof m === 'string' ? m : JSON.stringify(m)}
+                    </span>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
+
       {/* 검진설계 결과 */}
       {recommendations.length > 0 && (
         <div className="consultation-page__section">
           <h3>
-            검진설계 추천 항목 ({recommendations.length}건)
+            AI 추천 검진 항목 ({recommendations.length}건)
             <SourceLabel source="welno_checkup_design_requests" />
           </h3>
           {patientSummary && (

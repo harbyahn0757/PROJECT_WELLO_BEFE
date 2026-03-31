@@ -13,6 +13,20 @@ from pydantic import BaseModel
 
 from ....core.database import db_manager
 
+
+def _parse_json(val):
+    """JSONB 값 파싱 헬퍼 (이미 파싱된 경우/문자열/None 처리)"""
+    if val is None:
+        return None
+    if isinstance(val, (dict, list)):
+        return val
+    if isinstance(val, str):
+        try:
+            return json.loads(val)
+        except (json.JSONDecodeError, TypeError):
+            return val
+    return val
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/consultation", tags=["consultation"])
 
@@ -325,7 +339,10 @@ async def consultation_detail(
         design_rows = await db_manager.execute_query(
             f"""SELECT d.id, d.hospital_id, d.partner_id,
                        d.status, d.trigger_source,
-                       d.design_result, d.created_at
+                       d.design_result, d.selected_concerns,
+                       d.auto_concerns, d.survey_responses,
+                       d.selected_medication_texts, d.step1_result,
+                       d.created_at
                 FROM welno.welno_checkup_design_requests d
                 WHERE {' AND '.join(design_conds)}
                 ORDER BY d.created_at DESC""",
@@ -345,6 +362,11 @@ async def consultation_detail(
                 "status": dr_row.get("status"),
                 "trigger_source": dr_row.get("trigger_source"),
                 "design_result": dr,
+                "selected_concerns": _parse_json(dr_row.get("selected_concerns")),
+                "auto_concerns": _parse_json(dr_row.get("auto_concerns")),
+                "survey_responses": _parse_json(dr_row.get("survey_responses")),
+                "selected_medication_texts": _parse_json(dr_row.get("selected_medication_texts")),
+                "step1_result": _parse_json(dr_row.get("step1_result")),
                 "created_at": (
                     str(dr_row["created_at"])[:19]
                     if dr_row.get("created_at")
