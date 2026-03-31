@@ -190,16 +190,26 @@ const CheckupDesignCampaign: React.FC = () => {
   // ── "검진설계 시작" 버튼 클릭 ──
   const handleStartDesign = async () => {
     if (!uuid) return;
+
+    // from_auth=true: Tilko 인증 복귀 — 약관은 인증 전에 이미 동의함 → 스킵
+    const isFromAuth = new URLSearchParams(location.search).get('from_auth') === 'true';
+    if (isFromAuth) {
+      console.log('[CheckupDesign] from_auth=true → 약관 스킵, 바로 설계 진입');
+      doNavigateDesign();
+      return;
+    }
+
     // 약관 동의 체크
     try {
       const termsResult = await checkAllTermsAgreement(uuid, partnerId);
+      console.log('[CheckupDesign] 약관 체크 결과:', termsResult.needsAgreement);
       if (termsResult.needsAgreement) {
         setPendingDesignAction(() => doNavigateDesign);
         setShowTermsModal(true);
         return;
       }
     } catch (e) {
-      // 체크 실패 시 동의 모달 띄우기
+      console.log('[CheckupDesign] 약관 체크 실패:', e);
       setPendingDesignAction(() => doNavigateDesign);
       setShowTermsModal(true);
       return;
