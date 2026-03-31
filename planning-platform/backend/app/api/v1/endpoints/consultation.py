@@ -379,7 +379,7 @@ async def consultation_detail(
         try:
             entry_row = await db_manager.execute_one(
                 """SELECT created_at FROM welno.tb_partner_rag_chat_log
-                   WHERE patient_uuid = %s
+                   WHERE user_uuid = %s
                    ORDER BY created_at ASC LIMIT 1""",
                 (uuid,),
             )
@@ -412,7 +412,7 @@ async def consultation_detail(
                 """SELECT consultation_consent_at FROM welno.tb_chat_session_tags
                    WHERE session_id IN (
                      SELECT session_id FROM welno.tb_partner_rag_chat_log
-                     WHERE patient_uuid = %s
+                     WHERE user_uuid = %s
                    ) AND consultation_requested = true LIMIT 1""",
                 (uuid,),
             )
