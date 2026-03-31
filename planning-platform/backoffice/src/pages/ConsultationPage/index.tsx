@@ -1,6 +1,6 @@
 /**
  * 백오피스 — 검진설계 상담 페이지
- * split-panel: 좌 리스트(40%) / 우 상세(60%)
+ * 리스트 전체 너비 + 우측 드로워로 상세 표시
  */
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -142,9 +142,23 @@ const ConsultationPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [selectedUuid, setSelectedUuid] = useState<string | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [detail, setDetail] = useState<DetailData | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+
+  /* 드로워 ESC 닫기 */
+  useEffect(() => {
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setDrawerOpen(false); };
+    document.addEventListener('keydown', onEsc);
+    return () => document.removeEventListener('keydown', onEsc);
+  }, []);
+
+  /* 드로워 열릴 때 body 스크롤 잠금 */
+  useEffect(() => {
+    document.body.style.overflow = drawerOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [drawerOpen]);
 
   /* 목록 조회 */
   const fetchList = useCallback(async () => {
@@ -181,6 +195,7 @@ const ConsultationPage: React.FC = () => {
 
   const handleSelect = (item: ConsultationItem) => {
     setSelectedUuid(item.uuid);
+    setDrawerOpen(true);
     fetchDetail(item.uuid);
   };
 
@@ -230,7 +245,7 @@ const ConsultationPage: React.FC = () => {
       </div>
 
       <div className="consultation-page__body">
-        {/* ── 좌측: 리스트 ── */}
+        {/* ── 리스트 (전체 너비) ── */}
         <div className="consultation-page__list-panel">
           <div className="consultation-page__tabs">
             {STATUS_TABS.map(tab => (
@@ -267,14 +282,22 @@ const ConsultationPage: React.FC = () => {
             ))}
           </div>
         </div>
+      </div>
 
-        {/* ── 우측: 상세 ── */}
-        <div className="consultation-page__detail-panel">
-          {!selectedUuid && (
-            <div className="consultation-page__empty">좌측에서 고객을 선택하세요</div>
-          )}
-          {selectedUuid && detailLoading && <Spinner />}
-          {selectedUuid && !detailLoading && detail && (
+      {/* ── 드로워 오버레이 + 패널 ── */}
+      {drawerOpen && (
+        <div className="consultation-page__overlay" onClick={() => setDrawerOpen(false)} />
+      )}
+      <div className={`consultation-page__drawer${drawerOpen ? ' consultation-page__drawer--open' : ''}`}>
+        <div className="consultation-page__drawer-header">
+          <h3>{selectedItem?.name || '고객 상세'}</h3>
+          <button className="consultation-page__drawer-close" onClick={() => setDrawerOpen(false)}>
+            &times;
+          </button>
+        </div>
+        <div className="consultation-page__drawer-body">
+          {detailLoading && <Spinner />}
+          {!detailLoading && detail && (
             <DetailPanel
               detail={detail}
               selectedItem={selectedItem || null}
