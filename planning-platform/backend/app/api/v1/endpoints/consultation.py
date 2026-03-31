@@ -374,7 +374,92 @@ async def consultation_detail(
                 "data_source": "welno_checkup_design_requests",
             })
 
-        # 4) 세션 태그 (tb_chat_session_tags)
+        # 4-a) 타이밍 데이터
+        timing = {}
+        try:
+            entry_row = await db_manager.execute_one(
+                """SELECT created_at FROM welno.tb_partner_rag_chat_log
+                   WHERE patient_uuid = %s
+                   ORDER BY created_at ASC LIMIT 1""",
+                (uuid,),
+            )
+            timing["entry_at"] = (
+                str(entry_row["created_at"])[:19] if entry_row and entry_row.get("created_at") else None
+            )
+
+            design_start_row = await db_manager.execute_one(
+                """SELECT created_at FROM welno.welno_checkup_design_requests
+                   WHERE uuid = %s ORDER BY created_at ASC LIMIT 1""",
+                (uuid,),
+            )
+            timing["design_start_at"] = (
+                str(design_start_row["created_at"])[:19]
+                if design_start_row and design_start_row.get("created_at") else None
+            )
+
+            design_done_row = await db_manager.execute_one(
+                """SELECT updated_at FROM welno.welno_checkup_design_requests
+                   WHERE uuid = %s AND status IN ('step2_completed','consultation_requested')
+                   ORDER BY updated_at DESC LIMIT 1""",
+                (uuid,),
+            )
+            timing["design_complete_at"] = (
+                str(design_done_row["updated_at"])[:19]
+                if design_done_row and design_done_row.get("updated_at") else None
+            )
+
+            consult_row = await db_manager.execute_one(
+                """SELECT consultation_consent_at FROM welno.tb_chat_session_tags
+                   WHERE session_id IN (
+                     SELECT session_id FROM welno.tb_partner_rag_chat_log
+                     WHERE patient_uuid = %s
+                   ) AND consultation_requested = true LIMIT 1""",
+                (uuid,),
+            )
+            timing["consultation_requested_at"] = (
+                str(consult_row["consultation_consent_at"])[:19]
+                if consult_row and consult_row.get("consultation_consent_at") else None
+            )
+        except Exception as t_err:
+            logger.warning(f"[consultation] timing 조회 실패: {t_err}")
+
+        # 4-b) 처방 데이터
+        prescription_data = []
+        try:
+            rx_rows = await db_manager.execute_query(
+                """SELECT hospital_name, treatment_date, treatment_type,
+                          visit_count, prescription_count, medication_count,
+                          raw_data, data_source
+                   FROM welno.welno_prescription_data
+                   WHERE patient_uuid = %s
+                   ORDER BY treatment_date DESC""",
+                (uuid,),
+            )
+            for rx in (rx_rows or []):
+                meds = []
+                raw = _parse_json(rx.get("raw_data"))
+                if isinstance(raw, dict):
+                    details = raw.get(
+                        "RetrieveTreatmentInjectionInformationPersonDetailList", []
+                    )
+                    for d in (details or []):
+                        meds.append({
+                            "name": d.get("ChoBangYakPumMyung", ""),
+                            "effect": d.get("ChoBangYakPumHyoneung", ""),
+                            "days": d.get("TuyakIlSoo"),
+                        })
+                prescription_data.append({
+                    "hospital_name": rx.get("hospital_name"),
+                    "treatment_date": str(rx["treatment_date"]) if rx.get("treatment_date") else None,
+                    "treatment_type": rx.get("treatment_type"),
+                    "medication_count": rx.get("medication_count"),
+                    "medications": meds,
+                    "data_source": rx.get("data_source"),
+                })
+        except Exception as rx_err:
+            logger.warning(f"[consultation] prescription 조회 실패: {rx_err}")
+
+        # 4-c) 세션 태그 (tb_chat_session_tags)
         session_tags = None
         try:
             tag_row = await db_manager.execute_one(
@@ -438,6 +523,8 @@ async def consultation_detail(
             "healthData": health_data,
             "designResult": design_results,
             "sessionTags": session_tags,
+            "timing": timing,
+            "prescriptionData": prescription_data,
             "dataLabels": data_labels,
         }
 

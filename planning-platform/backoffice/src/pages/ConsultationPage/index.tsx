@@ -83,11 +83,35 @@ interface SessionTags {
   suggested_revisit_messages: any[] | null;
 }
 
+interface TimingData {
+  entry_at: string | null;
+  design_start_at: string | null;
+  design_complete_at: string | null;
+  consultation_requested_at: string | null;
+}
+
+interface PrescriptionMed {
+  name: string;
+  effect: string;
+  days: string | null;
+}
+
+interface PrescriptionRecord {
+  hospital_name: string | null;
+  treatment_date: string | null;
+  treatment_type: string | null;
+  medication_count: number | null;
+  medications: PrescriptionMed[];
+  data_source: string | null;
+}
+
 interface DetailData {
   patient: PatientInfo | null;
   healthData: HealthRecord[];
   designResult: DesignResult[];
   sessionTags: SessionTags | null;
+  timing: TimingData | null;
+  prescriptionData: PrescriptionRecord[];
 }
 
 /* ── 상수 ── */
@@ -121,6 +145,32 @@ const SENTIMENT_LABELS: Record<string, string> = {
 const ANXIETY_LABELS: Record<string, string> = { high: '높음', medium: '보통', low: '낮음' };
 const URGENCY_LABELS: Record<string, string> = { urgent: '긴급', borderline: '경계', normal: '정상' };
 const BUYING_LABELS: Record<string, string> = { high: '높음', medium: '보통', low: '낮음' };
+
+/* ── 추이 이상 판정 ── */
+const HEALTH_RANGES: Record<string, { normal: number; warn: number }> = {
+  bmi: { normal: 25, warn: 30 },
+  blood_pressure_high: { normal: 120, warn: 140 },
+  blood_sugar: { normal: 100, warn: 126 },
+  cholesterol: { normal: 200, warn: 240 },
+};
+
+interface TrendResult { arrow: string; status: string; }
+
+function getTrend(current: number | null, previous: number | null, ranges: { normal: number; warn: number }): TrendResult {
+  if (current == null) return { arrow: '—', status: 'new' };
+  if (previous == null) return { arrow: '—', status: 'new' };
+  const diff = current - previous;
+  if (current > ranges.warn) return { arrow: '↑↑', status: 'abnormal' };
+  if (current > ranges.normal) return { arrow: '↑', status: 'borderline' };
+  if (diff < 0) return { arrow: '↓', status: 'improved' };
+  return { arrow: '→', status: 'normal' };
+}
+
+function formatTime(dt: string | null): string {
+  if (!dt) return '-';
+  const t = dt.replace('T', ' ');
+  return t.length >= 16 ? t.slice(11, 16) : t;
+}
 
 const SourceLabel: React.FC<{ source: string }> = ({ source }) => {
   const info = SOURCE_LABELS[source] || { text: source, cls: 'user' };
@@ -290,7 +340,38 @@ const ConsultationPage: React.FC = () => {
       )}
       <div className={`consultation-page__drawer${drawerOpen ? ' consultation-page__drawer--open' : ''}`}>
         <div className="consultation-page__drawer-header">
-          <h3>{selectedItem?.name || '고객 상세'}</h3>
+          <div className="consultation-page__drawer-header-left">
+            <h3>
+              {detail?.patient?.name || selectedItem?.name || '고객 상세'}
+              {detail?.patient?.birth_date && detail?.patient?.gender && (
+                <span style={{ fontSize: 13, fontWeight: 400, color: '#718096', marginLeft: 8 }}>
+                  ({detail.patient.gender === 'M' ? '남' : detail.patient.gender === 'F' ? '여' : '-'})
+                </span>
+              )}
+            </h3>
+            {detail?.timing && (
+              <div className="consultation-page__timing">
+                {detail.timing.entry_at && (
+                  <span className="consultation-page__timing-item">
+                    <span className="label">유입</span>
+                    <span className="value">{formatTime(detail.timing.entry_at)}</span>
+                  </span>
+                )}
+                {detail.timing.design_start_at && (
+                  <span className="consultation-page__timing-item">
+                    <span className="label">시작</span>
+                    <span className="value">{formatTime(detail.timing.design_start_at)}</span>
+                  </span>
+                )}
+                {detail.timing.design_complete_at && (
+                  <span className="consultation-page__timing-item">
+                    <span className="label">완료</span>
+                    <span className="value">{formatTime(detail.timing.design_complete_at)}</span>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
           <button className="consultation-page__drawer-close" onClick={() => setDrawerOpen(false)}>
             &times;
           </button>
@@ -329,8 +410,40 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
   detail, selectedItem, recommendations,
   patientSummary, statusUpdating, onStatusChange, sessionTags,
 }) => {
-  const p = detail.patient;
   const currentStatus = selectedItem?.status || 'pending';
+
+  return (
+    <div className="consultation-page__split-grid">
+      {/* ═══ 좌측: 건강 데이터 ═══ */}
+      <div className="consultation-page__split-col">
+        <LeftColHealth detail={detail} />
+      </div>
+      {/* ═══ 우측: 상담 가이드 ═══ */}
+      <div className="consultation-page__split-col">
+        <RightColGuide
+          detail={detail}
+          recommendations={recommendations}
+          patientSummary={patientSummary}
+          sessionTags={sessionTags}
+          currentStatus={currentStatus}
+          statusUpdating={statusUpdating}
+          onStatusChange={onStatusChange}
+        />
+      </div>
+    </div>
+  );
+};
+
+/* ── 좌측 컬럼: 건강 데이터 ── */
+const LeftColHealth: React.FC<{ detail: DetailData }> = ({ detail }) => {
+  const p = detail.patient;
+  const hd = detail.healthData || [];
+  const rx = detail.prescriptionData || [];
+  const dr0 = detail.designResult?.[0];
+  const survey = dr0?.survey_responses;
+
+  // 연도순 정렬 (오래된 것 먼저)
+  const sorted = [...hd].sort((a, b) => (a.year || 0) - (b.year || 0));
 
   return (
     <>
@@ -347,67 +460,180 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
         </dl>
       </div>
 
-      {/* 수검자 선택 항목 */}
-      {(() => {
-        const dr = detail.designResult?.[0];
-        const sc = dr?.selected_concerns || [];
-        const ac = dr?.auto_concerns || [];
-        const meds = dr?.selected_medication_texts || [];
-        if (sc.length === 0 && ac.length === 0) return null;
-        return (
-          <div className="consultation-page__section">
-            <h3>수검자 관심 항목 <SourceLabel source="user_input" /></h3>
-            {sc.length > 0 && (
-              <>
-                <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 6 }}>직접 선택한 항목</div>
-                <div className="consultation-page__tag-group">
-                  {sc.map((c: any, i: number) => (
-                    <span key={i} className="consultation-page__tag consultation-page__tag--blue">
-                      {c.category ? `${c.category} · ` : ''}{c.name || c.label || JSON.stringify(c)}
-                    </span>
-                  ))}
-                </div>
-              </>
-            )}
-            {ac.length > 0 && (
-              <>
-                <div style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 6px' }}>AI 자동 추출 항목</div>
-                <div className="consultation-page__tag-group">
-                  {ac.map((c: any, i: number) => (
-                    <span key={i} className="consultation-page__tag consultation-page__tag--purple">
-                      {c.category ? `${c.category} · ` : ''}{c.name || c.label || JSON.stringify(c)}
-                    </span>
-                  ))}
-                </div>
-              </>
-            )}
-            {meds.length > 0 && (
-              <>
-                <div style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 6px' }}>복약 내역</div>
-                <div className="consultation-page__tag-group">
-                  {meds.map((m: any, i: number) => (
-                    <span key={i} className="consultation-page__tag consultation-page__tag--green">
-                      {typeof m === 'string' ? m : JSON.stringify(m)}
-                    </span>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* 검진설계 결과 */}
-      {recommendations.length > 0 && (
+      {/* 건강검진 연도별 비교 */}
+      {sorted.length > 0 && (
         <div className="consultation-page__section">
-          <h3>
-            AI 추천 검진 항목 ({recommendations.length}건)
-            <SourceLabel source="welno_checkup_design_requests" />
-          </h3>
-          {patientSummary && (
-            <p style={{ fontSize: 13, color: '#4a5568', marginBottom: 12 }}>{patientSummary}</p>
+          <h3>건강검진 데이터 <SourceLabel source={sorted[0]?.data_source || 'welno_checkup_data'} /></h3>
+          <table className="consultation-page__health-table">
+            <thead>
+              <tr>
+                <th>연도</th><th>신장</th><th>체중</th>
+                <th>혈압(수축)</th><th>혈당</th><th>콜레스테롤</th><th>추이</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((h, i) => {
+                const prev = i > 0 ? sorted[i - 1] : null;
+                const bpT = getTrend(h.blood_pressure_high, prev?.blood_pressure_high, HEALTH_RANGES.blood_pressure_high);
+                const bsT = getTrend(h.blood_sugar, prev?.blood_sugar, HEALTH_RANGES.blood_sugar);
+                const chT = getTrend(h.cholesterol, prev?.cholesterol, HEALTH_RANGES.cholesterol);
+                // 가장 심한 상태를 대표로
+                const worst = [bpT, bsT, chT].sort((a, b) => {
+                  const order: Record<string, number> = { abnormal: 0, borderline: 1, improved: 2, normal: 3, new: 4 };
+                  return (order[a.status] ?? 5) - (order[b.status] ?? 5);
+                })[0];
+                return (
+                  <tr key={i}>
+                    <td>{h.year || '-'}</td>
+                    <td>{h.height ?? '-'}</td>
+                    <td>{h.weight ?? '-'}</td>
+                    <td>{h.blood_pressure_high ?? '-'}/{h.blood_pressure_low ?? '-'}</td>
+                    <td>{h.blood_sugar ?? '-'}</td>
+                    <td>{h.cholesterol ?? '-'}</td>
+                    <td>
+                      <span className={`consultation-page__trend consultation-page__trend--${worst.status}`}>
+                        {worst.arrow}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 투약 내역 */}
+      {rx.length > 0 && (
+        <div className="consultation-page__section">
+          <h3>투약 내역 ({rx.length}건) <SourceLabel source="welno_prescription_data" /></h3>
+          {rx.slice(0, 10).map((r, i) => (
+            <div key={i} className="consultation-page__rx-card">
+              <div className="rx-header">
+                <span className="rx-hospital">{r.hospital_name || '-'}</span>
+                <span className="rx-date">{r.treatment_date || '-'}</span>
+              </div>
+              <div className="rx-type">{r.treatment_type || '-'}</div>
+              {r.medications.length > 0 && (
+                <ul className="rx-meds">
+                  {r.medications.slice(0, 3).map((m, j) => (
+                    <li key={j}>{m.name}{m.effect ? ` (${m.effect})` : ''}</li>
+                  ))}
+                  {r.medications.length > 3 && <li>... 외 {r.medications.length - 3}건</li>}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 문진 응답 요약 */}
+      {survey && (
+        <div className="consultation-page__section">
+          <h3>문진 응답 <SourceLabel source="user_input" /></h3>
+          {typeof survey === 'object' && !Array.isArray(survey) ? (
+            <dl className="consultation-page__patient-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+              {Object.entries(survey).slice(0, 12).map(([k, v]) => (
+                <div key={k}>
+                  <dt>{k}</dt>
+                  <dd>{typeof v === 'string' ? v : JSON.stringify(v)}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <p style={{ fontSize: 13, color: '#4a5568' }}>{JSON.stringify(survey)}</p>
           )}
-          {recommendations.map((rec: any, i: number) => (
+        </div>
+      )}
+    </>
+  );
+};
+
+/* ── 우측 컬럼: 상담 가이드 ── */
+interface RightColProps {
+  detail: DetailData;
+  recommendations: any[];
+  patientSummary: string;
+  sessionTags: SessionTags | null;
+  currentStatus: string;
+  statusUpdating: boolean;
+  onStatusChange: (s: string) => void;
+}
+
+const RightColGuide: React.FC<RightColProps> = ({
+  detail, recommendations, patientSummary, sessionTags,
+  currentStatus, statusUpdating, onStatusChange,
+}) => {
+  const dr0 = detail.designResult?.[0];
+  const sc = dr0?.selected_concerns || [];
+  const ac = dr0?.auto_concerns || [];
+  const meds = dr0?.selected_medication_texts || [];
+
+  // 업셀링 분류
+  const upsellItems = useMemo(() => {
+    if (!recommendations.length) return [];
+    return recommendations.filter(
+      (r: any) => r.category === 'upselling' || r.is_upselling || r.upsell,
+    );
+  }, [recommendations]);
+
+  const coreItems = useMemo(() => {
+    if (!recommendations.length) return [];
+    return recommendations.filter(
+      (r: any) => r.category !== 'upselling' && !r.is_upselling && !r.upsell,
+    );
+  }, [recommendations]);
+
+  return (
+    <>
+      {/* 수검자 선택 항목 */}
+      {(sc.length > 0 || ac.length > 0) && (
+        <div className="consultation-page__section">
+          <h3>수검자 선택 항목 <SourceLabel source="user_input" /></h3>
+          {sc.length > 0 && (
+            <div className="consultation-page__tag-group">
+              {sc.map((c: any, i: number) => (
+                <span key={i} className="consultation-page__tag consultation-page__tag--blue">
+                  {c.category ? `${c.category} · ` : ''}{c.name || c.label || JSON.stringify(c)}
+                </span>
+              ))}
+            </div>
+          )}
+          {ac.length > 0 && (
+            <>
+              <div style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 4px' }}>AI 자동 추출</div>
+              <div className="consultation-page__tag-group">
+                {ac.map((c: any, i: number) => (
+                  <span key={i} className="consultation-page__tag" style={{ background: '#ede9fe', color: '#5b21b6' }}>
+                    {c.category ? `${c.category} · ` : ''}{c.name || c.label || JSON.stringify(c)}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+          {meds.length > 0 && (
+            <>
+              <div style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 4px' }}>복약</div>
+              <div className="consultation-page__tag-group">
+                {meds.map((m: any, i: number) => (
+                  <span key={i} className="consultation-page__tag consultation-page__tag--green">
+                    {typeof m === 'string' ? m : JSON.stringify(m)}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* AI 추천 검진 항목 */}
+      {coreItems.length > 0 && (
+        <div className="consultation-page__section">
+          <h3>AI 추천 검진 ({coreItems.length}건) <SourceLabel source="welno_checkup_design_requests" /></h3>
+          {patientSummary && (
+            <p style={{ fontSize: 13, color: '#4a5568', marginBottom: 10 }}>{patientSummary}</p>
+          )}
+          {coreItems.map((rec: any, i: number) => (
             <div key={i} className="consultation-page__rec-card">
               <div className="rec-name">{rec.item_name || rec.name || `항목 ${i + 1}`}</div>
               {rec.reason && <div className="rec-reason">{rec.reason}</div>}
@@ -416,100 +642,23 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
         </div>
       )}
 
-      {/* 건강검진 데이터 */}
-      {(detail.healthData || []).length > 0 && (
+      {/* 업셀링 추천 */}
+      {upsellItems.length > 0 && (
         <div className="consultation-page__section">
-          <h3>건강검진 데이터 <SourceLabel source={(detail.healthData || [])[0]?.data_source || 'welno_checkup_data'} /></h3>
-          <table className="consultation-page__health-table">
-            <thead>
-              <tr>
-                <th>연도</th><th>신장</th><th>체중</th>
-                <th>혈압(수축/이완)</th><th>혈당</th><th>콜레스테롤</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(detail.healthData || []).map((h, i) => (
-                <tr key={i}>
-                  <td>{h.year || '-'}</td>
-                  <td>{h.height ?? '-'}</td>
-                  <td>{h.weight ?? '-'}</td>
-                  <td>{h.blood_pressure_high ?? '-'}/{h.blood_pressure_low ?? '-'}</td>
-                  <td>{h.blood_sugar ?? '-'}</td>
-                  <td>{h.cholesterol ?? '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <h3>업셀링 추천 ({upsellItems.length}건)</h3>
+          {upsellItems.map((rec: any, i: number) => (
+            <div key={i} className="consultation-page__upsell-card">
+              <div className="upsell-name">{rec.item_name || rec.name || `항목 ${i + 1}`}</div>
+              {rec.reason && <div className="upsell-reason">{rec.reason}</div>}
+            </div>
+          ))}
         </div>
       )}
 
-      {/* 고객 프로파일 카드 */}
-      {sessionTags && (
-        <div className="consultation-page__section">
-          <h3>고객 프로파일</h3>
-          <div className="consultation-page__profile-grid">
-            {/* 페르소나 */}
-            <div className="consultation-page__profile-item">
-              <dt>페르소나</dt>
-              <dd>
-                {sessionTags.prospect_type && (
-                  <span className="consultation-page__tag consultation-page__tag--blue">
-                    {PROSPECT_LABELS[sessionTags.prospect_type] || sessionTags.prospect_type}
-                  </span>
-                )}
-                {sessionTags.sentiment && (
-                  <span className="consultation-page__tag">
-                    {SENTIMENT_LABELS[sessionTags.sentiment] || sessionTags.sentiment}
-                  </span>
-                )}
-                {sessionTags.anxiety_level && (
-                  <span className="consultation-page__tag consultation-page__tag--warn">
-                    불안: {ANXIETY_LABELS[sessionTags.anxiety_level] || sessionTags.anxiety_level}
-                  </span>
-                )}
-              </dd>
-            </div>
-            {/* 위험도 */}
-            <div className="consultation-page__profile-item">
-              <dt>위험도</dt>
-              <dd>
-                {sessionTags.risk_level ? (
-                  <span
-                    className="consultation-page__risk-badge"
-                    style={{ background: RISK_COLORS[sessionTags.risk_level] || '#6b7280' }}
-                  >
-                    {RISK_LABELS[sessionTags.risk_level] || sessionTags.risk_level}
-                  </span>
-                ) : '-'}
-                {sessionTags.medical_urgency && (
-                  <span className="consultation-page__tag consultation-page__tag--warn" style={{ marginLeft: 4 }}>
-                    {URGENCY_LABELS[sessionTags.medical_urgency] || sessionTags.medical_urgency}
-                  </span>
-                )}
-              </dd>
-            </div>
-            {/* 참여도 */}
-            <div className="consultation-page__profile-item">
-              <dt>참여도</dt>
-              <dd>
-                {sessionTags.engagement_score != null ? (
-                  <div className="consultation-page__gauge">
-                    <div
-                      className="consultation-page__gauge-fill"
-                      style={{ width: `${Math.min(sessionTags.engagement_score, 100)}%` }}
-                    />
-                    <span className="consultation-page__gauge-value">
-                      {sessionTags.engagement_score}점
-                    </span>
-                  </div>
-                ) : '-'}
-              </dd>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 고객 프로파일 */}
+      {sessionTags && <ProfileSection sessionTags={sessionTags} />}
 
-      {/* 대화 요약 */}
+      {/* 대화 요약 + 관심사 태그 */}
       {sessionTags && (sessionTags.conversation_summary || sessionTags.key_concerns?.length || sessionTags.interest_tags?.length) && (
         <div className="consultation-page__section">
           <h3>대화 요약</h3>
@@ -539,9 +688,55 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
         </div>
       )}
 
-      {/* 상담 가이드 */}
-      {sessionTags && (sessionTags.counselor_recommendations?.length || sessionTags.suggested_revisit_messages?.length || sessionTags.buying_signal || sessionTags.commercial_tags?.length) && (
-        <SessionGuideSection sessionTags={sessionTags} />
+      {/* 상담 스크립트 제안 */}
+      {sessionTags && (sessionTags.counselor_recommendations?.length || sessionTags.suggested_revisit_messages?.length) && (
+        <div className="consultation-page__section">
+          <h3>상담 스크립트 제안</h3>
+          {sessionTags.counselor_recommendations && sessionTags.counselor_recommendations.length > 0 && (
+            sessionTags.counselor_recommendations.map((r: any, i: number) => (
+              <div key={i} className="consultation-page__script-suggestion">
+                {typeof r === 'string' ? r : JSON.stringify(r)}
+              </div>
+            ))
+          )}
+          {sessionTags.suggested_revisit_messages && sessionTags.suggested_revisit_messages.length > 0 && (
+            <>
+              <div style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 6px' }}>재방문 스크립트</div>
+              {sessionTags.suggested_revisit_messages.map((m: any, i: number) => (
+                <div key={i} className="consultation-page__script-card">
+                  {typeof m === 'string' ? m : m?.message || m?.text || JSON.stringify(m)}
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* 업셀링 태그 (commercial_tags) */}
+      {sessionTags && (sessionTags.buying_signal || sessionTags.commercial_tags?.length) && (
+        <div className="consultation-page__section">
+          <h3>구매 신호</h3>
+          <div className="consultation-page__tag-group">
+            {sessionTags.buying_signal && (
+              <span>
+                <strong>구매신호:</strong>{' '}
+                <span className="consultation-page__tag consultation-page__tag--signal" data-level={sessionTags.buying_signal}>
+                  {BUYING_LABELS[sessionTags.buying_signal] || sessionTags.buying_signal}
+                </span>
+              </span>
+            )}
+            {sessionTags.commercial_tags && sessionTags.commercial_tags.length > 0 && (
+              <span style={{ marginLeft: sessionTags.buying_signal ? 12 : 0 }}>
+                <strong>업셀링:</strong>{' '}
+                {sessionTags.commercial_tags.map((t: any, i: number) => (
+                  <span key={i} className="consultation-page__tag consultation-page__tag--commercial">
+                    {typeof t === 'string' ? t : t?.category || t?.product_hint || JSON.stringify(t)}
+                  </span>
+                ))}
+              </span>
+            )}
+          </div>
+        </div>
       )}
 
       {/* 의료/생활 태그 */}
@@ -581,6 +776,61 @@ const DetailPanel: React.FC<DetailPanelProps> = ({
     </>
   );
 };
+
+/* ── 프로파일 섹션 ── */
+const ProfileSection: React.FC<{ sessionTags: SessionTags }> = ({ sessionTags }) => (
+  <div className="consultation-page__section">
+    <h3>고객 프로파일</h3>
+    <div className="consultation-page__profile-grid">
+      <div className="consultation-page__profile-item">
+        <dt>페르소나</dt>
+        <dd>
+          {sessionTags.prospect_type && (
+            <span className="consultation-page__tag consultation-page__tag--blue">
+              {PROSPECT_LABELS[sessionTags.prospect_type] || sessionTags.prospect_type}
+            </span>
+          )}
+          {sessionTags.sentiment && (
+            <span className="consultation-page__tag">
+              {SENTIMENT_LABELS[sessionTags.sentiment] || sessionTags.sentiment}
+            </span>
+          )}
+          {sessionTags.anxiety_level && (
+            <span className="consultation-page__tag consultation-page__tag--warn">
+              불안: {ANXIETY_LABELS[sessionTags.anxiety_level] || sessionTags.anxiety_level}
+            </span>
+          )}
+        </dd>
+      </div>
+      <div className="consultation-page__profile-item">
+        <dt>위험도</dt>
+        <dd>
+          {sessionTags.risk_level ? (
+            <span className="consultation-page__risk-badge" style={{ background: RISK_COLORS[sessionTags.risk_level] || '#6b7280' }}>
+              {RISK_LABELS[sessionTags.risk_level] || sessionTags.risk_level}
+            </span>
+          ) : '-'}
+          {sessionTags.medical_urgency && (
+            <span className="consultation-page__tag consultation-page__tag--warn" style={{ marginLeft: 4 }}>
+              {URGENCY_LABELS[sessionTags.medical_urgency] || sessionTags.medical_urgency}
+            </span>
+          )}
+        </dd>
+      </div>
+      <div className="consultation-page__profile-item">
+        <dt>참여도</dt>
+        <dd>
+          {sessionTags.engagement_score != null ? (
+            <div className="consultation-page__gauge">
+              <div className="consultation-page__gauge-fill" style={{ width: `${Math.min(sessionTags.engagement_score, 100)}%` }} />
+              <span className="consultation-page__gauge-value">{sessionTags.engagement_score}점</span>
+            </div>
+          ) : '-'}
+        </dd>
+      </div>
+    </div>
+  </div>
+);
 
 /* ── 상담 가이드 서브 컴포넌트 ── */
 const SessionGuideSection: React.FC<{ sessionTags: SessionTags }> = ({ sessionTags }) => (
