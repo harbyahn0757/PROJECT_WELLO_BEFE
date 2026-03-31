@@ -396,18 +396,6 @@ async def consultation_detail(
                 (uuid,),
             )
             if tag_row:
-                def _parse_json(val):
-                    if val is None:
-                        return None
-                    if isinstance(val, (list, dict)):
-                        return val
-                    if isinstance(val, str):
-                        try:
-                            return json.loads(val)
-                        except (json.JSONDecodeError, TypeError):
-                            return val
-                    return val
-
                 session_tags = {
                     "interest_tags": _parse_json(tag_row.get("interest_tags")),
                     "risk_tags": _parse_json(tag_row.get("risk_tags")),
