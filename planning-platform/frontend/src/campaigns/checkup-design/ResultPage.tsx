@@ -24,6 +24,8 @@ const ResultPage: React.FC<Props> = ({ uuid, hospitalId, partnerId }) => {
   const [result, setResult] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [consultRequested, setConsultRequested] = useState(false);
+  const [consultLoading, setConsultLoading] = useState(false);
 
   useEffect(() => {
     const loadResult = async () => {
@@ -34,6 +36,9 @@ const ResultPage: React.FC<Props> = ({ uuid, hospitalId, partnerId }) => {
 
         if (data.success !== false && data) {
           setResult(data);
+          if (data.data?.request_status === 'consultation_requested') {
+            setConsultRequested(true);
+          }
         } else {
           setError('결과를 찾지 못했어요');
         }
@@ -175,7 +180,45 @@ const ResultPage: React.FC<Props> = ({ uuid, hospitalId, partnerId }) => {
       )}
 
       {/* 하단 CTA */}
-      <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+      <div style={{ textAlign: 'center', marginBottom: '40px', display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center' }}>
+        <button
+          disabled={consultRequested || consultLoading}
+          onClick={async () => {
+            setConsultLoading(true);
+            try {
+              const hid = hospitalId || 'PEERNINE';
+              const resp = await fetch(`${API_BASE}/checkup-design/consultation-request`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uuid, hospital_id: hid }),
+              });
+              await resp.json();
+              if (resp.ok) {
+                setConsultRequested(true);
+              }
+            } catch (e) {
+              // 실패 시 무시 — 재시도 가능
+            } finally {
+              setConsultLoading(false);
+            }
+          }}
+          style={{
+            padding: '14px 32px', width: '100%', maxWidth: '320px',
+            background: consultRequested ? '#d1d5db' : '#2563eb',
+            color: consultRequested ? '#6b7280' : 'white',
+            border: 'none', borderRadius: '12px',
+            cursor: consultRequested || consultLoading ? 'default' : 'pointer',
+            fontSize: '15px', fontWeight: 600,
+            opacity: consultLoading ? 0.7 : 1,
+          }}
+        >
+          {consultLoading ? '요청 중...' : consultRequested ? '상담 요청 완료' : '전문 상담사와 상담하기'}
+        </button>
+        {consultRequested && (
+          <p style={{ fontSize: '13px', color: '#059669', margin: 0 }}>
+            상담 요청이 접수되었어요. 곧 연락드릴게요!
+          </p>
+        )}
         <button
           onClick={() => window.history.back()}
           style={{

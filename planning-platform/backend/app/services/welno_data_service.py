@@ -1332,6 +1332,8 @@ class WelnoDataService:
             if row:
                 return {
                     "id": row['id'],
+                    "session_id": row.get('session_id'),
+                    "request_status": row.get('status'),
                     "design_result": json.loads(row['design_result']) if row['design_result'] else {},
                     "updated_at": row['updated_at'].isoformat() if row['updated_at'] else None
                 }
@@ -1704,28 +1706,31 @@ class WelnoDataService:
         uuid: str,
         hospital_id: str
     ) -> Optional[Dict[str, Any]]:
-        """최신 완료된 검진 설계 조회 (step2_completed 상태)"""
+        """최신 완료/상담요청된 검진 설계 조회"""
         try:
             conn = await asyncpg.connect(**self.db_config)
-            
+
             query = """
-                SELECT design_result
+                SELECT design_result, status as request_status
                 FROM welno.welno_checkup_design_requests
-                WHERE uuid = $1 AND hospital_id = $2 
-                  AND status = 'step2_completed'
+                WHERE uuid = $1 AND hospital_id = $2
+                  AND status IN ('step2_completed', 'consultation_requested')
                   AND design_result IS NOT NULL
                 ORDER BY created_at DESC
                 LIMIT 1
             """
-            
+
             row = await conn.fetchrow(query, uuid, hospital_id)
             await conn.close()
-            
+
             if row and row['design_result']:
-                return json.loads(row['design_result'])
-            
+                result = json.loads(row['design_result'])
+                if isinstance(result, dict):
+                    result['request_status'] = row['request_status']
+                return result
+
             return None
-            
+
         except Exception as e:
             import logging
             logger = logging.getLogger(__name__)

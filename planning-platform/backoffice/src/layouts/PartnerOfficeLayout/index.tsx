@@ -14,6 +14,7 @@ const PAGE_TITLES: Record<string, string> = {
   revisit: '재환가망고객',
   analytics: '데이터 분석',
   'checkup-design': '검진설계 관리',
+  consultation: '검진설계 상담',
 };
 
 const NAV_ITEMS = [
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { key: 'revisit', label: '재환가망고객', path: '/backoffice/revisit' },
   { key: 'analytics', label: '데이터 분석', path: '/backoffice/analytics' },
   { key: 'checkup-design', label: '검진설계 관리', path: '/backoffice/checkup-design' },
+  { key: 'consultation', label: '검진설계 상담', path: '/backoffice/consultation' },
 ];
 
 interface HospitalOption {

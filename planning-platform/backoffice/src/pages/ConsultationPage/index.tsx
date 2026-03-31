@@ -1,0 +1,363 @@
+/**
+ * 백오피스 — 검진설계 상담 페이지
+ * split-panel: 좌 리스트(40%) / 우 상세(60%)
+ */
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { getApiBase, fetchWithAuth } from '../../utils/api';
+import { Spinner } from '../../components/Spinner';
+import './styles.scss';
+
+/* ── 타입 ── */
+interface DesignSummary {
+  recommended_count: number;
+  ai_summary: string;
+}
+
+interface ConsultationItem {
+  session_id: string;
+  uuid: string;
+  name: string | null;
+  phone: string | null;
+  requested_at: string | null;
+  status: string;
+  consultation_type: string;
+  design_summary: DesignSummary | null;
+}
+
+interface PatientInfo {
+  uuid: string;
+  name: string | null;
+  phone: string | null;
+  birth_date: string | null;
+  gender: string | null;
+  data_source: string;
+}
+
+interface HealthRecord {
+  year: number | null;
+  checkup_date: string | null;
+  height: number | null;
+  weight: number | null;
+  blood_pressure_high: number | null;
+  blood_pressure_low: number | null;
+  blood_sugar: number | null;
+  cholesterol: number | null;
+  collected_at: string | null;
+  data_source: string;
+}
+
+interface DesignResult {
+  id: number;
+  status: string;
+  trigger_source: string | null;
+  design_result: any;
+  created_at: string | null;
+  data_source: string;
+}
+
+interface DetailData {
+  patient: PatientInfo | null;
+  healthData: HealthRecord[];
+  designResult: DesignResult[];
+}
+
+/* ── 상수 ── */
+type StatusFilter = 'all' | 'pending' | 'contacted' | 'completed';
+const STATUS_TABS: { key: StatusFilter; label: string }[] = [
+  { key: 'all', label: '전체' },
+  { key: 'pending', label: '대기' },
+  { key: 'contacted', label: '진행중' },
+  { key: 'completed', label: '완료' },
+];
+const STATUS_LABEL: Record<string, string> = {
+  pending: '대기', contacted: '진행중', completed: '완료',
+};
+const SOURCE_LABELS: Record<string, { text: string; cls: string }> = {
+  welno_patients: { text: '수검자 입력', cls: 'user' },
+  welno_checkup_design_requests: { text: 'AI 추출', cls: 'ai' },
+  'welno_checkup_data (Tilko)': { text: '공단 데이터', cls: 'nhis' },
+  welno_checkup_data: { text: '공단 데이터', cls: 'nhis' },
+  partner: { text: '파트너 제공', cls: 'partner' },
+};
+
+const SourceLabel: React.FC<{ source: string }> = ({ source }) => {
+  const info = SOURCE_LABELS[source] || { text: source, cls: 'user' };
+  return (
+    <span className={`consultation-page__source-label consultation-page__source-label--${info.cls}`}>
+      {info.text}
+    </span>
+  );
+};
+
+/* ── 메인 컴포넌트 ── */
+const ConsultationPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const API = getApiBase();
+  const hospitalId = searchParams.get('hospital_id') || '';
+
+  const [items, setItems] = useState<ConsultationItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [selectedUuid, setSelectedUuid] = useState<string | null>(null);
+  const [detail, setDetail] = useState<DetailData | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+
+  /* 목록 조회 */
+  const fetchList = useCallback(async () => {
+    setLoading(true);
+    try {
+      const qs = new URLSearchParams({
+        status: statusFilter,
+        page: '1',
+        limit: '50',
+      });
+      if (hospitalId) qs.set('hospital_id', hospitalId);
+      const res = await fetchWithAuth(`${API}/consultation/list?${qs}`);
+      const data = await res.json();
+      setItems(data.items || []);
+      setTotal(data.total || 0);
+    } catch { /* ignore */ }
+    setLoading(false);
+  }, [API, hospitalId, statusFilter]);
+
+  useEffect(() => { fetchList(); }, [fetchList]);
+
+  /* 상세 조회 */
+  const fetchDetail = useCallback(async (uuid: string) => {
+    setDetailLoading(true);
+    try {
+      const qs = hospitalId ? `?hospital_id=${hospitalId}` : '';
+      const res = await fetchWithAuth(
+        `${API}/consultation/detail/${encodeURIComponent(uuid)}${qs}`,
+      );
+      setDetail(await res.json());
+    } catch { setDetail(null); }
+    setDetailLoading(false);
+  }, [API, hospitalId]);
+
+  const handleSelect = (item: ConsultationItem) => {
+    setSelectedUuid(item.uuid);
+    fetchDetail(item.uuid);
+  };
+
+  /* 상태 변경 */
+  const handleStatusChange = async (newStatus: string) => {
+    if (!selectedUuid) return;
+    setStatusUpdating(true);
+    try {
+      await fetchWithAuth(`${API}/consultation/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uuid: selectedUuid,
+          hospital_id: hospitalId || 'PEERNINE',
+          status: newStatus,
+        }),
+      });
+      await fetchList();
+    } catch { /* ignore */ }
+    setStatusUpdating(false);
+  };
+
+  const selectedItem = useMemo(
+    () => items.find(i => i.uuid === selectedUuid),
+    [items, selectedUuid],
+  );
+
+  /* 검진설계 추천 항목 파싱 */
+  const recommendations = useMemo(() => {
+    if (!detail?.designResult?.length) return [];
+    const dr = detail.designResult[0]?.design_result;
+    return dr?.recommended_items || [];
+  }, [detail]);
+
+  const patientSummary = useMemo(() => {
+    if (!detail?.designResult?.length) return '';
+    return detail.designResult[0]?.design_result?.patient_summary || '';
+  }, [detail]);
+
+  if (loading) return <Spinner />;
+
+  return (
+    <div className="consultation-page">
+      <div className="consultation-page__header">
+        <h2>검진설계 상담</h2>
+        <span style={{ fontSize: 14, color: '#718096' }}>총 {total}건</span>
+      </div>
+
+      <div className="consultation-page__body">
+        {/* ── 좌측: 리스트 ── */}
+        <div className="consultation-page__list-panel">
+          <div className="consultation-page__tabs">
+            {STATUS_TABS.map(tab => (
+              <button
+                key={tab.key}
+                className={`consultation-page__tab${statusFilter === tab.key ? ' consultation-page__tab--active' : ''}`}
+                onClick={() => setStatusFilter(tab.key)}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          <div className="consultation-page__items">
+            {items.length === 0 && (
+              <div className="consultation-page__empty">상담 요청이 없습니다</div>
+            )}
+            {items.map(item => (
+              <div
+                key={item.session_id}
+                className={`consultation-page__item${selectedUuid === item.uuid ? ' consultation-page__item--active' : ''}`}
+                onClick={() => handleSelect(item)}
+              >
+                <div className="consultation-page__item-info">
+                  <div className="name">{item.name || '이름 없음'}</div>
+                  <div className="meta">
+                    {item.requested_at?.replace('T', ' ').slice(0, 16)}
+                    {item.design_summary && ` · 추천 ${item.design_summary.recommended_count}항목`}
+                  </div>
+                </div>
+                <span className={`consultation-page__badge consultation-page__badge--${item.status}`}>
+                  {STATUS_LABEL[item.status] || item.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── 우측: 상세 ── */}
+        <div className="consultation-page__detail-panel">
+          {!selectedUuid && (
+            <div className="consultation-page__empty">좌측에서 고객을 선택하세요</div>
+          )}
+          {selectedUuid && detailLoading && <Spinner />}
+          {selectedUuid && !detailLoading && detail && (
+            <DetailPanel
+              detail={detail}
+              selectedItem={selectedItem || null}
+              recommendations={recommendations}
+              patientSummary={patientSummary}
+              statusUpdating={statusUpdating}
+              onStatusChange={handleStatusChange}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── 상세 패널 하위 컴포넌트 ── */
+interface DetailPanelProps {
+  detail: DetailData;
+  selectedItem: ConsultationItem | null;
+  recommendations: any[];
+  patientSummary: string;
+  statusUpdating: boolean;
+  onStatusChange: (s: string) => void;
+}
+
+const DetailPanel: React.FC<DetailPanelProps> = ({
+  detail, selectedItem, recommendations,
+  patientSummary, statusUpdating, onStatusChange,
+}) => {
+  const p = detail.patient;
+  const currentStatus = selectedItem?.status || 'pending';
+
+  return (
+    <>
+      {/* 기본 정보 */}
+      <div className="consultation-page__section">
+        <h3>기본 정보 <SourceLabel source={p?.data_source || 'welno_patients'} /></h3>
+        <dl className="consultation-page__patient-grid">
+          <div><dt>이름</dt><dd>{p?.name || '-'}</dd></div>
+          <div><dt>전화번호</dt><dd>{p?.phone || '-'}</dd></div>
+          <div>
+            <dt>생년월일 / 성별</dt>
+            <dd>{p?.birth_date || '-'} / {p?.gender === 'M' ? '남' : p?.gender === 'F' ? '여' : '-'}</dd>
+          </div>
+        </dl>
+      </div>
+
+      {/* 검진설계 결과 */}
+      {recommendations.length > 0 && (
+        <div className="consultation-page__section">
+          <h3>
+            검진설계 추천 항목 ({recommendations.length}건)
+            <SourceLabel source="welno_checkup_design_requests" />
+          </h3>
+          {patientSummary && (
+            <p style={{ fontSize: 13, color: '#4a5568', marginBottom: 12 }}>{patientSummary}</p>
+          )}
+          {recommendations.map((rec: any, i: number) => (
+            <div key={i} className="consultation-page__rec-card">
+              <div className="rec-name">{rec.item_name || rec.name || `항목 ${i + 1}`}</div>
+              {rec.reason && <div className="rec-reason">{rec.reason}</div>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 건강검진 데이터 */}
+      {detail.healthData.length > 0 && (
+        <div className="consultation-page__section">
+          <h3>건강검진 데이터 <SourceLabel source={detail.healthData[0]?.data_source || 'welno_checkup_data'} /></h3>
+          <table className="consultation-page__health-table">
+            <thead>
+              <tr>
+                <th>연도</th><th>신장</th><th>체중</th>
+                <th>혈압(수축/이완)</th><th>혈당</th><th>콜레스테롤</th>
+              </tr>
+            </thead>
+            <tbody>
+              {detail.healthData.map((h, i) => (
+                <tr key={i}>
+                  <td>{h.year || '-'}</td>
+                  <td>{h.height ?? '-'}</td>
+                  <td>{h.weight ?? '-'}</td>
+                  <td>{h.blood_pressure_high ?? '-'}/{h.blood_pressure_low ?? '-'}</td>
+                  <td>{h.blood_sugar ?? '-'}</td>
+                  <td>{h.cholesterol ?? '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 상태 변경 */}
+      <div className="consultation-page__section">
+        <h3>상담 상태</h3>
+        <div className="consultation-page__status-actions">
+          {currentStatus === 'pending' && (
+            <button
+              className="consultation-page__status-btn consultation-page__status-btn--primary"
+              disabled={statusUpdating}
+              onClick={() => onStatusChange('contacted')}
+            >
+              진행중으로 변경
+            </button>
+          )}
+          {currentStatus === 'contacted' && (
+            <button
+              className="consultation-page__status-btn consultation-page__status-btn--primary"
+              disabled={statusUpdating}
+              onClick={() => onStatusChange('completed')}
+            >
+              완료 처리
+            </button>
+          )}
+          {currentStatus === 'completed' && (
+            <span style={{ fontSize: 14, color: '#059669', fontWeight: 600 }}>
+              상담 완료
+            </span>
+          )}
+        </div>
+      </div>
+    </>
+  );
+};
+
+export default ConsultationPage;

@@ -1211,6 +1211,47 @@ async def get_latest_checkup_design(
         raise HTTPException(status_code=500, detail=f"검진 설계 조회 중 오류: {str(e)}")
 
 
+class DesignConsultationRequest(BaseModel):
+    uuid: str = Field(..., description="환자 UUID")
+    hospital_id: str = Field(..., description="병원 ID")
+
+
+@router.post("/consultation-request")
+async def design_consultation_request(req: DesignConsultationRequest):
+    """검진설계 결과 페이지에서 상담 요청"""
+    try:
+        conn = await asyncpg.connect(**welno_data_service.db_config)
+        row = await conn.fetchrow("""
+            SELECT id, status FROM welno.welno_checkup_design_requests
+            WHERE uuid = $1 AND hospital_id = $2
+              AND design_result IS NOT NULL
+            ORDER BY created_at DESC LIMIT 1
+        """, req.uuid, req.hospital_id)
+
+        if not row:
+            await conn.close()
+            raise HTTPException(status_code=404, detail="설계 결과를 찾을 수 없습니다")
+
+        if row['status'] == 'consultation_requested':
+            await conn.close()
+            return {"status": "already_requested"}
+
+        await conn.execute("""
+            UPDATE welno.welno_checkup_design_requests
+            SET status = 'consultation_requested', updated_at = NOW()
+            WHERE id = $1
+        """, row['id'])
+        await conn.close()
+
+        logger.info(f"✅ [상담요청] uuid={req.uuid}, design_id={row['id']}")
+        return {"status": "ok"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ [상담요청] 오류: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="상담 요청 처리 중 오류")
+
+
 @router.delete("/delete/{patient_uuid}")
 async def delete_checkup_design(
     patient_uuid: str = Path(..., description="환자 UUID"),
