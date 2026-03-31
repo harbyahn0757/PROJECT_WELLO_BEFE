@@ -224,7 +224,7 @@ const CheckupDesignCampaign: React.FC = () => {
     if (!uuid) return;
     clearStaleAuth();
     const returnTo = `/campaigns/checkup-design?uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}&from_auth=true`;
-    navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=campaign`);
+    navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=campaign&uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}`);
   };
 
   // ── "기존 데이터로 바로 설계" (알림톡 링크 데이터 → DB 저장 → 일반 설계) ──
@@ -257,7 +257,7 @@ const CheckupDesignCampaign: React.FC = () => {
     if (!uuid) return;
     clearStaleAuth();
     const returnTo = `/campaigns/checkup-design?uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}&from_auth=true`;
-    navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=multi_year`);
+    navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=multi_year&uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}`);
   };
 
   // ── "결과 보기" ──
