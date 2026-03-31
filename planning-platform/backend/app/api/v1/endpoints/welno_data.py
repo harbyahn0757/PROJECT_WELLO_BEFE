@@ -52,7 +52,31 @@ async def find_patient(
             birth_date=birth_date,
             name=name
         )
-        
+
+        # 기존 환자 발견 시 데이터 요약 추가 (맞이 화면용)
+        if result and result.get("uuid"):
+            try:
+                from ....core.database import db_manager
+                uuid = result["uuid"]
+                summary_sql = """
+                    SELECT
+                        (SELECT count(*) FROM welno.welno_checkup_data WHERE uuid = $1) as health_checkups,
+                        (SELECT count(*) FROM welno.welno_prescription_data WHERE patient_uuid = $1) as prescriptions,
+                        (SELECT count(*) FROM welno.tb_partner_rag_chat_log WHERE patient_uuid = $1) as rag_chats,
+                        (SELECT EXISTS(SELECT 1 FROM welno.welno_password_sessions WHERE patient_uuid = $1)) as has_password
+                """
+                rows = await db_manager.execute_query(summary_sql, uuid)
+                if rows:
+                    row = rows[0]
+                    result["dataSummary"] = {
+                        "healthCheckups": row[0] or 0,
+                        "prescriptions": row[1] or 0,
+                        "ragChats": row[2] or 0,
+                    }
+                    result["hasPassword"] = bool(row[3])
+            except Exception as e:
+                print(f"⚠️ [환자검색] dataSummary 조회 실패 (무시): {e}")
+
         return {
             "success": True,
             "data": result

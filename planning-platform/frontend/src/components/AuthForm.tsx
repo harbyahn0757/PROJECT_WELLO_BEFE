@@ -13,6 +13,7 @@ import { STORAGE_KEYS, StorageManager } from '../constants/storage';
 import { sanitizeTilkoMessage } from '../utils/textSanitizer';
 import { useWelnoData } from '../contexts/WelnoDataContext';
 import { API_ENDPOINTS } from '../config/api';
+import ExistingPatientWelcome from './auth/components/ExistingPatientWelcome';
 import { PasswordService } from './PasswordModal/PasswordService';
 import kakaoIcon from '../assets/images/kakao.png';
 import naverIcon from '../assets/images/naver.png';
@@ -68,6 +69,13 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(isCampaignMode ? false : false); // 캠페인 모드면 무조건 인사말(false)부터
   const [currentConfirmationStep, setCurrentConfirmationStep] = useState<'name' | 'phone' | 'birthday' | 'auth_method'>('name');
+
+  // 기존 환자 맞이 화면 상태
+  const [showExistingWelcome, setShowExistingWelcome] = useState(false);
+  const [existingPatientData, setExistingPatientData] = useState<{
+    uuid: string; hospital: string; name: string; hasPassword: boolean;
+    dataSummary: { healthCheckups: number; prescriptions: number; ragChats: number; };
+  } | null>(null);
 
   // 데이터 수집 관련 상태
   const [isCollecting, setIsCollecting] = useState(false);
@@ -1334,49 +1342,44 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             if (result.success && result.data) {
               const foundPatient = result.data;
               console.log('✅ [사전체크] 기존 환자 발견:', foundPatient.uuid);
-              
+
               if (foundPatient.has_health_data || foundPatient.has_prescription_data) {
-                // 비밀번호 존재 여부 확인
-                try {
-                  const passwordCheckResponse = await fetch(
-                    API_ENDPOINTS.PASSWORD.CHECK_PASSWORD(foundPatient.uuid, foundPatient.hospital_id)
-                  );
-                  
-                  if (passwordCheckResponse.ok) {
-                    const passwordCheckResult = await passwordCheckResponse.json();
-                    const hasPassword = passwordCheckResult.success && passwordCheckResult.data?.hasPassword;
-                    
-                    console.log('🔐 [사전체크] 비밀번호 확인:', { hasPassword });
-                    
-                    if (hasPassword) {
-                      // 비밀번호가 있으면 PasswordModal로 비밀번호 입력받기
-                      StorageManager.setItem(STORAGE_KEYS.PATIENT_UUID, foundPatient.uuid);
-                      StorageManager.setItem(STORAGE_KEYS.HOSPITAL_ID, foundPatient.hospital_id);
-                      await actions.loadPatientData(foundPatient.uuid, foundPatient.hospital_id);
-                      setPasswordSetupData({ 
-                        uuid: foundPatient.uuid, 
-                        hospital: foundPatient.hospital_id,
-                        type: 'confirm'  // 기존 환자 - 비밀번호 확인
+                // API에서 dataSummary/hasPassword 제공 시 사용, 아니면 별도 조회
+                const hasPassword = foundPatient.hasPassword ?? false;
+                const dataSummary = foundPatient.dataSummary ?? {
+                  healthCheckups: foundPatient.has_health_data ? 1 : 0,
+                  prescriptions: foundPatient.has_prescription_data ? 1 : 0,
+                  ragChats: 0,
+                };
+
+                // dataSummary가 없으면 기존 비밀번호 체크 API로 폴백
+                if (!foundPatient.hasOwnProperty('hasPassword')) {
+                  try {
+                    const pwResp = await fetch(
+                      API_ENDPOINTS.PASSWORD.CHECK_PASSWORD(foundPatient.uuid, foundPatient.hospital_id)
+                    );
+                    if (pwResp.ok) {
+                      const pwResult = await pwResp.json();
+                      Object.assign(foundPatient, {
+                        hasPassword: pwResult.success && pwResult.data?.hasPassword,
                       });
-                      setShowPasswordSetupModal(true);
-                      setIsCheckingPatient(false);
-                      return;
-                    } else {
-                      // 비밀번호가 없으면 데이터 삭제 안내 모달 표시
-                      setPasswordSetupData({ 
-                        uuid: foundPatient.uuid, 
-                        hospital: foundPatient.hospital_id,
-                        type: 'setup'  // 데이터 삭제 후 새로 설정할 경우를 대비
-                      });
-                      setShowDataDeletionModal(true);
-                      setIsCheckingPatient(false);
-                      return;
                     }
-                  }
-                } catch (error) {
-                  console.error('❌ [사전체크] 비밀번호 확인 실패:', error);
-                  // 비밀번호 확인 실패 시 기본 플로우 진행
+                  } catch (e) { /* 폴백 실패 → 기본값 false */ }
                 }
+
+                console.log('📋 [사전체크] 기존 환자 데이터:', { hasPassword, dataSummary });
+
+                // 맞이 화면 표시 (비밀번호 모달 대신)
+                setExistingPatientData({
+                  uuid: foundPatient.uuid,
+                  hospital: foundPatient.hospital_id,
+                  name: authFlow.state.userInfo.name,
+                  hasPassword: foundPatient.hasPassword ?? hasPassword,
+                  dataSummary,
+                });
+                setShowExistingWelcome(true);
+                setIsCheckingPatient(false);
+                return;
               }
             } else {
               console.log('📭 [사전체크] 서버에 기존 환자 데이터 없음 - 일반 인증 플로우 진행');
@@ -1546,7 +1549,46 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   // 메인 콘텐츠 결정
   let mainContent;
   
-  if (showPasswordSetupModal && passwordSetupData) {
+  if (showExistingWelcome && existingPatientData) {
+    // 0. 기존 환자 맞이 화면 (비밀번호 모달보다 우선)
+    mainContent = (
+      <ExistingPatientWelcome
+        patientName={existingPatientData.name}
+        dataSummary={existingPatientData.dataSummary}
+        hasPassword={existingPatientData.hasPassword}
+        onUseExisting={() => {
+          console.log('👤 [맞이] 기존 기록 활용 선택');
+          setShowExistingWelcome(false);
+          StorageManager.setItem(STORAGE_KEYS.PATIENT_UUID, existingPatientData.uuid);
+          StorageManager.setItem(STORAGE_KEYS.HOSPITAL_ID, existingPatientData.hospital);
+          if (existingPatientData.hasPassword) {
+            setPasswordSetupData({
+              uuid: existingPatientData.uuid,
+              hospital: existingPatientData.hospital,
+              type: 'confirm',
+            });
+            setShowPasswordSetupModal(true);
+          } else {
+            setPasswordSetupData({
+              uuid: existingPatientData.uuid,
+              hospital: existingPatientData.hospital,
+              type: 'setup',
+            });
+            setShowPasswordSetupModal(true);
+          }
+        }}
+        onStartFresh={() => {
+          console.log('🆕 [맞이] 새로 시작 선택');
+          setShowExistingWelcome(false);
+          setExistingPatientData(null);
+          // 현재 UUID로 Tilko 인증 진행
+          setShowConfirmation(true);
+          setCurrentConfirmationStep('auth_method');
+          setDescriptionMessage('본인 인증 방법을 선택해주세요');
+        }}
+      />
+    );
+  } else if (showPasswordSetupModal && passwordSetupData) {
     // 1. 비밀번호 설정 모달 (최우선)
     mainContent = (
       <>
@@ -1583,9 +1625,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
             gender: 'M'
           }}
           initialMessage={
-            passwordSetupData.type === 'confirm' 
-              ? "데이터 접근을 위해 비밀번호를 입력해주세요."
-              : "데이터 보호를 위해 비밀번호를 설정해주세요."
+            passwordSetupData.type === 'confirm'
+              ? `${authFlow.state.userInfo.name || ''}님의 건강 기록을 보호하기 위해 이전에 설정하신 비밀번호를 확인할게요.`
+              : "건강 기록 보호를 위해 비밀번호를 설정해주세요."
           }
         />
         {/* 데이터 삭제 안내 모달 */}
