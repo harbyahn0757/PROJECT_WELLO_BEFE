@@ -149,6 +149,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
       
       let targetUrl = redirectParam || returnToParam || from || `/results-trend?uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}`;
 
+      // 기존 활용 flow → return_to 무시, 기존 UUID로 직접 이동
+      if (existingPatientData) {
+        targetUrl = `/checkup-design?uuid=${passwordSetupData.uuid}&hospital=${passwordSetupData.hospital}&partner=welno`;
+        console.log('🚀 [비밀번호설정완료] 기존 활용 → 기존 UUID로 직접 이동');
+      }
+
       // 인증된 UUID로 return_to URL의 uuid 교체 (UUID 불일치 방지)
       if (targetUrl && passwordSetupData.uuid && targetUrl.includes('uuid=')) {
         targetUrl = targetUrl.replace(/uuid=[^&]+/, `uuid=${passwordSetupData.uuid}`);
@@ -194,9 +200,16 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   };
 
   const handlePasswordSetupCancel = () => {
-    console.log('⏭️ [비밀번호] 설정 건너뛰기 - 결과 페이지로 이동');
+    console.log('⏭️ [비밀번호] 설정 건너뛰기');
     setShowPasswordSetupModal(false);
-    
+
+    // 맞이 화면에서 왔으면 맞이 화면으로 복귀 (navigate 안 함)
+    if (existingPatientData) {
+      console.log('⏭️ [비밀번호] 취소 → 맞이 화면으로 복귀');
+      setShowExistingWelcome(true);
+      return;
+    }
+
     if (passwordSetupData?.uuid && passwordSetupData?.hospital) {
       // 1순위: URL 파라미터 redirect 또는 return_to 확인
       const urlParams = new URLSearchParams(location.search);
