@@ -27,6 +27,192 @@ def _parse_json(val):
             return val
     return val
 
+
+def _determine_item_status(value_str: str, item_refs: list) -> str:
+    """
+    ItemReferences 기반 판정. 정상/경계/질환의심/이상 반환.
+    Tilko raw_data의 Items[].ItemReferences[] 구조 활용.
+    """
+    if not item_refs:
+        return "판정없음"
+
+    try:
+        value = float(value_str)
+    except (ValueError, TypeError):
+        # 비수치(음성/양성 등)는 문자 비교
+        lower = (value_str or "").strip()
+        if lower in ("음성", "정상", "negative", "normal"):
+            return "정상"
+        if lower in ("양성", "positive"):
+            return "이상"
+        return "판정없음"
+
+    # 질환의심 범위 확인
+    abnormal = next(
+        (r for r in item_refs if r.get("Name") == "질환의심"), None
+    )
+    if abnormal:
+        rng = abnormal.get("Value", "")
+        if _in_ref_range(value, rng):
+            return "질환의심"
+
+    # 정상 범위 확인
+    normal = next(
+        (r for r in item_refs
+         if r.get("Name") in ("정상", "정상(A)", "정상(B)")),
+        None,
+    )
+    if normal:
+        rng = normal.get("Value", "")
+        if _in_ref_range(value, rng):
+            return "정상"
+
+    # 경계 범위 확인
+    border = next(
+        (r for r in item_refs
+         if r.get("Name") in ("정상(B)", "정상(경계)")),
+        None,
+    )
+    if border:
+        rng = border.get("Value", "")
+        if _in_ref_range(value, rng):
+            return "경계"
+
+    return "이상"
+
+
+def _in_ref_range(value: float, range_str: str) -> bool:
+    """참조 범위 문자열(예: '0~99', '100이상')에 값이 포함되는지 확인."""
+    if not range_str:
+        return False
+    range_str = range_str.strip()
+
+    # "N이상" 패턴
+    if "이상" in range_str:
+        try:
+            threshold = float(range_str.replace("이상", "").strip())
+            return value >= threshold
+        except (ValueError, TypeError):
+            return False
+
+    # "N이하" 패턴
+    if "이하" in range_str:
+        try:
+            threshold = float(range_str.replace("이하", "").strip())
+            return value <= threshold
+        except (ValueError, TypeError):
+            return False
+
+    # "N~M" 패턴
+    for sep in ("~", "-", "∼"):
+        if sep in range_str:
+            parts = range_str.split(sep)
+            if len(parts) == 2:
+                try:
+                    lo = float(parts[0].strip()) if parts[0].strip() else -999999
+                    hi = float(parts[1].strip()) if parts[1].strip() else 999999
+                    return lo <= value <= hi
+                except (ValueError, TypeError):
+                    pass
+
+    return False
+
+
+def _parse_inspections(raw_data) -> list:
+    """
+    Tilko raw_data.Inspections 구조를 파싱하여 프론트에서
+    바로 사용 가능한 구조화된 검사 항목 리스트 반환.
+
+    반환 형식:
+    [
+      {
+        "name": "계측검사",
+        "items": [
+          {"name": "신장", "value": "181.3", "unit": "Cm", "status": "정상"},
+          ...
+        ]
+      },
+      ...
+    ]
+    """
+    if not isinstance(raw_data, dict):
+        return []
+
+    inspections = raw_data.get("Inspections", [])
+    if not isinstance(inspections, list):
+        return []
+
+    result = []
+    for inspection in inspections:
+        if not isinstance(inspection, dict):
+            continue
+        section_name = inspection.get("Gubun", "기타검사")
+        section_items = []
+
+        for illness in (inspection.get("Illnesses") or []):
+            if not isinstance(illness, dict):
+                continue
+            for item in (illness.get("Items") or []):
+                if not isinstance(item, dict):
+                    continue
+                name = item.get("Name", "")
+                value = item.get("Value", "")
+                unit = item.get("Unit", "")
+                refs = item.get("ItemReferences", [])
+
+                if not name:
+                    continue
+
+                status = _determine_item_status(value, refs)
+                section_items.append({
+                    "name": name,
+                    "value": value,
+                    "unit": unit,
+                    "status": status,
+                })
+
+        if section_items:
+            result.append({
+                "name": section_name,
+                "items": section_items,
+            })
+
+    return result
+
+
+def _extract_step1_highlights(step1: dict) -> Optional[dict]:
+    """step1_result에서 상담에 필요한 핵심 필드만 추출."""
+    if not isinstance(step1, dict):
+        return None
+    return {
+        "persona": step1.get("persona"),
+        "risk_profile": step1.get("risk_profile"),
+        "chronic_analysis": step1.get("chronic_analysis"),
+        "concern_vs_reality": step1.get("concern_vs_reality"),
+        "patient_summary": step1.get("patient_summary"),
+        "analysis": step1.get("analysis"),
+        "survey_reflection": step1.get("survey_reflection"),
+        "selected_concerns_analysis": step1.get(
+            "selected_concerns_analysis"
+        ),
+    }
+
+
+def _extract_step2_highlights(step2: dict) -> Optional[dict]:
+    """step2_result에서 상담에 필요한 핵심 필드만 추출."""
+    if not isinstance(step2, dict):
+        return None
+    return {
+        "strategies": step2.get("strategies"),
+        "doctor_comment": step2.get("doctor_comment"),
+        "summary": step2.get("summary"),
+        "priority_1": step2.get("priority_1"),
+        "priority_2": step2.get("priority_2"),
+        "priority_3": step2.get("priority_3"),
+        "recommended_items": step2.get("recommended_items"),
+        "total_count": step2.get("total_count"),
+    }
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/consultation", tags=["consultation"])
 
@@ -287,7 +473,7 @@ async def consultation_detail(
                 "data_source": "welno_patients",
             }
 
-        # 2) 건강검진 데이터
+        # 2) 건강검진 데이터 — raw_data 파싱하여 항목별 값+단위+판정 포함
         health_rows = await db_manager.execute_query(
             """SELECT year, checkup_date, location, code, description,
                       height, weight,
@@ -307,19 +493,43 @@ async def consultation_detail(
                     raw = json.loads(raw)
                 except (json.JSONDecodeError, TypeError):
                     pass
+
+            # summary: 기존 요약 필드 (하위 호환)
+            height_val = float(h["height"]) if h.get("height") else None
+            weight_val = float(h["weight"]) if h.get("weight") else None
+            bmi = None
+            if height_val and weight_val and height_val > 0:
+                h_m = height_val / 100.0
+                bmi = round(weight_val / (h_m * h_m), 1)
+
+            summary = {
+                "height": height_val,
+                "weight": weight_val,
+                "bmi": bmi,
+                "blood_pressure_high": h.get("blood_pressure_high"),
+                "blood_pressure_low": h.get("blood_pressure_low"),
+                "blood_sugar": h.get("blood_sugar"),
+                "cholesterol": h.get("cholesterol"),
+            }
+
+            # inspections: raw_data 파싱 결과
+            inspections = _parse_inspections(raw) if isinstance(raw, dict) else []
+
             health_data.append({
                 "year": h.get("year"),
                 "checkup_date": h.get("checkup_date"),
                 "location": h.get("location"),
                 "code": h.get("code"),
                 "description": h.get("description"),
-                "height": float(h["height"]) if h.get("height") else None,
-                "weight": float(h["weight"]) if h.get("weight") else None,
+                "summary": summary,
+                "inspections": inspections,
+                # 하위 호환: 기존 flat 필드 유지
+                "height": height_val,
+                "weight": weight_val,
                 "blood_pressure_high": h.get("blood_pressure_high"),
                 "blood_pressure_low": h.get("blood_pressure_low"),
                 "blood_sugar": h.get("blood_sugar"),
                 "cholesterol": h.get("cholesterol"),
-                "raw_data": raw,
                 "collected_at": (
                     str(h["collected_at"])[:19]
                     if h.get("collected_at")
@@ -328,7 +538,7 @@ async def consultation_detail(
                 "data_source": "welno_checkup_data",
             })
 
-        # 3) 검진설계 결과
+        # 3) 검진설계 결과 — step1_result + step2_result 전체 포함
         design_conds = ["d.uuid = %s", "d.design_result IS NOT NULL"]
         design_params = [uuid]
         if hospital_id:
@@ -340,7 +550,8 @@ async def consultation_detail(
                        d.status, d.trigger_source,
                        d.design_result, d.selected_concerns,
                        d.auto_concerns, d.survey_responses,
-                       d.selected_medication_texts, d.step1_result,
+                       d.selected_medication_texts,
+                       d.step1_result, d.step2_result,
                        d.created_at
                 FROM welno.welno_checkup_design_requests d
                 WHERE {' AND '.join(design_conds)}
@@ -349,23 +560,38 @@ async def consultation_detail(
         )
         design_results = []
         for dr_row in (design_rows or []):
-            dr = dr_row.get("design_result")
-            if isinstance(dr, str):
-                try:
-                    dr = json.loads(dr)
-                except (json.JSONDecodeError, TypeError):
-                    dr = {}
+            dr = _parse_json(dr_row.get("design_result")) or {}
+            step1_raw = _parse_json(dr_row.get("step1_result"))
+            step2_raw = _parse_json(dr_row.get("step2_result"))
+
             design_results.append({
                 "id": dr_row["id"],
                 "hospital_id": dr_row.get("hospital_id"),
                 "status": dr_row.get("status"),
                 "trigger_source": dr_row.get("trigger_source"),
                 "design_result": dr,
-                "selected_concerns": _parse_json(dr_row.get("selected_concerns")),
-                "auto_concerns": _parse_json(dr_row.get("auto_concerns")),
-                "survey_responses": _parse_json(dr_row.get("survey_responses")),
-                "selected_medication_texts": _parse_json(dr_row.get("selected_medication_texts")),
-                "step1_result": _parse_json(dr_row.get("step1_result")),
+                "selected_concerns": _parse_json(
+                    dr_row.get("selected_concerns")
+                ),
+                "auto_concerns": _parse_json(
+                    dr_row.get("auto_concerns")
+                ),
+                "survey_responses": _parse_json(
+                    dr_row.get("survey_responses")
+                ),
+                "selected_medication_texts": _parse_json(
+                    dr_row.get("selected_medication_texts")
+                ),
+                # step1/step2 전체 JSON
+                "step1_result": step1_raw,
+                "step2_result": step2_raw,
+                # 상담용 하이라이트 (프론트에서 바로 사용)
+                "step1_highlights": _extract_step1_highlights(
+                    step1_raw
+                ) if step1_raw else None,
+                "step2_highlights": _extract_step2_highlights(
+                    step2_raw
+                ) if step2_raw else None,
                 "created_at": (
                     str(dr_row["created_at"])[:19]
                     if dr_row.get("created_at")
@@ -511,11 +737,48 @@ async def consultation_detail(
         except Exception as tag_err:
             logger.warning(f"[consultation] session_tags 조회 실패: {tag_err}")
 
-        # 5) 데이터 라벨링
+        # 5) 병원 보유 검사 항목 (welno_external_checkup_items)
+        hospital_checkup_items = []
+        try:
+            h_id = hospital_id or (patient.get("hospital_id") if patient else None)
+            if h_id:
+                hci_rows = await db_manager.execute_query(
+                    """SELECT e.id, e.item_name, e.category, e.sub_category,
+                              e.target_trigger, e.gap_description,
+                              e.solution_narrative, e.algorithm_class
+                       FROM welno.welno_external_checkup_items e
+                       JOIN welno.welno_hospital_external_checkup_mapping m
+                         ON m.external_checkup_item_id = e.id
+                       WHERE m.hospital_id = %s AND m.is_active = true
+                       ORDER BY m.display_order""",
+                    (h_id,),
+                )
+                for row in (hci_rows or []):
+                    hospital_checkup_items.append({
+                        "id": row["id"],
+                        "item_name": row.get("item_name"),
+                        "category": row.get("category"),
+                        "sub_category": row.get("sub_category"),
+                        "target_trigger": row.get("target_trigger"),
+                        "gap_description": row.get("gap_description"),
+                        "solution_narrative": row.get("solution_narrative"),
+                        "algorithm_class": row.get("algorithm_class"),
+                    })
+        except Exception as hci_err:
+            logger.warning(f"[consultation] hospital items 조회 실패: {hci_err}")
+
+        # 6) 데이터 라벨링
         data_labels = {
             "patient": "welno_patients",
-            "healthData": "welno_checkup_data (Tilko)",
+            "healthData": "welno_checkup_data (Tilko raw_data 파싱 포함)",
+            "healthData.summary": "welno_checkup_data 요약 필드",
+            "healthData.inspections": "welno_checkup_data.raw_data → Inspections[].Illnesses[].Items[] 파싱",
             "designResult": "welno_checkup_design_requests (AI)",
+            "designResult.step1_result": "welno_checkup_design_requests.step1_result (JSONB)",
+            "designResult.step2_result": "welno_checkup_design_requests.step2_result (JSONB)",
+            "designResult.step1_highlights": "step1_result에서 persona/risk_profile/chronic_analysis/concern_vs_reality 추출",
+            "designResult.step2_highlights": "step2_result에서 strategies/doctor_comment/priority_2,3 추출",
+            "mlRecommendations": "향후 데이터레이크 ML 연동 시 채워짐 (예약 필드)",
         }
 
         return {
@@ -525,6 +788,8 @@ async def consultation_detail(
             "sessionTags": session_tags,
             "timing": timing,
             "prescriptionData": prescription_data,
+            "hospitalCheckupItems": hospital_checkup_items,
+            "mlRecommendations": None,
             "dataLabels": data_labels,
         }
 
