@@ -131,7 +131,7 @@ const PatientPage: React.FC = () => {
   useEffect(() => {
     setLoading(true);
     setError(null);
-    fetchWithAuth(`${API}/partner-office/patients`, {
+    fetch(`${API}/partner-office/patients`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hospital_id: hospitalId || null }),
@@ -156,7 +156,7 @@ const PatientPage: React.FC = () => {
     setDetailTab('chats');
     setExpandedChat(null);
     setExpandedSurvey(null);
-    fetchWithAuth(`${API}/partner-office/patients/${encodeURIComponent(webAppKey)}/detail`, {
+    fetch(`${API}/partner-office/patients/${encodeURIComponent(webAppKey)}/detail`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     })
