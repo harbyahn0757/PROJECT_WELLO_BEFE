@@ -1534,7 +1534,7 @@ async def create_checkup_design_step2(
             prompt=user_message_p1,  # User Message만 전달
             model=powerful_model,
             temperature=0.5,
-            max_tokens=3000,  # Priority 1 응답 (2000에서 증가하여 잘림 방지)
+            max_tokens=5000,  # Priority 1 응답 (multi-year 데이터 대응)
             response_format={"type": "json_object"},
             system_instruction=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2  # System Message 분리
         )
@@ -1687,7 +1687,7 @@ async def create_checkup_design_step2(
             user_message=user_message_p2,
             model=openai_model,
             temperature=0.5,
-            max_tokens=3000,  # Upselling은 조금 더 긴 응답
+            max_tokens=5000,  # Upselling (multi-year + strategies 대응)
             response_format={"type": "json_object"}
         )
         
