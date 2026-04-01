@@ -279,10 +279,10 @@
 .consultation-page__script-suggestion {
   padding: 10px 14px;
   border-radius: $border-radius-md;
-  background: #f0f4ff;
-  border-left: 3px solid #9ca3af;
+  background: $gray-50;
+  border: 1px solid $gray-200;
   font-size: $font-sm;
-  color: $gray-800;
+  color: $gray-700;
   line-height: 1.6;
   margin-bottom: 8px;
 }
