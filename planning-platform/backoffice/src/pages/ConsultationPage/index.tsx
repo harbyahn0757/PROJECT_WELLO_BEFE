@@ -549,7 +549,7 @@ const SectionPersona: React.FC<{ persona: any }> = ({ persona }) => {
       </div>
       {persona.description && <p style={{ fontSize: 13, color: '#4a5568', lineHeight: 1.6, margin: '4px 0 8px' }}>{persona.description}</p>}
       {persona.strategy_key && (
-        <div style={{ fontSize: 12, color: '#2563eb', background: '#eff6ff', padding: '4px 8px', borderRadius: 4, display: 'inline-block', marginBottom: 6 }}>
+        <div style={{ fontSize: 12, color: '#374151', background: '#fafafa', padding: '4px 8px', borderRadius: 4, display: 'inline-block', marginBottom: 6 }}>
           전략: {persona.strategy_key}
         </div>
       )}
@@ -637,10 +637,10 @@ const SectionBridgeStrategy: React.FC<{ strategies: any[] | null | undefined }> 
                 {s.step2_gap && <div className="consultation-page__bridge-step"><span>Step2 Gap</span>{s.step2_gap}</div>}
                 {s.step3_offer && <div className="consultation-page__bridge-step"><span>Step3 제안</span>{s.step3_offer}</div>}
                 {s.doctor_recommendation && (
-                  <div style={{ marginTop: 8, padding: '8px 10px', background: '#f0f4ff', borderRadius: 6, fontSize: 13 }}>
+                  <div style={{ marginTop: 8, padding: '8px 10px', background: '#fafafa', borderRadius: 6, fontSize: 13 }}>
                     {s.doctor_recommendation.reason && <div style={{ marginBottom: 4 }}><strong>근거:</strong> {s.doctor_recommendation.reason}</div>}
-                    {s.doctor_recommendation.evidence && <div style={{ marginBottom: 4, color: '#4338ca' }}>{s.doctor_recommendation.evidence}</div>}
-                    {s.doctor_recommendation.message && <div style={{ color: '#1e40af' }}>{s.doctor_recommendation.message}</div>}
+                    {s.doctor_recommendation.evidence && <div style={{ marginBottom: 4, color: '#6b7280' }}>{s.doctor_recommendation.evidence}</div>}
+                    {s.doctor_recommendation.message && <div style={{ color: '#374151' }}>{s.doctor_recommendation.message}</div>}
                   </div>
                 )}
               </div>
@@ -658,7 +658,7 @@ const SectionDoctorComment: React.FC<{ data: any }> = ({ data }) => {
   return (
     <div className="consultation-page__section">
       <h3>의사 종합 코멘트</h3>
-      {data.overall_assessment && <p style={{ fontSize: 13, color: '#1e40af', lineHeight: 1.6, marginBottom: 8 }}>{data.overall_assessment}</p>}
+      {data.overall_assessment && <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.6, marginBottom: 8 }}>{data.overall_assessment}</p>}
       {data.key_recommendations?.length > 0 && (
         <ol style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: '#4a5568' }}>
           {data.key_recommendations.map((r: string, i: number) => <li key={i} style={{ marginBottom: 4 }}>{r}</li>)}
@@ -820,12 +820,12 @@ const SectionAIRecommend: React.FC<{ step1: any; step2: any; recommendations: an
       <h3>AI 추천 검진 항목</h3>
       {focusItems.length > 0 && (
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#2563eb', marginBottom: 6 }}>Priority 1: 일반검진 주의항목</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>Priority 1: 일반검진 주의항목</div>
           {focusItems.map((f: any, i: number) => (
-            <div key={i} className="consultation-page__rec-card" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
+            <div key={i} className="consultation-page__rec-card" style={{ background: '#fafafa', borderColor: '#e5e7eb' }}>
               <div className="rec-name">{f.item_name}</div>
               {f.why_important && <div className="rec-reason">{f.why_important}</div>}
-              {f.check_point && <div style={{ fontSize: 12, color: '#1e40af', marginTop: 2 }}>{f.check_point}</div>}
+              {f.check_point && <div style={{ fontSize: 12, color: '#374151', marginTop: 2 }}>{f.check_point}</div>}
             </div>
           ))}
         </div>
@@ -835,7 +835,7 @@ const SectionAIRecommend: React.FC<{ step1: any; step2: any; recommendations: an
           <div style={{ fontSize: 12, fontWeight: 600, color: '#d97706', marginBottom: 6 }}>Priority 2: {p2.title || '병원 추천 정밀검진'}</div>
           {p2.health_context && <p style={{ fontSize: 12, color: '#92400e', marginBottom: 6 }}>{p2.health_context}</p>}
           {(p2.items || []).map((it: any, i: number) => (
-            <div key={i} className="consultation-page__rec-card" style={{ background: '#fffbeb', borderColor: '#fde68a' }}>
+            <div key={i} className="consultation-page__rec-card" style={{ background: '#fafafa', borderColor: '#e5e7eb' }}>
               <div className="rec-name">{it.item_name || it.name || it}</div>
               {it.reason && <div className="rec-reason">{it.reason}</div>}
             </div>
@@ -938,7 +938,7 @@ const SectionUpselling: React.FC<{ sessionTags: SessionTags | null; strategies: 
         <div style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: '#4a5568', marginBottom: 4 }}>전략별 에비던스</div>
           {strategies?.filter((s: any) => s.doctor_recommendation?.evidence).map((s: any, i: number) => (
-            <div key={i} style={{ fontSize: 13, color: '#4338ca', marginBottom: 4 }}>
+            <div key={i} style={{ fontSize: 13, color: '#6b7280', marginBottom: 4 }}>
               <strong>{s.target}:</strong> {s.doctor_recommendation.evidence}
             </div>
           ))}
@@ -951,7 +951,7 @@ const SectionUpselling: React.FC<{ sessionTags: SessionTags | null; strategies: 
             <div key={i} className="consultation-page__upsell-card">
               <div className="upsell-name">{item.item_name}</div>
               {item.gap_description && <div className="upsell-reason">{item.gap_description}</div>}
-              {item.solution_narrative && <div style={{ fontSize: 12, color: '#065f46', marginTop: 2 }}>{item.solution_narrative}</div>}
+              {item.solution_narrative && <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{item.solution_narrative}</div>}
             </div>
           ))}
         </div>

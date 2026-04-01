@@ -237,7 +237,7 @@
   border-radius: 4px;
   &--abnormal  { background: #fef2f2; color: #b91c1c; }
   &--borderline { background: #fff7ed; color: #c2410c; }
-  &--improved  { background: #d1fae5; color: #065f46; }
+  &--improved  { background: #f3f4f6; color: #374151; }
   &--normal    { background: $gray-100; color: $gray-600; }
   &--new       { background: $gray-100; color: $gray-500; }
 }
@@ -280,7 +280,7 @@
   padding: 10px 14px;
   border-radius: $border-radius-md;
   background: #f0f4ff;
-  border-left: 3px solid #2563eb;
+  border-left: 3px solid #9ca3af;
   font-size: $font-sm;
   color: $gray-800;
   line-height: 1.6;
@@ -423,9 +423,9 @@
   border-radius: 4px;
   font-size: $font-2xs;
   font-weight: 500;
-  &--user    { background: #dbeafe; color: #1e40af; }
-  &--ai      { background: #ede9fe; color: #5b21b6; }
-  &--nhis    { background: #d1fae5; color: #065f46; }
+  &--user    { background: #f3f4f6; color: #374151; }
+  &--ai      { background: #f3f4f6; color: #6b7280; }
+  &--nhis    { background: #f3f4f6; color: #6b7280; }
   &--partner { background: #ffedd5; color: #9a3412; }
 }
 
@@ -452,16 +452,16 @@
   margin-right: 2px;
   background: $gray-200;
   color: $gray-700;
-  &--blue { background: #dbeafe; color: #1e40af; }
+  &--blue { background: #f3f4f6; color: #374151; }
   &--warn { background: #fff7ed; color: #c2410c; }
   &--danger { background: #fef2f2; color: #b91c1c; }
-  &--green { background: #d1fae5; color: #065f46; }
-  &--commercial { background: #ede9fe; color: #5b21b6; }
+  &--green { background: #f3f4f6; color: #374151; }
+  &--commercial { background: #f3f4f6; color: #6b7280; }
   &--signal {
     font-weight: 600;
     &[data-level="high"] { background: #fef2f2; color: #b91c1c; }
     &[data-level="medium"] { background: #fff7ed; color: #c2410c; }
-    &[data-level="low"] { background: #d1fae5; color: #065f46; }
+    &[data-level="low"] { background: #f3f4f6; color: #374151; }
   }
 }
 .consultation-page__tag-group {
@@ -491,7 +491,7 @@
 }
 .consultation-page__gauge-fill {
   height: 100%;
-  background: #2563eb;
+  background: #7c746a;
   border-radius: 9px;
   transition: width 0.3s;
 }
