@@ -200,6 +200,28 @@ function getAge(birth: string | null): number | null {
 }
 
 /* ── 추이 이상 판정 ── */
+/* WELNO 문진 키→한글 매핑 */
+const SURVEY_LABELS: Record<string, string> = {
+  weight_change: '체중 변화', daily_routine: '일과 패턴', exercise_frequency: '운동 빈도',
+  smoking: '흡연', drinking: '음주', sleep_hours: '수면 시간',
+  family_history: '가족력', colonoscopy_experience: '대장내시경 경험', additional_concerns: '추가 걱정',
+};
+const SURVEY_VALUES: Record<string, Record<string, string>> = {
+  weight_change: { maintain: '변화없음', decrease_bad: '의도치 않게 빠짐(3kg+)', decrease_good: '다이어트로 뺌', increase_some: '조금 쪘음(1~3kg)', increase_more: '많이 쪘음(3kg+)' },
+  exercise_frequency: { regular: '주 3회+', sometimes: '주 1-2회', rarely: '거의 안 함', never: '전혀 안 함' },
+  smoking: { never: '비흡연', quit: '금연', half_pack: '반 갑/일', one_pack: '한 갑+/일' },
+  drinking: { never: '안 함', rarely: '월 1-2회', sometimes: '주 1-2회', often: '주 3회+', daily: '매일' },
+  sleep_hours: { less_5: '5시간 미만', five_to_six: '5-6시간', seven_to_eight: '7-8시간', over_8: '8시간 이상' },
+};
+const DAILY_ROUTINE_LABELS: Record<string, string> = {
+  desk_job: '앉아서 근무', mental_stress: '정신적 압박', service_job: '감정 소모',
+  physical_job: '서서/몸쓰는 일', irregular: '밤낮 불규칙', home_maker: '가사/휴식',
+};
+const FAMILY_HISTORY_LABELS: Record<string, string> = {
+  diabetes: '당뇨', hypertension: '고혈압', cancer: '암', heart: '심장질환',
+  stroke: '뇌졸중', thyroid: '갑상선', none: '없음',
+};
+
 const HEALTH_RANGES: Record<string, { normal: number; warn: number }> = {
   bmi: { normal: 25, warn: 30 },
   blood_pressure_high: { normal: 120, warn: 140 },
@@ -702,13 +724,13 @@ const SectionCounselorScript: React.FC<{ sessionTags: SessionTags | null }> = ({
   if (!hasScript) return null;
   return (
     <div className="consultation-page__section">
-      <h3>상담 스크립트</h3>
+      <h3>AI 추천 상담 멘트</h3>
       {sessionTags.counselor_recommendations?.map((r: any, i: number) => (
         <div key={i} className="consultation-page__script-suggestion">{typeof r === 'string' ? r : JSON.stringify(r)}</div>
       ))}
       {sessionTags.suggested_revisit_messages?.length ? (
         <>
-          <div style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 4px' }}>재방문 스크립트</div>
+          <div style={{ fontSize: 12, color: '#6b7280', margin: '8px 0 4px' }}>재방문 안내 문구</div>
           {sessionTags.suggested_revisit_messages.map((m: any, i: number) => (
             <div key={i} className="consultation-page__script-card">{typeof m === 'string' ? m : m?.message || m?.text || JSON.stringify(m)}</div>
           ))}
@@ -893,21 +915,29 @@ const SectionPrescription: React.FC<{ rx: PrescriptionRecord[] }> = ({ rx }) => 
   );
 };
 
-/* [I] 문진 응답 요약 */
+/* [I] 문진 응답 요약 — WELNO 키→한글 변환 */
 const SectionSurvey: React.FC<{ survey: any }> = ({ survey }) => {
-  if (!survey) return null;
+  if (!survey || typeof survey !== 'object') return null;
+  const renderValue = (key: string, val: any): string => {
+    if (Array.isArray(val)) {
+      if (key === 'daily_routine') return val.map(v => DAILY_ROUTINE_LABELS[v] || v).join(', ');
+      if (key === 'family_history') return val.map(v => FAMILY_HISTORY_LABELS[v] || v).join(', ');
+      return val.join(', ');
+    }
+    if (typeof val === 'string' && SURVEY_VALUES[key]?.[val]) return SURVEY_VALUES[key][val];
+    return typeof val === 'string' ? val : JSON.stringify(val);
+  };
   return (
     <div className="consultation-page__section">
       <h3>문진 응답</h3>
-      {typeof survey === 'object' && !Array.isArray(survey) ? (
-        <dl className="consultation-page__patient-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-          {Object.entries(survey).slice(0, 16).map(([k, v]) => (
-            <div key={k}><dt>{k}</dt><dd>{typeof v === 'string' ? v : JSON.stringify(v)}</dd></div>
-          ))}
-        </dl>
-      ) : (
-        <p style={{ fontSize: 13, color: '#4a5568' }}>{JSON.stringify(survey)}</p>
-      )}
+      <dl className="consultation-page__patient-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        {Object.entries(survey).slice(0, 12).map(([k, v]) => (
+          <div key={k}>
+            <dt>{SURVEY_LABELS[k] || k}</dt>
+            <dd>{renderValue(k, v)}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   );
 };
