@@ -173,8 +173,8 @@ const URGENCY_LABELS: Record<string, string> = { urgent: '긴급', borderline: '
 const BUYING_LABELS: Record<string, string> = { high: '높음', medium: '보통', low: '낮음' };
 
 const PERSONA_COLORS: Record<string, string> = {
-  Worrier: '#f59e0b', Manager: '#dc2626', Optimizer: '#3b82f6',
-  'Symptom Solver': '#8b5cf6', Minimalist: '#6b7280',
+  Worrier: '#9ca3af', Manager: '#6b7280', Optimizer: '#78716c',
+  'Symptom Solver': '#a1a1aa', Minimalist: '#d4d4d8',
 };
 const PERSONA_LABELS: Record<string, string> = {
   Worrier: '걱정형', Manager: '관리형', Optimizer: '최적화형',
