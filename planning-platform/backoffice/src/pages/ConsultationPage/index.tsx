@@ -295,11 +295,11 @@ const ConsultationPage: React.FC = () => {
         limit: '50',
       });
       if (hospitalId) qs.set('hospital_id', hospitalId);
-      const res = await fetchWithAuth(`${API}/consultation/list?${qs}`);
+      const res = await fetch(`${API}/consultation/list?${qs}`);
       const data = await res.json();
       setItems(data.items || []);
       setTotal(data.total || 0);
-    } catch { /* ignore */ }
+    } catch (e) { console.error('[ConsultationPage] list 조회 실패:', e); }
     setLoading(false);
   }, [API, hospitalId, statusFilter]);
 
@@ -310,7 +310,7 @@ const ConsultationPage: React.FC = () => {
     setDetailLoading(true);
     try {
       const qs = hospitalId ? `?hospital_id=${hospitalId}` : '';
-      const res = await fetchWithAuth(
+      const res = await fetch(
         `${API}/consultation/detail/${encodeURIComponent(uuid)}${qs}`,
       );
       setDetail(await res.json());
@@ -329,7 +329,7 @@ const ConsultationPage: React.FC = () => {
     if (!selectedUuid) return;
     setStatusUpdating(true);
     try {
-      await fetchWithAuth(`${API}/consultation/status`, {
+      await fetch(`${API}/consultation/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
