@@ -626,14 +626,28 @@ class PartnerRagChatService(WelnoRagChatService):
         세션 웜업: 데이터 전처리, Redis 저장, 개인화 인사말 생성
         """
         logger.info(f"🔥 [파트너 RAG] 웜업 시작 - {partner_info.partner_id}, uuid: {uuid}")
-        
+
         try:
+            # 0. Redis 캐시 체크 — 같은 uuid+hospital이면 Gemini 스킵
+            cache_key = f"warmup:{uuid}:{hospital_id}"
+            if self.redis_client:
+                try:
+                    import json as _json
+                    cached = await asyncio.get_event_loop().run_in_executor(
+                        None, self.redis_client.get, cache_key
+                    )
+                    if cached:
+                        logger.info(f"✅ [웜업] 캐시 히트 — Gemini 스킵 ({cache_key})")
+                        return _json.loads(cached)
+                except Exception:
+                    pass
+
             # 1. 데이터 전처리
             processed_data = await self._process_partner_health_data(partner_info, partner_health_data)
-            
-            # 2. 세션 메타데이터 및 파트너 데이터 Redis 저장 (상담 시 즉시 사용 가능하도록)
+
+            # 2. 세션 메타데이터 및 파트너 데이터 Redis 저장
             await self._store_partner_session_metadata(session_id, partner_info, processed_data)
-            
+
             # 3. 데이터 유형 분류 (정상인/이상소견/추이)
             data_type = self._classify_data_type(processed_data)
 
@@ -673,14 +687,26 @@ class PartnerRagChatService(WelnoRagChatService):
             # 6. 백그라운드 태스크: Gemini Context Caching 미리 수행 (의학 지식 로딩)
             asyncio.create_task(self._preload_rag_context_background(partner_info, uuid, hospital_id, session_id, processed_data))
 
-            return {
+            result = {
                 "greeting": hook_greeting,
                 "chat_greeting": data_science_greeting,
                 "hook_greeting": hook_greeting,
                 "data_science_greeting": data_science_greeting,
                 "data_type": data_type,
-                "has_data": processed_data.get("has_data", False)
+                "has_data": processed_data.get("has_data", False),
+                "session_id": session_id,
             }
+
+            # 7. Redis에 warmup 결과 캐시 (1시간, 같은 환자 재호출 시 Gemini 스킵)
+            if self.redis_client:
+                try:
+                    import json as _json
+                    self.redis_client.setex(cache_key, 3600, _json.dumps(result, ensure_ascii=False))
+                    logger.info(f"✅ [웜업] 캐시 저장 완료 ({cache_key}, TTL=1h)")
+                except Exception:
+                    pass
+
+            return result
             
         except Exception as e:
             logger.error(f"❌ [파트너 RAG] 웜업 처리 실패: {e}")
