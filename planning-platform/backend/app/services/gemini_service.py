@@ -171,21 +171,34 @@ class GeminiService:
                 config.cached_content = cached_content.name
                 logger.info(f"✅ [Cache] Context Caching 활성화 (30-50% 성능 향상 예상)")
 
-            # 네이티브 async 호출
-            logger.info(f"📡 [Gemini Service] API 호출 중... (Model: {request.model})")
-
-            try:
-                response = await asyncio.wait_for(
-                    self._client.aio.models.generate_content(
-                        model=request.model,
-                        contents=request.prompt,
-                        config=config,
-                    ),
-                    timeout=60.0  # 60초 타임아웃
-                )
-            except asyncio.TimeoutError:
-                logger.error(f"❌ [Gemini Service] 타임아웃 (60초 초과)")
-                return GeminiResponse(success=False, error="Gemini API 타임아웃 (60초 초과)")
+            # 네이티브 async 호출 (503/429 자동 재시도)
+            max_retries = 3
+            response = None
+            for attempt in range(max_retries):
+                logger.info(f"📡 [Gemini Service] API 호출 중... (Model: {request.model}, attempt {attempt + 1}/{max_retries})")
+                try:
+                    response = await asyncio.wait_for(
+                        self._client.aio.models.generate_content(
+                            model=request.model,
+                            contents=request.prompt,
+                            config=config,
+                        ),
+                        timeout=60.0
+                    )
+                    break  # 성공 시 루프 탈출
+                except asyncio.TimeoutError:
+                    logger.error(f"❌ [Gemini Service] 타임아웃 (60초 초과)")
+                    return GeminiResponse(success=False, error="Gemini API 타임아웃 (60초 초과)")
+                except Exception as retry_err:
+                    err_str = str(retry_err)
+                    if ("503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str or "RESOURCE_EXHAUSTED" in err_str):
+                        wait = 2 ** attempt  # 1초, 2초, 4초
+                        logger.warning(f"⚠️ [Gemini] {err_str[:80]}... → {wait}초 후 재시도 ({attempt + 1}/{max_retries})")
+                        await asyncio.sleep(wait)
+                        if attempt == max_retries - 1:
+                            raise  # 마지막 시도도 실패 시 예외 전파
+                    else:
+                        raise  # 503/429 외 에러는 즉시 전파
             
             # 응답 완료 여부 확인
             if not response.candidates:
