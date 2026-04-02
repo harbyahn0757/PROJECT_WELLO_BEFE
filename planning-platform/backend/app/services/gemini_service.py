@@ -282,9 +282,12 @@ class GeminiService:
             )
 
         except Exception as e:
-            logger.error(f"[Gemini Service] API 호출 실패: {str(e)}")
-            await self._notify_slack("Gemini API 호출 실패", "call_api", str(e))
-            return GeminiResponse(success=False, error=str(e))
+            err_str = str(e)
+            logger.error(f"[Gemini Service] API 호출 실패: {err_str}")
+            # 503/429는 일시적 과부하 — 슬랙 알림 스킵 (알림 폭탄 방지)
+            if not ("503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str or "RESOURCE_EXHAUSTED" in err_str):
+                await self._notify_slack("Gemini API 호출 실패", "call_api", err_str)
+            return GeminiResponse(success=False, error=err_str)
 
     async def stream_api(self, request: GeminiRequest, session_id: Optional[str] = None):
         """
