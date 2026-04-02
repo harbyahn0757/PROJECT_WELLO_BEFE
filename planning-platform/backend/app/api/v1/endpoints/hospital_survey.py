@@ -792,7 +792,7 @@ async def submit_dynamic_survey(
         template = await db_manager.execute_one(
             """SELECT id FROM welno.tb_survey_templates
                WHERE partner_id = %s AND hospital_id = %s AND is_active = true
-               ORDER BY created_at LIMIT 1""",
+               ORDER BY created_at DESC LIMIT 1""",
             (partner_info.partner_id, body.hospital_id)
         )
         if template:

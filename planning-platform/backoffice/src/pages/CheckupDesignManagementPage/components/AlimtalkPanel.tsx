@@ -59,6 +59,10 @@ const AlimtalkPanel: React.FC<Props> = ({
     list.sort((a, b) => {
       const va = a[sortBy] || '';
       const vb = b[sortBy] || '';
+      // 날짜 필드는 최신순(DESC), 이름은 가나다순(ASC)
+      if (sortBy === 'visitdate' || sortBy === 'birthday') {
+        return va > vb ? -1 : va < vb ? 1 : 0;
+      }
       return va < vb ? -1 : va > vb ? 1 : 0;
     });
     return list;
