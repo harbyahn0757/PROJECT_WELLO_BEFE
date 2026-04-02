@@ -174,19 +174,42 @@
   margin-left: 8px;
 }
 
-/* 상세 패널 — 오버레이 (화면 전체 높이) */
+/* 상세 패널 — 오버레이 (화면 전체 높이, 2단 레이아웃) */
 .revisit-page__detail {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  width: 480px;
-  overflow-y: auto;
+  width: 780px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: $white;
   border-radius: 0 0 0 $border-radius-lg;
   box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
   padding: 20px;
   z-index: 20;
+}
+
+.revisit-page__detail-body {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.revisit-page__detail-left {
+  width: 320px;
+  min-width: 320px;
+  overflow-y: auto;
+  border-right: 1px solid #e2e8f0;
+  padding-right: 16px;
+}
+
+.revisit-page__detail-right {
+  flex: 1;
+  overflow-y: auto;
+  min-width: 0;
 }
 
 .revisit-page__detail-close {
@@ -429,6 +452,16 @@
 @media (max-width: $bp-tablet-max) {
   .revisit-page__kpi { grid-template-columns: repeat(2, 1fr); }
   .revisit-page__detail { width: 100%; }
+  .revisit-page__detail-body { flex-direction: column; }
+  .revisit-page__detail-left {
+    width: 100%;
+    min-width: 0;
+    border-right: none;
+    border-bottom: 1px solid #e2e8f0;
+    padding-right: 0;
+    padding-bottom: 16px;
+    overflow-y: visible;
+  }
 }
 
 /* 검진일 라벨 */

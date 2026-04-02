@@ -516,87 +516,94 @@ const RevisitPage: React.FC = () => {
               )}
             </div>
 
-            {/* 탭 헤더 */}
-            <div className="revisit-page__tabs">
-              <button
-                className={`revisit-page__tab${detailTab === 'suggest' ? ' revisit-page__tab--active' : ''}`}
-                onClick={() => handleTabChange('suggest')}
-              >제안</button>
-              <button
-                className={`revisit-page__tab${detailTab === 'chat' ? ' revisit-page__tab--active' : ''}`}
-                onClick={() => handleTabChange('chat')}
-              >상담 내역</button>
-              <button
-                className={`revisit-page__tab${detailTab === 'health' ? ' revisit-page__tab--active' : ''}`}
-                onClick={() => handleTabChange('health')}
-              >검진결과</button>
-              <button
-                className={`revisit-page__tab${detailTab === 'tags' ? ' revisit-page__tab--active' : ''}`}
-                onClick={() => handleTabChange('tags')}
-              >태그/분석</button>
+            <div className="revisit-page__detail-body">
+            {/* 왼쪽 고정 패널 — 핵심 정보 */}
+            <div className="revisit-page__detail-left">
+              {/* 병원 전용: 분류 + 의료태그 */}
+              {isHospitalMode && selected.prospect_type && (
+                <div className="revisit-page__section">
+                  <h4>병원 가망 분석</h4>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                    <span className="revisit-page__badge" style={{ background: PROSPECT_COLORS[selected.prospect_type] }}>
+                      {PROSPECT_LABELS[selected.prospect_type]}
+                    </span>
+                    {selected.medical_urgency && (
+                      <span className="revisit-page__badge" style={{ background: selected.medical_urgency === 'urgent' ? '#dc2626' : selected.medical_urgency === 'borderline' ? '#d97706' : '#059669' }}>
+                        {URGENCY_LABELS[selected.medical_urgency]}
+                      </span>
+                    )}
+                    {selected.hospital_prospect_score != null && (
+                      <span style={{ fontWeight: 600 }}>가망점수 {selected.hospital_prospect_score}점</span>
+                    )}
+                  </div>
+                  {selected.medical_tags && selected.medical_tags.length > 0 && (
+                    <div>
+                      <strong>의료 관심:</strong>{' '}
+                      {selected.medical_tags.map((t, i) => (
+                        <span key={i} className="revisit-page__tag revisit-page__tag--high">{t}</span>
+                      ))}
+                    </div>
+                  )}
+                  {selected.lifestyle_tags && selected.lifestyle_tags.length > 0 && (
+                    <div style={{ marginTop: 4 }}>
+                      <strong>생활습관:</strong>{' '}
+                      {selected.lifestyle_tags.map((t, i) => (
+                        <span key={i} className="revisit-page__tag revisit-page__tag--low">{t}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selected.conversation_summary && (
+                <div className="revisit-page__section">
+                  <h4>대화 요약</h4>
+                  <p>{selected.conversation_summary}</p>
+                </div>
+              )}
+
+              {selected.key_concerns.length > 0 && (
+                <div className="revisit-page__section">
+                  <h4>주요 우려사항</h4>
+                  <ul>{selected.key_concerns.map((c, i) => <li key={i}>{c}</li>)}</ul>
+                </div>
+              )}
+
+              {selected.counselor_recommendations.length > 0 && (
+                <div className="revisit-page__section">
+                  <h4>AI 상담 조언</h4>
+                  <ul>{selected.counselor_recommendations.map((r, i) => <li key={i}>{r}</li>)}</ul>
+                </div>
+              )}
+
+              <div className="revisit-page__meta">
+                참여도 {selected.engagement_score}점 · {INTENT_LABELS[selected.action_intent] || selected.action_intent} · 마지막 상담 {selected.last_chat_date || '-'}
+              </div>
             </div>
 
-            {detailTab === 'suggest' && (
-              <>
-                {/* 병원 전용: 분류 + 의료태그 */}
-                {isHospitalMode && selected.prospect_type && (
-                  <div className="revisit-page__section">
-                    <h4>병원 가망 분석</h4>
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                      <span className="revisit-page__badge" style={{ background: PROSPECT_COLORS[selected.prospect_type] }}>
-                        {PROSPECT_LABELS[selected.prospect_type]}
-                      </span>
-                      {selected.medical_urgency && (
-                        <span className="revisit-page__badge" style={{ background: selected.medical_urgency === 'urgent' ? '#dc2626' : selected.medical_urgency === 'borderline' ? '#d97706' : '#059669' }}>
-                          {URGENCY_LABELS[selected.medical_urgency]}
-                        </span>
-                      )}
-                      {selected.hospital_prospect_score != null && (
-                        <span style={{ fontWeight: 600 }}>가망점수 {selected.hospital_prospect_score}점</span>
-                      )}
-                    </div>
-                    {selected.medical_tags && selected.medical_tags.length > 0 && (
-                      <div>
-                        <strong>의료 관심:</strong>{' '}
-                        {selected.medical_tags.map((t, i) => (
-                          <span key={i} className="revisit-page__tag revisit-page__tag--high">{t}</span>
-                        ))}
-                      </div>
-                    )}
-                    {selected.lifestyle_tags && selected.lifestyle_tags.length > 0 && (
-                      <div style={{ marginTop: 4 }}>
-                        <strong>생활습관:</strong>{' '}
-                        {selected.lifestyle_tags.map((t, i) => (
-                          <span key={i} className="revisit-page__tag revisit-page__tag--low">{t}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+            {/* 오른쪽 탭 패널 */}
+            <div className="revisit-page__detail-right">
+              <div className="revisit-page__tabs">
+                <button
+                  className={`revisit-page__tab${detailTab === 'suggest' ? ' revisit-page__tab--active' : ''}`}
+                  onClick={() => handleTabChange('suggest')}
+                >추천 메시지</button>
+                <button
+                  className={`revisit-page__tab${detailTab === 'chat' ? ' revisit-page__tab--active' : ''}`}
+                  onClick={() => handleTabChange('chat')}
+                >상담 내역</button>
+                <button
+                  className={`revisit-page__tab${detailTab === 'health' ? ' revisit-page__tab--active' : ''}`}
+                  onClick={() => handleTabChange('health')}
+                >검진결과</button>
+                <button
+                  className={`revisit-page__tab${detailTab === 'tags' ? ' revisit-page__tab--active' : ''}`}
+                  onClick={() => handleTabChange('tags')}
+                >태그/분석</button>
+              </div>
 
-                {selected.conversation_summary && (
-                  <div className="revisit-page__section">
-                    <h4>대화 요약</h4>
-                    <p>{selected.conversation_summary}</p>
-                  </div>
-                )}
-
-                {selected.key_concerns.length > 0 && (
-                  <div className="revisit-page__section">
-                    <h4>주요 우려사항</h4>
-                    <ul>{selected.key_concerns.map((c, i) => <li key={i}>{c}</li>)}</ul>
-                  </div>
-                )}
-
-                {selected.counselor_recommendations.length > 0 && (
-                  <div className="revisit-page__section">
-                    <h4>AI 상담 조언</h4>
-                    <ul>{selected.counselor_recommendations.map((r, i) => <li key={i}>{r}</li>)}</ul>
-                  </div>
-                )}
-
+              {detailTab === 'suggest' && (
                 <div className="revisit-page__section">
-                  <h4>추천 메시지</h4>
                   <div className="revisit-page__msg-cards">
                     {(['care_message', 'action_message', 'info_message'] as const).map(key => {
                       const msg = selected.message_variants?.[key];
@@ -618,12 +625,7 @@ const RevisitPage: React.FC = () => {
                     })}
                   </div>
                 </div>
-
-                <div className="revisit-page__meta">
-                  참여도 {selected.engagement_score}점 · {INTENT_LABELS[selected.action_intent] || selected.action_intent} · 마지막 상담 {selected.last_chat_date || '-'}
-                </div>
-              </>
-            )}
+              )}
 
             {detailTab === 'chat' && (
               <div className="revisit-page__chat-tab">
@@ -871,6 +873,8 @@ const RevisitPage: React.FC = () => {
                 )}
             </div>
           )}
+            </div>{/* /detail-right */}
+            </div>{/* /detail-body */}
         </div>
       )}
 
