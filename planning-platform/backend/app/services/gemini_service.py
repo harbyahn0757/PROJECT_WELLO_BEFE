@@ -336,30 +336,49 @@ class GeminiService:
 
             logger.info(f"📡 [Gemini] {request.model} 호출 (session: {session_id[:8] if session_id else 'None'}..., mode: {cache_status})")
 
-            # 히스토리 있으면 Chat 모드, 없으면 단일 생성
-            if is_first_message:
-                for chunk in self._client.models.generate_content_stream(
-                    model=request.model,
-                    contents=request.prompt,
-                    config=config,
-                ):
-                    if chunk.text:
-                        yield chunk.text
-                        await asyncio.sleep(0)
-            else:
-                chat = self._client.chats.create(
-                    model=request.model,
-                    config=config,
-                    history=request.chat_history,
-                )
-                for chunk in chat.send_message_stream(message=request.prompt):
-                    if chunk.text:
-                        yield chunk.text
-                        await asyncio.sleep(0)
+            # 히스토리 있으면 Chat 모드, 없으면 단일 생성 (503/429 자동 재시도)
+            max_retries = 3
+            last_err = None
+            for attempt in range(max_retries):
+                try:
+                    if is_first_message:
+                        for chunk in self._client.models.generate_content_stream(
+                            model=request.model,
+                            contents=request.prompt,
+                            config=config,
+                        ):
+                            if chunk.text:
+                                yield chunk.text
+                                await asyncio.sleep(0)
+                    else:
+                        chat = self._client.chats.create(
+                            model=request.model,
+                            config=config,
+                            history=request.chat_history,
+                        )
+                        for chunk in chat.send_message_stream(message=request.prompt):
+                            if chunk.text:
+                                yield chunk.text
+                                await asyncio.sleep(0)
+                    break  # 성공 시 루프 탈출
+                except Exception as retry_err:
+                    last_err = retry_err
+                    err_str = str(retry_err)
+                    if ("503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str or "RESOURCE_EXHAUSTED" in err_str):
+                        wait = 2 ** attempt  # 1초, 2초, 4초
+                        logger.warning(f"⚠️ [Gemini] 스트리밍 {err_str[:80]}... → {wait}초 후 재시도 ({attempt + 1}/{max_retries})")
+                        await asyncio.sleep(wait)
+                        if attempt == max_retries - 1:
+                            raise  # 마지막 시도도 실패 시 예외 전파
+                    else:
+                        raise  # 503/429 외 에러는 즉시 전파
 
         except Exception as e:
-            logger.error(f"[Gemini] 스트리밍 실패: {str(e)}")
-            asyncio.ensure_future(self._notify_slack("Gemini 스트리밍 실패", "stream_api", str(e)))
+            err_str = str(e)
+            logger.error(f"[Gemini] 스트리밍 실패: {err_str}")
+            # 503/429는 일시적 과부하 — 슬랙 알림 스킵 (알림 폭탄 방지)
+            if not ("503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str or "RESOURCE_EXHAUSTED" in err_str):
+                asyncio.ensure_future(self._notify_slack("Gemini 스트리밍 실패", "stream_api", err_str))
             yield "죄송합니다. 일시적인 오류가 발생했어요. 잠시 후 다시 시도해 주세요."
     
     def _format_chat_history(self, history: List[Dict[str, Any]]) -> List[types.Content]:
