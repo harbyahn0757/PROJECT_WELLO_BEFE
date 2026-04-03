@@ -722,7 +722,7 @@ class WelnoRagChatService:
                         trace_data["system_instruction_length"] = len(system_instruction)
                         trace_data["is_first_message"] = True
 
-                    gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", system_instruction=system_instruction, chat_history=None, temperature=0.7)
+                    gemini_req = GeminiRequest(prompt=prompt, model=settings.google_gemini_fast_model, system_instruction=system_instruction, chat_history=None, temperature=0.7)
                 else:
                     # 이후 메시지: 히스토리 + 검진/복약/문진 데이터 요약 포함
                     # Redis에서 저장된 검진/복약 데이터 요약 가져오기
@@ -848,7 +848,7 @@ class WelnoRagChatService:
                         trace_data["system_instruction_length"] = len(system_instruction)
                         trace_data["is_first_message"] = False
 
-                    gemini_req = GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", system_instruction=system_instruction, chat_history=chat_history, temperature=0.7)
+                    gemini_req = GeminiRequest(prompt=prompt, model=settings.google_gemini_fast_model, system_instruction=system_instruction, chat_history=chat_history, temperature=0.7)
                 
                 # Gemini API 호출 타이밍
                 gemini_start = time.time()
@@ -970,7 +970,7 @@ class WelnoRagChatService:
                             f"답변 요약: {full_answer[:300]}"
                         )
                         retry_res = await gemini_service.call_api(
-                            GeminiRequest(prompt=retry_prompt, model="gemini-3-flash-preview", temperature=0.5),
+                            GeminiRequest(prompt=retry_prompt, model=settings.google_gemini_fast_model, temperature=0.5),
                             save_log=False,
                         )
                         if retry_res.success and "|" in retry_res.content:
@@ -1265,7 +1265,7 @@ class WelnoRagChatService:
 """
             gemini_request = GeminiRequest(
                 prompt=prompt,
-                model="gemini-3-flash-preview",
+                model=settings.google_gemini_fast_model,
                 temperature=0.3,
                 response_format={"type": "json_object"}
             )
