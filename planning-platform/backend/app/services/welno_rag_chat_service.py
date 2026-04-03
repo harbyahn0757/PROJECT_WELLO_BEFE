@@ -448,10 +448,24 @@ class WelnoRagChatService:
                     logger.warning(f"⚠️ [파트너 컨텍스트] Redis 로드 실패: {e}")
 
             # 4. 응답 생성 분기
-            # 일반 RAG 스트리밍
+            # 일반 RAG 스트리밍 — 대화 맥락 기반 검색 쿼리 구성
             search_query = message
             if current_keywords:
                 search_query = f"{', '.join(current_keywords)} 관련: {message}"
+            elif not is_first_message and len((message or "").strip()) <= 15:
+                # 짧은 후속 메시지: 대화 히스토리에서 맥락을 추출하여 검색 쿼리 보강
+                try:
+                    history = self.chat_manager.get_history(uuid, hospital_id) if hasattr(self, 'chat_manager') else []
+                    recent_msgs = [
+                        m.get("content", "") for m in (history or [])[-6:]
+                        if m.get("role") in ("user", "assistant") and len(m.get("content", "")) > 10
+                    ]
+                    if recent_msgs:
+                        context_hint = " ".join(recent_msgs)[:300]
+                        search_query = f"{context_hint} {message}"
+                        logger.info(f"🔍 [RAG 쿼리] 대화 맥락 기반 보강: '{message}' → '{search_query[:80]}...'")
+                except Exception as e:
+                    logger.warning(f"⚠️ [RAG 쿼리] 맥락 보강 실패: {e}")
             
             # 타이밍 변수 초기화
             rag_engine_time = 0.0
@@ -621,9 +635,14 @@ class WelnoRagChatService:
                     # 단계별 지침
                     stage_instruction = ""
                     msg_stripped = (message or "").strip()
-                    is_greeting_or_short = len(msg_stripped) <= 4 or msg_stripped in ("안녕", "하이", "안녕하세요", "hello", "hi", "?", "ㅇ", "응", "네", "ㅇㅋ", "ㅎ")
-                    logger.info(f"🔍 [채팅] 첫 메시지 chat_stage: {chat_stage}, message: {message[:50]}, is_greeting_or_short: {is_greeting_or_short}")
-                    if is_greeting_or_short:
+                    _GREETINGS = {"안녕", "하이", "안녕하세요", "hello", "hi", "?", "ㅇ", "응", "네", "ㅇㅋ", "ㅎ", "헬로"}
+                    _HEALTH_HINTS = ("어때", "결과", "수치", "상태", "건강", "검진", "혈압", "혈당", "콜레스테롤", "간", "체중", "비만")
+                    is_health_question = any(h in msg_stripped for h in _HEALTH_HINTS)
+                    is_greeting_or_short = msg_stripped in _GREETINGS and not is_health_question
+                    logger.info(f"🔍 [채팅] 첫 메시지 chat_stage: {chat_stage}, message: {message[:50]}, is_greeting={is_greeting_or_short}, is_health={is_health_question}")
+                    if is_health_question:
+                        stage_instruction = "**상담 지침**: 사용자가 검진 결과에 대해 물어보고 있습니다. 검진 데이터와 참고 문헌을 활용하여 주요 소견을 종합적으로 설명하세요. 2-3문단으로 충분히 답변하세요."
+                    elif is_greeting_or_short:
                         stage_instruction = "**상담 지침**: 사용자가 인사나 짧은 말만 한 경우, 참고 문헌을 요약·나열하지 말고, 친절히 인사한 뒤 '어떤 부분이 궁금하세요? 😊' 라고 짧게 물어보세요."
                         chat_stage = "normal"
                     elif chat_stage == "awaiting_current_concerns":
@@ -700,7 +719,7 @@ class WelnoRagChatService:
                     # 2) 유저 프롬프트 = RAG 컨텍스트 + 사용자 질문 (매 요청 변동)
                     prompt_parts = []
                     if context_str:
-                        prompt_parts.append(f"[의학 지식 문서 (참고 문헌)]\n{context_str}")
+                        prompt_parts.append(f"[건강 가이드 자료 — 아래 내용을 근거로 활용하여 답변하세요]\n{context_str}")
                     prompt_parts.append(f"사용자 질문: {message}\n도우미 답변:")
                     prompt = "\n\n".join(prompt_parts)
 
@@ -745,7 +764,23 @@ class WelnoRagChatService:
                             except Exception as e:
                                 logger.warning(f"⚠️ [검진데이터] data_summary 파싱 실패: {str(e)}")
                         else:
-                            logger.warning(f"⚠️ [검진데이터] data_summary 조회 결과: 존재=no - Redis에 저장된 검진 데이터 요약 없음")
+                            # data_summary가 Redis에 없음 — 첫 메시지 실패 시 발생
+                            # 검진 데이터를 재조회하여 복구 시도
+                            logger.warning(f"⚠️ [검진데이터] data_summary 없음 — 재조회 시도")
+                            try:
+                                if hasattr(self, 'welno_data_service') and self.welno_data_service:
+                                    health_info = await self.welno_data_service.get_patient_health_data(uuid, hospital_id)
+                                    if health_info and "error" not in health_info:
+                                        from .checkup_design.health_briefing import generate_health_briefing
+                                        recovered_briefing = generate_health_briefing(health_info)
+                                        if recovered_briefing:
+                                            data_summary = f"\n[환자 건강 데이터 요약 (과거 내역 참고용)]\n{recovered_briefing}\n"
+                                            # Redis에 저장하여 다음 메시지부터 캐시 사용
+                                            summary_data = {"health_summary": recovered_briefing}
+                                            self.redis_client.setex(summary_key, 86400, json.dumps(summary_data, ensure_ascii=False))
+                                            logger.info(f"✅ [검진데이터] 재조회 성공 + Redis 저장: {len(data_summary)}자")
+                            except Exception as e:
+                                logger.warning(f"⚠️ [검진데이터] 재조회 실패: {e}")
                     else:
                         logger.warning(f"⚠️ [검진데이터] Redis 클라이언트 없음 - data_summary 조회 불가")
                     
@@ -802,6 +837,9 @@ class WelnoRagChatService:
                     else:
                         if any(kw in message for kw in ["피로", "통증", "증상", "아픔", "불편", "걱정"]):
                             stage_instruction = "**상담 지침**: 답변 끝에 '자세한 내용은 담당 의료진과 상담하시길 권해요 😊'로 안내."
+                        else:
+                            # 기본 지침: RAG 문서를 활용하여 충분히 답변
+                            stage_instruction = "**상담 지침**: [의학 지식 문서]에 관련 내용이 있으면 근거로 활용하여 구체적으로 답변하세요. 검진 데이터 기반으로 2-3문단으로 설명하고, 필요시 '담당 의료진과 상담하시길 권해요 😊'로 안내하세요."
                     if stage_instruction:
                         system_parts.append(stage_instruction)
 
@@ -826,7 +864,7 @@ class WelnoRagChatService:
                     # 2) 유저 프롬프트 = RAG 컨텍스트 + 사용자 질문
                     prompt_parts = []
                     if context_str:
-                        prompt_parts.append(f"[의학 지식 문서 (참고 문헌)]\n{context_str}")
+                        prompt_parts.append(f"[건강 가이드 자료 — 아래 내용을 근거로 활용하여 답변하세요]\n{context_str}")
                     prompt_parts.append(f"사용자 질문: {message}\n도우미 답변:")
                     prompt = "\n\n".join(prompt_parts)
 
