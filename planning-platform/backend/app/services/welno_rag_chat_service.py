@@ -905,7 +905,6 @@ class WelnoRagChatService:
 
                 if is_partner_session and had_rag_discrepancy:
                     try:
-                        from ..core.config import settings
                         from .slack_service import SlackService
                         if getattr(settings, "slack_enabled", False) and getattr(settings, "slack_webhook_url", None):
                             # trace_data에서 환자/병원/파트너 정보 추출
