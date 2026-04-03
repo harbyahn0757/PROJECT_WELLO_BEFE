@@ -1493,7 +1493,9 @@ async def retag_all_sessions(
                 """
                 sessions = await db_manager.execute_query(query)
         else:
-            # 태그 없거나 규칙 기반인 세션만
+            # 태그 없거나 규칙 기반인 세션만 (LLM 3회 이상 실패한 건 제외)
+            # llm_attempted=true AND llm_failed=true인 세션은 이미 LLM 시도 후
+            # rule-based 폴백된 것이므로 재시도해도 같은 결과 → 무한 루프 방지
             if hospital_id:
                 query = """
                     SELECT l.session_id, l.partner_id
@@ -1501,8 +1503,9 @@ async def retag_all_sessions(
                     LEFT JOIN welno.tb_chat_session_tags t
                         ON l.session_id = t.session_id AND l.partner_id = t.partner_id
                     WHERE l.hospital_id = %s
-                      AND (t.session_id IS NULL OR t.tagging_model = 'rule-based' OR t.tagging_model IS NULL)
+                      AND (t.session_id IS NULL OR t.tagging_model IS NULL)
                     ORDER BY l.created_at DESC
+                    LIMIT 20
                 """
                 sessions = await db_manager.execute_query(query, (hospital_id,))
             else:
@@ -1511,8 +1514,9 @@ async def retag_all_sessions(
                     FROM welno.tb_partner_rag_chat_log l
                     LEFT JOIN welno.tb_chat_session_tags t
                         ON l.session_id = t.session_id AND l.partner_id = t.partner_id
-                    WHERE t.session_id IS NULL OR t.tagging_model = 'rule-based' OR t.tagging_model IS NULL
+                    WHERE t.session_id IS NULL OR t.tagging_model IS NULL
                     ORDER BY l.created_at DESC
+                    LIMIT 20
                 """
                 sessions = await db_manager.execute_query(query)
 
@@ -1536,8 +1540,8 @@ async def retag_all_sessions(
                 logger.warning(f"[재태깅] 실패 {sid}: {e}")
                 result["failed"] += 1
 
-            # 속도 제한: 5건마다 1초 대기
-            if (i + 1) % 5 == 0:
+            # 속도 제한: 2건마다 1초 대기 (Gemini quota 보호)
+            if (i + 1) % 2 == 0:
                 await asyncio.sleep(1)
 
         logger.info(f"[재태깅] 완료: {result}")

@@ -300,13 +300,13 @@ async def startup_event():
     except Exception as e:
         print(f"⚠️ [모니터링] 시작 실패: {e}")
 
-    # 미태깅 세션 자동 복구 스케줄러 (15분 간격)
+    # 미태깅 세션 자동 복구 스케줄러 (1시간 간격, 서버 안정화 후 시작)
     try:
         import asyncio
 
         async def _tagging_recovery_loop():
             """미태깅 세션을 주기적으로 찾아 태깅합니다."""
-            await asyncio.sleep(60)  # 서버 시작 후 1분 대기
+            await asyncio.sleep(300)  # 서버 시작 후 5분 대기 (warmup 완료 보장)
             while True:
                 try:
                     from .services.chat_tagging_service import retag_all_sessions
@@ -315,10 +315,10 @@ async def startup_event():
                         print(f"🏷 [태깅복구] 미태깅 세션 처리: {result}")
                 except Exception as e:
                     print(f"⚠️ [태깅복구] 실행 실패: {e}")
-                await asyncio.sleep(900)  # 15분 대기
+                await asyncio.sleep(3600)  # 1시간 대기 (Gemini quota 보호)
 
         asyncio.create_task(_tagging_recovery_loop())
-        print("✅ [태깅복구] 미태깅 세션 자동 복구 스케줄러 시작 (15분 간격)")
+        print("✅ [태깅복구] 미태깅 세션 자동 복구 스케줄러 시작 (1시간 간격, 5분 후 첫 실행)")
     except Exception as e:
         print(f"⚠️ [태깅복구] 스케줄러 시작 실패: {e}")
 

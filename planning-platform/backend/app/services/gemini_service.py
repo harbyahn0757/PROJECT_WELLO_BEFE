@@ -37,6 +37,7 @@ class GeminiService:
 
     MAX_CHAT_SESSIONS = 20  # 채팅 세션 캐시 상한
     MAX_CONTENT_CACHES = 10  # CachedContent 상한
+    MAX_CONCURRENT_CALLS = 2  # 동시 Gemini API 호출 상한 (warmup/tagging quota 경합 방지)
 
     SAFETY_SETTINGS = [
         types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
@@ -56,6 +57,7 @@ class GeminiService:
         self._cache_enabled: bool = True  # Context Caching 활성화 여부
         self._health_cache: Optional[dict] = None  # 헬스체크 결과 캐시
         self._health_cache_time: float = 0  # 캐시 갱신 시각
+        self._semaphore: asyncio.Semaphore = asyncio.Semaphore(self.MAX_CONCURRENT_CALLS)
 
     async def initialize(self):
         """Gemini 클라이언트 초기화"""
@@ -132,14 +134,30 @@ class GeminiService:
         step_number: Optional[str] = None,
         step_name: Optional[str] = None
     ) -> GeminiResponse:
-        """Gemini API 호출"""
-        
+        """Gemini API 호출 (세마포어로 동시 호출 제한)"""
+
         if not self._initialized:
             await self.initialize()
-            
+
         if not self._initialized:
             return GeminiResponse(success=False, error="Gemini 서비스가 초기화되지 않았습니다.")
 
+        async with self._semaphore:
+            return await self._call_api_inner(
+                request, save_log, patient_uuid,
+                session_id, step_number, step_name,
+            )
+
+    async def _call_api_inner(
+        self,
+        request: GeminiRequest,
+        save_log: bool = True,
+        patient_uuid: Optional[str] = None,
+        session_id: Optional[str] = None,
+        step_number: Optional[str] = None,
+        step_name: Optional[str] = None
+    ) -> GeminiResponse:
+        """call_api 내부 구현 (세마포어 안에서 호출됨)."""
         try:
             # GenerateContentConfig 구성
             config = types.GenerateContentConfig(
@@ -199,12 +217,12 @@ class GeminiService:
                             raise  # 마지막 시도도 실패 시 예외 전파
                     else:
                         raise  # 503/429 외 에러는 즉시 전파
-            
+
             # 응답 완료 여부 확인
             if not response.candidates:
                 logger.error(f"❌ [Gemini Service] 응답에 candidates가 없습니다")
                 return GeminiResponse(success=False, error="Gemini API 응답 형식 오류 (candidates 없음)")
-            
+
             finish_reason = response.candidates[0].finish_reason
 
             logger.debug(f"🔍 [Gemini] finish_reason: {finish_reason}")
@@ -221,38 +239,38 @@ class GeminiService:
                 else:
                     logger.error(f"❌ [Gemini Service] 알 수 없는 종료 이유: {finish_reason}")
                     return GeminiResponse(success=False, error=f"응답 생성 실패: {finish_reason}")
-            
+
             response_text = response.text
-            
+
             # 응답 길이 체크 (JSON인 경우 최소 길이 검증)
             if request.response_format and request.response_format.get("type") == "json_object":
                 if len(response_text) < 100:
                     logger.warning(f"⚠️ [Gemini Service] 응답이 너무 짧음: {len(response_text)}자")
                     return GeminiResponse(success=False, error=f"Gemini 응답 불완전 ({len(response_text)}자, 최소 100자 필요)")
-            
+
             # 디버깅 로그
             logger.debug(f"🔍 [Gemini] 응답 길이: {len(response_text)}자")
             if response.usage_metadata:
                 logger.debug(f"🔍 [Gemini] 토큰: {response.usage_metadata.total_token_count} (입력: {response.usage_metadata.prompt_token_count}, 출력: {response.usage_metadata.candidates_token_count})")
-            
+
             # 로깅 저장
             if save_log and patient_uuid:
                 from .session_logger import get_session_logger
                 session_logger = get_session_logger()
-                
+
                 # 로그에 저장할 요청 데이터 구성
                 log_request_data = {
                     "model": request.model,
                     "prompt": request.prompt,
                     "temperature": request.temperature
                 }
-                
+
                 # 로그에 저장할 응답 데이터 구성
                 log_response_data = {
                     "content": response_text,
                     "usage": {
                          # Gemini는 정확한 토큰 사용량을 제공하지 않을 수 있음 (메타데이터 확인 필요)
-                        "prompt_tokens": 0, 
+                        "prompt_tokens": 0,
                         "completion_tokens": 0,
                         "total_tokens": 0
                     }
