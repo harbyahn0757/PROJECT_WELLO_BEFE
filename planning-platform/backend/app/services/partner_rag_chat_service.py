@@ -16,6 +16,7 @@ from datetime import datetime
 from .welno_rag_chat_service import WelnoRagChatService
 from ..middleware.partner_auth import PartnerAuthInfo
 from ..utils.security_utils import get_encrypted_redis_key, log_partner_access
+from ..core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -682,7 +683,7 @@ class PartnerRagChatService(WelnoRagChatService):
                     "data_science_greeting": data_science_greeting,
                     "data_type": data_type,
                     "has_meaningful_data": has_meaningful_data,
-                    "model": "template" if len(abnormal_items) == 0 else "gemini-3-flash-preview",
+                    "model": "template" if len(abnormal_items) == 0 else settings.google_gemini_fast_model,
                     "timestamp": datetime.now().isoformat(),
                 }
                 greeting_key = f"welno:partner_rag:mapping:{session_id}:greetings"
@@ -805,7 +806,7 @@ class PartnerRagChatService(WelnoRagChatService):
 """
         try:
             res = await gemini_service.call_api(
-                GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", temperature=0.9),
+                GeminiRequest(prompt=prompt, model=settings.google_gemini_fast_model, temperature=0.9),
                 save_log=False
             )
             if res.success:
@@ -941,7 +942,7 @@ class PartnerRagChatService(WelnoRagChatService):
 """
         try:
             res = await gemini_service.call_api(
-                GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", temperature=0.9),
+                GeminiRequest(prompt=prompt, model=settings.google_gemini_fast_model, temperature=0.9),
                 save_log=False,
             )
             if res.success:
