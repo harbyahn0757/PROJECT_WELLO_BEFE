@@ -1359,30 +1359,10 @@ async def tag_chat_session(
             hospital_prospect_score = llm_result.get("hospital_prospect_score")
             classification_confidence = llm_result.get("classification_confidence", 0.5)
         else:
-            # LLM 실패 — 규칙 기반 폴백 (병원 필드도 최소한 채움)
-            raw_interest = extract_interest_tags(messages)
-            interest_tags = [{"topic": t, "intensity": "medium"} for t in raw_interest]
-            sentiment = detect_sentiment(messages)
-            summary = await generate_conversation_summary(messages)
-            risk_level = calculate_risk_level(risk_tags)
-            key_concerns = []
-            follow_up_needed = (risk_level == "high")
-            counselor_recommendations = []
-            conversation_depth, engagement_score = calculate_engagement(messages)
-            action_intent = detect_action_intent(messages)
-            nutrition_tags = extract_nutrition_tags(messages)
-            commercial_tags = extract_commercial_tags(interest_tags)
-            buying_signal = extract_buying_signal(messages)
-            # 병원 전용 필드 — 규칙 기반으로 최소한 채움
-            medical_tags = [t["topic"] for t in interest_tags]
-            lifestyle_tags_val = extract_nutrition_tags(messages)
-            medical_urgency = "borderline" if risk_level == "medium" else (
-                "urgent" if risk_level == "high" else "normal")
-            anxiety_level = "low"
-            user_msgs = [m for m in messages if m.get("role") == "user"]
-            prospect_type = "low_engagement" if len(user_msgs) <= 1 else "lifestyle_improvable"
-            hospital_prospect_score = engagement_score
-            classification_confidence = 0.3  # 규칙 기반이므로 낮은 신뢰도
+            # LLM 실패 — 태깅 스킵 (rule-based 단어 매칭은 의미 없는 데이터 생성)
+            # 나중에 LLM 복구 시 retag_all_sessions로 일괄 처리
+            logger.info(f"⏭️ [태깅] LLM 실패 → 태깅 스킵 (rule-based 폐지): session={session_id}")
+            return
 
         tag_data = {
             "session_id": session_id,
