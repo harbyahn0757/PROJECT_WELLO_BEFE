@@ -892,8 +892,8 @@ class PartnerRagChatService(WelnoRagChatService):
         abnormal_items = self._scan_all_abnormals(metrics)
         concern_count = len(abnormal_items)
 
-        # 정상인: 템플릿 즉시 반환
-        if concern_count == 0 or data_type == "no_abnormal":
+        # 정상인: 템플릿 즉시 반환 (concern_count 기준 — data_type은 _abnormal 필드 의존이라 불일치 가능)
+        if concern_count == 0:
             return random.choice(self.NORMAL_DS_TEMPLATES).format(name=name, hospital=hospital)
 
         # 이상소견/추이: 모델에 풍부한 소재 전달
