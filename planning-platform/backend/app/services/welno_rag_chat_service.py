@@ -503,11 +503,27 @@ class WelnoRagChatService:
                     trace_data["retrieved_nodes_count"] = len(nodes)
                     trace_data["retrieved_nodes"] = [r["text"][:200] for r in nodes]
 
-                context_str = "\n".join([r["text"] for r in nodes])
+                # RAG 노드를 출처 정보와 함께 구조화 (LLM이 출처 인용 가능하도록)
+                context_parts = []
+                for r in nodes:
+                    meta = r.get("metadata") or {}
+                    doc_title = meta.get("file_name") or meta.get("title") or "참고 문헌"
+                    # 확장자 제거
+                    if "." in doc_title:
+                        doc_title = doc_title.rsplit(".", 1)[0]
+                    context_parts.append(f"[출처: {doc_title}]\n{r['text']}")
+                context_str = "\n\n---\n\n".join(context_parts)
                 # 병원 RAG가 있으면 컨텍스트 앞에 우선 배치
                 if hospital_rag_sources:
-                    hospital_context = "\n".join([s.get("text", "") for s in hospital_rag_sources])
-                    context_str = f"[병원 전용 참고 문헌]\n{hospital_context}\n\n[공통 의학 지식]\n{context_str}"
+                    hospital_parts = []
+                    for s in hospital_rag_sources:
+                        s_meta = s.get("metadata") or {}
+                        s_title = s_meta.get("file_name") or s_meta.get("title") or "병원 문서"
+                        if "." in s_title:
+                            s_title = s_title.rsplit(".", 1)[0]
+                        hospital_parts.append(f"[출처: {s_title}]\n{s.get('text', '')}")
+                    hospital_context = "\n\n---\n\n".join(hospital_parts)
+                    context_str = f"[병원 전용 자료]\n{hospital_context}\n\n[공통 의학 지식]\n{context_str}"
                 context_length = len(context_str)
 
                 logger.info(f"⏱️  [RAG 채팅] RAG 검색 실행: {rag_search_time:.3f}초")
