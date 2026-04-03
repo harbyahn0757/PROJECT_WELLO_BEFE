@@ -9,6 +9,7 @@ import logging
 import json
 import asyncio
 import time
+import random
 from typing import Dict, Any, Optional, List, AsyncGenerator
 from datetime import datetime
 
@@ -651,11 +652,19 @@ class PartnerRagChatService(WelnoRagChatService):
             # 3. 데이터 유형 분류 (정상인/이상소견/추이)
             data_type = self._classify_data_type(processed_data)
 
-            # 4. 후킹 인사말 + 데이터사이언스 인사말 병렬 생성 (Gemini)
-            hook_greeting, data_science_greeting = await asyncio.gather(
-                self._generate_hook_greeting(partner_info, processed_data),
-                self._generate_data_science_greeting(partner_info, processed_data),
-            )
+            # 4. 후킹 인사말 + 데이터사이언스 인사말 생성
+            # 정상인은 두 메서드 모두 템플릿(즉시 반환), 이상소견만 모델 호출
+            abnormal_items = self._scan_all_abnormals(processed_data.get("health_metrics", {}))
+            if len(abnormal_items) == 0:
+                # 정상인: 둘 다 템플릿이므로 병렬 불필요
+                hook_greeting = await self._generate_hook_greeting(partner_info, processed_data)
+                data_science_greeting = await self._generate_data_science_greeting(partner_info, processed_data)
+            else:
+                # 이상소견: 모델 호출이 포함되므로 병렬 생성
+                hook_greeting, data_science_greeting = await asyncio.gather(
+                    self._generate_hook_greeting(partner_info, processed_data),
+                    self._generate_data_science_greeting(partner_info, processed_data),
+                )
 
             # 5. 수치 데이터 유무 판별 (0건 감지)
             metrics = processed_data.get("health_metrics", {})
@@ -673,7 +682,7 @@ class PartnerRagChatService(WelnoRagChatService):
                     "data_science_greeting": data_science_greeting,
                     "data_type": data_type,
                     "has_meaningful_data": has_meaningful_data,
-                    "model": "gemini-3-flash-preview",
+                    "model": "template" if len(abnormal_items) == 0 else "gemini-3-flash-preview",
                     "timestamp": datetime.now().isoformat(),
                 }
                 greeting_key = f"welno:partner_rag:mapping:{session_id}:greetings"
@@ -684,8 +693,11 @@ class PartnerRagChatService(WelnoRagChatService):
                 f"hook={hook_greeting[:40]}..., greeting={data_science_greeting[:40]}..."
             )
 
-            # 6. 백그라운드 태스크: Gemini Context Caching 미리 수행 (의학 지식 로딩)
-            asyncio.create_task(self._preload_rag_context_background(partner_info, uuid, hospital_id, session_id, processed_data))
+            # 6. 백그라운드 프리페치 비활성화
+            # NOTE: _preload_rag_context_background의 system_instruction이 실제 채팅의
+            # system_instruction(상세 규칙+환자데이터)과 다른데 같은 session_id cache_key를 사용하여
+            # 프리페치 성공 시 채팅이 간략한 프롬프트로 동작하는 버그가 있음. Phase 3에서 재설계 예정.
+            # asyncio.create_task(self._preload_rag_context_background(...))
 
             result = {
                 "greeting": hook_greeting,
@@ -712,145 +724,133 @@ class PartnerRagChatService(WelnoRagChatService):
             logger.error(f"❌ [파트너 RAG] 웜업 처리 실패: {e}")
             return {"greeting": "안녕하세요! 건강 검진 결과에 대해 궁금한 점을 물어보세요.", "has_data": False}
 
+    # 정상인용 후킹 템플릿 (모델 호출 불필요)
+    NORMAL_HOOK_TEMPLATES = [
+        "{name}님, {hospital} 검진 결과 정리해 드렸어요! 😊",
+        "{hospital} 검진 결과 도착했어요, {name}님 확인해 보세요 ✨",
+        "{name}님! {hospital} 결과 깔끔하게 정리됐어요 📋",
+        "{name}님, {hospital} 검진 결과 한눈에 볼 수 있게 준비했어요 🎯",
+    ]
+
     async def _generate_hook_greeting(
-        self, 
-        partner_info: PartnerAuthInfo, 
+        self,
+        partner_info: PartnerAuthInfo,
         processed_data: Dict[str, Any]
     ) -> str:
-        """개인화된 인사말 생성 (1문장)"""
-        
+        """개인화된 후킹 인사말 생성 — 정상인은 템플릿, 이상소견은 모델"""
+
         if not processed_data.get("has_data"):
-            return f"안녕하세요! 😊 건강검진 결과에 대해 궁금한 점을 물어보세요."
-            
+            return "안녕하세요! 😊 건강검진 결과에 대해 궁금한 점을 물어보세요."
+
         patient_info = processed_data.get("patient_info", {})
         name = patient_info.get("name", "고객")
-        
-        # 주요 건강 지표 기반 키워드 추출 (우선순위 순)
-        metrics = processed_data.get("health_metrics", {})
-        bmi = metrics.get("bmi")
-        sbp = metrics.get("systolic_bp")
-        dbp = metrics.get("diastolic_bp")
-        fasting_glucose = metrics.get("fasting_glucose")
-        total_cholesterol = metrics.get("total_cholesterol")
-        ldl = metrics.get("ldl_cholesterol")
-        gfr = metrics.get("gfr")
-        ast = metrics.get("ast")
-        alt = metrics.get("alt")
-
-        concern_keyword = "검진 결과"
-        risk_tone = "friendly"  # friendly / curious / urgent
-
-        if sbp and sbp >= 140:
-            concern_keyword = "혈압"
-            risk_tone = "urgent" if sbp >= 160 else "curious"
-        elif fasting_glucose and fasting_glucose >= 126:
-            concern_keyword = "혈당"
-            risk_tone = "urgent"
-        elif fasting_glucose and fasting_glucose >= 100:
-            concern_keyword = "혈당"
-            risk_tone = "curious"
-        elif total_cholesterol and total_cholesterol >= 240:
-            concern_keyword = "콜레스테롤"
-            risk_tone = "curious"
-        elif ldl and ldl >= 160:
-            concern_keyword = "LDL 콜레스테롤"
-            risk_tone = "curious"
-        elif (ast and ast >= 40) or (alt and alt >= 40):
-            concern_keyword = "간 수치"
-            risk_tone = "curious"
-        elif bmi and bmi >= 30:
-            concern_keyword = "체중 관리"
-            risk_tone = "curious"
-        elif bmi and bmi >= 25:
-            concern_keyword = "체중 관리"
-            risk_tone = "friendly"
-        elif gfr and gfr < 60:
-            concern_keyword = "신장 기능"
-            risk_tone = "urgent"
-
-        # 병원명 추출
         hospital_name = processed_data.get("partner_hospital_name", "") or partner_info.partner_name or ""
 
-        # 정상인: 경고성 메시지 대신 결과 정리 스타일
-        if concern_keyword == "검진 결과":
-            from .gemini_service import gemini_service, GeminiRequest
-            prompt = f"""
-            당신은 '{hospital_name}'에서 검진 결과를 쉽게 안내하는 건강 도우미입니다.
-            환자 {name}님의 검진 결과를 분석했는데, 전반적으로 양호합니다.
+        # 전수 스캔: 모든 이상 항목 수집 (if-elif 단일 매칭 → 복수 수집)
+        metrics = processed_data.get("health_metrics", {})
+        abnormal_items = self._scan_all_abnormals(metrics)
+        concern_count = len(abnormal_items)
+        data_type = self._classify_data_type(processed_data)
 
-            결과가 잘 정리되어 있다는 느낌의 가볍고 친근한 인사말 1문장을 작성하세요.
-            이 메시지는 채팅 아이콘 위 작은 말풍선에 표시됩니다.
+        # 정상인: 템플릿 즉시 반환 (모델 호출 불필요)
+        if concern_count == 0:
+            return random.choice(self.NORMAL_HOOK_TEMPLATES).format(
+                name=name, hospital=hospital_name
+            )
 
-            규칙:
-            - 반드시 '{hospital_name}'을 포함하세요.
-            - "눈에 띄는 부분", "확인해 볼 부분", "눈여겨볼" 등 이상 암시 표현 절대 금지.
-            - 결과 정리 완료 / 건강 유지 응원 느낌으로.
-            - 의학적 진단·조언·경고 절대 금지.
-            - 가볍고 친근한 말투, 반말X 존댓말O.
-            - 이모지 1개 사용.
-            - 25자~45자 이내로 짧게.
+        # 이상소견: 모델에 풍부한 소재 전달
+        primary = abnormal_items[0]
 
-            좋은 예시:
-            - "{name}님, {hospital_name} 검진 결과 정리해 드렸어요! 😊"
-            - "{hospital_name} 검진 결과 도착했어요, {name}님 확인해 보세요 ✨"
-            - "{name}님! {hospital_name} 결과 깔끔하게 정리됐어요 📋"
-            """
-            try:
-                res = await gemini_service.call_api(
-                    GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", temperature=0.7),
-                    save_log=False
-                )
-                if res.success:
-                    raw = res.content.strip().replace('"', '')
-                    return ' '.join(raw.split())
-            except: pass
-            return f"{name}님, {hospital_name} 검진 결과 정리해 드렸어요! 궁금한 점 있으면 물어보세요 😊"
+        # 나이 그룹 추출
+        age = patient_info.get("age")
+        age_group = f"{(age // 10) * 10}대" if age and isinstance(age, (int, float)) and age > 0 else ""
 
-        # 톤별 프롬프트 가이드
+        # 이상 항목 요약 (모델이 뉘앙스를 잡을 수 있도록)
+        concern_summary = ", ".join(item["keyword"] for item in abnormal_items[:3])
+
         tone_guide = {
             "friendly": "가볍고 친근한 톤. 호기심을 자극하되 부담 없이.",
             "curious": "살짝 의미심장한 톤. '한번 확인해 보시면 좋을 것 같아요' 느낌.",
             "urgent": "관심을 끄는 톤이되 공포 유발 금지. '꼭 한번 살펴보세요' 느낌.",
-        }.get(risk_tone, "가볍고 친근한 톤.")
+        }.get(primary["tone"], "가볍고 친근한 톤.")
 
-        # Gemini에게 호기심을 유발하는 후킹 인사말 생성 요청
         from .gemini_service import gemini_service, GeminiRequest
-        prompt = f"""
-        당신은 '{hospital_name}'에서 검진 결과를 쉽게 안내하는 건강 도우미입니다.
-        환자 {name}님의 {concern_keyword} 데이터를 분석했습니다.
+        prompt = f"""당신은 '{hospital_name}'에서 검진 결과를 안내하는 건강 도우미입니다.
+{name}님의 검진 결과를 분석했습니다.
 
-        사용자가 "어? 뭔데?" 하고 궁금해서 반드시 클릭하게 만드는 후킹 메시지 1문장을 작성하세요.
-        이 메시지는 채팅 아이콘 위 작은 말풍선에 표시됩니다.
+[소재 — 수치를 직접 노출하지 말고 뉘앙스만 잡으세요]
+- 확인이 필요한 항목: {concern_count}가지 ({concern_summary})
+- 가장 주요 항목: {primary["keyword"]}
+- 데이터 유형: {"지난 검진과 비교 가능" if data_type == "with_trends" else "이번 검진 결과"}
+{f"- 연령대: {age_group}" if age_group else ""}
 
-        톤 가이드: {tone_guide}
+사용자가 "어? 뭔데?" 하고 궁금해서 반드시 클릭하게 만드는 후킹 메시지 1문장을 작성하세요.
 
-        규칙:
-        - 반드시 '{hospital_name}'을 포함하세요.
-        - 호기심과 궁금증을 유발하되 공포 유발 금지.
-        - 의학적 진단·조언·경고 절대 금지. 의료인 느낌 표현 금지 ('상담사', '전문가', 'Dr.' 등).
-        - 가볍고 친근한 말투, 반말X 존댓말O.
-        - 이모지 1개 사용.
-        - 25자~45자 이내로 짧게.
+톤: {tone_guide}
 
-        좋은 예시:
-        - "{name}님, {hospital_name} 검진 결과에서 눈에 띄는 부분이 있어요 👀"
-        - "{name}님! {hospital_name} 결과 읽어봤는데, 한번 보실래요? 😊"
-        - "{hospital_name} 검진 결과 정리됐어요, {name}님 확인해 보세요 ✨"
-        """
-        
+규칙:
+- 호기심과 궁금증을 유발하되 공포 유발 금지.
+- 의학적 진단·조언·경고 절대 금지.
+- 수치(mmHg, mg/dL 등)를 직접 말하지 마세요.
+- 항목 수, 변화 여부 등 숫자는 활용 가능합니다 (예: "3가지 확인할 게 있어요").
+- 친근한 존댓말. 이모지 1개.
+- 35~70자.
+
+다양한 패턴 참고:
+- 숫자: "{name}님, 확인할 항목이 {concern_count}가지 있어요 📋"
+- 비교: "지난 검진과 달라진 부분을 발견했어요 📊"
+- 발견: "{name}님, 한번 같이 들여다보면 좋을 게 있어요 🔍"
+- 정리: "{hospital_name} 결과 다 읽어봤어요, 정리해 드릴게요 ✨"
+- 호기심: "{name}님이 궁금해할 만한 게 딱 하나 있어요 👀"
+"""
         try:
-            # 빠른 응답을 위해 call_api 사용
             res = await gemini_service.call_api(
-                GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", temperature=0.7),
+                GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", temperature=0.9),
                 save_log=False
             )
             if res.success:
-                # 말풍선에서 과도한 줄바꿈 방지: 줄바꿈을 공백으로 정규화
                 raw = res.content.strip().replace('"', '')
                 return ' '.join(raw.split())
-        except: pass
-        
-        return f"{name}님, {hospital_name} {concern_keyword} 결과에서 눈에 띄는 부분이 있어요 👀"
+        except Exception:
+            pass
+
+        # 폴백: 항목 수 기반 템플릿
+        if concern_count >= 2:
+            return f"{name}님, {hospital_name} 검진에서 확인할 항목이 {concern_count}가지 있어요 📋"
+        return f"{name}님, {hospital_name} 검진 결과에서 같이 볼 부분이 있어요 👀"
+
+    @staticmethod
+    def _scan_all_abnormals(metrics: Dict[str, Any]) -> List[Dict[str, str]]:
+        """전수 스캔: 모든 이상 건강 지표를 수집 (if-elif 단일 매칭 대신)"""
+        items = []
+        sbp = metrics.get("systolic_bp")
+        fasting_glucose = metrics.get("fasting_glucose")
+        total_cholesterol = metrics.get("total_cholesterol")
+        ldl = metrics.get("ldl_cholesterol")
+        ast = metrics.get("ast") or metrics.get("sgot_ast")  # medilinx: sgot_ast
+        alt = metrics.get("alt") or metrics.get("sgpt_alt")  # medilinx: sgpt_alt
+        bmi = metrics.get("bmi")
+        gfr = metrics.get("gfr")
+
+        if sbp and sbp >= 140:
+            items.append({"keyword": "혈압", "tone": "urgent" if sbp >= 160 else "curious"})
+        if fasting_glucose and fasting_glucose >= 100:
+            items.append({"keyword": "혈당", "tone": "urgent" if fasting_glucose >= 126 else "curious"})
+        if total_cholesterol and total_cholesterol >= 240:
+            items.append({"keyword": "콜레스테롤", "tone": "curious"})
+        if ldl and ldl >= 160:
+            items.append({"keyword": "LDL 콜레스테롤", "tone": "curious"})
+        if (ast and ast >= 40) or (alt and alt >= 40):
+            items.append({"keyword": "간 수치", "tone": "curious"})
+        if bmi and bmi >= 25:
+            items.append({"keyword": "체중 관리", "tone": "curious" if bmi >= 30 else "friendly"})
+        if gfr is not None and gfr < 60:
+            items.append({"keyword": "신장 기능", "tone": "urgent"})
+
+        # urgent → curious → friendly 순으로 정렬 (가장 심각한 것 우선)
+        tone_order = {"urgent": 0, "curious": 1, "friendly": 2}
+        items.sort(key=lambda x: tone_order.get(x["tone"], 2))
+        return items
 
     @staticmethod
     def _classify_data_type(processed_data: Dict[str, Any]) -> str:
@@ -868,12 +868,19 @@ class PartnerRagChatService(WelnoRagChatService):
         else:
             return "no_abnormal"
 
+    # 정상인용 data_science 템플릿
+    NORMAL_DS_TEMPLATES = [
+        "{name}님, {hospital} 검진 결과 살펴봤어요! 전반적으로 양호한데, 평소 궁금했던 건강 항목이 있으신가요? 😊",
+        "{name}님, {hospital} 결과 전체적으로 좋아요! 혹시 관심 있는 건강 주제가 있으세요? 🏥",
+        "{hospital} 검진 결과가 깔끔하게 나왔어요, {name}님! 더 알고 싶은 항목이 있으면 물어보세요 ✨",
+    ]
+
     async def _generate_data_science_greeting(
         self,
         partner_info: PartnerAuthInfo,
         processed_data: Dict[str, Any],
     ) -> str:
-        """데이터사이언스 관점 인사이트 메시지 (2-3문장, LLM)"""
+        """데이터사이언스 관점 인사이트 메시지 — 정상인은 템플릿, 이상소견은 모델"""
         if not processed_data.get("has_data"):
             return "안녕하세요! 😊 건강검진 결과에 대해 궁금한 점을 물어보세요."
 
@@ -882,14 +889,23 @@ class PartnerRagChatService(WelnoRagChatService):
         metrics = processed_data.get("health_metrics", {})
         hospital = processed_data.get("partner_hospital_name", "") or partner_info.partner_name or ""
         data_type = self._classify_data_type(processed_data)
+        abnormal_items = self._scan_all_abnormals(metrics)
+        concern_count = len(abnormal_items)
 
-        # 주요 수치 요약
+        # 정상인: 템플릿 즉시 반환
+        if concern_count == 0 or data_type == "no_abnormal":
+            return random.choice(self.NORMAL_DS_TEMPLATES).format(name=name, hospital=hospital)
+
+        # 이상소견/추이: 모델에 풍부한 소재 전달
+        concern_summary = ", ".join(item["keyword"] for item in abnormal_items[:3])
+
+        # 수치 요약 (모델이 뉘앙스를 잡되 직접 노출은 금지)
         metric_lines = []
         for label, key, unit in [
             ("수축기혈압", "systolic_bp", "mmHg"), ("이완기혈압", "diastolic_bp", "mmHg"),
             ("공복혈당", "fasting_glucose", "mg/dL"), ("총콜레스테롤", "total_cholesterol", "mg/dL"),
             ("LDL", "ldl_cholesterol", "mg/dL"), ("HDL", "hdl_cholesterol", "mg/dL"),
-            ("AST", "ast", "U/L"), ("ALT", "alt", "U/L"),
+            ("AST", "sgot_ast", "U/L"), ("ALT", "sgpt_alt", "U/L"),
             ("BMI", "bmi", ""), ("GFR", "gfr", "mL/min"),
         ]:
             v = metrics.get(key)
@@ -897,20 +913,9 @@ class PartnerRagChatService(WelnoRagChatService):
                 metric_lines.append(f"- {label}: {v}{unit}")
         metrics_summary = "\n".join(metric_lines) if metric_lines else "수치 없음"
 
-        style_guide = {
-            "with_trends": (
-                "추이 데이터가 있습니다. '지난 검진과 비교해서 변화가 있는 항목이 있다'고만 암시하세요. "
-                "어떤 항목이 어떻게 변했는지는 말하지 마세요 — 사용자가 물어보게 만드세요."
-            ),
-            "single_visit": (
-                "검진 결과에서 눈여겨볼 부분이 있습니다. 몇 가지인지, "
-                "어떤 항목인지, 수치가 얼마인지 절대 말하지 마세요. "
-                "'확인해 볼 부분이 있다'고만 하고, 사용자가 물어보게 만드세요."
-            ),
-            "no_abnormal": (
-                "이상 항목이 없습니다. 결과가 전반적으로 양호하다고 짧게 언급하고, "
-                "'혹시 평소 궁금했던 건강 항목이 있나요?' 같은 열린 질문으로 대화를 유도하세요."
-            ),
+        strategy = {
+            "with_trends": f"지난 검진과 비교 가능합니다. 변화가 있다고만 암시하세요. 확인할 항목: {concern_count}가지 ({concern_summary}).",
+            "single_visit": f"확인이 필요한 항목이 {concern_count}가지 ({concern_summary}) 있습니다. 항목명이나 수치는 절대 말하지 마세요.",
         }
 
         from .gemini_service import gemini_service, GeminiRequest
@@ -918,27 +923,25 @@ class PartnerRagChatService(WelnoRagChatService):
 {name}님의 검진 수치 (내부 참고용, 사용자에게 직접 노출 금지):
 {metrics_summary}
 
-대화 유도 전략: {style_guide.get(data_type, style_guide["single_visit"])}
+대화 유도 전략: {strategy.get(data_type, strategy["single_visit"])}
 
 핵심 원칙 — "정보를 주지 말고, 궁금증을 만들어라":
 - 수치, 항목명, 진단명을 직접 말하지 마세요.
-- "눈여겨볼 부분이 있어요", "같이 살펴볼까요?" 처럼 궁금증만 만드세요.
+- 항목 수, 변화 여부 같은 숫자는 활용 가능합니다.
 - 마지막은 반드시 사용자가 대답하게 되는 질문으로 끝내세요.
 - 2문장 이내. 이모지 1개. 존댓말.
 
-좋은 예시:
-- "{name}님, 검진 결과 살펴봤는데 같이 확인해 보면 좋을 부분이 있어요. 어떤 항목부터 볼까요? 📋"
-- "전체적으로 괜찮은데, 한두 가지 눈에 띄는 게 있어요. 궁금하시면 물어봐 주세요 😊"
-- "검진 수치 중에 추이가 좀 달라진 게 있는데, 같이 확인해 볼까요? 📊"
+다양한 패턴 참고:
+- "{name}님, 검진 결과 살펴봤는데 {concern_count}가지 같이 확인할 게 있어요. 어디부터 볼까요? 📋"
+- "지난 검진과 비교해서 달라진 부분이 있는데, 같이 확인해 볼까요? 📊"
+- "전체적으로 나쁘진 않은데, 몇 가지 눈여겨볼 게 있어요. 궁금하신 것부터 말해주세요 😊"
 
 나쁜 예시 (절대 하지 말 것):
-- "혈압이 142mmHg로 높게 나왔어요" ← 수치 노출
-- "공복혈당이 기준치를 넘었습니다" ← 항목+판정 노출
-- "콜레스테롤 관리가 필요합니다" ← 결론 노출
+- "혈압이 142mmHg로 높게 나왔어요" / "공복혈당이 기준치를 넘었습니다" / "콜레스테롤 관리가 필요합니다"
 """
         try:
             res = await gemini_service.call_api(
-                GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", temperature=0.7),
+                GeminiRequest(prompt=prompt, model="gemini-3-flash-preview", temperature=0.9),
                 save_log=False,
             )
             if res.success:
@@ -947,10 +950,10 @@ class PartnerRagChatService(WelnoRagChatService):
         except Exception:
             pass
 
-        # 폴백: 대화 유도형
+        # 폴백
         hp = f"{hospital} " if hospital else ""
-        if data_type == "no_abnormal":
-            return f"{name}님, {hp}검진 결과 살펴봤어요! 전반적으로 양호한데, 평소 궁금했던 건강 항목이 있으신가요? 😊"
+        if concern_count >= 2:
+            return f"{name}님, {hp}검진 결과에서 {concern_count}가지 같이 확인할 게 있어요. 어떤 항목부터 볼까요? 📋"
         return f"{name}님, {hp}검진 결과에서 같이 확인해 보면 좋을 부분이 있어요. 어떤 항목부터 볼까요? 📋"
 
     async def _preload_rag_context_background(

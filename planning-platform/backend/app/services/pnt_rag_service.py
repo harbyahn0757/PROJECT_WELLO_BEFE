@@ -3,16 +3,33 @@ PNT RAG 서비스
 벡터 DB에서 검사/건기식/식품 상세 설명 조회 (캐싱 포함)
 """
 import asyncio
+from collections import OrderedDict
 from typing import Dict, Any, Optional
 from .checkup_design.rag_service import init_rag_engine
+
+MAX_PNT_CACHE = 200  # OOM 방지: 캐시 상한
 
 
 class PNTRagService:
     def __init__(self):
         """PNT RAG 서비스 초기화"""
         self.query_engine = None
-        self._cache = {}  # 메모리 캐시 (실제로는 Redis 사용)
+        self._cache: OrderedDict = OrderedDict()  # LRU 캐시 (상한 200)
     
+    def _cache_get(self, key: str) -> Optional[Any]:
+        """LRU 캐시 조회 (히트 시 최근 사용으로 이동)"""
+        if key in self._cache:
+            self._cache.move_to_end(key)
+            return self._cache[key]
+        return None
+
+    def _cache_set(self, key: str, value: Any) -> None:
+        """LRU 캐시 저장 (상한 초과 시 가장 오래된 항목 제거)"""
+        self._cache[key] = value
+        self._cache.move_to_end(key)
+        while len(self._cache) > MAX_PNT_CACHE:
+            self._cache.popitem(last=False)
+
     async def initialize(self):
         """RAG 엔진 초기화"""
         if self.query_engine is None:
@@ -41,8 +58,9 @@ class PNTRagService:
         
         # 캐시 확인
         cache_key = f"test_detail:{test_code}"
-        if cache_key in self._cache:
-            return self._cache[cache_key]
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
         
         # RAG 쿼리 생성
         context_str = ""
@@ -64,7 +82,7 @@ class PNTRagService:
         result = str(response)
         
         # 캐시 저장 (TTL: 7일, 실제로는 Redis 사용)
-        self._cache[cache_key] = result
+        self._cache_set(cache_key, result)
         
         return result
     
@@ -89,8 +107,9 @@ class PNTRagService:
         
         # 캐시 확인
         cache_key = f"supplement_info:{supplement_code}"
-        if cache_key in self._cache:
-            return self._cache[cache_key]
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
         
         query = f"""
         {supplement_code} 건강기능식품에 대해 다음 정보를 자세히 알려주세요:
@@ -107,7 +126,7 @@ class PNTRagService:
         result = str(response)
         
         # 캐시 저장
-        self._cache[cache_key] = result
+        self._cache_set(cache_key, result)
         
         return result
     
@@ -132,8 +151,9 @@ class PNTRagService:
         
         # 캐시 확인
         cache_key = f"food_benefit:{food_code}"
-        if cache_key in self._cache:
-            return self._cache[cache_key]
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
         
         query = f"""
         {food_code} 식품에 대해 다음 정보를 자세히 알려주세요:
@@ -149,7 +169,7 @@ class PNTRagService:
         result = str(response)
         
         # 캐시 저장
-        self._cache[cache_key] = result
+        self._cache_set(cache_key, result)
         
         return result
     

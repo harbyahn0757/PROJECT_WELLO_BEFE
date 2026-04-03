@@ -6,6 +6,7 @@ FAISS 벡터 검색 모듈 — llama-index 없이 직접 FAISS + OpenAI 임베�
   index_store.json  — FAISS idx(int) → node_id(UUID) 매핑
   docstore.json     — node_id(UUID) → {text, metadata} 매핑
 """
+import asyncio
 import faiss
 import json
 import numpy as np
@@ -26,11 +27,11 @@ class FAISSVectorSearch:
         self.client = OpenAI(api_key=openai_api_key)
         self.model = embedding_model
 
-        # 1. FAISS 인덱스 로드
+        # 1. FAISS 인덱스 로드 (mmap 모드: RSS에 잡히지 않아 PM2 OOM 방지)
         index_path = f"{faiss_dir}/faiss.index"
         if not Path(index_path).exists():
             raise FileNotFoundError(f"FAISS 인덱스 없음: {index_path}")
-        self.index = faiss.read_index(index_path)
+        self.index = faiss.read_index(index_path, faiss.IO_FLAG_MMAP)
 
         # 2. FAISS idx → node_id 매핑 (index_store.json)
         with open(f"{faiss_dir}/index_store.json") as f:
@@ -81,8 +82,8 @@ class FAISSVectorSearch:
         return results
 
     async def aretrieve(self, query: str, top_k: int = 10) -> List[Dict]:
-        """search()의 async wrapper — llama-index 호환 인터페이스."""
-        return self.search(query, top_k)
+        """search()의 async wrapper — 이벤트 루프 블로킹 방지."""
+        return await asyncio.to_thread(self.search, query, top_k)
 
     def _embed(self, text: str) -> List[float]:
         """OpenAI 임베딩 API 호출."""

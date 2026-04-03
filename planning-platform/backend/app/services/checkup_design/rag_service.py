@@ -287,7 +287,8 @@ async def search_hospital_knowledge(
     if not results:
         return {"success": False, "sources": []}
 
-    results.sort(key=lambda x: x.get("score") or 0, reverse=True)
+    # FAISS L2 distance: 작을수록 유사도 높음 → 오름차순 정렬
+    results.sort(key=lambda x: x.get("score") or 0, reverse=False)
     return {
         "success": True,
         "answer": None,
