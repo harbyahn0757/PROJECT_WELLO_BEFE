@@ -170,10 +170,6 @@ class GeminiService:
             if request.response_format and request.response_format.get("type") == "json_object":
                 config.response_mime_type = "application/json"
 
-            # System instruction 설정
-            if request.system_instruction:
-                config.system_instruction = request.system_instruction
-
             # Phase 3: Context Caching 적용
             cached_content = None
             is_first_message = not (request.chat_history and len(request.chat_history) > 0)
@@ -188,6 +184,11 @@ class GeminiService:
             if cached_content:
                 config.cached_content = cached_content.name
                 logger.info(f"✅ [Cache] Context Caching 활성화 (30-50% 성능 향상 예상)")
+                # gemini-2.5+: CachedContent 사용 시 system_instruction 동시 설정 불가
+            else:
+                # System instruction 설정 (캐시 미사용 시에만)
+                if request.system_instruction:
+                    config.system_instruction = request.system_instruction
 
             # 네이티브 async 호출 (503/429 자동 재시도)
             max_retries = 3
@@ -345,12 +346,13 @@ class GeminiService:
             if cached_content:
                 config.cached_content = cached_content.name
                 cache_status = "cached"
+                # gemini-2.5+: CachedContent 사용 시 system_instruction 동시 설정 불가
+                # system_instruction은 이미 캐시에 포함되어 있으므로 생략
             else:
                 cache_status = "normal"
-
-            # System instruction 설정
-            if request.system_instruction:
-                config.system_instruction = request.system_instruction
+                # System instruction 설정 (캐시 미사용 시에만)
+                if request.system_instruction:
+                    config.system_instruction = request.system_instruction
 
             logger.info(f"📡 [Gemini] {request.model} 호출 (session: {session_id[:8] if session_id else 'None'}..., mode: {cache_status})")
 
