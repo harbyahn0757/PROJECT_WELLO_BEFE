@@ -330,6 +330,46 @@ export class PasswordSessionService {
   }
 
   /**
+   * 세션 만료 시간 연장 (사용자 활동 감지 시)
+   */
+  static async refreshSession(uuid?: string, hospitalId?: string): Promise<boolean> {
+    try {
+      const sessionData = this.getStoredSession(uuid, hospitalId);
+      if (!sessionData) return false;
+
+      const deviceFingerprint = await this.initializeDevice();
+
+      const response = await fetch(API_ENDPOINTS.PASSWORD.REFRESH_SESSION(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionToken: sessionData.sessionToken,
+          deviceFingerprint
+        })
+      });
+
+      if (!response.ok) return false;
+
+      const result = await response.json();
+      if (result.success && result.data) {
+        // localStorage의 만료 시간 업데이트
+        sessionData.expiresAt = result.data.expiresAt;
+        const storageKey = (uuid && hospitalId)
+          ? `${this.STORAGE_KEY_PREFIX}${hospitalId}_${uuid}`
+          : `${this.STORAGE_KEY_PREFIX}default`;
+        localStorage.setItem(storageKey, JSON.stringify(sessionData));
+        console.log('🔄 [세션] 갱신 완료 - 새 만료:', result.data.expiresAt);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('❌ [세션] 갱신 오류:', error);
+      return false;
+    }
+  }
+
+  /**
    * 세션 상태 정보 조회
    */
   static getSessionInfo(): {

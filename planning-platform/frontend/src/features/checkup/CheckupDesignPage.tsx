@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useWelnoData } from '../../contexts/WelnoDataContext';
 import ConcernSelection from '../../components/checkup-design/ConcernSelection';
@@ -7,6 +7,9 @@ import checkupDesignService, { Step1Result, CheckupDesignStep2Request } from '..
 import { loadHealthData } from '../../utils/healthDataLoader';
 import ProcessingModal, { ProcessingStage } from '../../components/checkup-design/ProcessingModal';
 import WelnoModal from '../../components/common/WelnoModal';
+import PasswordModal from '../../components/PasswordModal';
+import { usePasswordSessionGuard } from '../../hooks/usePasswordSessionGuard';
+import { PasswordSessionService } from '../../services/PasswordSessionService';
 import { InteractionEvent } from '../../components/checkup-design/CheckupDesignSurveyPanel/useSurveyTracker';
 import './CheckupDesignPage.scss';
 
@@ -29,6 +32,35 @@ const CheckupDesignPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = useState('건강 데이터를 가져오고 있어요');
   const [loadingStage, setLoadingStage] = useState<'loading_data' | 'sending' | 'processing' | 'complete'>('loading_data');
+
+  // 인페이지 비밀번호 모달 상태
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [expiredUuid, setExpiredUuid] = useState('');
+  const [expiredHospitalId, setExpiredHospitalId] = useState('');
+
+  // 세션 만료 시 리디렉션 대신 인페이지 모달 표시
+  const handleSessionExpired = useCallback((uuid: string, hospitalId: string) => {
+    console.log('🔒 [검진설계] 세션 만료 — 인페이지 비밀번호 모달 표시');
+    setExpiredUuid(uuid);
+    setExpiredHospitalId(hospitalId);
+    setShowPasswordModal(true);
+  }, []);
+
+  // 비밀번호 인증 성공 → 세션 갱신 후 모달 닫기 (페이지 상태 유지)
+  const handlePasswordSuccess = useCallback(async () => {
+    if (expiredUuid && expiredHospitalId) {
+      await PasswordSessionService.createSession(expiredUuid, expiredHospitalId);
+    }
+    setShowPasswordModal(false);
+  }, [expiredUuid, expiredHospitalId]);
+
+  // 세션 가드: 만료 시 인페이지 모달, 활동 시 자동 연장
+  usePasswordSessionGuard({
+    enabled: true,
+    onSessionExpired: handleSessionExpired,
+    autoRefresh: true,
+    excludePaths: ['/']
+  });
 
   // WelnoModal 확인 다이얼로그 상태
   const [confirmModal, setConfirmModal] = useState<ConfirmModalState>({
@@ -551,6 +583,15 @@ const CheckupDesignPage: React.FC = () => {
 
   return (
     <>
+      {/* 세션 만료 시 인페이지 비밀번호 모달 */}
+      <PasswordModal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        onSuccess={handlePasswordSuccess}
+        type="confirm"
+        uuid={expiredUuid}
+        hospitalId={expiredHospitalId}
+      />
       {/* 확인 다이얼로그 (window.confirm 대체) */}
       <WelnoModal isOpen={confirmModal.isOpen} size="small" showWelnoIcon={false}>
         <div style={{ textAlign: 'center', padding: '8px 0' }}>

@@ -153,7 +153,9 @@ export const API_ENDPOINTS = {
       createApiUrl(`/api/v1/sessions/${sessionToken}`),
     GET_SESSIONS: (uuid: string, hospitalId: string) => 
       createApiUrl(`/api/v1/patients/${uuid}/sessions?hospital_id=${hospitalId}`),
-    CLEANUP_SESSIONS: () => 
+    REFRESH_SESSION: () =>
+      createApiUrl(`/api/v1/sessions/refresh`),
+    CLEANUP_SESSIONS: () =>
       createApiUrl(`/api/v1/sessions/cleanup`)
   },
   

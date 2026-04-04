@@ -126,6 +126,45 @@ class PasswordSessionService:
             print(f"❌ [세션] 확인 실패: {e}")
             return {"success": False, "error": str(e)}
     
+    async def refresh_session(self, session_token: str, device_fingerprint: str) -> Dict[str, Any]:
+        """세션 만료 시간 연장 (활동 감지 시 호출)"""
+        try:
+            with self.session_maker() as session:
+                hashed_fingerprint = self.hash_device_fingerprint(device_fingerprint)
+
+                query = text("""
+                    UPDATE welno.welno_password_sessions
+                    SET expires_at = NOW() + INTERVAL ':minutes minutes',
+                        last_used_at = NOW()
+                    WHERE session_token = :session_token
+                      AND device_fingerprint = :device_fingerprint
+                      AND expires_at > NOW()
+                    RETURNING patient_uuid, hospital_id, expires_at
+                """.replace(':minutes', str(self.session_duration_minutes)))
+
+                result = session.execute(query, {
+                    "session_token": session_token,
+                    "device_fingerprint": hashed_fingerprint
+                })
+
+                row = result.fetchone()
+                session.commit()
+
+                if not row:
+                    return {"success": False, "message": "세션이 없거나 만료되었습니다."}
+
+                print(f"🔄 [세션] 갱신 완료 - 토큰: {session_token[:8]}..., 새 만료: {row.expires_at}")
+
+                return {
+                    "success": True,
+                    "expires_at": row.expires_at.isoformat(),
+                    "duration_minutes": self.session_duration_minutes
+                }
+
+        except Exception as e:
+            print(f"❌ [세션] 갱신 실패: {e}")
+            return {"success": False, "error": str(e)}
+
     async def invalidate_session(self, session_token: str) -> bool:
         """세션 무효화"""
         try:

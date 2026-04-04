@@ -394,6 +394,32 @@ async def verify_password_session(
         print(f"❌ [API] 세션 확인 실패: {e}")
         raise HTTPException(status_code=500, detail=f"세션 확인 실패: {str(e)}")
 
+@router.post("/sessions/refresh")
+async def refresh_password_session(
+    request: SessionVerifyRequest,
+    session_service: PasswordSessionService = Depends(get_session_service)
+):
+    """세션 만료 시간 연장 (사용자 활동 감지 시)"""
+    try:
+        result = await session_service.refresh_session(
+            request.sessionToken, request.deviceFingerprint
+        )
+
+        if not result["success"]:
+            return {"success": False, "message": result.get("message", "세션 갱신 실패")}
+
+        return {
+            "success": True,
+            "data": {
+                "expiresAt": result["expires_at"],
+                "durationMinutes": result["duration_minutes"]
+            }
+        }
+
+    except Exception as e:
+        print(f"❌ [API] 세션 갱신 실패: {e}")
+        raise HTTPException(status_code=500, detail=f"세션 갱신 실패: {str(e)}")
+
 @router.delete("/sessions/{session_token}")
 async def invalidate_password_session(
     session_token: str = Path(..., description="세션 토큰"),
