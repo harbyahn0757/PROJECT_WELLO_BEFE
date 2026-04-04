@@ -44,12 +44,21 @@ async def trigger_auto_checkup_design(
     """
     log_id = None
     try:
-        # 0. Gemini API 상태 체크 (쿼터 소진 시 스킵)
+        # 0. Gemini API 상태 체크 (최대 3회 재시도, 실패 시 GPT 폴백)
         from .gemini_service import gemini_service
-        health = await gemini_service.check_health()
-        if not health.get("healthy"):
-            logger.info(f"[auto_trigger] {patient_uuid} Gemini 비가용 — 스킵")
-            return
+        gemini_available = False
+        for _attempt in range(3):
+            health = await gemini_service.check_health()
+            if health.get("healthy"):
+                gemini_available = True
+                break
+            wait_secs = [30, 60, 120][_attempt]
+            logger.info(f"[auto_trigger] {patient_uuid} Gemini 비가용 — {wait_secs}초 후 재시도 ({_attempt+1}/3)")
+            await asyncio.sleep(wait_secs)
+
+        use_gpt_fallback = not gemini_available
+        if use_gpt_fallback:
+            logger.warning(f"[auto_trigger] {patient_uuid} Gemini 3회 실패 — GPT fallback")
 
         # 트리거 로그 시작
         log_id = await _create_trigger_log(patient_uuid, partner_id, "pending")
@@ -82,8 +91,9 @@ async def trigger_auto_checkup_design(
             await _update_trigger_log(log_id, "skipped", {"reason": "no concerns extracted"})
             return
 
-        # 5. Step1 실행
-        step1_result = await _run_step1(patient_uuid, hospital_id, concerns, health_data)
+        # 5. Step1 실행 (Gemini 불가 시 GPT 폴백)
+        step1_result = await _run_step1(patient_uuid, hospital_id, concerns, health_data,
+                                        use_gpt_fallback=use_gpt_fallback)
 
         # 6. 결과 저장
         await _save_auto_design(
@@ -199,8 +209,9 @@ async def _run_step1(
     hospital_id: str,
     concerns: list,
     health_data: list,
+    use_gpt_fallback: bool = False,
 ) -> Optional[Dict[str, Any]]:
-    """Step1 분석 실행 (Gemini 호출)."""
+    """Step1 분석 실행 (Gemini 또는 GPT 폴백)."""
     from .gemini_service import gemini_service, GeminiRequest
     from .checkup_design import (
         create_checkup_design_prompt_step1,
@@ -227,17 +238,29 @@ async def _run_step1(
     )
     prompt = prompt_result.get("prompt", "")
 
-    # Gemini 호출
-    response = await gemini_service.call_api(GeminiRequest(
-        prompt=prompt,
-        model=settings.google_gemini_fast_model,
-        temperature=0.7,
-        max_tokens=4000,
-        system_instruction=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1,
-    ))
+    if use_gpt_fallback:
+        # GPT-4o 폴백
+        from .gpt_service import gpt_service, GPTRequest
+        logger.info(f"[auto_trigger] {patient_uuid} GPT-4o fallback으로 Step1 실행")
+        response = await gpt_service.call_api(GPTRequest(
+            system_message=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1,
+            user_message=prompt,
+            model="gpt-4o",
+            max_tokens=4000,
+            temperature=0.7,
+        ))
+    else:
+        # Gemini 호출
+        response = await gemini_service.call_api(GeminiRequest(
+            prompt=prompt,
+            model=settings.google_gemini_fast_model,
+            temperature=0.7,
+            max_tokens=4000,
+            system_instruction=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1,
+        ))
 
     if not response.success or not response.content:
-        logger.error(f"[auto_trigger] Step1 Gemini 호출 실패: {response.error}")
+        logger.error(f"[auto_trigger] Step1 {'GPT' if use_gpt_fallback else 'Gemini'} 호출 실패: {response.error}")
         return None
 
     # JSON 파싱

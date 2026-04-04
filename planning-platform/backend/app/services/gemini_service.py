@@ -46,7 +46,8 @@ class GeminiService:
         types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
     ]
 
-    HEALTH_CACHE_TTL = 300  # 헬스체크 캐시 5분
+    HEALTH_CACHE_TTL_HEALTHY = 300  # 정상: 5분
+    HEALTH_CACHE_TTL_UNHEALTHY = 60  # 비정상: 1분 (빠른 회복 감지)
 
     def __init__(self):
         self._api_key: Optional[str] = None
@@ -77,9 +78,11 @@ class GeminiService:
 
     async def check_health(self) -> dict:
         """Gemini API 키 유효성 검증 (위젯 로드 전 호출, 5분 캐싱)"""
-        # 캐시 유효하면 API 호출 없이 반환
-        if self._health_cache and (time.monotonic() - self._health_cache_time) < self.HEALTH_CACHE_TTL:
-            return self._health_cache
+        # 캐시 유효하면 API 호출 없이 반환 (정상/비정상 TTL 분리)
+        if self._health_cache:
+            ttl = self.HEALTH_CACHE_TTL_HEALTHY if self._health_cache.get("healthy") else self.HEALTH_CACHE_TTL_UNHEALTHY
+            if (time.monotonic() - self._health_cache_time) < ttl:
+                return self._health_cache
 
         if not self._initialized:
             await self.initialize()
@@ -174,11 +177,13 @@ class GeminiService:
             cached_content = None
             is_first_message = not (request.chat_history and len(request.chat_history) > 0)
 
-            if self._cache_enabled and request.system_instruction and session_id and is_first_message:
+            if self._cache_enabled and request.system_instruction and is_first_message:
+                import hashlib
+                content_hash = hashlib.sha256(request.system_instruction.encode()).hexdigest()[:16]
                 cached_content = await self._get_or_create_cache(
                     system_prompt=request.system_instruction,
                     model_name=request.model,
-                    cache_key=session_id
+                    cache_key=content_hash
                 )
 
             if cached_content:

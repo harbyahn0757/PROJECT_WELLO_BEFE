@@ -1458,9 +1458,13 @@ async def create_checkup_design_step2(
         import time
         start_time_p1 = time.time()
         
+        # step2_1에는 UI 전용 + 중복 필드 제거 (loading_messages, basic_checkup_guide)
+        step1_for_step2_1 = {k: v for k, v in step1_result_dict.items()
+                             if k not in ('loading_messages', 'basic_checkup_guide')}
+
         logger.info(f"📋 [STEP2-1] Priority 1 프롬프트 생성 시작...")
         user_message_p1, evidences_p1, rag_evidence_context_p1 = await create_checkup_design_prompt_step2_priority1(
-            step1_result=step1_result_dict,
+            step1_result=step1_for_step2_1,
             patient_name=patient_name,
             patient_age=patient_age,
             patient_gender=patient_gender,
@@ -1638,10 +1642,16 @@ async def create_checkup_design_step2(
             hospital_national_checkup_items=hospital_national_checkup  # [추가] 중복 방지용
         )
 
+        # step2_2: LLM용 3필드 + Python 추출용 3필드만 전달 (나머지 ~7KB 절감)
+        _step2_2_keep = ('analysis', 'chronic_analysis', 'concern_vs_reality',
+                         'persona', 'risk_profile', 'persona_conflict_summary')
+        step1_for_step2_2 = {k: v for k, v in step1_result_dict.items()
+                             if k in _step2_2_keep}
+
         logger.info(f"📋 [STEP2-2] Upselling 프롬프트 생성 시작...")
         user_message_p2, evidences_p2, rag_context_p2 = await create_checkup_design_prompt_step2_upselling(
             request=upselling_request,
-            step1_result=step1_result_dict,
+            step1_result=step1_for_step2_2,
             step2_1_summary=json.dumps(step2_1_result, ensure_ascii=False, indent=2), # JSON 문자열로 변환하여 전달
             rag_service_instance=rag_engine,
             prev_rag_context=rag_evidence_context_p1

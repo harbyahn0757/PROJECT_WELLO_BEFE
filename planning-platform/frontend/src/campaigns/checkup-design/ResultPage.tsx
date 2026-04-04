@@ -78,7 +78,6 @@ const ResultPage: React.FC<Props> = ({ uuid, hospitalId, partnerId }) => {
   const patientSummary = designResult?.patient_summary || '';
   const analysis = designResult?.analysis || '';
   const recommendedItems = designResult?.recommended_items || [];
-  const persona = designResult?.persona || {};
   const riskProfile = designResult?.risk_profile || [];
 
   return (
@@ -89,19 +88,6 @@ const ResultPage: React.FC<Props> = ({ uuid, hospitalId, partnerId }) => {
           AI 검진설계 결과
         </h1>
       </div>
-
-      {/* 페르소나 배지 */}
-      {persona?.primary_persona && (
-        <div style={{
-          background: '#eff6ff', borderRadius: '12px', padding: '16px',
-          marginBottom: '16px', textAlign: 'center',
-        }}>
-          <span style={{ fontSize: '13px', color: '#6b7280' }}>건강 페르소나</span>
-          <p style={{ fontSize: '18px', fontWeight: 700, color: '#2563eb', margin: '4px 0 0' }}>
-            {persona.primary_persona}
-          </p>
-        </div>
-      )}
 
       {/* 환자 요약 */}
       {patientSummary && (

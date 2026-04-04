@@ -177,6 +177,15 @@ const CheckupDesignCampaign: React.FC = () => {
     checkUserStatus();
   }, [checkUserStatus]);
 
+  // processing 상태에서 5초 폴링 (auto_trigger 완료 자동 감지)
+  useEffect(() => {
+    if (currentPage !== 'processing') return;
+    const interval = setInterval(() => {
+      checkUserStatus();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [currentPage, checkUserStatus]);
+
   // ── 설계 진입 (동의 체크 후) ──
   const doNavigateDesign = useCallback(() => {
     if (!uuid) return;
