@@ -146,7 +146,10 @@ class Settings(BaseSettings):
     slack_alert_channel: str = Field(default="#p9-api-alerts", env="SLACK_ALERT_CHANNEL")
     slack_channel_id: str = Field(default="C0ADYBAN9PA", env="SLACK_CHANNEL_ID")
     slack_enabled: bool = Field(default=False, env="SLACK_ENABLED")
-    
+
+    # Phase 3: 검진설계 파이프라인 버전 (v2=2-step, v3=3-step legacy)
+    checkup_design_pipeline_version: str = Field(default="v2", env="CHECKUP_PIPELINE_VERSION")
+
     model_config = {
         "env_file": [".env.local", "config.env", ".env"],
         "env_file_encoding": "utf-8",

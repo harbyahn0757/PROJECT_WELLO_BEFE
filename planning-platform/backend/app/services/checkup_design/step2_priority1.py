@@ -1,3 +1,7 @@
+# ⚠️ DEPRECATED (Phase 3, 2026-04-04)
+# step2_1 로직은 step1_prompt.py에 통합됨.
+# v3 롤백 시에만 사용. Phase 3 안정화 후 삭제 예정.
+
 """
 STEP 2-1: Priority 1 (일반검진 주의 항목) 전용 프롬프트 생성 모듈
 """

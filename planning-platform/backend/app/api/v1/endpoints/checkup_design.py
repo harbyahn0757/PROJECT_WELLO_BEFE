@@ -929,7 +929,7 @@ async def create_checkup_design_step1(
             f"survey_responses_keys={list(survey_responses_clean.keys())}, "
             f"prescription_analysis_text={'있음' if prescription_analysis_text else '없음'}"
         )
-        step1_result = create_checkup_design_prompt_step1(
+        step1_result = await create_checkup_design_prompt_step1(
             patient_name=patient_name,
             patient_age=patient_age,
             patient_gender=patient_gender,
@@ -946,6 +946,8 @@ async def create_checkup_design_step1(
         # 프롬프트와 페르소나 결과 분리
         user_message = step1_result["prompt"]
         persona_result = step1_result["persona_result"]
+        structured_evidences_step1 = step1_result.get("structured_evidences", [])
+        rag_evidence_context_step1 = step1_result.get("rag_evidence_context", "")
         
         # 페르소나 정보 로깅
         logger.info(f"👤 [STEP1-페르소나] Primary Persona: {persona_result['primary_persona']}")
@@ -955,7 +957,7 @@ async def create_checkup_design_step1(
         # 8. 빠른 모델 선택 (STEP 1은 분석만 하므로 토큰 수 제한)
         # gpt-4o-mini 대신 Gemini Flash 사용 (빠르고 저렴한 모델)
         fast_model = getattr(settings, 'google_gemini_fast_model', 'gemini-3-flash-preview')
-        max_tokens = 4096  # STEP 1은 분석만 하므로 토큰 수 제한
+        max_tokens = 5000  # STEP 1은 분석만 하므로 토큰 수 제한
         
         logger.info(f"🤖 [STEP1-분석] Gemini API 호출 시작... (모델: {fast_model}, max_tokens: {max_tokens})")
         logger.info(f"📊 [STEP1-분석] 프롬프트 길이: {len(user_message)} 문자")
@@ -1456,171 +1458,172 @@ async def create_checkup_design_step2(
         # STEP 2-1: Priority 1 (일반검진 주의 항목)
         # ====================================================================
         import time
-        start_time_p1 = time.time()
-        
-        # step2_1에는 UI 전용 + 중복 필드 제거 (loading_messages, basic_checkup_guide)
-        step1_for_step2_1 = {k: v for k, v in step1_result_dict.items()
-                             if k not in ('loading_messages', 'basic_checkup_guide')}
 
-        logger.info(f"📋 [STEP2-1] Priority 1 프롬프트 생성 시작...")
-        user_message_p1, evidences_p1, rag_evidence_context_p1 = await create_checkup_design_prompt_step2_priority1(
-            step1_result=step1_for_step2_1,
-            patient_name=patient_name,
-            patient_age=patient_age,
-            patient_gender=patient_gender,
-            health_data=health_data,
-            prescription_data=prescription_data,
-            selected_concerns=selected_concerns,
-            survey_responses=survey_responses_clean,
-            hospital_national_checkup=hospital_national_checkup,
-            prescription_analysis_text=prescription_analysis_text,
-            selected_medication_texts=selected_medication_texts
-        )
-        logger.info(f"✅ [STEP2-1] Priority 1 프롬프트 생성 완료 - 길이: {len(user_message_p1):,}자 ({len(user_message_p1)/1024:.1f}KB)")
-        logger.info(f"💊 [STEP2-1] RAG Context 획득 완료 - 길이: {len(rag_evidence_context_p1):,}자")
-        
-        # 📝 [LOGGING] STEP 2-1 프롬프트 파일 저장 (사용자 요청)
-        try:
-            # 세션 로그 디렉토리 경로 결정
-            import os
-            from datetime import datetime
-            
-            if request.session_id:
-                # SessionLogger와 동일한 경로 사용 (logs/planning_YYYYMMDD/SESSION_ID)
-                # request.session_id는 이미 "YYYYMMDD_HHMMSS_SHORTUUID" 형식임
-                log_base_dir = f"logs/planning_{request.session_id.split('_')[0]}"
-                session_dir = os.path.join(log_base_dir, request.session_id)
-            else:
-                # 세션 ID가 없는 경우 (예외적 상황) -> 임시 생성
-                log_base_dir = f"logs/planning_{datetime.now().strftime('%Y%m%d')}"
-                timestamp = datetime.now().strftime("%H%M%S")
-                short_uuid = request.uuid.split('-')[0]
-                session_dir = os.path.join(log_base_dir, f"{timestamp}_{short_uuid}")
-            
-            os.makedirs(session_dir, exist_ok=True)
-            
-            # 프롬프트 저장
-            prompt_file_path = os.path.join(session_dir, "step2_1_prompt.txt")
-            # 실제 API에 전달되는 전체 프롬프트 저장 (system message + user message)
-            full_prompt_p1_for_log = f"{CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2}\n\n---\n\n{user_message_p1}"
-            with open(prompt_file_path, "w", encoding="utf-8") as f:
-                f.write("=" * 80 + "\n")
-                f.write("STEP 2-1 FULL PROMPT (실제 API에 전달되는 전체 내용)\n")
-                f.write("=" * 80 + "\n\n")
-                f.write("=" * 80 + "\n")
-                f.write("SYSTEM MESSAGE\n")
-                f.write("=" * 80 + "\n\n")
-                f.write(CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2)
-                f.write("\n\n")
-                f.write("=" * 80 + "\n")
-                f.write("USER MESSAGE\n")
-                f.write("=" * 80 + "\n\n")
-                f.write(user_message_p1)
-                f.write("\n\n")
-                f.write("=" * 80 + "\n")
-                f.write("METADATA\n")
-                f.write("=" * 80 + "\n")
-                f.write(f"Model: {powerful_model}\n")
-                f.write(f"Temperature: 0.5\n")
-                f.write(f"Max Tokens: 2000\n")
-                f.write(f"Session ID: {request.session_id}\n")
-                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
-            
-            logger.info(f"💾 [STEP2-1] 프롬프트 txt 저장 완료: {prompt_file_path}")
-            
-        except Exception as e:
-            logger.warning(f"⚠️ [STEP2-1] 프롬프트 파일 저장 실패: {str(e)}")
+        # Phase 3: v2 파이프라인은 step2_1 스킵
+        pipeline_version = getattr(settings, 'checkup_design_pipeline_version', 'v2')
+        if pipeline_version == 'v2':
+            step2_1_result = {
+                "summary": step1_result_dict.get("summary", {}),
+                "priority_1": step1_result_dict.get("priority_1",
+                              step1_result_dict.get("basic_checkup_guide", {}))
+            }
+            evidences_p1 = step1_result_dict.get("_structured_evidences", [])
+            rag_evidence_context_p1 = step1_result_dict.get("_rag_evidence_context", "")
+            elapsed_p1 = 0
+            logger.info(f"✅ [STEP2-1] SKIPPED (v2) — step1의 priority_1 직접 사용")
+        else:
+            # v3: 기존 3-STEP 경로 (하위 호환)
+            start_time_p1 = time.time()
 
-        logger.info(f"🤖 [STEP2-1] Gemini API 호출 중... (모델: {powerful_model})")
-        
-        # Phase 4: System Message를 system_instruction으로 분리 (Context Caching 최적화)
-        gemini_request_p1 = GeminiRequest(
-            prompt=user_message_p1,  # User Message만 전달
-            model=powerful_model,
-            temperature=0.5,
-            max_tokens=5000,  # Priority 1 응답 (multi-year 데이터 대응)
-            response_format={"type": "json_object"},
-            system_instruction=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2  # System Message 분리
-        )
-        
-        # Gemini 호출 및 재시도 로직 (응답 불완전 시 재시도)
-        max_retries = 2
-        step2_1_result = None
-        gemini_response_p1 = None
-        
-        for retry_count in range(max_retries):
+            # step2_1에는 UI 전용 + 중복 필드 제거 (loading_messages, basic_checkup_guide)
+            step1_for_step2_1 = {k: v for k, v in step1_result_dict.items()
+                                 if k not in ('loading_messages', 'basic_checkup_guide')}
+
+            logger.info(f"📋 [STEP2-1] Priority 1 프롬프트 생성 시작...")
+            user_message_p1, evidences_p1, rag_evidence_context_p1 = await create_checkup_design_prompt_step2_priority1(
+                step1_result=step1_for_step2_1,
+                patient_name=patient_name,
+                patient_age=patient_age,
+                patient_gender=patient_gender,
+                health_data=health_data,
+                prescription_data=prescription_data,
+                selected_concerns=selected_concerns,
+                survey_responses=survey_responses_clean,
+                hospital_national_checkup=hospital_national_checkup,
+                prescription_analysis_text=prescription_analysis_text,
+                selected_medication_texts=selected_medication_texts
+            )
+            logger.info(f"✅ [STEP2-1] Priority 1 프롬프트 생성 완료 - 길이: {len(user_message_p1):,}자 ({len(user_message_p1)/1024:.1f}KB)")
+            logger.info(f"💊 [STEP2-1] RAG Context 획득 완료 - 길이: {len(rag_evidence_context_p1):,}자")
+
+            # 📝 [LOGGING] STEP 2-1 프롬프트 파일 저장 (사용자 요청)
             try:
-                if retry_count > 0:
-                    logger.warning(f"🔄 [STEP2-1] 재시도 {retry_count}/{max_retries-1}")
-                
-                gemini_response_p1 = await gemini_service.call_api(
-                    gemini_request_p1,
-                    save_log=True,
-                    patient_uuid=request.uuid,
-                    session_id=request.session_id if hasattr(request, 'session_id') and request.session_id else None,
-                    step_number="2-1",
-                    step_name="Priority 1 - 일반검진 주의 항목"
-                )
-                elapsed_p1 = time.time() - start_time_p1
-                logger.info(f"✅ [STEP2-1] Gemini 응답 완료 - {elapsed_p1:.1f}초 (시도 {retry_count+1}/{max_retries})")
-                
-                if not gemini_response_p1.success:
-                    logger.error(f"❌ [STEP2-1] Gemini 호출 실패: {gemini_response_p1.error}")
-                    if retry_count == max_retries - 1:
-                        raise ValueError(f"STEP 2-1 실패: {gemini_response_p1.error}")
-                    continue
-                
-                # JSON 파싱 (복구 로직 포함)
-                step2_1_result = parse_json_with_recovery(
-                    gemini_response_p1.content,
-                    step_name="STEP2-1",
-                    session_id=request.session_id if hasattr(request, 'session_id') else None
-                )
-                logger.info(f"✅ [STEP2-1] JSON 파싱 성공 - 키: {list(step2_1_result.keys())}")
-                break  # 성공 시 루프 종료
-                
-            except ValueError as ve:
-                # 응답 불완전 에러 (500자 미만)
-                if "응답 불완전" in str(ve) or "응답이 너무 짧음" in str(ve):
-                    logger.warning(f"⚠️ [STEP2-1] 응답 불완전 감지: {str(ve)}")
-                    if retry_count == max_retries - 1:
-                        logger.error(f"❌ [STEP2-1] 재시도 {max_retries}회 모두 실패")
-                        raise
-                    # 다음 재시도
-                    continue
+                import os
+                from datetime import datetime
+
+                if request.session_id:
+                    log_base_dir = f"logs/planning_{request.session_id.split('_')[0]}"
+                    session_dir = os.path.join(log_base_dir, request.session_id)
                 else:
-                    # 다른 ValueError는 즉시 실패
-                    raise
+                    log_base_dir = f"logs/planning_{datetime.now().strftime('%Y%m%d')}"
+                    timestamp = datetime.now().strftime("%H%M%S")
+                    short_uuid = request.uuid.split('-')[0]
+                    session_dir = os.path.join(log_base_dir, f"{timestamp}_{short_uuid}")
+
+                os.makedirs(session_dir, exist_ok=True)
+
+                prompt_file_path = os.path.join(session_dir, "step2_1_prompt.txt")
+                full_prompt_p1_for_log = f"{CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2}\n\n---\n\n{user_message_p1}"
+                with open(prompt_file_path, "w", encoding="utf-8") as f:
+                    f.write("=" * 80 + "\n")
+                    f.write("STEP 2-1 FULL PROMPT (실제 API에 전달되는 전체 내용)\n")
+                    f.write("=" * 80 + "\n\n")
+                    f.write("=" * 80 + "\n")
+                    f.write("SYSTEM MESSAGE\n")
+                    f.write("=" * 80 + "\n\n")
+                    f.write(CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2)
+                    f.write("\n\n")
+                    f.write("=" * 80 + "\n")
+                    f.write("USER MESSAGE\n")
+                    f.write("=" * 80 + "\n\n")
+                    f.write(user_message_p1)
+                    f.write("\n\n")
+                    f.write("=" * 80 + "\n")
+                    f.write("METADATA\n")
+                    f.write("=" * 80 + "\n")
+                    f.write(f"Model: {powerful_model}\n")
+                    f.write(f"Temperature: 0.5\n")
+                    f.write(f"Max Tokens: 2000\n")
+                    f.write(f"Session ID: {request.session_id}\n")
+                    f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+
+                logger.info(f"💾 [STEP2-1] 프롬프트 txt 저장 완료: {prompt_file_path}")
+
+            except Exception as e:
+                logger.warning(f"⚠️ [STEP2-1] 프롬프트 파일 저장 실패: {str(e)}")
+
+            logger.info(f"🤖 [STEP2-1] Gemini API 호출 중... (모델: {powerful_model})")
+
+            gemini_request_p1 = GeminiRequest(
+                prompt=user_message_p1,
+                model=powerful_model,
+                temperature=0.5,
+                max_tokens=5000,
+                response_format={"type": "json_object"},
+                system_instruction=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2
+            )
+
+            max_retries = 2
+            step2_1_result = None
+            gemini_response_p1 = None
+
+            for retry_count in range(max_retries):
+                try:
+                    if retry_count > 0:
+                        logger.warning(f"🔄 [STEP2-1] 재시도 {retry_count}/{max_retries-1}")
+
+                    gemini_response_p1 = await gemini_service.call_api(
+                        gemini_request_p1,
+                        save_log=True,
+                        patient_uuid=request.uuid,
+                        session_id=request.session_id if hasattr(request, 'session_id') and request.session_id else None,
+                        step_number="2-1",
+                        step_name="Priority 1 - 일반검진 주의 항목"
+                    )
+                    elapsed_p1 = time.time() - start_time_p1
+                    logger.info(f"✅ [STEP2-1] Gemini 응답 완료 - {elapsed_p1:.1f}초 (시도 {retry_count+1}/{max_retries})")
+
+                    if not gemini_response_p1.success:
+                        logger.error(f"❌ [STEP2-1] Gemini 호출 실패: {gemini_response_p1.error}")
+                        if retry_count == max_retries - 1:
+                            raise ValueError(f"STEP 2-1 실패: {gemini_response_p1.error}")
+                        continue
+
+                    step2_1_result = parse_json_with_recovery(
+                        gemini_response_p1.content,
+                        step_name="STEP2-1",
+                        session_id=request.session_id if hasattr(request, 'session_id') else None
+                    )
+                    logger.info(f"✅ [STEP2-1] JSON 파싱 성공 - 키: {list(step2_1_result.keys())}")
+                    break
+
+                except ValueError as ve:
+                    if "응답 불완전" in str(ve) or "응답이 너무 짧음" in str(ve):
+                        logger.warning(f"⚠️ [STEP2-1] 응답 불완전 감지: {str(ve)}")
+                        if retry_count == max_retries - 1:
+                            logger.error(f"❌ [STEP2-1] 재시도 {max_retries}회 모두 실패")
+                            raise
+                        continue
+                    else:
+                        raise
+
+            if step2_1_result is None:
+                raise ValueError(f"STEP 2-1 실패: {max_retries}회 재시도 후에도 성공하지 못함")
         
-        if step2_1_result is None:
-            raise ValueError(f"STEP 2-1 실패: {max_retries}회 재시도 후에도 성공하지 못함")
-        
-        # 파싱 실패 시 에러 응답 저장 (재시도 루프 밖에서 처리됨)
-        
-        # 📝 [LOGGING] STEP 2-1 응답 txt 파일 저장 (성공 시)
-        try:
-            response_txt_file = os.path.join(session_dir, "step2_1_result.txt")
-            with open(response_txt_file, "w", encoding="utf-8") as f:
-                f.write("=" * 80 + "\n")
-                f.write("STEP 2-1 RESPONSE (원본)\n")
-                f.write("=" * 80 + "\n\n")
-                f.write(gemini_response_p1.content)
-                f.write("\n\n")
-                f.write("=" * 80 + "\n")
-                f.write("STEP 2-1 RESPONSE (파싱된 JSON)\n")
-                f.write("=" * 80 + "\n\n")
-                f.write(json.dumps(step2_1_result, ensure_ascii=False, indent=2))
-                f.write("\n\n")
-                f.write("=" * 80 + "\n")
-                f.write("METADATA\n")
-                f.write("=" * 80 + "\n")
-                f.write(f"Response Length: {len(gemini_response_p1.content) if gemini_response_p1.content else 0}\n")
-                f.write(f"Timestamp: {datetime.now().isoformat()}\n")
-            
-            logger.info(f"💾 [STEP2-1] 응답 txt 저장 완료: {response_txt_file}")
-        except Exception as e:
-            logger.warning(f"⚠️ [STEP2-1] 응답 txt 저장 실패: {str(e)}")
-        
+            # 📝 [LOGGING] STEP 2-1 응답 txt 파일 저장 (성공 시)
+            try:
+                response_txt_file = os.path.join(session_dir, "step2_1_result.txt")
+                with open(response_txt_file, "w", encoding="utf-8") as f:
+                    f.write("=" * 80 + "\n")
+                    f.write("STEP 2-1 RESPONSE (원본)\n")
+                    f.write("=" * 80 + "\n\n")
+                    f.write(gemini_response_p1.content)
+                    f.write("\n\n")
+                    f.write("=" * 80 + "\n")
+                    f.write("STEP 2-1 RESPONSE (파싱된 JSON)\n")
+                    f.write("=" * 80 + "\n\n")
+                    f.write(json.dumps(step2_1_result, ensure_ascii=False, indent=2))
+                    f.write("\n\n")
+                    f.write("=" * 80 + "\n")
+                    f.write("METADATA\n")
+                    f.write("=" * 80 + "\n")
+                    f.write(f"Response Length: {len(gemini_response_p1.content) if gemini_response_p1.content else 0}\n")
+                    f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+
+                logger.info(f"💾 [STEP2-1] 응답 txt 저장 완료: {response_txt_file}")
+            except Exception as e:
+                logger.warning(f"⚠️ [STEP2-1] 응답 txt 저장 실패: {str(e)}")
+
         # ====================================================================
         # STEP 2-2: Priority 2,3 + Strategies (업셀링)
         # ====================================================================
@@ -1960,7 +1963,7 @@ def merge_checkup_design_responses(
             
             # STEP 2에서 온 필드들
             "summary": safe_get(step2_result, "summary", {}),
-            "priority_1": safe_get(step2_result, "priority_1", {}),  # ✅ 추가!
+            "priority_1": safe_get(step2_result, "priority_1", None) or safe_get(step1_result, "priority_1", None) or safe_get(step1_result, "basic_checkup_guide", {}),  # v2: step1 passthrough, v3: step2_1, fallback: basic_checkup_guide
             "priority_2": safe_get(step2_result, "priority_2", {}),  # ✅ 추가!
             "priority_3": safe_get(step2_result, "priority_3", {}),  # ✅ 추가!
             "strategies": safe_get(step2_result, "strategies", []),

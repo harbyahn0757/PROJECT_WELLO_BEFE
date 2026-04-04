@@ -7,6 +7,9 @@ from datetime import datetime, timedelta
 import json
 from .persona import determine_persona
 from .survey_mapping import generate_survey_section
+import logging
+from .rag_service import init_rag_engine, get_medical_evidence_from_rag
+logger = logging.getLogger(__name__)
 
 
 def remove_html_tags(text: str) -> str:
@@ -38,7 +41,7 @@ def build_master_knowledge_section():
 """
 
 
-def create_step1_prompt(
+async def create_step1_prompt(
     patient_name: str,
     patient_age: Optional[int],
     patient_gender: Optional[str],
@@ -389,6 +392,39 @@ def create_step1_prompt(
             national_checkup_section += f" 외 {len(items_list)-20}개"
         national_checkup_section += "\n"
 
+    # 9.5. RAG Evidence Search (Phase 3: step2_priority1에서 이식)
+    rag_evidence_context = ""
+    structured_evidences = []
+    try:
+        query_engine = await init_rag_engine()
+        if query_engine:
+            patient_context = {
+                "age": patient_age or 40,
+                "gender": "male" if patient_gender and patient_gender.upper() == "M" else "female",
+                "family_history": [],
+                "abnormal_items": []
+            }
+            if survey_responses:
+                fh = survey_responses.get('family_history', '')
+                if isinstance(fh, str) and fh:
+                    patient_context['family_history'] = [x.strip() for x in fh.split(',') if x.strip()]
+                elif isinstance(fh, list):
+                    patient_context['family_history'] = fh
+            rag_result = await get_medical_evidence_from_rag(
+                query_engine=query_engine,
+                patient_context=patient_context,
+                concerns=selected_concerns
+            )
+            rag_evidence_context = rag_result.get("context_text", "")
+            structured_evidences = rag_result.get("structured_evidences", [])
+    except Exception as e:
+        logger.warning(f"[STEP1] RAG search failed (continuing without): {e}")
+
+    # RAG 에비던스를 프롬프트에 포함
+    rag_section = ""
+    if rag_evidence_context:
+        rag_section = f"\n# Critical Evidence (RAG 근거 — 인용 시 번호 표기)\n{rag_evidence_context}\n"
+
     # ==========================================
     # 10. 프롬프트 조합 (Phase 4: System Message 분리로 최적화)
     # ==========================================
@@ -413,7 +449,7 @@ def create_step1_prompt(
 {health_data_section}
 {prescription_section}
 {national_checkup_section}
-
+{rag_section}
 **System Message의 Analysis Guidelines를 참고하여 분석하십시오.**
 
 # Output Format (JSON)
@@ -477,13 +513,15 @@ def create_step1_prompt(
     "메시지 3: 설계 방향 예고 (안심/기대감 부여)"
   ],
   
-  "basic_checkup_guide": {{
-    "title": "일반검진, 이 부분은 잘 보세요",
-    "description": "일반검진 결과지를 확인하실 때, [환자명]님 상황에서는 아래 항목들을 특히 잘 살펴보시길 바랍니다.",
+  "priority_1": {{
+    "title": "이번 검진 시 유의 깊게 보실 항목이에요",
+    "description": "일반검진 결과지를 확인하실 때, {patient_name}님 상황에서는 아래 항목들을 특히 잘 살펴보시길 바랍니다.",
+    "items": ["항목1", "항목2"],
+    "count": 2,
     "focus_items": [
       {{
-        "item_name": "항목명 (기본 검진 항목)",
-        "why_important": "왜 중요한지 설명 (과거 검진 + 문진 + 선택 항목 맥락)",
+        "name": "항목명 (기본 검진 항목)",
+        "why_important": "왜 중요한지 설명 (Critical Evidence 인용 포함, [1] 형태)",
         "check_point": "확인 포인트 설명"
       }}
     ]
@@ -494,9 +532,7 @@ def create_step1_prompt(
 
 **System Message의 OUTPUT RULES를 참고하여 작성하세요.**
 - analysis & risk_profile: System Message의 risk_profile 작성 규칙 적용
-- basic_checkup_guide: 기본 검진 항목 중에서 주의 깊게 봐야 할 항목 식별 (hospital_national_checkup에 포함된 항목만)
-
-**검진 항목 추천은 포함하지 마세요. 분석만 수행하세요.**
+- priority_1: 기본 검진 항목 중 1-3개 최우선 주의 항목 식별 (RAG Critical Evidence 인용 필수)
 
 **중요: 반드시 딕셔너리(객체) 형태의 JSON 형식으로만 응답하세요.**
 예: {{"patient_summary": "...", "analysis": "...", ...}} 형태
@@ -505,5 +541,7 @@ def create_step1_prompt(
     
     return {
         "prompt": prompt,
-        "persona_result": persona_result
+        "persona_result": persona_result,
+        "structured_evidences": structured_evidences,
+        "rag_evidence_context": rag_evidence_context,
     }

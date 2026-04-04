@@ -228,7 +228,7 @@ async def _run_step1(
     patient_gender = patient.get("gender", "M") if patient else "M"
 
     # 프롬프트 생성
-    prompt_result = create_checkup_design_prompt_step1(
+    prompt_result = await create_checkup_design_prompt_step1(
         patient_name=patient_name,
         patient_age=patient_age,
         patient_gender=patient_gender,
