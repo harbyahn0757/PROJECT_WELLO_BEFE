@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { mapCheckupToHealthState, mapCheckupToZoneMetrics } from '../../components/character3d'
 import type { PartnerData, ZoneMetric } from '../../components/character3d'
+import type { RenderMode } from '../../components/character3d/HealthCharacterModel'
 import './styles.scss'
 
 const HealthCharacterScene = lazy(() => import('../../components/character3d/HealthCharacterScene'))
@@ -83,6 +84,12 @@ export default function EmbedCharacterPage() {
     return undefined  // cam 없으면 전환 안 함
   })()
 
+  // 렌더 모드 — URL param ?mode=flat|realistic (기본값: realistic)
+  const renderMode: RenderMode = (() => {
+    const m = new URLSearchParams(window.location.search).get('mode')
+    return m === 'flat' ? 'flat' : 'realistic'
+  })()
+
   // 터치 모달: 인디케이터 터치 시 해당 zone 모달 표시
   const [selectedZone, setSelectedZone] = useState<number | null>(null)
   const modalOpenTime = React.useRef(0)
@@ -120,6 +127,7 @@ export default function EmbedCharacterPage() {
           zoneMetrics={zoneMetrics}
           enableRotation={true}
           cameraTarget={camTarget}
+          renderMode={renderMode}
           onZoneClick={readyForTouch ? (metric) => {
             const idx = zoneMetrics.findIndex(m => m.zone === metric.zone && m.y === metric.y)
             openModal(selectedZone === idx ? null : idx)

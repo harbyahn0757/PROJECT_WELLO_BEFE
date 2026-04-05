@@ -37,12 +37,15 @@ export interface CameraTarget {
   lookY: number  // lookAt y좌표
 }
 
+export type RenderMode = 'realistic' | 'flat'
+
 interface CharacterModelProps {
   onIntroComplete?: () => void
   healthState?: HealthCharacterState
   zoneMetrics?: ZoneMetric[]
   onZoneClick?: (metric: ZoneMetric) => void
   cameraTarget?: CameraTarget
+  renderMode?: RenderMode
 }
 
 type BodyZone = 'head' | 'face' | 'body' | 'side' | 'lower'
@@ -140,7 +143,7 @@ function getMoodExpression(mood?: CharacterMood): Record<string, number> {
 }
 
 // ===== COMPONENT =====
-export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics, onZoneClick, cameraTarget }: CharacterModelProps) {
+export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics, onZoneClick, cameraTarget, renderMode = 'realistic' }: CharacterModelProps) {
   const group = useRef<THREE.Group>(null)
   const { scene } = useGLTF('/models/kindhabit_character.glb')
   const characterScene = useMemo(() => scene, [scene])
@@ -249,13 +252,27 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       if (child instanceof THREE.Mesh) {
         const mat = child.material as THREE.MeshStandardMaterial
         if (mat?.isMeshStandardMaterial) {
-          mat.color.set(0xffffff)
-          if (mat.map) mat.emissiveMap = mat.map
-          mat.emissive.set(0xffffff)
-          mat.emissiveIntensity = 0.85
-          mat.roughness = 0.9
-          mat.metalness = 0.0
-          mat.needsUpdate = true
+          if (renderMode === 'flat') {
+            // flat 모드: MeshBasicMaterial로 교체 — 조명 무시, 음영 없음
+            const basicMat = new THREE.MeshBasicMaterial({
+              color: 0xffffff,
+              map: mat.map || null,
+              transparent: mat.transparent,
+              opacity: mat.opacity,
+              side: mat.side,
+            })
+            child.material = basicMat
+            basicMat.needsUpdate = true
+          } else {
+            // realistic 모드: 기존 emissive 설정 유지
+            mat.color.set(0xffffff)
+            if (mat.map) mat.emissiveMap = mat.map
+            mat.emissive.set(0xffffff)
+            mat.emissiveIntensity = 0.85
+            mat.roughness = 0.9
+            mat.metalness = 0.0
+            mat.needsUpdate = true
+          }
         }
         // Detect morph targets (Shape Keys)
         if (child.morphTargetDictionary && child.morphTargetInfluences) {
@@ -271,7 +288,7 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
         }
       }
     })
-  }, [characterScene])
+  }, [characterScene, renderMode])
 
   // ===== TOUCH HANDLER =====
   const handlePointerDown = useCallback((e: ThreeEvent<PointerEvent>) => {
