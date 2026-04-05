@@ -1214,8 +1214,8 @@ export function HealthCharacterModel({ onIntroComplete, onScanComplete, healthSt
     if (scanTimer.current >= 0) {
       scanTimer.current += dt
       const st = scanTimer.current
-      const DOWN_DUR = 5.0   // 내려가기
-      const UP_DUR = 2.0     // 올라오기
+      const DOWN_DUR = 3.0   // 내려가기
+      const UP_DUR = 1.5     // 올라오기
       const TOTAL = DOWN_DUR + UP_DUR
       const TOP_Y = 0.68     // 머리 꼭대기
       const BOT_Y = -0.35   // 발목까지
