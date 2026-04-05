@@ -114,7 +114,9 @@ async def warmup_partner_session(
             "session_id": session_id,
             "greeting": result.get("greeting"),
             "chat_greeting": result.get("chat_greeting"),
-            "has_data": result.get("has_data", False)
+            "has_data": result.get("has_data", False),
+            "is_returning": result.get("is_returning", False),
+            "previous_message_count": result.get("previous_message_count", 0)
         }
         
     except Exception as e:

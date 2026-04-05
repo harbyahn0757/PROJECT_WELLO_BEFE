@@ -129,6 +129,11 @@ interface ChatDetail {
   engagement_score?: number;
   action_intent?: string;
   nutrition_tags?: string[];
+  suggested_revisit_messages?: {
+    care_message?: string;
+    action_message?: string;
+    info_message?: string;
+  };
 }
 
 const EmbeddingPage: React.FC = () => {
@@ -164,7 +169,7 @@ const EmbeddingPage: React.FC = () => {
   // settingsTab removed - now using split panel layout
   const [viewAllChats, setViewAllChats] = useState(false);
   const [allChatSessions, setAllChatSessions] = useState<ChatSession[]>([]);
-  const [chatDetailTab, setChatDetailTab] = useState<'conversation' | 'health' | 'tags'>('conversation');
+  const [chatDetailTab, setChatDetailTab] = useState<'tags' | 'revisit' | 'conversation' | 'health'>('tags');
   const [excelExporting, setExcelExporting] = useState(false);
   const [summaryCounts, setSummaryCounts] = useState<{new_chats: number; new_surveys: number}>({new_chats: 0, new_surveys: 0});
 
@@ -364,7 +369,7 @@ const EmbeddingPage: React.FC = () => {
       const res = await fetch(`${API_BASE}/chats/${sessionId}`);
       if (res.ok) {
         setSelectedChat(await res.json());
-        setChatDetailTab('conversation');
+        setChatDetailTab('tags');
       }
     } catch (err) {
       console.error('대화 상세 조회 실패:', err);
@@ -871,6 +876,38 @@ const EmbeddingPage: React.FC = () => {
         </div>
       );
     }
+    if (chatDetailTab === 'revisit') {
+      return (
+        <div className="revisit-messages">
+          {chat.suggested_revisit_messages ? (
+            <>
+              <div className="revisit-msg care">
+                <div className="revisit-label">케어 메시지</div>
+                <div className="revisit-content">{chat.suggested_revisit_messages.care_message || '미생성'}</div>
+              </div>
+              <div className="revisit-msg action">
+                <div className="revisit-label">행동 유도</div>
+                <div className="revisit-content">{chat.suggested_revisit_messages.action_message || '미생성'}</div>
+              </div>
+              <div className="revisit-msg info">
+                <div className="revisit-label">정보 제공</div>
+                <div className="revisit-content">{chat.suggested_revisit_messages.info_message || '미생성'}</div>
+              </div>
+            </>
+          ) : (
+            <div className="admin-embedding-page__empty-chat">추천 메시지가 아직 생성되지 않았습니다</div>
+          )}
+          {chat.counselor_recommendations && chat.counselor_recommendations.length > 0 && (
+            <div className="revisit-msg counselor">
+              <div className="revisit-label">상담사 권고</div>
+              <div className="revisit-content">
+                {chat.counselor_recommendations.map((r: string, i: number) => <div key={i}>• {r}</div>)}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
     // tags tab
     const sentimentLabel: Record<string, string> = {
       positive: '긍정', negative: '부정', neutral: '중립',
@@ -1102,9 +1139,10 @@ const EmbeddingPage: React.FC = () => {
                     <h3 className="admin-embedding-page__card-title">대화 상세</h3>
                     {selectedChat && (
                       <div className="chat-detail-tabs">
+                        <button className={chatDetailTab === 'tags' ? 'active' : ''} onClick={() => setChatDetailTab('tags')}>태그/분석</button>
+                        <button className={chatDetailTab === 'revisit' ? 'active' : ''} onClick={() => setChatDetailTab('revisit')}>추천 메시지</button>
                         <button className={chatDetailTab === 'conversation' ? 'active' : ''} onClick={() => setChatDetailTab('conversation')}>대화 내역</button>
                         <button className={chatDetailTab === 'health' ? 'active' : ''} onClick={() => setChatDetailTab('health')}>검진 데이터</button>
-                        <button className={chatDetailTab === 'tags' ? 'active' : ''} onClick={() => setChatDetailTab('tags')}>태그/분석</button>
                       </div>
                     )}
                   </div>
@@ -1181,9 +1219,10 @@ const EmbeddingPage: React.FC = () => {
                     <h3 className="admin-embedding-page__card-title" style={{margin: 0}}>대화 상세</h3>
                     {selectedChat && (
                       <div className="chat-detail-tabs">
+                        <button className={chatDetailTab === 'tags' ? 'active' : ''} onClick={() => setChatDetailTab('tags')}>태그/분석</button>
+                        <button className={chatDetailTab === 'revisit' ? 'active' : ''} onClick={() => setChatDetailTab('revisit')}>추천 메시지</button>
                         <button className={chatDetailTab === 'conversation' ? 'active' : ''} onClick={() => setChatDetailTab('conversation')}>대화 내역</button>
                         <button className={chatDetailTab === 'health' ? 'active' : ''} onClick={() => setChatDetailTab('health')}>검진 데이터</button>
-                        <button className={chatDetailTab === 'tags' ? 'active' : ''} onClick={() => setChatDetailTab('tags')}>태그/분석</button>
                       </div>
                     )}
                   </div>

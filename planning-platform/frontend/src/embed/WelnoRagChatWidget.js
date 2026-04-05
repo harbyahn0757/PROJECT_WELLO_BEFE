@@ -2301,6 +2301,13 @@ class WelnoRagChatWidget {
           this.elements.badge.classList.add('visible');
         }
 
+        // 재접속 시 이전 대화 히스토리 상태 저장
+        if (data.is_returning && data.previous_message_count > 0) {
+          console.info('[WelnoRagChatWidget] 재접속 감지: 이전 대화 ' + data.previous_message_count + '건');
+          this.state.isReturning = true;
+          this.state.previousMessageCount = data.previous_message_count;
+        }
+
         // 채팅 내부 첫 메시지: 저장해두고 open() 시 타이핑 재생
         var chatGreeting = data.data_science_greeting || data.chat_greeting || data.greeting || this.config.welcomeMessage;
         this._pendingGreeting = chatGreeting;

@@ -45,8 +45,8 @@ class ChatSessionManager:
         
         # 리스트에 추가 (오른쪽 추가)
         self.redis_client.rpush(key, json.dumps(message, ensure_ascii=False))
-        # 1시간 TTL 설정 (상담 세션 유지 시간)
-        self.redis_client.expire(key, 3600)
+        # 24시간 TTL 설정 (재접속 시 이전 대화 유지)
+        self.redis_client.expire(key, 86400)
     
     def get_history(self, uuid: str, hospital_id: str, partner_id: str = "welno") -> List[Dict[str, Any]]:
         """전체 히스토리 조회"""

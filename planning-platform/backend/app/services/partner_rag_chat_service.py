@@ -684,14 +684,37 @@ class PartnerRagChatService(WelnoRagChatService):
             # 3. 데이터 유형 분류 (정상인/이상소견/추이)
             data_type = self._classify_data_type(processed_data)
 
-            # 4. 후킹 인사말 + 채팅 인사말 통합 생성 (맥락 연결)
-            # 정상인: 쌍 템플릿에서 즉시 반환, 이상소견: 단일 모델 호출로 동시 생성
+            # 4. 재접속 감지: 같은 uuid+hospital의 이전 대화가 있는지 확인
+            is_returning = False
+            previous_message_count = 0
+            previous_topics = []
+            if self.chat_manager and self.chat_manager.redis_client:
+                try:
+                    history_key = f"welno:chat:history:{partner_info.partner_id}:{uuid}:{hospital_id}"
+                    history_len = self.chat_manager.redis_client.llen(history_key)
+                    if history_len > 0:
+                        is_returning = True
+                        previous_message_count = history_len
+                        # 마지막 대화에서 주제 추출 (최근 2개)
+                        recent = self.chat_manager.redis_client.lrange(history_key, -2, -1)
+                        for item in recent:
+                            try:
+                                msg = json.loads(item)
+                                if msg.get('role') == 'user':
+                                    previous_topics.append(msg.get('content', '')[:30])
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+
+            # 5. 후킹 인사말 + 채팅 인사말 통합 생성 (맥락 연결)
+            # 재접속: 재방문 인사말 우선 / 정상인: 쌍 템플릿에서 즉시 반환, 이상소견: 단일 모델 호출로 동시 생성
             hook_greeting, data_science_greeting = await self._generate_greetings(
-                partner_info, processed_data
+                partner_info, processed_data, is_returning=is_returning, previous_topics=previous_topics
             )
             abnormal_items = self._scan_all_abnormals(processed_data.get("health_metrics", {}))
 
-            # 5. 수치 데이터 유무 판별 (0건 감지)
+            # 6. 수치 데이터 유무 판별 (0건 감지)
             metrics = processed_data.get("health_metrics", {})
             numeric_fields = ["height", "weight", "bmi", "systolic_bp", "diastolic_bp",
                               "fasting_glucose", "total_cholesterol", "hemoglobin", "sgot_ast", "sgpt_alt"]
@@ -700,7 +723,7 @@ class PartnerRagChatService(WelnoRagChatService):
                 for f in numeric_fields
             )
 
-            # 6. 인사말 + 메타정보를 Redis에 저장 (대화 로그 첫 행에 포함시키기 위해)
+            # 7. 인사말 + 메타정보를 Redis에 저장 (대화 로그 첫 행에 포함시키기 위해)
             if self.redis_client:
                 greeting_data = {
                     "hook_greeting": hook_greeting,
@@ -718,7 +741,7 @@ class PartnerRagChatService(WelnoRagChatService):
                 f"hook={hook_greeting[:40]}..., greeting={data_science_greeting[:40]}..."
             )
 
-            # 6. 백그라운드 프리페치 비활성화
+            # 8. 백그라운드 프리페치 비활성화
             # NOTE: _preload_rag_context_background의 system_instruction이 실제 채팅의
             # system_instruction(상세 규칙+환자데이터)과 다른데 같은 session_id cache_key를 사용하여
             # 프리페치 성공 시 채팅이 간략한 프롬프트로 동작하는 버그가 있음. Phase 3에서 재설계 예정.
@@ -732,9 +755,11 @@ class PartnerRagChatService(WelnoRagChatService):
                 "data_type": data_type,
                 "has_data": processed_data.get("has_data", False),
                 "session_id": session_id,
+                "is_returning": is_returning,
+                "previous_message_count": previous_message_count,
             }
 
-            # 7. Redis에 warmup 결과 캐시 (1시간, 같은 환자 재호출 시 Gemini 스킵)
+            # 9. Redis에 warmup 결과 캐시 (1시간, 같은 환자 재호출 시 Gemini 스킵)
             if self.redis_client:
                 try:
                     import json as _json
@@ -773,6 +798,8 @@ class PartnerRagChatService(WelnoRagChatService):
         self,
         partner_info: PartnerAuthInfo,
         processed_data: Dict[str, Any],
+        is_returning: bool = False,
+        previous_topics: Optional[List[str]] = None,
     ) -> tuple:
         """후킹 메시지 + 채팅 인사말을 한 번에 생성 (맥락 연결)
         Returns: (hook_greeting, chat_greeting)
@@ -788,6 +815,16 @@ class PartnerRagChatService(WelnoRagChatService):
         abnormal_items = self._scan_all_abnormals(metrics)
         concern_count = len(abnormal_items)
         data_type = self._classify_data_type(processed_data)
+
+        # 재접속: 정상인/이상소견 관계없이 재방문 인사말 우선
+        if is_returning:
+            topic_hint = previous_topics[0] if previous_topics else ""
+            hook = f"{name}님, 다시 오셨네요! 😊"
+            if topic_hint:
+                greeting = f"{name}님, 반가워요! 이전에 말씀하신 내용 이어서 살펴볼까요? 궁금한 점이 있으시면 편하게 물어보세요 🩺"
+            else:
+                greeting = f"{name}님, 다시 찾아주셨네요! 이전 대화를 이어갈 수도 있고, 새로운 궁금한 점을 물어보셔도 좋아요 😊"
+            return (hook, greeting)
 
         # 정상인: 쌍 템플릿에서 랜덤 선택 (모델 호출 없음)
         if concern_count == 0:

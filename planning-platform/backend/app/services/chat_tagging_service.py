@@ -1336,6 +1336,24 @@ async def tag_chat_session(
 
             conversation_depth = llm_result.get("conversation_depth", "shallow")
             engagement_score = llm_result.get("engagement_score", 0)
+
+            # 재방문 보너스: 같은 uuid의 이전 세션 수만큼 engagement 가점 (최대 +30)
+            try:
+                from ..core.database import db_manager
+                _user_uuid = context.get("user_uuid")
+                _hospital_id = context.get("hospital_id")
+                if _user_uuid and _hospital_id:
+                    prev_result = await db_manager.execute_query(
+                        "SELECT COUNT(*) as cnt FROM welno.tb_partner_rag_chat_log "
+                        "WHERE user_uuid = %s AND hospital_id = %s AND session_id != %s",
+                        (_user_uuid, _hospital_id, session_id),
+                    )
+                    prev_count = prev_result[0]["cnt"] if prev_result else 0
+                    revisit_bonus = min(int(prev_count) * 10, 30)
+                    engagement_score = min(engagement_score + revisit_bonus, 100)
+            except Exception:
+                pass  # DB 조회 실패해도 기존 점수 유지
+
             action_intent = llm_result.get("action_intent", "passive")
             nutrition_tags = llm_result.get("nutrition_interests", [])
             # 규칙 기반 nutrition_tags도 병합
