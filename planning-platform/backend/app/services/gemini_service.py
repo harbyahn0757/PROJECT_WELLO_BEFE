@@ -37,7 +37,7 @@ class GeminiService:
 
     MAX_CHAT_SESSIONS = 20  # 채팅 세션 캐시 상한
     MAX_CONTENT_CACHES = 10  # CachedContent 상한
-    MAX_CONCURRENT_CALLS = 2  # 동시 Gemini API 호출 상한 (warmup/tagging quota 경합 방지)
+    MAX_CONCURRENT_CALLS = 10  # 동시 Gemini API 호출 상한 (시연회 10명 동시 대응)
 
     SAFETY_SETTINGS = [
         types.SafetySetting(category="HARM_CATEGORY_HARASSMENT", threshold="BLOCK_NONE"),
