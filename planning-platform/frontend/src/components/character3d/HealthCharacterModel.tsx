@@ -41,6 +41,7 @@ export type RenderMode = 'realistic' | 'flat'
 
 interface CharacterModelProps {
   onIntroComplete?: () => void
+  onScanComplete?: () => void
   healthState?: HealthCharacterState
   zoneMetrics?: ZoneMetric[]
   onZoneClick?: (metric: ZoneMetric) => void
@@ -143,7 +144,7 @@ function getMoodExpression(mood?: CharacterMood): Record<string, number> {
 }
 
 // ===== COMPONENT =====
-export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics, onZoneClick, cameraTarget, renderMode = 'realistic' }: CharacterModelProps) {
+export function HealthCharacterModel({ onIntroComplete, onScanComplete, healthState, zoneMetrics, onZoneClick, cameraTarget, renderMode = 'realistic' }: CharacterModelProps) {
   const group = useRef<THREE.Group>(null)
   const { scene } = useGLTF('/models/kindhabit_character.glb', true)
   const characterScene = useMemo(() => scene, [scene])
@@ -1267,6 +1268,7 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
       } else {
         scanTimer.current = -1
         scanUpY.current = 999
+        onScanComplete?.()
         if (cameraTarget) {
           cameraTransition.current = true
           cameraTransTimer.current = 0

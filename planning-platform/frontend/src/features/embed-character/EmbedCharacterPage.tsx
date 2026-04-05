@@ -136,6 +136,9 @@ export default function EmbedCharacterPage() {
             setIntroComplete(true)
             window.parent.postMessage({ type: 'WELNO_INTRO_COMPLETE' }, '*')
           }}
+          onScanComplete={() => {
+            window.parent.postMessage({ type: 'WELNO_SCAN_COMPLETE' }, '*')
+          }}
           healthState={healthState}
           zoneMetrics={zoneMetrics}
           enableRotation={true}

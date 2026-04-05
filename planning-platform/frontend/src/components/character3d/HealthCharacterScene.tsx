@@ -10,6 +10,7 @@ interface CharacterSceneProps {
   height?: string
   backgroundColor?: string
   onIntroComplete?: () => void
+  onScanComplete?: () => void
   onZoneClick?: (metric: ZoneMetric) => void
   healthState?: HealthCharacterState
   zoneMetrics?: ZoneMetric[]
@@ -67,6 +68,7 @@ export default function HealthCharacterScene({
   height = '400px',
   backgroundColor = 'transparent',
   onIntroComplete,
+  onScanComplete,
   onZoneClick,
   healthState,
   zoneMetrics,
@@ -95,6 +97,7 @@ export default function HealthCharacterScene({
         <Suspense fallback={null}>
           <HealthCharacterModel
             onIntroComplete={onIntroComplete}
+            onScanComplete={onScanComplete}
             healthState={healthState}
             zoneMetrics={zoneMetrics}
             onZoneClick={onZoneClick}
