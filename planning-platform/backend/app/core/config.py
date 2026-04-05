@@ -118,9 +118,9 @@ class Settings(BaseSettings):
     
     # Google Gemini 설정 (RAG용)
     google_gemini_api_key: str = Field(default="dev-gemini-key", env="GOOGLE_GEMINI_API_KEY")
-    google_gemini_fast_model: str = Field(default="gemini-3-flash-preview", env="GOOGLE_GEMINI_FAST_MODEL")  # STEP 1용 빠른 모델
-    google_gemini_model: str = Field(default="gemini-3-flash-preview", env="GOOGLE_GEMINI_MODEL")  # STEP 2용 강력한 모델
-    google_gemini_lite_model: str = Field(default="gemini-2.0-flash-lite", env="GOOGLE_GEMINI_LITE_MODEL")  # 태깅용 경량 모델
+    google_gemini_fast_model: str = Field(default="gemini-3-flash-preview", env="GOOGLE_GEMINI_FAST_MODEL")  # 채팅 응답 생성 (flash-lite도 가능하나 프롬프트 축소 필요)
+    google_gemini_model: str = Field(default="gemini-3-flash-preview", env="GOOGLE_GEMINI_MODEL")  # 검진설계 STEP 2 등 고품질 태스크
+    google_gemini_lite_model: str = Field(default="gemini-2.5-flash-lite", env="GOOGLE_GEMINI_LITE_MODEL")  # 태깅/분류 경량 태스크
     
     # Perplexity 설정
     perplexity_api_key: str = Field(default="dev-perplexity-key", env="PERPLEXITY_API_KEY")

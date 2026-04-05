@@ -540,10 +540,41 @@ class PartnerRagChatService(WelnoRagChatService):
                 context_parts.append("⚠️ 이 환자의 검진 데이터가 수신되지 않았습니다. "
                                    "일반론 대신 '검진 결과를 모두 불러오지 못했어요. 결과지를 검진기관에 요청해 보시면 좋겠어요 😊' 형태로 응답하세요.")
             else:
-                context_parts.append("📊 건강 지표:")
+                METRIC_LABELS = {
+                    "height": "키", "weight": "체중", "bmi": "BMI",
+                    "systolic_bp": "수축기 혈압", "diastolic_bp": "이완기 혈압",
+                    "fasting_glucose": "공복혈당", "hemoglobin": "헤모글로빈",
+                    "total_cholesterol": "총콜레스테롤", "hdl_cholesterol": "HDL",
+                    "ldl_cholesterol": "LDL", "triglycerides": "중성지방",
+                    "sgot_ast": "AST(SGOT)", "sgpt_alt": "ALT(SGPT)",
+                    "gamma_gtp": "감마GTP", "creatinine": "크레아티닌", "gfr": "GFR",
+                }
+                METRIC_UNITS = {
+                    "systolic_bp": "mmHg", "diastolic_bp": "mmHg",
+                    "fasting_glucose": "mg/dL", "hemoglobin": "g/dL",
+                    "total_cholesterol": "mg/dL", "hdl_cholesterol": "mg/dL",
+                    "ldl_cholesterol": "mg/dL", "triglycerides": "mg/dL",
+                    "sgot_ast": "U/L", "sgpt_alt": "U/L", "gamma_gtp": "U/L",
+                    "creatinine": "mg/dL", "gfr": "mL/min",
+                    "height": "cm", "weight": "kg",
+                }
+                abnormal_lines = []
+                normal_lines = []
                 for key, value in health_metrics.items():
-                    if value:
-                        context_parts.append(f"  - {key}: {value}")
+                    if not value or key.endswith("_abnormal") or key.endswith("_range") or key in ("exam_date", "checkup_date"):
+                        continue
+                    label = METRIC_LABELS.get(key, key)
+                    unit = METRIC_UNITS.get(key, "")
+                    ab_val = health_metrics.get(f"{key}_abnormal", "")
+                    if ab_val and ab_val != "정상":
+                        abnormal_lines.append(f"  ⚠️ {label}: {value}{unit} ({ab_val})")
+                    else:
+                        normal_lines.append(f"  ✅ {label}: {value}{unit}")
+                if abnormal_lines:
+                    context_parts.append("📊 주의 필요 항목:")
+                    context_parts.extend(abnormal_lines)
+                if normal_lines:
+                    context_parts.append(f"✅ 정상 항목: {len(normal_lines)}개")
         else:
             context_parts.append("⚠️ 이 환자의 검진 데이터가 수신되지 않았습니다. "
                                "일반론 대신 '검진 결과를 모두 불러오지 못했어요. 결과지를 검진기관에 요청해 보시면 좋겠어요 😊' 형태로 응답하세요.")
@@ -653,19 +684,12 @@ class PartnerRagChatService(WelnoRagChatService):
             # 3. 데이터 유형 분류 (정상인/이상소견/추이)
             data_type = self._classify_data_type(processed_data)
 
-            # 4. 후킹 인사말 + 데이터사이언스 인사말 생성
-            # 정상인은 두 메서드 모두 템플릿(즉시 반환), 이상소견만 모델 호출
+            # 4. 후킹 인사말 + 채팅 인사말 통합 생성 (맥락 연결)
+            # 정상인: 쌍 템플릿에서 즉시 반환, 이상소견: 단일 모델 호출로 동시 생성
+            hook_greeting, data_science_greeting = await self._generate_greetings(
+                partner_info, processed_data
+            )
             abnormal_items = self._scan_all_abnormals(processed_data.get("health_metrics", {}))
-            if len(abnormal_items) == 0:
-                # 정상인: 둘 다 템플릿이므로 병렬 불필요
-                hook_greeting = await self._generate_hook_greeting(partner_info, processed_data)
-                data_science_greeting = await self._generate_data_science_greeting(partner_info, processed_data)
-            else:
-                # 이상소견: 모델 호출이 포함되므로 병렬 생성
-                hook_greeting, data_science_greeting = await asyncio.gather(
-                    self._generate_hook_greeting(partner_info, processed_data),
-                    self._generate_data_science_greeting(partner_info, processed_data),
-                )
 
             # 5. 수치 데이터 유무 판별 (0건 감지)
             metrics = processed_data.get("health_metrics", {})
@@ -725,100 +749,131 @@ class PartnerRagChatService(WelnoRagChatService):
             logger.error(f"❌ [파트너 RAG] 웜업 처리 실패: {e}")
             return {"greeting": "안녕하세요! 건강 검진 결과에 대해 궁금한 점을 물어보세요.", "has_data": False}
 
-    # 정상인용 후킹 템플릿 (모델 호출 불필요)
-    NORMAL_HOOK_TEMPLATES = [
-        "{name}님, {hospital} 검진 결과 정리해 드렸어요! 😊",
-        "{hospital} 검진 결과 도착했어요, {name}님 확인해 보세요 ✨",
-        "{name}님! {hospital} 결과 깔끔하게 정리됐어요 📋",
-        "{name}님, {hospital} 검진 결과 한눈에 볼 수 있게 준비했어요 🎯",
+    # 정상인용 (hook, chat_greeting) 쌍 템플릿 — 맥락 연결 보장
+    NORMAL_GREETING_PAIRS = [
+        (
+            "{name}님, {hospital} 검진 결과 정리해 드렸어요! 😊",
+            "{name}님, {hospital} 검진 결과 살펴봤어요! 전반적으로 양호한데, 평소 궁금했던 건강 항목이 있으신가요? 😊",
+        ),
+        (
+            "{hospital} 검진 결과 도착했어요, {name}님 확인해 보세요 ✨",
+            "{name}님, {hospital} 결과 전체적으로 좋아요! 혹시 관심 있는 건강 주제가 있으세요? 🏥",
+        ),
+        (
+            "{name}님! {hospital} 결과 깔끔하게 정리됐어요 📋",
+            "{hospital} 검진 결과가 깔끔하게 나왔어요, {name}님! 더 알고 싶은 항목이 있으면 물어보세요 ✨",
+        ),
+        (
+            "{name}님, {hospital} 검진 결과 한눈에 볼 수 있게 준비했어요 🎯",
+            "{name}님, 검진 결과 전체적으로 양호해요! 어떤 부분이 궁금하세요? 😊",
+        ),
     ]
+
+    async def _generate_greetings(
+        self,
+        partner_info: PartnerAuthInfo,
+        processed_data: Dict[str, Any],
+    ) -> tuple:
+        """후킹 메시지 + 채팅 인사말을 한 번에 생성 (맥락 연결)
+        Returns: (hook_greeting, chat_greeting)
+        """
+        if not processed_data.get("has_data"):
+            fallback = "안녕하세요! 😊 건강검진 결과에 대해 궁금한 점을 물어보세요."
+            return (fallback, fallback)
+
+        patient_info = processed_data.get("patient_info", {})
+        name = patient_info.get("name", "고객")
+        hospital = processed_data.get("partner_hospital_name", "") or partner_info.partner_name or ""
+        metrics = processed_data.get("health_metrics", {})
+        abnormal_items = self._scan_all_abnormals(metrics)
+        concern_count = len(abnormal_items)
+        data_type = self._classify_data_type(processed_data)
+
+        # 정상인: 쌍 템플릿에서 랜덤 선택 (모델 호출 없음)
+        if concern_count == 0:
+            pair = random.choice(self.NORMAL_GREETING_PAIRS)
+            hook = pair[0].format(name=name, hospital=hospital)
+            greeting = pair[1].format(name=name, hospital=hospital)
+            return (hook, greeting)
+
+        # 이상소견: 단일 모델 호출로 hook + greeting 동시 생성
+        primary = abnormal_items[0]
+        age = patient_info.get("age")
+        age_group = f"{(age // 10) * 10}대" if age and isinstance(age, (int, float)) and age > 0 else ""
+        concern_summary = ", ".join(item["keyword"] for item in abnormal_items[:3])
+
+        # data_type에 따라 비교 지시 분기 (할루시네이션 방지)
+        if data_type == "with_trends":
+            context_hint = "지난 검진과 비교 가능합니다. 변화가 있다고만 암시하세요."
+            hook_example_extra = f'\n- 비교: "지난 검진과 달라진 부분을 발견했어요 📊"'
+            greeting_example_extra = f'\n- "지난 검진과 비교해서 달라진 부분이 있는데, 같이 확인해 볼까요? 📊"'
+        else:
+            context_hint = "이번 검진 결과 관점으로만 안내하세요. 지난 검진과 비교하는 표현 금지."
+            hook_example_extra = ""
+            greeting_example_extra = ""
+
+        from .gemini_service import gemini_service, GeminiRequest
+        prompt = f"""당신은 '{hospital}'의 건강 도우미입니다. {name}님 검진 결과를 안내합니다.
+
+[검진 데이터 — 내부 참고용, 수치 직접 노출 금지]
+- 확인 필요 항목: {concern_count}가지 ({concern_summary})
+- 가장 주요: {primary["keyword"]}
+{f"- 연령대: {age_group}" if age_group else ""}
+- 맥락: {context_hint}
+
+두 개의 메시지를 작성하세요:
+
+**후킹 메시지** (티저 말풍선):
+- 35~70자, 이모지 1개
+- 사용자가 "뭔데?" 하고 클릭하게 만드는 호기심 유발
+- 수치 직접 노출 금지, 항목 수/변화 여부 숫자는 OK
+- 참고: "{name}님, 확인할 항목이 {concern_count}가지 있어요 📋" / "{name}님, 한번 같이 들여다보면 좋을 게 있어요 🔍"{hook_example_extra}
+
+**채팅 인사말** (채팅창 첫 메시지):
+- 후킹 메시지의 자연스러운 연장
+- 2문장 이내, 이모지 1개
+- 마지막은 사용자가 답하게 되는 질문으로 마무리
+- 수치/항목명/진단명 직접 노출 금지
+- 참고: "{name}님, 결과에서 {concern_count}가지 같이 확인할 게 있어요. 어디부터 볼까요? 📋"{greeting_example_extra}
+
+형식 (반드시 이 형식으로):
+HOOK: (후킹 메시지)
+GREETING: (채팅 인사말)"""
+
+        try:
+            res = await gemini_service.call_api(
+                GeminiRequest(prompt=prompt, model=settings.google_gemini_fast_model, temperature=0.9),
+                save_log=False,
+            )
+            if res.success:
+                raw = res.content.strip()
+                hook_line = next((l for l in raw.splitlines() if l.startswith("HOOK:")), None)
+                greeting_line = next((l for l in raw.splitlines() if l.startswith("GREETING:")), None)
+                if hook_line and greeting_line:
+                    hook = hook_line[len("HOOK:"):].strip().replace('"', '')
+                    greeting = greeting_line[len("GREETING:"):].strip().replace('"', '')
+                    return (hook, greeting)
+        except Exception:
+            pass
+
+        # 폴백
+        hp = f"{hospital} " if hospital else ""
+        if concern_count >= 2:
+            hook_fb = f"{name}님, {hp}검진에서 확인할 항목이 {concern_count}가지 있어요 📋"
+            greeting_fb = f"{name}님, {hp}검진 결과에서 {concern_count}가지 같이 확인할 게 있어요. 어디부터 볼까요? 📋"
+        else:
+            hook_fb = f"{name}님, {hp}검진 결과에서 같이 볼 부분이 있어요 👀"
+            greeting_fb = f"{name}님, {hp}검진 결과에서 같이 확인해 보면 좋을 부분이 있어요. 어떤 항목부터 볼까요? 📋"
+        return (hook_fb, greeting_fb)
 
     async def _generate_hook_greeting(
         self,
         partner_info: PartnerAuthInfo,
         processed_data: Dict[str, Any]
     ) -> str:
-        """개인화된 후킹 인사말 생성 — 정상인은 템플릿, 이상소견은 모델"""
-
-        if not processed_data.get("has_data"):
-            return "안녕하세요! 😊 건강검진 결과에 대해 궁금한 점을 물어보세요."
-
-        patient_info = processed_data.get("patient_info", {})
-        name = patient_info.get("name", "고객")
-        hospital_name = processed_data.get("partner_hospital_name", "") or partner_info.partner_name or ""
-
-        # 전수 스캔: 모든 이상 항목 수집 (if-elif 단일 매칭 → 복수 수집)
-        metrics = processed_data.get("health_metrics", {})
-        abnormal_items = self._scan_all_abnormals(metrics)
-        concern_count = len(abnormal_items)
-        data_type = self._classify_data_type(processed_data)
-
-        # 정상인: 템플릿 즉시 반환 (모델 호출 불필요)
-        if concern_count == 0:
-            return random.choice(self.NORMAL_HOOK_TEMPLATES).format(
-                name=name, hospital=hospital_name
-            )
-
-        # 이상소견: 모델에 풍부한 소재 전달
-        primary = abnormal_items[0]
-
-        # 나이 그룹 추출
-        age = patient_info.get("age")
-        age_group = f"{(age // 10) * 10}대" if age and isinstance(age, (int, float)) and age > 0 else ""
-
-        # 이상 항목 요약 (모델이 뉘앙스를 잡을 수 있도록)
-        concern_summary = ", ".join(item["keyword"] for item in abnormal_items[:3])
-
-        tone_guide = {
-            "friendly": "가볍고 친근한 톤. 호기심을 자극하되 부담 없이.",
-            "curious": "살짝 의미심장한 톤. '한번 확인해 보시면 좋을 것 같아요' 느낌.",
-            "urgent": "관심을 끄는 톤이되 공포 유발 금지. '꼭 한번 살펴보세요' 느낌.",
-        }.get(primary["tone"], "가볍고 친근한 톤.")
-
-        from .gemini_service import gemini_service, GeminiRequest
-        prompt = f"""당신은 '{hospital_name}'에서 검진 결과를 안내하는 건강 도우미입니다.
-{name}님의 검진 결과를 분석했습니다.
-
-[소재 — 수치를 직접 노출하지 말고 뉘앙스만 잡으세요]
-- 확인이 필요한 항목: {concern_count}가지 ({concern_summary})
-- 가장 주요 항목: {primary["keyword"]}
-- 데이터 유형: {"지난 검진과 비교 가능" if data_type == "with_trends" else "이번 검진 결과"}
-{f"- 연령대: {age_group}" if age_group else ""}
-
-사용자가 "어? 뭔데?" 하고 궁금해서 반드시 클릭하게 만드는 후킹 메시지 1문장을 작성하세요.
-
-톤: {tone_guide}
-
-규칙:
-- 호기심과 궁금증을 유발하되 공포 유발 금지.
-- 의학적 진단·조언·경고 절대 금지.
-- 수치(mmHg, mg/dL 등)를 직접 말하지 마세요.
-- 항목 수, 변화 여부 등 숫자는 활용 가능합니다 (예: "3가지 확인할 게 있어요").
-- 친근한 존댓말. 이모지 1개.
-- 35~70자.
-
-다양한 패턴 참고:
-- 숫자: "{name}님, 확인할 항목이 {concern_count}가지 있어요 📋"
-- 비교: "지난 검진과 달라진 부분을 발견했어요 📊"
-- 발견: "{name}님, 한번 같이 들여다보면 좋을 게 있어요 🔍"
-- 정리: "{hospital_name} 결과 다 읽어봤어요, 정리해 드릴게요 ✨"
-- 호기심: "{name}님이 궁금해할 만한 게 딱 하나 있어요 👀"
-"""
-        try:
-            res = await gemini_service.call_api(
-                GeminiRequest(prompt=prompt, model=settings.google_gemini_fast_model, temperature=0.9),
-                save_log=False
-            )
-            if res.success:
-                raw = res.content.strip().replace('"', '')
-                return ' '.join(raw.split())
-        except Exception:
-            pass
-
-        # 폴백: 항목 수 기반 템플릿
-        if concern_count >= 2:
-            return f"{name}님, {hospital_name} 검진에서 확인할 항목이 {concern_count}가지 있어요 📋"
-        return f"{name}님, {hospital_name} 검진 결과에서 같이 볼 부분이 있어요 👀"
+        """[Deprecated] _generate_greetings()로 통합됨. 하위 호환 래퍼."""
+        hook, _ = await self._generate_greetings(partner_info, processed_data)
+        return hook
 
     @staticmethod
     def _scan_all_abnormals(metrics: Dict[str, Any]) -> List[Dict[str, str]]:
@@ -869,93 +924,14 @@ class PartnerRagChatService(WelnoRagChatService):
         else:
             return "no_abnormal"
 
-    # 정상인용 data_science 템플릿
-    NORMAL_DS_TEMPLATES = [
-        "{name}님, {hospital} 검진 결과 살펴봤어요! 전반적으로 양호한데, 평소 궁금했던 건강 항목이 있으신가요? 😊",
-        "{name}님, {hospital} 결과 전체적으로 좋아요! 혹시 관심 있는 건강 주제가 있으세요? 🏥",
-        "{hospital} 검진 결과가 깔끔하게 나왔어요, {name}님! 더 알고 싶은 항목이 있으면 물어보세요 ✨",
-    ]
-
     async def _generate_data_science_greeting(
         self,
         partner_info: PartnerAuthInfo,
         processed_data: Dict[str, Any],
     ) -> str:
-        """데이터사이언스 관점 인사이트 메시지 — 정상인은 템플릿, 이상소견은 모델"""
-        if not processed_data.get("has_data"):
-            return "안녕하세요! 😊 건강검진 결과에 대해 궁금한 점을 물어보세요."
-
-        patient_info = processed_data.get("patient_info", {})
-        name = patient_info.get("name", "고객")
-        metrics = processed_data.get("health_metrics", {})
-        hospital = processed_data.get("partner_hospital_name", "") or partner_info.partner_name or ""
-        data_type = self._classify_data_type(processed_data)
-        abnormal_items = self._scan_all_abnormals(metrics)
-        concern_count = len(abnormal_items)
-
-        # 정상인: 템플릿 즉시 반환 (concern_count 기준 — data_type은 _abnormal 필드 의존이라 불일치 가능)
-        if concern_count == 0:
-            return random.choice(self.NORMAL_DS_TEMPLATES).format(name=name, hospital=hospital)
-
-        # 이상소견/추이: 모델에 풍부한 소재 전달
-        concern_summary = ", ".join(item["keyword"] for item in abnormal_items[:3])
-
-        # 수치 요약 (모델이 뉘앙스를 잡되 직접 노출은 금지)
-        metric_lines = []
-        for label, key, unit in [
-            ("수축기혈압", "systolic_bp", "mmHg"), ("이완기혈압", "diastolic_bp", "mmHg"),
-            ("공복혈당", "fasting_glucose", "mg/dL"), ("총콜레스테롤", "total_cholesterol", "mg/dL"),
-            ("LDL", "ldl_cholesterol", "mg/dL"), ("HDL", "hdl_cholesterol", "mg/dL"),
-            ("AST", "sgot_ast", "U/L"), ("ALT", "sgpt_alt", "U/L"),
-            ("BMI", "bmi", ""), ("GFR", "gfr", "mL/min"),
-        ]:
-            v = metrics.get(key)
-            if v is not None:
-                metric_lines.append(f"- {label}: {v}{unit}")
-        metrics_summary = "\n".join(metric_lines) if metric_lines else "수치 없음"
-
-        strategy = {
-            "with_trends": f"지난 검진과 비교 가능합니다. 변화가 있다고만 암시하세요. 확인할 항목: {concern_count}가지 ({concern_summary}).",
-            "single_visit": f"확인이 필요한 항목이 {concern_count}가지 ({concern_summary}) 있습니다. 항목명이나 수치는 절대 말하지 마세요.",
-        }
-
-        from .gemini_service import gemini_service, GeminiRequest
-        prompt = f"""당신은 '{hospital}' 검진 결과를 읽어 드리는 건강 도우미입니다.
-{name}님의 검진 수치 (내부 참고용, 사용자에게 직접 노출 금지):
-{metrics_summary}
-
-대화 유도 전략: {strategy.get(data_type, strategy["single_visit"])}
-
-핵심 원칙 — "정보를 주지 말고, 궁금증을 만들어라":
-- 수치, 항목명, 진단명을 직접 말하지 마세요.
-- 항목 수, 변화 여부 같은 숫자는 활용 가능합니다.
-- 마지막은 반드시 사용자가 대답하게 되는 질문으로 끝내세요.
-- 2문장 이내. 이모지 1개. 존댓말.
-
-다양한 패턴 참고:
-- "{name}님, 검진 결과 살펴봤는데 {concern_count}가지 같이 확인할 게 있어요. 어디부터 볼까요? 📋"
-- "지난 검진과 비교해서 달라진 부분이 있는데, 같이 확인해 볼까요? 📊"
-- "전체적으로 나쁘진 않은데, 몇 가지 눈여겨볼 게 있어요. 궁금하신 것부터 말해주세요 😊"
-
-나쁜 예시 (절대 하지 말 것):
-- "혈압이 142mmHg로 높게 나왔어요" / "공복혈당이 기준치를 넘었습니다" / "콜레스테롤 관리가 필요합니다"
-"""
-        try:
-            res = await gemini_service.call_api(
-                GeminiRequest(prompt=prompt, model=settings.google_gemini_fast_model, temperature=0.9),
-                save_log=False,
-            )
-            if res.success:
-                raw = res.content.strip().replace('"', '')
-                return ' '.join(raw.split())
-        except Exception:
-            pass
-
-        # 폴백
-        hp = f"{hospital} " if hospital else ""
-        if concern_count >= 2:
-            return f"{name}님, {hp}검진 결과에서 {concern_count}가지 같이 확인할 게 있어요. 어떤 항목부터 볼까요? 📋"
-        return f"{name}님, {hp}검진 결과에서 같이 확인해 보면 좋을 부분이 있어요. 어떤 항목부터 볼까요? 📋"
+        """[Deprecated] _generate_greetings()로 통합됨. 하위 호환 래퍼."""
+        _, greeting = await self._generate_greetings(partner_info, processed_data)
+        return greeting
 
     async def _preload_rag_context_background(
         self, 

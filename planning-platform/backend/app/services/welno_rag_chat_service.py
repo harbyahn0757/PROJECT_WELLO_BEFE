@@ -665,7 +665,7 @@ class WelnoRagChatService:
                         stage_instruction = "**상담 단계**: 간략히 조언 후 '최근 걱정되거나 불편한 곳이 있는지' 질문하세요."
                         chat_stage = "normal"
                     else:
-                        stage_instruction = "추이, 패턴을 분석하되 '자세한 내용은 담당 의료진과 상담하시길 권해요 😊'로 안내하세요."
+                        stage_instruction = "핵심 이상 소견 위주로 간결하게 설명하되, '자세한 내용은 담당 의료진과 상담하시길 권해요'로 안내하세요. 정상 항목은 나열하지 마세요."
                         chat_stage = "normal"
                     if is_partner_session:
                         # 파트너 세션: data_type + 수치 유무 확인
