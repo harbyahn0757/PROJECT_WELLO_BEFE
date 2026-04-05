@@ -1439,6 +1439,14 @@ class WelnoRagChatWidget {
       }
     }
 
+    // 대기 중인 인사말 타이핑 재생 (warmup에서 저장된 greeting)
+    if (this._pendingGreeting) {
+      var greeting = this._pendingGreeting;
+      this._pendingGreeting = null;
+      // 채팅창 열림 애니메이션 후 타이핑 시작
+      setTimeout(() => this._showWelcomeText(greeting), 400);
+    }
+
     // 모바일: 배경 스크롤 방지
     if (window.innerWidth <= 480) {
       this._prevBodyOverflow = document.body.style.overflow;
@@ -2293,9 +2301,13 @@ class WelnoRagChatWidget {
           this.elements.badge.classList.add('visible');
         }
 
-        // 채팅 내부 첫 메시지: data_science_greeting (데이터 기반 인사이트)
+        // 채팅 내부 첫 메시지: 저장해두고 open() 시 타이핑 재생
         var chatGreeting = data.data_science_greeting || data.chat_greeting || data.greeting || this.config.welcomeMessage;
-        this._showWelcomeText(chatGreeting);
+        this._pendingGreeting = chatGreeting;
+        // 이미 열려있으면 바로 재생, 아니면 open() 에서 재생
+        if (this.state.isOpen) {
+          this._showWelcomeText(chatGreeting);
+        }
 
         // 후킹 메시지: hook_greeting으로 티저/버블 업데이트
         var hookGreeting = data.hook_greeting || data.greeting;
@@ -2324,7 +2336,10 @@ class WelnoRagChatWidget {
     } catch (error) {
       console.warn('[WelnoRagChatWidget] 웜업 실패:', error);
       // 실패 시 generic 인사말로 fallback
-      this._showWelcomeText(this.config.welcomeMessage);
+      this._pendingGreeting = this.config.welcomeMessage;
+      if (this.state.isOpen) {
+        this._showWelcomeText(this.config.welcomeMessage);
+      }
     }
   }
 
