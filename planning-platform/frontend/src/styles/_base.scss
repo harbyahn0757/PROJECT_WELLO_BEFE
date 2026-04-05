@@ -14,6 +14,7 @@ html {
   overflow-x: hidden !important; // 가로 스크롤 방지
   position: relative;
   background-color: $background-beige !important; // 배경색 강제 적용
+  &[data-bg-transparent] { background-color: transparent !important; background: transparent !important; }
   padding-bottom: 0 !important; // 하단 패딩 제거
   margin-bottom: 0 !important; // 하단 마진 제거
   border: none !important;
@@ -64,6 +65,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: $background-beige !important; // 배경색 강제 적용
+  html[data-bg-transparent] & { background-color: transparent !important; background: transparent !important; }
   color: $gray-800;
   line-height: 1.6;
   padding-bottom: 0 !important; // 하단 패딩 제거
@@ -133,6 +135,7 @@ button:not([type]) {
   margin-bottom: 0 !important; // 하단 마진 제거
   position: relative;
   background-color: $background-beige !important; // 배경색 강제 적용
+  html[data-bg-transparent] & { background-color: transparent !important; background: transparent !important; }
   overflow-x: hidden !important; // 가로 스크롤 방지
   border: none !important;
   border-bottom: none !important;

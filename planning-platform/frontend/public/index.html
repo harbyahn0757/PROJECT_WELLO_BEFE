@@ -10,12 +10,11 @@
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/welno_logo.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     <title>WELNO | 건강검진 플랫폼</title>
+    <script>if(location.search.indexOf('bg=transparent')!==-1){document.documentElement.dataset.bgTransparent='1'}</script>
   </head>
   <body style="margin: 0; padding: 0; overflow-x: hidden; border: none; border-bottom: none; outline: none;">
     <noscript>JavaScript를 활성화해야 WELNO 서비스를 이용할 수 있습니다.</noscript>
     <div id="root" style="margin: 0; padding: 0; border: none; border-bottom: none; outline: none;"></div>
-    <!-- embed 투명 배경: React 로드 전 즉시 적용 (베이지 깜빡임 방지) -->
-    <script>if(location.search.indexOf('bg=transparent')!==-1){var s='transparent !important';document.documentElement.style.cssText+='background-color:'+s+';background:'+s;document.body.style.cssText+='background-color:'+s+';background:'+s;document.getElementById('root').style.cssText+='background-color:'+s+';background:'+s;}</script>
     <!-- 보안 설정 스크립트 (React 로드 전 실행) -->
     <script>
       (function() {
