@@ -17,6 +17,14 @@ export default function EmbedCharacterPage() {
     fetch(`/welno-api/v1/character-log?${params}`).catch(() => {})
   }, [])
 
+  // embed 페이지에서 글로벌 베이지 배경 제거
+  useEffect(() => {
+    document.documentElement.style.setProperty('background-color', 'transparent', 'important')
+    document.body.style.setProperty('background-color', 'transparent', 'important')
+    document.documentElement.style.setProperty('background', 'transparent', 'important')
+    document.body.style.setProperty('background', 'transparent', 'important')
+  }, [])
+
   useEffect(() => {
     sendLog('iframe_loaded')
 
