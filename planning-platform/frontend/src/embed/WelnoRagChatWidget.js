@@ -2339,24 +2339,31 @@ class WelnoRagChatWidget {
     var normalized = raw.replace(/\s+/g, ' ').trim();
     var self = this;
 
+    // 공백 기준 word 단위 분리
+    var words = normalized.split(' ');
+    var wordIndex = 0;
+
     // dot 제거 → 빈 상태로 시작
     bubble.style.transition = 'opacity 0.2s ease';
     bubble.style.opacity = '0';
 
     setTimeout(function() {
       bubble.style.opacity = '1';
-      // 타이핑 효과: 25ms 간격
-      var shown = '';
+      // word 단위 타이핑: 60ms 간격 (SSE 스트리밍과 유사한 느낌)
       var cursor = '<span style="color:' + (self.config.buttonColor || '#A69B8F') + ';animation:cursorPulse 1s infinite">\u258C</span>';
       var timer = setInterval(function() {
-        if (shown.length < normalized.length) {
-          shown = normalized.slice(0, shown.length + 1);
+        if (wordIndex < words.length) {
+          wordIndex++;
+          var shown = words.slice(0, wordIndex).join(' ');
           bubble.innerHTML = self._renderMessageHtml(shown) + cursor;
+          // 자동 스크롤
+          var container = self.elements.messagesContainer;
+          if (container) container.scrollTop = container.scrollHeight;
         } else {
           clearInterval(timer);
           bubble.innerHTML = self._renderMessageHtml(normalized);
         }
-      }, 25);
+      }, 60);
     }, 300);
   }
 
