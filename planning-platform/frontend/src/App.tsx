@@ -630,7 +630,7 @@ const AppContent: React.FC = () => {
         onClose={handleCloseAppointmentModal}
       />
       
-      <NotificationContainer />
+      {!isIframe && <NotificationContainer />}
       {!isIframe && !location.pathname.includes('/campaigns/checkup-design') && <WelnoRagChatButton />}
       <DebugPanel />
     </div>
