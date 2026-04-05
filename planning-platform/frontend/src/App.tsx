@@ -623,7 +623,7 @@ const AppContent: React.FC = () => {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       
-      {(!isIframe || isCampaignIframe) && <FloatingButton onOpenAppointmentModal={handleOpenAppointmentModal} />}
+      {(!isIframe || isCampaignIframe) && !location.pathname.startsWith('/embed/') && <FloatingButton onOpenAppointmentModal={handleOpenAppointmentModal} />}
       
       <AppointmentModal 
         isOpen={isAppointmentModalOpen} 
