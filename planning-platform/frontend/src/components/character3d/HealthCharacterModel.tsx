@@ -145,7 +145,7 @@ function getMoodExpression(mood?: CharacterMood): Record<string, number> {
 // ===== COMPONENT =====
 export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics, onZoneClick, cameraTarget, renderMode = 'realistic' }: CharacterModelProps) {
   const group = useRef<THREE.Group>(null)
-  const { scene } = useGLTF('/models/kindhabit_character.glb')
+  const { scene } = useGLTF('/models/kindhabit_character.glb', true)
   const characterScene = useMemo(() => scene, [scene])
 
   // Bones
@@ -1458,4 +1458,4 @@ export function HealthCharacterModel({ onIntroComplete, healthState, zoneMetrics
   )
 }
 
-useGLTF.preload('/models/kindhabit_character.glb')
+useGLTF.preload('/models/kindhabit_character.glb', true)
