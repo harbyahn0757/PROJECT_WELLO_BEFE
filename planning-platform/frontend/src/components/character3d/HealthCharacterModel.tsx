@@ -1241,15 +1241,10 @@ export function HealthCharacterModel({ onIntroComplete, onScanComplete, healthSt
           ;(scanLineRef.current.material as THREE.MeshBasicMaterial).opacity = base * 0.9
         }
         if (scanGlowRef.current) {
-          scanGlowRef.current.visible = true
-          scanGlowRef.current.position.y = y
-          ;(scanGlowRef.current.material as THREE.MeshBasicMaterial).opacity = base * 0.25
+          scanGlowRef.current.visible = false
         }
         if (scanShimmerRef.current) {
-          scanShimmerRef.current.visible = true
-          scanShimmerRef.current.position.y = y
-          const beat = 0.3 + 0.5 * Math.sin(st * 12) * Math.sin(st * 5)
-          ;(scanShimmerRef.current.material as THREE.MeshBasicMaterial).opacity = base * Math.max(0, beat)
+          scanShimmerRef.current.visible = false
         }
         // 부르르 떨림
         if (head && y < 0.55 && y > 0.05) {
