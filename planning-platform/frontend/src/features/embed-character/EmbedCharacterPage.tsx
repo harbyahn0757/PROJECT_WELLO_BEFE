@@ -132,7 +132,10 @@ export default function EmbedCharacterPage() {
           width="100%"
           height="100%"
           backgroundColor="transparent"
-          onIntroComplete={() => setIntroComplete(true)}
+          onIntroComplete={() => {
+            setIntroComplete(true)
+            window.parent.postMessage({ type: 'WELNO_INTRO_COMPLETE' }, '*')
+          }}
           healthState={healthState}
           zoneMetrics={zoneMetrics}
           enableRotation={true}
