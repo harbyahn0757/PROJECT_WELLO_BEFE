@@ -1,3 +1,10 @@
+// embed/character iframe에서는 html/body 베이지 배경을 투명으로 오버라이드
+html:has(.embed-character),
+html:has(.embed-character) body {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
 .embed-character {
   position: fixed;
   inset: 0;
