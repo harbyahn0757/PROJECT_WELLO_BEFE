@@ -159,7 +159,7 @@ const RevisitPage: React.FC = () => {
 
   // 후보 변경 시 탭/채팅 데이터 리셋
   useEffect(() => {
-    setDetailTab('suggest');
+    setDetailTab('tags');
     setChatMessages([]);
     setSessionTags(null);
   }, [selectedId]);
