@@ -92,7 +92,7 @@ interface SessionTags {
   tagging_model: string | null;
 }
 
-type DetailTab = 'suggest' | 'chat' | 'health' | 'tags';
+type DetailTab = 'tags' | 'suggest' | 'chat' | 'health';
 
 const HEALTH_METRIC_LABELS: Record<string, string> = {
   height: '신장(cm)', weight: '체중(kg)', bmi: 'BMI',
@@ -130,7 +130,7 @@ const RevisitPage: React.FC = () => {
   type SortDir = 'asc' | 'desc';
   const [sortKey, setSortKey] = useState<SortKey | ''>('');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
-  const [detailTab, setDetailTab] = useState<DetailTab>('suggest');
+  const [detailTab, setDetailTab] = useState<DetailTab>('tags');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [sessionTags, setSessionTags] = useState<SessionTags | null>(null);
   const [chatLoading, setChatLoading] = useState(false);
@@ -585,6 +585,10 @@ const RevisitPage: React.FC = () => {
             <div className="revisit-page__detail-right">
               <div className="revisit-page__tabs">
                 <button
+                  className={`revisit-page__tab${detailTab === 'tags' ? ' revisit-page__tab--active' : ''}`}
+                  onClick={() => handleTabChange('tags')}
+                >태그/분석</button>
+                <button
                   className={`revisit-page__tab${detailTab === 'suggest' ? ' revisit-page__tab--active' : ''}`}
                   onClick={() => handleTabChange('suggest')}
                 >추천 메시지</button>
@@ -596,10 +600,6 @@ const RevisitPage: React.FC = () => {
                   className={`revisit-page__tab${detailTab === 'health' ? ' revisit-page__tab--active' : ''}`}
                   onClick={() => handleTabChange('health')}
                 >검진결과</button>
-                <button
-                  className={`revisit-page__tab${detailTab === 'tags' ? ' revisit-page__tab--active' : ''}`}
-                  onClick={() => handleTabChange('tags')}
-                >태그/분석</button>
               </div>
 
               {detailTab === 'suggest' && (
