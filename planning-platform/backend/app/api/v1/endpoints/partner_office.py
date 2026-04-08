@@ -1265,6 +1265,9 @@ async def revisit_candidates(req: RevisitCandidatesRequest):
     else:
         conditions.append("(t.follow_up_needed = true OR t.consultation_requested = true)")
 
+    # seed 테스트 데이터 제외 (session_id가 'seed_'로 시작하는 것)
+    conditions.append("c.session_id NOT LIKE 'seed_%%'")
+
     if req.hospital_id:
         conditions.append("c.hospital_id = %s")
         params.append(req.hospital_id)
