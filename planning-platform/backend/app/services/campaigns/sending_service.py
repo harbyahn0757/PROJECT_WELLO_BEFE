@@ -118,7 +118,11 @@ async def get_alimtalk_history(
     db_manager, campaign_id: str = None,
     phone: str = None, limit: int = 50,
 ) -> List[Dict]:
-    """알림톡 발송 이력 조회 — MZSENDLOG (완료) + MZSENDTRAN (대기)"""
+    """알림톡 발송 이력 조회 — MZSENDLOG (완료) + MZSENDTRAN (대기)
+
+    welno 백오피스 전용: TMPL_CD가 'welno' 또는 'welon' prefix인 것만 반환.
+    (다른 파트너 템플릿: ai_report_xog_aims, GOODRICH_*, dhub_mkt 등은 제외)
+    """
     mysql_conn = _connect_mysql()
     if not mysql_conn:
         return []
@@ -126,7 +130,8 @@ async def get_alimtalk_history(
     try:
         cur = mysql_conn.cursor(pymysql.cursors.DictCursor)
 
-        where = []
+        # welno/welon prefix 필터 기본 적용 (파트너 혼입 방지)
+        where = ["(TMPL_CD LIKE 'welno%%' OR TMPL_CD LIKE 'welon%%')"]
         params = []
 
         if phone:
@@ -136,7 +141,7 @@ async def get_alimtalk_history(
             where.append("SUBJECT LIKE %s")
             params.append(f"%{campaign_id}%")
 
-        where_clause = (" WHERE " + " AND ".join(where)) if where else ""
+        where_clause = " WHERE " + " AND ".join(where)
         params_log = list(params) + [limit]
         params_tran = list(params) + [limit]
 

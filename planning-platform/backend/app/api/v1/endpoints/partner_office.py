@@ -2243,11 +2243,18 @@ from ....services.campaigns import (
 
 @router.get("/alimtalk/templates")
 async def alimtalk_templates():
-    """알림톡 템플릿 목록 조회"""
+    """알림톡 템플릿 목록 조회 — welno/welon prefix만 (파트너 혼입 방지)"""
     ok, data = await get_kakao_templates(db_manager)
     if not ok:
         raise HTTPException(status_code=500, detail=data)
-    return {"success": True, "templates": data}
+
+    # welno 백오피스 전용: code가 welno/welon prefix인 것만
+    def _is_welno(tpl: Dict[str, Any]) -> bool:
+        code = (tpl.get("template_code") or tpl.get("code") or "").lower()
+        return code.startswith("welno") or code.startswith("welon")
+
+    filtered = [t for t in (data or []) if _is_welno(t)]
+    return {"success": True, "templates": filtered}
 
 
 @router.get("/alimtalk/templates/{template_code}/variables")
