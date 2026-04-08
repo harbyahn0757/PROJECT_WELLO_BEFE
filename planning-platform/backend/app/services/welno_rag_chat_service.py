@@ -921,6 +921,20 @@ class WelnoRagChatService:
                         trace_data["system_instruction_length"] = len(system_instruction)
                         trace_data["is_first_message"] = False
 
+                    # 멀티턴 지침: 후속 질문이면 이전 답변과 다른 각도로 답변하도록 강제
+                    # (chat_history가 LLM에 전달되더라도 system_instruction이 강해서
+                    #  같은 답변 반복하는 현상 방지 — 2026-04-08 hotfix)
+                    if chat_history and len(chat_history) >= 2:
+                        prompt = (
+                            prompt
+                            + "\n\n[멀티턴 응답 지침 — 반드시 준수]\n"
+                            + "- 위 chat_history(이전 대화)를 반드시 참고해서 답변하세요.\n"
+                            + "- 직전 답변을 그대로 반복하지 마세요. 사용자의 새 질문 의도에 맞춰 다른 각도로 답변하세요.\n"
+                            + "- 사용자가 '왜?', '병원 가야해?', '뭔데?' 같은 짧은 후속 질문을 하면\n"
+                            + "  직전 답변에 대한 추가 설명/근거/대안/구체적 행동 권유를 제시하세요.\n"
+                            + "- 같은 수치를 또 언급하지 말고, 다음 단계 조언이나 다른 관점을 제공하세요."
+                        )
+
                     gemini_req = GeminiRequest(prompt=prompt, model=settings.google_gemini_fast_model, system_instruction=system_instruction, chat_history=chat_history, temperature=0.7)
                 
                 # Gemini API 호출 타이밍
