@@ -361,11 +361,7 @@ const ConsultationPage: React.FC = () => {
 
   return (
     <div className="consultation-page">
-      <div className="consultation-page__header">
-        <h2>검진설계 상담</h2>
-        <span style={{ fontSize: 14, color: '#718096' }}>총 {total}건</span>
-      </div>
-
+      {/* 타이틀 제거 (2026-04-08): CheckupDesignManagementPage 탭으로 흡수돼서 중복 */}
       <div className="consultation-page__body">
         {/* ── 테이블 (검진결과 상담 스타일) ── */}
         <div className="consultation-page__list-panel">
