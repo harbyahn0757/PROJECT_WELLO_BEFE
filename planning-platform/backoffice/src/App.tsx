@@ -78,7 +78,8 @@ const App: React.FC = () => {
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="revisit" element={<RevisitPage />} />
             <Route path="checkup-design" element={<CheckupDesignManagementPage />} />
-            <Route path="consultation" element={<ConsultationPage />} />
+            {/* /consultation: CheckupDesignManagementPage로 통합됨 (2026-04-08). legacy 북마크 호환 redirect */}
+            <Route path="consultation" element={<Navigate to="/backoffice/checkup-design" replace />} />
           </Route>
 
           {/* 기본 리다이렉트 */}

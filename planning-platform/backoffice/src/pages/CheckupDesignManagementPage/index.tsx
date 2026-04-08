@@ -1,6 +1,7 @@
 /**
- * 백오피스 — 검진설계 관리 페이지
- * 3탭: 캠페인 관리 | 페르소나 분석 | 발송 이력
+ * 백오피스 — 검진설계 통합 페이지
+ * iframe 모드 (api_key 쿼리 있음): 3탭 (캠페인 관리 | 페르소나 분석 | 발송 이력) — 파트너사 호환
+ * 로그인 모드: 4탭 (상담 요청 | 캠페인 발송 | 페르소나 분석 | 발송 이력) — ConsultationPage 흡수
  */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -8,10 +9,11 @@ import { getApiBase, fetchWithAuth } from '../../utils/api';
 import { useEmbedParams } from '../../hooks/useEmbedParams';
 import AlimtalkPanel from './components/AlimtalkPanel';
 import HistoryTable from './components/HistoryTable';
+import ConsultationPage from '../ConsultationPage';
 import './styles.scss';
 import './styles/alimtalk.scss';
 
-type TabKey = 'campaign' | 'persona' | 'history';
+type TabKey = 'consultation' | 'campaign' | 'persona' | 'history';
 
 const API = getApiBase();
 
@@ -20,8 +22,11 @@ const CheckupDesignManagementPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const hospitalId = embedParams.hospitalId || searchParams.get('hospital_id') || '';
   const partnerId = embedParams.partnerId || searchParams.get('partner_id') || '';
+  // iframe 모드: api_key 쿼리 존재 → 상담 탭 숨김 (파트너사 기존 UI 유지)
+  const isEmbed = searchParams.has('api_key');
 
-  const [activeTab, setActiveTab] = useState<TabKey>('campaign');
+  // default tab: iframe은 campaign (기존 유지), 로그인 모드는 consultation (ConsultationPage가 메인)
+  const [activeTab, setActiveTab] = useState<TabKey>(isEmbed ? 'campaign' : 'consultation');
   const [loading, setLoading] = useState(false);
 
   // ── 페르소나 ──
@@ -74,6 +79,11 @@ const CheckupDesignManagementPage: React.FC = () => {
 
   // ── 데이터 로드 ──
   const load = useCallback(async (tab: TabKey) => {
+    // consultation 탭은 ConsultationPage가 자체 로드 관리 → skip
+    if (tab === 'consultation') {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const filters: any = {};
@@ -158,17 +168,24 @@ const CheckupDesignManagementPage: React.FC = () => {
 
   const totalDesigns = distribution.reduce((s, d) => s + d.count, 0);
 
+  // iframe 모드: 3탭 (기존 호환), 로그인 모드: 4탭 (상담 요청 포함)
+  const TAB_ITEMS: [TabKey, string][] = isEmbed
+    ? [['campaign', '캠페인 관리'], ['persona', '페르소나 분석'], ['history', '발송 이력']]
+    : [['consultation', '상담 요청'], ['campaign', '캠페인 발송'], ['persona', '페르소나 분석'], ['history', '발송 이력']];
+
   return (
     <div className="cdm-page">
       {/* 탭 + 병원 검색 (한 줄) */}
       <div className="cdm-page__toolbar">
         <div className="tabs">
-          {([['campaign', '캠페인 관리'], ['persona', '페르소나 분석'], ['history', '발송 이력']] as [TabKey, string][]).map(([key, label]) => (
+          {TAB_ITEMS.map(([key, label]) => (
             <button key={key} className={`tabs__item ${activeTab === key ? 'active' : ''}`} onClick={() => setActiveTab(key)}>
               {label}
             </button>
           ))}
         </div>
+        {/* 병원 검색: 상담 탭에서는 숨김 (ConsultationPage가 자체 필터 관리) */}
+        {activeTab !== 'consultation' && (
         <div className="cdm-hospital-select" ref={hospitalRef} style={{position:'relative'}}>
           <div className="cdm-hospital-search" style={{minWidth:'240px'}}>
             <input
@@ -199,9 +216,17 @@ const CheckupDesignManagementPage: React.FC = () => {
             )}
           </div>
         </div>
+        )}
       </div>
 
-      {loading && <div className="empty-state"><p>로딩 중...</p></div>}
+      {loading && activeTab !== 'consultation' && <div className="empty-state"><p>로딩 중...</p></div>}
+
+      {/* ── 상담 요청 (ConsultationPage 흡수) ── */}
+      {activeTab === 'consultation' && (
+        <div className="cdm-section" style={{padding: 0, border: 'none'}}>
+          <ConsultationPage />
+        </div>
+      )}
 
       {/* ── 캠페인 관리 ── */}
       {activeTab === 'campaign' && !loading && (
