@@ -157,7 +157,7 @@ const AnalyticsPage: React.FC = () => {
       if (filters.vip_risks?.length) body.vip_risks = filters.vip_risks;
       if (filters.follow_up_only) body.follow_up_only = true;
 
-      const res = await fetch(`${API}/partner-office/analytics`, {
+      const res = await fetchWithAuth(`${API}/partner-office/analytics`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

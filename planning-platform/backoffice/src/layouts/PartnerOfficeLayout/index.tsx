@@ -77,7 +77,7 @@ const PartnerOfficeLayout: React.FC = () => {
 
   useEffect(() => {
     if (isEmbed) return;
-    fetch(`${API}/partner-office/hospitals`)
+    fetchWithAuth(`${API}/partner-office/hospitals`)
       .then(r => r.json())
       .then(d => setHospitals(d.hospitals || []))
       .catch(() => {});
@@ -87,7 +87,7 @@ const PartnerOfficeLayout: React.FC = () => {
   useEffect(() => {
     if (isEmbed) return;
     const hosParam = selectedHospId ? `?hospital_id=${selectedHospId}` : '';
-    fetch(`${API}/admin/embedding/summary-counts${hosParam}`)
+    fetchWithAuth(`${API}/admin/embedding/summary-counts${hosParam}`)
       .then(r => r.json())
       .then(d => setSummaryCounts({new_chats: d.new_chats || 0, new_surveys: d.new_surveys || 0, new_revisit: d.new_revisit_candidates || 0}))
       .catch(() => {});

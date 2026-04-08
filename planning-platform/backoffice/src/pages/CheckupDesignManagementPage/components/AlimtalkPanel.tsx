@@ -10,7 +10,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import TemplateAccordion from './TemplateAccordion';
 import ExcelUploader from './ExcelUploader';
 import { VarMapping, buildInitialMappings } from './VariableMapping';
-import { getApiBase } from '../../../utils/api';
+import { getApiBase, fetchWithAuth } from '../../../utils/api';
 
 const API = getApiBase();
 
@@ -40,7 +40,7 @@ const AlimtalkPanel: React.FC<Props> = ({
   const api = useCallback(async (path: string, body?: any) => {
     const opts: RequestInit = { headers: { 'Content-Type': 'application/json' } };
     if (body) { opts.method = 'POST'; opts.body = JSON.stringify(body); }
-    const r = await fetch(`${API}/partner-office${path}`, opts);
+    const r = await fetchWithAuth(`${API}/partner-office${path}`, opts);
     return r.json();
   }, []);
 

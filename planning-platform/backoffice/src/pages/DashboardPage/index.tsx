@@ -78,7 +78,7 @@ const DashboardPage: React.FC = () => {
 
   // 병원 목록 + 파트너 목록
   useEffect(() => {
-    fetch(`${API}/partner-office/hospitals`)
+    fetchWithAuth(`${API}/partner-office/hospitals`)
       .then(r => r.json())
       .then(d => {
         const h = d.hospitals || [];
@@ -113,13 +113,13 @@ const DashboardPage: React.FC = () => {
       : fmt(new Date(now.getTime() - preset.days * 86400000));
 
     // 3개 API 병렬 호출
-    const statsP = fetch(`${API}/partner-office/dashboard/stats`, {
+    const statsP = fetchWithAuth(`${API}/partner-office/dashboard/stats`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ partner_id: partnerId || null, hospital_id: hospitalId || null, date_from: dateFrom, date_to: dateTo }),
     }).then(r => r.json()).catch(() => null);
 
-    const overviewP = fetch(`${API}/partner-office/dashboard/overview`, {
+    const overviewP = fetchWithAuth(`${API}/partner-office/dashboard/overview`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ date_from: dateFrom, date_to: dateTo }),
@@ -129,7 +129,7 @@ const DashboardPage: React.FC = () => {
     if (hospitalId) qs.set('hospital_id', hospitalId);
     qs.set('date_from', dateFrom);
     qs.set('date_to', dateTo);
-    const journeyP = fetch(`${API}/partner-office/journey/stats?${qs}`)
+    const journeyP = fetchWithAuth(`${API}/partner-office/journey/stats?${qs}`)
       .then(r => r.json()).catch(() => null);
 
     const [statsData, overviewData, journeyData] = await Promise.all([statsP, overviewP, journeyP]);
@@ -148,7 +148,7 @@ const DashboardPage: React.FC = () => {
     setJourney(journeyData);
 
     // 대기 중 상담 요청 카운트
-    fetch(`${API}/partner-office/revisit-candidates`, {
+    fetchWithAuth(`${API}/partner-office/revisit-candidates`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ hospital_id: hospitalId || null, days: 90, limit: 1, filter_type: 'user_requested' }),
@@ -207,7 +207,7 @@ const DashboardPage: React.FC = () => {
     const dateTo = fmt(now);
     const dateFrom = preset.days === 0 ? dateTo : fmt(new Date(now.getTime() - preset.days * 86400000));
     try {
-      const resp = await fetch(`${API}/partner-office/export/json`, {
+      const resp = await fetchWithAuth(`${API}/partner-office/export/json`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ hospital_id: hospitalId || null, date_from: dateFrom, date_to: dateTo }),

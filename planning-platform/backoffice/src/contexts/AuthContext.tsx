@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(u);
     // partner_type 조회
     try {
-      const ptResp = await fetch(`${API}/partner-office/partner-type`, {
+      const ptResp = await fetchWithAuth(`${API}/partner-office/partner-type`, {
         headers: { Authorization: `Bearer ${data.access_token}` },
       });
       if (ptResp.ok) {

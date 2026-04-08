@@ -25,10 +25,11 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}): Pro
   try {
     const resp = await fetch(url, { ...options, headers, signal });
     clearTimeout(timeoutId);
-    if (resp.status === 401) {
+    // 401: 토큰 만료/없음, 403: scope 불일치 (다른 토큰 섞임) — 둘 다 재로그인 유도
+    if (resp.status === 401 || resp.status === 403) {
       sessionStorage.removeItem('po_token');
       sessionStorage.removeItem('po_user');
-      console.warn('[auth] 세션 만료 — 로그인 페이지로 이동합니다.');
+      console.warn(`[auth] 인증 오류(${resp.status}) — 로그인 페이지로 이동합니다.`);
       window.location.href = '/backoffice/login';
     }
     return resp;

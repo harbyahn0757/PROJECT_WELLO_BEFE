@@ -295,7 +295,7 @@ const ConsultationPage: React.FC = () => {
         limit: '50',
       });
       if (hospitalId) qs.set('hospital_id', hospitalId);
-      const res = await fetch(`${API}/consultation/list?${qs}`);
+      const res = await fetchWithAuth(`${API}/consultation/list?${qs}`);
       const data = await res.json();
       setItems(data.items || []);
       setTotal(data.total || 0);
@@ -310,7 +310,7 @@ const ConsultationPage: React.FC = () => {
     setDetailLoading(true);
     try {
       const qs = hospitalId ? `?hospital_id=${hospitalId}` : '';
-      const res = await fetch(
+      const res = await fetchWithAuth(
         `${API}/consultation/detail/${encodeURIComponent(uuid)}${qs}`,
       );
       setDetail(await res.json());
@@ -329,7 +329,7 @@ const ConsultationPage: React.FC = () => {
     if (!selectedUuid) return;
     setStatusUpdating(true);
     try {
-      await fetch(`${API}/consultation/status`, {
+      await fetchWithAuth(`${API}/consultation/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

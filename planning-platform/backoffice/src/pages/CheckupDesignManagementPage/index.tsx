@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { getApiBase } from '../../utils/api';
+import { getApiBase, fetchWithAuth } from '../../utils/api';
 import { useEmbedParams } from '../../hooks/useEmbedParams';
 import AlimtalkPanel from './components/AlimtalkPanel';
 import HistoryTable from './components/HistoryTable';
@@ -68,7 +68,7 @@ const CheckupDesignManagementPage: React.FC = () => {
   const api = useCallback(async (path: string, body?: any) => {
     const opts: RequestInit = { headers: { 'Content-Type': 'application/json' } };
     if (body) { opts.method = 'POST'; opts.body = JSON.stringify(body); }
-    const r = await fetch(`${API}/partner-office${path}`, opts);
+    const r = await fetchWithAuth(`${API}/partner-office${path}`, opts);
     return r.json();
   }, []);
 
@@ -99,12 +99,12 @@ const CheckupDesignManagementPage: React.FC = () => {
       }
       // 병원 목록 + 템플릿: 모든 탭에서 공통 로드 (최초 1회)
       if (hospitals.length === 0) {
-        const h = await fetch(`${API}/partner-office/checkup-design/campaign/hospitals`).then(r => r.json());
+        const h = await fetchWithAuth(`${API}/partner-office/checkup-design/campaign/hospitals`).then(r => r.json());
         if (h.success) setHospitals(h.hospitals || []);
       }
       if (tab === 'campaign') {
         if (templates.length === 0) {
-          const t = await fetch(`${API}/partner-office/alimtalk/templates`).then(r => r.json());
+          const t = await fetchWithAuth(`${API}/partner-office/alimtalk/templates`).then(r => r.json());
           if (t.success) setTemplates(t.templates || []);
         }
         // 대상 조회
