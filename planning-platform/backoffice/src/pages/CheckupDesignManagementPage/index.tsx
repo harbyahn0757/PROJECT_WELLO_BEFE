@@ -13,7 +13,8 @@ import ConsultationPage from '../ConsultationPage';
 import './styles.scss';
 import './styles/alimtalk.scss';
 
-type TabKey = 'consultation' | 'campaign' | 'persona' | 'history';
+// 2026-04-08: persona 탭 제거 (ConsultationPage 상담 상세에 페르소나 분석 포함됨)
+type TabKey = 'consultation' | 'campaign' | 'history';
 
 const API = getApiBase();
 
@@ -28,13 +29,6 @@ const CheckupDesignManagementPage: React.FC = () => {
   // default tab: iframe은 campaign (기존 유지), 로그인 모드는 consultation (ConsultationPage가 메인)
   const [activeTab, setActiveTab] = useState<TabKey>(isEmbed ? 'campaign' : 'consultation');
   const [loading, setLoading] = useState(false);
-
-  // ── 페르소나 ──
-  const [distribution, setDistribution] = useState<any[]>([]);
-  const [patients, setPatients] = useState<any[]>([]);
-  const [totalPatients, setTotalPatients] = useState(0);
-  const [personaFilter, setPersonaFilter] = useState('');
-  const [page, setPage] = useState(1);
 
   // ── 캠페인 ──
   const [targets, setTargets] = useState<any[]>([]);
@@ -90,14 +84,7 @@ const CheckupDesignManagementPage: React.FC = () => {
       if (hospitalId) filters.hospital_id = hospitalId;
       if (partnerId) filters.partner_id = partnerId;
 
-      if (tab === 'persona') {
-        const [summary, list] = await Promise.all([
-          api('/persona-analytics/summary', filters),
-          api('/persona-analytics/patients', { ...filters, persona_type: personaFilter || undefined, page, limit: 20 }),
-        ]);
-        if (summary.success) setDistribution(summary.distribution || []);
-        if (list.success) { setPatients(list.patients || []); setTotalPatients(list.total || 0); }
-      } else if (tab === 'history') {
+      if (tab === 'history') {
         setHistoryLoading(true);
         try {
           const historyUrl = selectedHospital
@@ -129,7 +116,7 @@ const CheckupDesignManagementPage: React.FC = () => {
       }
     } catch (e) { console.error(`[${tab}] 로드 실패:`, e); }
     finally { setLoading(false); }
-  }, [api, hospitalId, partnerId, personaFilter, page, selectedHospital, hospitals.length, templates.length]);
+  }, [api, hospitalId, partnerId, selectedHospital, hospitals.length, templates.length]);
 
   useEffect(() => { load(activeTab); }, [activeTab, load]);
 
@@ -166,12 +153,10 @@ const CheckupDesignManagementPage: React.FC = () => {
     load('campaign');
   };
 
-  const totalDesigns = distribution.reduce((s, d) => s + d.count, 0);
-
-  // iframe 모드: 3탭 (기존 호환), 로그인 모드: 4탭 (상담 요청 포함)
+  // iframe 모드: 2탭 (기존 호환, persona 제거), 로그인 모드: 3탭 (상담/캠페인/이력)
   const TAB_ITEMS: [TabKey, string][] = isEmbed
-    ? [['campaign', '캠페인 관리'], ['persona', '페르소나 분석'], ['history', '발송 이력']]
-    : [['consultation', '상담 요청'], ['campaign', '캠페인 발송'], ['persona', '페르소나 분석'], ['history', '발송 이력']];
+    ? [['campaign', '캠페인 관리'], ['history', '발송 이력']]
+    : [['consultation', '상담 요청'], ['campaign', '캠페인 발송'], ['history', '발송 이력']];
 
   return (
     <div className="cdm-page">
@@ -248,64 +233,7 @@ const CheckupDesignManagementPage: React.FC = () => {
         </div>
       )}
 
-      {/* ── 페르소나 분석 ── */}
-      {activeTab === 'persona' && !loading && (
-        <div className="cdm-section">
-          <div className="cdm-page__kpi">
-            <div className="cdm-page__kpi-card">
-              <span className="cdm-page__kpi-label">설계 완료</span>
-              <span className="cdm-page__kpi-value">{totalDesigns}<small>건</small></span>
-            </div>
-            {distribution.slice(0, 3).map(d => (
-              <div key={d.type} className="cdm-page__kpi-card">
-                <span className="cdm-page__kpi-label">{d.type}</span>
-                <span className="cdm-page__kpi-value">{d.count}<small>명 ({d.ratio}%)</small></span>
-              </div>
-            ))}
-          </div>
-
-          <div className="cdm-dist">
-            {distribution.map(d => (
-              <div key={d.type} className="cdm-dist__item" onClick={() => { setPersonaFilter(d.type === personaFilter ? '' : d.type); setPage(1); }}>
-                <div className="cdm-dist__bar" style={{ width: `${Math.max(d.ratio, 3)}%`, opacity: !personaFilter || personaFilter === d.type ? 1 : 0.3 }} />
-                <span className="cdm-dist__label">{d.type}</span>
-                <span className="cdm-dist__count">{d.count}명 ({d.ratio}%)</span>
-              </div>
-            ))}
-            {distribution.length === 0 && <p className="empty-state__text">검진설계 완료 건이 없습니다</p>}
-          </div>
-
-          {patients.length > 0 && (
-            <>
-              <h3 className="cdm-subtitle">
-                환자 목록 ({totalPatients}명)
-                {personaFilter && <span className="badge badge--info" onClick={() => setPersonaFilter('')}>{personaFilter} ✕</span>}
-              </h3>
-              <div className="table-scroll-wrap">
-                <table className="data-table">
-                  <thead><tr><th>이름</th><th>페르소나</th><th>병원</th><th>소스</th><th>날짜</th></tr></thead>
-                  <tbody>
-                    {patients.map((p: any) => (
-                      <tr key={p.id}>
-                        <td>{p.patient_name || p.uuid?.slice(0, 8)}</td>
-                        <td><span className="badge">{p.persona_type || '-'}</span></td>
-                        <td>{p.hospital_id}</td>
-                        <td>{p.trigger_source}</td>
-                        <td>{p.created_at ? new Date(p.created_at).toLocaleDateString('ko-KR') : '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="cdm-pagination">
-                <button className="btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>이전</button>
-                <span>{page} / {Math.ceil(totalPatients / 20) || 1}</span>
-                <button className="btn-outline" disabled={page * 20 >= totalPatients} onClick={() => setPage(p => p + 1)}>다음</button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
+      {/* 페르소나 분석 탭 제거 (2026-04-08) — 상담 요청 탭의 환자 상세에 이미 페르소나 분석 포함 */}
       {/* ── 발송 이력 ── */}
       {activeTab === 'history' && !loading && (
         <div className="cdm-section">
