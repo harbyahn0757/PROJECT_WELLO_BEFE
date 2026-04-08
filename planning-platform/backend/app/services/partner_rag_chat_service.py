@@ -874,20 +874,29 @@ class PartnerRagChatService(WelnoRagChatService):
 - 수치/항목명/진단명 직접 노출 금지
 - 참고: "{name}님, 결과에서 {concern_count}가지 같이 확인할 게 있어요. 어디부터 볼까요? 📋"{greeting_example_extra}
 
-응답 형식 (반드시 JSON 객체로만, 다른 텍스트/마크다운 금지):
-{{"hook": "(후킹 메시지)", "greeting": "(채팅 인사말)"}}"""
+⚠️ JSON 응답 규칙 (절대 위반 금지):
+- 키 이름은 반드시 영문 소문자 "hook"과 "greeting" 두 개만 사용
+- 다른 키 이름(HOOK, Hook, 후킹, 후킹메시지, message 등) 사용 금지
+- 마크다운/코드블록/주석/추가 텍스트 절대 금지
+- 응답은 오직 다음 형식의 JSON 객체 하나만:
+
+{{"hook": "후킹 메시지 본문", "greeting": "채팅 인사말 본문"}}"""
 
         try:
             res = await llm_router.call_api(
                 GeminiRequest(
                     prompt=prompt,
                     model=settings.google_gemini_fast_model,
-                    temperature=0.9,
+                    temperature=0.7,
                     response_format={"type": "json_object"},
                 ),
                 save_log=False,
             )
-            if res.success and res.content:
+            logger.error("[greetings] DEBUG res.success=%s res.error=%s content_len=%s",
+                         res.success if res else None,
+                         res.error if res else None,
+                         len(res.content) if res and res.content else 0)
+            if res and res.success and res.content:
                 raw = res.content.strip()
                 # 마크다운 코드블록 제거 (```json ... ```)
                 if raw.startswith("```"):
@@ -895,19 +904,31 @@ class PartnerRagChatService(WelnoRagChatService):
                     if raw.endswith("```"):
                         raw = raw[:-3]
                     raw = raw.strip()
+                logger.error("[greetings] DEBUG raw=%s", raw[:300])
                 try:
                     data = json.loads(raw)
-                    hook = (data.get("hook") or "").strip().replace('"', '')
-                    greeting = (data.get("greeting") or "").strip().replace('"', '')
+                    # 키 이름 변형 모두 허용 (case-insensitive + 한국어 fallback)
+                    def _pick(d: dict, *keys):
+                        for k in keys:
+                            v = d.get(k)
+                            if v and isinstance(v, str) and v.strip():
+                                return v.strip()
+                        return ""
+                    hook = _pick(data, "hook", "HOOK", "Hook", "후킹", "후킹메시지", "후킹_메시지", "teaser", "title").replace('"', '')
+                    greeting = _pick(data, "greeting", "GREETING", "Greeting", "인사", "인사말", "채팅인사말", "message", "msg").replace('"', '')
                     if hook and greeting:
+                        logger.error("[greetings] DEBUG 성공 hook=%s greeting=%s", hook[:60], greeting[:60])
                         return (hook, greeting)
-                    logger.warning("[greetings] LLM 응답에 hook/greeting 누락: %s", str(data)[:200])
+                    logger.error("[greetings] hook/greeting 누락 — keys=%s data=%s",
+                                 list(data.keys()) if isinstance(data, dict) else None, str(data)[:300])
                 except json.JSONDecodeError as e:
-                    logger.warning("[greetings] JSON 파싱 실패: %s | raw=%s", e, raw[:200])
-            elif not res.success:
-                logger.warning("[greetings] LLM 호출 실패: %s", res.error)
+                    logger.error("[greetings] JSON 파싱 실패: %s | raw=%s", e, raw[:300])
+            elif res and not res.success:
+                logger.error("[greetings] LLM 호출 실패: %s", res.error)
+            else:
+                logger.error("[greetings] LLM 응답 없음 (res=%s)", res)
         except Exception as e:
-            logger.warning("[greetings] 예외: %s", e)
+            logger.error("[greetings] 예외: %s", e, exc_info=True)
 
         # 폴백
         hp = f"{hospital} " if hospital else ""
