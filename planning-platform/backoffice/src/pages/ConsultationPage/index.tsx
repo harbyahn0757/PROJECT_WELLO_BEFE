@@ -17,6 +17,8 @@ interface DesignSummary {
 interface ConsultationItem {
   session_id: string;
   uuid: string;
+  hospital_id?: string | null;
+  hospital_name?: string | null;
   name: string | null;
   phone: string | null;
   requested_at: string | null;
@@ -141,15 +143,11 @@ interface DetailData {
 }
 
 /* ── 상수 ── */
-type StatusFilter = 'all' | 'pending' | 'contacted' | 'completed';
-const STATUS_TABS: { key: StatusFilter; label: string }[] = [
-  { key: 'all', label: '전체' },
-  { key: 'pending', label: '대기' },
-  { key: 'contacted', label: '진행중' },
-  { key: 'completed', label: '완료' },
-];
 const STATUS_LABEL: Record<string, string> = {
   pending: '대기', contacted: '진행중', completed: '완료',
+};
+const STATUS_BADGE_CLS: Record<string, string> = {
+  pending: 'pending', contacted: 'contacted', completed: 'completed',
 };
 const SOURCE_LABELS: Record<string, { text: string; cls: string }> = {
   welno_patients: { text: '수검자 입력', cls: 'user' },
@@ -265,7 +263,6 @@ const ConsultationPage: React.FC = () => {
   const [items, setItems] = useState<ConsultationItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [selectedUuid, setSelectedUuid] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [detail, setDetail] = useState<DetailData | null>(null);
@@ -285,14 +282,14 @@ const ConsultationPage: React.FC = () => {
     return () => { document.body.style.overflow = ''; };
   }, [drawerOpen]);
 
-  /* 목록 조회 */
+  /* 목록 조회 — 전체 상태 한 번에 */
   const fetchList = useCallback(async () => {
     setLoading(true);
     try {
       const qs = new URLSearchParams({
-        status: statusFilter,
+        status: 'all',
         page: '1',
-        limit: '50',
+        limit: '200',
       });
       if (hospitalId) qs.set('hospital_id', hospitalId);
       const res = await fetchWithAuth(`${API}/consultation/list?${qs}`);
@@ -301,7 +298,7 @@ const ConsultationPage: React.FC = () => {
       setTotal(data.total || 0);
     } catch (e) { console.error('[ConsultationPage] list 조회 실패:', e); }
     setLoading(false);
-  }, [API, hospitalId, statusFilter]);
+  }, [API, hospitalId]);
 
   useEffect(() => { fetchList(); }, [fetchList]);
 
@@ -370,42 +367,47 @@ const ConsultationPage: React.FC = () => {
       </div>
 
       <div className="consultation-page__body">
-        {/* ── 리스트 (전체 너비) ── */}
+        {/* ── 테이블 (검진결과 상담 스타일) ── */}
         <div className="consultation-page__list-panel">
-          <div className="consultation-page__tabs">
-            {STATUS_TABS.map(tab => (
-              <button
-                key={tab.key}
-                className={`consultation-page__tab${statusFilter === tab.key ? ' consultation-page__tab--active' : ''}`}
-                onClick={() => setStatusFilter(tab.key)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          <div className="consultation-page__items">
-            {items.length === 0 && (
-              <div className="consultation-page__empty">상담 요청이 없습니다</div>
-            )}
-            {items.map(item => (
-              <div
-                key={item.session_id}
-                className={`consultation-page__item${selectedUuid === item.uuid ? ' consultation-page__item--active' : ''}`}
-                onClick={() => handleSelect(item)}
-              >
-                <div className="consultation-page__item-info">
-                  <div className="name">{item.name || '이름 없음'}</div>
-                  <div className="meta">
-                    {item.requested_at?.replace('T', ' ').slice(0, 16)}
-                    {item.design_summary && ` · 추천 ${item.design_summary.recommended_count}항목`}
-                  </div>
-                </div>
-                <span className={`consultation-page__badge consultation-page__badge--${item.status}`}>
-                  {STATUS_LABEL[item.status] || item.status}
-                </span>
-              </div>
-            ))}
-          </div>
+          {items.length === 0 ? (
+            <div className="consultation-page__empty">상담 요청이 없습니다</div>
+          ) : (
+            <div className="admin-embedding-page__table-wrapper">
+              <table className="admin-embedding-page__table admin-embedding-page__table--detailed">
+                <thead>
+                  <tr>
+                    <th>요청일</th>
+                    <th>이름</th>
+                    <th>병원</th>
+                    <th>추천 항목</th>
+                    <th>상태</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map(item => (
+                    <tr
+                      key={item.session_id}
+                      className={selectedUuid === item.uuid ? 'is-selected' : ''}
+                      onClick={() => handleSelect(item)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <td className="td-date">{item.requested_at?.replace('T', ' ').slice(0, 16) || '-'}</td>
+                      <td className="td-name">{item.name || '이름 없음'}</td>
+                      <td className="td-hospital">{item.hospital_name || '-'}</td>
+                      <td className="td-count">
+                        {item.design_summary ? `${item.design_summary.recommended_count}항목` : '-'}
+                      </td>
+                      <td>
+                        <span className={`consultation-page__badge consultation-page__badge--${STATUS_BADGE_CLS[item.status] || 'pending'}`}>
+                          {STATUS_LABEL[item.status] || item.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
 

@@ -1104,7 +1104,8 @@ const EmbeddingPage: React.FC = () => {
                       <table className="admin-embedding-page__table admin-embedding-page__table--detailed">
                         <thead>
                           <tr>
-                            <th>날짜</th>
+                            <th>시작일</th>
+                            <th>마지막 채팅</th>
                             <th>이름</th>
                             <th>성별</th>
                             <th>병원</th>
@@ -1119,6 +1120,7 @@ const EmbeddingPage: React.FC = () => {
                           {allChatSessions.map(s => (
                             <tr key={s.session_id} className={selectedChat?.session_id === s.session_id ? 'is-selected' : ''} onClick={() => fetchChatDetail(s.session_id)}>
                               <td className="td-date">{formatDate(s.created_at)}</td>
+                              <td className="td-date">{formatDate(s.updated_at)}</td>
                               <td className="td-name">{s.user_name || '-'}</td>
                               <td className="td-gender">{s.user_gender === 'F' ? '여' : s.user_gender === 'M' ? '남' : '-'}</td>
                               <td className="td-hospital">{s.hospital_name || '-'}</td>
@@ -1188,7 +1190,8 @@ const EmbeddingPage: React.FC = () => {
                       <table className="admin-embedding-page__table admin-embedding-page__table--detailed">
                         <thead>
                           <tr>
-                            <th>날짜</th>
+                            <th>시작일</th>
+                            <th>마지막 채팅</th>
                             <th>이름</th>
                             <th>성별</th>
                             <th>검진일</th>
@@ -1201,6 +1204,7 @@ const EmbeddingPage: React.FC = () => {
                           {chatSessions.map(s => (
                             <tr key={s.session_id} className={selectedChat?.session_id === s.session_id ? 'is-selected' : ''} onClick={() => fetchChatDetail(s.session_id)}>
                               <td className="td-date">{formatDate(s.created_at)}</td>
+                              <td className="td-date">{formatDate(s.updated_at)}</td>
                               <td className="td-name">{s.user_name || '-'}</td>
                               <td className="td-gender">{s.user_gender === 'F' ? '여' : s.user_gender === 'M' ? '남' : '-'}</td>
                               <td className="td-date">{s.checkup_date || '-'}</td>

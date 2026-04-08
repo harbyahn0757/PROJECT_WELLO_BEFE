@@ -370,6 +370,8 @@ async def consultation_list(
             f"""SELECT
                     t.session_id,
                     c.user_uuid AS uuid,
+                    c.hospital_id,
+                    h.hospital_name,
                     p.name,
                     p.phone_number AS phone,
                     t.consultation_consent_at AS requested_at,
@@ -382,6 +384,8 @@ async def consultation_list(
                   ON c.session_id = t.session_id
                 LEFT JOIN welno.welno_patients p
                   ON p.uuid = c.user_uuid AND p.hospital_id = c.hospital_id
+                LEFT JOIN welno.welno_hospitals h
+                  ON h.hospital_id = c.hospital_id
                 LEFT JOIN LATERAL (
                     SELECT design_result
                     FROM welno.welno_checkup_design_requests
@@ -421,6 +425,8 @@ async def consultation_list(
             items.append({
                 "session_id": r.get("session_id"),
                 "uuid": r.get("uuid"),
+                "hospital_id": r.get("hospital_id"),
+                "hospital_name": r.get("hospital_name"),
                 "name": r.get("name"),
                 "phone": r.get("phone"),
                 "requested_at": (
