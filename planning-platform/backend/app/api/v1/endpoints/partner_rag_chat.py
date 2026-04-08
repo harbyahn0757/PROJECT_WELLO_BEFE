@@ -434,8 +434,8 @@ async def get_partner_status(
     파트너 상태 및 설정 정보 조회
     """
     try:
-        from ....services.gemini_service import gemini_service
-        gemini_health = await gemini_service.check_health()
+        from ....services.llm_router import llm_router
+        gemini_health = await llm_router.check_health()
 
         return {
             "success": True,
