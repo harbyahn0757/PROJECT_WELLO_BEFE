@@ -289,7 +289,7 @@ const ConsultationPage: React.FC = () => {
       const qs = new URLSearchParams({
         status: 'all',
         page: '1',
-        limit: '200',
+        limit: '100',  // 백엔드 최대 100 제한 (ge=1, le=100)
       });
       if (hospitalId) qs.set('hospital_id', hospitalId);
       const res = await fetchWithAuth(`${API}/consultation/list?${qs}`);
