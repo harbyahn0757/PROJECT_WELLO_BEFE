@@ -270,9 +270,11 @@ class LLMRouter:
                 content = h.get("content") or ""
                 if content:
                     chat_history.append({"role": role, "content": content})
-        # OpenAI 폴백 시 max_tokens 상한 1500 (gpt-4o-mini 스트리밍 속도 확보)
-        # Gemini는 기본 4096이나 OpenAI는 길어지면 10초+ 소요 → RAG 응답은 1500이면 충분
-        fallback_max_tokens = min(req.max_tokens or 2000, 1500)
+        # OpenAI 폴백 시 max_tokens 상한 800 (gpt-4o-mini 스트리밍 속도 확보)
+        # 1500이면 실제 출력 700~1200 tokens → 20~23초 소요.
+        # 800으로 제한 시 실제 출력 400~600 tokens → 8~12초 소요 (목표).
+        # RAG 답변은 300~500자가 적정이며 800 tokens면 충분.
+        fallback_max_tokens = min(req.max_tokens or 2000, 800)
         return GPTRequest(
             system_message=req.system_instruction or "",
             user_message=req.prompt,
