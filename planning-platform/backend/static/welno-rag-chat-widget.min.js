@@ -207,12 +207,9 @@ class WelnoRagChatWidget {
         return;
       }
 
-      // 0-b. 서비스 헬스체크 (기존 — 하위호환 유지)
-      var healthOk = await this.checkServiceHealth();
-      if (!healthOk) {
-        console.warn('[WelnoRagChatWidget] 서비스 점검 중 — 위젯 미노출');
-        return;
-      }
+      // 0-b. (제거됨) 옛 checkServiceHealth는 gemini_healthy === true 단독 체크라
+      // OpenAI 폴백 시 false 반환 → widget-status enabled:true 통과해도 mount skip되는 버그.
+      // widget-status 게이트(0-a)가 LLM 폴백 포함 단일 진실 소스이므로 추가 게이트 불필요.
 
       // 0-c. 서버에서 동적 설정 로드 (파트너 테마 적용)
       await this.fetchRemoteConfig();
