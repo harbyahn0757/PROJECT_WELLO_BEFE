@@ -850,6 +850,7 @@ class PartnerRagChatService(WelnoRagChatService):
             greeting_example_extra = ""
 
         from .gemini_service import gemini_service, GeminiRequest
+        from .llm_router import llm_router
         prompt = f"""당신은 '{hospital}'의 건강 도우미입니다. {name}님 검진 결과를 안내합니다.
 
 [검진 데이터 — 내부 참고용, 수치 직접 노출 금지]
@@ -878,7 +879,7 @@ HOOK: (후킹 메시지)
 GREETING: (채팅 인사말)"""
 
         try:
-            res = await gemini_service.call_api(
+            res = await llm_router.call_api(
                 GeminiRequest(prompt=prompt, model=settings.google_gemini_fast_model, temperature=0.9),
                 save_log=False,
             )

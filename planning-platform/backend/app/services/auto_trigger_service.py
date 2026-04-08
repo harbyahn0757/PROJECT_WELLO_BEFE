@@ -44,16 +44,16 @@ async def trigger_auto_checkup_design(
     """
     log_id = None
     try:
-        # 0. Gemini API 상태 체크 (최대 3회 재시도, 실패 시 GPT 폴백)
-        from .gemini_service import gemini_service
+        # 0. LLM 상태 체크 (최대 3회 재시도, 실패 시 GPT 폴백)
+        from .llm_router import llm_router
         gemini_available = False
         for _attempt in range(3):
-            health = await gemini_service.check_health()
+            health = await llm_router.check_health()
             if health.get("healthy"):
                 gemini_available = True
                 break
             wait_secs = [30, 60, 120][_attempt]
-            logger.info(f"[auto_trigger] {patient_uuid} Gemini 비가용 — {wait_secs}초 후 재시도 ({_attempt+1}/3)")
+            logger.info(f"[auto_trigger] {patient_uuid} LLM 비가용 — {wait_secs}초 후 재시도 ({_attempt+1}/3)")
             await asyncio.sleep(wait_secs)
 
         use_gpt_fallback = not gemini_available
@@ -212,7 +212,8 @@ async def _run_step1(
     use_gpt_fallback: bool = False,
 ) -> Optional[Dict[str, Any]]:
     """Step1 분석 실행 (Gemini 또는 GPT 폴백)."""
-    from .gemini_service import gemini_service, GeminiRequest
+    from .gemini_service import GeminiRequest
+    from .llm_router import llm_router
     from .checkup_design import (
         create_checkup_design_prompt_step1,
         CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1,
@@ -250,8 +251,8 @@ async def _run_step1(
             temperature=0.7,
         ))
     else:
-        # Gemini 호출
-        response = await gemini_service.call_api(GeminiRequest(
+        # llm_router 호출 (Gemini 우선, 실패 시 자동 폴백)
+        response = await llm_router.call_api(GeminiRequest(
             prompt=prompt,
             model=settings.google_gemini_fast_model,
             temperature=0.7,

@@ -23,6 +23,7 @@ class GPTRequest:
     temperature: float = 0.5  # 0.3 → 0.5: 창의성 허용하되 통제 유지
     max_tokens: int = 2000
     response_format: Optional[Dict[str, Any]] = None
+    chat_history: Optional[List[Dict[str, str]]] = None  # 멀티턴 히스토리 (role, content)
 
 @dataclass
 class GPTResponse:
@@ -90,10 +91,15 @@ class GPTService:
             start_time = datetime.now()
             
             # GPT API 호출
-            messages = [
-                {"role": "system", "content": request.system_message},
-                {"role": "user", "content": request.user_message}
-            ]
+            messages = [{"role": "system", "content": request.system_message}]
+            # chat_history 삽입 (system → history → user 순서)
+            if request.chat_history:
+                for h in request.chat_history:
+                    role = h.get("role", "user")
+                    content = h.get("content", "")
+                    if role in ("user", "assistant", "system") and content:
+                        messages.append({"role": role, "content": content})
+            messages.append({"role": "user", "content": request.user_message})
             
             api_params = {
                 "model": request.model,
@@ -188,6 +194,42 @@ class GPTService:
                 error=str(e)
             )
     
+    async def stream_api(
+        self,
+        request: GPTRequest,
+        session_id: Optional[str] = None,
+    ):
+        """OpenAI 스트리밍. Gemini stream_api와 호환 (yield str)."""
+        if self._client is None:
+            await self.initialize()
+        if self._client is None:
+            yield "GPT 서비스가 초기화되지 않았습니다."
+            return
+
+        messages = [{"role": "system", "content": request.system_message or ""}]
+        if request.chat_history:
+            for h in request.chat_history:
+                role = h.get("role", "user")
+                content = h.get("content", "")
+                if role in ("user", "assistant", "system") and content:
+                    messages.append({"role": role, "content": content})
+        messages.append({"role": "user", "content": request.user_message})
+
+        try:
+            stream = await self._client.chat.completions.create(
+                model=request.model,
+                messages=messages,
+                temperature=request.temperature,
+                max_tokens=request.max_tokens,
+                stream=True,
+            )
+            async for event in stream:
+                if event.choices and event.choices[0].delta and event.choices[0].delta.content:
+                    yield event.choices[0].delta.content
+        except Exception as e:
+            logger.error(f"❌ [GPT Service] 스트리밍 실패: {str(e)}")
+            raise
+
     async def call_with_json_response(
         self,
         request: GPTRequest,
@@ -326,3 +368,6 @@ class GPTService:
         except Exception as e:
             logger.warning(f"⚠️ [GPT Service] 응답 로그 저장 실패: {str(e)}")
 
+
+# 전역 싱글턴 인스턴스
+gpt_service = GPTService()

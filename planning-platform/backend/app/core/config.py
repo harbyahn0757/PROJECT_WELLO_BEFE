@@ -150,6 +150,17 @@ class Settings(BaseSettings):
     # Phase 3: 검진설계 파이프라인 버전 (v2=2-step, v3=3-step legacy)
     checkup_design_pipeline_version: str = Field(default="v2", env="CHECKUP_PIPELINE_VERSION")
 
+    # Redis
+    redis_url: str = Field(default="redis://10.0.1.10:6379/0", env="REDIS_URL")
+
+    # LLM Router (Gemini → OpenAI 폴백 제어)
+    llm_window_seconds: int = Field(default=60, env="WELNO_LLM_WINDOW_SECONDS")
+    llm_failure_threshold: int = Field(default=5, env="WELNO_LLM_FAILURE_THRESHOLD")
+    llm_degraded_holdoff: int = Field(default=60, env="WELNO_LLM_DEGRADED_HOLDOFF")
+    llm_down_holdoff: int = Field(default=30, env="WELNO_LLM_DOWN_HOLDOFF")
+    llm_recovery_degraded_interval: int = Field(default=300, env="WELNO_LLM_RECOVERY_DEGRADED_INTERVAL")
+    llm_recovery_down_interval: int = Field(default=120, env="WELNO_LLM_RECOVERY_DOWN_INTERVAL")
+
     model_config = {
         "env_file": [".env.local", "config.env", ".env"],
         "env_file_encoding": "utf-8",

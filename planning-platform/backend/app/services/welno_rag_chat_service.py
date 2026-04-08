@@ -16,6 +16,7 @@ from ..core.config import settings
 from .checkup_design.rag_service import search_checkup_knowledge, clean_html_content
 from .checkup_design.lifestyle_rag_service import lifestyle_rag_service, LifestyleAnalysisRequest
 from ..services.gemini_service import gemini_service, GeminiRequest
+from .llm_router import llm_router
 from ..services.welno_data_service import WelnoDataService
 from ..core.database import db_manager
 from .chat_tagging_service import (
@@ -580,8 +581,12 @@ class WelnoRagChatService:
                     # 이전 대화 히스토리 가져오기
                     history = self.chat_manager.get_history(uuid, hospital_id)
                     if history and len(history) >= 2:  # 최소 user + assistant 한 쌍
-                        # Gemini Chat 형식으로 변환 (전체 히스토리)
-                        chat_history = gemini_service._format_chat_history(history)
+                        # dict 형식으로 변환 (llm_router 호환 — Gemini/OpenAI 공통)
+                        chat_history = [
+                            {"role": m.get("role", "user"), "content": m.get("content", "")}
+                            for m in history
+                            if m.get("content")
+                        ]
                         logger.info(f"📜 [세션 히스토리] {len(chat_history)}개 메시지 로드")
                 
                 # 프롬프트 구성
@@ -913,7 +918,7 @@ class WelnoRagChatService:
                 # Gemini API 호출 타이밍
                 gemini_start = time.time()
                 first_token_received = False
-                async for chunk in gemini_service.stream_api(gemini_req, session_id=session_id):
+                async for chunk in llm_router.stream_api(gemini_req, session_id=session_id):
                     if not first_token_received:
                         first_token_received = True
                         if trace_data:
@@ -1028,7 +1033,7 @@ class WelnoRagChatService:
                             f"형식: 질문1 | 질문2 | 질문3\n각 질문은 20자 이내, 경어체.\n\n"
                             f"답변 요약: {full_answer[:300]}"
                         )
-                        retry_res = await gemini_service.call_api(
+                        retry_res = await llm_router.call_api(
                             GeminiRequest(prompt=retry_prompt, model=settings.google_gemini_fast_model, temperature=0.5),
                             save_log=False,
                         )
@@ -1329,7 +1334,7 @@ class WelnoRagChatService:
                 response_format={"type": "json_object"}
             )
             
-            response = await gemini_service.call_api(gemini_request)
+            response = await llm_router.call_api(gemini_request)
             if not response.success:
                 raise Exception(f"LLM 요약 실패: {response.error}")
             

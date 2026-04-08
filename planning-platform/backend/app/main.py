@@ -43,6 +43,7 @@ from .api.v1.endpoints import (
     partner_office,
     agent_survey,
     consultation,
+    widget_status,
 )
 from .core.config import settings
 from .data.redis_session_manager import redis_session_manager as session_manager
@@ -143,6 +144,8 @@ app.include_router(hospital_survey.router, prefix="/api/v1", tags=["hospital-sur
 app.include_router(partner_office.router, prefix="/api/v1", tags=["partner-office"])
 app.include_router(agent_survey.router, prefix="/api/v1", tags=["agent-survey"])
 app.include_router(consultation.router, prefix="/api/v1", tags=["consultation"])
+# widget-status: 인증 불필요 공개 엔드포인트 (외부 파트너 위젯 fail-closed 판정용)
+app.include_router(widget_status.router, prefix="/api/v1", tags=["widget-status"])
 
 # 배포환경을 위한 welno-api 경로 추가 (프록시 없이 직접 접근)
 app.include_router(health.router, prefix="/welno-api/v1/health", tags=["health-welno"])
@@ -172,6 +175,7 @@ app.include_router(hospital_survey.router, prefix="/welno-api/v1", tags=["hospit
 app.include_router(partner_office.router, prefix="/welno-api/v1", tags=["partner-office-welno"])
 app.include_router(agent_survey.router, prefix="/welno-api/v1", tags=["agent-survey-welno"])
 app.include_router(consultation.router, prefix="/welno-api/v1", tags=["consultation-welno"])
+app.include_router(widget_status.router, prefix="/welno-api/v1", tags=["widget-status-welno"])
 
 # 백오피스 SPA (독립 앱) 서빙
 backoffice_dir = os.path.join(static_dir, "backoffice")
@@ -257,6 +261,14 @@ async def serve_react_app(request: Request, full_path: str = ""):
 async def startup_event():
     """앱 시작 시 이벤트"""
     print("🚀 [시스템] 서버 시작 중...")
+
+    # LLM Router 백그라운드 태스크 시작
+    try:
+        from .services.llm_router import llm_router
+        await llm_router.start()
+        print("✅ [LLMRouter] 시작 완료 (Gemini→OpenAI 폴백 대기)")
+    except Exception as e:
+        print(f"⚠️ [LLMRouter] 시작 실패: {e}")
     
     # 세션 자동 정리 시작 (30분 간격)
     await session_manager.start_auto_cleanup(30)
@@ -323,6 +335,17 @@ async def startup_event():
         print(f"⚠️ [태깅복구] 스케줄러 시작 실패: {e}")
 
     print("✅ [시스템] 서버 시작 완료")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """앱 종료 시 이벤트"""
+    try:
+        from .services.llm_router import llm_router
+        await llm_router.stop()
+        print("✅ [LLMRouter] 종료 완료")
+    except Exception as e:
+        print(f"⚠️ [LLMRouter] 종료 실패: {e}")
+
 
 def custom_openapi():
     if app.openapi_schema:

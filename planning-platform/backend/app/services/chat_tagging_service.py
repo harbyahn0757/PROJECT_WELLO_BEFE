@@ -1066,7 +1066,8 @@ AI 권장: {rec_str}
 {{"care_message": "...", "action_message": "...", "info_message": "..."}}"""
 
         from .gemini_service import gemini_service, GeminiRequest
-        res = await gemini_service.call_api(
+        from .llm_router import llm_router
+        res = await llm_router.call_api(
             GeminiRequest(prompt=prompt, model=settings.google_gemini_lite_model, temperature=0.5),
             save_log=False,
         )

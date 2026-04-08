@@ -21,6 +21,7 @@ from ....core.security import get_current_user
 from ....core.config import settings
 from ....services.gpt_service import GPTService, GPTRequest
 from ....services.gemini_service import gemini_service, GeminiRequest
+from ....services.llm_router import llm_router
 from ....services.checkup_design import (
     create_checkup_design_prompt_step1,
     create_checkup_design_prompt_step2_priority1,
@@ -976,9 +977,9 @@ async def create_checkup_design_step1(
         await gemini_service.initialize()
         logger.info(f"✅ [STEP1-분석] Gemini 서비스 초기화 완료")
         
-        # Gemini API 호출
-        logger.info(f"📡 [STEP1-분석] Gemini API 호출 중...")
-        gemini_api_response = await gemini_service.call_api(
+        # LLM API 호출 (llm_router: Gemini 우선, 실패 시 자동 폴백)
+        logger.info(f"📡 [STEP1-분석] LLM API 호출 중...")
+        gemini_api_response = await llm_router.call_api(
             gemini_request,
             save_log=True,
             patient_uuid=request.uuid,
@@ -986,7 +987,7 @@ async def create_checkup_design_step1(
             step_number="1",
             step_name="건강 분석"
         )
-        logger.info(f"📥 [STEP1-분석] Gemini API 응답 수신 완료")
+        logger.info(f"📥 [STEP1-분석] LLM API 응답 수신 완료")
         
         # 응답 상태 확인
         if not gemini_api_response.success:
@@ -1562,7 +1563,7 @@ async def create_checkup_design_step2(
                     if retry_count > 0:
                         logger.warning(f"🔄 [STEP2-1] 재시도 {retry_count}/{max_retries-1}")
 
-                    gemini_response_p1 = await gemini_service.call_api(
+                    gemini_response_p1 = await llm_router.call_api(
                         gemini_request_p1,
                         save_log=True,
                         patient_uuid=request.uuid,

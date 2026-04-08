@@ -376,10 +376,15 @@ class GeminiService:
                                 yield chunk.text
                                 await asyncio.sleep(0)
                     else:
+                        # dict 리스트({role, content})가 들어오면 types.Content로 정규화
+                        # (llm_router 경유 시 dict 형식으로 올 수 있음 — 2026-04-08 hotfix)
+                        history_formatted = request.chat_history
+                        if history_formatted and isinstance(history_formatted[0], dict) and "content" in history_formatted[0]:
+                            history_formatted = self._format_chat_history(history_formatted)
                         chat = self._client.chats.create(
                             model=request.model,
                             config=config,
-                            history=request.chat_history,
+                            history=history_formatted,
                         )
                         for chunk in chat.send_message_stream(message=request.prompt):
                             if chunk.text:

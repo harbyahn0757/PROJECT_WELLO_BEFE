@@ -13,6 +13,55 @@
  * widget.init();
  */
 
+/**
+ * /widget-status 엔드포인트 조회 헬퍼 (Phase C: fail-closed 게이트)
+ * - 10초 sessionStorage 캐시
+ * - 2초 타임아웃
+ * - 실패 시 null 반환 (fail-closed 원칙: 불확실하면 미노출)
+ *
+ * @param {string} baseUrl  예) "https://welno.kindhabit.com"
+ * @returns {Promise<Object|null>}
+ */
+async function fetchWidgetStatus(baseUrl) {
+  var cacheKey = 'welno_widget_status_v1';
+  // 1. 세션 캐시 확인 (10초)
+  try {
+    var raw = sessionStorage.getItem(cacheKey);
+    if (raw) {
+      var cached = JSON.parse(raw);
+      if (cached && cached.fetched_at && (Date.now() - cached.fetched_at) < 10000) {
+        return cached.data;
+      }
+    }
+  } catch (e) { /* ignore */ }
+
+  // 2. fetch (2초 타임아웃)
+  var ctrl = new AbortController();
+  var timer = setTimeout(function() { ctrl.abort(); }, 2000);
+  try {
+    var url = baseUrl + '/welno-api/v1/widget-status?widget=rag_chat';
+    var r = await fetch(url, {
+      signal: ctrl.signal,
+      cache: 'no-store',
+      credentials: 'omit',
+    });
+    clearTimeout(timer);
+    if (!r.ok) return null;
+    var data = await r.json();
+    try {
+      sessionStorage.setItem(cacheKey, JSON.stringify({
+        data: data,
+        fetched_at: Date.now(),
+      }));
+    } catch (e) { /* ignore */ }
+    return data;
+  } catch (e) {
+    clearTimeout(timer);
+    console.info('[WelnoRagChatWidget] widget-status fetch 실패 (fail-closed):', e && e.message);
+    return null;
+  }
+}
+
 // 파트너별 기본 채팅 아이콘 (API Key로 자동 매핑)
 var PARTNER_DEFAULT_ICON = {
   '5a9bb40b5108ecd8ef864658d5a2d5ab': '/welno-api/static/mdx_icon.png'
@@ -136,14 +185,36 @@ class WelnoRagChatWidget {
     }
 
     try {
-      // 0-a. 서비스 헬스체크 (Gemini API 장애 시 위젯 미노출)
+      // 0-a. widget-status 게이트 (Phase C: fail-closed)
+      // /welno-api/v1/widget-status?widget=rag_chat 응답으로 enabled 여부 판단.
+      // 네트워크 실패 / 타임아웃 / enabled=false 모두 조용히 마운트 skip.
+      try {
+        var widgetStatus = await fetchWidgetStatus(this.config.baseUrl);
+        if (!widgetStatus) {
+          console.info('[WelnoRagChatWidget] 위젯 상태 확인 실패 — 조용히 미노출 (fail-closed)');
+          return;
+        }
+        var ragChatStatus = widgetStatus.widgets && widgetStatus.widgets.rag_chat;
+        if (!ragChatStatus || !ragChatStatus.enabled) {
+          console.info('[WelnoRagChatWidget] 위젯 비활성화:', (ragChatStatus && ragChatStatus.reason) || 'unknown');
+          return;
+        }
+        if (ragChatStatus.reason === 'degraded_slow') {
+          console.info('[WelnoRagChatWidget] 폴백 모드 (OpenAI) — 응답이 평소보다 느릴 수 있음');
+        }
+      } catch (e) {
+        console.info('[WelnoRagChatWidget] widget-status 예외 — 조용히 미노출:', e && e.message);
+        return;
+      }
+
+      // 0-b. 서비스 헬스체크 (기존 — 하위호환 유지)
       var healthOk = await this.checkServiceHealth();
       if (!healthOk) {
         console.warn('[WelnoRagChatWidget] 서비스 점검 중 — 위젯 미노출');
         return;
       }
 
-      // 0-b. 서버에서 동적 설정 로드 (파트너 테마 적용)
+      // 0-c. 서버에서 동적 설정 로드 (파트너 테마 적용)
       await this.fetchRemoteConfig();
 
       // 1. CSS 스타일 주입
