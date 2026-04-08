@@ -874,25 +874,40 @@ class PartnerRagChatService(WelnoRagChatService):
 - 수치/항목명/진단명 직접 노출 금지
 - 참고: "{name}님, 결과에서 {concern_count}가지 같이 확인할 게 있어요. 어디부터 볼까요? 📋"{greeting_example_extra}
 
-형식 (반드시 이 형식으로):
-HOOK: (후킹 메시지)
-GREETING: (채팅 인사말)"""
+응답 형식 (반드시 JSON 객체로만, 다른 텍스트/마크다운 금지):
+{{"hook": "(후킹 메시지)", "greeting": "(채팅 인사말)"}}"""
 
         try:
             res = await llm_router.call_api(
-                GeminiRequest(prompt=prompt, model=settings.google_gemini_fast_model, temperature=0.9),
+                GeminiRequest(
+                    prompt=prompt,
+                    model=settings.google_gemini_fast_model,
+                    temperature=0.9,
+                    response_format={"type": "json_object"},
+                ),
                 save_log=False,
             )
-            if res.success:
+            if res.success and res.content:
                 raw = res.content.strip()
-                hook_line = next((l for l in raw.splitlines() if l.startswith("HOOK:")), None)
-                greeting_line = next((l for l in raw.splitlines() if l.startswith("GREETING:")), None)
-                if hook_line and greeting_line:
-                    hook = hook_line[len("HOOK:"):].strip().replace('"', '')
-                    greeting = greeting_line[len("GREETING:"):].strip().replace('"', '')
-                    return (hook, greeting)
-        except Exception:
-            pass
+                # 마크다운 코드블록 제거 (```json ... ```)
+                if raw.startswith("```"):
+                    raw = raw.split("\n", 1)[-1] if "\n" in raw else raw[3:]
+                    if raw.endswith("```"):
+                        raw = raw[:-3]
+                    raw = raw.strip()
+                try:
+                    data = json.loads(raw)
+                    hook = (data.get("hook") or "").strip().replace('"', '')
+                    greeting = (data.get("greeting") or "").strip().replace('"', '')
+                    if hook and greeting:
+                        return (hook, greeting)
+                    logger.warning("[greetings] LLM 응답에 hook/greeting 누락: %s", str(data)[:200])
+                except json.JSONDecodeError as e:
+                    logger.warning("[greetings] JSON 파싱 실패: %s | raw=%s", e, raw[:200])
+            elif not res.success:
+                logger.warning("[greetings] LLM 호출 실패: %s", res.error)
+        except Exception as e:
+            logger.warning("[greetings] 예외: %s", e)
 
         # 폴백
         hp = f"{hospital} " if hospital else ""
