@@ -774,6 +774,39 @@ class PartnerRagChatService(WelnoRagChatService):
             logger.error(f"❌ [파트너 RAG] 웜업 처리 실패: {e}")
             return {"greeting": "안녕하세요! 건강 검진 결과에 대해 궁금한 점을 물어보세요.", "has_data": False}
 
+    # 후킹/인사말 톤 angle pool — 매 호출마다 random.choice (LLM 다양성 강제)
+    # prompt에 구체 예시 문장 박으면 LLM이 베껴서 똑같은 출력 → angle 추상 가이드만
+    HOOK_ANGLES = [
+        "검진 결과 정리 완료를 알리며 같이 보자는 차분한 초대 톤. 사실을 담백하게 전달.",
+        "구체적 검진 항목(혈압/혈당/콜레스테롤/간수치 등) 중 하나를 짧게 언급하면서 권유. 진단 강요 X, 같이 보자는 어조.",
+        "병원 이름을 자연스럽게 녹여서 결과 도착을 알리는 차분한 안내 톤.",
+        "환자가 평소 신경 썼을 만한 부분을 짚어주는 진중한 관심 표현. 부담스럽지 않게.",
+        "이번 검진에서 함께 살펴볼 부분이 있다는 정보 전달 톤. 짧고 담백하게.",
+        "환자 이름을 부르며 결과를 안내해 드리겠다는 도우미 입장. 친근하지만 진중하게.",
+        "결과 중 짚어드릴 게 있다는 짧고 담백한 안내. 호기심 살짝 자극.",
+        "환자의 걱정/궁금증을 먼저 묻는 공감 톤. 의문형으로 마무리(~있으세요?). {name}님 호칭 + 부드러운 권유. 친구가 안부 묻듯, 부담 없이.",
+    ]
+
+    GREETING_ANGLES = [
+        "후킹의 자연스러운 연장 + 어디부터 볼지 묻는 차분한 초대 톤.",
+        "구체 항목 1~2개를 짧게 언급 + 무엇이 궁금한지 묻는 도움 톤.",
+        "결과 정리됐다는 사실 + 가볍지 않게 시작하자는 자연 톤.",
+        "환자 감정/걱정을 먼저 살피며 마음 열게 하는 공감 톤. 의문형 권유.",
+    ]
+
+    @staticmethod
+    def _is_safe_greeting(text: str) -> bool:
+        """후킹/인사말이 금지 표현 포함하는지 검증 (사용자 노출 전 가드)"""
+        if not text or len(text) < 10:
+            return False
+        forbidden = [
+            "확인할 항목", "N가지", "가지 있어요",  # 사무 베끼기
+            "위험", "이상소견", "주의", "경고", "심각", "긴급", "즉시 병원",  # 공포
+            "프리미엄", "전문가", "맞춤", "특별히", "VIP", "엄선",  # 장사
+            "차 한잔", "한잔", "신기", "재미", "흥미", "어머", "와우",  # 작위
+        ]
+        return not any(f in text for f in forbidden)
+
     # 정상인용 (hook, chat_greeting) 쌍 템플릿 — 맥락 연결 보장
     NORMAL_GREETING_PAIRS = [
         (
@@ -851,6 +884,11 @@ class PartnerRagChatService(WelnoRagChatService):
 
         from .gemini_service import gemini_service, GeminiRequest
         from .llm_router import llm_router
+
+        # 매 호출마다 random angle 주입 (zero-shot, 베낄 예시 없음)
+        hook_angle = random.choice(self.HOOK_ANGLES)
+        greeting_angle = random.choice(self.GREETING_ANGLES)
+
         prompt = f"""당신은 '{hospital}'의 건강 도우미입니다. {name}님 검진 결과를 안내합니다.
 
 [검진 데이터 — 내부 참고용, 수치 직접 노출 금지]
@@ -862,83 +900,110 @@ class PartnerRagChatService(WelnoRagChatService):
 두 개의 메시지를 작성하세요:
 
 **후킹 메시지** (티저 말풍선):
-- 35~70자, 이모지 1개
-- 사용자가 "뭔데?" 하고 클릭하게 만드는 호기심 유발
-- 수치 직접 노출 금지, 항목 수/변화 여부 숫자는 OK
-- 참고: "{name}님, 확인할 항목이 {concern_count}가지 있어요 📋" / "{name}님, 한번 같이 들여다보면 좋을 게 있어요 🔍"{hook_example_extra}
+- 35~60자, 이모지 1개 (📋 💬 💡 ✨ 중에서)
+- {name}님 호칭을 자연스럽게
+- ⚠️ 이번 응답에 사용할 톤 (반드시 이 방향만 사용):
+  {hook_angle}
 
 **채팅 인사말** (채팅창 첫 메시지):
-- 후킹 메시지의 자연스러운 연장
-- 2문장 이내, 이모지 1개
-- 마지막은 사용자가 답하게 되는 질문으로 마무리
-- 수치/항목명/진단명 직접 노출 금지
-- 참고: "{name}님, 결과에서 {concern_count}가지 같이 확인할 게 있어요. 어디부터 볼까요? 📋"{greeting_example_extra}
+- 후킹의 자연스러운 연장
+- 2문장 이내, 이모지 1개 (📋 💬 💡 ✨ 중에서)
+- 수치/진단명 직접 노출 금지
+- ⚠️ 이번 응답에 사용할 톤 (반드시 이 방향만 사용):
+  {greeting_angle}
 
-⚠️ JSON 응답 규칙 (절대 위반 금지):
-- 키 이름은 반드시 영문 소문자 "hook"과 "greeting" 두 개만 사용
-- 다른 키 이름(HOOK, Hook, 후킹, 후킹메시지, message 등) 사용 금지
+[필수]
+- 의료 데이터를 다루는 친근한 도우미 어조 (가볍지 않게, 진중하게)
+- 환자 입장 공감, 부담 X
+- 매번 다르게, 같은 표현 절대 반복 금지
+
+[금지 표현 — 사용 시 응답 즉시 무효 처리됨]
+- 사무 베끼기: "확인할 항목이 N가지 있어요" / "N가지 있어요" / "결과에서 N가지" 같은 패턴 절대 금지
+- 공포: 위험/이상소견/주의/경고/심각/긴급/즉시
+- 장사: 프리미엄/맞춤/특별히/VIP/엄선/전문가
+- 작위적 일상: 차/한잔/신기/재미/흥미/어머/와우
+
+⚠️ JSON 응답 규칙:
+- 키 이름은 반드시 영문 소문자 "hook"과 "greeting" 두 개만
 - 마크다운/코드블록/주석/추가 텍스트 절대 금지
-- 응답은 오직 다음 형식의 JSON 객체 하나만:
+- 응답은 오직 다음 형식의 JSON 객체 하나:
 
 {{"hook": "후킹 메시지 본문", "greeting": "채팅 인사말 본문"}}"""
 
-        try:
-            res = await llm_router.call_api(
-                GeminiRequest(
-                    prompt=prompt,
-                    model=settings.google_gemini_fast_model,
-                    temperature=0.7,
-                    response_format={"type": "json_object"},
-                ),
-                save_log=False,
-            )
-            logger.error("[greetings] DEBUG res.success=%s res.error=%s content_len=%s",
-                         res.success if res else None,
-                         res.error if res else None,
-                         len(res.content) if res and res.content else 0)
-            if res and res.success and res.content:
-                raw = res.content.strip()
-                # 마크다운 코드블록 제거 (```json ... ```)
-                if raw.startswith("```"):
-                    raw = raw.split("\n", 1)[-1] if "\n" in raw else raw[3:]
-                    if raw.endswith("```"):
-                        raw = raw[:-3]
-                    raw = raw.strip()
-                logger.error("[greetings] DEBUG raw=%s", raw[:300])
-                try:
-                    data = json.loads(raw)
-                    # 키 이름 변형 모두 허용 (case-insensitive + 한국어 fallback)
-                    def _pick(d: dict, *keys):
-                        for k in keys:
-                            v = d.get(k)
-                            if v and isinstance(v, str) and v.strip():
-                                return v.strip()
-                        return ""
-                    hook = _pick(data, "hook", "HOOK", "Hook", "후킹", "후킹메시지", "후킹_메시지", "teaser", "title").replace('"', '')
-                    greeting = _pick(data, "greeting", "GREETING", "Greeting", "인사", "인사말", "채팅인사말", "message", "msg").replace('"', '')
-                    if hook and greeting:
-                        logger.error("[greetings] DEBUG 성공 hook=%s greeting=%s", hook[:60], greeting[:60])
-                        return (hook, greeting)
-                    logger.error("[greetings] hook/greeting 누락 — keys=%s data=%s",
-                                 list(data.keys()) if isinstance(data, dict) else None, str(data)[:300])
-                except json.JSONDecodeError as e:
-                    logger.error("[greetings] JSON 파싱 실패: %s | raw=%s", e, raw[:300])
-            elif res and not res.success:
-                logger.error("[greetings] LLM 호출 실패: %s", res.error)
-            else:
-                logger.error("[greetings] LLM 응답 없음 (res=%s)", res)
-        except Exception as e:
-            logger.error("[greetings] 예외: %s", e, exc_info=True)
+        # LLM 호출 — 최대 2회 시도 (첫 응답이 금지 패턴 포함하면 1회 retry)
+        for attempt in range(2):
+            try:
+                res = await llm_router.call_api(
+                    GeminiRequest(
+                        prompt=prompt,
+                        model=settings.google_gemini_fast_model,
+                        temperature=0.9,
+                        response_format={"type": "json_object"},
+                    ),
+                    save_log=False,
+                )
+                logger.info("[greetings] attempt=%d success=%s err=%s len=%s angle_hook=%s",
+                            attempt + 1,
+                            res.success if res else None,
+                            res.error if res else None,
+                            len(res.content) if res and res.content else 0,
+                            hook_angle[:30])
+                if res and res.success and res.content:
+                    raw = res.content.strip()
+                    if raw.startswith("```"):
+                        raw = raw.split("\n", 1)[-1] if "\n" in raw else raw[3:]
+                        if raw.endswith("```"):
+                            raw = raw[:-3]
+                        raw = raw.strip()
+                    try:
+                        data = json.loads(raw)
 
-        # 폴백
+                        def _pick(d: dict, *keys):
+                            for k in keys:
+                                v = d.get(k)
+                                if v and isinstance(v, str) and v.strip():
+                                    return v.strip()
+                            return ""
+                        hook = _pick(data, "hook", "HOOK", "Hook", "후킹", "후킹메시지", "teaser", "title").replace('"', '')
+                        greeting = _pick(data, "greeting", "GREETING", "Greeting", "인사말", "채팅인사말", "message").replace('"', '')
+
+                        # 검증: 금지 표현 포함 시 retry 또는 폴백
+                        if hook and greeting:
+                            if self._is_safe_greeting(hook) and self._is_safe_greeting(greeting):
+                                logger.info("[greetings] OK attempt=%d hook=%s", attempt + 1, hook[:60])
+                                return (hook, greeting)
+                            logger.warning("[greetings] 금지 패턴 감지 attempt=%d hook=%s greeting=%s",
+                                           attempt + 1, hook[:80], greeting[:80])
+                            # retry 위해 다음 angle 재선택
+                            hook_angle = random.choice(self.HOOK_ANGLES)
+                            greeting_angle = random.choice(self.GREETING_ANGLES)
+                            continue
+                        logger.warning("[greetings] hook/greeting 누락 keys=%s",
+                                       list(data.keys()) if isinstance(data, dict) else None)
+                    except json.JSONDecodeError as e:
+                        logger.warning("[greetings] JSON 파싱 실패: %s | raw=%s", e, raw[:200])
+                elif res and not res.success:
+                    logger.warning("[greetings] LLM 호출 실패: %s", res.error)
+            except Exception as e:
+                logger.warning("[greetings] 예외 attempt=%d: %s", attempt + 1, e)
+
+        # 모든 시도 실패 시 폴백 (자연스러운 톤으로)
         hp = f"{hospital} " if hospital else ""
-        if concern_count >= 2:
-            hook_fb = f"{name}님, {hp}검진에서 확인할 항목이 {concern_count}가지 있어요 📋"
-            greeting_fb = f"{name}님, {hp}검진 결과에서 {concern_count}가지 같이 확인할 게 있어요. 어디부터 볼까요? 📋"
-        else:
-            hook_fb = f"{name}님, {hp}검진 결과에서 같이 볼 부분이 있어요 👀"
-            greeting_fb = f"{name}님, {hp}검진 결과에서 같이 확인해 보면 좋을 부분이 있어요. 어떤 항목부터 볼까요? 📋"
-        return (hook_fb, greeting_fb)
+        natural_fallbacks = [
+            (
+                f"{name}님, {hp}검진 결과 정리됐어요. 같이 살펴볼까요? 💬",
+                f"{name}님, 결과 보면서 이야기 나눠봐요. 어떤 부분이 궁금하세요? 💡",
+            ),
+            (
+                f"{name}님, 검진 결과 안내해 드릴게요 📋",
+                f"{name}님, 결과 정리됐어요. 궁금하거나 신경 쓰이는 부분 있으세요? 💬",
+            ),
+            (
+                f"{name}님, 결과 중에 짚어드릴 부분이 있어요 💡",
+                f"{name}님, 결과 보면서 같이 이야기해 봐요. 어떤 부분부터 볼까요? 💬",
+            ),
+        ]
+        return random.choice(natural_fallbacks)
 
     async def _generate_hook_greeting(
         self,

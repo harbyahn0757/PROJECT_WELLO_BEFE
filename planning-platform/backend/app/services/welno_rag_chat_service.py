@@ -455,15 +455,17 @@ class WelnoRagChatService:
                 search_query = f"{', '.join(current_keywords)} 관련: {message}"
             elif not is_first_message and len((message or "").strip()) <= 15:
                 # 짧은 후속 메시지: 대화 히스토리에서 맥락을 추출하여 검색 쿼리 보강
+                # ⚠️ message를 앞에 두고 context는 짧게 보조 — 그래야 RAG 검색 가중치가 message 우선
                 try:
                     history = self.chat_manager.get_history(uuid, hospital_id) if hasattr(self, 'chat_manager') else []
                     recent_msgs = [
-                        m.get("content", "") for m in (history or [])[-6:]
+                        m.get("content", "") for m in (history or [])[-4:]
                         if m.get("role") in ("user", "assistant") and len(m.get("content", "")) > 10
                     ]
                     if recent_msgs:
-                        context_hint = " ".join(recent_msgs)[:300]
-                        search_query = f"{context_hint} {message}"
+                        # context는 100자로 짧게, message가 검색 가중치 핵심
+                        context_hint = " ".join(recent_msgs)[:100]
+                        search_query = f"{message} | 맥락: {context_hint}"
                         logger.info(f"🔍 [RAG 쿼리] 대화 맥락 기반 보강: '{message}' → '{search_query[:80]}...'")
                 except Exception as e:
                     logger.warning(f"⚠️ [RAG 쿼리] 맥락 보강 실패: {e}")
@@ -588,6 +590,12 @@ class WelnoRagChatService:
                             if m.get("content")
                         ]
                         logger.info(f"📜 [세션 히스토리] {len(chat_history)}개 메시지 로드")
+                # 디버그: chat_history 실제 전달 여부 + 길이 + 마지막 메시지 (멀티턴 검증용)
+                logger.error("[chat_debug] is_first=%s history_len=%s last=%s msg=%s",
+                             is_first_message,
+                             len(chat_history) if chat_history else 0,
+                             (chat_history[-1].get('role', '') + ':' + chat_history[-1].get('content', '')[:40]) if chat_history else 'NONE',
+                             (message or '')[:40])
                 
                 # 프롬프트 구성
                 hospital_config = trace_data.get("hospital_config") if trace_data else None
