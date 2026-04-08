@@ -520,6 +520,12 @@ async def llm_analyze_session(
           "invalid_response", "api_error:{msg}"
     """
     try:
+        # LLM 폴백 상태 확인 — DEGRADED/DOWN이면 Gemini 직접 호출 skip (403 폭탄 방지)
+        from .llm_router import llm_router, LLMState
+        if llm_router.state != LLMState.HEALTHY:
+            logger.debug("[태깅-LLM] LLM %s 상태 — Gemini 직접 호출 skip, 규칙 기반 폴백", llm_router.state.value)
+            return None, f"llm_{llm_router.state.value.lower()}"
+
         from google import genai
 
         api_key = settings.google_gemini_api_key
