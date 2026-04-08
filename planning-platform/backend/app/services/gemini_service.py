@@ -114,19 +114,12 @@ class GeminiService:
         return result
 
     async def _notify_slack(self, title: str, location: str, error_message: str):
-        """Gemini 에러 Slack 알림 (내부 유틸)"""
-        try:
-            from .slack_service import get_slack_service, AlertType
-            if settings.slack_webhook_url:
-                slack = get_slack_service(settings.slack_webhook_url)
-                await slack.send_error_alert(AlertType.API_ERROR, {
-                    "error_type": title,
-                    "location": f"gemini_service.py:{location}",
-                    "error_message": error_message,
-                    "uuid": "system",
-                })
-        except Exception:
-            pass  # Slack 전송 실패는 무시
+        """
+        Gemini 에러 Slack 알림 — DEPRECATED (2026-04-08).
+        llm_router가 모든 상태 전환 알림을 통합 관리하므로 여기서는 no-op.
+        개별 호출 실패마다 발송하면 폭탄 발생 (장애 시 1분당 1건+).
+        """
+        return
 
     async def call_api(
         self,
