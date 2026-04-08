@@ -381,7 +381,8 @@ class LLMRouter:
         logger.info("[LLMRouter] recovery loop started")
         while True:
             try:
-                state = self._state
+                # property 사용 — Redis override 인지 (override DEGRADED여도 헬스체크 진행)
+                state = self.state
                 if state == LLMState.DEGRADED:
                     if (time.monotonic() - self._state_entered_at) < self._degraded_holdoff:
                         await asyncio.sleep(10)
@@ -414,7 +415,9 @@ class LLMRouter:
                             self._recovery_success_count["gemini"], RECOVERY_SUCCESS_REQUIRED)
                 if self._recovery_success_count["gemini"] >= RECOVERY_SUCCESS_REQUIRED:
                     async with self._lock:
-                        self._transition_locked(LLMState.HEALTHY, "gemini recovered")
+                        self._transition_locked(LLMState.HEALTHY, "gemini auto-recovered")
+                    # 자동 복구 시 Redis override 키도 자동 삭제 (영구 잠김 방지)
+                    await asyncio.to_thread(self._clear_redis_override_sync)
             else:
                 self._recovery_success_count["gemini"] = 0
         except Exception as e:
@@ -469,6 +472,19 @@ class LLMRouter:
             self._override_widgets = new_widgets
         except Exception as e:
             logger.debug("[LLMRouter] redis override poll skipped: %s", e)
+
+    def _clear_redis_override_sync(self):
+        """Gemini 자동 복구 성공 시 Redis override 키 삭제 + in-memory 캐시도 즉시 reset"""
+        try:
+            import redis
+            from ..core.config import settings
+            redis_url = getattr(settings, "redis_url", "redis://10.0.1.10:6379/0")
+            client = redis.from_url(redis_url, decode_responses=True, socket_timeout=3)
+            client.delete("welno:llm:override:state", "welno:llm:override:reason")
+            self._override_state = None
+            logger.info("[LLMRouter] redis override auto-cleared (gemini recovered)")
+        except Exception as e:
+            logger.warning("[LLMRouter] redis override auto-clear failed: %s", e)
 
 
 # 싱글턴 인스턴스
