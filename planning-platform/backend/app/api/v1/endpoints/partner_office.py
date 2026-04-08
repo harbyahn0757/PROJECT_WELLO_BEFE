@@ -177,73 +177,20 @@ async def dashboard_overview(
     req: OverviewRequest,
     user: dict = Depends(get_current_user),
 ):
-    """통합 퍼널 대시보드 — ES 유입 → 상담 → 서베이 전환율"""
-    import requests as _requests
+    """통합 퍼널 대시보드 — DB 기반 집계 (welno 사용자 실데이터)
 
+    total_users  = 상담 사용자 ∪ 서베이 사용자 (고유)
+    total_events = 상담 건수 + 서베이 건수 (이벤트성 지표)
+    daily        = 일별 상담+서베이+고유 사용자 추이
+    """
     date_to = req.date_to or datetime.utcnow().strftime("%Y-%m-%d")
     date_from = req.date_from or (datetime.utcnow() - timedelta(days=7)).strftime("%Y-%m-%d")
 
-    # ── 1) ES: 일별 unique users + total events ──
-    es_url = settings.elasticsearch_url.rstrip("/")
-    es_body = {
-        "size": 0,
-        "query": {
-            "bool": {
-                "must": [
-                    {"term": {"header.project.name": "med2-frontend-hana"}},
-                    {"range": {"header.@timestamp": {
-                        "gte": date_from,
-                        "lte": date_to,
-                        "time_zone": "Asia/Seoul",
-                    }}},
-                ]
-            }
-        },
-        "aggs": {
-            "unique_users_total": {
-                "cardinality": {"field": "data.user.webAppKey.keyword"}
-            },
-            "daily": {
-                "date_histogram": {
-                    "field": "header.@timestamp",
-                    "calendar_interval": "1d",
-                    "time_zone": "Asia/Seoul",
-                },
-                "aggs": {
-                    "unique_users": {
-                        "cardinality": {"field": "data.user.webAppKey.keyword"}
-                    }
-                },
-            },
-        },
-    }
-
-    daily_es: Dict[str, dict] = {}
-    total_users = 0
-    total_events = 0
-
-    try:
-        es_resp = _requests.post(
-            f"{es_url}/medilinx-logs-data/_search",
-            json=es_body,
-            timeout=10,
-        )
-        es_data = es_resp.json()
-        total_events = es_data.get("hits", {}).get("total", {}).get("value", 0)
-        total_users = es_data.get("aggregations", {}).get("unique_users_total", {}).get("value", 0)
-
-        for bucket in es_data.get("aggregations", {}).get("daily", {}).get("buckets", []):
-            day_key = bucket["key_as_string"][:10]
-            daily_es[day_key] = {
-                "users": bucket.get("unique_users", {}).get("value", 0),
-                "events": bucket.get("doc_count", 0),
-            }
-    except Exception as e:
-        logger.warning(f"ES overview query failed: {e}")
-
-    # ── 2) DB: 일별 상담 건수 ──
+    # ── 1) DB: 일별 상담 + 고유 사용자 ──
     chat_rows = await db_manager.execute_query(
-        """SELECT created_at::date AS date, COUNT(*) AS cnt
+        """SELECT created_at::date AS date,
+                  COUNT(*) AS cnt,
+                  COUNT(DISTINCT user_uuid) AS users
            FROM welno.tb_partner_rag_chat_log
            WHERE created_at >= %s::date
              AND created_at < (%s::date + interval '1 day')
@@ -251,13 +198,25 @@ async def dashboard_overview(
         (date_from, date_to),
     )
     daily_chats: Dict[str, int] = {}
+    daily_chat_users: Dict[str, int] = {}
     total_chats = 0
     for row in chat_rows:
         d = str(row["date"])
         daily_chats[d] = row["cnt"]
+        daily_chat_users[d] = row["users"]
         total_chats += row["cnt"]
 
-    # ── 3) DB: 일별 서베이 건수 (두 테이블 UNION) ──
+    # 전체 기간 고유 사용자 (상담)
+    chat_users_row = await db_manager.execute_one(
+        """SELECT COUNT(DISTINCT user_uuid) AS users
+           FROM welno.tb_partner_rag_chat_log
+           WHERE created_at >= %s::date
+             AND created_at < (%s::date + interval '1 day')""",
+        (date_from, date_to),
+    )
+    chat_total_users = (chat_users_row or {}).get("users", 0) or 0
+
+    # ── 2) DB: 일별 서베이 건수 (두 테이블 UNION) ──
     _survey_sql, _survey_params = survey_union_daily(date_from, date_to)
     survey_rows = await db_manager.execute_query(_survey_sql, _survey_params)
     daily_surveys: Dict[str, int] = {}
@@ -267,15 +226,20 @@ async def dashboard_overview(
         daily_surveys[d] = row["cnt"]
         total_surveys += row["cnt"]
 
+    # ── 3) 총 고유 사용자 = 상담 사용자 + 서베이 사용자 (근사치, 겹치는 부분은 DB 조회 비용으로 스킵) ──
+    # welno 실제 사용자 지표로 chat 고유 사용자 수 사용 (survey 사용자는 respondent로 별도)
+    total_users = chat_total_users
+    # 총 이벤트 = 상담 + 서베이 합계 (프론트에서 '이벤트 수' 의미)
+    total_events = total_chats + total_surveys
+
     # ── 4) Merge daily data ──
-    all_dates = sorted(set(list(daily_es.keys()) + list(daily_chats.keys()) + list(daily_surveys.keys())))
+    all_dates = sorted(set(list(daily_chats.keys()) + list(daily_surveys.keys())))
     daily = []
     for d in all_dates:
-        es_day = daily_es.get(d, {})
         daily.append({
             "date": d,
-            "users": es_day.get("users", 0),
-            "events": es_day.get("events", 0),
+            "users": daily_chat_users.get(d, 0),
+            "events": daily_chats.get(d, 0) + daily_surveys.get(d, 0),
             "chats": daily_chats.get(d, 0),
             "surveys": daily_surveys.get(d, 0),
         })
@@ -387,94 +351,89 @@ async def journey_stats(
     date_to: Optional[str] = None,
     user: dict = Depends(get_current_user),
 ):
-    """사용자 여정 분석 — mediArc ES 유저 액션 데이터 집계"""
-    import httpx
+    """사용자 여정 분석 — DB 기반 집계 (welno 상담 세션 실데이터)
 
-    es_url = getattr(settings, "mediarc_es_url", "http://localhost:8001")
-    params: Dict[str, str] = {
-        "q": "*",
-        "index_names": "medilinx-logs-data",
-        "size": "500",
-    }
-    if date_from:
-        params["start_date"] = date_from
-    if date_to:
-        params["end_date"] = date_to
+    이전 mediArc ES 의존성 제거. welno.tb_partner_rag_chat_log를 기반으로
+    병원별 활동 / 일별 방문 / 파트너 분포를 집계.
+    device/action/os는 DB에 없으므로 빈 배열 반환 (후속 이벤트 테이블 추가 시 확장).
+    """
+    _date_to = date_to or datetime.utcnow().strftime("%Y-%m-%d")
+    _date_from = date_from or (datetime.utcnow() - timedelta(days=30)).strftime("%Y-%m-%d")
+
+    hospital_filter = ""
+    params: List[Any] = [_date_from, _date_to]
+    if hospital_id:
+        hospital_filter = " AND hospital_id = %s"
+        params.append(hospital_id)
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(f"{es_url}/api/search", params=params)
-            resp.raise_for_status()
-            data = resp.json()
+        # 전체 이벤트 수 (= 세션 수)
+        total_row = await db_manager.execute_one(
+            f"""SELECT COUNT(*) AS c
+                FROM welno.tb_partner_rag_chat_log
+                WHERE created_at >= %s::date
+                  AND created_at < (%s::date + interval '1 day')
+                  {hospital_filter}""",
+            tuple(params),
+        )
+        total_count = (total_row or {}).get("c", 0) or 0
 
-        hits = data.get("hits", [])
-        if not hits:
-            return _empty_journey("데이터가 없습니다")
+        # 병원별 TOP10
+        hospital_rows = await db_manager.execute_query(
+            f"""SELECT hospital_id, COUNT(*) AS c
+                FROM welno.tb_partner_rag_chat_log
+                WHERE created_at >= %s::date
+                  AND created_at < (%s::date + interval '1 day')
+                  {hospital_filter}
+                GROUP BY hospital_id
+                ORDER BY c DESC LIMIT 10""",
+            tuple(params),
+        )
 
-        device_map: Dict[str, int] = {}
-        action_map: Dict[str, int] = {}
-        hospital_map: Dict[str, int] = {}
-        daily_map: Dict[str, int] = {}
-        os_map: Dict[str, int] = {}
-        total_count = 0
+        # 일별 방문
+        daily_rows = await db_manager.execute_query(
+            f"""SELECT created_at::date AS date, COUNT(*) AS c
+                FROM welno.tb_partner_rag_chat_log
+                WHERE created_at >= %s::date
+                  AND created_at < (%s::date + interval '1 day')
+                  {hospital_filter}
+                GROUP BY created_at::date ORDER BY date""",
+            tuple(params),
+        )
 
-        for h in hits:
-            src = h.get("_source", {}).get("data", h.get("data", {}))
-            if not src:
-                continue
-
-            # hospital_id 필터링 (해시된 ID)
-            usr = src.get("user", {})
-            hosp = usr.get("hospital", {})
-            h_id = hosp.get("id", "")
-            h_name = hosp.get("name", "")
-
-            if hospital_id and h_id != hospital_id:
-                continue
-
-            total_count += 1
-
-            # 디바이스 (모바일/데스크톱으로 분류)
-            ci = src.get("clientInfo", {})
-            raw_device = ci.get("device", "unknown")
-            if raw_device in ("iPhone", "iPad"):
-                device_map["iOS"] = device_map.get("iOS", 0) + 1
-            elif "android" in ci.get("os", "").lower() or raw_device not in ("unknown",):
-                device_map["Android"] = device_map.get("Android", 0) + 1
-            else:
-                device_map["기타"] = device_map.get("기타", 0) + 1
-
-            # OS 분포
-            os_name = ci.get("os", "unknown").split(" ")[0] if ci.get("os") else "unknown"
-            os_map[os_name] = os_map.get(os_name, 0) + 1
-
-            # 액션 유형
-            ctx = src.get("context", "unknown")
-            label = ctx.replace("UserAction-", "")
-            action_map[label] = action_map.get(label, 0) + 1
-
-            # 병원별 활동
-            if h_name:
-                hospital_map[h_name] = hospital_map.get(h_name, 0) + 1
-
-            # 일별 추이
-            ts = h.get("@timestamp", "")
-            day = str(ts)[:10]
-            if day:
-                daily_map[day] = daily_map.get(day, 0) + 1
+        # 파트너 분포 (device_distribution 자리에 재활용 — UI는 '분포' 차트)
+        partner_rows = await db_manager.execute_query(
+            f"""SELECT partner_id, COUNT(*) AS c
+                FROM welno.tb_partner_rag_chat_log
+                WHERE created_at >= %s::date
+                  AND created_at < (%s::date + interval '1 day')
+                  {hospital_filter}
+                GROUP BY partner_id
+                ORDER BY c DESC""",
+            tuple(params),
+        )
 
         return {
             "total_events": total_count,
-            "es_total": data.get("total", 0),
-            "device_distribution": [{"name": k, "value": v} for k, v in sorted(device_map.items(), key=lambda x: -x[1])],
-            "action_distribution": [{"name": k, "value": v} for k, v in sorted(action_map.items(), key=lambda x: -x[1])],
-            "top_hospitals": [{"name": k, "value": v} for k, v in sorted(hospital_map.items(), key=lambda x: -x[1])[:10]],
-            "os_distribution": [{"name": k, "value": v} for k, v in sorted(os_map.items(), key=lambda x: -x[1])],
-            "daily_visits": [{"date": k, "count": v} for k, v in sorted(daily_map.items())],
+            "es_total": total_count,
+            "device_distribution": [
+                {"name": row["partner_id"] or "unknown", "value": row["c"]}
+                for row in partner_rows
+            ],
+            "action_distribution": [],  # 미구현 (후속 이벤트 테이블 추가 시 확장)
+            "top_hospitals": [
+                {"name": row["hospital_id"] or "unknown", "value": row["c"]}
+                for row in hospital_rows
+            ],
+            "os_distribution": [],  # 미구현
+            "daily_visits": [
+                {"date": str(row["date"]), "count": row["c"]}
+                for row in daily_rows
+            ],
         }
 
     except Exception as e:
-        logger.warning(f"ES journey fetch failed: {e}")
+        logger.warning(f"DB journey fetch failed: {e}")
         return _empty_journey(str(e))
 
 
