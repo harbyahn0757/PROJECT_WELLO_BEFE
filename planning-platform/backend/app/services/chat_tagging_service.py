@@ -520,20 +520,10 @@ async def llm_analyze_session(
           "invalid_response", "api_error:{msg}"
     """
     try:
-        # LLM 폴백 상태 확인 — DEGRADED/DOWN이면 Gemini 직접 호출 skip (403 폭탄 방지)
-        from .llm_router import llm_router, LLMState
-        if llm_router.state != LLMState.HEALTHY:
-            logger.debug("[태깅-LLM] LLM %s 상태 — Gemini 직접 호출 skip, 규칙 기반 폴백", llm_router.state.value)
-            return None, f"llm_{llm_router.state.value.lower()}"
-
-        from google import genai
-
-        api_key = settings.google_gemini_api_key
-        if not api_key or api_key == "dev-gemini-key":
-            logger.debug("[태깅-LLM] Gemini API 키 미설정, 스킵")
-            return None, "api_key_missing"
-
-        client = genai.Client(api_key=api_key)
+        # llm_router 경유 — Gemini 우선 시도 → 실패 시 OpenAI 자동 폴백
+        # 즉 DEGRADED/DOWN 상태에서도 OpenAI로 태깅 정상 작동
+        from .llm_router import llm_router
+        from .gemini_service import GeminiRequest
 
         # 대화를 순서대로 번호 매겨서 포맷 (흐름 파악 + 화자 구분)
         conv_lines = []
@@ -670,26 +660,24 @@ async def llm_analyze_session(
 - 검진 이상 + 대화에서 해당 질문 → borderline_worried 우선 고려
 - 설문에서 운동 안 함 + BMI 과체중 → lifestyle_tags에 "운동부족+비만" 반영"""
 
-        response = await client.aio.models.generate_content(
-            model=settings.google_gemini_lite_model,
-            contents=prompt,
+        # llm_router 호출 (Gemini 우선, 실패 시 OpenAI 자동 폴백)
+        # response_format=json_object → Gemini는 application/json 강제, OpenAI는 동일 옵션 지원
+        llm_resp = await llm_router.call_api(
+            GeminiRequest(
+                prompt=prompt,
+                model=settings.google_gemini_lite_model,
+                temperature=0.5,
+                max_tokens=2000,
+                response_format={"type": "json_object"},
+            ),
+            save_log=False,
         )
-        # Gemini API 응답 형식 방어: .text 접근 실패 시 parts에서 추출
-        try:
-            raw_text = response.text.strip()
-        except (AttributeError, ValueError):
-            if hasattr(response, 'parts') and response.parts:
-                raw_text = response.parts[0].text.strip()
-            elif hasattr(response, 'candidates') and response.candidates:
-                candidate = response.candidates[0]
-                if hasattr(candidate, 'content') and hasattr(candidate.content, 'parts'):
-                    raw_text = candidate.content.parts[0].text.strip()
-                else:
-                    logger.warning("[태깅-LLM] Gemini 응답 파싱 불가: 알 수 없는 응답 구조")
-                    return None, "invalid_response"
-            else:
-                logger.warning("[태깅-LLM] Gemini 응답 파싱 불가: text/parts 없음")
-                return None, "invalid_response"
+
+        if not llm_resp.success or not llm_resp.content:
+            logger.warning("[태깅-LLM] llm_router 응답 실패: %s", llm_resp.error)
+            return None, f"api_error:{llm_resp.error or 'no content'}"
+
+        raw_text = llm_resp.content.strip()
 
         # JSON 파싱 (```json ... ``` 감싸기 대응)
         if raw_text.startswith("```"):
