@@ -2373,3 +2373,44 @@ async def alimtalk_link_data(key: str):
     health_fields = {k: result.get(k) for k in ('bmi','bphigh','bplwst','blds','totchole','hdlchole','ldlchole','triglyceride','hmg','gfr') if result.get(k)}
     print(f"📋 [link-data] key={key}, uuid={result.get('uuid')}, name={result.get('name')}, 건강필드={health_fields}")
     return {"success": True, **result}
+
+
+# ─── mediArc 건강 리포트 프록시 ─────────────────────────────
+import httpx
+
+MEDIARC_API_BASE = "http://localhost:8003"
+
+
+@router.get("/mediarc-report/engine/stats")
+async def mediarc_engine_stats():
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.get(f"{MEDIARC_API_BASE}/api/engine/stats")
+        return r.json()
+
+
+@router.get("/mediarc-report/verify-all")
+async def mediarc_verify_all():
+    async with httpx.AsyncClient(timeout=120) as client:
+        r = await client.get(f"{MEDIARC_API_BASE}/api/verify-all")
+        return r.json()
+
+
+@router.get("/mediarc-report/patients")
+async def mediarc_patients(limit: int = 200):
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.get(f"{MEDIARC_API_BASE}/api/report/patients", params={"limit": limit})
+        return r.json()
+
+
+@router.get("/mediarc-report/{uuid}/compare")
+async def mediarc_compare(uuid: str):
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.get(f"{MEDIARC_API_BASE}/api/report/{uuid}/compare")
+        return r.json()
+
+
+@router.get("/mediarc-report/{uuid}")
+async def mediarc_report(uuid: str):
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.get(f"{MEDIARC_API_BASE}/api/report/{uuid}")
+        return r.json()

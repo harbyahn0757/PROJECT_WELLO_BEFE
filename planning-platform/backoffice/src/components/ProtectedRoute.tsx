@@ -2,7 +2,7 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const EMBED_ALLOWED_PATHS = ['/backoffice/embedding', '/backoffice', '/backoffice/survey', '/backoffice/revisit', '/backoffice/checkup-design'];
+const EMBED_ALLOWED_PATHS = ['/backoffice/embedding', '/backoffice', '/backoffice/survey', '/backoffice/revisit', '/backoffice/checkup-design', '/backoffice/health-report'];
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated } = useAuth();

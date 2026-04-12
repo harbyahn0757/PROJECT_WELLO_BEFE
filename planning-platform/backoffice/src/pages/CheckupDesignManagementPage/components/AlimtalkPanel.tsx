@@ -36,6 +36,7 @@ const AlimtalkPanel: React.FC<Props> = ({
   const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
   const [excelRows, setExcelRows] = useState<any[]>([]);
   const [excelMapping, setExcelMapping] = useState<Record<string, string>>({});
+  const [fixedVars, setFixedVars] = useState<Record<string, string>>({});
 
   const api = useCallback(async (path: string, body?: any) => {
     const opts: RequestInit = { headers: { 'Content-Type': 'application/json' } };

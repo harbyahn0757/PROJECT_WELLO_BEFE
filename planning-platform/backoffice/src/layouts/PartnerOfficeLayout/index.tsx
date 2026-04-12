@@ -14,6 +14,7 @@ const PAGE_TITLES: Record<string, string> = {
   revisit: '재환가망고객',
   analytics: '데이터 분석',
   'checkup-design': '검진설계',  // 상담+관리 통합 (2026-04-08)
+  'health-report': 'mediArc 리포트',
 };
 
 // 2026-04-08: 'consultation' 메뉴 제거 (CheckupDesignManagementPage에 탭으로 흡수)
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { key: 'revisit', label: '재환가망고객', path: '/backoffice/revisit' },
   { key: 'analytics', label: '데이터 분석', path: '/backoffice/analytics' },
   { key: 'checkup-design', label: '검진설계', path: '/backoffice/checkup-design' },
+  { key: 'health-report', label: 'mediArc 리포트', path: '/backoffice/health-report' },
 ];
 
 interface HospitalOption {

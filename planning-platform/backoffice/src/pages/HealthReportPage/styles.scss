@@ -1,0 +1,166 @@
+// HealthReportPage — 검진설계(cdm-page) UX 패턴 준용
+@import '../../styles/variables';
+@import '../../styles/responsive';
+
+.health-report {
+  // 통계 카드
+  &__stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+  &__stat-card {
+    background: $white;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: $shadow-sm;
+    border-left: 4px solid $accent-orange;
+  }
+  &__stat-label { font-size: $font-xs; color: $gray-600; font-weight: $font-weight-semibold; }
+  &__stat-value { font-size: 20px; font-weight: $font-weight-bold; color: $brand-brown; }
+
+  @include tablet-and-below {
+    &__stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @include mobile {
+    &__stats-grid { grid-template-columns: 1fr; }
+  }
+}
+
+// ── 테이블 행 ──
+.hr-table {
+  &__row {
+    cursor: pointer;
+    transition: background 0.1s;
+    &:hover { background: $gray-100; }
+    &--expanded { background: $brand-brown-light !important; }
+  }
+  &__expanded-row {
+    td { background: $beige-cream; }
+  }
+}
+
+// ── 아코디언 펼침 영역 ──
+.hr-expanded {
+  padding: 16px 20px;
+
+  &__loading, &__empty {
+    text-align: center;
+    padding: 24px;
+    color: $gray-500;
+    font-size: $font-sm;
+  }
+
+  &__summary {
+    display: flex;
+    gap: 24px;
+    padding: 10px 0 14px;
+    font-size: $font-sm;
+    border-bottom: 1px solid $gray-200;
+    margin-bottom: 12px;
+
+    strong { font-size: $font-lg; color: $brand-brown; margin: 0 4px; }
+  }
+
+  &__tabs { margin-bottom: 12px; }
+
+  &__body {
+    .data-table { margin-bottom: 12px; }
+  }
+
+  &__chart {
+    margin-top: 12px;
+    padding: 12px;
+    background: $gray-50;
+    border-radius: $border-radius-lg;
+  }
+
+  // 영양
+  &__nutrition-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
+  }
+  &__nutrition-card {
+    background: $white;
+    border-radius: $border-radius-lg;
+    padding: 10px 14px;
+    border: 1px solid $gray-200;
+  }
+  &__nutrition-name { font-size: $font-sm; font-weight: $font-weight-bold; color: $brand-brown; }
+  &__nutrition-tag {
+    display: inline-block;
+    font-size: 10px;
+    background: $accent-orange;
+    color: $white;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: 4px;
+  }
+  &__nutrition-desc { font-size: $font-xs; color: $gray-700; margin-top: 4px; line-height: 1.5; }
+
+  // 비교
+  &__compare-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+  &__compare-box {
+    background: $white;
+    border-radius: $border-radius-lg;
+    padding: 12px 14px;
+    text-align: center;
+    border: 1px solid $gray-200;
+  }
+  &__compare-label { font-size: 10px; font-weight: $font-weight-bold; color: $gray-500; text-transform: uppercase; }
+  &__compare-val { font-size: 22px; font-weight: $font-weight-bold; color: $brand-brown; }
+  &__compare-sub { font-size: $font-xs; color: $gray-500; }
+  &__match-rate { font-size: $font-base; font-weight: $font-weight-bold; color: $accent-orange; text-align: center; padding: 6px 0; }
+}
+
+// ── 비교 행 색상 ──
+.hr-row--match td { background: $satisfaction-high-bg !important; }
+.hr-row--mismatch td { background: $satisfaction-low-bg !important; }
+
+// ── 배지 ──
+.hr-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: $font-weight-semibold;
+}
+.badge--success { background: $satisfaction-high-bg; color: $success; }
+.badge--warning { background: $satisfaction-mid-bg; color: $warning; }
+.badge--danger  { background: $satisfaction-low-bg; color: $error; }
+.badge--info    { background: #e3f2fd; color: #1565c0; }
+
+// ── 텍스트 유틸 ──
+.text--danger { color: $error; }
+.text--success { color: $success; }
+
+// ── 검증 탭 ──
+.hr-verify {
+  &__hero {
+    background: $white;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: $shadow-sm;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  &__hero-label { font-size: $font-sm; color: $gray-600; margin-bottom: 4px; }
+  &__hero-value { font-size: 36px; font-weight: $font-weight-bold; color: $brand-brown; }
+  &__hero-sub { font-size: $font-xs; color: $gray-500; margin-top: 4px; }
+
+  &__chart-wrap {
+    background: $white;
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: $shadow-sm;
+    margin-bottom: 16px;
+  }
+  &__chart-title { font-size: $font-sm; font-weight: $font-weight-semibold; color: $brand-brown; margin-bottom: 10px; }
+
+  &__section {
+    margin-top: 16px;
+    h4 { font-size: $font-sm; font-weight: $font-weight-semibold; color: $brand-brown; margin-bottom: 8px; }
+  }
+}
