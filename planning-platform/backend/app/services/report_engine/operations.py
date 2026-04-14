@@ -78,12 +78,12 @@ async def compare_single(
                bodyage, rank, disease_data, cancer_data,
                health_data, analyzed_at
         FROM welno.welno_mediarc_reports
-        WHERE patient_uuid = $1
+        WHERE patient_uuid = %s
         ORDER BY analyzed_at DESC
         LIMIT 1
     """
     try:
-        row = await db_manager.fetch_one(sql, uuid)
+        row = await db_manager.execute_one(sql, (uuid,))
     except Exception as e:
         logger.warning("compare_single: DB 조회 실패 uuid=%s — %s", uuid, e)
         return {"error": f"DB 조회 실패: {e}", "uuid": uuid}
@@ -212,23 +212,23 @@ async def verify_batch(
         SELECT DISTINCT ON (patient_uuid) patient_uuid
         FROM welno.welno_mediarc_reports
         ORDER BY patient_uuid, analyzed_at DESC
-        LIMIT $1
+        LIMIT %s
     """
     if hospital_id:
         sql_uuids = """
             SELECT DISTINCT ON (r.patient_uuid) r.patient_uuid
             FROM welno.welno_mediarc_reports r
             JOIN welno.patients p ON p.uuid = r.patient_uuid
-            WHERE p.hospital_id = $2
+            WHERE p.hospital_id = %s
             ORDER BY r.patient_uuid, r.analyzed_at DESC
-            LIMIT $1
+            LIMIT %s
         """
 
     try:
         if hospital_id:
-            rows = await db_manager.fetch_all(sql_uuids, limit, hospital_id)
+            rows = await db_manager.execute_query(sql_uuids, (hospital_id, limit))
         else:
-            rows = await db_manager.fetch_all(sql_uuids, limit)
+            rows = await db_manager.execute_query(sql_uuids, (limit,))
     except Exception as e:
         logger.warning("verify_batch: UUID 목록 조회 실패 — %s", e)
         return {"error": f"UUID 목록 조회 실패: {e}"}
