@@ -106,8 +106,9 @@ class EngineFacade:
         nutrition_result: Optional[dict] = None
         try:
             from .nutrition_rules import recommend_nutrients, caution_nutrients
-            # nutrition_rules는 대문자 키 사용 (ALT, SBP, FBG, TC, LDL, BMI, creatinine)
-            _nr_patient = {
+            # nutrition_rules는 대문자 키 사용 + None 값은 비교 연산(`v > N`) TypeError 유발
+            # → None 제거 (key 누락으로 .get(..., 0) 기본값 사용되게)
+            _nr_raw = {
                 "ALT":        patient_dict.get("alt"),
                 "SBP":        patient_dict.get("sbp"),
                 "DBP":        patient_dict.get("dbp"),
@@ -117,6 +118,7 @@ class EngineFacade:
                 "LDL":        patient_dict.get("ldl"),
                 "FBG":        patient_dict.get("fbg"),
             }
+            _nr_patient = {k: v for k, v in _nr_raw.items() if v is not None}
             # disease_results: nutrition_rules 호환 포맷 (result = "이상"/"정상")
             _nr_diseases = {
                 d: {"result": "이상" if v.get("rank", 100) <= 30 else "정상"}
