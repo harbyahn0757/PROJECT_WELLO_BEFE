@@ -183,12 +183,17 @@ class EngineFacade:
         )
         pmid_pct = round(pmid_count / total_rr * 100, 1) if total_rr > 0 else 0.0
 
+        # FE EngineStats 타입: validation=string — React 렌더 가능하도록 요약 문자열로 변환
+        _model_state = "로드됨" if MODEL_LOADED else "미로드 (graceful fallback)"
+        validation_str = f"GB 모델 n=1005, R²=0.69, {_model_state}"
+
         return {
             "total_rr": total_rr_ci if rr_ci else total_rr,
             "pmid_coverage": pmid_pct,
             "diseases": diseases_count,
             "confidence": {"verified": pmid_count, "total": total_rr},
-            "validation": {
+            "validation": validation_str,
+            "validation_detail": {
                 "model": "Gradient Boosting (서울대 PMID 40231591)",
                 "n": 1005, "r2_test": 0.69,
                 "model_loaded": MODEL_LOADED,
