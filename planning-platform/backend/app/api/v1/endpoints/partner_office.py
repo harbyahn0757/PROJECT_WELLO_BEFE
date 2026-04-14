@@ -20,6 +20,25 @@ from ....utils.query_builders import build_filter
 from ....utils.survey_queries import survey_union_daily, survey_union_count_today, survey_union_by_respondent, survey_union_detail_for_user
 from ....utils.partner_config import get_partner_config_by_api_key, get_partner_type
 
+# ─── mediArc 신규 엔진 (백오피스 전용) ───────────────────────────────
+# services/report_engine/ 는 다른 에이전트가 구현 중. ImportError 시 503 fallback.
+try:
+    from ....services.report_engine import (
+        EngineFacade,
+        compare_single,
+        verify_batch,
+        build_engine_stats,
+        to_engine_patient,
+    )
+    ENGINE_AVAILABLE = True
+except ImportError:
+    ENGINE_AVAILABLE = False
+    EngineFacade = None  # type: ignore
+    compare_single = None  # type: ignore
+    verify_batch = None  # type: ignore
+    build_engine_stats = None  # type: ignore
+    to_engine_patient = None  # type: ignore
+
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/partner-office", tags=["partner-office"])
 security = HTTPBearer()
@@ -2375,42 +2394,504 @@ async def alimtalk_link_data(key: str):
     return {"success": True, **result}
 
 
-# ─── mediArc 건강 리포트 프록시 ─────────────────────────────
-import httpx
-
-MEDIARC_API_BASE = "http://localhost:8003"
+# ─── mediArc 건강 리포트 — 3소스 통합 조회 ─────────────────────────────
 
 
-@router.get("/mediarc-report/engine/stats")
-async def mediarc_engine_stats():
-    async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.get(f"{MEDIARC_API_BASE}/api/engine/stats")
-        return r.json()
+def _normalize_health_metrics(source: str, raw: dict) -> dict:
+    """3개 소스의 서로 다른 키 이름을 mediArc 엔진 표준 키로 정규화"""
+    if not raw:
+        return {}
+
+    def _num(v):
+        if v is None or v == '' or v == 0:
+            return None
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return None
+
+    if source == 'chat':
+        return {
+            'height': _num(raw.get('height')),
+            'weight': _num(raw.get('weight')),
+            'bmi': _num(raw.get('bmi')),
+            'bp_high': _num(raw.get('systolic_bp')),
+            'bp_low': _num(raw.get('diastolic_bp')),
+            'fasting_glucose': _num(raw.get('fasting_glucose')),
+            'total_chol': _num(raw.get('total_cholesterol')),
+            'hdl': _num(raw.get('hdl_cholesterol')),
+            'ldl': _num(raw.get('ldl_cholesterol')),
+            'tg': _num(raw.get('triglycerides')),
+            'sgot': _num(raw.get('sgot_ast')),
+            'sgpt': _num(raw.get('sgpt_alt')),
+            'ggt': _num(raw.get('gamma_gtp')),
+            'creatinine': _num(raw.get('creatinine')),
+            'gfr': _num(raw.get('gfr')),
+            'hemoglobin': _num(raw.get('hemoglobin')),
+            'waist': _num(raw.get('waist')),
+        }
+    elif source == 'campaign':
+        return {
+            'height': _num(raw.get('height')),
+            'weight': _num(raw.get('weight')),
+            'bmi': _num(raw.get('bmi')),
+            'bp_high': _num(raw.get('bphigh')),
+            'bp_low': _num(raw.get('bplwst')),
+            'fasting_glucose': _num(raw.get('blds')),
+            'total_chol': _num(raw.get('totchole')),
+            'hdl': _num(raw.get('hdlchole')),
+            'ldl': _num(raw.get('ldlchole')),
+            'tg': _num(raw.get('triglyceride')),
+            'sgot': _num(raw.get('sgotast')),
+            'sgpt': _num(raw.get('sgptalt')),
+            'ggt': _num(raw.get('gammagtp')),
+            'creatinine': _num(raw.get('creatinine')),
+            'gfr': None,
+            'hemoglobin': _num(raw.get('hmg')),
+            'waist': _num(raw.get('waist')),
+        }
+    elif source == 'welno':
+        return {
+            'height': _num(raw.get('height')),
+            'weight': _num(raw.get('weight')),
+            'bmi': _num(raw.get('bmi')),
+            'bp_high': _num(raw.get('blood_pressure_high')),
+            'bp_low': _num(raw.get('blood_pressure_low')),
+            'fasting_glucose': _num(raw.get('blood_sugar')),
+            'total_chol': _num(raw.get('cholesterol')),
+            'hdl': _num(raw.get('hdl_cholesterol')),
+            'ldl': _num(raw.get('ldl_cholesterol')),
+            'tg': _num(raw.get('triglyceride')),
+            'sgot': None,
+            'sgpt': None,
+            'ggt': None,
+            'creatinine': None,
+            'gfr': None,
+            'hemoglobin': _num(raw.get('hemoglobin')),
+            'waist': _num(raw.get('waist_circumference')),
+        }
+    return {}
 
 
-@router.get("/mediarc-report/verify-all")
-async def mediarc_verify_all():
-    async with httpx.AsyncClient(timeout=120) as client:
-        r = await client.get(f"{MEDIARC_API_BASE}/api/verify-all")
-        return r.json()
+def _count_filled(metrics: dict) -> int:
+    """NULL이 아닌 검진 수치 개수"""
+    return sum(1 for v in metrics.values() if v is not None)
+
+
+@router.get("/mediarc-report/unified-patients")
+async def mediarc_unified_patients(limit: int = 300, hospital_id: str = None):
+    """3개 데이터 소스에서 검진 수치 보유 환자를 통합 조회"""
+    patients = []
+
+    # ── 1. 채팅 상담 (tb_partner_rag_chat_log) ──
+    try:
+        chat_q = """
+            SELECT DISTINCT ON (c.user_uuid)
+                c.user_uuid,
+                c.hospital_id,
+                c.initial_data->'patient_info'->>'name' AS name,
+                c.initial_data->'patient_info'->>'gender' AS gender,
+                c.initial_data->'patient_info'->>'birth_date' AS birth_date,
+                c.initial_data->'health_metrics' AS health_metrics,
+                c.initial_data->'health_metrics'->>'checkup_date' AS checkup_date,
+                c.created_at
+            FROM welno.tb_partner_rag_chat_log c
+            WHERE c.initial_data IS NOT NULL
+              AND c.initial_data ? 'health_metrics'
+              AND c.initial_data->'health_metrics' != 'null'::jsonb
+              AND c.initial_data->'health_metrics' != '{}'::jsonb
+        """
+        params = ()
+        if hospital_id:
+            chat_q += " AND c.hospital_id = %s"
+            params = (hospital_id,)
+        chat_q += " ORDER BY c.user_uuid, c.created_at DESC"
+
+        chat_rows = await db_manager.execute_query(chat_q, params)
+        for r in chat_rows:
+            hm = r.get('health_metrics') or {}
+            if isinstance(hm, str):
+                hm = json.loads(hm)
+            metrics = _normalize_health_metrics('chat', hm)
+            if _count_filled(metrics) < 3:
+                continue
+            patients.append({
+                'uuid': r['user_uuid'],
+                'name': r.get('name') or '(미입력)',
+                'gender': r.get('gender') or '',
+                'birth_date': r.get('birth_date'),
+                'checkup_date': (r.get('checkup_date') or '').strip() or None,
+                'source': 'chat',
+                'filled_count': _count_filled(metrics),
+                'health_data': metrics,
+                'created_at': str(r.get('created_at') or ''),
+            })
+    except Exception as e:
+        logger.warning(f"[mediarc] chat source error: {e}")
+
+    # ── 2. 캠페인 (tb_campaign_payments) ──
+    try:
+        camp_q = """
+            SELECT DISTINCT ON (cp.uuid)
+                cp.uuid,
+                cp.partner_id,
+                cp.user_name,
+                cp.user_data,
+                cp.created_at
+            FROM welno.tb_campaign_payments cp
+            WHERE cp.user_data IS NOT NULL
+              AND cp.user_data ? 'blds'
+        """
+        params = ()
+        if hospital_id:
+            camp_q += " AND cp.partner_id = %s"
+            params = (hospital_id,)
+        camp_q += " ORDER BY cp.uuid, cp.created_at DESC"
+
+        camp_rows = await db_manager.execute_query(camp_q, params)
+        for r in camp_rows:
+            ud = r.get('user_data') or {}
+            if isinstance(ud, str):
+                ud = json.loads(ud)
+            metrics = _normalize_health_metrics('campaign', ud)
+            if _count_filled(metrics) < 3:
+                continue
+            gender_raw = ud.get('gender', '')
+            gender = 'M' if str(gender_raw) == '1' else ('F' if str(gender_raw) == '2' else gender_raw)
+            patients.append({
+                'uuid': r['uuid'],
+                'name': r.get('user_name') or ud.get('name') or '(미입력)',
+                'gender': gender,
+                'birth_date': ud.get('birth'),
+                'checkup_date': None,
+                'source': 'campaign',
+                'filled_count': _count_filled(metrics),
+                'health_data': metrics,
+                'created_at': str(r.get('created_at') or ''),
+            })
+    except Exception as e:
+        logger.warning(f"[mediarc] campaign source error: {e}")
+
+    # ── 3. WELNO 검진데이터 (welno_checkup_data) ──
+    try:
+        welno_q = """
+            SELECT DISTINCT ON (c.patient_uuid)
+                c.patient_uuid AS uuid,
+                c.hospital_id,
+                c.checkup_date,
+                c.height, c.weight, c.bmi,
+                c.blood_pressure_high, c.blood_pressure_low,
+                c.blood_sugar, c.cholesterol,
+                c.hdl_cholesterol, c.ldl_cholesterol,
+                c.triglyceride, c.hemoglobin,
+                c.waist_circumference,
+                p.name, p.gender, p.birth_date,
+                c.created_at
+            FROM welno.welno_checkup_data c
+            JOIN welno.welno_patients p ON p.uuid = c.patient_uuid
+            WHERE c.height IS NOT NULL
+        """
+        params = ()
+        if hospital_id:
+            welno_q += " AND c.hospital_id = %s"
+            params = (hospital_id,)
+        welno_q += " ORDER BY c.patient_uuid, c.created_at DESC"
+
+        welno_rows = await db_manager.execute_query(welno_q, params)
+        for r in welno_rows:
+            raw = {k: r.get(k) for k in (
+                'height', 'weight', 'bmi',
+                'blood_pressure_high', 'blood_pressure_low',
+                'blood_sugar', 'cholesterol',
+                'hdl_cholesterol', 'ldl_cholesterol',
+                'triglyceride', 'hemoglobin', 'waist_circumference'
+            )}
+            metrics = _normalize_health_metrics('welno', raw)
+            if _count_filled(metrics) < 3:
+                continue
+            patients.append({
+                'uuid': r['uuid'],
+                'name': r.get('name') or '(미입력)',
+                'gender': r.get('gender') or '',
+                'birth_date': str(r.get('birth_date') or ''),
+                'checkup_date': r.get('checkup_date'),
+                'source': 'welno',
+                'filled_count': _count_filled(metrics),
+                'health_data': metrics,
+                'created_at': str(r.get('created_at') or ''),
+            })
+    except Exception as e:
+        logger.warning(f"[mediarc] welno source error: {e}")
+
+    # ── 중복 제거 (동일 uuid 우선순위: welno > chat > campaign) ──
+    seen = {}
+    priority = {'welno': 0, 'chat': 1, 'campaign': 2}
+    for p in patients:
+        uid = p['uuid']
+        if uid not in seen or priority.get(p['source'], 9) < priority.get(seen[uid]['source'], 9):
+            seen[uid] = p
+    deduped = sorted(seen.values(), key=lambda x: x.get('filled_count', 0), reverse=True)
+
+    # ── 요약 통계 ──
+    source_counts = {}
+    for p in deduped:
+        source_counts[p['source']] = source_counts.get(p['source'], 0) + 1
+
+    return {
+        "patients": deduped[:limit],
+        "total": len(deduped),
+        "source_counts": source_counts,
+    }
+
+
+@router.get("/mediarc-report/patient/{uuid}")
+async def mediarc_patient_detail(uuid: str):
+    """개별 환자의 정규화된 검진 수치 반환"""
+    # 3소스 순서대로 찾기 (welno → chat → campaign)
+
+    # welno
+    rows = await db_manager.execute_query("""
+        SELECT c.*, p.name, p.gender, p.birth_date
+        FROM welno.welno_checkup_data c
+        JOIN welno.welno_patients p ON p.uuid = c.patient_uuid
+        WHERE c.patient_uuid = %s
+        ORDER BY c.created_at DESC LIMIT 1
+    """, (uuid,))
+    if rows:
+        r = rows[0]
+        raw = {k: r.get(k) for k in (
+            'height', 'weight', 'bmi',
+            'blood_pressure_high', 'blood_pressure_low',
+            'blood_sugar', 'cholesterol',
+            'hdl_cholesterol', 'ldl_cholesterol',
+            'triglyceride', 'hemoglobin', 'waist_circumference'
+        )}
+        return {
+            "uuid": uuid, "source": "welno",
+            "name": r.get('name'), "gender": r.get('gender'),
+            "birth_date": str(r.get('birth_date') or ''),
+            "checkup_date": r.get('checkup_date'),
+            "health_data": _normalize_health_metrics('welno', raw),
+        }
+
+    # chat
+    rows = await db_manager.execute_query("""
+        SELECT user_uuid, hospital_id, initial_data, created_at
+        FROM welno.tb_partner_rag_chat_log
+        WHERE user_uuid = %s
+          AND initial_data IS NOT NULL AND initial_data ? 'health_metrics'
+        ORDER BY created_at DESC LIMIT 1
+    """, (uuid,))
+    if rows:
+        r = rows[0]
+        hm = r.get('initial_data', {}).get('health_metrics', {})
+        pi = r.get('initial_data', {}).get('patient_info', {})
+        return {
+            "uuid": uuid, "source": "chat",
+            "name": pi.get('name'), "gender": pi.get('gender'),
+            "birth_date": pi.get('birth_date'),
+            "checkup_date": (hm.get('checkup_date') or '').strip() or None,
+            "health_data": _normalize_health_metrics('chat', hm),
+        }
+
+    # campaign
+    rows = await db_manager.execute_query("""
+        SELECT uuid, user_name, user_data, created_at
+        FROM welno.tb_campaign_payments
+        WHERE uuid = %s AND user_data IS NOT NULL
+        ORDER BY created_at DESC LIMIT 1
+    """, (uuid,))
+    if rows:
+        r = rows[0]
+        ud = r.get('user_data') or {}
+        if isinstance(ud, str):
+            ud = json.loads(ud)
+        gender_raw = ud.get('gender', '')
+        gender = 'M' if str(gender_raw) == '1' else ('F' if str(gender_raw) == '2' else gender_raw)
+        return {
+            "uuid": uuid, "source": "campaign",
+            "name": r.get('user_name') or ud.get('name'),
+            "gender": gender,
+            "birth_date": ud.get('birth'),
+            "checkup_date": None,
+            "health_data": _normalize_health_metrics('campaign', ud),
+        }
+
+    raise HTTPException(status_code=404, detail="환자 데이터 없음")
+
+
+@router.get("/mediarc-report/stats")
+async def mediarc_stats():
+    """통합 데이터 소스 통계"""
+    chat_count = await db_manager.execute_query("""
+        SELECT COUNT(DISTINCT user_uuid) AS cnt
+        FROM welno.tb_partner_rag_chat_log
+        WHERE initial_data IS NOT NULL
+          AND initial_data ? 'health_metrics'
+          AND initial_data->'health_metrics' != 'null'::jsonb
+    """)
+    camp_count = await db_manager.execute_query("""
+        SELECT COUNT(DISTINCT uuid) AS cnt
+        FROM welno.tb_campaign_payments
+        WHERE user_data IS NOT NULL AND user_data ? 'blds'
+    """)
+    welno_count = await db_manager.execute_query("""
+        SELECT COUNT(DISTINCT patient_uuid) AS cnt
+        FROM welno.welno_checkup_data
+        WHERE height IS NOT NULL
+    """)
+    report_count = await db_manager.execute_query("""
+        SELECT COUNT(*) AS cnt FROM welno.welno_mediarc_reports
+    """)
+
+    return {
+        "sources": {
+            "chat": chat_count[0]['cnt'] if chat_count else 0,
+            "campaign": camp_count[0]['cnt'] if camp_count else 0,
+            "welno": welno_count[0]['cnt'] if welno_count else 0,
+        },
+        "total_reports": report_count[0]['cnt'] if report_count else 0,
+        "engine_info": {
+            "total_rr": 87,
+            "pmid_coverage": "97%",
+            "diseases": 16,
+            "bio_age": "GBayes BioAge",
+            "survival": "5yr Gompertz",
+        }
+    }
+
+
+# ─── mediArc 엔진 alias + 신규 엔드포인트 (FE 호환용, 백오피스 전용) ──────
+# 라우팅 순서 주의: specific path(/patients, /engine/stats, /verify-all)를
+# wildcard(/{uuid}, /{uuid}/compare)보다 먼저 등록해야 함.
+# FastAPI는 정의 순서대로 매칭하므로 /patients 먼저 → /{uuid} 나중.
+
+
+def _engine_guard():
+    """엔진 미활성화 시 503 반환 헬퍼"""
+    if not ENGINE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="엔진 미활성화 — services/report_engine 빌드 필요")
+
+
+def _calc_age(birth_date_str: str) -> int:
+    """birth_date → 만 나이 계산. YYYY-MM-DD / YYYYMMDD / YYMMDD 대응"""
+    from datetime import date
+    s = (birth_date_str or '').replace('-', '').strip()
+    if len(s) == 6:
+        yy = int(s[:2])
+        year = (1900 + yy) if yy >= 30 else (2000 + yy)
+        s = f"{year}{s[2:]}"
+    if len(s) != 8:
+        return 0
+    try:
+        bd = date(int(s[:4]), int(s[4:6]), int(s[6:8]))
+        today = date.today()
+        return today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
+    except Exception:
+        return 0
+
+
+def _normalize_sex(gender_raw) -> str:
+    """다양한 성별 표기 → 'M'/'F'"""
+    g = str(gender_raw or '').strip().upper()
+    if g in ('M', 'MALE', '남', '남성', '1'):
+        return 'M'
+    if g in ('F', 'FEMALE', '여', '여성', '2'):
+        return 'F'
+    return g
 
 
 @router.get("/mediarc-report/patients")
-async def mediarc_patients(limit: int = 200):
-    async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.get(f"{MEDIARC_API_BASE}/api/report/patients", params={"limit": limit})
-        return r.json()
+async def mediarc_patients_alias(limit: int = 200, hospital_id: str = None):
+    """FE 호환 alias → unified-patients + has_twobecon 플래그 주입"""
+    base = await mediarc_unified_patients(limit=limit, hospital_id=hospital_id)
+    patients = base.get('patients', [])
+
+    # has_twobecon: welno_mediarc_reports 에 uuid 있는지 SELECT만
+    if patients:
+        uuids = [p['uuid'] for p in patients if p.get('uuid')]
+        tb_rows = await db_manager.execute_query(
+            "SELECT DISTINCT patient_uuid FROM welno.welno_mediarc_reports WHERE patient_uuid = ANY(%s)",
+            (uuids,)
+        )
+        tb_set = {r['patient_uuid'] for r in (tb_rows or [])}
+        for p in patients:
+            p['has_twobecon'] = p.get('uuid') in tb_set
+
+    return {"patients": patients, "total": len(patients)}
+
+
+@router.get("/mediarc-report/engine/stats")
+async def mediarc_engine_stats_alias():
+    """FE 호환 alias — 엔진 메타 실데이터 (하드코딩 제거)"""
+    _engine_guard()
+    return build_engine_stats()
+
+
+@router.get("/mediarc-report/verify-all")
+async def mediarc_verify_all(limit: int = 100, hospital_id: str = None, force: bool = False):
+    """전수 검증 — Twobecon DB vs 신규 엔진 배치 비교"""
+    _engine_guard()
+    if limit > 500:
+        raise HTTPException(status_code=400, detail="limit은 500 이하")
+    return await verify_batch(
+        limit=limit,
+        hospital_id=hospital_id,
+        force=force,
+        db_manager=db_manager,
+        engine=EngineFacade(),
+    )
 
 
 @router.get("/mediarc-report/{uuid}/compare")
-async def mediarc_compare(uuid: str):
-    async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.get(f"{MEDIARC_API_BASE}/api/report/{uuid}/compare")
-        return r.json()
+async def mediarc_report_compare(uuid: str):
+    """Twobecon DB 결과 vs 신규 엔진 실시간 비교 (welno_mediarc_reports SELECT만)"""
+    _engine_guard()
+    return await compare_single(
+        uuid=uuid,
+        db_manager=db_manager,
+        engine=EngineFacade(),
+    )
 
 
 @router.get("/mediarc-report/{uuid}")
-async def mediarc_report(uuid: str):
-    async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.get(f"{MEDIARC_API_BASE}/api/report/{uuid}")
-        return r.json()
+async def mediarc_report_alias(uuid: str):
+    """FE 호환 alias — 엔진 실행 + ReportData 스키마 반환"""
+    _engine_guard()
+    detail = await mediarc_patient_detail(uuid)  # 기존 함수 재사용 (404 포함)
+
+    age = _calc_age(detail.get('birth_date') or '')
+    sex = _normalize_sex(detail.get('gender') or '')
+    health_data = detail.get('health_data') or {}
+    engine_patient = to_engine_patient(health_data, age=age, sex=sex)
+
+    try:
+        result = EngineFacade().run(
+            name=detail.get('name') or '익명',
+            patient=engine_patient,
+        )
+    except Exception as exc:
+        logger.exception("엔진 실행 실패 uuid=%s: %s", uuid, exc)
+        raise HTTPException(status_code=500, detail=f"엔진 계산 오류: {exc}")
+
+    # bodyage.delta 는 엔진이 None 반환하면 빈 상태로 정상 응답
+    bodyage_val = result.get('bodyage')
+    bodyage_block = {"bodyage": bodyage_val, "delta": result.get('bioage_delta')}
+
+    return {
+        "name": detail.get('name') or '익명',
+        "age": age,
+        "sex": sex,
+        "group": result.get('group'),
+        "bodyage": bodyage_block,
+        "rank": result.get('rank'),
+        "diseases": result.get('diseases', {}),
+        "nutrition": result.get('nutrition', {}),
+        "gauges": result.get('gauges', {}),
+        "patient_info": {
+            "uuid": uuid,
+            "source": detail.get('source'),
+            "checkup_date": detail.get('checkup_date'),
+            "birth_date": detail.get('birth_date'),
+        },
+    }

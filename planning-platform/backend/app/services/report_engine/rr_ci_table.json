@@ -1,0 +1,732 @@
+{
+  "_meta": {
+    "description": "RR_MATRIX 86항목 x 95% CI 대조표",
+    "engine_source": "demo/engine.py RR_MATRIX",
+    "ci_source": "analysis/02_rr_matrix_v4_FINAL.json",
+    "generated": "2026-04-10",
+    "ci_updated": "2026-04-10 웹검색 보강",
+    "total_items": 86,
+    "ci_available": 52,
+    "ci_missing": 34
+  },
+  "당뇨": {
+    "overweight": {
+      "rr": 2.99,
+      "ci_lower": 2.42,
+      "ci_upper": 3.72,
+      "pmid": "20493574",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "obese": {
+      "rr": 7.19,
+      "ci_lower": 5.74,
+      "ci_upper": 9.0,
+      "pmid": "20493574",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "smoking": {
+      "rr": 1.38,
+      "ci_lower": 1.28,
+      "ci_upper": 1.49,
+      "pmid": "28716381",
+      "confidence": "verified",
+      "ci_source": "PMID 28716381 meta-analysis: current smokers vs never, pooled RR 1.38 (1.28-1.49), 19 studies"
+    },
+    "ex_smoking": {
+      "rr": 1.15,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": "28716381",
+      "confidence": "inferred",
+      "ci_source": "미확보 — 논문 former smoker RR=1.19(1.09-1.31)이나 엔진 RR 1.15와 불일치"
+    },
+    "family_dm": {
+      "rr": 2.72,
+      "ci_lower": 2.48,
+      "ci_upper": 2.99,
+      "pmid": "23052052",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "ifg": {
+      "rr": 3.5,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": "23584433",
+      "confidence": "estimated",
+      "ci_source": "미확보 — 논문은 incidence rate(per 1000 person-years) 보고, RR/HR 미제공"
+    },
+    "htn_hx": {
+      "rr": 1.58,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": "22621338",
+      "confidence": "verified",
+      "ci_source": "미확보 — 논문 OR 1.61(1.13-2.29) overweight+MetS이나 RR 1.58과 불일치"
+    },
+    "high_tg": {
+      "rr": 1.5,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": "18591400",
+      "confidence": "estimated",
+      "ci_source": "미확보 — 논문은 quintile별 HR 보고, RR 1.50 직접 매칭 불가"
+    },
+    "drinking": {
+      "rr": 1.0,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "estimated",
+      "ci_source": "미확보"
+    }
+  },
+  "대사증후군": {
+    "smoking": {
+      "rr": 1.26,
+      "ci_lower": 1.1,
+      "ci_upper": 1.44,
+      "pmid": "23082217",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "ex_smoking": {
+      "rr": 1.1,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "inferred",
+      "ci_source": "미확보"
+    },
+    "drinking_heavy": {
+      "rr": 1.84,
+      "ci_lower": 1.34,
+      "ci_upper": 2.52,
+      "pmid": "24315622",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "drinking_moderate": {
+      "rr": 1.2,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "inferred",
+      "ci_source": "미확보"
+    },
+    "overweight": {
+      "rr": 2.5,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "guideline",
+      "ci_source": "미확보"
+    },
+    "obese": {
+      "rr": 3.5,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "guideline",
+      "ci_source": "미확보"
+    }
+  },
+  "심혈관질환": {
+    "family_cvd": {
+      "rr": 1.6,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": "3760109",
+      "confidence": "estimated",
+      "ci_source": "미확보 — 논문 RR 3.3-5.9(CHD<50세)이나 엔진 RR 1.60과 불일치"
+    },
+    "smoking": {
+      "rr": 1.51,
+      "ci_lower": 1.41,
+      "ci_upper": 1.62,
+      "pmid": "26311724",
+      "confidence": "verified",
+      "ci_source": "PMID 26311724 meta-analysis: CHD in diabetic patients, RR 1.51 (1.41-1.62), 21 studies"
+    },
+    "ex_smoking": {
+      "rr": 1.1,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": "15914503",
+      "confidence": "inferred",
+      "ci_source": "미확보 — 논문은 ex vs current smoker HR 보고, never smoker 대비 RR 1.10 직접 매칭 불가"
+    },
+    "overweight": {
+      "rr": 1.32,
+      "ci_lower": 1.24,
+      "ci_upper": 1.4,
+      "pmid": "17846390",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "high_ldl": {
+      "rr": 1.4,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": "18061058",
+      "confidence": "estimated",
+      "ci_source": "미확보 — 논문은 total cholesterol 1mmol/L당 HR 보고, LDL RR 1.40 직접 매칭 불가"
+    },
+    "diabetes_hx": {
+      "rr": 2.0,
+      "ci_lower": 1.83,
+      "ci_upper": 2.19,
+      "pmid": "20609967",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "drinking": {
+      "rr": 0.75,
+      "ci_lower": 0.7,
+      "ci_upper": 0.8,
+      "pmid": "21343207",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "non_drinking": {
+      "rr": 1.0,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "estimated",
+      "ci_source": "미확보"
+    },
+    "htn_or_hx": {
+      "rr": 2.1,
+      "ci_lower": 1.71,
+      "ci_upper": 2.58,
+      "pmid": "31875269",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    }
+  },
+  "뇌혈관질환": {
+    "smoking": {
+      "rr": 1.54,
+      "ci_lower": 1.41,
+      "ci_upper": 1.69,
+      "pmid": "26311724",
+      "confidence": "verified",
+      "ci_source": "PMID 26311724 meta-analysis: stroke in diabetic patients, RR 1.54 (1.41-1.69), 15 studies"
+    },
+    "ex_smoking": {
+      "rr": 1.1,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "inferred",
+      "ci_source": "미확보"
+    },
+    "drinking": {
+      "rr": 1.14,
+      "ci_lower": 1.02,
+      "ci_upper": 1.28,
+      "pmid": "27881167",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "family_stroke": {
+      "rr": 1.76,
+      "ci_lower": 1.7,
+      "ci_upper": 1.9,
+      "pmid": "14684773",
+      "confidence": "verified",
+      "ci_source": "PMID 14684773 systematic review: case-control pooled OR 1.76 (95% CI 1.7-1.9)"
+    },
+    "diabetes_hx": {
+      "rr": 2.27,
+      "ci_lower": 1.95,
+      "ci_upper": 2.65,
+      "pmid": "20609967",
+      "confidence": "verified",
+      "ci_source": "PMID 20609967 meta-analysis 102 prospective studies: ischemic stroke HR 2.27 (1.95-2.65)"
+    },
+    "overweight": {
+      "rr": 1.22,
+      "ci_lower": 1.05,
+      "ci_upper": 1.41,
+      "pmid": "20299666",
+      "confidence": "verified",
+      "ci_source": "PMID 20299666 meta-analysis 25 studies: ischemic stroke overweight RR 1.22 (1.05-1.41)"
+    },
+    "htn_or_hx": {
+      "rr": 2.98,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": "27431356",
+      "confidence": "verified",
+      "ci_source": "미확보 — INTERSTROKE OR 2.98 보고하나 99% CI(2.72-3.28)이므로 95% CI 아님"
+    }
+  },
+  "만성신장병": {
+    "htn_hx": {
+      "rr": 1.8,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": "15851645",
+      "confidence": "estimated",
+      "ci_source": "미확보 — 논문은 BP 구간별 dose-response HR 보고, RR 1.80 직접 매칭 불가"
+    },
+    "diabetes_hx": {
+      "rr": 2.4,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "estimated",
+      "ci_source": "미확보"
+    },
+    "overweight": {
+      "rr": 1.4,
+      "ci_lower": 1.3,
+      "ci_upper": 1.5,
+      "pmid": "17928825",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "obese": {
+      "rr": 1.83,
+      "ci_lower": 1.57,
+      "ci_upper": 2.13,
+      "pmid": "17928825",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "high_tg": {
+      "rr": 1.2,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "guideline",
+      "ci_source": "미확보"
+    },
+    "low_hdl": {
+      "rr": 1.2,
+      "ci_lower": 1.18,
+      "ci_upper": 1.22,
+      "pmid": "26924057",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    }
+  },
+  "알츠하이머": {
+    "diabetes_hx": {
+      "rr": 1.56,
+      "ci_lower": 1.41,
+      "ci_upper": 1.73,
+      "pmid": "24843720",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "htn_midlife": {
+      "rr": 1.25,
+      "ci_lower": 1.06,
+      "ci_upper": 1.47,
+      "pmid": "31381518",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "smoking": {
+      "rr": 1.79,
+      "ci_lower": 1.43,
+      "ci_upper": 2.23,
+      "pmid": "17573335",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "ex_smoking": {
+      "rr": 1.2,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "inferred",
+      "ci_source": "미확보 — meta-analysis(PMID 25763939) ex-smoker AD RR 1.04(0.96-1.13)이나 엔진 RR 1.20과 불일치"
+    },
+    "underweight": {
+      "rr": 1.39,
+      "ci_lower": 1.13,
+      "ci_upper": 1.7,
+      "pmid": "26764391",
+      "confidence": "verified",
+      "ci_source": "PMID 26764391 midlife underweight RR 1.39 (1.13-1.70)"
+    },
+    "obese": {
+      "rr": 1.33,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": "26764391",
+      "confidence": "verified",
+      "ci_source": "미확보 — 논문 midlife obese RR 1.41(1.20-1.66)이나 엔진 RR 1.33과 불일치"
+    }
+  },
+  "폐암": {
+    "smoking": {
+      "rr": 8.96,
+      "ci_lower": 6.73,
+      "ci_upper": 12.11,
+      "pmid": "17893872",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "ex_smoking": {
+      "rr": 2.5,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "inferred",
+      "ci_source": "미확보"
+    },
+    "family_lung": {
+      "rr": 1.51,
+      "ci_lower": 1.11,
+      "ci_upper": 2.06,
+      "pmid": "16160696",
+      "confidence": "verified",
+      "ci_source": "PMID 16160696 never-smoker pooled RR 1.51 (1.11-2.06)"
+    }
+  },
+  "대장암": {
+    "drinking": {
+      "rr": 1.44,
+      "ci_lower": 1.25,
+      "ci_upper": 1.65,
+      "pmid": "25422909",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "overweight": {
+      "rr": 1.3,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "guideline",
+      "ci_source": "미확보"
+    },
+    "family_colon": {
+      "rr": 2.24,
+      "ci_lower": 2.06,
+      "ci_upper": 2.43,
+      "pmid": "16338133",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "smoking": {
+      "rr": 1.2,
+      "ci_lower": 1.1,
+      "ci_upper": 1.3,
+      "pmid": "19088354",
+      "confidence": "verified",
+      "ci_source": "PMID 19088354 meta-analysis: current smokers vs never, RR 1.20 (1.10-1.30)"
+    },
+    "ex_smoking": {
+      "rr": 1.08,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "inferred",
+      "ci_source": "미확보"
+    },
+    "diabetes_hx": {
+      "rr": 1.3,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": "32392663",
+      "confidence": "partial",
+      "ci_source": "미확보 — PMID 검색 실패, 다른 meta-analysis RR 1.22-1.30 범위 확인되나 정확 매칭 불가"
+    }
+  },
+  "위암": {
+    "smoking": {
+      "rr": 1.62,
+      "ci_lower": 1.5,
+      "ci_upper": 1.75,
+      "pmid": "18293090",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "ex_smoking": {
+      "rr": 1.2,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "inferred",
+      "ci_source": "미확보"
+    },
+    "drinking": {
+      "rr": 1.21,
+      "ci_lower": 1.07,
+      "ci_upper": 1.36,
+      "pmid": "25422909",
+      "confidence": "verified",
+      "ci_source": "PMID 25422909 Bagnardi 2015 meta-analysis: heavy drinkers stomach cancer RR 1.21 (1.07-1.36)"
+    },
+    "hpylori": {
+      "rr": 3.0,
+      "ci_lower": 2.3,
+      "ci_upper": 3.8,
+      "pmid": "11511555",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    }
+  },
+  "간암": {
+    "hbv": {
+      "rr": 15.0,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "estimated",
+      "ci_source": "미확보 — 문헌 OR 9.6-13.5 범위이나 엔진 RR 15.0과 직접 매칭 불가"
+    },
+    "hcv": {
+      "rr": 11.5,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": "9455792",
+      "confidence": "verified",
+      "ci_source": "미확보 — 논문 overall OR 11.5 보고하나 95% CI 명시 없음(2nd/3rd gen OR=8.2, 1st gen OR=19.1)"
+    },
+    "drinking": {
+      "rr": 2.07,
+      "ci_lower": 1.66,
+      "ci_upper": 2.58,
+      "pmid": "25422909",
+      "confidence": "verified",
+      "ci_source": "PMID 25422909 Bagnardi 2015 meta-analysis: heavy drinkers liver cancer RR 2.07 (1.66-2.58)"
+    },
+    "smoking": {
+      "rr": 1.51,
+      "ci_lower": 1.37,
+      "ci_upper": 1.67,
+      "pmid": "19720726",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "ex_smoking": {
+      "rr": 1.12,
+      "ci_lower": 0.78,
+      "ci_upper": 1.6,
+      "pmid": "19720726",
+      "confidence": "inferred",
+      "ci_source": "PMID 19720726 former smokers mRR 1.12 (0.78-1.60)"
+    },
+    "cirrhosis": {
+      "rr": 10.0,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "guideline",
+      "ci_source": "미확보"
+    },
+    "diabetes_hx": {
+      "rr": 2.31,
+      "ci_lower": 1.87,
+      "ci_upper": 2.84,
+      "pmid": "21898753",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    }
+  },
+  "담낭암": {
+    "drinking": {
+      "rr": 2.64,
+      "ci_lower": 1.62,
+      "ci_upper": 4.3,
+      "pmid": "25422909",
+      "confidence": "verified",
+      "ci_source": "PMID 25422909 Bagnardi 2015 meta-analysis: heavy drinkers gallbladder cancer RR 2.64 (1.62-4.30)"
+    },
+    "typhi": {
+      "rr": 4.28,
+      "ci_lower": 1.84,
+      "ci_upper": 9.96,
+      "pmid": "24612190",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "gallstone": {
+      "rr": 4.9,
+      "ci_lower": 3.3,
+      "ci_upper": 7.4,
+      "pmid": "16397865",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "polyp": {
+      "rr": 2.0,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": "35819918",
+      "confidence": "estimated",
+      "ci_source": "미확보 — 논문은 polyp malignancy 확률(0.60%) 보고, RR 2.00 직접 매칭 불가"
+    }
+  },
+  "췌장암": {
+    "smoking": {
+      "rr": 1.74,
+      "ci_lower": 1.61,
+      "ci_upper": 1.87,
+      "pmid": "18193270",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "ex_smoking": {
+      "rr": 1.2,
+      "ci_lower": 1.11,
+      "ci_upper": 1.29,
+      "pmid": "18193270",
+      "confidence": "verified",
+      "ci_source": "PMID 18193270 meta-analysis: former smokers vs never, RR 1.2 (1.11-1.29)"
+    },
+    "diabetes_hx": {
+      "rr": 1.94,
+      "ci_lower": 1.66,
+      "ci_upper": 2.27,
+      "pmid": "21458985",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "drinking": {
+      "rr": 1.19,
+      "ci_lower": 1.11,
+      "ci_upper": 1.28,
+      "pmid": "25422909",
+      "confidence": "verified",
+      "ci_source": "PMID 25422909 Bagnardi 2015 meta-analysis: heavy drinkers pancreas cancer RR 1.19 (1.11-1.28)"
+    }
+  },
+  "전립선암": {
+    "family_prostate": {
+      "rr": 2.48,
+      "ci_lower": 2.25,
+      "ci_upper": 2.74,
+      "pmid": "22073129",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "overweight_age": {
+      "rr": 1.3,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "guideline",
+      "ci_source": "미확보"
+    }
+  },
+  "유방암": {
+    "age_over50": {
+      "rr": 1.5,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "guideline",
+      "ci_source": "미확보"
+    },
+    "overweight": {
+      "rr": 1.3,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "guideline",
+      "ci_source": "미확보"
+    },
+    "drinking": {
+      "rr": 1.61,
+      "ci_lower": 1.33,
+      "ci_upper": 1.94,
+      "pmid": "25422909",
+      "confidence": "verified",
+      "ci_source": "PMID 25422909 Bagnardi 2015 meta-analysis: heavy drinkers breast cancer RR 1.61 (1.33-1.94)"
+    },
+    "late_menopause": {
+      "rr": 1.3,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": null,
+      "confidence": "guideline",
+      "ci_source": "미확보"
+    },
+    "family_breast": {
+      "rr": 2.0,
+      "ci_lower": 2.0,
+      "ci_upper": 2.2,
+      "pmid": null,
+      "confidence": "guideline",
+      "ci_source": "PMID 9180149 1st degree pooled RR 2.1 (2.0-2.2)"
+    }
+  },
+  "신장암": {
+    "smoking": {
+      "rr": 1.39,
+      "ci_lower": 1.28,
+      "ci_upper": 1.51,
+      "pmid": "31387065",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "ex_smoking": {
+      "rr": 1.2,
+      "ci_lower": 1.14,
+      "ci_upper": 1.27,
+      "pmid": "31387065",
+      "confidence": "verified",
+      "ci_source": "PMID 31387065 meta-analysis 56 studies: former smokers RR 1.20 (1.14-1.27)"
+    },
+    "overweight": {
+      "rr": 1.35,
+      "ci_lower": 1.27,
+      "ci_upper": 1.43,
+      "pmid": "30383638",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "htn": {
+      "rr": 1.12,
+      "ci_lower": 1.06,
+      "ci_upper": 1.17,
+      "pmid": "32336229",
+      "confidence": "verified",
+      "ci_source": "PMID 32336229 adjusted HR 1.12 (1.06-1.17)"
+    },
+    "family_kidney": {
+      "rr": 2.2,
+      "ci_lower": 1.6,
+      "ci_upper": 11.9,
+      "pmid": "19240244",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    }
+  },
+  "갑상선암": {
+    "family_thyroid": {
+      "rr": 4.5,
+      "ci_lower": 1.9,
+      "ci_upper": 10.6,
+      "pmid": "20373983",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "overweight": {
+      "rr": 1.13,
+      "ci_lower": 1.04,
+      "ci_upper": 1.22,
+      "pmid": "23321160",
+      "confidence": "verified",
+      "ci_source": "v4_FINAL에서 추출"
+    },
+    "obese": {
+      "rr": 1.25,
+      "ci_lower": null,
+      "ci_upper": null,
+      "pmid": "30733504",
+      "confidence": "verified",
+      "ci_source": "미확보 — 논문 BMI>=25 HR 1.38(1.35-1.41), BMI>=30 HR 1.52(1.45-1.59)이나 엔진 RR 1.25와 불일치"
+    }
+  }
+}
