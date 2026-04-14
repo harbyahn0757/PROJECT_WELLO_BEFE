@@ -14,6 +14,7 @@ partner_office.py 엔드포인트에서 직접 호출:
 
 import json
 import logging
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -22,6 +23,23 @@ from .facade import ENGINE_AVAILABLE, MODEL_LOADED, EngineFacade
 logger = logging.getLogger(__name__)
 
 _BASE = Path(__file__).parent
+
+
+def _calc_age(birth) -> Optional[int]:
+    """birth_date(str YYYY-MM-DD | datetime.date) → 만 나이. 실패 시 None."""
+    if not birth:
+        return None
+    try:
+        if isinstance(birth, (datetime, date)):
+            bd = birth if isinstance(birth, date) else birth.date()
+        else:
+            s = str(birth).strip()[:10]
+            bd = datetime.strptime(s, "%Y-%m-%d").date()
+        today = date.today()
+        age = today.year - bd.year - ((today.month, today.day) < (bd.month, bd.day))
+        return age if 0 <= age <= 150 else None
+    except Exception:
+        return None
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -72,14 +90,27 @@ async def compare_single(
     if not ENGINE_AVAILABLE:
         return {"error": "engine not available", "uuid": uuid}
 
-    # welno_mediarc_reports — SELECT만 (INSERT/UPDATE/DELETE 금지)
+    # welno_mediarc_reports JOIN welno_patients + 최신 welno_checkup_data (SELECT만)
     sql = """
-        SELECT patient_uuid, patient_name, patient_age, patient_sex,
-               bodyage, rank, disease_data, cancer_data,
-               health_data, analyzed_at
-        FROM welno.welno_mediarc_reports
-        WHERE patient_uuid = %s
-        ORDER BY analyzed_at DESC
+        SELECT r.patient_uuid, r.bodyage, r.rank,
+               r.disease_data, r.cancer_data, r.analyzed_at,
+               p.name, p.gender, p.birth_date,
+               c.height, c.weight, c.bmi,
+               c.blood_pressure_high, c.blood_pressure_low,
+               c.blood_sugar, c.cholesterol,
+               c.hdl_cholesterol, c.ldl_cholesterol,
+               c.triglyceride, c.hemoglobin,
+               c.waist_circumference
+        FROM welno.welno_mediarc_reports r
+        LEFT JOIN welno.welno_patients p ON p.uuid = r.patient_uuid
+        LEFT JOIN LATERAL (
+            SELECT * FROM welno.welno_checkup_data
+            WHERE patient_uuid = r.patient_uuid
+            ORDER BY created_at DESC
+            LIMIT 1
+        ) c ON TRUE
+        WHERE r.patient_uuid = %s
+        ORDER BY r.analyzed_at DESC
         LIMIT 1
     """
     try:
@@ -101,26 +132,38 @@ async def compare_single(
         if val:
             try:
                 chunk = json.loads(val) if isinstance(val, str) else val
-                disease_raw.update(chunk)
+                if isinstance(chunk, dict):
+                    disease_raw.update(chunk)
+                elif isinstance(chunk, list):
+                    for item in chunk:
+                        if isinstance(item, dict) and item.get("name"):
+                            disease_raw[item["name"]] = item
             except Exception:
                 pass
 
-    # 실시간 엔진 계산
-    health_raw: dict = {}
-    health_val = row.get("health_data")
-    if health_val:
-        try:
-            health_raw = json.loads(health_val) if isinstance(health_val, str) else health_val
-        except Exception:
-            pass
+    # 환자 기본 정보
+    name = row.get("name") or "익명"
+    gender = row.get("gender")
+    sex = "M" if gender == "M" else ("F" if gender == "F" else "M")
+    age = _calc_age(row.get("birth_date")) or 0
 
-    age = row.get("patient_age") or health_raw.get("age", 0)
-    sex = row.get("patient_sex") or health_raw.get("sex", "M")
-    name = row.get("patient_name") or "익명"
-
-    patient_dict = {k: v for k, v in health_raw.items() if k not in ("age", "sex", "_name")}
-    patient_dict["age"] = age
-    patient_dict["sex"] = sex
+    # 검진 수치 → 엔진 patient dict
+    patient_dict: dict = {
+        "age": age,
+        "sex": sex,
+        "height": row.get("height"),
+        "weight": row.get("weight"),
+        "bmi": row.get("bmi"),
+        "sbp": row.get("blood_pressure_high"),
+        "dbp": row.get("blood_pressure_low"),
+        "fbg": row.get("blood_sugar"),
+        "tc": row.get("cholesterol"),
+        "hdl": row.get("hdl_cholesterol"),
+        "ldl": row.get("ldl_cholesterol"),
+        "tg": row.get("triglyceride"),
+        "hemoglobin": row.get("hemoglobin"),
+        "waist": row.get("waist_circumference"),
+    }
 
     try:
         mediarc_result = engine.run(name=name, patient=patient_dict)
@@ -207,28 +250,27 @@ async def verify_batch(
     if not ENGINE_AVAILABLE:
         return {"error": "engine not available"}
 
-    # 최근 N건 UUID 목록
-    sql_uuids = """
-        SELECT DISTINCT ON (patient_uuid) patient_uuid
-        FROM welno.welno_mediarc_reports
-        ORDER BY patient_uuid, analyzed_at DESC
-        LIMIT %s
-    """
+    # 최근 N건 UUID 목록 — welno_mediarc_reports.hospital_id 직접 필터 (JOIN 불필요)
     if hospital_id:
         sql_uuids = """
-            SELECT DISTINCT ON (r.patient_uuid) r.patient_uuid
-            FROM welno.welno_mediarc_reports r
-            JOIN welno.patients p ON p.uuid = r.patient_uuid
-            WHERE p.hospital_id = %s
-            ORDER BY r.patient_uuid, r.analyzed_at DESC
+            SELECT DISTINCT ON (patient_uuid) patient_uuid
+            FROM welno.welno_mediarc_reports
+            WHERE hospital_id = %s
+            ORDER BY patient_uuid, analyzed_at DESC
             LIMIT %s
         """
+        params: tuple = (hospital_id, limit)
+    else:
+        sql_uuids = """
+            SELECT DISTINCT ON (patient_uuid) patient_uuid
+            FROM welno.welno_mediarc_reports
+            ORDER BY patient_uuid, analyzed_at DESC
+            LIMIT %s
+        """
+        params = (limit,)
 
     try:
-        if hospital_id:
-            rows = await db_manager.execute_query(sql_uuids, (hospital_id, limit))
-        else:
-            rows = await db_manager.execute_query(sql_uuids, (limit,))
+        rows = await db_manager.execute_query(sql_uuids, params)
     except Exception as e:
         logger.warning("verify_batch: UUID 목록 조회 실패 — %s", e)
         return {"error": f"UUID 목록 조회 실패: {e}"}
