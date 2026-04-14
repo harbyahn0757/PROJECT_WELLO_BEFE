@@ -144,7 +144,13 @@ async def compare_single(
     # 환자 기본 정보
     name = row.get("name") or "익명"
     gender = row.get("gender")
-    sex = "M" if gender == "M" else ("F" if gender == "F" else "M")
+    _g = str(gender or "").strip()
+    if _g in ("M", "m", "남", "male", "Male"):
+        sex = "M"
+    elif _g in ("F", "f", "여", "female", "Female"):
+        sex = "F"
+    else:
+        sex = "M"  # 불명 시 M fallback
     age = _calc_age(row.get("birth_date")) or 0
 
     # 검진 수치 → 엔진 patient dict

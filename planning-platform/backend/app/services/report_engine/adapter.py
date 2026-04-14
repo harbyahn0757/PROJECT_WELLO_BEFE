@@ -64,12 +64,14 @@ _MISSING_BOOL_FIELDS = (
 # 내부 헬퍼
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _normalize_sex(raw_sex: Optional[str], source: str) -> str:
+def normalize_sex(raw_sex: Optional[str], source: str) -> str:
     """소스별 성별 값을 'M'/'F' 표준화.
 
     - welno/chat: 'M'/'F' 또는 '남'/'여'
     - campaign:   '1'→M, '2'→F (spec 6.3)
     알 수 없으면 'M' 기본값 + WARNING 로그.
+
+    Public (이전: _normalize_sex). operations/partner_office에서 import 가능.
     """
     if raw_sex is None:
         logger.warning("adapter: sex 없음 (source=%s) — 'M' 기본값 사용", source)
@@ -162,7 +164,7 @@ def to_engine_input(source: str, health_data: dict, patient_info: dict) -> dict:
         logger.warning("adapter: age 계산 불가 (source=%s) — engine 호출 불가", source)
         raise ValueError(f"age 계산 불가: source={source}, patient_info={patient_info!r}")
 
-    sex = _normalize_sex(patient_info.get("sex") or patient_info.get("gender"), source)
+    sex = normalize_sex(patient_info.get("sex") or patient_info.get("gender"), source)
     result["age"] = age
     result["sex"] = sex
 
@@ -202,7 +204,7 @@ def to_engine_patient(health_data: dict, age: int, sex: str) -> dict:
                 pass
 
     result["age"] = age
-    result["sex"] = _normalize_sex(sex, "partner_office")
+    result["sex"] = normalize_sex(sex, "partner_office")
 
     # 설문 기반 누락 필드 → False 고정
     for field_name in _MISSING_BOOL_FIELDS:
@@ -271,4 +273,7 @@ __all__ = [
     "to_engine_patient",
     "infer_group",
     "adapt_report_to_fe_schema",
+    # 헬퍼 — operations/partner_office에서 import 가능
+    "normalize_sex",   # 구 _normalize_sex (public화)
+    "_calc_age",       # birth_date 문자열 → 만 나이 (향후 public화 고려)
 ]

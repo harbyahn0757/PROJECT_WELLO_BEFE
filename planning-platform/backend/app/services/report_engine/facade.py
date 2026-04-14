@@ -102,6 +102,33 @@ class EngineFacade:
             bodyage_val = bioage_gb_result["bioage_gb"]
             delta_val = round(bodyage_val - age_val, 1)
 
+        # nutrition (nutrition_rules.py — 소문자 → 대문자 브리지)
+        nutrition_result: Optional[dict] = None
+        try:
+            from .nutrition_rules import recommend_nutrients, caution_nutrients
+            # nutrition_rules는 대문자 키 사용 (ALT, SBP, FBG, TC, LDL, BMI, creatinine)
+            _nr_patient = {
+                "ALT":        patient_dict.get("alt"),
+                "SBP":        patient_dict.get("sbp"),
+                "DBP":        patient_dict.get("dbp"),
+                "BMI":        patient_dict.get("bmi"),
+                "creatinine": patient_dict.get("cr"),
+                "TC":         patient_dict.get("tc"),
+                "LDL":        patient_dict.get("ldl"),
+                "FBG":        patient_dict.get("fbg"),
+            }
+            # disease_results: nutrition_rules 호환 포맷 (result = "이상"/"정상")
+            _nr_diseases = {
+                d: {"result": "이상" if v.get("rank", 100) <= 30 else "정상"}
+                for d, v in (raw.get("diseases") or {}).items()
+            }
+            nutrition_result = {
+                "recommend": recommend_nutrients(_nr_patient, _nr_diseases),
+                "caution":   caution_nutrients(_nr_patient, _nr_diseases),
+            }
+        except Exception as _ne:
+            logger.warning("report_engine: nutrition 생성 실패 — %s", _ne)
+
         return {
             "name": name,
             "age": age_val,
@@ -114,6 +141,7 @@ class EngineFacade:
             "improved": raw.get("improved", {}),
             "disease_ages": raw.get("disease_ages", {}),
             "patient_info": {"age": age_val, "sex": raw.get("sex"), "group": raw.get("group")},
+            "nutrition": nutrition_result,
         }
 
     def run(self, name: str, patient: dict) -> dict:

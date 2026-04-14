@@ -2874,9 +2874,13 @@ async def mediarc_report_alias(uuid: str):
         logger.exception("엔진 실행 실패 uuid=%s: %s", uuid, exc)
         raise HTTPException(status_code=500, detail=f"엔진 계산 오류: {exc}")
 
-    # bodyage.delta 는 엔진이 None 반환하면 빈 상태로 정상 응답
-    bodyage_val = result.get('bodyage')
-    bodyage_block = {"bodyage": bodyage_val, "delta": result.get('bioage_delta')}
+    # facade.generate_report 반환: result['bodyage'] = {"bodyage": float, "delta": float, "bioage_gb": ...}
+    _bodyage_raw = result.get('bodyage')
+    if isinstance(_bodyage_raw, dict):
+        bodyage_block = _bodyage_raw  # 이미 올바른 형태
+    else:
+        # 방어 fallback: 구버전 호환 (bodyage가 float인 경우)
+        bodyage_block = {"bodyage": _bodyage_raw, "delta": None, "bioage_gb": None}
 
     return {
         "name": detail.get('name') or '익명',

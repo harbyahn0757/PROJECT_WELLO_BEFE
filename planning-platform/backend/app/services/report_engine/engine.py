@@ -15,6 +15,33 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+# ============================================================
+# bioage_model.pkl 싱글톤 캐시 (프로세스당 1회 로드)
+# compute_bioage_gb 매 호출 시 pickle.load 제거 → 5-10초 지연 해소
+# ============================================================
+_BIOAGE_MODEL = None
+_BIOAGE_FEATURES = None
+
+
+def _load_bioage_assets():
+    """bioage_model.pkl + bioage_features.json 로드 (최초 1회).
+
+    Returns:
+        (model, feature_names) 또는 (None, None) if 파일 없음.
+    """
+    global _BIOAGE_MODEL, _BIOAGE_FEATURES
+    if _BIOAGE_MODEL is None:
+        import pickle
+        model_path = Path(__file__).parent / "bioage_model.pkl"
+        features_path = Path(__file__).parent / "bioage_features.json"
+        if not model_path.exists():
+            return None, None
+        with open(model_path, "rb") as f:
+            _BIOAGE_MODEL = pickle.load(f)
+        with open(features_path) as f:
+            _BIOAGE_FEATURES = json.load(f)
+    return _BIOAGE_MODEL, _BIOAGE_FEATURES
+
 
 # ============================================================
 # 엔진 설정 (토글 구조)
@@ -1727,16 +1754,9 @@ def compute_bioage_gb(patient: dict) -> Optional[dict]:
         또는 None (바이오마커 부족 시)
     """
     try:
-        import pickle
-        model_path = Path(__file__).parent / "bioage_model.pkl"
-        features_path = Path(__file__).parent / "bioage_features.json"
-        if not model_path.exists():
+        model, feature_names = _load_bioage_assets()
+        if model is None:
             return None
-
-        with open(model_path, "rb") as f:
-            model = pickle.load(f)
-        with open(features_path) as f:
-            feature_names = json.load(f)
 
         # 피처 추출
         sex_num = 1 if patient.get("sex") == "M" else 0

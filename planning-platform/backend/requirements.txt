@@ -47,3 +47,9 @@ llama-index-indices-managed-llama-cloud>=0.1.0
 llama-index-llms-openai>=0.1.0
 # Google Gemini 신 SDK (google-genai) — 구 SDK(google-generativeai)는 2025-11-30 deprecated
 google-genai>=1.0.0
+
+# 리포트 엔진 의존성 (services/report_engine)
+# numpy: compute_bioage_gb 피처 벡터 생성
+# scikit-learn: bioage_model.pkl GradientBoostingRegressor 언피클 + predict
+numpy>=1.24
+scikit-learn>=1.3
