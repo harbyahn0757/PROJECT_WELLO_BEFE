@@ -1,81 +1,5 @@
 @import '../../styles/variables';
 
-.revisit-page {
-  position: relative;
-  height: 100vh;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background: $gray-100;
-  padding: 24px;
-  box-sizing: border-box;
-}
-
-.revisit-page__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-  flex-shrink: 0;
-}
-
-.revisit-page__title {
-  font-size: $font-3xl;
-  font-weight: 700;
-  color: $gray-900;
-  margin: 0;
-}
-
-/* KPI 카드 */
-.revisit-page__kpi {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
-  flex-shrink: 0;
-}
-
-.revisit-page__kpi-card {
-  background: $white;
-  border-radius: $border-radius-lg;
-  padding: 16px;
-  box-shadow: $shadow-sm;
-
-  &--danger .revisit-page__kpi-value { color: $error; }
-}
-
-.revisit-page__kpi-label {
-  display: block;
-  font-size: $font-xs;
-  color: $gray-600;
-  margin-bottom: 4px;
-}
-
-.revisit-page__kpi-value {
-  font-size: $font-xl;
-  font-weight: 700;
-  color: $gray-900;
-  small { font-size: $font-sm; font-weight: 400; color: $gray-600; margin-left: 2px; }
-}
-
-/* 필터 */
-.revisit-page__filters {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-  flex-shrink: 0;
-
-  select, input {
-    padding: 6px 12px;
-    border: 1px solid $gray-300;
-    border-radius: $border-radius-md;
-    font-size: $font-sm;
-    background: $white;
-    &:focus { outline: none; border-color: $brand-brown; }
-  }
-}
-
 .revisit-page__search { flex: 1; max-width: 240px; }
 
 /* 본문: 목록 + 상세 */
@@ -450,7 +374,6 @@
 
 /* 반응형 */
 @media (max-width: $bp-tablet-max) {
-  .revisit-page__kpi { grid-template-columns: repeat(2, 1fr); }
   .revisit-page__detail { width: 100%; }
   .revisit-page__detail-body { flex-direction: column; }
   .revisit-page__detail-left {
@@ -647,7 +570,5 @@
 }
 
 @media (max-width: $bp-mobile-max) {
-  .revisit-page { padding: 12px; }
-  .revisit-page__kpi { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .revisit-page__filters { flex-wrap: wrap; }
+  .revisit-page__search { max-width: 100%; }
 }

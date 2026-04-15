@@ -1,0 +1,109 @@
+// _kpi.scss — KpiGrid / KpiCard 공용 스타일
+// 네임스페이스: .kpi-grid, .kpi-card
+// 기존 .revisit-page__kpi, .health-report__stats-grid 와 병존 (충돌 없음)
+
+@import '../variables';
+
+// ── KpiGrid ───────────────────────────────────────────────
+
+.kpi-grid {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-shrink: 0;
+
+  // 열 수 variants
+  &--cols-4 { grid-template-columns: repeat(4, 1fr); }
+  &--cols-3 { grid-template-columns: repeat(3, 1fr); }
+  &--cols-2 { grid-template-columns: repeat(2, 1fr); }
+
+  // 반응형: 1024px 이하에서 2열
+  @media (max-width: $bp-tablet-max) {
+    &--cols-4,
+    &--cols-3 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  // 반응형: 767px 이하에서 1열
+  @media (max-width: $bp-mobile-max) {
+    &--cols-4,
+    &--cols-3,
+    &--cols-2 {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+// ── KpiCard ───────────────────────────────────────────────
+
+.kpi-card {
+  background: $white;
+  border-radius: $border-radius-lg;
+  padding: 16px;
+  box-shadow: $shadow-sm;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1.5px solid transparent;
+  transition: box-shadow 0.15s, border-color 0.15s;
+
+  // reset button styles when used as button
+  &[type='button'] {
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    width: 100%;
+  }
+
+  &__label {
+    display: block;
+    font-size: $font-xs;
+    font-weight: $font-weight-semibold;
+    color: $gray-500;
+    letter-spacing: 0.01em;
+  }
+
+  &__value {
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    font-size: $font-2xl;
+    font-weight: $font-weight-bold;
+    color: $gray-900;
+    line-height: 1.2;
+  }
+
+  &__unit {
+    font-size: $font-sm;
+    font-weight: $font-weight-normal;
+    color: $gray-600;
+  }
+
+  &__hint {
+    display: block;
+    font-size: $font-xs;
+    color: $gray-500;
+  }
+
+  // ── variant ──────────────────────────────
+  &--danger .kpi-card__value  { color: $error; }
+  &--warning .kpi-card__value { color: $warning; }
+  &--success .kpi-card__value { color: $success; }
+
+  // ── clickable ────────────────────────────
+  &--clickable {
+    cursor: pointer;
+
+    &:hover {
+      background: $gray-50;
+      box-shadow: $shadow-md;
+    }
+  }
+
+  // ── selected ─────────────────────────────
+  &--selected {
+    border-color: $brand-brown;
+    background: $brand-brown-light;
+  }
+}

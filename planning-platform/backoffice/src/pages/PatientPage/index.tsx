@@ -8,6 +8,8 @@ import { formatDateTime } from '../../utils/dateFormat';
 import { riskBadgeClass } from '../../utils/formatters';
 import { Spinner } from '../../components/Spinner';
 import { SearchableSelect } from '../../components/SearchableSelect';
+import PageLayout from '../../components/layout/PageLayout';
+import { useEmbedParams } from '../../hooks/useEmbedParams';
 import './styles.scss';
 
 const API = getApiBase();
@@ -105,6 +107,7 @@ const DETAIL_TABS: { key: DetailTab; label: string }[] = [
 
 const PatientPage: React.FC = () => {
   useAuth();
+  const { isEmbedMode } = useEmbedParams();
   const [searchParams] = useSearchParams();
   const hospitalId = searchParams.get('hospital_id') || '';
 
@@ -537,7 +540,7 @@ const PatientPage: React.FC = () => {
   };
 
   return (
-    <div className="patient-page">
+    <PageLayout pageName="patient" embedMode={isEmbedMode}>
       {error && <div className="patient-page__error" role="alert">{error}</div>}
 
       {/* 필터 섹션 */}
@@ -695,7 +698,7 @@ const PatientPage: React.FC = () => {
           )}
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

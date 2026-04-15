@@ -1,0 +1,73 @@
+// _filter-bar.scss — FilterBar 공용 스타일
+// 네임스페이스: .filter-bar, .filter-bar__*
+// 기존 .revisit-page__filters 와 병존 (충돌 없음)
+
+@import '../variables';
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+
+  &__main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__trailing {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  // layout variants
+  &--wrap &__main {
+    flex-wrap: wrap;
+  }
+
+  &--nowrap &__main {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+  }
+
+  // ── 내부 form element 기본 스타일 ─────────────────────────
+
+  select,
+  input[type='text'],
+  input[type='search'],
+  input[type='date'] {
+    padding: 6px 10px;
+    border: 1px solid $gray-300;
+    border-radius: $border-radius-md;
+    font-family: inherit;
+    font-size: $font-sm;
+    color: $gray-800;
+    background: $white;
+    outline: none;
+    transition: border-color 0.15s;
+    height: 34px;
+    box-sizing: border-box;
+
+    &:focus {
+      border-color: $brand-brown;
+    }
+
+    &:disabled {
+      background: $gray-100;
+      color: $gray-500;
+      cursor: not-allowed;
+    }
+  }
+
+  select {
+    cursor: pointer;
+    // native arrow 유지
+    appearance: auto;
+  }
+}

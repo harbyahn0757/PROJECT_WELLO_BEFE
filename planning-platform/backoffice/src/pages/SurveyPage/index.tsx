@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { fetchWithAuth } from '../../utils/api';
 import { useEmbedParams } from '../../hooks/useEmbedParams';
 import { useHierarchy } from '../../hooks/useHierarchy';
+import PageLayout from '../../components/layout/PageLayout';
 import { useDatePresets } from '../../hooks/useDatePresets';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
@@ -635,7 +636,7 @@ const SurveyPage: React.FC = () => {
   const totalPages = Math.ceil(totalResponses / pageSize);
 
   return (
-    <div className={`survey-page${isEmbedMode ? ' survey-page--embed' : ''}`}>
+    <PageLayout pageName="survey" embedMode={isEmbedMode}>
       <DemoBanner />
 
       <div className="survey-page__layout">
@@ -1492,7 +1493,7 @@ const SurveyPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 };
 

@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import { getApiBase, fetchWithAuth } from '../../utils/api';
+import PageLayout from '../../components/layout/PageLayout';
+import { useEmbedParams } from '../../hooks/useEmbedParams';
 import {
   PieChart, Pie, Cell, BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -102,6 +104,7 @@ const VIP_OPTIONS = ['red_alert', 'watch', 'normal'];
 
 const AnalyticsPage: React.FC = () => {
   const { partnerType } = useAuth();
+  const { isEmbedMode } = useEmbedParams();
   const isHospital = partnerType === 'hospital';
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -232,7 +235,7 @@ const AnalyticsPage: React.FC = () => {
   );
 
   return (
-    <div className="analytics-page">
+    <PageLayout pageName="analytics" embedMode={isEmbedMode}>
       {error && <div className="analytics-page__error">{error}</div>}
 
       {/* ── Filters ── */}
@@ -442,7 +445,7 @@ const AnalyticsPage: React.FC = () => {
           </div>
         </>
       )}
-    </div>
+    </PageLayout>
   );
 };
 

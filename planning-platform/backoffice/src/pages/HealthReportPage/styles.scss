@@ -1,31 +1,18 @@
-// HealthReportPage — 검진설계(cdm-page) UX 패턴 준용
+// HealthReportPage — Phase 2
+// .health-report 외부 래퍼/KPI/탭 관련 제거 (PageLayout/KpiGrid/TabBar 공용 컴포넌트로 대체)
+// Drawer 내부 상세 스타일(.hr-expanded__*, .hr-verify__*, 배지, 유틸)만 유지
 @import '../../styles/variables';
 @import '../../styles/responsive';
 
-.health-report {
-  // 통계 카드
-  &__stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 14px;
-    margin-bottom: 16px;
-  }
-  &__stat-card {
-    background: $white;
-    border-radius: 12px;
-    padding: 14px 16px;
-    box-shadow: $shadow-sm;
-    border-left: 4px solid $accent-orange;
-  }
-  &__stat-label { font-size: $font-xs; color: $gray-600; font-weight: $font-weight-semibold; }
-  &__stat-value { font-size: 20px; font-weight: $font-weight-bold; color: $brand-brown; }
-
-  @include tablet-and-below {
-    &__stats-grid { grid-template-columns: repeat(2, 1fr); }
-  }
-  @include mobile {
-    &__stats-grid { grid-template-columns: 1fr; }
-  }
+// ── 이름 검색 input ──
+.filter-input {
+  font-size: $font-sm;
+  padding: 6px 10px;
+  border: 1px solid $gray-200;
+  border-radius: 6px;
+  width: 160px;
+  outline: none;
+  &:focus { border-color: $brand-brown; }
 }
 
 // ── 테이블 행 ──
@@ -36,12 +23,9 @@
     &:hover { background: $gray-100; }
     &--expanded { background: $brand-brown-light !important; }
   }
-  &__expanded-row {
-    td { background: $beige-cream; }
-  }
 }
 
-// ── 아코디언 펼침 영역 ──
+// ── Drawer 내부 — 아코디언 펼침 영역 ──
 .hr-expanded {
   padding: 16px 20px;
 
@@ -62,8 +46,6 @@
 
     strong { font-size: $font-lg; color: $brand-brown; margin: 0 4px; }
   }
-
-  &__tabs { margin-bottom: 12px; }
 
   &__body {
     .data-table { margin-bottom: 12px; }

@@ -1,0 +1,140 @@
+@import '../../styles/variables';
+
+// ── 공용 HospitalSearch ───────────────────────────────────
+// CSS 네임스페이스: .hospital-search (기존 .cdm-hospital-select 와 병존)
+// CheckupDesignManagementPage Phase 5 교체 전까지 공존
+
+.hospital-search {
+  position: relative;
+  display: inline-block;
+
+  // ── 트리거 버튼 ──────────────────────
+  &__trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 7px 12px;
+    border: 1px solid $gray-300;
+    border-radius: $border-radius-md;
+    background: $white;
+    font-size: $font-sm;
+    color: $gray-800;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    text-align: left;
+
+    &:hover {
+      border-color: $brand-brown;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $brand-brown;
+      outline-offset: 2px;
+    }
+  }
+
+  &__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+  }
+
+  &__arrow {
+    font-size: 9px;
+    margin-left: 8px;
+    color: $gray-500;
+    flex-shrink: 0;
+  }
+
+  // ── 드롭다운 패널 ────────────────────
+  &__dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 200;
+    background: $white;
+    border: 1px solid $gray-300;
+    border-radius: $border-radius-md;
+    box-shadow: $shadow-md;
+    min-width: 220px;
+    overflow: hidden;
+  }
+
+  // ── 검색 input ──────────────────────
+  &__input {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    border-bottom: 1px solid $gray-200;
+    font-size: $font-xs;
+    color: $gray-800;
+    background: $white;
+    outline: none;
+    box-sizing: border-box;
+
+    &::placeholder {
+      color: $gray-400;
+    }
+
+    &:focus {
+      border-bottom-color: $brand-brown;
+    }
+  }
+
+  // ── 리스트 ────────────────────────────
+  &__list {
+    max-height: 280px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    font-size: $font-xs;
+    color: $gray-700;
+    cursor: pointer;
+    transition: background 0.1s;
+
+    &:hover {
+      background: $gray-100;
+    }
+
+    &--active {
+      background: $brand-brown-light;
+      color: $brand-brown;
+      font-weight: $font-weight-semibold;
+    }
+  }
+
+  &__item-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__item-sub {
+    font-size: $font-2xs;
+    color: $gray-500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    .hospital-search__item--active & {
+      color: $brand-brown-700;
+    }
+  }
+
+  &__empty {
+    padding: 12px;
+    text-align: center;
+    font-size: $font-xs;
+    color: $gray-500;
+  }
+}

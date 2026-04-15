@@ -7,6 +7,7 @@ import { fetchWithAuth } from '../../utils/api';
 import { useEmbedParams } from '../../hooks/useEmbedParams';
 import { useHierarchy } from '../../hooks/useHierarchy';
 import { downloadWorkbook, dateSuffix } from '../../utils/excelExport';
+import PageLayout from '../../components/layout/PageLayout';
 import DemoBanner from '../../components/DemoBanner';
 import { IconExcel } from '../../components/ExportIcons';
 import { ExportButtons } from '../../components/ExportButtons';
@@ -1043,7 +1044,7 @@ const EmbeddingPage: React.FC = () => {
   };
 
   return (
-    <div className={`admin-embedding-page${isEmbedMode ? ' admin-embedding-page--embed' : ''}`}>
+    <PageLayout pageName="admin-embedding" embedMode={isEmbedMode}>
       <DemoBanner />
       {error && (
         <div className="admin-embedding-page__error" role="alert">{error}</div>
@@ -1717,7 +1718,7 @@ const EmbeddingPage: React.FC = () => {
           )}
         </main>
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

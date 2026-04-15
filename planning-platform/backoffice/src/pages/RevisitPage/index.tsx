@@ -9,6 +9,13 @@ import { getApiBase, fetchWithAuth } from '../../utils/api';
 import { downloadWorkbook, dateSuffix } from '../../utils/excelExport';
 import { ExportButtons } from '../../components/ExportButtons';
 import { Spinner } from '../../components/Spinner';
+import { PageLayout } from '../../components/layout/PageLayout';
+import { PageHeader } from '../../components/layout/PageHeader';
+import { KpiGrid } from '../../components/kpi/KpiGrid';
+import { KpiCard } from '../../components/kpi/KpiCard';
+import { TabBar } from '../../components/tabs/TabBar';
+import type { TabItem } from '../../components/tabs/TabBar';
+import { FilterBar } from '../../components/filters/FilterBar';
 import './styles.scss';
 
 interface MessageVariants {
@@ -295,59 +302,57 @@ const RevisitPage: React.FC = () => {
 
   if (loading) return <Spinner />;
 
+  const FILTER_TYPE_TABS: ReadonlyArray<TabItem<'all' | 'ai_recommended' | 'user_requested'>> = [
+    { key: 'all', label: '전체' },
+    { key: 'ai_recommended', label: 'AI 추천' },
+    { key: 'user_requested', label: '상담요청' },
+  ];
+
   return (
-    <div className="revisit-page">
-      <div className="revisit-page__header">
-        <h2 className="revisit-page__title">재환가망고객</h2>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button
-            className="btn-excel"
-            onClick={() => setShowEmbedding(true)}
-          >
-            상담 이력관리
-          </button>
-          <ExportButtons onExcel={handleExcel} />
-        </div>
-      </div>
+    <PageLayout pageName="revisit" scroll="none" embedMode={isEmbedMode}>
+      <PageHeader
+        title="재환가망고객"
+        hideOnEmbed={false}
+        actions={
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              className="btn-excel"
+              onClick={() => setShowEmbedding(true)}
+            >
+              상담 이력관리
+            </button>
+            <ExportButtons onExcel={handleExcel} />
+          </div>
+        }
+      />
 
       {/* KPI 카드 */}
-      <div className="revisit-page__kpi">
-        <div className="revisit-page__kpi-card">
-          <span className="revisit-page__kpi-label">총 후보</span>
-          <span className="revisit-page__kpi-value">{total}<small>명</small></span>
-        </div>
-        <div className="revisit-page__kpi-card revisit-page__kpi-card--danger">
-          <span className="revisit-page__kpi-label">고위험</span>
-          <span className="revisit-page__kpi-value">{highRisk}<small>명</small></span>
-        </div>
-        <div className="revisit-page__kpi-card">
-          <span className="revisit-page__kpi-label">이번주 신규</span>
-          <span className="revisit-page__kpi-value">{weeklyNew}<small>명</small></span>
-        </div>
-        <div className="revisit-page__kpi-card">
-          <span className="revisit-page__kpi-label">평균 참여도</span>
-          <span className="revisit-page__kpi-value">{avgEngagement}<small>점</small></span>
-        </div>
-      </div>
+      <KpiGrid cols={4}>
+        <KpiCard label="총 후보" value={total} unit="명" />
+        <KpiCard label="고위험" value={highRisk} unit="명" variant="danger" />
+        <KpiCard label="이번주 신규" value={weeklyNew} unit="명" />
+        <KpiCard label="평균 참여도" value={avgEngagement} unit="점" />
+      </KpiGrid>
 
       {/* 유형 필터 탭 */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
-        {([['all', '전체'], ['ai_recommended', 'AI 추천'], ['user_requested', '상담요청']] as const).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setFilterType(key)}
-            style={{
-              padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
-              fontSize: 12, fontWeight: filterType === key ? 600 : 400,
-              background: filterType === key ? '#2563eb' : '#f1f5f9',
-              color: filterType === key ? '#fff' : '#64748b',
-            }}
-          >{label}</button>
-        ))}
-      </div>
+      <TabBar
+        size="sm"
+        items={FILTER_TYPE_TABS}
+        value={filterType}
+        onChange={setFilterType}
+      />
 
       {/* 필터 */}
-      <div className="revisit-page__filters">
+      <FilterBar
+        trailing={
+          <input
+            className="revisit-page__search"
+            placeholder="환자명·관심사 검색"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        }
+      >
         <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)}>
           <option value="">위험도 전체</option>
           <option value="high">고위험</option>
@@ -376,13 +381,7 @@ const RevisitPage: React.FC = () => {
             <option value="chronic_management">만성관리</option>
           </select>
         )}
-        <input
-          className="revisit-page__search"
-          placeholder="환자명·관심사 검색"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
-      </div>
+      </FilterBar>
 
       <div className="revisit-page__body">
         {/* 후보 목록 */}
@@ -893,7 +892,7 @@ const RevisitPage: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 };
 

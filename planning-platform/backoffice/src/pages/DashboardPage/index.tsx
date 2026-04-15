@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import PageLayout from '../../components/layout/PageLayout';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell,
@@ -226,7 +227,7 @@ const DashboardPage: React.FC = () => {
   };
 
   return (
-    <div className="dashboard-page">
+    <PageLayout pageName="dashboard">
       {/* 필터 바 */}
       <div className="dashboard-page__filters">
         <select
@@ -525,7 +526,7 @@ const DashboardPage: React.FC = () => {
           </ResponsiveContainer>
         </div>
       </div>
-    </div>
+    </PageLayout>
   );
 };
 

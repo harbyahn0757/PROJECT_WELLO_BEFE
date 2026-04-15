@@ -3,13 +3,16 @@
  * iframe 모드 (api_key 쿼리 있음): 3탭 (캠페인 관리 | 페르소나 분석 | 발송 이력) — 파트너사 호환
  * 로그인 모드: 4탭 (상담 요청 | 캠페인 발송 | 페르소나 분석 | 발송 이력) — ConsultationPage 흡수
  */
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getApiBase, fetchWithAuth } from '../../utils/api';
 import { useEmbedParams } from '../../hooks/useEmbedParams';
 import AlimtalkPanel from './components/AlimtalkPanel';
 import HistoryTable from './components/HistoryTable';
 import ConsultationPage from '../ConsultationPage';
+import PageLayout from '../../components/layout/PageLayout';
+import { TabBar, TabItem } from '../../components/tabs/TabBar';
+import { HospitalSearch } from '../../components/HospitalSearch/HospitalSearch';
 import './styles.scss';
 import './styles/alimtalk.scss';
 
@@ -36,32 +39,11 @@ const CheckupDesignManagementPage: React.FC = () => {
   const [selectedTargets, setSelectedTargets] = useState<string[]>([]);
   const [hospitals, setHospitals] = useState<any[]>([]);
   const [selectedHospital, setSelectedHospital] = useState('');
-  const [hospitalSearch, setHospitalSearch] = useState('');
-  const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
-  const hospitalRef = useRef<HTMLDivElement>(null);
 
   // ── 알림톡 ──
   const [templates, setTemplates] = useState<any[]>([]);
   const [historyList, setHistoryList] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-
-  // 병원 검색 필터
-  const filteredHospitals = useMemo(() => {
-    if (!hospitalSearch.trim()) return hospitals;
-    const q = hospitalSearch.trim().toLowerCase();
-    return hospitals.filter((h: any) => h.hosnm?.toLowerCase().includes(q));
-  }, [hospitals, hospitalSearch]);
-
-  // 드롭다운 외부 클릭 닫기
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (hospitalRef.current && !hospitalRef.current.contains(e.target as Node)) {
-        setShowHospitalDropdown(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
 
   // ── API ──
   const api = useCallback(async (path: string, body?: any) => {
@@ -123,8 +105,6 @@ const CheckupDesignManagementPage: React.FC = () => {
   // ── 병원 선택 ──
   const selectHospital = (hosnm: string) => {
     setSelectedHospital(hosnm);
-    setHospitalSearch(hosnm);
-    setShowHospitalDropdown(false);
     setSelectedTargets([]);
   };
 
@@ -154,55 +134,32 @@ const CheckupDesignManagementPage: React.FC = () => {
   };
 
   // iframe 모드: 2탭 (기존 호환, persona 제거), 로그인 모드: 3탭 (상담/캠페인/이력)
-  const TAB_ITEMS: [TabKey, string][] = isEmbed
-    ? [['campaign', '캠페인 관리'], ['history', '발송 이력']]
-    : [['consultation', '상담 요청'], ['campaign', '캠페인 발송'], ['history', '발송 이력']];
+  const TAB_ITEMS: TabItem<TabKey>[] = isEmbed
+    ? [{ key: 'campaign', label: '캠페인 관리' }, { key: 'history', label: '발송 이력' }]
+    : [{ key: 'consultation', label: '상담 요청' }, { key: 'campaign', label: '캠페인 발송' }, { key: 'history', label: '발송 이력' }];
 
   return (
-    <div className="cdm-page">
+    <PageLayout pageName="checkup-design" embedMode={isEmbed} scroll="none">
       {/* 탭 + 병원 검색 (한 줄) */}
-      <div className="cdm-page__toolbar">
-        <div className="tabs">
-          {TAB_ITEMS.map(([key, label]) => (
-            <button key={key} className={`tabs__item ${activeTab === key ? 'active' : ''}`} onClick={() => setActiveTab(key)}>
-              {label}
-            </button>
-          ))}
-        </div>
-        {/* 병원 검색: 상담 탭에서는 숨김 (ConsultationPage가 자체 필터 관리) */}
-        {activeTab !== 'consultation' && (
-        <div className="cdm-hospital-select" ref={hospitalRef} style={{position:'relative'}}>
-          <div className="cdm-hospital-search" style={{minWidth:'240px'}}>
-            <input
-              type="text"
-              placeholder={`병원 검색 (${hospitals.length}개)`}
-              value={hospitalSearch}
-              onChange={e => { setHospitalSearch(e.target.value); setShowHospitalDropdown(true); }}
-              onFocus={() => setShowHospitalDropdown(true)}
-              style={{fontSize:'13px',padding:'6px 10px',border:'1px solid #d1d5db',borderRadius:'6px',width:'100%'}}
+      <TabBar
+        size="md"
+        items={TAB_ITEMS}
+        value={activeTab}
+        onChange={setActiveTab}
+        trailing={
+          activeTab !== 'consultation' ? (
+            <HospitalSearch
+              hospitals={hospitals}
+              value={selectedHospital}
+              onChange={selectHospital}
+              getValue={h => h.hosnm ?? ''}
+              getLabel={h => h.hosnm ?? ''}
+              getSubtitle={h => h.mkt_consent != null ? `${h.mkt_consent}명 / ${h.pln_sent ?? 0}명 발송` : null}
+              showAllOption={false}
             />
-            {selectedHospital && (
-              <button className="cdm-hospital-search__clear" onClick={() => { setSelectedHospital(''); setHospitalSearch(''); setSelectedTargets([]); }}>✕</button>
-            )}
-            {showHospitalDropdown && (
-              <div className="cdm-hospital-dropdown">
-                {filteredHospitals.length === 0 && <div className="cdm-hospital-dropdown__empty">검색 결과 없음</div>}
-                {filteredHospitals.slice(0, 50).map((h: any) => (
-                  <div
-                    key={h.hosnm}
-                    className={`cdm-hospital-dropdown__item ${selectedHospital === h.hosnm ? 'cdm-hospital-dropdown__item--active' : ''}`}
-                    onClick={() => selectHospital(h.hosnm)}
-                  >
-                    <span className="cdm-hospital-dropdown__name">{h.hosnm}</span>
-                    <span className="cdm-hospital-dropdown__count">{h.mkt_consent}명 / {h.pln_sent}명 발송</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-        )}
-      </div>
+          ) : undefined
+        }
+      />
 
       {loading && activeTab !== 'consultation' && <div className="empty-state"><p>로딩 중...</p></div>}
 
@@ -227,7 +184,7 @@ const CheckupDesignManagementPage: React.FC = () => {
             />
           )}
 
-          {!selectedHospital && hospitals.length > 0 && !showHospitalDropdown && (
+          {!selectedHospital && hospitals.length > 0 && (
             <p className="empty-state__text" style={{textAlign:'center', padding:'40px 0'}}>병원을 검색하여 선택하면 캠페인 대상이 표시됩니다</p>
           )}
         </div>
@@ -240,7 +197,7 @@ const CheckupDesignManagementPage: React.FC = () => {
           <HistoryTable history={historyList} loading={historyLoading} />
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 };
 

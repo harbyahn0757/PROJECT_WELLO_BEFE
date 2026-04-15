@@ -1,6 +1,12 @@
 @import './styles/variables';
 @import './styles/index';
 
+// ── Phase 1 공용 컴포넌트 스타일 ───────────────────────────
+@import './styles/components/page';
+@import './styles/components/kpi';
+@import './styles/components/tab-bar';
+@import './styles/components/filter-bar';
+
 * {
   box-sizing: border-box;
 }

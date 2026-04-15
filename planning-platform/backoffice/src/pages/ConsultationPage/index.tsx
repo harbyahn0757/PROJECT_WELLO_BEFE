@@ -6,6 +6,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getApiBase, fetchWithAuth } from '../../utils/api';
 import { Spinner } from '../../components/Spinner';
+import { Drawer } from '../../components/Drawer/Drawer';
 import './styles.scss';
 
 /* ── 타입 ── */
@@ -269,19 +270,6 @@ const ConsultationPage: React.FC = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
 
-  /* 드로워 ESC 닫기 */
-  useEffect(() => {
-    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setDrawerOpen(false); };
-    document.addEventListener('keydown', onEsc);
-    return () => document.removeEventListener('keydown', onEsc);
-  }, []);
-
-  /* 드로워 열릴 때 body 스크롤 잠금 */
-  useEffect(() => {
-    document.body.style.overflow = drawerOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [drawerOpen]);
-
   /* 목록 조회 — 전체 상태 한 번에 */
   const fetchList = useCallback(async () => {
     setLoading(true);
@@ -407,31 +395,34 @@ const ConsultationPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ── 드로워 오버레이 + 패널 ── */}
-      {drawerOpen && (
-        <div className="consultation-page__overlay" onClick={() => setDrawerOpen(false)} />
-      )}
-      <div className={`consultation-page__drawer${drawerOpen ? ' consultation-page__drawer--open' : ''}`}>
-        <DrawerHeader
-          detail={detail}
-          selectedItem={selectedItem || null}
-          onClose={() => setDrawerOpen(false)}
-          currentStatus={selectedItem?.status || 'pending'}
-          statusUpdating={statusUpdating}
-          onStatusChange={handleStatusChange}
-        />
-        <div className="consultation-page__drawer-body">
-          {detailLoading && <Spinner />}
-          {!detailLoading && detail && (
-            <DetailPanel
-              detail={detail}
-              selectedItem={selectedItem || null}
-              statusUpdating={statusUpdating}
-              onStatusChange={handleStatusChange}
-            />
-          )}
-        </div>
-      </div>
+      {/* ── 공용 Drawer ── */}
+      <Drawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        header={
+          <DrawerHeader
+            detail={detail}
+            selectedItem={selectedItem || null}
+            onClose={() => setDrawerOpen(false)}
+            currentStatus={selectedItem?.status || 'pending'}
+            statusUpdating={statusUpdating}
+            onStatusChange={handleStatusChange}
+          />
+        }
+        width="xl"
+        closeOnEsc
+        closeOnOverlay
+      >
+        {detailLoading && <Spinner />}
+        {!detailLoading && detail && (
+          <DetailPanel
+            detail={detail}
+            selectedItem={selectedItem || null}
+            statusUpdating={statusUpdating}
+            onStatusChange={handleStatusChange}
+          />
+        )}
+      </Drawer>
     </div>
   );
 };
@@ -491,8 +482,7 @@ const DrawerHeader: React.FC<DrawerHeaderProps> = ({
           <option value="completed">완료</option>
         </select>
       </div>
-      <button className="consultation-page__drawer-close" onClick={onClose}>&times;</button>
-      {/* 2행: 페르소나 뱃지 */}
+      {/* 2행: 페르소나 뱃지 — 닫기 버튼은 공용 Drawer가 렌더 */}
       {personaType && (
         <div className="consultation-page__persona-badge-row">
           <span className="consultation-page__persona-badge" style={{ borderLeftColor: PERSONA_COLORS[personaType] || '#6b7280' }}>
