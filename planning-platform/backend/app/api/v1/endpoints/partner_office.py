@@ -9,7 +9,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from jose import JWTError, jwt
@@ -38,6 +38,14 @@ except ImportError:
     verify_batch = None  # type: ignore
     build_engine_stats = None  # type: ignore
     to_engine_patient = None  # type: ignore
+
+# ─── AI 요약 서비스 (Phase 2) ─────────────────────────────────────────
+try:
+    from ....services.report_engine import ai_summary as _ai_summary_mod
+    AI_SUMMARY_AVAILABLE = True
+except ImportError:
+    _ai_summary_mod = None  # type: ignore
+    AI_SUMMARY_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/partner-office", tags=["partner-office"])
@@ -2852,6 +2860,169 @@ async def mediarc_report_compare(uuid: str):
         db_manager=db_manager,
         engine=EngineFacade(),
     )
+
+
+# ─── AI 한 줄 요약 모델 ────────────────────────────────────────────────
+
+class AiSummaryRequest(BaseModel):
+    force: bool = False
+
+
+def _ai_guard():
+    if not AI_SUMMARY_AVAILABLE or _ai_summary_mod is None:
+        raise HTTPException(status_code=503, detail="AI 요약 서비스 미로드")
+
+
+async def _fetch_report_for_ai(uuid: str, hospital_id: str) -> dict:
+    """mediarc_patient_detail + EngineFacade.run 결과를 dict로 반환.
+    mediarc_report_alias 로직 재사용.
+    """
+    _engine_guard()
+    detail = await mediarc_patient_detail(uuid)
+    age = _calc_age(detail.get("birth_date") or "")
+    sex = _normalize_sex(detail.get("gender") or "")
+    health_data = detail.get("health_data") or {}
+    engine_patient = to_engine_patient(health_data, age=age, sex=sex)
+    try:
+        result = EngineFacade().run(
+            name=detail.get("name") or "익명",
+            patient=engine_patient,
+        )
+    except Exception as exc:
+        logger.exception("AI summary: 엔진 실행 실패 uuid=%s: %s", uuid, exc)
+        raise HTTPException(status_code=500, detail=f"엔진 계산 오류: {exc}")
+    _bodyage_raw = result.get("bodyage")
+    bodyage_block = _bodyage_raw if isinstance(_bodyage_raw, dict) else {"bodyage": _bodyage_raw, "delta": None}
+    return {
+        "name": detail.get("name") or "익명",
+        "age": age,
+        "sex": sex,
+        "bodyage": bodyage_block,
+        "rank": result.get("rank"),
+        "diseases": result.get("diseases", {}),
+        "improved": result.get("improved", {}),
+    }
+
+
+# ─── GET: 기존 요약 조회 ──────────────────────────────────────────────
+
+@router.get("/mediarc-report/{uuid}/ai-summary")
+async def get_ai_summary(
+    uuid: str,
+    hospital_id: str = Query(default=""),
+):
+    """기존 AI 요약 캐시 조회. 없으면 summary=null 반환 (404 아님).
+    stale=true 면 리포트 변경으로 인해 재생성 권장.
+    """
+    _ai_guard()
+    try:
+        cached = await _ai_summary_mod.get_cached_summary(db_manager, uuid, hospital_id)
+    except Exception as exc:
+        logger.warning("AI summary GET 실패 uuid=%s: %s", uuid, exc)
+        return {"uuid": uuid, "hospital_id": hospital_id,
+                "summary": None, "generated_at": None, "model": None, "stale": False}
+
+    if not cached:
+        return {"uuid": uuid, "hospital_id": hospital_id,
+                "summary": None, "generated_at": None, "model": None, "stale": False}
+
+    # stale 판정: 현재 리포트 digest vs 저장된 digest
+    stale = False
+    stored_digest = cached.get("input_digest") or ""
+    if stored_digest:
+        try:
+            report = await _fetch_report_for_ai(uuid, hospital_id)
+            payload = _ai_summary_mod.build_input_payload(report)
+            cur_digest = _ai_summary_mod.compute_input_digest(payload)
+            stale = (stored_digest != cur_digest)
+        except Exception as exc:
+            logger.debug("stale 판정 실패 uuid=%s: %s", uuid, exc)
+
+    gen_at = cached.get("generated_at")
+    return {
+        "uuid": uuid,
+        "hospital_id": hospital_id,
+        "summary": cached["summary"],
+        "generated_at": gen_at.isoformat() if hasattr(gen_at, "isoformat") else str(gen_at or ""),
+        "model": cached.get("model"),
+        "stale": stale,
+    }
+
+
+# ─── POST: AI 요약 생성 (force=true 시 덮어쓰기) ─────────────────────
+
+@router.post("/mediarc-report/{uuid}/ai-summary")
+async def post_ai_summary(
+    uuid: str,
+    hospital_id: str = Query(default=""),
+    body: AiSummaryRequest = Body(default_factory=AiSummaryRequest),
+):
+    """AI 한 줄 요약 생성. force=false(기본): 기존 캐시 있으면 그대로 반환.
+    force=true: LLM 재호출 후 덮어쓰기.
+    """
+    _ai_guard()
+
+    # force=false + 캐시 있음 → 바로 반환
+    if not body.force:
+        try:
+            cached = await _ai_summary_mod.get_cached_summary(db_manager, uuid, hospital_id)
+            if cached:
+                gen_at = cached.get("generated_at")
+                return {
+                    "uuid": uuid,
+                    "hospital_id": hospital_id,
+                    "summary": cached["summary"],
+                    "generated_at": gen_at.isoformat() if hasattr(gen_at, "isoformat") else str(gen_at or ""),
+                    "model": cached.get("model"),
+                    "stale": False,
+                }
+        except Exception as exc:
+            logger.warning("AI summary 캐시 조회 실패 uuid=%s: %s", uuid, exc)
+
+    # 리포트 조회
+    try:
+        report = await _fetch_report_for_ai(uuid, hospital_id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=f"리포트 조회 실패: {exc}")
+
+    payload = _ai_summary_mod.build_input_payload(report)
+    digest = _ai_summary_mod.compute_input_digest(payload)
+
+    # Haiku 호출
+    try:
+        summary_text, meta = await _ai_summary_mod.generate_summary(report)
+    except Exception as exc:
+        logger.error("Haiku 호출 실패 uuid=%s: %s", uuid, exc)
+        raise HTTPException(status_code=502, detail=f"AI 요약 생성 실패: {exc}")
+
+    # DB UPSERT
+    try:
+        saved = await _ai_summary_mod.upsert_summary(
+            db_manager,
+            patient_uuid=uuid,
+            hospital_id=hospital_id,
+            summary=summary_text,
+            model=_ai_summary_mod.MODEL,
+            input_digest=digest,
+            input_tokens=meta.get("input_tokens"),
+            output_tokens=meta.get("output_tokens"),
+        )
+    except Exception as exc:
+        logger.error("AI summary UPSERT 실패 uuid=%s: %s", uuid, exc)
+        # DB 저장 실패여도 요약 결과는 반환 (Fail-open)
+        saved = {"summary": summary_text, "model": _ai_summary_mod.MODEL}
+
+    gen_at_val = saved.get("generated_at")
+    return {
+        "uuid": uuid,
+        "hospital_id": hospital_id,
+        "summary": saved.get("summary", summary_text),
+        "generated_at": gen_at_val.isoformat() if hasattr(gen_at_val, "isoformat") else datetime.now().isoformat(),
+        "model": saved.get("model", _ai_summary_mod.MODEL),
+        "stale": False,
+    }
 
 
 @router.get("/mediarc-report/{uuid}")

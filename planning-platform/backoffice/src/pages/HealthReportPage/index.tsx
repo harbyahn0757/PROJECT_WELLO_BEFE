@@ -6,12 +6,10 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   fetchPatients,
   fetchReport,
-  fetchComparison,
   fetchEngineStats,
   fetchVerifyAll,
   PatientListItem,
   ReportData,
-  ComparisonData,
   EngineStats,
   VerificationData,
 } from './hooks/useMediarcApi';
@@ -30,18 +28,12 @@ import { HospitalSearch } from '../../components/HospitalSearch/HospitalSearch';
 import { useEmbedParams } from '../../hooks/useEmbedParams';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Cell,
+  ResponsiveContainer,
 } from 'recharts';
+import ReportView from './components/ReportView';
 import './styles.scss';
 
 type TabKey = 'patients' | 'verify';
-type DetailTab = 'diseases' | 'gauges' | 'nutrition' | 'comparison';
-
-const gradeInfo = (rank: number) => {
-  if (rank <= 30) return { label: '정상', cls: 'badge--success' };
-  if (rank <= 60) return { label: '경계', cls: 'badge--warning' };
-  return { label: '이상', cls: 'badge--danger' };
-};
 
 const MAIN_TABS: TabItem<TabKey>[] = [
   { key: 'patients', label: '환자 리포트' },
@@ -64,9 +56,7 @@ const HealthReportPage: React.FC = () => {
   // Drawer
   const [expandedUuid, setExpandedUuid] = useState<string | null>(null);
   const [report, setReport] = useState<ReportData | null>(null);
-  const [comparison, setComparison] = useState<ComparisonData | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [detailTab, setDetailTab] = useState<DetailTab>('diseases');
 
   // 검증 탭
   const [verification, setVerification] = useState<VerificationData | null>(null);
@@ -110,25 +100,17 @@ const HealthReportPage: React.FC = () => {
   const openDrawer = useCallback((uuid: string) => {
     setExpandedUuid(uuid);
     setDetailLoading(true);
-    setDetailTab('diseases');
     setReport(null);
-    setComparison(null);
 
-    const patient = patients.find(p => p.uuid === uuid);
-    const promises: Promise<any>[] = [fetchReport(uuid)];
-    if (patient?.has_twobecon) promises.push(fetchComparison(uuid));
-
-    Promise.all(promises)
-      .then(([rData, cData]) => { setReport(rData); setComparison(cData || null); })
+    fetchReport(uuid)
+      .then(rData => setReport(rData))
       .catch(e => console.error('리포트 로드:', e))
       .finally(() => setDetailLoading(false));
-  }, [patients]);
+  }, []);
 
   const closeDrawer = useCallback(() => {
     setExpandedUuid(null);
     setReport(null);
-    setComparison(null);
-    setDetailTab('diseases');
   }, []);
 
   // 검증 탭
@@ -155,14 +137,6 @@ const HealthReportPage: React.FC = () => {
   };
 
   const selectedPatient = patients.find(p => p.uuid === expandedUuid);
-
-  // Drawer 내부 서브탭 아이템
-  const detailTabs: TabItem<DetailTab>[] = [
-    { key: 'diseases', label: '질환예측' },
-    { key: 'gauges', label: '검진수치' },
-    { key: 'nutrition', label: '영양추천' },
-    ...(comparison ? [{ key: 'comparison' as DetailTab, label: '투비콘 비교' }] : []),
-  ];
 
   return (
     <PageLayout pageName="health-report" embedMode={isEmbedMode}>
@@ -249,146 +223,23 @@ const HealthReportPage: React.FC = () => {
         open={!!expandedUuid}
         onClose={closeDrawer}
         title={selectedPatient?.name ?? '환자 상세'}
-        width="lg"
+        width="xl"
+        testId="mediarc-report-drawer"
       >
         {detailLoading ? (
           <div className="hr-expanded__loading"><Spinner message="리포트 로딩 중..." /></div>
         ) : !report ? (
           <div className="hr-expanded__empty">리포트를 불러올 수 없습니다</div>
         ) : (
-          <div className="hr-expanded">
-            <div className="hr-expanded__summary">
-              <span>건강나이 <strong>{report.bodyage?.bodyage?.toFixed(1) ?? '-'}세</strong>
-                {report.bodyage?.delta != null && (
-                  <span className={report.bodyage.delta > 0 ? 'text--danger' : 'text--success'}>
-                    ({report.bodyage.delta > 0 ? '+' : ''}{report.bodyage.delta.toFixed(1)})
-                  </span>
-                )}
-              </span>
-              <span>건강등수 <strong>{report.rank ?? '-'}등</strong></span>
-            </div>
-
-            <TabBar<DetailTab>
-              items={detailTabs}
-              value={detailTab}
-              onChange={setDetailTab}
-              size="sm"
-            />
-
-            <div className="hr-expanded__body">
-              <DetailContent detailTab={detailTab} report={report} comparison={comparison} />
-            </div>
-          </div>
+          <ReportView
+            data={report}
+            uuid={expandedUuid!}
+            hospitalId={hospitalId}
+          />
         )}
       </Drawer>
     </PageLayout>
   );
-};
-
-// ── 서브 컴포넌트: 상세 탭 내용 ──
-const DetailContent: React.FC<{
-  detailTab: DetailTab;
-  report: ReportData;
-  comparison: ComparisonData | null;
-}> = ({ detailTab, report, comparison }) => {
-  if (detailTab === 'diseases') {
-    const entries = Object.entries(report.diseases || {});
-    const chartData = entries.map(([name, d]) => ({ name, rank: d.rank }));
-    return (
-      <>
-        <table className="data-table">
-          <thead><tr><th>질환</th><th>등수</th><th>등급</th></tr></thead>
-          <tbody>
-            {entries.map(([name, d]) => {
-              const g = gradeInfo(d.rank);
-              return (<tr key={name}><td>{name}</td><td>{d.rank}등</td>
-                <td><span className={`hr-badge ${g.cls}`}>{g.label}</span></td></tr>);
-            })}
-          </tbody>
-        </table>
-        {chartData.length > 0 && (
-          <div className="hr-expanded__chart">
-            <ResponsiveContainer width="100%" height={Math.max(250, entries.length * 26)}>
-              <BarChart data={chartData} layout="vertical" margin={{ left: 80, right: 16 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis type="number" domain={[0, 100]} />
-                <YAxis type="category" dataKey="name" width={75} tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: number) => `${v}등`} />
-                <Bar dataKey="rank" radius={[0, 3, 3, 0]}>
-                  {chartData.map((d, i) => (
-                    <Cell key={i} fill={d.rank > 60 ? '#c62828' : d.rank > 30 ? '#ed8936' : '#22804a'} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </>
-    );
-  }
-
-  if (detailTab === 'gauges') {
-    const entries = Object.entries(report.gauges?.all || {});
-    return entries.length === 0 ? <p className="hr-expanded__empty">수치 데이터 없음</p> : (
-      <table className="data-table">
-        <thead><tr><th>항목</th><th>수치</th><th>판정</th><th>범위</th></tr></thead>
-        <tbody>{entries.map(([k, g]) => (
-          <tr key={k}><td>{k}</td><td><strong>{g.value}</strong></td><td>{g.label}</td>
-            <td style={{ color: '#999', fontSize: 12 }}>{g.range}</td></tr>
-        ))}</tbody>
-      </table>
-    );
-  }
-
-  if (detailTab === 'nutrition') {
-    const items = report.nutrition?.recommend || [];
-    return items.length === 0 ? <p className="hr-expanded__empty">추천 데이터 없음</p> : (
-      <div className="hr-expanded__nutrition-grid">
-        {items.map((n, i) => (
-          <div key={i} className="hr-expanded__nutrition-card">
-            <div className="hr-expanded__nutrition-name">{n.name}
-              <span className="hr-expanded__nutrition-tag">{n.tag}</span></div>
-            <div className="hr-expanded__nutrition-desc">{n.desc}</div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (detailTab === 'comparison' && comparison) {
-    return (
-      <>
-        <div className="hr-expanded__compare-row">
-          <div className="hr-expanded__compare-box">
-            <div className="hr-expanded__compare-label">투비콘</div>
-            <div className="hr-expanded__compare-val">{comparison.twobecon.bodyage}세</div>
-            <div className="hr-expanded__compare-sub">등수: {comparison.twobecon.rank}등</div>
-          </div>
-          <div className="hr-expanded__compare-box">
-            <div className="hr-expanded__compare-label">mediArc</div>
-            <div className="hr-expanded__compare-val">{comparison.mediarc.bodyage.bodyage}세</div>
-            <div className="hr-expanded__compare-sub">등수: {comparison.mediarc.rank}등</div>
-          </div>
-        </div>
-        <div className="hr-expanded__match-rate">적중률: {comparison.match_rate}</div>
-        <table className="data-table">
-          <thead><tr><th>질환</th><th>투비콘</th><th>mediArc</th><th>차이</th><th>일치</th></tr></thead>
-          <tbody>
-            {comparison.comparison.map((c, i) => (
-              <tr key={i} className={c.grade_match ? 'hr-row--match' : 'hr-row--mismatch'}>
-                <td>{c.disease}</td><td>{c.twobecon_rate?.toFixed(1)}</td>
-                <td>{c.mediarc_ratio?.toFixed(1)}</td>
-                <td>{c.diff >= 0 ? '+' : ''}{c.diff?.toFixed(1)}</td>
-                <td>{c.grade_match ? '✓' : '✗'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </>
-    );
-  }
-
-  return null;
 };
 
 // ── 서브 컴포넌트: 전수검증 탭 ──

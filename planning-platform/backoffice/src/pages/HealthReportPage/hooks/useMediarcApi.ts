@@ -183,3 +183,39 @@ export const fetchVerifyAll = async () => {
   const r = await fetchWithAuth(`${API}/partner-office/mediarc-report/verify-all`);
   return r.json() as Promise<VerificationData>;
 };
+
+// ── AI 요약 (Phase 2) ──
+
+export interface AiSummaryResponse {
+  summary: string | null;
+  generated_at: string | null;  // ISO 8601
+  model: string | null;
+  stale?: boolean;              // input_digest 변경 감지 플래그
+}
+
+// GET: 캐시된 요약 조회 (없으면 summary null 반환, 404 아님)
+export const fetchAiSummary = async (uuid: string, hospitalId?: string): Promise<AiSummaryResponse> => {
+  const qs = hospitalId ? `?hospital_id=${encodeURIComponent(hospitalId)}` : '';
+  const r = await fetchWithAuth(`${API}/partner-office/mediarc-report/${uuid}/ai-summary${qs}`);
+  return r.json();
+};
+
+// POST: 요약 생성 (force=true 로 강제 재생성)
+export const generateAiSummary = async (
+  uuid: string,
+  hospitalId?: string,
+  force: boolean = false,
+): Promise<AiSummaryResponse> => {
+  const qs = new URLSearchParams();
+  if (hospitalId) qs.set('hospital_id', hospitalId);
+  if (force) qs.set('force', '1');
+  const r = await fetchWithAuth(
+    `${API}/partner-office/mediarc-report/${uuid}/ai-summary${qs.toString() ? '?' + qs : ''}`,
+    { method: 'POST' },
+  );
+  if (!r.ok) {
+    const errTxt = await r.text().catch(() => '');
+    throw new Error(`AI 요약 생성 실패 (HTTP ${r.status}): ${errTxt.slice(0, 200)}`);
+  }
+  return r.json();
+};

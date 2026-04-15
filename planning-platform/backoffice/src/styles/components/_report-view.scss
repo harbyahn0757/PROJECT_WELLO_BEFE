@@ -1,0 +1,409 @@
+@import '../variables';
+
+// ── ReportView 루트 ──────────────────────────────────────────
+.report-view {
+  padding: $spacing-md;
+  overflow-y: auto;
+  height: 100%;
+
+  // iframe embed 축소
+  .app-drawer--container & {
+    padding: $spacing-sm;
+  }
+}
+
+// ── 섹션 구분 ────────────────────────────────────────────────
+.report-view__section {
+  margin-bottom: $spacing-xl;
+  padding-bottom: $spacing-lg;
+  border-bottom: 1px solid $gray-200;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.report-view__section-title {
+  font-size: $font-lg;
+  font-weight: 600;
+  color: $gray-800;
+  margin: 0 0 $spacing-md;
+}
+
+// ── HeroBlock ────────────────────────────────────────────────
+.report-view__hero-block {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.report-view__hero-meta {
+  display: flex;
+  align-items: baseline;
+  gap: $spacing-sm;
+}
+
+.report-view__hero-name {
+  font-size: $font-2xl;
+  font-weight: 700;
+  color: $gray-900;
+}
+
+.report-view__hero-meta-sub {
+  font-size: $font-sm;
+  color: $gray-600;
+}
+
+.report-view__ai-summary-stub {
+  font-size: $font-xs;
+  color: $gray-500;
+  font-style: italic;
+}
+
+// ── RiskFactorsBlock ─────────────────────────────────────────
+.report-view__risk-factors {
+  margin-bottom: $spacing-lg;
+}
+
+.report-view__risk-factor-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.report-view__risk-factor-card {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-xs $spacing-sm;
+  background: $gray-50;
+  border: 1px solid $gray-200;
+  border-radius: $border-radius-md;
+  font-size: $font-sm;
+}
+
+.report-view__risk-factor-name {
+  font-weight: 500;
+  color: $gray-800;
+}
+
+.report-view__risk-factor-rr {
+  color: $error;
+  font-size: $font-xs;
+}
+
+.report-view__pmid-link {
+  font-size: $font-2xs;
+  color: $brand-brown;
+  cursor: help;
+  text-decoration: underline dotted;
+}
+
+// ── DiseaseGrid ──────────────────────────────────────────────
+.report-view__disease-grid-wrap {
+  margin-top: $spacing-lg;
+}
+
+// ── BeforeAfterBlock ─────────────────────────────────────────
+.report-view__before-after {
+  &--empty {
+    padding: $spacing-md;
+    color: $gray-500;
+    text-align: center;
+  }
+}
+
+.report-view__scenario-labels {
+  font-size: $font-sm;
+  color: $gray-600;
+  margin-bottom: $spacing-md;
+}
+
+.report-view__before-after-table-wrap {
+  overflow-x: auto;
+}
+
+.report-view__before-after-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: $font-sm;
+
+  th, td {
+    padding: $spacing-xs $spacing-sm;
+    border-bottom: 1px solid $gray-200;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  th {
+    background: $gray-50;
+    font-weight: 600;
+    color: $gray-700;
+  }
+
+  td:first-child {
+    text-align: left;
+    font-weight: 500;
+    color: $gray-800;
+  }
+}
+
+.report-view__rank-change {
+  font-size: $font-xs;
+  font-weight: 600;
+
+  &--improved { color: $success; }
+  &--worse    { color: $error; }
+}
+
+.report-view__cohort-caption {
+  font-size: $font-xs;
+  color: $gray-500;
+  margin-top: $spacing-sm;
+  text-align: right;
+}
+
+// ── Slot (placeholder) ───────────────────────────────────────
+.report-view__slot {
+  padding: $spacing-lg;
+  background: $gray-50;
+  border: 1px dashed $gray-300;
+  border-radius: $border-radius-lg;
+  text-align: center;
+}
+
+.report-view__slot-title {
+  font-size: $font-md;
+  font-weight: 600;
+  color: $gray-700;
+  margin: 0 0 $spacing-xs;
+}
+
+.report-view__slot-desc {
+  font-size: $font-sm;
+  color: $gray-500;
+  margin: 0;
+}
+
+// ── Appendix (접이식 상세) ───────────────────────────────────
+.report-view__appendix {
+  margin-top: $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.report-view__disclosure {
+  border: 1px solid $gray-200;
+  border-radius: 8px;
+  background: #fff;
+
+  &[open] > summary {
+    border-bottom: 1px solid $gray-200;
+  }
+
+  &--planned {
+    opacity: 0.7;
+  }
+}
+
+.report-view__disclosure-summary {
+  padding: $spacing-sm $spacing-md;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: $font-sm;
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &::before {
+    content: '▸';
+    display: inline-block;
+    margin-right: $spacing-xs;
+    transition: transform 0.15s;
+  }
+
+  [open] > &::before {
+    transform: rotate(90deg);
+  }
+}
+
+.report-view__disclosure-body {
+  padding: $spacing-sm $spacing-md $spacing-md;
+}
+
+// 영양 카드 그리드
+.report-view__nutrition-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $spacing-sm;
+
+  @media (max-width: $bp-mobile-max) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.report-view__nutrition-card {
+  border: 1px solid $gray-200;
+  border-radius: 6px;
+  padding: $spacing-sm;
+  background: $gray-50;
+
+  strong {
+    display: block;
+    font-size: $font-base;
+    margin-bottom: 4px;
+  }
+
+  small {
+    color: $gray-500;
+    font-size: $font-xs;
+  }
+}
+
+// 게이지 테이블
+.report-view__gauge-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: $font-sm;
+
+  th, td {
+    padding: 6px 10px;
+    border-bottom: 1px solid $gray-100;
+    text-align: left;
+  }
+
+  th {
+    background: $gray-50;
+    font-weight: 600;
+  }
+}
+
+// 참고문헌 리스트
+.report-view__reference-item {
+  padding: 4px 0;
+  font-size: $font-sm;
+  border-bottom: 1px dashed $gray-100;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.report-view__pmid-link {
+  color: $brand-brown;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+// 질환 상세 커스텀 모달
+.report-view__modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.report-view__modal {
+  background: #fff;
+  border-radius: 10px;
+  max-width: 640px;
+  width: calc(100vw - #{$spacing-xl});
+  max-height: calc(100vh - #{$spacing-xl});
+  overflow-y: auto;
+  padding: $spacing-md;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
+}
+
+// ── AI 요약 (Phase 2) ────────────────────────────────────────
+.report-view__ai-summary-wrap,
+.report-view__ai-summary-empty {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xs;
+}
+
+.report-view__ai-summary-text {
+  margin: 0;
+  font-size: $font-sm;
+  line-height: 1.5;
+  color: $gray-900;
+}
+
+.report-view__ai-summary-meta {
+  font-size: $font-xs;
+  color: $gray-500;
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.report-view__ai-summary-stale {
+  color: $warning;
+  font-weight: 500;
+}
+
+.report-view__ai-summary-loading {
+  font-size: $font-sm;
+  color: $gray-500;
+  padding: $spacing-xs 0;
+}
+
+.report-view__ai-summary-error {
+  font-size: $font-xs;
+  color: $error;
+  padding: 2px 0;
+}
+
+.report-view__ai-summary-generate-btn,
+.report-view__ai-summary-regen-btn {
+  padding: 6px 12px;
+  font-size: $font-xs;
+  align-self: flex-start;
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid $gray-300;
+  background: #fff;
+
+  &:hover:not(:disabled) {
+    background: $gray-50;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+// ── 반응형 ───────────────────────────────────────────────────
+@media (max-width: $bp-tablet-max) {
+  .report-view__before-after-table {
+    font-size: $font-xs;
+
+    th, td {
+      padding: 4px 6px;
+    }
+  }
+}
+
+@media (max-width: $bp-mobile-max) {
+  .report-view {
+    padding: $spacing-sm;
+  }
+
+  .report-view__hero-name {
+    font-size: $font-xl;
+  }
+
+  .report-view__risk-factor-list {
+    flex-direction: column;
+  }
+}

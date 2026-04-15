@@ -53,3 +53,6 @@ google-genai>=1.0.0
 # scikit-learn: bioage_model.pkl GradientBoostingRegressor 언피클 + predict
 numpy>=1.24
 scikit-learn>=1.3
+
+# AI 요약 (Phase 2) — Claude Haiku on-demand
+anthropic>=0.34.0
