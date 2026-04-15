@@ -8,6 +8,70 @@ const API = getApiBase();
 
 // ── 타입 ──
 
+export interface DiseaseChip {
+  name: string;
+  present: boolean;
+}
+
+export interface AppliedFactor {
+  factor?: string;
+  name?: string;
+  rr: number;
+  pmid?: string;
+  source?: string;
+  confidence?: string;
+}
+
+export interface WillRogersEntry {
+  orig_ratio: number;
+  improved_ratio: number;
+  orig_rank: number;
+  improved_rank: number;
+  rank_change: number;
+  arr_pct: number;
+  cohort_fixed: boolean;
+}
+
+export interface ImprovedScenario {
+  labels?: { bmi?: string; smoking?: string; drinking?: string };
+  improved_sbp?: number;
+  improved_dbp?: number;
+  improved_fbg?: number;
+  ratios?: Record<string, number>;
+  five_year_improved?: Record<string, number[]>;
+  will_rogers?: Record<string, WillRogersEntry>;
+  has_improvement?: boolean;
+}
+
+export interface PatientInfo {
+  imputed_fields?: string[];
+  missing_fields?: string[];
+}
+
+export interface BioageGbResult {
+  score?: number;
+  percentile?: number;
+  [k: string]: any;
+}
+
+export interface DiseaseDetail {
+  rank: number;
+  rate?: number;
+  chips?: DiseaseChip[];
+  chips_present?: number;
+  chips_total?: number;
+  five_year?: number[];
+  applied_factors?: AppliedFactor[];
+  individual_rr?: number;
+  cohort_mean_rr?: number;
+  ratio?: number;
+  grade?: string;
+  improved_ratio?: number;
+  improved_rank?: number;
+  rank_change?: number;
+  arr_pct?: number;
+}
+
 export interface PatientListItem {
   uuid: string;
   name: string;
@@ -23,6 +87,7 @@ export interface PatientListItem {
 export interface BodyAge {
   bodyage: number;
   delta: number;
+  bioage_gb?: BioageGbResult;
 }
 
 export interface GaugeItem {
@@ -44,10 +109,12 @@ export interface ReportData {
   group: string;
   bodyage: BodyAge;
   rank: number;
-  diseases: Record<string, { rank: number; rate?: number }>;
+  diseases: Record<string, DiseaseDetail>;
   nutrition: { recommend: NutrientItem[]; caution?: NutrientItem[] } | null;
   gauges: { all: Record<string, GaugeItem> } | null;
-  patient_info: Record<string, any>;
+  patient_info?: PatientInfo;
+  improved?: ImprovedScenario;
+  disease_ages?: Record<string, number>;
 }
 
 export interface ComparisonItem {

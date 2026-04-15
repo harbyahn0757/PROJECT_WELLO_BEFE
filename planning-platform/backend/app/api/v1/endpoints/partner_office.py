@@ -2892,10 +2892,16 @@ async def mediarc_report_alias(uuid: str):
         "diseases": result.get('diseases', {}),
         "nutrition": result.get('nutrition', {}),
         "gauges": result.get('gauges', {}),
+        # Phase 0: facade 의 improved/disease_ages pass-through
+        "improved": result.get('improved', {}),
+        "disease_ages": result.get('disease_ages', {}),
         "patient_info": {
             "uuid": uuid,
             "source": detail.get('source'),
             "checkup_date": detail.get('checkup_date'),
             "birth_date": detail.get('birth_date'),
+            # facade.patient_info 의 imputed_fields / missing_fields pass-through
+            "imputed_fields": result.get('patient_info', {}).get('imputed_fields', []),
+            "missing_fields": result.get('patient_info', {}).get('missing_fields', []),
         },
     }

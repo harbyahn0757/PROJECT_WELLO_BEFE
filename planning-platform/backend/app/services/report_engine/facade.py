@@ -142,7 +142,16 @@ class EngineFacade:
             "gauges": raw.get("gauges", {}),
             "improved": raw.get("improved", {}),
             "disease_ages": raw.get("disease_ages", {}),
-            "patient_info": {"age": age_val, "sex": raw.get("sex"), "group": raw.get("group")},
+            "patient_info": {
+                "age": age_val,
+                "sex": raw.get("sex"),
+                "group": raw.get("group"),
+                # imputed_fields / missing_fields: engine raw 에서 아직 미노출 상태.
+                # Phase 0 단계에서는 빈 리스트 기본값 보장. Phase 2+ 에서 engine 이 top-level 로
+                # 노출하면 자동 pass-through.
+                "imputed_fields": raw.get("imputed_fields", []),
+                "missing_fields": raw.get("missing_fields", []),
+            },
             "nutrition": nutrition_result,
         }
 
