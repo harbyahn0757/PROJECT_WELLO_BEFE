@@ -1,8 +1,8 @@
-"""mediArc 리포트 AI 한 줄 요약 — Claude Haiku on-demand.
+"""mediArc 리포트 AI 한 줄 요약 — GPT-4o-mini on-demand.
 
 DB: welno.welno_mediarc_ai_summaries (hospital_id + patient_uuid UNIQUE)
 프롬프트: 수검자 보조 톤, 80자 이내 1문단, 긍정 프레이밍, 근거 숫자 포함.
-API 키: os.getenv("ANTHROPIC_API_KEY") — 코드/config.json 하드코딩 금지.
+API 키: settings.openai_api_key (OPENAI_API_KEY) — 코드/config.json 하드코딩 금지.
 """
 import hashlib
 import json
@@ -12,8 +12,8 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-MODEL = "claude-haiku-4-5-20251001"
-PROMPT_VERSION = "v1"
+MODEL = "gpt-4o-mini"
+PROMPT_VERSION = "v2"
 MAX_TOKENS = 200        # ~80자 한글 안전 마진
 TEMPERATURE = 0.3
 
@@ -158,35 +158,38 @@ def build_input_payload(report: dict) -> dict:
 # ─── Haiku 호출 ────────────────────────────────────────────────────────────────
 
 async def generate_summary(report: dict) -> tuple[str, dict]:
-    """Anthropic Haiku 호출. return: (summary_text, meta{input_tokens, output_tokens}).
+    """GPT-4o-mini 호출. return: (summary_text, meta{input_tokens, output_tokens}).
     raise: RuntimeError on failure.
     """
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise RuntimeError("ANTHROPIC_API_KEY 미설정")
+    from app.core.config import settings
+    from openai import AsyncOpenAI
 
-    from anthropic import AsyncAnthropic  # lazy import
+    api_key = settings.openai_api_key
+    if not api_key or api_key == "dev-openai-key":
+        raise RuntimeError("OPENAI_API_KEY 미설정")
 
-    client = AsyncAnthropic(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key)
     system_prompt, user_prompt = _build_prompt_blocks(report)
 
-    msg = await client.messages.create(
+    resp = await client.chat.completions.create(
         model=MODEL,
         max_tokens=MAX_TOKENS,
         temperature=TEMPERATURE,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_prompt}],
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
     )
 
-    text = "".join(getattr(block, "text", "") for block in msg.content).strip()
+    text = (resp.choices[0].message.content or "").strip()
     if not text:
-        raise RuntimeError("Haiku 응답 비어있음")
+        raise RuntimeError("GPT-4o-mini 응답 비어있음")
     if len(text) > 300:
         text = text[:300]
 
     meta = {
-        "input_tokens": getattr(msg.usage, "input_tokens", None),
-        "output_tokens": getattr(msg.usage, "output_tokens", None),
+        "input_tokens": getattr(resp.usage, "prompt_tokens", None),
+        "output_tokens": getattr(resp.usage, "completion_tokens", None),
     }
     return text, meta
 
