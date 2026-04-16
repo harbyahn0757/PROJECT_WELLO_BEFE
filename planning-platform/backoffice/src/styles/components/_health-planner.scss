@@ -1,0 +1,280 @@
+// ── mediArc 건강 플래너 패널 ─────────────────────────────────
+// 인터랙티브 플래너 패널 + 카드 선택 + 결과 애니메이션
+// BEM: .health-planner__*
+// 변수: _variables.scss 토큰만 사용 (직접 정의 금지)
+
+.health-planner {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+
+  &__title {
+    font-size: $font-lg;
+    font-weight: $font-weight-bold;
+    color: $gray-900;
+    margin: 0;
+  }
+
+  // ── 컨트롤 영역 전체 래퍼 ────────────────────────────────
+  &__controls {
+    background: $white;
+    border: 1px solid $gray-200;
+    border-radius: $border-radius-lg;
+    padding: $spacing-md;
+    display: flex;
+    flex-direction: column;
+    gap: $spacing-md;
+  }
+
+  // ── 각 제어 행 (라벨 + 컨트롤) ──────────────────────────
+  &__control-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  &__control-label {
+    font-size: $font-sm;
+    font-weight: $font-weight-semibold;
+    color: $gray-700;
+  }
+
+  // ── 토글 버튼 그룹 (흡연/음주 등) ───────────────────────
+  &__toggle-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  &__toggle-btn {
+    padding: 7px 16px;
+    border: 1.5px solid $gray-300;
+    border-radius: $border-radius-md;
+    background: $white;
+    font-size: $font-sm;
+    font-weight: $font-weight-semibold;
+    color: $gray-600;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, color 0.2s;
+    white-space: nowrap;
+    min-height: $touch-secondary;
+    display: flex;
+    align-items: center;
+
+    &:hover:not(&--active) {
+      border-color: $gray-400;
+      color: $gray-800;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $brand-brown;
+      outline-offset: 2px;
+    }
+
+    &--active {
+      border-color: $brand-brown;
+      background: rgba($brand-brown, 0.08);
+      color: $brand-brown;
+      box-shadow: 0 0 0 1px $brand-brown;
+    }
+  }
+
+  // ── 카드 선택 그룹 (운동/식습관 등) ─────────────────────
+  &__card-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  // ── 개별 옵션 카드 ───────────────────────────────────────
+  &__option-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 16px;
+    border: 2px solid $gray-200;
+    border-radius: $border-radius-md;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    min-width: 72px;
+    text-align: center;
+    background: $white;
+    min-height: $touch-primary;
+    justify-content: center;
+
+    &:hover {
+      border-color: $gray-400;
+      box-shadow: $shadow-sm;
+    }
+
+    &:focus-visible {
+      outline: 2px solid $brand-brown;
+      outline-offset: 2px;
+    }
+
+    &--selected {
+      border-color: $brand-brown;
+      background: rgba($brand-brown, 0.06);
+      box-shadow: 0 0 0 1px $brand-brown;
+    }
+
+    &__icon {
+      font-size: 24px;
+      margin-bottom: 4px;
+      line-height: 1;
+    }
+
+    &__label {
+      font-size: $font-sm;
+      font-weight: $font-weight-semibold;
+      color: $gray-800;
+    }
+
+    &__desc {
+      font-size: $font-xs;
+      color: $gray-500;
+      margin-top: 2px;
+    }
+  }
+
+  // ── 결과 영역 ───────────────────────────────────────────
+  &__result {
+    background: $white;
+    border: 1px solid $gray-200;
+    border-radius: $border-radius-lg;
+    padding: $spacing-md;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  &__result-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid $gray-200;
+
+    &:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+  }
+
+  &__result-label {
+    font-size: $font-sm;
+    color: $gray-600;
+    min-width: 80px;
+    flex-shrink: 0;
+  }
+
+  &__result-value {
+    transition: color 0.3s ease;
+    font-size: $font-lg;
+    font-weight: $font-weight-semibold;
+    color: $gray-800;
+
+    &--improved {
+      color: $success;
+    }
+
+    &--worsened {
+      color: $error;
+    }
+
+    &--neutral {
+      color: $gray-600;
+    }
+  }
+
+  &__result-delta {
+    font-size: $font-sm;
+    margin-left: 4px;
+    color: $gray-500;
+
+    &::before {
+      content: '(';
+    }
+
+    &::after {
+      content: ')';
+    }
+
+    &--improved {
+      color: $success;
+    }
+
+    &--worsened {
+      color: $error;
+    }
+  }
+
+  // ── TimeDimToggle 래퍼 ──────────────────────────────────
+  &__timedim {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+}
+
+// ── 반응형: 모바일 (≤767px) ─────────────────────────────────
+@media (max-width: $bp-mobile-max) {
+  .health-planner {
+    &__controls {
+      padding: 12px;
+    }
+
+    &__card-group {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    &__option-card {
+      min-width: unset;
+      padding: 10px 8px;
+    }
+
+    &__result {
+      position: sticky;
+      bottom: 0;
+      background: $white;
+      border-top: 1px solid $gray-200;
+      border-left: none;
+      border-right: none;
+      border-bottom: none;
+      border-radius: 0;
+      padding: 12px 16px;
+      z-index: 10;
+    }
+
+    &__result-label {
+      min-width: 64px;
+    }
+  }
+}
+
+// ── 소형 폰 (≤479px) ────────────────────────────────────────
+@media (max-width: $bp-small-phone-max) {
+  .health-planner {
+    &__toggle-group {
+      gap: 6px;
+    }
+
+    &__toggle-btn {
+      padding: 6px 12px;
+      font-size: $font-xs;
+    }
+
+    &__option-card {
+      &__icon {
+        font-size: 20px;
+      }
+
+      &__label {
+        font-size: $font-xs;
+      }
+    }
+  }
+}

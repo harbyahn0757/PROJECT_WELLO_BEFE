@@ -1897,6 +1897,24 @@ _TIME_ATTENUATION_TABLE: dict = {
     ("lung_cancer", "quit"):        {0: 1.00, 6: 0.90, 12: 0.81, 60: 0.57},
 }
 
+# 운동 효과 테이블 (Phase 2)
+# 출처 검증 필요 (보수적 추정) — 실제 PMID 기반 검증 전까지 보수적 수치 사용
+# 참고 메타분석 방향: Cornelissen 2013 Cochrane 운동과 혈압, Jakicic 2001 ACSM 체중
+_EXERCISE_EFFECT: dict = {
+    "none":     {"sbp": 0,  "dbp": 0,  "bmi_factor": 1.00},
+    "light":    {"sbp": -3, "dbp": -2, "bmi_factor": 0.98},   # 주 1-2회
+    "moderate": {"sbp": -5, "dbp": -3, "bmi_factor": 0.95},   # 주 3-4회
+    "active":   {"sbp": -8, "dbp": -5, "bmi_factor": 0.92},   # 주 5+회
+}
+
+# 식습관(나트륨) 효과 테이블 (Phase 2)
+# 출처 검증 필요 (보수적 추정) — 참고 방향: Sacks 2001 DASH-Sodium PMID 11714737
+_DIET_EFFECT: dict = {
+    "high_sodium": {"sbp": 0,  "dbp": 0},   # 짜게 (현재 유지)
+    "moderate":    {"sbp": -3, "dbp": -2},  # 보통
+    "low_sodium":  {"sbp": -6, "dbp": -4},  # 싱겁게
+}
+
 _SUPPORTED_MONTHS = (0, 6, 12, 60)
 
 
@@ -2006,6 +2024,8 @@ def compute_milestone_scenario(patient: dict, disease_results: dict, milestone: 
       weight_delta_kg: float | None     체중 감량량 kg (bmi_target 없을 때 BE가 역산)
       smoking_target: "quit" | None
       drinking_target: "none" | None
+      exercise_target: "none"|"light"|"moderate"|"active" | None  (Phase 2 신규)
+      diet_target: "high_sodium"|"moderate"|"low_sodium" | None    (Phase 2 신규)
       time_horizon_months: 0|6|12|60   기본 0 (즉시)
 
     compute_improved_scenario() 수정 금지. 이 함수는 독립 신규 함수로만 동작.
@@ -2014,6 +2034,8 @@ def compute_milestone_scenario(patient: dict, disease_results: dict, milestone: 
     bmi_target: float | None = milestone.get("bmi_target")
     smoking_target: str | None = milestone.get("smoking_target")
     drinking_target: str | None = milestone.get("drinking_target")
+    exercise_target: str | None = milestone.get("exercise_target")
+    diet_target: str | None = milestone.get("diet_target")
     t_months: int = int(milestone.get("time_horizon_months") or 0)
 
     # bmi_target이 없고 weight_delta_kg가 있으면 BE에서 역산
@@ -2035,6 +2057,16 @@ def compute_milestone_scenario(patient: dict, disease_results: dict, milestone: 
     if drinking_target == "none":
         labels["drinking"] = "금주"
         p["drinking"] = "none"
+    _exercise_label_map = {
+        "none": "운동 안 함", "light": "주 1-2회", "moderate": "주 3-4회", "active": "매일 운동"
+    }
+    if exercise_target and exercise_target != "none":
+        labels["exercise"] = _exercise_label_map.get(exercise_target, exercise_target)
+    _diet_label_map = {
+        "high_sodium": "짜게", "moderate": "보통", "low_sodium": "싱겁게"
+    }
+    if diet_target and diet_target != "high_sodium":
+        labels["diet"] = _diet_label_map.get(diet_target, diet_target)
     labels["time"] = _time_label(t_months)
 
     # 혈압·혈당 보정 (BMI 변화량 기반)
@@ -2059,8 +2091,27 @@ def compute_milestone_scenario(patient: dict, disease_results: dict, milestone: 
     #   금주 -> SBP -4, DBP -3 (Roerecke 2017 meta, 출처 미확인 — PubMed 재검증 필요)
     alcohol_sbp: float = 4.0 if drinking_target == "none" else 0.0
     alcohol_dbp: float = 3.0 if drinking_target == "none" else 0.0
-    improved_sbp: float = max(sbp - bmi_delta * 1.5 - alcohol_sbp, 100.0)
-    improved_dbp: float = max(dbp - bmi_delta * 0.8 - alcohol_dbp, 65.0)
+
+    # 운동 효과 보정 (Phase 2) — 출처 검증 필요 (보수적 추정)
+    _ex_eff = _EXERCISE_EFFECT.get(exercise_target or "none", _EXERCISE_EFFECT["none"])
+    exercise_sbp: float = abs(float(_ex_eff["sbp"]))   # 양수로 저장된 감소량 적용
+    exercise_dbp: float = abs(float(_ex_eff["dbp"]))
+    bmi_factor: float = float(_ex_eff["bmi_factor"])
+
+    # 식습관 효과 보정 (Phase 2) — 출처 검증 필요 (보수적 추정)
+    _diet_eff = _DIET_EFFECT.get(diet_target or "high_sodium", _DIET_EFFECT["high_sodium"])
+    diet_sbp: float = abs(float(_diet_eff["sbp"]))
+    diet_dbp: float = abs(float(_diet_eff["dbp"]))
+
+    # bmi_delta에 운동 bmi_factor 반영 (운동이 BMI 추가 감소에 기여)
+    effective_bmi_delta: float = bmi_delta * bmi_factor if bmi_delta > 0 else 0.0
+
+    improved_sbp: float = max(
+        sbp - effective_bmi_delta * 1.5 - alcohol_sbp - exercise_sbp - diet_sbp, 100.0
+    )
+    improved_dbp: float = max(
+        dbp - effective_bmi_delta * 0.8 - alcohol_dbp - exercise_dbp - diet_dbp, 65.0
+    )
     improved_fbg: float = max(fbg * (0.7 if bmi_delta >= 2.0 else 1.0), 70.0)
 
     p["sbp"] = improved_sbp
@@ -2093,7 +2144,13 @@ def compute_milestone_scenario(patient: dict, disease_results: dict, milestone: 
     # 윌 로저스 방지 출력 (Feinstein 1985 PMID:4000199)
     will_rogers = _build_will_rogers_ms(disease_results, improved_ratios)
 
-    has_improvement: bool = bool(bmi_delta > 0 or smoking_target == "quit" or drinking_target == "none")
+    has_improvement: bool = bool(
+        bmi_delta > 0
+        or smoking_target == "quit"
+        or drinking_target == "none"
+        or (exercise_target and exercise_target != "none")
+        or (diet_target and diet_target != "high_sodium")
+    )
 
     return {
         "input": milestone,

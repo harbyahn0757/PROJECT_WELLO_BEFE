@@ -12,6 +12,7 @@ import DiseaseGrid from './DiseaseGrid';
 import BeforeAfterBlock from './BeforeAfterBlock';
 import MilestoneSlot from './MilestoneSlot';
 import TimeDimToggle from './TimeDimToggle';
+import HealthPlannerPanel from './HealthPlannerPanel';
 import TrendSlot from './TrendSlot';
 import AppendixBlock from './AppendixBlock';
 import PatientMetaPanel from './PatientMetaPanel';
@@ -126,19 +127,36 @@ export default function ReportView({ data, loading = false, uuid, hospitalId }: 
         )}
       </section>
 
-      {/* Step 4: Action — Phase 3-B 마일스톤 슬롯 */}
+      {/* Step 4: Action — Phase 2+3 건강 플래너 (ratio_table 있을 때) + BMI 마일스톤 슬롯 */}
       <section className="report-view__section report-view__section--action">
         {revealStep >= 4 ? (
           <>
-            <TimeDimToggle value={timeHorizonMonths} onChange={setTimeHorizonMonths} />
-            <MilestoneSlot
-              patientUuid={uuid}
-              hospitalId={hospitalIdNum}
-              baseBmi={baseBmi}
-              baseWeight={patientInfo?.weight ?? null}
-              baseHeight={patientInfo?.height ?? null}
-              timeHorizonMonths={timeHorizonMonths}
-            />
+            {patientInfo?.bmi != null ? (
+              <>
+                <HealthPlannerPanel data={data} />
+                <TimeDimToggle value={timeHorizonMonths} onChange={setTimeHorizonMonths} />
+                <MilestoneSlot
+                  patientUuid={uuid}
+                  hospitalId={hospitalIdNum}
+                  baseBmi={baseBmi}
+                  baseWeight={patientInfo?.weight ?? null}
+                  baseHeight={patientInfo?.height ?? null}
+                  timeHorizonMonths={timeHorizonMonths}
+                />
+              </>
+            ) : (
+              <>
+                <TimeDimToggle value={timeHorizonMonths} onChange={setTimeHorizonMonths} />
+                <MilestoneSlot
+                  patientUuid={uuid}
+                  hospitalId={hospitalIdNum}
+                  baseBmi={baseBmi}
+                  baseWeight={patientInfo?.weight ?? null}
+                  baseHeight={patientInfo?.height ?? null}
+                  timeHorizonMonths={timeHorizonMonths}
+                />
+              </>
+            )}
           </>
         ) : (
           <SectionSkeleton height={160} />

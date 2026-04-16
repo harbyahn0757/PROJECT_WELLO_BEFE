@@ -3033,6 +3033,8 @@ class SimulateRequest(BaseModel):
     weight_delta_kg: Optional[float] = Field(None, ge=0.0, le=100.0)
     smoking_target: Optional[Literal["current", "quit"]] = None
     drinking_target: Optional[Literal["none"]] = None
+    exercise_target: Optional[Literal["none", "light", "moderate", "active"]] = None  # Phase 2 신규
+    diet_target: Optional[Literal["high_sodium", "moderate", "low_sodium"]] = None    # Phase 2 신규
     time_horizon_months: Literal[0, 6, 12, 60] = 0
     force: bool = False
 
@@ -3181,6 +3183,64 @@ async def _report_upsert(uuid: str, hospital_id: str, digest: str, result: dict)
         logger.warning("report_cache: UPSERT 실패 uuid=%s: %s", uuid, exc)
 
 
+def _build_ratio_table(engine_patient: dict, disease_results: dict) -> dict:
+    """FE 클라이언트 경량 계산용 ratio_table 빌드.
+
+    bmi_per_unit: 현재 BMI 기준 BMI -1 당 각 질환 ratio 변화량 (차분).
+    quit_smoking: 현재 흡연자라면 금연 시 각 질환 ratio 변화.
+    quit_drinking: 금주 시 혈압 효과 (고정값).
+    exercise: _EXERCISE_EFFECT 테이블 그대로 노출.
+    diet: _DIET_EFFECT 테이블 그대로 노출.
+    attenuation: _TIME_ATTENUATION_TABLE (시간축 α).
+    """
+    from ....services.report_engine.engine import (
+        compute_milestone_scenario,
+        _EXERCISE_EFFECT,
+        _DIET_EFFECT,
+        _TIME_ATTENUATION_TABLE,
+    )
+
+    ratio_table: dict = {
+        "bmi_per_unit": {},
+        "quit_smoking": {},
+        "quit_drinking": {"sbp": -4, "dbp": -3},
+        "exercise": _EXERCISE_EFFECT,
+        "diet": _DIET_EFFECT,
+        "attenuation": {str(k): v for k, v in _TIME_ATTENUATION_TABLE.items()},
+    }
+
+    try:
+        # bmi_per_unit: BMI ±0.5 (총 1단위) 차분
+        orig_bmi = engine_patient.get("bmi") or 22.0
+        bmi_lo = max(float(orig_bmi) - 0.5, 15.0)
+        bmi_hi = min(float(orig_bmi) + 0.5, 45.0)
+
+        res_lo = compute_milestone_scenario(engine_patient, disease_results, {"bmi_target": bmi_lo})
+        res_hi = compute_milestone_scenario(engine_patient, disease_results, {"bmi_target": bmi_hi})
+        for disease in disease_results:
+            r_lo = res_lo["ratios"].get(disease, 1.0)
+            r_hi = res_hi["ratios"].get(disease, 1.0)
+            ratio_table["bmi_per_unit"][disease] = round(r_lo - r_hi, 4)
+
+        # quit_smoking: 현재 흡연자인 경우에만 유효한 차분
+        if engine_patient.get("smoking") == "current":
+            res_quit = compute_milestone_scenario(
+                engine_patient, disease_results, {"smoking_target": "quit"}
+            )
+            for disease in disease_results:
+                orig_ratio = disease_results[disease].get("ratio", 1.0)
+                improved_ratio = res_quit["ratios"].get(disease, orig_ratio)
+                ratio_table["quit_smoking"][disease] = round(improved_ratio - orig_ratio, 4)
+        else:
+            for disease in disease_results:
+                ratio_table["quit_smoking"][disease] = 0.0
+
+    except Exception as exc:
+        logger.warning("ratio_table 계산 실패(응답은 반환): %s", exc)
+
+    return ratio_table
+
+
 async def _fetch_engine_patient_and_disease_results(uuid: str, hospital_id: str):
     """mediarc_patient_detail + to_engine_patient + 엔진 full run.
     (patient dict, disease_results dict) 튜플 반환.
@@ -3315,6 +3375,11 @@ async def mediarc_report_alias(uuid: str):
         bodyage_block = {"bodyage": _bodyage_raw, "delta": None, "bioage_gb": None}
 
     _pi = result.get('patient_info') or {}
+
+    # ratio_table: FE 경량 계산기용 (Phase 3)
+    disease_results_for_rt = result.get('diseases', {})
+    ratio_table = _build_ratio_table(engine_patient, disease_results_for_rt)
+
     response = {
         "name": detail.get('name') or '익명',
         "age": age,
@@ -3341,6 +3406,7 @@ async def mediarc_report_alias(uuid: str):
             "height": _pi.get('height'),
             "weight": _pi.get('weight'),
         },
+        "ratio_table": ratio_table,   # Phase 3: FE 슬라이더 즉시 반영용
         "cached": False,
         "generated_at": datetime.utcnow().isoformat(),
     }
