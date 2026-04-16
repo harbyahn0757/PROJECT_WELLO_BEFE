@@ -1,0 +1,52 @@
+// _patient-meta.scss — PatientMetaPanel / PatientMetaBadge 공용 스타일
+// 네임스페이스: .report-view__meta-panel, .report-view__meta-badge
+// W6 신규 (Phase B — Phase 3 복구 플랜)
+
+@import '../variables';
+
+// ── PatientMetaPanel ────────────────────────────────────────
+.report-view__meta-panel {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: $gray-50;
+  border-radius: $border-radius-md;
+  margin-bottom: 16px;
+}
+
+// ── PatientMetaBadge ────────────────────────────────────────
+.report-view__meta-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: $white;
+  border: 1px solid $gray-300;
+  border-radius: $border-radius-sm;
+  font-size: $font-sm;
+  color: $gray-800;
+
+  &__label {
+    font-weight: $font-weight-semibold;
+    color: $gray-600;
+    font-size: $font-xs;
+  }
+
+  &__value {
+    font-weight: 500;
+  }
+
+  // ── variants ──────────────────────────
+  &--danger {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #b91c1c;
+  }
+
+  &--warning {
+    border-color: #fed7aa;
+    background: #fff7ed;
+    color: #9a3412;
+  }
+}

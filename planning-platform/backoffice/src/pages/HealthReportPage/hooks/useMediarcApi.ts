@@ -43,9 +43,62 @@ export interface ImprovedScenario {
   has_improvement?: boolean;
 }
 
+// ── 3-C: 시뮬레이션 API 타입 (simulate 엔드포인트) ──
+
+/** POST /partner-office/mediarc-report/{uuid}/simulate request body */
+export interface SimulateInput {
+  bmi_target?: number;
+  weight_delta_kg?: number;
+  smoking_target?: 'current' | 'quit';
+  drinking_target?: 'none';
+  /** 0=현재 / 6=6개월 / 12=1년 / 60=5년 */
+  time_horizon_months?: 0 | 6 | 12 | 60;
+  force?: boolean;
+}
+
+/** POST /partner-office/mediarc-report/{uuid}/simulate response */
+export interface SimulateResponse {
+  uuid: string;
+  hospital_id: string;
+  /** request echo */
+  input: SimulateInput;
+  /** sha256 prefix-16 digest */
+  input_digest: string;
+  labels: {
+    bmi?: string;
+    smoking?: string;
+    drinking?: string;
+    time?: string;
+  };
+  improved_sbp: number;
+  improved_dbp: number;
+  improved_fbg: number;
+  /** 질환별 개선 위험비 */
+  ratios: Record<string, number>;
+  /** 질환별 5년 연도별 예측 배열 */
+  five_year_improved: Record<string, number[]>;
+  /** 윌 로저스 방지 — 코호트 고정 등수 */
+  will_rogers: Record<string, WillRogersEntry>;
+  /** 질환별 시간축 감쇠계수 α */
+  applied_attenuation: Record<string, number>;
+  has_improvement: boolean;
+  /** DB 캐시 hit 여부 */
+  cached: boolean;
+  /** ISO 8601 생성 시각 */
+  generated_at: string;
+  /** 고정값 "v1" */
+  engine_version: string;
+}
+
 export interface PatientInfo {
   imputed_fields?: string[];
   missing_fields?: string[];
+  /** 체중(kg) — facade patient_info에서 전달 */
+  bmi?: number;
+  /** 키(cm) — facade patient_info에서 전달 */
+  height?: number;
+  /** 체중(kg) — facade patient_info에서 전달 */
+  weight?: number;
 }
 
 export interface BioageGbResult {
@@ -115,6 +168,11 @@ export interface ReportData {
   patient_info?: PatientInfo;
   improved?: ImprovedScenario;
   disease_ages?: Record<string, number>;
+  /**
+   * 3-B/3-C: BMI 마일스톤 5단계 시뮬레이션 결과 (옵셔널 — 기존 소비자 영향 없음)
+   * 키: "current" | "minus2kg" | "minus5kg" | "minus10kg" | "normal_bmi"
+   */
+  milestones?: Record<string, SimulateResponse>;
 }
 
 export interface ComparisonItem {
@@ -218,4 +276,38 @@ export const generateAiSummary = async (
     throw new Error(`AI 요약 생성 실패 (HTTP ${r.status}): ${errTxt.slice(0, 200)}`);
   }
   return r.json();
+};
+
+// ── 3-C: simulate (시나리오 시뮬레이션) ──
+
+/**
+ * POST /partner-office/mediarc-report/{uuid}/simulate
+ *
+ * BMI 목표 / 금연 / 금주 / 시간축 조합으로 위험 개선 시나리오를 계산한다.
+ * 동일 input 에 대해 BE가 DB 캐시(welno_mediarc_simulations)를 사용하므로
+ * 재호출 시 즉시 반환된다.
+ *
+ * @param uuid        환자 UUID
+ * @param input       시뮬레이션 파라미터
+ * @param hospitalId  파트너오피스 병원 ID (없으면 빈 문자열)
+ */
+export const simulate = async (
+  uuid: string,
+  input: SimulateInput,
+  hospitalId?: string,
+): Promise<SimulateResponse> => {
+  const qs = hospitalId ? `?hospital_id=${encodeURIComponent(hospitalId)}` : '';
+  const r = await fetchWithAuth(
+    `${API}/partner-office/mediarc-report/${uuid}/simulate${qs}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+  if (!r.ok) {
+    const errTxt = await r.text().catch(() => '');
+    throw new Error(`시뮬레이션 실패 (HTTP ${r.status}): ${errTxt.slice(0, 200)}`);
+  }
+  return r.json() as Promise<SimulateResponse>;
 };

@@ -8,7 +8,8 @@ interface NutritionBlockProps {
   } | null;
 }
 
-function NutrientCard({ item }: { item: NutrientItem }) {
+function NutrientCard({ item, idx }: { item: NutrientItem; idx: number }) {
+  const key = item.name ? item.name.replace(/\s+/g, '-') : `item-${idx}`;
   return (
     <div className="report-view__nutrition-card" data-testid="nutrient-card">
       <span
@@ -24,10 +25,16 @@ function NutrientCard({ item }: { item: NutrientItem }) {
       >
         {item.tag}
       </span>
-      <p style={{ margin: '0 0 2px', fontWeight: 600, fontSize: '14px' }}>
+      <p
+        style={{ margin: '0 0 2px', fontWeight: 600, fontSize: '14px' }}
+        data-test={`nutrition-${key}-label`}
+      >
         {item.name}
       </p>
-      <p style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}>
+      <p
+        style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}
+        data-test={`nutrition-${key}-advice`}
+      >
         {item.desc}
       </p>
     </div>
@@ -69,7 +76,7 @@ export default function NutritionBlock({ nutrition }: NutritionBlockProps) {
             추천 영양소
           </h4>
           {recommend.map((item, i) => (
-            <NutrientCard key={i} item={item} />
+            <NutrientCard key={i} item={item} idx={i} />
           ))}
         </div>
       )}
@@ -86,7 +93,7 @@ export default function NutritionBlock({ nutrition }: NutritionBlockProps) {
             주의 영양소
           </h4>
           {caution.map((item, i) => (
-            <NutrientCard key={i} item={item} />
+            <NutrientCard key={i} item={item} idx={i} />
           ))}
         </div>
       )}

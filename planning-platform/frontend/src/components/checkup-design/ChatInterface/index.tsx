@@ -997,7 +997,13 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({
       />
       
       <div className="chat-interface__body" ref={bodyRef}>
-        <div className="chat-interface__messages">
+        <div
+          className="chat-interface__messages"
+          role="log"
+          aria-live="polite"
+          aria-label="검진 설계 채팅 메시지"
+          aria-relevant="additions"
+        >
           {state.messages.map((message, index) => (
             <ChatMessageComponent 
               key={message.id} 

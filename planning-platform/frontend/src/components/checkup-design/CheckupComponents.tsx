@@ -148,7 +148,10 @@ export const CheckupItemCard: React.FC<CheckupItemCardProps> = ({ item, isExpand
   };
 
   return (
-    <div className={`checkup-recommendations__item-accordion ${isExpanded ? 'checkup-recommendations__item-accordion--expanded' : ''}`}>
+    <div
+      className={`checkup-recommendations__item-accordion ${isExpanded ? 'checkup-recommendations__item-accordion--expanded' : ''}`}
+      data-testid={`recommendation-card-${item.id}`}
+    >
       {/* 헤더 */}
       <div className="checkup-recommendations__item-accordion-header" onClick={() => onToggle(item.id)}>
         <div className="checkup-recommendations__checkbox-wrapper">

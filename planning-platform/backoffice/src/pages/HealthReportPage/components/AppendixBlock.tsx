@@ -29,7 +29,7 @@ export default function AppendixBlock({ data }: AppendixBlockProps) {
     <div className="report-view__appendix" data-testid="appendix-block">
       {hasDiseaseAges && (
         <Disclosure
-          title="신체 부위별 건강나이"
+          title="질환별 건강나이"
           defaultOpen={false}
         >
           <BodyAgeChart ages={data.disease_ages as Record<string, number>} />

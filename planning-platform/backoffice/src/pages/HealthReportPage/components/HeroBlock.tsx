@@ -38,12 +38,17 @@ export default function HeroBlock({ data, uuid, hospitalId }: HeroBlockProps) {
   return (
     <div className="report-view__hero-block">
       <div className="report-view__hero-meta">
-        <span className="report-view__hero-name">{data.name ?? '-'}</span>
+        <span className="report-view__hero-name" data-test="report-name">{data.name ?? '-'}</span>
         <span className="report-view__hero-meta-sub">
-          {data.age != null ? `${data.age}세` : '-'} /{' '}
-          {data.sex === 'M' ? '남' : data.sex === 'F' ? '여' : data.sex ?? '-'}
+          <span data-test="report-age">{data.age != null ? `${data.age}세` : '-'}</span>
+          {' / '}
+          <span data-test="report-sex">{data.sex === 'M' ? '남' : data.sex === 'F' ? '여' : data.sex ?? '-'}</span>
         </span>
       </div>
+
+      {data.group != null && (
+        <span className="report-view__hero-group" data-test="report-group">{data.group}</span>
+      )}
 
       <KpiGrid cols={4}>
         <KpiCard
@@ -59,7 +64,11 @@ export default function HeroBlock({ data, uuid, hospitalId }: HeroBlockProps) {
         />
         <KpiCard
           label="건강등수"
-          value={data.rank != null ? `${data.rank}등` : '-'}
+          value={
+            <span data-test="rank-pill">
+              {data.rank != null ? `${data.rank}등` : '-'}
+            </span>
+          }
           variant={rankVariant}
           testId="hero-rank"
         />
@@ -69,6 +78,10 @@ export default function HeroBlock({ data, uuid, hospitalId }: HeroBlockProps) {
           testId="hero-ai-summary"
         />
       </KpiGrid>
+
+      {bodyAge != null && (
+        <span data-test="bodyage-value" style={{ display: 'none' }}>{bodyAge.toFixed(1)}</span>
+      )}
     </div>
   );
 }

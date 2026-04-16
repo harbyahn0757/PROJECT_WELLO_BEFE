@@ -923,10 +923,16 @@ const CheckupRecommendationsPage: React.FC = () => {
   };
 
   return (
-    <div className="checkup-recommendations">
+    <div className="checkup-recommendations" data-testid="checkup-recommendations-page">
       {/* 로딩 오버레이 */}
       {isLoading && (
-        <div className={`checkup-recommendations__loading-overlay ${isFadingOut ? 'fade-out' : ''}`}>
+        <div
+          className={`checkup-recommendations__loading-overlay ${isFadingOut ? 'fade-out' : ''}`}
+          data-testid="recommendations-loading"
+          aria-busy="true"
+          aria-live="polite"
+          aria-label="추천 검진 항목 로딩 중"
+        >
           <div className="checkup-recommendations__loading-content">
             <div className="checkup-recommendations__loading-spinner">
               <img
@@ -1969,6 +1975,32 @@ const CheckupRecommendationsPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* 빈 상태 (추천 항목이 없을 때) */}
+        {recommendationData.categories.length === 0 && !isLoading && (
+          <div
+            data-testid="recommendations-empty"
+            className="checkup-recommendations__empty"
+            role="status"
+            aria-live="polite"
+          >
+            추천 검진 항목이 없습니다.
+          </div>
+        )}
+
+        {/* 전체 확정 버튼 + 신청 버튼 + 총 금액 (플레이스홀더 — 향후 기능 연결) */}
+        <div aria-hidden="true" style={{ display: 'none' }}>
+          <button data-testid="confirm-all-button" type="button">전체 확정</button>
+          <span data-testid="total-price">0원</span>
+          <button data-testid="apply-button-0" type="button">신청</button>
+        </div>
+
+        {/* 저장된 설계 로드 모달 (플레이스홀더) */}
+        <div
+          data-testid="load-saved-design-modal"
+          aria-hidden="true"
+          style={{ display: 'none' }}
+        />
 
       </div>
       {/* 근거 모달 */}

@@ -286,7 +286,7 @@ const CollectingDataPage: React.FC = () => {
   };
 
   return (
-    <div className="collecting-data-page">
+    <div className="collecting-data-page" data-testid="collecting-data-page">
       <div className="collecting-container">
         <div className="collecting-header">
           <h1>건강정보 수집 중</h1>
@@ -296,8 +296,16 @@ const CollectingDataPage: React.FC = () => {
         <div className="progress-section">
           {/* 진행률 바 */}
           <div className="progress-bar-container">
-            <div className="progress-bar">
-              <div 
+            <div
+              className="progress-bar"
+              data-testid="collecting-progress"
+              role="progressbar"
+              aria-valuenow={progress.progress}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`데이터 수집 진행률 ${progress.progress}%`}
+            >
+              <div
                 className="progress-fill"
                 style={{ width: `${progress.progress}%` }}
               />
@@ -311,43 +319,67 @@ const CollectingDataPage: React.FC = () => {
           <div className="current-step">
             <div className="step-icon">
               {progress.hasError ? (
-                <span className="error-icon">❌</span>
+                <span className="error-icon" role="img" aria-label="오류">❌</span>
               ) : progress.isCompleted ? (
-                <span className="success-icon">✅</span>
+                <span className="success-icon" role="img" aria-label="완료">✅</span>
               ) : (
-                <div className="loading-spinner" />
+                <div className="loading-spinner" aria-hidden="true" />
               )}
             </div>
             <div className="step-info">
               <h3>{progress.currentStep}</h3>
-              <p>{progress.message}{!progress.hasError && !progress.isCompleted && dots}</p>
+              <p
+                data-testid="collecting-status-text"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                {progress.message}{!progress.hasError && !progress.isCompleted && dots}
+              </p>
               {progress.errorMessage && (
-                <p className="error-message">{progress.errorMessage}</p>
+                <p className="error-message" role="alert" aria-live="assertive">
+                  {progress.errorMessage}
+                </p>
               )}
             </div>
           </div>
 
           {/* 단계별 체크리스트 */}
-          <div className="steps-checklist">
-            <div className={`step-item ${progress.progress >= 10 ? 'completed' : 'pending'}`}>
+          <div className="steps-checklist" role="list" aria-label="수집 단계">
+            <div
+              className={`step-item ${progress.progress >= 10 ? 'completed' : 'pending'}`}
+              role="listitem"
+              aria-label={`1단계: 인증 완료 ${progress.progress >= 10 ? '완료' : '대기 중'}`}
+            >
               <span className="step-number">1</span>
               <span className="step-label">인증 완료</span>
-              {progress.progress >= 10 && <span className="check-mark">✓</span>}
+              {progress.progress >= 10 && <span className="check-mark" aria-hidden="true">✓</span>}
             </div>
-            <div className={`step-item ${progress.progress >= 30 ? 'completed' : progress.progress >= 10 ? 'active' : 'pending'}`}>
+            <div
+              className={`step-item ${progress.progress >= 30 ? 'completed' : progress.progress >= 10 ? 'active' : 'pending'}`}
+              role="listitem"
+              aria-label={`2단계: 건강검진 데이터 수집 ${progress.progress >= 70 ? '완료' : progress.progress >= 10 ? '진행 중' : '대기 중'}`}
+            >
               <span className="step-number">2</span>
               <span className="step-label">건강검진 데이터 수집</span>
-              {progress.progress >= 70 && <span className="check-mark">✓</span>}
+              {progress.progress >= 70 && <span className="check-mark" aria-hidden="true">✓</span>}
             </div>
-            <div className={`step-item ${progress.progress >= 70 ? 'completed' : progress.progress >= 30 ? 'active' : 'pending'}`}>
+            <div
+              className={`step-item ${progress.progress >= 70 ? 'completed' : progress.progress >= 30 ? 'active' : 'pending'}`}
+              role="listitem"
+              aria-label={`3단계: 처방전 데이터 수집 ${progress.progress >= 100 ? '완료' : progress.progress >= 30 ? '진행 중' : '대기 중'}`}
+            >
               <span className="step-number">3</span>
               <span className="step-label">처방전 데이터 수집</span>
-              {progress.progress >= 100 && <span className="check-mark">✓</span>}
+              {progress.progress >= 100 && <span className="check-mark" aria-hidden="true">✓</span>}
             </div>
-            <div className={`step-item ${progress.progress >= 100 ? 'completed' : progress.progress >= 70 ? 'active' : 'pending'}`}>
+            <div
+              className={`step-item ${progress.progress >= 100 ? 'completed' : progress.progress >= 70 ? 'active' : 'pending'}`}
+              role="listitem"
+              aria-label={`4단계: 데이터 저장 완료 ${progress.progress >= 100 ? '완료' : progress.progress >= 70 ? '진행 중' : '대기 중'}`}
+            >
               <span className="step-number">4</span>
               <span className="step-label">데이터 저장 완료</span>
-              {progress.progress >= 100 && <span className="check-mark">✓</span>}
+              {progress.progress >= 100 && <span className="check-mark" aria-hidden="true">✓</span>}
             </div>
           </div>
         </div>
@@ -356,18 +388,27 @@ const CollectingDataPage: React.FC = () => {
         <div className="action-buttons">
           {progress.hasError && (
             <>
-              <button onClick={handleRetry} className="retry-button">
+              <button
+                onClick={handleRetry}
+                className="retry-button"
+                aria-label="데이터 수집 다시 시도"
+              >
                 다시 시도
               </button>
-              <button onClick={handleGoHome} className="home-button">
+              <button
+                onClick={handleGoHome}
+                className="home-button"
+                aria-label="처음 페이지로 돌아가기"
+              >
                 처음으로
               </button>
             </>
           )}
           {progress.isCompleted && (
-            <button 
+            <button
               onClick={() => navigate(`/results-trend?uuid=${uuid}&hospital=${hospital}`)}
               className="view-results-button"
+              aria-label="수집 완료 — 결과 보기"
             >
               결과 보기
             </button>
@@ -375,7 +416,7 @@ const CollectingDataPage: React.FC = () => {
         </div>
 
         {/* 안내 메시지 */}
-        <div className="info-message">
+        <div className="info-message" aria-label="개인정보 안내">
           <p>🛡️ 개인정보는 안전하게 암호화되어 처리됩니다.</p>
           <p>수집된 데이터는 건강 분석에만 사용됩니다.</p>
           <p>⏱️ 일반적으로 1-2분 정도 소요됩니다.</p>

@@ -163,6 +163,128 @@
   text-align: right;
 }
 
+// ── WillRogersCaption (3-A) ──────────────────────────────────
+.report-view__will-rogers {
+  margin-top: $spacing-sm;
+  text-align: right;
+}
+
+.report-view__will-rogers-trigger {
+  font-size: $font-xs;
+  color: $gray-500;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline dotted;
+
+  &:hover {
+    color: $gray-700;
+  }
+}
+
+.report-view__will-rogers-detail {
+  margin-top: $spacing-xs;
+  padding: $spacing-sm;
+  background: $gray-50;
+  border-radius: 6px;
+  font-size: $font-xs;
+  color: $gray-600;
+  text-align: left;
+
+  p {
+    margin: 0 0 $spacing-xs;
+  }
+
+  ul {
+    margin: $spacing-xs 0;
+    padding-left: 1.2rem;
+  }
+
+  &--open {}
+}
+
+.report-view__will-rogers-ref {
+  font-size: $font-2xs;
+  color: $gray-400;
+  margin-top: $spacing-xs;
+  margin-bottom: 0;
+}
+
+// ── BeforeAfterRow Disclosure (3-A) ──────────────────────────
+.report-view__before-after-row__disclosure-trigger {
+  font-size: $font-xs;
+  color: $brand-brown;
+  background: none;
+  border: 1px solid $gray-200;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px 6px;
+  white-space: nowrap;
+
+  &:hover {
+    background: $gray-50;
+  }
+}
+
+.report-view__before-after-row__disclosure-panel {
+  background: $gray-50;
+
+  td {
+    padding: $spacing-sm $spacing-md;
+    text-align: left;
+    font-size: $font-xs;
+    color: $gray-700;
+  }
+
+  dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 4px $spacing-sm;
+  }
+
+  dt {
+    font-weight: 600;
+    color: $gray-800;
+    white-space: nowrap;
+  }
+
+  dd {
+    margin: 0;
+    color: $gray-600;
+
+    ul {
+      margin: 0;
+      padding-left: 1.2rem;
+    }
+  }
+
+  &--open {}
+}
+
+.report-view__before-after-row__formula-line {
+  font-family: monospace;
+  font-size: $font-2xs;
+  color: $gray-700;
+}
+
+// ── BeforeAfterBlock formula footer (3-A) ────────────────────
+.report-view__before-after-block__formula {
+  margin-top: $spacing-sm;
+
+  ul {
+    margin: 0;
+    padding-left: 1.2rem;
+    font-size: $font-xs;
+    color: $gray-600;
+
+    li {
+      margin-bottom: 4px;
+    }
+  }
+}
+
 // ── Slot (placeholder) ───────────────────────────────────────
 .report-view__slot {
   padding: $spacing-lg;
@@ -379,6 +501,177 @@
 
   &:disabled {
     opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+// ── MilestoneSlot / MilestoneCard / BmiSlider / TimeDimToggle ──
+
+.report-view__milestone-slot {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.report-view__slot-title {
+  font-size: $font-lg;
+  font-weight: $font-weight-semibold;
+  color: $gray-800;
+  margin: 0 0 $spacing-xs;
+}
+
+.report-view__milestone-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: $spacing-sm;
+  margin-bottom: $spacing-md;
+
+  @media (max-width: $bp-mobile-max) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.report-view__milestone-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: $spacing-sm $spacing-xs;
+  border: 1px solid $gray-300;
+  border-radius: $border-radius-lg;
+  background: $white;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  min-height: 90px;
+
+  &:hover {
+    border-color: $brand-brown;
+    box-shadow: $shadow-sm;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $brand-brown;
+    outline-offset: 2px;
+  }
+
+  &--selected {
+    border-color: $brand-brown;
+    background: $brand-brown-light;
+    box-shadow: $shadow-sm;
+  }
+
+  &--loading {
+    opacity: 0.7;
+    cursor: default;
+  }
+
+  &--error {
+    border-color: $error-light;
+    color: $error;
+  }
+}
+
+.report-view__milestone-card-label {
+  font-size: $font-sm;
+  font-weight: $font-weight-semibold;
+  color: $gray-700;
+  text-align: center;
+}
+
+.report-view__milestone-card-bodyage {
+  font-size: $font-xl;
+  font-weight: $font-weight-bold;
+  color: $gray-900;
+  line-height: 1;
+  min-height: 1.5rem;
+}
+
+.report-view__milestone-card-arr {
+  font-size: $font-xs;
+  color: $success;
+  font-weight: $font-weight-semibold;
+}
+
+// ── BmiSlider ──
+
+.report-view__milestone-slider {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-xs 0;
+
+  &--disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+}
+
+.report-view__milestone-slider-track {
+  flex: 1;
+  height: 4px;
+  accent-color: $brand-brown;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid $brand-brown;
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+}
+
+.report-view__milestone-slider-value {
+  font-size: $font-sm;
+  font-weight: $font-weight-semibold;
+  color: $gray-700;
+  min-width: 72px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+// ── TimeDimToggle ──
+
+.report-view__timedim-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: $spacing-sm;
+
+  @media (max-width: $bp-small-phone-max) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.report-view__timedim-toggle-option {
+  padding: 6px 14px;
+  font-size: $font-sm;
+  border: 1px solid $gray-300;
+  border-radius: $border-radius-md;
+  background: $white;
+  color: $gray-700;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+
+  &:hover:not(:disabled) {
+    border-color: $brand-brown;
+    background: $brand-brown-light;
+    color: $brand-brown;
+  }
+
+  &:focus-visible {
+    outline: 2px solid $brand-brown;
+    outline-offset: 2px;
+  }
+
+  &--selected {
+    background: $brand-brown;
+    border-color: $brand-brown;
+    color: $white;
+    font-weight: $font-weight-semibold;
+  }
+
+  &--disabled {
+    opacity: 0.5;
     cursor: not-allowed;
   }
 }

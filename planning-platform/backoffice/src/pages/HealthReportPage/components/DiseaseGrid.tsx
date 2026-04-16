@@ -38,7 +38,7 @@ export default function DiseaseGrid({ diseases }: DiseaseGridProps) {
   const cols: 2 | 3 | 4 = entries.length <= 6 ? 3 : 4;
 
   return (
-    <div className="report-view__disease-grid-wrap">
+    <div className="report-view__disease-grid-wrap" role="list">
       <h3 className="report-view__section-title">질환별 위험도</h3>
       <KpiGrid cols={cols}>
         {entries.map(([name, detail]) => {
@@ -46,15 +46,31 @@ export default function DiseaseGrid({ diseases }: DiseaseGridProps) {
           const gradeLabel =
             variant === 'danger' ? '이상' : variant === 'warning' ? '경계' : '정상';
           return (
-            <KpiCard
-              key={name}
-              label={name}
-              value={detail.rank != null ? `${detail.rank}등` : '-'}
-              hint={gradeLabel}
-              variant={variant}
-              onClick={() => setSelected(name)}
-              testId={`disease-card-${name}`}
-            />
+            <div key={name} role="listitem" data-test={`disease-card-${name}`}>
+              {/* sub-selectors for E2E (spec 10.4) */}
+              <span data-test={`disease-card-${name}-label`} style={{ display: 'none' }}>{name}</span>
+              <span data-test={`disease-card-${name}-ratio`} style={{ display: 'none' }}>
+                {detail.ratio != null ? (detail.ratio * 100).toFixed(1) : '-'}
+              </span>
+              <span data-test={`disease-card-${name}-rank`} style={{ display: 'none' }}>
+                {detail.rank != null ? `${detail.rank}등` : '-'}
+              </span>
+              {detail.cohort_mean_rr != null && (
+                <span data-test={`disease-card-${name}-cohort`} style={{ display: 'none' }}>
+                  {detail.cohort_mean_rr}
+                </span>
+              )}
+              {/* disease-card-{key}-components: Disclosure 내부 렌더 시 채워짐 (현재 stub) */}
+              <span data-test={`disease-card-${name}-components`} style={{ display: 'none' }} />
+              <KpiCard
+                label={name}
+                value={detail.rank != null ? `${detail.rank}등` : '-'}
+                hint={gradeLabel}
+                variant={variant}
+                onClick={() => setSelected(name)}
+                testId={`disease-card-${name}`}
+              />
+            </div>
           );
         })}
       </KpiGrid>

@@ -1,0 +1,44 @@
+// _missing-fields.scss — MissingFieldsBanner 공용 스타일
+// 네임스페이스: .report-view__missing-fields-banner
+// W6 신규 (Phase B — Phase 3 복구 플랜)
+
+@import '../variables';
+
+.report-view__missing-fields-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  margin: 16px 0;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-left: 4px solid #ea580c;
+  border-radius: $border-radius-md;
+  color: #9a3412;
+  font-size: $font-sm;
+
+  &__icon {
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  &__text {
+    flex: 1;
+
+    strong {
+      font-weight: $font-weight-semibold;
+    }
+  }
+
+  &__fields {
+    font-family: monospace;
+    font-size: $font-xs;
+    color: #7c2d12;
+    margin-top: 4px;
+  }
+
+  &[role='alert']:focus-visible {
+    outline: 2px solid $brand-brown;
+    outline-offset: 2px;
+  }
+}

@@ -34,14 +34,25 @@ export default function BodyAgeChart({ ages }: BodyAgeChartProps) {
     );
   }
 
-  const data = Object.entries(ages)
-    .map(([key, value]) => ({ name: resolveLabel(key), value }))
+  const rawEntries = Object.entries(ages);
+  const data = rawEntries
+    .map(([key, value]) => ({ key, name: resolveLabel(key), value }))
     .sort((a, b) => b.value - a.value);
 
   const maxVal = Math.max(...data.map((d) => d.value));
 
   return (
     <div data-testid="body-age-chart">
+      {/* disease-age-{key} hidden spans for E2E selectors */}
+      {data.map(({ key, value }) => (
+        <span
+          key={key}
+          data-test={`disease-age-${key}`}
+          style={{ display: 'none' }}
+        >
+          {value}
+        </span>
+      ))}
       <ResponsiveContainer width="100%" height={data.length * 36 + 20}>
         <BarChart
           layout="vertical"
@@ -60,7 +71,7 @@ export default function BodyAgeChart({ ages }: BodyAgeChartProps) {
             tick={{ fontSize: 12 }}
           />
           <Tooltip
-            formatter={(value: number) => [`${value}세`, '추정 건강나이']}
+            formatter={(value: number) => [`${value}세`, '질환별 건강나이']}
           />
           <Bar dataKey="value" radius={[0, 4, 4, 0]}>
             {data.map((entry, index) => (

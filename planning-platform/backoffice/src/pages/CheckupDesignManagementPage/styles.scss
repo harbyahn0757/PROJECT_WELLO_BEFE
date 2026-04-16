@@ -196,6 +196,101 @@
   }
 }
 
+/* ── W3: 에러 배너 ── */
+.empty-state--error {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: $border-radius-md;
+  color: #991b1b;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  font-size: $font-sm;
+}
+
+/* ── W3: ProcessingModal (백오피스 전용) ── */
+.processing-modal-bo {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &__overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+  }
+
+  &__content {
+    position: relative;
+    z-index: 1;
+    background: $white;
+    border-radius: $border-radius-lg;
+    padding: 28px 32px;
+    min-width: 320px;
+    max-width: 480px;
+    box-shadow: $shadow-md;
+    text-align: center;
+  }
+
+  &__title {
+    font-size: $font-lg;
+    font-weight: 600;
+    color: $gray-900;
+    margin: 0 0 16px;
+  }
+
+  &__steps {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 16px;
+    text-align: left;
+  }
+
+  &__step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: $font-sm;
+    color: $gray-600;
+
+    &--done {
+      color: $gray-900;
+    }
+
+    &-icon {
+      font-size: $font-xs;
+      min-width: 16px;
+      text-align: center;
+    }
+  }
+
+  &__progress {
+    background: $gray-200;
+    border-radius: 4px;
+    height: 8px;
+    position: relative;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+
+  &__progress-fill {
+    background: $brand-brown;
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+  }
+
+  &__progress-text {
+    display: block;
+    margin-top: 6px;
+    font-size: $font-xs;
+    color: $gray-500;
+  }
+}
+
 .cdm-alimtalk-config {
   background: $white;
   border-radius: $border-radius-lg;

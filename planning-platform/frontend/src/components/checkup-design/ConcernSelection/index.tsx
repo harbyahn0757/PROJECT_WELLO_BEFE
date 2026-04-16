@@ -651,6 +651,7 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
                       checked={isItemSelected}
                       onChange={() => handleToggleItem(itemId)}
                       onClick={(e) => e.stopPropagation()}
+                      aria-label={`${item.name || '검진 항목'} ${isItemSelected ? '선택됨' : '선택 안됨'}`}
                     />
                   </div>
                 </div>
@@ -773,6 +774,7 @@ const ConcernSelection: React.FC<ConcernSelectionProps> = ({
                           checked={isMedicationSelected}
                           onChange={() => handleToggleItem(medicationId)}
                           onClick={(e) => e.stopPropagation()}
+                          aria-label={`${med.ChoBangYakPumHyoneung || med.YakPumName || '약물 항목'} ${isMedicationSelected ? '선택됨' : '선택 안됨'}`}
                         />
                       </div>
                     </div>

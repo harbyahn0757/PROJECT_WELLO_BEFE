@@ -452,11 +452,22 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="processing-modal">
+    <div
+      className="processing-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="processing-modal-title"
+      aria-describedby="processing-modal-desc"
+    >
       <div className="processing-modal__overlay"></div>
       <div className="processing-modal__content">
         <div className="processing-modal__header">
-          <h3 className="processing-modal__title">{currentStage.title}</h3>
+          <h3
+            id="processing-modal-title"
+            className="processing-modal__title"
+          >
+            {currentStage.title}
+          </h3>
         </div>
         
         <div className="processing-modal__body">
@@ -667,7 +678,17 @@ const ProcessingModal: React.FC<ProcessingModalProps> = ({
 
           {/* 타이핑 텍스트가 없을 때만 description 표시 */}
           {!step1Result && (
-            <p className="processing-modal__description">{currentStage.description}</p>
+            <p
+              id="processing-modal-desc"
+              className="processing-modal__description"
+            >
+              {currentStage.description}
+            </p>
+          )}
+          {step1Result && (
+            <p id="processing-modal-desc" className="sr-only">
+              {currentStage.description}
+            </p>
           )}
         </div>
       </div>

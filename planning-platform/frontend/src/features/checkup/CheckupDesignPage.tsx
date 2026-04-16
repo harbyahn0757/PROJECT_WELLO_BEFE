@@ -527,8 +527,14 @@ const CheckupDesignPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="checkup-design-page">
-        <div className="checkup-design-page__loading">
+      <div className="checkup-design-page" data-testid="checkup-design-page">
+        <div
+          className="checkup-design-page__loading"
+          data-testid="checkup-design-loading"
+          aria-busy="true"
+          aria-live="polite"
+          aria-label="건강 데이터 로딩 중"
+        >
           <div className="loading-spinner">
             <div className="loading-spinner__icon">
               <div className="spinner"></div>
@@ -543,14 +549,20 @@ const CheckupDesignPage: React.FC = () => {
 
   if (error) {
     return (
-      <div className="checkup-design-page">
-        <div className="checkup-design-page__error">
+      <div className="checkup-design-page" data-testid="checkup-design-page">
+        <div
+          className="checkup-design-page__error"
+          data-testid="checkup-design-error"
+          role="alert"
+          aria-live="assertive"
+        >
           <p>{error}</p>
-          <button 
+          <button
             onClick={() => {
               navigate(-1);
             }}
             className="checkup-design-page__back-button"
+            aria-label="이전 페이지로 돌아가기"
           >
             돌아가기
           </button>
@@ -565,14 +577,20 @@ const CheckupDesignPage: React.FC = () => {
   
   if (healthDataList.length === 0 && prescriptionDataList.length === 0) {
     return (
-      <div className="checkup-design-page">
-        <div className="checkup-design-page__error">
+      <div className="checkup-design-page" data-testid="checkup-design-page">
+        <div
+          className="checkup-design-page__error"
+          data-testid="checkup-design-error"
+          role="alert"
+          aria-live="assertive"
+        >
           <p>아직 건강 데이터가 없어요</p>
-          <button 
+          <button
             onClick={() => {
               navigate(-1);
             }}
             className="checkup-design-page__back-button"
+            aria-label="이전 페이지로 돌아가기"
           >
             돌아가기
           </button>
@@ -582,47 +600,59 @@ const CheckupDesignPage: React.FC = () => {
   }
 
   return (
-    <>
+    <div data-testid="checkup-design-page">
       {/* 세션 만료 시 인페이지 비밀번호 모달 */}
-      <PasswordModal
-        isOpen={showPasswordModal}
-        onClose={() => setShowPasswordModal(false)}
-        onSuccess={handlePasswordSuccess}
-        type="confirm"
-        uuid={expiredUuid}
-        hospitalId={expiredHospitalId}
-      />
+      <div data-testid="session-expired-modal" aria-hidden={!showPasswordModal}>
+        <PasswordModal
+          isOpen={showPasswordModal}
+          onClose={() => setShowPasswordModal(false)}
+          onSuccess={handlePasswordSuccess}
+          type="confirm"
+          uuid={expiredUuid}
+          hospitalId={expiredHospitalId}
+        />
+      </div>
       {/* 확인 다이얼로그 (window.confirm 대체) */}
       <WelnoModal isOpen={confirmModal.isOpen} size="small" showWelnoIcon={false}>
         <div style={{ textAlign: 'center', padding: '8px 0' }}>
           <p style={{ fontSize: '17px', fontWeight: 700, color: '#1a202c', margin: '0 0 8px' }}>{confirmModal.title}</p>
           <p style={{ fontSize: '14px', color: '#718096', margin: '0 0 20px' }}>{confirmModal.desc}</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <button onClick={confirmModal.onConfirm} style={{ padding: '14px', background: '#7c746a', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}>
+            <button
+              onClick={confirmModal.onConfirm}
+              style={{ padding: '14px', background: '#7c746a', color: '#fff', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}
+              aria-label={confirmModal.confirmLabel}
+            >
               {confirmModal.confirmLabel}
             </button>
-            <button onClick={confirmModal.onCancel} style={{ padding: '14px', background: '#f3f4f6', color: '#4a5568', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}>
+            <button
+              onClick={confirmModal.onCancel}
+              style={{ padding: '14px', background: '#f3f4f6', color: '#4a5568', border: 'none', borderRadius: '12px', fontSize: '15px', fontWeight: 600, cursor: 'pointer' }}
+              aria-label={confirmModal.cancelLabel}
+            >
               {confirmModal.cancelLabel}
             </button>
           </div>
         </div>
       </WelnoModal>
-      <ProcessingModal
-        isOpen={showProcessingModal}
-        stage={processingStage}
-        progress={processingProgress}
-        patientName={state.patient?.name}
-        selectedConcernsCount={currentSelectedConcerns.length}
-        healthDataCount={healthDataList.length}
-        prescriptionDataCount={prescriptionDataList.length}
-        step1Result={step1Result}
-      />
+      <div data-testid="checkup-processing-modal" aria-hidden={!showProcessingModal}>
+        <ProcessingModal
+          isOpen={showProcessingModal}
+          stage={processingStage}
+          progress={processingProgress}
+          patientName={state.patient?.name}
+          selectedConcernsCount={currentSelectedConcerns.length}
+          healthDataCount={healthDataList.length}
+          prescriptionDataCount={prescriptionDataList.length}
+          step1Result={step1Result}
+        />
+      </div>
       <ChatInterface
         healthData={healthData}
         prescriptionData={prescriptionData}
         onNext={handleNext}
       />
-    </>
+    </div>
   );
 };
 

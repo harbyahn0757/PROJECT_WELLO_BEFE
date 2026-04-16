@@ -4,10 +4,14 @@
 환경변수 및 시스템 설정을 관리합니다.
 """
 
+import logging
+import os
 from typing import List, Optional
 from pydantic import Field, BaseModel
 from pydantic_settings import BaseSettings
 from pathlib import Path
+
+_config_logger = logging.getLogger(__name__)
 
 class ServerSettings(BaseModel):
     """서버 관련 설정"""
@@ -170,6 +174,13 @@ class Settings(BaseSettings):
 
 # 설정 인스턴스 생성
 settings = Settings()
+
+# W5 Phase D: Elasticsearch ENV 미세팅 경고 — 실서버에서 ELASTICSEARCH_URL을 반드시 설정해야 함
+if settings.elasticsearch_url == "http://localhost:9200" and not os.environ.get("ELASTICSEARCH_URL"):
+    _config_logger.warning(
+        "ELASTICSEARCH_URL 환경변수 미세팅 — 기본값 http://localhost:9200 사용 중. "
+        "실서버에서는 ELASTICSEARCH_URL 환경변수를 명시적으로 설정하세요."
+    )
 
 # 프로젝트 루트 디렉토리
 ROOT_DIR = Path(__file__).parent.parent.parent

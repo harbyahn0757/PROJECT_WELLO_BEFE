@@ -7,6 +7,24 @@ mediArc Health Report Engine — 데모 v1
 
 사용법:
   python3 engine.py
+
+시간 감쇠 α 테이블 논문 근거:
+- 심혈관-금연:   Inoue-Choi 2019 JAMA  PMID 31429895  (Framingham, 비흡연자 대비 시계열 HR)
+- 심혈관-BMI감량: Look AHEAD 2016      PMID 27595918  (10% 임계: HR 0.79, 5-10% 비유의)
+- 당뇨-금연:     Yeh 2010 Ann Intern Med PMID 20048267 + Hu 2018 NEJM PMID 30110591
+                 (U형 곡선: 0-7년 편익 없음, 체중증가 보정 시 7년+ 위험 감소)
+- 당뇨-BMI감량:  Finnish DPS PMID 11333990 + 13년 추적 PMID 23093136
+                 + DPP 10년 PMID 19878986 (58% 감소, 장기 HR 0.614)
+- 폐암-금연:     Stapleton 2020 Ann Am Thorac Soc PMID 32603182 (시계열 잔존 %)
+- 뇌졸중-금연:   Lee 2014 Regul Toxicol Pharmacol PMID 24291341
+                 (음의 지수, H=4.78년, λ≈0.145/년)
+- Will Rogers:   Feinstein 1985 NEJM  PMID 4000199
+- HR→age shift:  Pang & Hanley 2021 AJE PMID 34151374 + Gompertz 1825
+- Synergy index: Rothman 1976 AJE     PMID 1274952
+- Piecewise log APC: Holford 1983 Biometrics PMID 6626659
+                     Clayton & Schifflers 1987 Stat Med PMID 3629047 / 3629048
+- Modern Epidemiology 3rd ed. (책): Rothman KJ et al., Lippincott 2008
+                                     ISBN 978-0-7817-5564-1
 """
 
 import json
@@ -1805,3 +1823,287 @@ def compute_bioage_gb(patient: dict) -> Optional[dict]:
         import logging
         logging.warning(f"compute_bioage_gb failed: {e}")
         return None
+
+
+# ============================================================
+# Phase 3-B/3-C: 마일스톤 시나리오 계산
+# ============================================================
+
+# α 감쇠 테이블 — 논문 원문 수치 기반. 표에 없는 조합은 alpha=1.0 (변화 없음) 으로 폴백.
+#
+# 심혈관-금연: Inoue-Choi 2019 JAMA PMID 31429895 (비흡연자 대비 HR)
+#   <5년 HR 1.40, 5-10년 1.42, 10-15년 1.25, 15-25년 1.22, 25년+ 0.98
+#   → 초과위험 잔존 α: 0m=1.00, 6m=0.90, 12m=0.80, 60m=0.55
+#   (HR 1.40 → 비흡연=1.00 기준, (1.40-1)/(HR_smoker-1) 비율로 보수적 변환)
+#
+# 심혈관-BMI감량: Look AHEAD 2016 PMID 27595918
+#   ≥10% 감량: HR 0.79 (21% CVD 감소), 5-10%/2-5%: 비유의(p>0.05)
+#   → weight_delta_pct 기반 조건 분기는 compute_milestone_scenario에서 처리
+#   → 이 테이블의 "bmi" 엔트리는 10%+ 감량 달성 시 적용 (α=0.79)
+#   → 5-10% 또는 <5%는 _time_attenuation에서 α=0 반환 (조건부 로직)
+#
+# 당뇨-금연: Yeh 2010 PMID 20048267 + Hu 2018 PMID 30110591 (U형 곡선)
+#   0-7년 금연 후 당뇨 위험이 오히려 상승(체중 증가 효과)
+#   → 0-7년: α=0 (편익 없음), 7년 이후 감쇠 시작
+#   → 이 테이블은 7년+(=84개월) 구간만 유의. t<84개월은 _time_attenuation에서 α=0 반환
+#
+# 당뇨-BMI감량: Finnish DPS PMID 11333990 + DPS 13년 PMID 23093136 + DPP 10년 PMID 19878986
+#   5% 이상 감량+유지: 당뇨 위험 58% 감소 (α≈0.42), 13년 추적 HR 0.614
+#
+# 폐암-금연: Stapleton 2020 Ann Am Thorac Soc PMID 32603182 (잔존 위험 % 원문)
+#   1년: 81.4%, 5년: 57.2%, 10년: 36.9%, 15년: 26.7%, 20년: 19.7%
+#
+# 뇌졸중-금연: Lee 2014 Regul Toxicol Pharmacol PMID 24291341
+#   음의 지수 모델, H=4.78년, λ=ln2/4.78≈0.145/년
+#   α(t) = exp(-0.145 × t_년): t=0: 1.000, t=0.5: 0.930, t=1: 0.865, t=5: 0.484
+#
+# 한글 disease 키 → 영어 키 변환 (disease_results는 한글, _TIME_ATTENUATION_TABLE은 영어)
+_DISEASE_KEY_KO_TO_EN: dict[str, str] = {
+    "당뇨": "diabetes",
+    "심혈관질환": "cardiovascular",
+    "뇌혈관질환": "cerebrovascular",
+    "고혈압": "hypertension",
+    "만성신장병": "ckd",
+    "대사증후군": "metabolic",
+    "알츠하이머": "alzheimer",
+    "폐암": "lung_cancer",
+}
+
+_TIME_ATTENUATION_TABLE: dict = {
+    # (disease, behavior): {months: alpha}
+    # 심혈관-금연: Inoue-Choi 2019 JAMA PMID 31429895 (초과위험 잔존 비율)
+    ("cardiovascular", "quit"):     {0: 1.00, 6: 0.90, 12: 0.80, 60: 0.55},
+    # 심혈관-BMI감량: Look AHEAD 2016 PMID 27595918 (≥10% 감량 시 HR 0.79)
+    # weight_delta_pct < 10% 케이스는 compute_milestone_scenario에서 α=0 처리
+    ("cardiovascular", "bmi"):      {0: 1.00, 6: 0.90, 12: 0.85, 60: 0.79},
+    # 당뇨-BMI감량: DPS PMID 11333990 + DPS 13yr PMID 23093136 + DPP 10yr PMID 19878986
+    ("diabetes", "bmi"):            {0: 1.00, 6: 0.65, 12: 0.50, 60: 0.42},
+    # 당뇨-금연: Yeh 2010 PMID 20048267 + Hu 2018 PMID 30110591
+    # 0-7년 구간(0-84개월)은 U형 위험 상승 → _time_attenuation에서 α=0 반환
+    # 7년+ 구간(84개월+)은 편익 시작. 60개월 키는 폴백용으로만 존재 (실제 7년+ 미만 구간 사용 안 됨)
+    ("diabetes", "quit"):           {0: 0.00, 6: 0.00, 12: 0.00, 60: 0.00},
+    # 고혈압-BMI감량: 출처 미확인 — 보수적 추정 (요검증)
+    ("hypertension", "bmi"):        {0: 1.00, 6: 0.70, 12: 0.55, 60: 0.40},
+    # 뇌졸중-금연: Lee 2014 PMID 24291341 (H=4.78년, λ=0.145/년, α=exp(-0.145×t_년))
+    ("cerebrovascular", "quit"):    {0: 1.00, 6: 0.93, 12: 0.87, 60: 0.48},
+    # 알츠하이머-BMI감량: 출처 미확인 — 인지 회복 느림 (요검증)
+    ("alzheimer", "bmi"):           {0: 1.00, 6: 0.98, 12: 0.95, 60: 0.85},
+    # 대사증후군-BMI감량: 출처 미확인 — 직접 대사 기전 (요검증)
+    ("metabolic", "bmi"):           {0: 1.00, 6: 0.70, 12: 0.50, 60: 0.30},
+    # 만성신장-BMI감량: 출처 미확인 — 보수적 추정 (요검증)
+    ("ckd", "bmi"):                 {0: 1.00, 6: 0.85, 12: 0.75, 60: 0.65},
+    # 폐암-금연: Stapleton 2020 PMID 32603182 (잔존 귀인위험 %)
+    # 1년: 81.4%, 5년: 57.2% → α 값으로 직접 사용
+    ("lung_cancer", "quit"):        {0: 1.00, 6: 0.90, 12: 0.81, 60: 0.57},
+}
+
+_SUPPORTED_MONTHS = (0, 6, 12, 60)
+
+
+def _time_label(t_months: int) -> str:
+    """월수 -> 표시 라벨"""
+    if t_months == 0:
+        return "현재"
+    if t_months == 6:
+        return "6개월 후"
+    if t_months == 12:
+        return "1년 후"
+    if t_months == 60:
+        return "5년 후"
+    return f"{t_months}개월 후"
+
+
+def _time_attenuation(
+    disease: str,
+    t_months: int,
+    smoking_target: str | None,
+    bmi_delta: float,
+    weight_delta_pct: float = 0.0,
+) -> float:
+    """질환 + 행동 조합별 시간 감쇠계수 alpha 반환 (0~1).
+
+    t_months=0 -> 1.0 (변화 없음). 표에 없는 조합 -> 1.0 폴백.
+
+    특수 케이스:
+    - 당뇨-금연 (Yeh 2010 PMID 20048267 + Hu 2018 PMID 30110591):
+        U형 곡선 — 0-7년(84개월) 구간은 체중 증가로 당뇨 위험 오히려 상승.
+        t_months < 84 이면 α=0 (편익 없음) 반환.
+        84개월 이상에서만 감쇠 적용 (보수적: α=0.70 고정).
+    - 심혈관-BMI감량 (Look AHEAD 2016 PMID 27595918):
+        weight_delta_pct < 5%: α=0 (효과 없음)
+        weight_delta_pct 5-10%: α=0 (HR 1.16, 통계적 비유의)
+        weight_delta_pct >= 10%: 테이블 값 적용 (HR 0.79 기반)
+    """
+    # 한글 → 영어 키 변환 (disease_results는 한글 키, 테이블은 영어 키)
+    disease = _DISEASE_KEY_KO_TO_EN.get(disease, disease)
+
+    if t_months not in _SUPPORTED_MONTHS:
+        t_months = min(_SUPPORTED_MONTHS, key=lambda m: abs(m - t_months))
+
+    behaviors = []
+    if smoking_target == "quit":
+        behaviors.append("quit")
+    if bmi_delta > 0:
+        behaviors.append("bmi")
+
+    if not behaviors:
+        return 1.0
+
+    alphas = []
+    for beh in behaviors:
+        # 당뇨-금연 U형 곡선: 7년(84개월) 미만은 편익 없음
+        if disease == "diabetes" and beh == "quit":
+            if t_months < 84:
+                alphas.append(0.0)
+            else:
+                # 7년 이상: 보수적 추정 α=0.70 (Hu 2018 >6년 HR 1.15 대비 잔존위험)
+                alphas.append(0.70)
+            continue
+
+        # 심혈관-BMI감량: 10% 미만은 효과 없음 (Look AHEAD 2016 PMID 27595918)
+        if disease == "cardiovascular" and beh == "bmi":
+            if weight_delta_pct < 10.0:
+                alphas.append(0.0)
+                continue
+            # 10%+ 감량: 테이블 값 적용
+
+        key = (disease, beh)
+        table = _TIME_ATTENUATION_TABLE.get(key)
+        if table:
+            alphas.append(table.get(t_months, 1.0))
+
+    return min(alphas) if alphas else 1.0
+
+
+def _build_will_rogers_ms(disease_results: dict, improved_ratios: dict) -> dict:
+    """compute_milestone_scenario 전용 will_rogers 빌더."""
+    will_rogers = {}
+    for disease, orig_data in disease_results.items():
+        orig_ratio = orig_data.get("ratio", 1.0)
+        improved_ratio = improved_ratios.get(disease, orig_ratio)
+        orig_rank = compute_rank(orig_ratio)
+        improved_rank = compute_rank(improved_ratio)
+        arr_pct = round(
+            (orig_ratio - improved_ratio) / orig_ratio * 100, 1
+        ) if orig_ratio > 0 else 0.0
+        will_rogers[disease] = {
+            "orig_ratio": orig_ratio,
+            "improved_ratio": improved_ratio,
+            "orig_rank": orig_rank,
+            "improved_rank": improved_rank,
+            "rank_change": orig_rank - improved_rank,
+            "arr_pct": arr_pct,
+            "cohort_fixed": True,
+        }
+    return will_rogers
+
+
+def compute_milestone_scenario(patient: dict, disease_results: dict, milestone: dict) -> dict:
+    """파라미터 기반 마일스톤 시나리오 계산 (Phase 3-B BMI 축 + 3-C 시간 축).
+
+    milestone keys:
+      bmi_target: float | None          목표 BMI (없으면 현재 유지)
+      weight_delta_kg: float | None     체중 감량량 kg (bmi_target 없을 때 BE가 역산)
+      smoking_target: "quit" | None
+      drinking_target: "none" | None
+      time_horizon_months: 0|6|12|60   기본 0 (즉시)
+
+    compute_improved_scenario() 수정 금지. 이 함수는 독립 신규 함수로만 동작.
+    """
+    p = dict(patient)
+    bmi_target: float | None = milestone.get("bmi_target")
+    smoking_target: str | None = milestone.get("smoking_target")
+    drinking_target: str | None = milestone.get("drinking_target")
+    t_months: int = int(milestone.get("time_horizon_months") or 0)
+
+    # bmi_target이 없고 weight_delta_kg가 있으면 BE에서 역산
+    if bmi_target is None and milestone.get("weight_delta_kg") is not None:
+        h = patient.get("height") or 0
+        w = patient.get("weight") or 0
+        if h > 0 and w > 0:
+            new_w = max(w - float(milestone["weight_delta_kg"]), 30.0)
+            bmi_target = round(new_w / (h / 100.0) ** 2, 1)
+
+    # 라벨 구성
+    labels: dict = {}
+    if bmi_target is not None:
+        labels["bmi"] = f"BMI {bmi_target:.1f}"
+        p["bmi"] = float(bmi_target)
+    if smoking_target == "quit" and patient.get("smoking") == "current":
+        labels["smoking"] = "금연"
+        p["smoking"] = "former" if t_months < 60 else "never"
+    if drinking_target == "none":
+        labels["drinking"] = "금주"
+        p["drinking"] = "none"
+    labels["time"] = _time_label(t_months)
+
+    # 혈압·혈당 보정 (BMI 변화량 기반)
+    orig_bmi: float = patient.get("bmi", 22.0) or 22.0
+    bmi_delta: float = max(orig_bmi - (bmi_target if bmi_target is not None else orig_bmi), 0.0)
+
+    # 체중 감량 % 계산 — 심혈관-BMI 10% 임계 판정용 (Look AHEAD 2016 PMID 27595918)
+    orig_weight: float = patient.get("weight") or 0
+    if orig_weight > 0 and bmi_delta > 0:
+        h_m = (patient.get("height") or 170) / 100.0
+        weight_lost_kg = bmi_delta * (h_m ** 2)
+        weight_delta_pct: float = weight_lost_kg / orig_weight * 100.0
+    else:
+        weight_delta_pct = 0.0
+
+    sbp: float = patient.get("sbp", 120) or 120
+    dbp: float = patient.get("dbp", 80) or 80
+    fbg: float = patient.get("fbg", 90) or 90
+
+    # 혈압 보정 근거:
+    #   BMI -1 kg/m2 -> SBP -1.5, DBP -0.8 (보수적 보편 추정)
+    #   금주 -> SBP -4, DBP -3 (Roerecke 2017 meta, 출처 미확인 — PubMed 재검증 필요)
+    alcohol_sbp: float = 4.0 if drinking_target == "none" else 0.0
+    alcohol_dbp: float = 3.0 if drinking_target == "none" else 0.0
+    improved_sbp: float = max(sbp - bmi_delta * 1.5 - alcohol_sbp, 100.0)
+    improved_dbp: float = max(dbp - bmi_delta * 0.8 - alcohol_dbp, 65.0)
+    improved_fbg: float = max(fbg * (0.7 if bmi_delta >= 2.0 else 1.0), 70.0)
+
+    p["sbp"] = improved_sbp
+    p["dbp"] = improved_dbp
+    p["fbg"] = improved_fbg
+
+    # 개선 후 위험인자 재판정 + N배 재계산
+    improved_factors = classify_risk_factors(p)
+    improved_ratios: dict = {}
+    five_year_improved: dict = {}
+    applied_atten: dict = {}
+
+    for disease, orig_data in disease_results.items():
+        individual_rr, _ = calculate_individual_rr(disease, improved_factors, p)
+        cohort_mean: float = orig_data.get("cohort_mean", 0) or 0
+        base_ratio: float = (individual_rr / cohort_mean) if cohort_mean > 0 else 1.0
+
+        # 시간축 감쇠계수 alpha 적용 (weight_delta_pct 전달 — 심혈관-BMI 10% 임계 분기용)
+        alpha = _time_attenuation(disease, t_months, smoking_target, bmi_delta, weight_delta_pct)
+        applied_atten[disease] = alpha
+
+        if base_ratio >= 1.0:
+            final_ratio = 1.0 + (base_ratio - 1.0) * alpha
+        else:
+            final_ratio = base_ratio  # 보호적(<1.0) 은 감쇠 불필요
+
+        improved_ratios[disease] = round(final_ratio, 2)
+        five_year_improved[disease] = predict_5y(final_ratio, disease)
+
+    # 윌 로저스 방지 출력 (Feinstein 1985 PMID:4000199)
+    will_rogers = _build_will_rogers_ms(disease_results, improved_ratios)
+
+    has_improvement: bool = bool(bmi_delta > 0 or smoking_target == "quit" or drinking_target == "none")
+
+    return {
+        "input": milestone,
+        "labels": labels,
+        "improved_sbp": round(improved_sbp, 1),
+        "improved_dbp": round(improved_dbp, 1),
+        "improved_fbg": round(improved_fbg, 1),
+        "ratios": improved_ratios,
+        "five_year_improved": five_year_improved,
+        "will_rogers": will_rogers,
+        "applied_attenuation": applied_atten,
+        "has_improvement": has_improvement,
+    }

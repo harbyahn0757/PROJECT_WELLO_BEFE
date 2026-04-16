@@ -25,15 +25,17 @@ try:
         RR_MATRIX,
         run_for_patient,
         compute_bioage_gb,
+        compute_milestone_scenario,
     )
     ENGINE_AVAILABLE = True
     _pkl = Path(__file__).parent / "bioage_model.pkl"
     MODEL_LOADED = _pkl.exists()
 except Exception as _e:
     logger.error("report_engine: engine.py 로드 실패 — %s", _e)
-    run_for_patient = None      # type: ignore[assignment]
-    compute_bioage_gb = None    # type: ignore[assignment]
-    RR_MATRIX = {}              # type: ignore[assignment]
+    run_for_patient = None                # type: ignore[assignment]
+    compute_bioage_gb = None              # type: ignore[assignment]
+    compute_milestone_scenario = None     # type: ignore[assignment]
+    RR_MATRIX = {}                        # type: ignore[assignment]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -151,6 +153,10 @@ class EngineFacade:
                 # 노출하면 자동 pass-through.
                 "imputed_fields": raw.get("imputed_fields", []),
                 "missing_fields": raw.get("missing_fields", []),
+                # FE MilestoneSlot.buildAnchors 역산에 필요 (없으면 baseBmi=22.0 고정 fallback)
+                "bmi": patient_dict.get("bmi"),
+                "height": patient_dict.get("height"),
+                "weight": patient_dict.get("weight"),
             },
             "nutrition": nutrition_result,
         }
@@ -223,3 +229,12 @@ def generate_report(patient_dict: dict) -> dict:
 def compute_stats() -> dict:
     """EngineFacade().compute_stats() 래퍼."""
     return EngineFacade().compute_stats()
+
+
+def simulate(patient: dict, disease_results: dict, milestone: dict) -> dict:
+    """compute_milestone_scenario() 편의 래퍼.
+    ENGINE_AVAILABLE=False 시 ValueError 발생 — 호출자가 503으로 변환.
+    """
+    if not ENGINE_AVAILABLE or compute_milestone_scenario is None:
+        raise ValueError("엔진 미로드 — compute_milestone_scenario 사용 불가")
+    return compute_milestone_scenario(patient, disease_results, milestone)

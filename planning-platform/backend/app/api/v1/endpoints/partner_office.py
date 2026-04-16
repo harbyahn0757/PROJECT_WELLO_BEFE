@@ -7,11 +7,11 @@ import hashlib
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Literal
 
 from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from jose import JWTError, jwt
 
 from ....core.config import settings
@@ -3023,6 +3023,201 @@ async def post_ai_summary(
         "model": saved.get("model", _ai_summary_mod.MODEL),
         "stale": False,
     }
+
+
+# ─── Phase 3-B/3-C: 마일스톤 시나리오 시뮬레이션 ─────────────────────────────
+
+
+class SimulateRequest(BaseModel):
+    bmi_target: Optional[float] = Field(None, ge=15.0, le=45.0)
+    weight_delta_kg: Optional[float] = Field(None, ge=0.0, le=100.0)
+    smoking_target: Optional[Literal["current", "quit"]] = None
+    drinking_target: Optional[Literal["none"]] = None
+    time_horizon_months: Literal[0, 6, 12, 60] = 0
+    force: bool = False
+
+    class Config:
+        extra = "forbid"
+
+
+class SimulateResponse(BaseModel):
+    uuid: str
+    hospital_id: str
+    input: dict
+    input_digest: str
+    labels: dict
+    improved_sbp: float
+    improved_dbp: float
+    improved_fbg: float
+    ratios: Dict[str, float]
+    five_year_improved: Dict[str, List[float]]
+    will_rogers: Dict[str, dict]
+    applied_attenuation: Dict[str, float]
+    has_improvement: bool
+    cached: bool
+    generated_at: str
+    engine_version: str
+
+
+def _patient_signature(patient: dict) -> str:
+    """시뮬레이션 영향 필드만 추출해 sha256 지문 생성."""
+    sig_fields = (
+        "age", "sex", "bmi", "sbp", "dbp", "fbg",
+        "smoking", "drinking", "height", "weight",
+        "hx_dm", "hx_htn", "hx_dyslipidemia",
+    )
+    sig = {k: patient.get(k) for k in sig_fields}
+    raw = json.dumps(sig, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def _compute_simulate_digest(body: SimulateRequest, patient: dict) -> str:
+    """request body + patient 지문 → sha256 digest (prefix 16자)."""
+    payload = {
+        "body": body.dict(exclude={"force"}, exclude_none=True),
+        "patient_sig": _patient_signature(patient),
+    }
+    raw = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+async def _sim_get_cached(uuid: str, hospital_id: str, digest: str) -> Optional[dict]:
+    """welno_mediarc_simulations 캐시 조회."""
+    try:
+        rows = await db_manager.execute_query(
+            """
+            SELECT result_json, input_json, generated_at
+            FROM welno.welno_mediarc_simulations
+            WHERE patient_uuid = %s AND hospital_id = %s AND input_digest = %s
+            LIMIT 1
+            """,
+            (uuid, hospital_id, digest),
+        )
+        if rows:
+            r = rows[0]
+            result = r["result_json"]
+            if isinstance(result, str):
+                result = json.loads(result)
+            gen_at = r["generated_at"]
+            result["generated_at"] = gen_at.isoformat() if hasattr(gen_at, "isoformat") else str(gen_at or "")
+            return result
+    except Exception as exc:
+        logger.warning("simulate: 캐시 조회 실패 uuid=%s: %s", uuid, exc)
+    return None
+
+
+async def _sim_upsert(uuid: str, hospital_id: str, digest: str, input_dict: dict, result: dict) -> None:
+    """welno_mediarc_simulations UPSERT (실패해도 응답 반환 — fail-open)."""
+    try:
+        await db_manager.execute_query(
+            """
+            INSERT INTO welno.welno_mediarc_simulations
+                (patient_uuid, hospital_id, input_digest, input_json, result_json, engine_version, generated_at, updated_at)
+            VALUES (%s, %s, %s, %s::jsonb, %s::jsonb, %s, NOW(), NOW())
+            ON CONFLICT ON CONSTRAINT uk_welno_mediarc_simulations
+            DO UPDATE SET result_json = EXCLUDED.result_json, updated_at = NOW()
+            """,
+            (
+                uuid, hospital_id, digest,
+                json.dumps(input_dict, ensure_ascii=False),
+                json.dumps(result, ensure_ascii=False),
+                "v1",
+            ),
+        )
+    except Exception as exc:
+        logger.warning("simulate: DB UPSERT 실패 uuid=%s: %s", uuid, exc)
+
+
+async def _fetch_engine_patient_and_disease_results(uuid: str, hospital_id: str):
+    """mediarc_patient_detail + to_engine_patient + 엔진 full run.
+    (patient dict, disease_results dict) 튜플 반환.
+    """
+    _engine_guard()
+    detail = await mediarc_patient_detail(uuid)
+    age = _calc_age(detail.get("birth_date") or "")
+    sex = _normalize_sex(detail.get("gender") or "")
+    health_data = detail.get("health_data") or {}
+    engine_patient = to_engine_patient(health_data, age=age, sex=sex)
+    try:
+        raw = EngineFacade().run(
+            name=detail.get("name") or "익명",
+            patient=engine_patient,
+        )
+    except Exception as exc:
+        logger.exception("simulate: 엔진 실행 실패 uuid=%s: %s", uuid, exc)
+        raise HTTPException(status_code=500, detail=f"엔진 계산 오류: {exc}")
+
+    # disease_results: engine raw 에서 diseases 필드 (cohort_mean, ratio 포함 구조)
+    disease_results: dict = raw.get("diseases", {})
+    return engine_patient, disease_results
+
+
+@router.post("/mediarc-report/{uuid}/simulate", response_model=SimulateResponse)
+async def post_simulate(
+    uuid: str,
+    body: SimulateRequest,
+    hospital_id: str = Query(default=""),
+):
+    """Phase 3-B/3-C 마일스톤 시나리오 시뮬레이션.
+    bmi_target / weight_delta_kg / smoking_target / drinking_target / time_horizon_months 조합으로
+    compute_milestone_scenario() 실행 후 결과를 캐시 저장.
+    """
+    # W5 헬스체크 로그 — simulate_request_count / error_rate 모니터링용
+    logger.info(
+        "simulate: 요청 수신 uuid=%s hospital_id=%s milestone=%s",
+        uuid,
+        hospital_id,
+        body.dict(exclude={"force"}, exclude_none=True),
+    )
+    _engine_guard()
+
+    patient, disease_results = await _fetch_engine_patient_and_disease_results(uuid, hospital_id)
+
+    digest = _compute_simulate_digest(body, patient)
+
+    if not body.force:
+        cached = await _sim_get_cached(uuid, hospital_id, digest)
+        if cached:
+            return SimulateResponse(
+                **cached,
+                uuid=uuid,
+                hospital_id=hospital_id,
+                input_digest=digest,
+                cached=True,
+                engine_version="v1",
+            )
+
+    milestone = body.dict(exclude={"force"}, exclude_none=True)
+    try:
+        from ....services.report_engine.engine import compute_milestone_scenario as _cms
+        result = _cms(patient, disease_results, milestone)
+    except Exception as exc:
+        logger.exception("simulate 실패 uuid=%s milestone=%s", uuid, milestone)
+        raise HTTPException(status_code=500, detail=f"시뮬레이션 실패: {exc}")
+
+    generated_at = datetime.utcnow().isoformat()
+    payload = {
+        "uuid": uuid,
+        "hospital_id": hospital_id,
+        "input": body.dict(),
+        "input_digest": digest,
+        "labels": result["labels"],
+        "improved_sbp": result["improved_sbp"],
+        "improved_dbp": result["improved_dbp"],
+        "improved_fbg": result["improved_fbg"],
+        "ratios": result["ratios"],
+        "five_year_improved": result["five_year_improved"],
+        "will_rogers": result["will_rogers"],
+        "applied_attenuation": result["applied_attenuation"],
+        "has_improvement": result["has_improvement"],
+        "cached": False,
+        "generated_at": generated_at,
+        "engine_version": "v1",
+    }
+
+    await _sim_upsert(uuid, hospital_id, digest, body.dict(), {k: v for k, v in payload.items() if k not in ("uuid", "hospital_id", "input_digest", "cached")})
+
+    return SimulateResponse(**payload)
 
 
 @router.get("/mediarc-report/{uuid}")

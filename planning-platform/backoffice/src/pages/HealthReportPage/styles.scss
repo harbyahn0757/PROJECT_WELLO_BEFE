@@ -118,6 +118,19 @@
 .text--danger { color: $error; }
 .text--success { color: $success; }
 
+// ── Phase 3 복구 — W6 추가 (PatientMetaPanel / MissingFieldsBanner / focus-visible) ──
+
+// PatientMetaPanel이 absolute 위치를 사용할 경우를 위한 앵커
+.report-view__section--shock {
+  position: relative;
+}
+
+// focus-visible 전역 outline (접근성 WCAG 2.4.7)
+.report-view :focus-visible {
+  outline: 2px solid $brand-brown;
+  outline-offset: 2px;
+}
+
 // ── 검증 탭 ──
 .hr-verify {
   &__hero {

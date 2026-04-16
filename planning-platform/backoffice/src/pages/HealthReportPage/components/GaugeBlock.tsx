@@ -79,8 +79,8 @@ export default function GaugeBlock({ gauges }: GaugeBlockProps) {
               key={key}
               style={{ borderTop: '1px solid #f3f4f6' }}
             >
-              <td style={{ padding: '6px 8px' }}>{item.label || key}</td>
-              <td style={{ padding: '6px 8px', textAlign: 'right' }}>
+              <td style={{ padding: '6px 8px' }} data-test={`gauge-${key}-label`}>{item.label || key}</td>
+              <td style={{ padding: '6px 8px', textAlign: 'right' }} data-test={`gauge-${key}-value`}>
                 {item.value}
               </td>
               <td
