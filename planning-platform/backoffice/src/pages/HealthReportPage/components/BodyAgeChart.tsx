@@ -36,7 +36,10 @@ export default function BodyAgeChart({ ages }: BodyAgeChartProps) {
 
   const rawEntries = Object.entries(ages);
   const data = rawEntries
-    .map(([key, value]) => ({ key, name: resolveLabel(key), value }))
+    .map(([key, raw]) => {
+      const value = typeof raw === 'object' && raw !== null ? (raw as any).age ?? 0 : (raw as number);
+      return { key, name: resolveLabel(key), value };
+    })
     .sort((a, b) => b.value - a.value);
 
   const maxVal = Math.max(...data.map((d) => d.value));
