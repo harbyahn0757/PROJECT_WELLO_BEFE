@@ -57,6 +57,7 @@ const HealthReportPage: React.FC = () => {
   const [expandedUuid, setExpandedUuid] = useState<string | null>(null);
   const [report, setReport] = useState<ReportData | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   // 검증 탭
   const [verification, setVerification] = useState<VerificationData | null>(null);
@@ -102,9 +103,21 @@ const HealthReportPage: React.FC = () => {
     setDetailLoading(true);
     setReport(null);
 
+    setReportError(null);
     fetchReport(uuid)
-      .then(rData => setReport(rData))
-      .catch(e => console.error('리포트 로드:', e))
+      .then(rData => {
+        if (!rData || (rData as any).detail) {
+          setReportError((rData as any)?.detail || '리포트 데이터를 불러올 수 없습니다.');
+        } else {
+          setReport(rData);
+        }
+      })
+      .catch(e => {
+        const msg = e?.message?.includes('404') || e?.message?.includes('환자')
+          ? '이 환자의 검진 데이터가 부족하여 리포트를 생성할 수 없습니다.'
+          : '리포트 로드 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+        setReportError(msg);
+      })
       .finally(() => setDetailLoading(false));
   }, []);
 
@@ -226,8 +239,13 @@ const HealthReportPage: React.FC = () => {
         width="xl"
         testId="mediarc-report-drawer"
       >
-        {/* ReportView가 loading/data 상태를 내부에서 skeleton으로 처리 */}
-        {expandedUuid && !detailLoading && !report ? (
+        {/* 에러 상태 */}
+        {reportError ? (
+          <div className="hr-expanded__empty" role="alert" style={{ textAlign: 'center', padding: '48px 24px', color: '#6b7280' }}>
+            <p style={{ fontSize: '16px', marginBottom: '8px' }}>⚠️ {reportError}</p>
+            <p style={{ fontSize: '13px', color: '#9ca3af' }}>다른 환자를 선택하거나, 검진 데이터가 등록된 후 다시 시도해주세요.</p>
+          </div>
+        ) : expandedUuid && !detailLoading && !report ? (
           <div className="hr-expanded__empty">리포트를 불러올 수 없습니다</div>
         ) : expandedUuid ? (
           <ReportView
