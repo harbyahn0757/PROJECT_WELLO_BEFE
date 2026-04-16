@@ -1,44 +1,19 @@
+/**
+ * NutritionBlock — NutritionSection 래퍼
+ *
+ * AppendixBlock에서 기존과 동일한 인터페이스로 호출.
+ * 내부 렌더링은 NutritionSection / NutritionCard에 위임.
+ * 기존 data-test 셀렉터(nutrition-{key}-label, nutrition-{key}-advice) 유지.
+ */
 import React from 'react';
 import { NutrientItem } from '../hooks/useMediarcApi';
+import NutritionSection from './NutritionSection';
 
 interface NutritionBlockProps {
   nutrition: {
     recommend?: NutrientItem[] | null;
     caution?: NutrientItem[] | null;
   } | null;
-}
-
-function NutrientCard({ item, idx }: { item: NutrientItem; idx: number }) {
-  const key = item.name ? item.name.replace(/\s+/g, '-') : `item-${idx}`;
-  return (
-    <div className="report-view__nutrition-card" data-testid="nutrient-card">
-      <span
-        style={{
-          display: 'inline-block',
-          fontSize: '11px',
-          padding: '1px 6px',
-          borderRadius: '4px',
-          background: '#e5e7eb',
-          color: '#374151',
-          marginBottom: '4px',
-        }}
-      >
-        {item.tag}
-      </span>
-      <p
-        style={{ margin: '0 0 2px', fontWeight: 600, fontSize: '14px' }}
-        data-test={`nutrition-${key}-label`}
-      >
-        {item.name}
-      </p>
-      <p
-        style={{ margin: 0, fontSize: '12px', color: '#6b7280' }}
-        data-test={`nutrition-${key}-advice`}
-      >
-        {item.desc}
-      </p>
-    </div>
-  );
 }
 
 export default function NutritionBlock({ nutrition }: NutritionBlockProps) {
@@ -62,41 +37,8 @@ export default function NutritionBlock({ nutrition }: NutritionBlockProps) {
   }
 
   return (
-    <div className="report-view__nutrition-grid" data-testid="nutrition-block">
-      {recommend.length > 0 && (
-        <div>
-          <h4
-            style={{
-              fontSize: '13px',
-              color: '#059669',
-              marginBottom: '8px',
-              fontWeight: 600,
-            }}
-          >
-            추천 영양소
-          </h4>
-          {recommend.map((item, i) => (
-            <NutrientCard key={i} item={item} idx={i} />
-          ))}
-        </div>
-      )}
-      {caution.length > 0 && (
-        <div>
-          <h4
-            style={{
-              fontSize: '13px',
-              color: '#d97706',
-              marginBottom: '8px',
-              fontWeight: 600,
-            }}
-          >
-            주의 영양소
-          </h4>
-          {caution.map((item, i) => (
-            <NutrientCard key={i} item={item} idx={i} />
-          ))}
-        </div>
-      )}
+    <div data-testid="nutrition-block">
+      <NutritionSection recommend={recommend} caution={caution} />
     </div>
   );
 }

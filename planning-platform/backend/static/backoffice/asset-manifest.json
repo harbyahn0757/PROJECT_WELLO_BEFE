@@ -1,13 +1,13 @@
 {
   "files": {
-    "main.css": "/backoffice/static/css/main.d58d54d0.css",
-    "main.js": "/backoffice/static/js/main.b45a3e77.js",
+    "main.css": "/backoffice/static/css/main.849a5235.css",
+    "main.js": "/backoffice/static/js/main.99c69d4d.js",
     "index.html": "/backoffice/index.html",
-    "main.d58d54d0.css.map": "/backoffice/static/css/main.d58d54d0.css.map",
-    "main.b45a3e77.js.map": "/backoffice/static/js/main.b45a3e77.js.map"
+    "main.849a5235.css.map": "/backoffice/static/css/main.849a5235.css.map",
+    "main.99c69d4d.js.map": "/backoffice/static/js/main.99c69d4d.js.map"
   },
   "entrypoints": [
-    "static/css/main.d58d54d0.css",
-    "static/js/main.b45a3e77.js"
+    "static/css/main.849a5235.css",
+    "static/js/main.99c69d4d.js"
   ]
 }

@@ -104,12 +104,11 @@ class EngineFacade:
             bodyage_val = bioage_gb_result["bioage_gb"]
             delta_val = round(bodyage_val - age_val, 1)
 
-        # nutrition (nutrition_rules.py — 소문자 → 대문자 브리지)
+        # nutrition — nutrition_service (RAG + GPT) 경유, 실패 시 nutrition_rules 폴백
         nutrition_result: Optional[dict] = None
         try:
-            from .nutrition_rules import recommend_nutrients, caution_nutrients
-            # nutrition_rules는 대문자 키 사용 + None 값은 비교 연산(`v > N`) TypeError 유발
-            # → None 제거 (key 누락으로 .get(..., 0) 기본값 사용되게)
+            # 소문자 → 대문자 브리지 (nutrition_rules 호환)
+            # None 값 제거: .get(..., 0) 기본값으로 TypeError 방지
             _nr_raw = {
                 "ALT":        patient_dict.get("alt"),
                 "SBP":        patient_dict.get("sbp"),
@@ -119,6 +118,10 @@ class EngineFacade:
                 "TC":         patient_dict.get("tc"),
                 "LDL":        patient_dict.get("ldl"),
                 "FBG":        patient_dict.get("fbg"),
+                "AST":        patient_dict.get("ast"),
+                "GGT":        patient_dict.get("ggt"),
+                "age":        patient_dict.get("age"),
+                "sex":        patient_dict.get("sex", "M"),
             }
             _nr_patient = {k: v for k, v in _nr_raw.items() if v is not None}
             # disease_results: nutrition_rules 호환 포맷 (result = "이상"/"정상")
@@ -126,10 +129,23 @@ class EngineFacade:
                 d: {"result": "이상" if v.get("rank", 100) <= 30 else "정상"}
                 for d, v in (raw.get("diseases") or {}).items()
             }
-            nutrition_result = {
-                "recommend": recommend_nutrients(_nr_patient, _nr_diseases),
-                "caution":   caution_nutrients(_nr_patient, _nr_diseases),
-            }
+            # nutrition_service (4-step RAG+GPT 파이프라인) 시도
+            try:
+                from .nutrition_service import NutritionService
+                _svc = NutritionService()
+                nutrition_result = _svc.recommend_sync(
+                    patient=_nr_patient,
+                    diseases=_nr_diseases,
+                    name=name,
+                    medications=[],
+                )
+            except Exception as _svc_e:
+                logger.warning("report_engine: nutrition_service 실패, 기존 룰 폴백 — %s", _svc_e)
+                from .nutrition_rules import recommend_nutrients, caution_nutrients
+                nutrition_result = {
+                    "recommend": recommend_nutrients(_nr_patient, _nr_diseases),
+                    "caution":   caution_nutrients(_nr_patient, _nr_diseases),
+                }
         except Exception as _ne:
             logger.warning("report_engine: nutrition 생성 실패 — %s", _ne)
 
