@@ -131,32 +131,7 @@ export default function ReportView({ data, loading = false, uuid, hospitalId }: 
       <section className="report-view__section report-view__section--action">
         {revealStep >= 4 ? (
           <>
-            {patientInfo?.bmi != null ? (
-              <>
-                <HealthPlannerPanel data={data} />
-                <TimeDimToggle value={timeHorizonMonths} onChange={setTimeHorizonMonths} />
-                <MilestoneSlot
-                  patientUuid={uuid}
-                  hospitalId={hospitalIdNum}
-                  baseBmi={baseBmi}
-                  baseWeight={patientInfo?.weight ?? null}
-                  baseHeight={patientInfo?.height ?? null}
-                  timeHorizonMonths={timeHorizonMonths}
-                />
-              </>
-            ) : (
-              <>
-                <TimeDimToggle value={timeHorizonMonths} onChange={setTimeHorizonMonths} />
-                <MilestoneSlot
-                  patientUuid={uuid}
-                  hospitalId={hospitalIdNum}
-                  baseBmi={baseBmi}
-                  baseWeight={patientInfo?.weight ?? null}
-                  baseHeight={patientInfo?.height ?? null}
-                  timeHorizonMonths={timeHorizonMonths}
-                />
-              </>
-            )}
+            <HealthPlannerPanel data={data} />
           </>
         ) : (
           <SectionSkeleton height={160} />
