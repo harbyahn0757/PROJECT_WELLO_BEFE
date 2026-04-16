@@ -225,7 +225,15 @@ function computeLocal(
 export function useHealthPlanner(data: ReportData | null): UseHealthPlannerReturn {
   const ratioTable: RatioTable | null = useMemo(() => {
     if (!data) return null;
-    return (data as any).ratio_table ?? buildFallbackRatioTable(data);
+    const apiTable = (data as any).ratio_table;
+    const fallback = buildFallbackRatioTable(data);
+    if (!apiTable) return fallback;
+    // API ratio_table에 base가 없으면 fallback에서 보충
+    if (!apiTable.base && fallback) {
+      return { ...fallback, ...apiTable, base: fallback.base };
+    }
+    if (!apiTable.base) return fallback;
+    return apiTable as RatioTable;
   }, [data]);
 
   const baseBmi = ratioTable?.base?.bmi ?? data?.patient_info?.bmi ?? 22;
@@ -240,13 +248,17 @@ export function useHealthPlanner(data: ReportData | null): UseHealthPlannerRetur
   });
 
   const computedResult = useMemo((): ComputedResult | null => {
-    if (!ratioTable) return null;
-    return computeLocal(
-      ratioTable.base,
-      ratioTable.deltas,
-      ratioTable.attenuation,
-      settings,
-    );
+    if (!ratioTable?.base || !ratioTable?.deltas) return null;
+    try {
+      return computeLocal(
+        ratioTable.base,
+        ratioTable.deltas,
+        ratioTable.attenuation ?? {},
+        settings,
+      );
+    } catch {
+      return null;
+    }
   }, [ratioTable, settings]);
 
   const setBmiTarget = useCallback((bmi: number | null) => {
