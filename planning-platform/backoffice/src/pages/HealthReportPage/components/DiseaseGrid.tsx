@@ -7,6 +7,7 @@ import { useState } from 'react';
 import type { DiseaseDetail } from '../hooks/useMediarcApi';
 import KpiCard from '../../../components/kpi/KpiCard';
 import KpiGrid from '../../../components/kpi/KpiGrid';
+import Term from './Term';
 
 interface DiseaseGridProps {
   diseases: Record<string, DiseaseDetail>;
@@ -39,7 +40,7 @@ export default function DiseaseGrid({ diseases }: DiseaseGridProps) {
 
   return (
     <div className="report-view__disease-grid-wrap" role="list">
-      <h3 className="report-view__section-title">질환별 위험도</h3>
+      <h3 className="report-view__section-title">질환별 <Term keyword="하위 %">위험도</Term></h3>
       <KpiGrid cols={cols}>
         {entries.map(([name, detail]) => {
           const variant = gradeVariant(detail.grade, detail.rank);
@@ -64,7 +65,7 @@ export default function DiseaseGrid({ diseases }: DiseaseGridProps) {
               <span data-test={`disease-card-${name}-components`} style={{ display: 'none' }} />
               <KpiCard
                 label={name}
-                value={detail.rank != null ? `${detail.rank}등` : '-'}
+                value={detail.rank != null ? <Term keyword="등수">{detail.rank}등</Term> : '-'}
                 hint={gradeLabel}
                 variant={variant}
                 onClick={() => setSelected(name)}

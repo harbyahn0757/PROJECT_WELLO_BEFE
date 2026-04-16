@@ -8,6 +8,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSimulation, SimulationResult } from '../hooks/useSimulation';
 import MilestoneCard from './MilestoneCard';
 import BmiSlider from './BmiSlider';
+import Term from './Term';
 
 type CardState = 'idle' | 'loading' | 'ok' | 'error';
 type MilestoneKey = 'current' | 'minus2' | 'minus5' | 'minus10' | 'normal';
@@ -154,7 +155,7 @@ export default function MilestoneSlot({
 
   return (
     <div className="report-view__milestone-slot">
-      <h4 className="report-view__slot-title">체중 감량별 건강 효과</h4>
+      <h4 className="report-view__slot-title"><Term keyword="BMI">BMI</Term> <Term keyword="마일스톤">마일스톤</Term> — 체중 감량별 건강 효과</h4>
       <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '1rem' }}>
         목표 체중에 따라 질환 위험이 어떻게 변하는지 확인하세요.
       </p>

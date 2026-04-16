@@ -6,6 +6,7 @@ import type { ReportData } from '../hooks/useMediarcApi';
 import BeforeAfterRow from './BeforeAfterRow';
 import WillRogersCaption from './WillRogersCaption';
 import Disclosure from './Disclosure';
+import Term from './Term';
 
 interface BeforeAfterBlockProps {
   data: ReportData;
@@ -41,7 +42,7 @@ export default function BeforeAfterBlock({ data }: BeforeAfterBlockProps) {
       role="region"
       aria-label="개선 시나리오 비교"
     >
-      <h3 className="report-view__section-title">개선 시나리오 비교</h3>
+      <h3 className="report-view__section-title"><Term keyword="개선 시나리오">개선 시나리오</Term> 비교</h3>
 
       {labelParts.length > 0 && (
         <p className="report-view__scenario-labels" data-test="improved-labels">
@@ -66,11 +67,11 @@ export default function BeforeAfterBlock({ data }: BeforeAfterBlockProps) {
             <tr>
               <th>질환</th>
               <th>현재 위험률</th>
-              <th>현재 등수</th>
+              <th>현재 <Term keyword="등수">등수</Term></th>
               <th>개선 위험률</th>
-              <th>개선 등수</th>
+              <th>개선 <Term keyword="등수">등수</Term></th>
               <th>등수 변화</th>
-              <th>ARR</th>
+              <th><Term keyword="ARR">ARR</Term></th>
               <th>근거</th>
             </tr>
           </thead>

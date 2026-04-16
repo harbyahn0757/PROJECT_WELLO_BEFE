@@ -5,6 +5,7 @@ import type { ReportData } from '../hooks/useMediarcApi';
 import KpiGrid from '../../../components/kpi/KpiGrid';
 import KpiCard from '../../../components/kpi/KpiCard';
 import AiSummaryButton from './AiSummaryButton';
+import Term from './Term';
 
 interface HeroBlockProps {
   data: ReportData;
@@ -52,18 +53,18 @@ export default function HeroBlock({ data, uuid, hospitalId }: HeroBlockProps) {
 
       <KpiGrid cols={4}>
         <KpiCard
-          label="건강나이"
+          label={<Term keyword="건강나이">건강나이</Term>}
           value={bodyAge != null ? `${bodyAge.toFixed(1)}세` : '-'}
           testId="hero-bodyage"
         />
         <KpiCard
-          label="실제나이 대비"
+          label={<Term keyword="delta">실제나이 대비</Term>}
           value={deltaLabel}
           variant={deltaVariant}
           testId="hero-delta"
         />
         <KpiCard
-          label="건강등수"
+          label={<Term keyword="등수">건강등수</Term>}
           value={
             <span data-test="rank-pill">
               {data.rank != null ? `${data.rank}등` : '-'}

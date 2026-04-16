@@ -4,6 +4,7 @@
  */
 import { useState } from 'react';
 import type { DiseaseDetail, WillRogersEntry } from '../hooks/useMediarcApi';
+import Term from './Term';
 
 interface FormulaDetail {
   disease_key: string;
@@ -159,7 +160,7 @@ export default function BeforeAfterRow({
                 <dd>
                   BMI &lt; 23, 금연, 금주 reset 후 동일 코호트 평균(코호트 고정)으로 나눈 ratio.
                 </dd>
-                <dt>ARR (절대위험도 감소율)</dt>
+                <dt><Term keyword="ARR">ARR</Term> (절대위험도 감소율)</dt>
                 <dd>
                   (원래 ratio &minus; 개선 ratio) &divide; 원래 ratio &times; 100 = {arrPct?.toFixed(1) ?? '-'}%
                 </dd>

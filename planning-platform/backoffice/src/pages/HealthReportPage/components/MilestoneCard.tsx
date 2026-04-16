@@ -3,6 +3,7 @@
  * 순수 표시 컴포넌트. state 없음.
  * 세로 레이아웃: 라벨(상) -> 신체나이(중, 굵게) -> ARR %(하)
  */
+import Term from './Term';
 
 type CardState = 'idle' | 'loading' | 'ok' | 'error';
 
@@ -56,7 +57,7 @@ export default function MilestoneCard({
           className="report-view__milestone-card-arr"
           data-test={`milestone-card-${mKey}-arr`}
         >
-          ARR {arrPct > 0 ? `-${arrPct.toFixed(1)}` : arrPct.toFixed(1)}%
+          <Term keyword="ARR">ARR</Term> {arrPct > 0 ? `-${arrPct.toFixed(1)}` : arrPct.toFixed(1)}%
         </span>
       )}
     </button>
