@@ -228,7 +228,7 @@ export function useHealthPlanner(data: ReportData | null): UseHealthPlannerRetur
     return (data as any).ratio_table ?? buildFallbackRatioTable(data);
   }, [data]);
 
-  const baseBmi = ratioTable?.base.bmi ?? data?.patient_info?.bmi ?? 22;
+  const baseBmi = ratioTable?.base?.bmi ?? data?.patient_info?.bmi ?? 22;
 
   const [settings, setSettings] = useState<PlannerSettings>({
     bmiTarget: null,
