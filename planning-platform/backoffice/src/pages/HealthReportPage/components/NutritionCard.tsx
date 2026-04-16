@@ -79,6 +79,21 @@ function EvidenceBadge({ evidence }: { evidence?: EvidenceInfo }) {
   );
 }
 
+// ── dosage 안전 변환 (object → string) ──
+
+function normalizeDosage(raw: any): string | null {
+  if (!raw) return null;
+  if (typeof raw === 'string') return raw;
+  if (typeof raw === 'object') {
+    const parts: string[] = [];
+    if (raw.amount) parts.push(String(raw.amount));
+    if (raw.timing) parts.push(String(raw.timing));
+    if (raw.duration) parts.push(String(raw.duration));
+    return parts.join(', ') || null;
+  }
+  return String(raw);
+}
+
 // ── 용량/타이밍 텍스트 ──
 
 function DosageChip({ text }: { text: string }) {
@@ -121,7 +136,8 @@ export default function NutritionCard({ item, idx, variant = 'recommend' }: Nutr
         padding: '12px 14px',
       };
 
-  const hasDetail = !!(item.evidence?.source || item.dosage || item.caution_text);
+  const dosageStr = normalizeDosage(item.dosage);
+  const hasDetail = !!(item.evidence?.source || dosageStr || item.caution_text);
 
   return (
     <div
@@ -183,9 +199,9 @@ export default function NutritionCard({ item, idx, variant = 'recommend' }: Nutr
       </p>
 
       {/* 용량 칩 */}
-      {item.dosage && (
+      {dosageStr && (
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
-          <DosageChip text={item.dosage} />
+          <DosageChip text={dosageStr} />
         </div>
       )}
 
@@ -198,9 +214,9 @@ export default function NutritionCard({ item, idx, variant = 'recommend' }: Nutr
                 <span style={{ fontWeight: 600 }}>출처:</span> {item.evidence.source}
               </p>
             )}
-            {item.dosage && (
+            {dosageStr && (
               <p style={{ margin: '0 0 4px' }}>
-                <span style={{ fontWeight: 600 }}>권장 용량:</span> {item.dosage}
+                <span style={{ fontWeight: 600 }}>권장 용량:</span> {dosageStr}
               </p>
             )}
             {item.caution_text && (
