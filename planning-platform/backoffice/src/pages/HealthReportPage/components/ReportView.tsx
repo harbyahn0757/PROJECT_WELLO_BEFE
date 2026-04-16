@@ -2,8 +2,9 @@
  * ReportView — Phase 1 메인 리포트 뷰
  * 5단계 여정: Shock / Understand / Motivate / Action / Celebrate
  * Phase 3-B/3-C: MilestoneSlot 필수 props 연결, TimeDim 상태 관리
+ * Progressive skeleton + staggered reveal (loading prop)
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { ReportData } from '../hooks/useMediarcApi';
 import HeroBlock from './HeroBlock';
 import RiskFactorsBlock from './RiskFactorsBlock';
@@ -18,16 +19,67 @@ import MissingFieldsBanner from './MissingFieldsBanner';
 import DebugDrawer from './DebugDrawer';
 
 interface ReportViewProps {
-  data: ReportData;
+  data: ReportData | null;
+  loading?: boolean;
   uuid: string;
   hospitalId?: string;
 }
 
-export default function ReportView({ data, uuid, hospitalId }: ReportViewProps) {
+// Skeleton placeholder — 각 섹션 높이에 맞게
+function SectionSkeleton({ height = 120 }: { height?: number }) {
+  return (
+    <div className="report-view__skeleton" style={{ height }} aria-hidden="true" />
+  );
+}
+
+// 전체 skeleton (로딩 초기 상태)
+function FullSkeleton() {
+  return (
+    <div className="report-view" data-testid="report-view">
+      <SectionSkeleton height={180} />
+      <SectionSkeleton height={240} />
+      <SectionSkeleton height={200} />
+      <SectionSkeleton height={160} />
+      <SectionSkeleton height={120} />
+    </div>
+  );
+}
+
+const STAGGER_STEPS = 5;
+const STAGGER_INTERVAL_MS = 200;
+
+export default function ReportView({ data, loading = false, uuid, hospitalId }: ReportViewProps) {
   // 3-C 시간 차원 상태 (BeforeAfterBlock + MilestoneSlot 공유)
   const [timeHorizonMonths, setTimeHorizonMonths] = useState<0 | 6 | 12 | 60>(0);
   // W1: DebugDrawer 열림 상태
   const [debugOpen, setDebugOpen] = useState(false);
+  // staggered reveal 단계 (0 = 전체 skeleton, 5 = 전체 노출)
+  const [revealStep, setRevealStep] = useState(0);
+
+  useEffect(() => {
+    if (!data) {
+      setRevealStep(0);
+      return;
+    }
+    // 캐시 hit 시 즉시 전체 표시
+    if ((data as any).cached === true) {
+      setRevealStep(STAGGER_STEPS);
+      return;
+    }
+    // 데이터 도착 → 200ms 간격 순차 노출
+    let step = 0;
+    const timer = setInterval(() => {
+      step += 1;
+      setRevealStep(step);
+      if (step >= STAGGER_STEPS) clearInterval(timer);
+    }, STAGGER_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [data]);
+
+  // loading=true 또는 data 미도달 시 skeleton
+  if (loading || !data) {
+    return <FullSkeleton />;
+  }
 
   const patientInfo = data.patient_info;
   const baseBmi: number = patientInfo?.bmi ?? 22.0;
@@ -43,43 +95,67 @@ export default function ReportView({ data, uuid, hospitalId }: ReportViewProps) 
 
       {/* Step 1: Shock */}
       <section className="report-view__section report-view__section--shock">
-        <HeroBlock data={data} uuid={uuid} hospitalId={hospitalId} />
-        {/* W1: BMI/흡연/음주 메타 배지 */}
-        {patientInfo && <PatientMetaPanel patientInfo={patientInfo} />}
-
+        {revealStep >= 1 ? (
+          <>
+            <HeroBlock data={data} uuid={uuid} hospitalId={hospitalId} />
+            {patientInfo && <PatientMetaPanel patientInfo={patientInfo} />}
+          </>
+        ) : (
+          <SectionSkeleton height={180} />
+        )}
       </section>
 
       {/* Step 2: Understand */}
       <section className="report-view__section report-view__section--understand">
-        <RiskFactorsBlock diseases={data.diseases} />
-        <DiseaseGrid diseases={data.diseases} />
+        {revealStep >= 2 ? (
+          <>
+            <RiskFactorsBlock diseases={data.diseases} />
+            <DiseaseGrid diseases={data.diseases} />
+          </>
+        ) : (
+          <SectionSkeleton height={240} />
+        )}
       </section>
 
       {/* Step 3: Motivate */}
       <section className="report-view__section report-view__section--motivate">
-        <BeforeAfterBlock data={data} />
+        {revealStep >= 3 ? (
+          <BeforeAfterBlock data={data} />
+        ) : (
+          <SectionSkeleton height={200} />
+        )}
       </section>
 
       {/* Step 4: Action — Phase 3-B 마일스톤 슬롯 */}
       <section className="report-view__section report-view__section--action">
-        <TimeDimToggle value={timeHorizonMonths} onChange={setTimeHorizonMonths} />
-        <MilestoneSlot
-          patientUuid={uuid}
-          hospitalId={hospitalIdNum}
-          baseBmi={baseBmi}
-          baseWeight={patientInfo?.weight ?? null}
-          baseHeight={patientInfo?.height ?? null}
-          timeHorizonMonths={timeHorizonMonths}
-        />
+        {revealStep >= 4 ? (
+          <>
+            <TimeDimToggle value={timeHorizonMonths} onChange={setTimeHorizonMonths} />
+            <MilestoneSlot
+              patientUuid={uuid}
+              hospitalId={hospitalIdNum}
+              baseBmi={baseBmi}
+              baseWeight={patientInfo?.weight ?? null}
+              baseHeight={patientInfo?.height ?? null}
+              timeHorizonMonths={timeHorizonMonths}
+            />
+          </>
+        ) : (
+          <SectionSkeleton height={160} />
+        )}
       </section>
 
       {/* Step 5: Celebrate */}
       <section className="report-view__section report-view__section--celebrate">
-        <TrendSlot />
+        {revealStep >= 5 ? (
+          <>
+            <TrendSlot />
+            <AppendixBlock data={data} />
+          </>
+        ) : (
+          <SectionSkeleton height={120} />
+        )}
       </section>
-
-      {/* Appendix (접이식 상세) */}
-      <AppendixBlock data={data} />
 
       {/* W1: DebugDrawer — report-view 최하단 */}
       {patientInfo && (

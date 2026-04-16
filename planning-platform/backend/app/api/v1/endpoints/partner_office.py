@@ -3128,6 +3128,59 @@ async def _sim_upsert(uuid: str, hospital_id: str, digest: str, input_dict: dict
         logger.warning("simulate: DB UPSERT 실패 uuid=%s: %s", uuid, exc)
 
 
+def _compute_report_digest(health_data: dict) -> str:
+    """health_data sha256 prefix-16 — 데이터 변경 감지용."""
+    raw = json.dumps(health_data, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+async def _report_get_cached(uuid: str, hospital_id: str) -> Optional[dict]:
+    """welno_mediarc_report_cache 조회. 있으면 {result_json, input_digest, generated_at} 반환."""
+    try:
+        rows = await db_manager.execute_query(
+            """
+            SELECT result_json, input_digest, generated_at
+            FROM welno.welno_mediarc_report_cache
+            WHERE patient_uuid = %s AND hospital_id = %s
+            LIMIT 1
+            """,
+            (uuid, hospital_id),
+        )
+        if rows:
+            r = rows[0]
+            result = r["result_json"]
+            if isinstance(result, str):
+                result = json.loads(result)
+            return {
+                "result_json": result,
+                "input_digest": r["input_digest"],
+                "generated_at": r["generated_at"],
+            }
+    except Exception as exc:
+        logger.warning("report_cache: 조회 실패 uuid=%s: %s", uuid, exc)
+    return None
+
+
+async def _report_upsert(uuid: str, hospital_id: str, digest: str, result: dict) -> None:
+    """welno_mediarc_report_cache UPSERT (fail-open)."""
+    try:
+        await db_manager.execute_query(
+            """
+            INSERT INTO welno.welno_mediarc_report_cache
+                (patient_uuid, hospital_id, input_digest, result_json, engine_version, generated_at, updated_at)
+            VALUES (%s, %s, %s, %s::jsonb, %s, NOW(), NOW())
+            ON CONFLICT ON CONSTRAINT uk_welno_mediarc_report_cache
+            DO UPDATE SET
+                input_digest = EXCLUDED.input_digest,
+                result_json  = EXCLUDED.result_json,
+                updated_at   = NOW()
+            """,
+            (uuid, hospital_id, digest, json.dumps(result, ensure_ascii=False), "v1"),
+        )
+    except Exception as exc:
+        logger.warning("report_cache: UPSERT 실패 uuid=%s: %s", uuid, exc)
+
+
 async def _fetch_engine_patient_and_disease_results(uuid: str, hospital_id: str):
     """mediarc_patient_detail + to_engine_patient + 엔진 full run.
     (patient dict, disease_results dict) 튜플 반환.
@@ -3222,13 +3275,26 @@ async def post_simulate(
 
 @router.get("/mediarc-report/{uuid}")
 async def mediarc_report_alias(uuid: str):
-    """FE 호환 alias — 엔진 실행 + ReportData 스키마 반환"""
+    """FE 호환 alias — 엔진 실행 + ReportData 스키마 반환 (DB 캐싱 적용)"""
     _engine_guard()
     detail = await mediarc_patient_detail(uuid)  # 기존 함수 재사용 (404 포함)
 
+    health_data = detail.get('health_data') or {}
+    digest = _compute_report_digest(health_data)
+    hospital_id = detail.get('hospital_id') or ''
+
+    # 캐시 체크
+    cached = await _report_get_cached(uuid, hospital_id)
+    if cached and cached['input_digest'] == digest:
+        resp = cached['result_json']
+        resp['cached'] = True
+        gen_at = cached['generated_at']
+        resp['generated_at'] = gen_at.isoformat() if hasattr(gen_at, 'isoformat') else str(gen_at or '')
+        return resp
+
+    # 캐시 miss 또는 데이터 변경 → 엔진 실행
     age = _calc_age(detail.get('birth_date') or '')
     sex = _normalize_sex(detail.get('gender') or '')
-    health_data = detail.get('health_data') or {}
     engine_patient = to_engine_patient(health_data, age=age, sex=sex)
 
     try:
@@ -3248,7 +3314,8 @@ async def mediarc_report_alias(uuid: str):
         # 방어 fallback: 구버전 호환 (bodyage가 float인 경우)
         bodyage_block = {"bodyage": _bodyage_raw, "delta": None, "bioage_gb": None}
 
-    return {
+    _pi = result.get('patient_info') or {}
+    response = {
         "name": detail.get('name') or '익명',
         "age": age,
         "sex": sex,
@@ -3267,7 +3334,21 @@ async def mediarc_report_alias(uuid: str):
             "checkup_date": detail.get('checkup_date'),
             "birth_date": detail.get('birth_date'),
             # facade.patient_info 의 imputed_fields / missing_fields pass-through
-            "imputed_fields": result.get('patient_info', {}).get('imputed_fields', []),
-            "missing_fields": result.get('patient_info', {}).get('missing_fields', []),
+            "imputed_fields": _pi.get('imputed_fields', []),
+            "missing_fields": _pi.get('missing_fields', []),
+            # 드로워 감사 누락 필드 추가
+            "bmi": _pi.get('bmi'),
+            "height": _pi.get('height'),
+            "weight": _pi.get('weight'),
         },
+        "cached": False,
+        "generated_at": datetime.utcnow().isoformat(),
     }
+
+    # fail-open 캐시 저장
+    try:
+        await _report_upsert(uuid, hospital_id, digest, response)
+    except Exception as exc:
+        logger.warning("report_cache: 저장 실패(응답은 반환) uuid=%s: %s", uuid, exc)
+
+    return response

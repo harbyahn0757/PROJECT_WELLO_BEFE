@@ -226,17 +226,17 @@ const HealthReportPage: React.FC = () => {
         width="xl"
         testId="mediarc-report-drawer"
       >
-        {detailLoading ? (
-          <div className="hr-expanded__loading"><Spinner message="리포트 로딩 중..." /></div>
-        ) : !report ? (
+        {/* ReportView가 loading/data 상태를 내부에서 skeleton으로 처리 */}
+        {expandedUuid && !detailLoading && !report ? (
           <div className="hr-expanded__empty">리포트를 불러올 수 없습니다</div>
-        ) : (
+        ) : expandedUuid ? (
           <ReportView
             data={report}
-            uuid={expandedUuid!}
+            loading={detailLoading}
+            uuid={expandedUuid}
             hospitalId={hospitalId}
           />
-        )}
+        ) : null}
       </Drawer>
     </PageLayout>
   );
