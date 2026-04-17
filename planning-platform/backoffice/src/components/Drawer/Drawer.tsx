@@ -128,9 +128,9 @@ export const Drawer: React.FC<DrawerProps> = ({
         style={{ width: widthValue }}
         role="dialog"
         aria-modal="true"
-        aria-hidden={!open}
         aria-label={typeof title === 'string' ? title : undefined}
         tabIndex={-1}
+        {...(!open ? { inert: '' as any } : {})}
         data-testid={testId ?? 'app-drawer'}
       >
         {(header != null || title != null) && (
