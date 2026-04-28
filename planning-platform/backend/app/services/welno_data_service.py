@@ -2219,83 +2219,26 @@ class WelnoDataService:
             raise
     
     async def save_terms_agreement(self, uuid: str, hospital_id: str, terms_agreement: Dict[str, Any]) -> Dict[str, Any]:
-        """약관 동의 저장"""
-        try:
-            conn = await asyncpg.connect(**self.db_config)
-            
-            # 약관 동의 정보를 JSONB로 저장
-            # welno_patients 테이블에 terms_agreement 필드가 있는지 확인하고 업데이트
-            # 없으면 ALTER TABLE로 추가 필요 (스키마 마이그레이션)
-            
-            # 먼저 환자 존재 확인
-            patient_check = await conn.fetchrow(
-                "SELECT id FROM welno.welno_patients WHERE uuid = $1 AND hospital_id = $2",
-                uuid, hospital_id
-            )
-            
-            if not patient_check:
-                await conn.close()
-                return {
-                    "success": False,
-                    "error": "환자 정보를 찾을 수 없습니다."
-                }
-            
-            # 약관 동의 정보 저장 (JSONB 필드)
-            # terms_agreement 필드가 없으면 추가해야 함
-            try:
-                update_query = """
-                    UPDATE welno.welno_patients 
-                    SET terms_agreement = $1,
-                        terms_agreed_at = NOW(),
-                        updated_at = NOW()
-                    WHERE uuid = $2 AND hospital_id = $3
-                """
-                await conn.execute(
-                    update_query,
-                    json.dumps(terms_agreement),
-                    uuid, hospital_id
-                )
-            except asyncpg.exceptions.UndefinedColumnError:
-                # terms_agreement 컬럼이 없으면 추가
-                await conn.execute(
-                    "ALTER TABLE welno.welno_patients ADD COLUMN IF NOT EXISTS terms_agreement JSONB"
-                )
-                await conn.execute(
-                    "ALTER TABLE welno.welno_patients ADD COLUMN IF NOT EXISTS terms_agreed_at TIMESTAMPTZ"
-                )
-                # 다시 업데이트
-                update_query = """
-                    UPDATE welno.welno_patients 
-                    SET terms_agreement = $1,
-                        terms_agreed_at = NOW(),
-                        updated_at = NOW()
-                    WHERE uuid = $2 AND hospital_id = $3
-                """
-                await conn.execute(
-                    update_query,
-                    json.dumps(terms_agreement),
-                    uuid, hospital_id
-                )
-            
-            await conn.close()
-            
-            print(f"✅ [약관동의] 약관 동의 저장 완료: {uuid} @ {hospital_id}")
-            print(f"   - 서비스 이용약관: {terms_agreement.get('terms_service', False)}")
-            print(f"   - 개인정보 수집/이용: {terms_agreement.get('terms_privacy', False)}")
-            print(f"   - 민감정보 수집/이용: {terms_agreement.get('terms_sensitive', False)}")
-            print(f"   - 마케팅 활용: {terms_agreement.get('terms_marketing', False)}")
-            
-            return {
-                "success": True,
-                "terms_agreement": terms_agreement
+        """
+        약관 동의 저장 (레거시 Path A 어댑터)
+
+        FE AuthForm.tsx 기존 호출 형식 {terms_service: bool, terms_privacy: bool, ...} 을
+        Path B 상세 형식으로 변환 후 save_terms_agreement_detail 에 위임.
+
+        DB 실측 2026-04-28: terms_agreement(Path A) = 0건 DEAD, terms_agreement_detail(Path B) = 2,606건 ACTIVE.
+        Path A 컬럼(terms_agreement, terms_agreed_at) 에 직접 쓰지 않고 Path B SoT 컬럼으로 통합.
+        """
+        now_iso = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        detail: Dict[str, Any] = {}
+        for key in ['terms_service', 'terms_privacy', 'terms_sensitive', 'terms_marketing']:
+            agreed = bool(terms_agreement.get(key, False))
+            detail[key] = {
+                "agreed": agreed,
+                "agreed_at": now_iso if agreed else None
             }
-            
-        except Exception as e:
-            print(f"❌ [약관동의] 저장 오류: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+
+        print(f"[약관동의] Path A 어댑터 → Path B 위임: {uuid} @ {hospital_id}")
+        return await self.save_terms_agreement_detail(uuid, hospital_id, detail)
     
     async def save_terms_agreement_detail(
         self, 

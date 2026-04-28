@@ -49,7 +49,15 @@ class WelnoPatient(Base):
     
     # 🧠 페르소나 및 채팅 분석 데이터
     chat_persona_data = Column(JSON, nullable=True)  # 채팅 기반 페르소나 분석 결과
-    
+
+    # 약관 동의 (SoT: terms_agreement_detail + terms_all_required_agreed_at)
+    # DB 실측 2026-04-28: terms_agreement_detail 2,606건 ACTIVE / terms_agreement 0건 DEAD
+    terms_agreement_detail = Column(JSON, nullable=True)  # 약관별 동의 상세 {terms_service:{agreed,agreed_at}, ...}
+    terms_all_required_agreed_at = Column(DateTime(timezone=True), nullable=True)  # 마지막 필수 약관 동의 시각 (ACTIVE 컬럼)
+    # 아래 두 컬럼은 DB에 존재하나 DEAD (누적 0건) — DROP 전까지 모델에 기록만
+    # terms_agreement = JSONB (Path A, 0건) — dead
+    # terms_agreed_at = TIMESTAMPTZ (Path A timestamp, 0건) — dead
+
     # 메타데이터
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

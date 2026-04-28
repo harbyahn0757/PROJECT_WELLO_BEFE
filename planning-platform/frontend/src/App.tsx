@@ -101,10 +101,15 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
     ];
 
     keysToRemove.forEach(key => localStorage.removeItem(key));
-    
-    // 세션 스토리지
+
+    // P0 #2: welno_data_cache_<uuid> 패턴 키 정리 (localStorage)
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('welno_data_cache_'))
+      .forEach(k => localStorage.removeItem(k));
+
+    // 세션 스토리지 (welno_data_cache_* sessionStorage 포함)
     sessionStorage.clear();
-    
+
     // 메인으로 리다이렉트 후 새로고침
     window.location.href = BASENAME === '/' ? '/' : `${BASENAME}/`;
   }, []);

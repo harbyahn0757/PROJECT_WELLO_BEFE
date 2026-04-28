@@ -32,20 +32,23 @@ async def check_terms_agreement(
     try:
         logger.info(f"[약관체크] uuid={uuid}, partner={partner_id}")
         
+        # SoT 컬럼: terms_agreement_detail (JSONB, 2,606건 ACTIVE)
+        #           terms_all_required_agreed_at (TIMESTAMPTZ, 2,606건 ACTIVE)
+        # DEAD 컬럼: terms_agreed_at (0건) — 조회 대상에서 제외 (DB 실측 2026-04-28)
         query = """
-        SELECT 
+        SELECT
             terms_agreement_detail,
-            terms_agreed_at,
+            terms_all_required_agreed_at,
             updated_at
         FROM welno.welno_patients
         WHERE uuid = %s AND hospital_id = %s
         """
-        
+
         result = await db_manager.execute_one(
-            query, 
+            query,
             (uuid, settings.welno_default_hospital_id)
         )
-        
+
         if not result:
             logger.info(f"[약관체크] 환자 정보 없음: uuid={uuid}")
             return {
@@ -53,9 +56,9 @@ async def check_terms_agreement(
                 "terms_detail": None,
                 "message": "환자 정보를 찾을 수 없습니다."
             }
-        
+
         terms_detail = result.get('terms_agreement_detail')
-        
+
         if not terms_detail:
             logger.info(f"[약관체크] 약관 동의 정보 없음: uuid={uuid}")
             return {
@@ -63,20 +66,20 @@ async def check_terms_agreement(
                 "terms_detail": None,
                 "message": "약관 동의 정보가 없습니다."
             }
-        
+
         # 필수 약관 체크
         required_terms = ['terms_service', 'terms_privacy', 'terms_sensitive']
         all_required_agreed = all(
             terms_detail.get(term, {}).get('agreed', False)
             for term in required_terms
         )
-        
+
         logger.info(f"[약관체크] 결과: uuid={uuid}, agreed={all_required_agreed}")
-        
+
         return {
             "agreed": all_required_agreed,
             "terms_detail": terms_detail,
-            "terms_agreed_at": result.get('terms_agreed_at').isoformat() if result.get('terms_agreed_at') else None,
+            "terms_agreed_at": result.get('terms_all_required_agreed_at').isoformat() if result.get('terms_all_required_agreed_at') else None,
             "message": "약관 동의 정보 조회 완료"
         }
         
@@ -100,32 +103,34 @@ async def get_terms_status(
         각 약관별 상세 정보와 전체 통계
     """
     try:
+        # SoT 컬럼: terms_agreement_detail + terms_all_required_agreed_at (ACTIVE)
+        # DEAD 컬럼: terms_agreed_at (0건) — 제외 (DB 실측 2026-04-28)
         query = """
-        SELECT 
+        SELECT
             uuid,
             hospital_id,
             name,
             terms_agreement_detail,
-            terms_agreed_at,
+            terms_all_required_agreed_at,
             created_at,
             updated_at
         FROM welno.welno_patients
         WHERE uuid = %s AND hospital_id = %s
         """
-        
+
         # 파트너별 기본 병원 ID 조회
         from ....services.dynamic_config_service import dynamic_config
         default_hospital_id = await dynamic_config.get_default_hospital_id(partner_id)
         result = await db_manager.execute_one(query, (uuid, default_hospital_id))
-        
+
         if not result:
             raise HTTPException(
                 status_code=404,
                 detail="환자 정보를 찾을 수 없습니다."
             )
-        
+
         terms_detail = result.get('terms_agreement_detail') or {}
-        
+
         # 각 약관별 상태 분석
         term_status = {}
         for term_type in ['terms_service', 'terms_privacy', 'terms_sensitive', 'terms_marketing']:
@@ -135,13 +140,13 @@ async def get_terms_status(
                 "agreed_at": term_data.get('agreed_at'),
                 "version": term_data.get('version', 'unknown'),
             }
-        
+
         return {
             "uuid": result['uuid'],
             "hospital_id": result['hospital_id'],
             "name": result['name'],
             "terms_status": term_status,
-            "overall_agreed_at": result.get('terms_agreed_at').isoformat() if result.get('terms_agreed_at') else None,
+            "overall_agreed_at": result.get('terms_all_required_agreed_at').isoformat() if result.get('terms_all_required_agreed_at') else None,
             "created_at": result['created_at'].isoformat() if result.get('created_at') else None,
             "updated_at": result['updated_at'].isoformat() if result.get('updated_at') else None,
         }

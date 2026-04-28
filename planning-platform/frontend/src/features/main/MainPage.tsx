@@ -354,6 +354,9 @@ const MainPage: React.FC = () => {
       // URL 파라미터가 있고, 현재 Context에 데이터가 없으면 로드
       if (uuid && hospital && (!patient || !patient.uuid || patient.uuid !== uuid)) {
         console.log('[메인페이지] URL 파라미터 기반 초기 데이터 로드:', { uuid, hospital });
+        // P0 #1: URL uuid 진입 시 localStorage 저장 (재진입을 위해 영속화)
+        StorageManager.setItem(STORAGE_KEYS.PATIENT_UUID, uuid);
+        StorageManager.setItem(STORAGE_KEYS.HOSPITAL_ID, hospital);
         try {
           await actions.loadPatientData(uuid, hospital);
         } catch (error) {

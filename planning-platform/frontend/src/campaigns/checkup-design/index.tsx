@@ -12,6 +12,7 @@ import IntroLandingPage from './IntroLandingPage';
 import ResultPage from './ResultPage';
 import TermsAgreementModal from '../../components/terms/TermsAgreementModal';
 import { checkAllTermsAgreement, saveTermsAgreement } from '../../utils/termsAgreement';
+import { STORAGE_KEYS, StorageManager } from '../../constants/storage';
 
 type PageType = 'intro' | 'design' | 'processing' | 'result';
 
@@ -107,6 +108,9 @@ const CheckupDesignCampaign: React.FC = () => {
 
       setUuid(resolvedUuid);
       setHospitalId(resolvedHospital);
+      // P0 #1: 알림톡 lookup_key 진입 시 localStorage 저장 (재진입을 위해 영속화)
+      StorageManager.setItem(STORAGE_KEYS.PATIENT_UUID, resolvedUuid);
+      StorageManager.setItem(STORAGE_KEYS.HOSPITAL_ID, resolvedHospital);
     };
 
     if (linkKey || encryptedData) loadLinkData();
