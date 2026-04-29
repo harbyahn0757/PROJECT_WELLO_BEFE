@@ -111,6 +111,10 @@ const CheckupDesignCampaign: React.FC = () => {
       // P0 #1: 알림톡 lookup_key 진입 시 localStorage 저장 (재진입을 위해 영속화)
       StorageManager.setItem(STORAGE_KEYS.PATIENT_UUID, resolvedUuid);
       StorageManager.setItem(STORAGE_KEYS.HOSPITAL_ID, resolvedHospital);
+      if (linkKey) {
+        // P0 Soft Lock: lookup_key 저장 — axios 인터셉터가 환자 API 요청 시 자동 첨부
+        StorageManager.setItem(STORAGE_KEYS.ALIMTALK_LOOKUP_KEY, linkKey);
+      }
     };
 
     if (linkKey || encryptedData) loadLinkData();

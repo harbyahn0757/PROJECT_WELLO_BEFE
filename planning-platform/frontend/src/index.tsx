@@ -2,6 +2,10 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.scss';
 import App from './App';
+import { registerPatientApiInterceptor } from './utils/patientApiAuth';
+
+// P0 Phase 1 Soft Lock: 환자 API 요청에 lookup_key/Tilko/JWT 자동 부착
+registerPatientApiInterceptor();
 
 // 개발 환경에서 HMR 관련 불필요한 로그 억제
 if (process.env.NODE_ENV === 'development') {

@@ -46,6 +46,9 @@ export const STORAGE_KEYS = {
   // 로그인 입력 데이터 (이탈 복구용)
   LOGIN_INPUT_DATA: 'welno_login_input_data',
   LOGIN_INPUT_LAST_UPDATED: 'welno_login_input_last_updated',
+
+  // 알림톡 진입 인증 (P0 Soft Lock)
+  ALIMTALK_LOOKUP_KEY: 'welno_alimtalk_lookup_key',
 } as const;
 
 // 스토리지 데이터 타입 정의

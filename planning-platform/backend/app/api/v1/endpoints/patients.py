@@ -11,6 +11,7 @@ from ....services.patient_service import PatientService
 from ....services.exceptions import PatientNotFoundError
 from ....repositories.implementations import PatientRepository, HospitalRepository
 from ....core.security import get_current_user
+from ....core.patient_access import soft_verify_patient_access
 
 
 router = APIRouter()
@@ -51,7 +52,8 @@ class PatientResponse(BaseModel):
 @router.get("/{patient_uuid}", response_model=PatientResponse)
 async def get_patient(
     patient_uuid: UUID = Path(..., description="환자 UUID"),
-    patient_service: PatientService = Depends(get_patient_service)
+    patient_service: PatientService = Depends(get_patient_service),
+    _soft_verified: str = Depends(soft_verify_patient_access),  # Phase 1 Soft Lock
 ):
     """특정 환자 정보 조회"""
     try:

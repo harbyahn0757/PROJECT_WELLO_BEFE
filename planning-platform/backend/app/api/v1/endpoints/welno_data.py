@@ -11,6 +11,7 @@ import asyncio
 import httpx
 from ....services.welno_data_service import welno_data_service
 from ....core.security import get_current_user, verify_token
+from ....core.patient_access import soft_verify_patient_access
 
 security = HTTPBearer(auto_error=False)  # 토큰이 없어도 에러 발생 안 함 (선택적 인증)
 
@@ -271,7 +272,8 @@ async def get_drug_detail(
 
 @router.get("/patients/{uuid}")
 async def get_patient_info(
-    uuid: str
+    uuid: str,
+    _soft_verified: str = Depends(soft_verify_patient_access),  # Phase 1 Soft Lock
 ) -> Dict[str, Any]:
     """환자 정보 조회"""
     try:
