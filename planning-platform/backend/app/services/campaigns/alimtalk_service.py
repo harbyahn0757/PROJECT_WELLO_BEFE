@@ -259,6 +259,7 @@ async def _send_one(
     sender_key = tmpl_info.get('sender_key') or SENDER_KEY_XOG
 
     # hospital_id — 다중 fallback + hosnm 매핑
+    # 매칭 실패 시 빈 문자열 ('*' fallback 폐기 — 카카오 거부 원인)
     hospital_id = (
         campaign.get('client_id')
         or recipient.get('hospital_id')
@@ -268,12 +269,14 @@ async def _send_one(
     if not hospital_id:
         hosnm = variables.get('병원명', '')
         if hosnm:
-            hospital_id = await _resolve_hospital_id(db_manager, hosnm) or '*'
+            hospital_id = await _resolve_hospital_id(db_manager, hosnm) or ''
 
-    # ── BE 통합 변수 치환 — 위치별 개별 치환 지원 ──
-    # FE에서 '고객명_0', '고객명_1' 형태의 위치별 매핑을 보내면
-    # 같은 변수명이라도 위치별로 다른 값 치환 가능
-    if content and variables:
+    # 병원별 알림톡 변수 (tb_hospital_rag_config.alimtalk_vars[template_code])
+    hosp_vars = await _get_hospital_alimtalk_vars(db_manager, hospital_id, template_code)
+
+    # ── BE 통합 변수 치환 — 우선순위: variables > recipient direct > hosp_vars ──
+    # FE 위치별 키('고객명_0' 등) 호환 유지
+    if content:
         import re as _re
         occurrence_counter: Dict[str, int] = {}
 
@@ -281,42 +284,67 @@ async def _send_one(
             var_name = match.group(1)
             idx = occurrence_counter.get(var_name, 0)
             occurrence_counter[var_name] = idx + 1
-            # 위치별 키 우선 (예: 고객명_0)
+            # 1) 페이로드 variables 위치별 키 (고객명_0 등)
             positional_key = f'{var_name}_{idx}'
             if positional_key in variables and variables[positional_key]:
                 return str(variables[positional_key])
-            # 일반 키 (예: 고객명)
+            # 2) 페이로드 variables 일반 키
             if var_name in variables and variables[var_name]:
                 return str(variables[var_name])
-            return match.group(0)  # 치환 안 됨
+            # 3) recipient 직접 필드 (DB 대상자 row 컬럼: name/phoneno 등)
+            if var_name in recipient and recipient[var_name]:
+                return str(recipient[var_name])
+            # 4) 병원 고정값 (alimtalk_vars)
+            if var_name in hosp_vars and hosp_vars[var_name]:
+                return hosp_vars[var_name]
+            # 5) 미해결 → 그대로 둠 (카카오 검수와 매칭되도록)
+            return match.group(0)
 
         content = _re.sub(r'#\{([^}]+)\}', _replace_var, content)
 
-    # wello_uuid 생성 (attachment에 변수가 있거나, content에 #{sub} 등 있을 때)
+    # wello_uuid 생성 (attachment 또는 content에 wello 변수가 있을 때만)
     all_text = (attachment or '') + (content or '')
     needs_wello_uuid = any(
         v in all_text for v in ('#{wello_uuid}', '#{sub}', '#{URL}')
     )
+    # alimtalk_vars 의 sub_button_N 으로 정적 URL 채워질 예정이면 wello_uuid 불필요
+    has_static_button_urls = any(
+        k.startswith('sub_button_') and v for k, v in hosp_vars.items()
+    )
     wello_uuid = None
-    if needs_wello_uuid and hospital_id:
+    if needs_wello_uuid and hospital_id and not has_static_button_urls:
         r_name = (
             variables.get('고객명') or variables.get('이름') or
-            variables.get('name') or variables.get('성명') or ''
+            variables.get('name') or variables.get('성명') or
+            recipient.get('name') or ''
         )
         wello_uuid = await _get_or_create_welno_patient(
             db_manager, phone, r_name or '고객', hospital_id, variables,
         )
 
-    # attachment URL 치환 (검진데이터 암호화 + TN 전화번호)
+    # attachment URL 치환 (정적 URL > 검진데이터 암호화 > TN 전화번호)
     if attachment:
         attachment = await _substitute_attachment_urls(
             db_manager, attachment, wello_uuid, hospital_id, variables,
+            hosp_vars=hosp_vars,
         )
 
-    # AT 타입 → title에 병원명
+    # AT 타입 → TITLE 결정 (카카오 검수 등록값과 일치 필수)
+    # 우선순위: kakao_templates.title_sub > alimtalk_vars._title >
+    #          hospital_name (단 매칭된 정상 hospital_id 일 때만, PEERNINE default 제외)
+    # ('*' fallback 폐기 — 카카오 NoMatchedTemplateTitle 거부 원인)
     title = None
-    if msg_type == 'AT' and hospital_id:
-        title = await _get_hospital_name(db_manager, hospital_id)
+    if msg_type == 'AT':
+        tmpl_title_sub = tmpl_info.get('title_sub')
+        if tmpl_title_sub:
+            title = tmpl_title_sub
+        elif hosp_vars.get('_title'):
+            title = hosp_vars.get('_title')
+        elif hospital_id:
+            # hospital_name fallback (기존 정상 발송 템플릿 회귀 방지)
+            hosp_name = await _get_hospital_name(db_manager, hospital_id)
+            if hosp_name and hosp_name != 'PEERNINE':
+                title = hosp_name
 
     # MZSENDTRAN INSERT
     sn = generate_sn()
@@ -345,11 +373,22 @@ async def _send_one(
 
 
 async def _resolve_hospital_id(db_manager, hosnm: str) -> Optional[str]:
-    """hosnm(병원이름) → hospital_id 매핑"""
+    """hosnm(병원이름) → hospital_id 매핑.
+    우선순위: tb_hospital_rag_config (해시 ID, 검진설계/RAG 인증용) > welno_hospitals (일반 ID).
+    매칭 실패 시 None 반환 (이전: '*' fallback → 카카오 NoMatchedTemplateTitle 거부 원인)."""
     if not hosnm:
         return None
     try:
-        # 1. 정확 매칭
+        # 1. RAG config 정확 매칭 (해시 ID 우선 — alimtalk_vars 와 일관성 유지)
+        rows = await db_manager.execute_query(
+            """SELECT hospital_id FROM welno.tb_hospital_rag_config
+               WHERE hospital_name = %s AND is_active = true LIMIT 1""",
+            (hosnm,),
+        )
+        if rows:
+            return rows[0]['hospital_id']
+
+        # 2. welno_hospitals 정확 매칭 (RAG config 미등록 병원)
         rows = await db_manager.execute_query(
             """SELECT hospital_id FROM welno.welno_hospitals
                WHERE hospital_name = %s AND is_active = true LIMIT 1""",
@@ -358,10 +397,17 @@ async def _resolve_hospital_id(db_manager, hosnm: str) -> Optional[str]:
         if rows:
             return rows[0]['hospital_id']
 
-        # 2. 괄호 접두사 제거 후 부분 매칭 (예: "(서울)메디링스병원" → "메디링스병원")
+        # 3. 괄호 접두사 제거 후 부분 매칭 (예: "(서울)메디링스병원" → "메디링스병원")
         import re as _re
         clean = _re.sub(r'^\([^)]+\)', '', hosnm).strip()
         if clean and clean != hosnm:
+            rows = await db_manager.execute_query(
+                """SELECT hospital_id FROM welno.tb_hospital_rag_config
+                   WHERE hospital_name LIKE %s AND is_active = true LIMIT 1""",
+                (f"%{clean}%",),
+            )
+            if rows:
+                return rows[0]['hospital_id']
             rows = await db_manager.execute_query(
                 """SELECT hospital_id FROM welno.welno_hospitals
                    WHERE hospital_name LIKE %s AND is_active = true LIMIT 1""",
@@ -370,11 +416,52 @@ async def _resolve_hospital_id(db_manager, hosnm: str) -> Optional[str]:
             if rows:
                 return rows[0]['hospital_id']
 
-        # 3. 기본값
-        return '*'
+        # 4. 부분 단어 매칭 (예: "김현우내과" → "김현우내과의원")
+        if hosnm and len(hosnm) >= 2:
+            rows = await db_manager.execute_query(
+                """SELECT hospital_id FROM welno.tb_hospital_rag_config
+                   WHERE hospital_name LIKE %s AND is_active = true LIMIT 1""",
+                (f"%{hosnm}%",),
+            )
+            if rows:
+                return rows[0]['hospital_id']
+            rows = await db_manager.execute_query(
+                """SELECT hospital_id FROM welno.welno_hospitals
+                   WHERE hospital_name LIKE %s AND is_active = true LIMIT 1""",
+                (f"%{hosnm}%",),
+            )
+            if rows:
+                return rows[0]['hospital_id']
+
+        # 매칭 실패 → None (TITLE 자동 채움 차단)
+        return None
     except Exception as e:
         logger.warning(f"hospital_id 매핑 실패 ({hosnm}): {e}")
-        return '*'
+        return None
+
+
+async def _get_hospital_alimtalk_vars(
+    db_manager, hospital_id: Optional[str], template_code: str,
+) -> Dict[str, str]:
+    """병원별 알림톡 템플릿 변수 조회 (welno.tb_hospital_rag_config.alimtalk_vars).
+    구조: {template_code: {var_name: var_value}}.
+    hospital_id 빈/None 또는 매칭 row 없으면 빈 dict 반환."""
+    if not hospital_id or not template_code:
+        return {}
+    try:
+        rows = await db_manager.execute_query(
+            """SELECT alimtalk_vars FROM welno.tb_hospital_rag_config
+               WHERE hospital_id = %s AND is_active = true LIMIT 1""",
+            (hospital_id,),
+        )
+        if rows and rows[0].get('alimtalk_vars'):
+            all_vars = rows[0]['alimtalk_vars']
+            tpl_vars = all_vars.get(template_code) if isinstance(all_vars, dict) else None
+            if isinstance(tpl_vars, dict):
+                return {k: ('' if v is None else str(v)) for k, v in tpl_vars.items()}
+    except Exception as e:
+        logger.warning(f"alimtalk_vars 조회 실패 ({hospital_id}/{template_code}): {e}")
+    return {}
 
 
 async def _get_hospital_name(db_manager, hospital_id: str) -> str:
@@ -470,10 +557,15 @@ async def _substitute_attachment_urls(
     db_manager, attachment: str,
     wello_uuid: Optional[str], hospital_id: str,
     variables: Dict = None,
+    hosp_vars: Dict[str, str] = None,
 ) -> str:
-    """attachment JSON의 버튼 URL 변수 치환 + 검진데이터 암호화 + TN tel_number"""
+    """attachment JSON의 버튼 URL 변수 치환 + 검진데이터 암호화 + TN tel_number.
+    URL 치환 우선순위: hosp_vars[sub_button_N] (정적) > #{sub}/#{URL} (wello link) > 그대로."""
     from ...utils.partner_encryption import encrypt_user_data
     from ...core.config import settings
+
+    if hosp_vars is None:
+        hosp_vars = {}
 
     try:
         att = json.loads(attachment) if isinstance(attachment, str) else attachment
@@ -544,7 +636,7 @@ async def _substitute_attachment_urls(
                 f"?uuid={wello_uuid}&hospital={hospital_id}"
             )
 
-    for btn in buttons:
+    for idx, btn in enumerate(buttons):
         btn_type = btn.get('type', '')
 
         # TN 타입: tel_number 비어있으면 병원 전화번호 조회
@@ -567,17 +659,36 @@ async def _substitute_attachment_urls(
             continue
 
         # WL/MD 타입: URL 변수 치환
-        if btn_type in ('WL', 'MD') and wello_uuid:
+        # 우선순위: hosp_vars[sub_button_{idx}] (정적 URL) > 기존 #{sub}/#{URL} 치환
+        if btn_type in ('WL', 'MD'):
+            static_url_raw = hosp_vars.get(f'sub_button_{idx}', '')
+            # 정적 URL 안의 hospital_id 변수 치환
+            # (운영자가 "checkup-design?hospital=#{hospital_id}" 같이 등록 가능)
+            static_url = static_url_raw
+            if static_url and hospital_id:
+                static_url = static_url.replace('#{hospital_id}', hospital_id)
+                static_url = static_url.replace('#{client_id}', hospital_id)
             for key in ('url_mobile', 'url_pc'):
                 url = btn.get(key, '')
                 if not url:
                     continue
-                url = url.replace('#{wello_uuid}', wello_uuid)
-                url = url.replace('#{client_id}', hospital_id)
-                if wello_url_no_proto:
-                    url = url.replace('#{sub}', wello_url_no_proto)
-                if wello_url_full:
-                    url = url.replace('#{URL}', wello_url_full)
+                # 1) 병원 고정 URL 우선 (#{sub} 변수를 정적 URL로)
+                if static_url:
+                    url = url.replace('#{sub}', static_url)
+                # 2) wello_uuid 기반 link_data URL fallback
+                if wello_uuid:
+                    url = url.replace('#{wello_uuid}', wello_uuid)
+                    url = url.replace('#{client_id}', hospital_id)
+                    if wello_url_no_proto:
+                        url = url.replace('#{sub}', wello_url_no_proto)
+                    if wello_url_full:
+                        url = url.replace('#{URL}', wello_url_full)
+                # 3) hosp_vars 의 임의 변수 (#{변수명}) 치환
+                for vn, vv in hosp_vars.items():
+                    if vn.startswith('sub_button_') or vn.startswith('_'):
+                        continue
+                    if vv:
+                        url = url.replace(f'#{{{vn}}}', vv)
                 btn[key] = url
 
     # 카카오 API는 'button' 키 사용 — 통일

@@ -13,6 +13,7 @@ import { IconExcel } from '../../components/ExportIcons';
 import { ExportButtons } from '../../components/ExportButtons';
 import { formatDateShort } from '../../utils/dateFormat';
 import { Spinner } from '../../components/Spinner';
+import AlimtalkVarsSection from './components/AlimtalkVarsSection';
 import { SearchableSelect } from '../../components/SearchableSelect';
 import './styles.scss';
 
@@ -58,6 +59,7 @@ interface HospitalConfig {
   partner_id: string;
   hospital_id: string;
   hospital_name: string;
+  contact_phone?: string | null;
   persona_prompt: string;
   welcome_message: string;
   llm_config: { model: string; temperature: number; max_tokens: number };
@@ -71,6 +73,7 @@ interface HospitalConfig {
     teaser_message?: string;
     teaser_delay?: number;
   };
+  alimtalk_vars: Record<string, Record<string, string>>;
   is_active: boolean;
   created_at?: string;
   updated_at?: string;
@@ -1552,6 +1555,13 @@ const EmbeddingPage: React.FC = () => {
                               placeholder="https://example.com/icon.png"
                             />
                           </div>
+
+                          {config && (
+                            <AlimtalkVarsSection
+                              config={config}
+                              setConfig={setConfig as any}
+                            />
+                          )}
 
                           <div className="admin-embedding-page__form-section-title">임베드 코드</div>
                           <div className="admin-embedding-page__embed-code-wrap">

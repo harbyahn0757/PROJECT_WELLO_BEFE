@@ -89,6 +89,7 @@ class HospitalRagConfigUpdate(BaseModel):
     llm_config: Optional[Dict[str, Any]] = None
     embedding_config: Optional[Dict[str, Any]] = None
     theme_config: Optional[Dict[str, Any]] = None
+    alimtalk_vars: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = True
 
 
@@ -103,6 +104,7 @@ class HospitalRagConfigResponse(BaseModel):
     llm_config: Dict[str, Any]
     embedding_config: Dict[str, Any]
     theme_config: Dict[str, Any]
+    alimtalk_vars: Dict[str, Any] = {}
     is_active: bool
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -1350,7 +1352,7 @@ async def get_hospital_config(hospital_id: str, partner_id: str = "welno"):
     try:
         query = """
             SELECT partner_id, hospital_id, hospital_name, contact_phone, persona_prompt, welcome_message,
-                   llm_config, embedding_config, theme_config, is_active,
+                   llm_config, embedding_config, theme_config, alimtalk_vars, is_active,
                    created_at, updated_at
             FROM welno.tb_hospital_rag_config
             WHERE partner_id = %s AND hospital_id = %s
@@ -1372,6 +1374,7 @@ async def get_hospital_config(hospital_id: str, partner_id: str = "welno"):
                 llm_config={"model": "gemini-3-flash-preview", "temperature": 0.7, "max_tokens": 2000},
                 embedding_config={"model": "text-embedding-ada-002", "index_name": "faiss_db"},
                 theme_config={"theme": "default", "logo_url": None, "primary_color": "#7B5E4F", "icon_url": None, "widget_mode": "button", "teaser_message": "건강 궁금한 점 물어보세요!", "teaser_delay": 2000},
+                alimtalk_vars={},
                 is_active=True,
             )
 
@@ -1385,6 +1388,7 @@ async def get_hospital_config(hospital_id: str, partner_id: str = "welno"):
             llm_config=config['llm_config'] or {},
             embedding_config=config['embedding_config'] or {},
             theme_config=config['theme_config'] or {},
+            alimtalk_vars=config.get('alimtalk_vars') or {},
             is_active=config['is_active'],
             created_at=config['created_at'].isoformat() if config['created_at'] else None,
             updated_at=config['updated_at'].isoformat() if config['updated_at'] else None,
@@ -1398,12 +1402,14 @@ async def update_hospital_config(
     hospital_id: str,
     config: HospitalRagConfigUpdate = Body(...),
 ):
-    """병원별 RAG/LLM 설정 저장 (Upsert)"""
+    """병원별 RAG/LLM 설정 저장 (Upsert).
+    alimtalk_vars 가 None 이면 기존값 보존(COALESCE), {} 명시 시 빈 객체로 갱신."""
     try:
         query = """
             INSERT INTO welno.tb_hospital_rag_config
-            (partner_id, hospital_id, hospital_name, contact_phone, persona_prompt, welcome_message, llm_config, embedding_config, theme_config, is_active)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            (partner_id, hospital_id, hospital_name, contact_phone, persona_prompt, welcome_message,
+             llm_config, embedding_config, theme_config, alimtalk_vars, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, COALESCE(%s::jsonb, '{}'::jsonb), %s)
             ON CONFLICT (partner_id, hospital_id) DO UPDATE SET
                 hospital_name = EXCLUDED.hospital_name,
                 contact_phone = EXCLUDED.contact_phone,
@@ -1412,6 +1418,7 @@ async def update_hospital_config(
                 llm_config = EXCLUDED.llm_config,
                 embedding_config = EXCLUDED.embedding_config,
                 theme_config = EXCLUDED.theme_config,
+                alimtalk_vars = COALESCE(EXCLUDED.alimtalk_vars, welno.tb_hospital_rag_config.alimtalk_vars),
                 is_active = EXCLUDED.is_active,
                 updated_at = NOW()
         """
@@ -1419,7 +1426,9 @@ async def update_hospital_config(
             config.partner_id, hospital_id, config.hospital_name, config.contact_phone,
             config.persona_prompt, config.welcome_message,
             json.dumps(config.llm_config or {}), json.dumps(config.embedding_config or {}),
-            json.dumps(config.theme_config or {}), config.is_active,
+            json.dumps(config.theme_config or {}),
+            json.dumps(config.alimtalk_vars) if config.alimtalk_vars is not None else None,
+            config.is_active,
         ))
 
         from ....services.dynamic_config_service import dynamic_config
@@ -1451,8 +1460,9 @@ async def create_hospital_config(
 
         query = """
             INSERT INTO welno.tb_hospital_rag_config
-            (partner_id, hospital_id, hospital_name, contact_phone, persona_prompt, welcome_message, llm_config, embedding_config, theme_config, is_active)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            (partner_id, hospital_id, hospital_name, contact_phone, persona_prompt, welcome_message,
+             llm_config, embedding_config, theme_config, alimtalk_vars, is_active)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s)
         """
         await db_manager.execute_update(query, (
             config.partner_id, hospital_id, config.hospital_name, config.contact_phone,
@@ -1460,6 +1470,7 @@ async def create_hospital_config(
             json.dumps(config.llm_config or {"model": "gemini-3-flash-preview", "temperature": 0.7, "max_tokens": 2000}),
             json.dumps(config.embedding_config or {"model": "text-embedding-ada-002", "index_name": "faiss_db"}),
             json.dumps(config.theme_config or {"theme": "default", "logo_url": None, "primary_color": "#7B5E4F"}),
+            json.dumps(config.alimtalk_vars or {}),
             config.is_active,
         ))
 
