@@ -47,9 +47,18 @@ const CheckupDesignCampaign: React.FC = () => {
 
   // URL 파라미터 (평문 / lookup_key / 레거시 암호화)
   const urlParams = new URLSearchParams(location.search);
-  const [uuid, setUuid] = useState(urlParams.get('uuid') || '');
+  // P0 #1 hotfix v2: URL query 가 사라진 재진입 시 localStorage 폴백 (어제 hotfix A-1/A-2 가 저장한 값)
+  const [uuid, setUuid] = useState(
+    urlParams.get('uuid') ||
+    StorageManager.getItem<string>(STORAGE_KEYS.PATIENT_UUID) ||
+    ''
+  );
   const [partnerId, setPartnerId] = useState(urlParams.get('partner') || 'welno');
-  const [hospitalId, setHospitalId] = useState(urlParams.get('hospital') || '');
+  const [hospitalId, setHospitalId] = useState(
+    urlParams.get('hospital') ||
+    StorageManager.getItem<string>(STORAGE_KEYS.HOSPITAL_ID) ||
+    ''
+  );
   const [healthData, setHealthData] = useState<any>(null);
   const linkKey = urlParams.get('key') || '';
   const encryptedData = (() => {
