@@ -21,6 +21,79 @@ const TEMPLATES_API = (() => {
   return '/api/v1/partner-office';
 })();
 
+/**
+ * 버튼 URL 프리셋 정의
+ * - 운영자가 검진설계 / 외부URL / 직접입력 중 선택
+ * - "검진설계" 선택 시 base_url + params 자동 매핑 → 발송 시 BE 변수 치환
+ *
+ * 변수: #{hospital_id} (해시 ID 자동), #{wello_uuid} (환자 매핑 시 자동),
+ *      #{client_id} (= hospital_id alias)
+ */
+interface PresetParam {
+  key: string;
+  label: string;
+  default: string;
+  placeholder?: string;
+  required?: boolean;
+  hint?: string;
+}
+interface ButtonPreset {
+  code: string;
+  name: string;
+  base_url: string;
+  params: PresetParam[];
+  description?: string;
+}
+
+const BUTTON_PRESETS: ButtonPreset[] = [
+  {
+    code: 'checkup_design',
+    name: '웰노 검진설계',
+    base_url: 'https://welno.kindhabit.com/campaigns/checkup-design',
+    description: '웰노 검진설계 캠페인 진입. 병원ID 기준 컨텍스트 자동 로드',
+    params: [
+      { key: 'hospital', label: '병원 ID', default: '#{hospital_id}',
+        hint: '발송 시 BE가 tb_hospital_rag_config 해시 ID 자동 치환', required: true },
+      { key: 'uuid', label: '환자 UUID (선택)', default: '',
+        hint: '발송 대상자 매핑 후 자동 (#{wello_uuid}) 또는 비움' },
+      { key: 'partner', label: '파트너', default: 'welno' },
+    ],
+  },
+  // 추후 프리셋 추가 (재방문, 결제 등)
+];
+
+// 직접 입력 모드 표시 코드
+const DIRECT_INPUT = '__direct__';
+
+// URL → 프리셋 역매칭 (저장된 sub_button_N URL이 어떤 프리셋인지 식별)
+function detectPresetFromUrl(url: string): { preset: ButtonPreset | null; params: Record<string, string> } {
+  if (!url) return { preset: null, params: {} };
+  for (const p of BUTTON_PRESETS) {
+    if (url.startsWith(p.base_url) || url.startsWith(p.base_url.replace('https://', ''))) {
+      const qIdx = url.indexOf('?');
+      const params: Record<string, string> = {};
+      if (qIdx >= 0) {
+        const qs = url.slice(qIdx + 1);
+        for (const part of qs.split('&')) {
+          const [k, v = ''] = part.split('=');
+          if (k) params[decodeURIComponent(k)] = decodeURIComponent(v);
+        }
+      }
+      return { preset: p, params };
+    }
+  }
+  return { preset: null, params: {} };
+}
+
+// 프리셋 + 매개변수 → 최종 URL 빌드
+function buildUrlFromPreset(preset: ButtonPreset, params: Record<string, string>): string {
+  const qs = preset.params
+    .filter(p => params[p.key] !== undefined && params[p.key] !== '')
+    .map(p => `${encodeURIComponent(p.key)}=${(params[p.key] || '')}`)
+    .join('&');
+  return qs ? `${preset.base_url}?${qs}` : preset.base_url;
+}
+
 interface KakaoTemplate {
   template_code: string;
   template_name: string;
@@ -240,20 +313,15 @@ const AlimtalkVarsSection: React.FC<Props> = ({ config, setConfig }) => {
             const value = currentVars[key] || '';
             const checkedTemplateUrl = btn.url_mobile || btn.url_pc || '';
             return (
-              <div key={key} className="admin-embedding-page__form-group">
-                <label>
-                  버튼 [{idx + 1}] {btn.name} ({btn.type})
-                  <span style={{ marginLeft: 8, fontSize: '0.8rem', color: '#888' }}>
-                    검수 URL: {checkedTemplateUrl}
-                  </span>
-                </label>
-                <input
-                  type="url"
-                  value={value}
-                  placeholder="https://example.com/path  (검수 URL의 #{sub} 자리에 들어갈 정적 URL)"
-                  onChange={e => updateVar(key, e.target.value)}
-                />
-              </div>
+              <ButtonUrlPresetField
+                key={key}
+                index={idx}
+                buttonName={btn.name}
+                buttonType={btn.type}
+                checkedTemplateUrl={checkedTemplateUrl}
+                value={value}
+                onChange={(newVal) => updateVar(key, newVal)}
+              />
             );
           })}
 
@@ -284,6 +352,154 @@ const AlimtalkVarsSection: React.FC<Props> = ({ config, setConfig }) => {
             </pre>
           </div>
         </>
+      )}
+    </div>
+  );
+};
+
+/**
+ * 버튼 URL + 프리셋 입력 필드
+ * 프리셋 선택 시 매개변수 입력 폼 표시 → 자동 URL 빌드 → 부모로 전달
+ * "직접 입력" 선택 시 raw URL 입력
+ */
+interface ButtonUrlPresetFieldProps {
+  index: number;
+  buttonName: string;
+  buttonType: string;
+  checkedTemplateUrl: string;
+  value: string;       // 저장된 sub_button_N URL
+  onChange: (newValue: string) => void;
+}
+
+const ButtonUrlPresetField: React.FC<ButtonUrlPresetFieldProps> = ({
+  index, buttonName, buttonType, checkedTemplateUrl, value, onChange,
+}) => {
+  // 저장된 URL → 프리셋 자동 인식
+  const detected = useMemo(() => detectPresetFromUrl(value), [value]);
+
+  // 프리셋 선택 (직접 입력 / preset code)
+  const [presetCode, setPresetCode] = useState<string>(detected.preset?.code || (value ? DIRECT_INPUT : DIRECT_INPUT));
+  // 프리셋 매개변수 값
+  const [params, setParams] = useState<Record<string, string>>(() => {
+    if (detected.preset) {
+      const init: Record<string, string> = {};
+      detected.preset.params.forEach(p => {
+        init[p.key] = detected.params[p.key] !== undefined ? detected.params[p.key] : p.default;
+      });
+      return init;
+    }
+    return {};
+  });
+  // 직접 입력 raw URL
+  const [rawUrl, setRawUrl] = useState<string>(detected.preset ? '' : value);
+
+  const selectedPreset = useMemo(
+    () => BUTTON_PRESETS.find(p => p.code === presetCode) || null,
+    [presetCode],
+  );
+
+  // 프리셋 선택 변경
+  const handlePresetChange = useCallback((newCode: string) => {
+    setPresetCode(newCode);
+    if (newCode === DIRECT_INPUT) {
+      // 직접 입력 모드: 현재 빌드된 URL을 raw로 가져감
+      setRawUrl(value);
+      // sub_button_N 은 그대로 둠 (운영자가 직접 수정 시 onChange)
+      return;
+    }
+    // 프리셋 모드: default 매개변수로 자동 URL 빌드
+    const preset = BUTTON_PRESETS.find(p => p.code === newCode);
+    if (!preset) return;
+    const newParams: Record<string, string> = {};
+    preset.params.forEach(p => { newParams[p.key] = p.default; });
+    setParams(newParams);
+    onChange(buildUrlFromPreset(preset, newParams));
+  }, [value, onChange]);
+
+  // 매개변수 1개 변경
+  const handleParamChange = useCallback((paramKey: string, paramValue: string) => {
+    if (!selectedPreset) return;
+    const newParams = { ...params, [paramKey]: paramValue };
+    setParams(newParams);
+    onChange(buildUrlFromPreset(selectedPreset, newParams));
+  }, [selectedPreset, params, onChange]);
+
+  // 직접 입력 변경
+  const handleRawChange = useCallback((newRaw: string) => {
+    setRawUrl(newRaw);
+    onChange(newRaw);
+  }, [onChange]);
+
+  return (
+    <div className="admin-embedding-page__form-group" style={{
+      borderLeft: '3px solid #e0e0e0', paddingLeft: 12, marginBottom: 16,
+    }}>
+      <label>
+        버튼 [{index + 1}] {buttonName} ({buttonType})
+        <span style={{ marginLeft: 8, fontSize: '0.8rem', color: '#888' }}>
+          검수 URL: {checkedTemplateUrl}
+        </span>
+      </label>
+
+      {/* 프리셋 드롭다운 */}
+      <div style={{ marginBottom: 8 }}>
+        <select value={presetCode} onChange={e => handlePresetChange(e.target.value)}>
+          <option value={DIRECT_INPUT}>— 직접 입력 (URL 직접)</option>
+          {BUTTON_PRESETS.map(p => (
+            <option key={p.code} value={p.code}>● 프리셋: {p.name}</option>
+          ))}
+        </select>
+        {selectedPreset && (
+          <span style={{ marginLeft: 8, fontSize: '0.85rem', color: '#0a7' }}>
+            {selectedPreset.description}
+          </span>
+        )}
+      </div>
+
+      {/* 프리셋 매개변수 입력 폼 */}
+      {selectedPreset && (
+        <div style={{
+          background: '#f8f9fa', border: '1px solid #e0e0e0', borderRadius: 4,
+          padding: 12, marginBottom: 8,
+        }}>
+          <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: 8 }}>
+            기본 URL: <code>{selectedPreset.base_url}</code>
+          </div>
+          {selectedPreset.params.map(p => (
+            <div key={p.key} style={{ marginBottom: 8 }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', marginBottom: 2 }}>
+                {p.label}{p.required && <span style={{ color: '#c33' }}> *</span>}
+                <code style={{ marginLeft: 6, fontSize: '0.75rem', color: '#888' }}>?{p.key}=</code>
+              </label>
+              <input
+                type="text"
+                value={params[p.key] !== undefined ? params[p.key] : p.default}
+                placeholder={p.placeholder || p.default}
+                onChange={e => handleParamChange(p.key, e.target.value)}
+                style={{ width: '100%' }}
+              />
+              {p.hint && (
+                <span style={{ fontSize: '0.75rem', color: '#888' }}>{p.hint}</span>
+              )}
+            </div>
+          ))}
+          <div style={{ marginTop: 8, padding: 8, background: '#fff', border: '1px solid #ddd', borderRadius: 4 }}>
+            <span style={{ fontSize: '0.75rem', color: '#666' }}>최종 생성 URL (저장값):</span>
+            <div style={{ fontFamily: 'monospace', fontSize: '0.85rem', color: '#0a7', wordBreak: 'break-all' }}>
+              {value || '(매개변수 입력 필요)'}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 직접 입력 모드 */}
+      {presetCode === DIRECT_INPUT && (
+        <input
+          type="url"
+          value={rawUrl}
+          placeholder="https://example.com/path  (검수 URL의 #{sub} 자리에 들어갈 URL)"
+          onChange={e => handleRawChange(e.target.value)}
+        />
       )}
     </div>
   );
