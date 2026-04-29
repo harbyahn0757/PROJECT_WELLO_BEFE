@@ -257,10 +257,13 @@ const CheckupDesignCampaign: React.FC = () => {
 
   // ── "본인 인증" 버튼 클릭 ──
   const handleAuth = () => {
-    if (!uuid) return;
+    // P0 #1 hotfix v3: uuid 없어도 hospitalId 만 있으면 진행 (알림톡 ?hospital= 직접 진입자 흐름 지원)
+    // AuthForm 이 인증 후 신규/기존 UUID 자동 부여하여 return_to 의 uuid= 를 교체 (AuthForm.tsx:158-171)
+    if (!hospitalId) return;
     clearStaleAuth();
-    const returnTo = `/campaigns/checkup-design?uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}&from_auth=true`;
-    navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=campaign&uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}`);
+    const uuidParam = uuid ? `&uuid=${uuid}` : '';
+    const returnTo = `/campaigns/checkup-design?hospital=${hospitalId}&partner=${partnerId}${uuidParam}&from_auth=true`;
+    navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=campaign&partner=${partnerId}&hospital=${hospitalId}${uuidParam}`);
   };
 
   // ── "기존 데이터로 바로 설계" (알림톡 링크 데이터 → DB 저장 → 일반 설계) ──
@@ -290,10 +293,12 @@ const CheckupDesignCampaign: React.FC = () => {
 
   // ── "Tilko 다년간 정밀 설계" ──
   const handleAuthMultiYear = () => {
-    if (!uuid) return;
+    // P0 #1 hotfix v3: uuid 없어도 hospitalId 만 있으면 진행 (handleAuth 와 동일)
+    if (!hospitalId) return;
     clearStaleAuth();
-    const returnTo = `/campaigns/checkup-design?uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}&from_auth=true`;
-    navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=multi_year&uuid=${uuid}&partner=${partnerId}&hospital=${hospitalId}`);
+    const uuidParam = uuid ? `&uuid=${uuid}` : '';
+    const returnTo = `/campaigns/checkup-design?hospital=${hospitalId}&partner=${partnerId}${uuidParam}&from_auth=true`;
+    navigate(`/login?return_to=${encodeURIComponent(returnTo)}&mode=multi_year&partner=${partnerId}&hospital=${hospitalId}${uuidParam}`);
   };
 
   // ── "결과 보기" ──
