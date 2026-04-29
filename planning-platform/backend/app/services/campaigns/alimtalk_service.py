@@ -330,9 +330,10 @@ async def _send_one(
         )
 
     # AT 타입 → TITLE 결정 (카카오 검수 등록값과 일치 필수)
-    # 우선순위: kakao_templates.title_sub > alimtalk_vars._title >
-    #          hospital_name (단 매칭된 정상 hospital_id 일 때만, PEERNINE default 제외)
-    # ('*' fallback 폐기 — 카카오 NoMatchedTemplateTitle 거부 원인)
+    # 우선순위: kakao_templates.title_sub > alimtalk_vars._title > None
+    # (hospital_name fallback 폐기 — 검수 등록값과 일치 안 하면 NoMatchedTemplateTitle 거부)
+    # 정상 발송 templates(welno_pre_inform_004 등) 의 TITLE 자동 채움이 필요하면
+    # kakao_templates.title_sub 컬럼에 명시값 등록하거나 운영자가 alimtalk_vars._title 입력
     title = None
     if msg_type == 'AT':
         tmpl_title_sub = tmpl_info.get('title_sub')
@@ -340,11 +341,6 @@ async def _send_one(
             title = tmpl_title_sub
         elif hosp_vars.get('_title'):
             title = hosp_vars.get('_title')
-        elif hospital_id:
-            # hospital_name fallback (기존 정상 발송 템플릿 회귀 방지)
-            hosp_name = await _get_hospital_name(db_manager, hospital_id)
-            if hosp_name and hosp_name != 'PEERNINE':
-                title = hosp_name
 
     # MZSENDTRAN INSERT
     sn = generate_sn()
