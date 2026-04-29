@@ -217,13 +217,9 @@ const CheckupDesignCampaign: React.FC = () => {
   const handleStartDesign = async () => {
     if (!uuid) return;
 
-    // from_auth=true: Tilko 인증 복귀 — 약관은 인증 전에 이미 동의함 → 스킵
-    const isFromAuth = new URLSearchParams(location.search).get('from_auth') === 'true';
-    if (isFromAuth) {
-      console.log('[CheckupDesign] from_auth=true → 약관 스킵, 바로 설계 진입');
-      doNavigateDesign();
-      return;
-    }
+    // P0 #1 hotfix v4: from_auth=true 분기 제거 (인증 후 복귀 시에도 항상 약관 체크)
+    // 신규 사용자(uuid 없이 알림톡 진입)는 인증 전 약관 못 받음 → 인증 후 모달 표시 필요
+    // 기존 동의자는 checkAllTermsAgreement → needsAgreement=false 즉시 통과 (회귀 0)
 
     // 약관 동의 체크
     try {

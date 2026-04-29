@@ -392,9 +392,8 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       if (isLoginPage) {
         // 모바일 인증 대기 단계
         if (isAuthWaiting) return '인증 완료하고 리포트 보기';
-        // 인증 수단 선택 단계 및 정보 확인 단계는 모두 '확인 완료' (매트릭스 기준)
-        // 그 외 로그인 페이지의 기본값은 '확인 완료' (정보 확인 단계)
-        return '확인 완료';
+        // 정보 확인 / 인증 수단 선택 단계 — UX 개선: 사용자 의도 명확화
+        return '나만의 검진 설계하기';
       }
 
       // [결제/소개 페이지인 경우]
