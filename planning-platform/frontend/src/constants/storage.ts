@@ -17,7 +17,8 @@ export const STORAGE_KEYS = {
   TILKO_COLLECTING_STATUS: 'tilko_collecting_status',
   TILKO_AUTH_WAITING: 'tilko_auth_waiting',
   TILKO_AUTH_METHOD_SELECTION: 'tilko_auth_method_selection',
-  
+  TILKO_CONFIRMATION_STEP: 'tilko_confirmation_step',
+
   // UI 상태 관리
   TILKO_INFO_CONFIRMING: 'tilko_info_confirming',
   START_INFO_CONFIRMATION: 'start_info_confirmation',

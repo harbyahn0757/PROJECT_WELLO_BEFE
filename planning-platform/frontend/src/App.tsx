@@ -392,7 +392,16 @@ const FloatingButton: React.FC<{ onOpenAppointmentModal?: () => void }> = ({ onO
       if (isLoginPage) {
         // 모바일 인증 대기 단계
         if (isAuthWaiting) return '인증 완료하고 리포트 보기';
-        // 정보 확인 / 인증 수단 선택 단계 — UX 개선: 사용자 의도 명확화
+
+        // G-1: 단계별 캡션 분기 (TILKO_CONFIRMATION_STEP localStorage 기반)
+        const confirmStep = localStorage.getItem(STORAGE_KEYS.TILKO_CONFIRMATION_STEP);
+        if (confirmStep === 'name' || confirmStep === 'phone' || confirmStep === 'birthday') {
+          return '다음';
+        }
+        if (confirmStep === 'auth_method') {
+          return '인증하러 가기';
+        }
+        // 단계 정보 없거나 인증 후 복귀 단계
         return '나만의 검진 설계하기';
       }
 

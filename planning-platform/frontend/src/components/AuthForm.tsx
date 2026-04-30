@@ -1306,6 +1306,16 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
         window.dispatchEvent(new Event('localStorageChange'));
     }
   }, [showConfirmation, authRequested]);
+
+  // G-1: currentConfirmationStep → localStorage 동기화 (App.tsx 캡션 분기용)
+  useEffect(() => {
+    if (showConfirmation && !authRequested) {
+      StorageManager.setItem(STORAGE_KEYS.TILKO_CONFIRMATION_STEP, currentConfirmationStep);
+    } else {
+      StorageManager.removeItem(STORAGE_KEYS.TILKO_CONFIRMATION_STEP);
+    }
+    window.dispatchEvent(new CustomEvent('tilko-status-change'));
+  }, [currentConfirmationStep, showConfirmation, authRequested]);
   
   // 플로팅 버튼 "확인 완료" 클릭 이벤트 리스너
   useEffect(() => {
