@@ -59,22 +59,33 @@ async def find_patient(
             try:
                 from ....core.database import db_manager
                 uuid = result["uuid"]
+                # P0 v6: psycopg2 placeholder (%s) 사용 — db_manager.execute_query 는 psycopg2 cursor 기반 (database.py:57-62)
+                # asyncpg $1 형식 미지원 → "there is no parameter $1" 에러로 try/except silent 처리되던 이슈 정정
                 summary_sql = """
                     SELECT
-                        (SELECT count(*) FROM welno.welno_checkup_data WHERE patient_uuid = $1) as health_checkups,
-                        (SELECT count(*) FROM welno.welno_prescription_data WHERE patient_uuid = $1) as prescriptions,
-                        (SELECT count(*) FROM welno.tb_partner_rag_chat_log WHERE user_uuid = $1) as rag_chats,
-                        (SELECT EXISTS(SELECT 1 FROM welno.welno_password_sessions WHERE patient_uuid = $1)) as has_password
+                        (SELECT count(*) FROM welno.welno_checkup_data WHERE patient_uuid = %s) as health_checkups,
+                        (SELECT count(*) FROM welno.welno_prescription_data WHERE patient_uuid = %s) as prescriptions,
+                        (SELECT count(*) FROM welno.tb_partner_rag_chat_log WHERE user_uuid = %s) as rag_chats,
+                        (SELECT EXISTS(SELECT 1 FROM welno.welno_password_sessions WHERE patient_uuid = %s)) as has_password
                 """
-                rows = await db_manager.execute_query(summary_sql, uuid)
+                rows = await db_manager.execute_query(summary_sql, (uuid, uuid, uuid, uuid))
                 if rows:
                     row = rows[0]
-                    result["dataSummary"] = {
-                        "healthCheckups": row[0] or 0,
-                        "prescriptions": row[1] or 0,
-                        "ragChats": row[2] or 0,
-                    }
-                    result["hasPassword"] = bool(row[3])
+                    # RealDictCursor 반환 시 dict, tuple cursor 시 인덱스 — 양쪽 호환
+                    if isinstance(row, dict):
+                        result["dataSummary"] = {
+                            "healthCheckups": row.get("health_checkups") or 0,
+                            "prescriptions": row.get("prescriptions") or 0,
+                            "ragChats": row.get("rag_chats") or 0,
+                        }
+                        result["hasPassword"] = bool(row.get("has_password"))
+                    else:
+                        result["dataSummary"] = {
+                            "healthCheckups": row[0] or 0,
+                            "prescriptions": row[1] or 0,
+                            "ragChats": row[2] or 0,
+                        }
+                        result["hasPassword"] = bool(row[3])
             except Exception as e:
                 print(f"⚠️ [환자검색] dataSummary 조회 실패 (무시): {e}")
 
