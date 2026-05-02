@@ -1235,6 +1235,7 @@ class WelnoDataService:
             result_patient = convert(dict(patient_row))
 
             # hospital_id 불일치 시 다른 병원 환자 데이터 노출 방지
+            # P0 v8: actual_hospital_id 포함 — FE 가 받아 localStorage 갱신 + 재호출
             if hospital_id_mismatch:
                 result_patient["name"] = "고객"
                 return {
@@ -1242,6 +1243,7 @@ class WelnoDataService:
                     "health_data": [],
                     "prescription_data": [],
                     "hospital_id_mismatch": True,
+                    "actual_hospital_id": hospital_id,
                 }
 
             return {

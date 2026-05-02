@@ -25,17 +25,35 @@ export const loadHealthData = async (
   patientName?: string
 ): Promise<HealthDataLoadResult> => {
   console.log('📊 [데이터로더] DB에서 저장된 데이터 로드 시도:', { uuid, hospital });
-  
+
+  // P0 v8: hospital_id 불일치 자동 재시도 (알림톡 hex hospital → 실제 환자 hospital 매칭)
+  const fetchHealthDataWithRetry = async (currentHospital: string): Promise<{ resp: Response; result: any; effectiveHospital: string }> => {
+    const r = await fetch(API_ENDPOINTS.HEALTH_DATA(uuid, currentHospital));
+    if (!r.ok) return { resp: r, result: null, effectiveHospital: currentHospital };
+    const j = await r.json();
+    // BE 가 hospital_id_mismatch 응답 + actual_hospital_id 제공 시 한 번 재시도
+    const actual = j?.data?.actual_hospital_id || j?.actual_hospital_id;
+    if ((j?.data?.hospital_id_mismatch || j?.hospital_id_mismatch) && actual && actual !== currentHospital) {
+      console.warn(`🔁 [데이터로더] hospital_id 불일치 → 실제 hospital(${actual})로 재시도`);
+      const r2 = await fetch(API_ENDPOINTS.HEALTH_DATA(uuid, actual));
+      if (r2.ok) {
+        const j2 = await r2.json();
+        return { resp: r2, result: j2, effectiveHospital: actual };
+      }
+    }
+    return { resp: r, result: j, effectiveHospital: currentHospital };
+  };
+
   try {
-    // 1. API에서 데이터 조회 (우선)
-    const response = await fetch(API_ENDPOINTS.HEALTH_DATA(uuid, hospital));
-    
+    // 1. API에서 데이터 조회 (우선) — 불일치 시 자동 재시도
+    const { resp: response, result: resultPre, effectiveHospital } = await fetchHealthDataWithRetry(hospital);
+
     if (response.ok) {
-      const result = await response.json();
+      const result = resultPre || await response.json();
       // 🔧 디버깅용 간소화된 데이터 로그 (이미지 데이터는 키만 표시)
       const simplifiedResult = simplifyDataForLog(result);
       console.log('✅ [데이터로더] DB 데이터 로드 성공:', simplifiedResult);
-      
+
       if (result.success && result.data) {
         const { health_data, prescription_data } = result.data;
         
