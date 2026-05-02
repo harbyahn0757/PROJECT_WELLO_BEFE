@@ -1131,19 +1131,40 @@ class WelnoDataService:
             print(f"  - birth_date 타입: {type(patient_dict_temp.get('birth_date'))}")
             print(f"  - birth_date NULL 여부: {patient_dict_temp.get('birth_date') is None}")
             
+            # P0 v9: hospital_id 정합 깨짐 케이스 대응 — UUID + hospital_id 0건이면 UUID 만으로 fallback
+            # 원인: 동일 UUID 환자가 외부 EMR hospital(알림톡 hex)로 빈 row 생성 + 실 데이터는 정규화 hospital(PEERNINE)에 INSERT
+            # → 첫 쿼리 (uuid+hospital_id) 0건 → fallback 로 사용자에게 데이터 노출 (UUID 가 보안 토큰)
             health_query = """
-                SELECT * FROM welno.welno_checkup_data 
+                SELECT * FROM welno.welno_checkup_data
                 WHERE patient_uuid = $1 AND hospital_id = $2
                 ORDER BY year DESC, checkup_date DESC
             """
             health_rows = await conn.fetch(health_query, uuid, hospital_id)
-            
+            if not health_rows:
+                health_fallback = """
+                    SELECT * FROM welno.welno_checkup_data
+                    WHERE patient_uuid = $1
+                    ORDER BY year DESC, checkup_date DESC
+                """
+                health_rows = await conn.fetch(health_fallback, uuid)
+                if health_rows:
+                    print(f"🔁 [get_patient_health_data] hospital_id 정합 깨짐 → UUID-only fallback: 검진 {len(health_rows)}건")
+
             prescription_query = """
-                SELECT * FROM welno.welno_prescription_data 
+                SELECT * FROM welno.welno_prescription_data
                 WHERE patient_uuid = $1 AND hospital_id = $2
                 ORDER BY treatment_date DESC
             """
             prescription_rows = await conn.fetch(prescription_query, uuid, hospital_id)
+            if not prescription_rows:
+                rx_fallback = """
+                    SELECT * FROM welno.welno_prescription_data
+                    WHERE patient_uuid = $1
+                    ORDER BY treatment_date DESC
+                """
+                prescription_rows = await conn.fetch(rx_fallback, uuid)
+                if prescription_rows:
+                    print(f"🔁 [get_patient_health_data] hospital_id 정합 깨짐 → UUID-only fallback: 처방 {len(prescription_rows)}건")
             
             await conn.close()
             
