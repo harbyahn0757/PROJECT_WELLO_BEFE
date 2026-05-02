@@ -1166,13 +1166,21 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
           if (result.success && result.data) {
             const foundPatient = result.data;
             console.log('✅ [사전체크] 기존 환자 발견:', foundPatient.uuid);
-            
+
+            // P0 v7: has_health_data 플래그 신뢰 X — 실 카운트(dataSummary) 우선 판단
+            const _summary = foundPatient.dataSummary ?? {
+              healthCheckups: foundPatient.has_health_data ? 1 : 0,
+              prescriptions: foundPatient.has_prescription_data ? 1 : 0,
+            };
+            const _realHealth = (_summary.healthCheckups || 0) > 0;
+            const _realRx = (_summary.prescriptions || 0) > 0;
+
             // 데이터가 있는 경우에만 로드 제안
             // 단, 처방 데이터 없이 검진만 있으면 (partner 소스) → Tilko 바로 진행
-            if (foundPatient.has_health_data && !foundPatient.has_prescription_data) {
+            if (_realHealth && !_realRx) {
               console.log('📋 [사전체크] 검진 데이터만 있고 처방 없음 → Tilko 인증 바로 진행');
               // partner 데이터 보존하면서 Tilko로 처방 추가 수집
-            } else if (foundPatient.has_health_data || foundPatient.has_prescription_data) {
+            } else if (_realHealth || _realRx) {
               // 비밀번호 존재 여부 확인
               try {
                 const passwordCheckResponse = await fetch(
@@ -1366,14 +1374,21 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
               const foundPatient = result.data;
               console.log('✅ [사전체크] 기존 환자 발견:', foundPatient.uuid);
 
-              if (foundPatient.has_health_data || foundPatient.has_prescription_data) {
+              // P0 v7: has_health_data 플래그 신뢰 X — 실 카운트(dataSummary) 우선 판단
+              // 원인: welno_patients.has_health_data=true 인데 welno_checkup_data 0건 케이스 존재
+              // (과거 등록 시 플래그 set 후 데이터 삭제/마이그레이션 누락) → "있다 → 없다" 함정
+              const dataSummary = foundPatient.dataSummary ?? {
+                healthCheckups: foundPatient.has_health_data ? 1 : 0,
+                prescriptions: foundPatient.has_prescription_data ? 1 : 0,
+                ragChats: 0,
+              };
+              const realHasData =
+                (dataSummary.healthCheckups || 0) > 0 ||
+                (dataSummary.prescriptions || 0) > 0;
+
+              if (realHasData) {
                 // API에서 dataSummary/hasPassword 제공 시 사용, 아니면 별도 조회
                 const hasPassword = foundPatient.hasPassword ?? false;
-                const dataSummary = foundPatient.dataSummary ?? {
-                  healthCheckups: foundPatient.has_health_data ? 1 : 0,
-                  prescriptions: foundPatient.has_prescription_data ? 1 : 0,
-                  ragChats: 0,
-                };
 
                 // dataSummary가 없으면 기존 비밀번호 체크 API로 폴백
                 if (!foundPatient.hasOwnProperty('hasPassword')) {
