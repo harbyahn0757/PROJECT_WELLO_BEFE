@@ -421,6 +421,36 @@ class WelnoDataService:
             print(f"❌ [환자조회] 오류: {e}")
             return None
 
+    async def find_hospital_id_by_uuid(self, uuid: str) -> Optional[str]:
+        """[v10] UUID 만 있을 때 환자의 마지막 인증 hospital_id 자동 조회.
+
+        - hospital_id IS NOT NULL 만 대상 (외부 EMR 빈 row 제외)
+        - last_auth_at DESC 우선, 없으면 created_at DESC
+        - 신규 사용자(welno_patients 미존재) → None 반환 (호출자가 PEERNINE/일반검진 폴백 처리)
+        """
+        conn = None
+        try:
+            conn = await asyncpg.connect(**self.db_config)
+            row = await conn.fetchrow(
+                """
+                SELECT hospital_id FROM welno.welno_patients
+                WHERE uuid = $1 AND hospital_id IS NOT NULL
+                ORDER BY last_auth_at DESC NULLS LAST, created_at DESC
+                LIMIT 1
+                """,
+                uuid,
+            )
+            return row['hospital_id'] if row else None
+        except Exception as e:
+            print(f"❌ [find_hospital_id_by_uuid] 오류: {e}")
+            return None
+        finally:
+            if conn is not None:
+                try:
+                    await conn.close()
+                except Exception:
+                    pass
+
     async def get_hospital_by_id(self, hospital_id: str) -> Dict[str, Any]:
         """병원 ID로 병원 정보 조회"""
         try:

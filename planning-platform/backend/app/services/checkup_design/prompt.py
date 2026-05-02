@@ -1271,6 +1271,14 @@ def create_checkup_design_prompt_legacy(
         hospital_checkup_section += "**맥락이 명확한 항목을 우선 추천**하세요: "
         hospital_checkup_section += "과거 이력(안 좋았던 항목) + 문진(추이를 봐야 할 항목) + 선택 항목의 맥락 + 나이별 권장 검진이 모두 매칭되는 항목을 추천하면 업셀링 효과가 높습니다. "
         hospital_checkup_section += "**이 항목들은 priority_1에 포함하지 않습니다.**\n\n"
+    else:
+        # [v10] 병원 추천 항목 없음 (일반 검진 폴백 — hospital_id 미지정 케이스 4 등)
+        hospital_checkup_section += (
+            "**병원 추천 항목 없음 안내:** 이 환자는 특정 병원에 매핑되지 않아 일반 검진 가이드만 제공합니다. "
+            "summary.priority_2 와 summary.priority_3 의 items 는 빈 배열로 두고, "
+            "description 에는 '담당 병원에서 추가 검진 항목을 안내받으시기 바랍니다' 와 같은 일반 안내 문구를 작성하세요. "
+            "summary.priority_1 의 일반검진 항목은 정상 생성하세요.\n\n"
+        )
     
     # 외부 검사 항목 추가 설명 (format_hospital_checkup_items_for_prompt에서 이미 처리됨)
     if hospital_external_checkup:

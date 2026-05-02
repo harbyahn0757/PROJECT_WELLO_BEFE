@@ -23,7 +23,8 @@ class ConcernItem(BaseModel):
 class CheckupDesignRequest(BaseModel):
     """검진 설계 요청 모델 (GPT 기반)"""
     uuid: str = Field(..., description="환자 UUID")
-    hospital_id: str = Field(..., description="병원 ID")
+    # [v10] hospital_id Optional — BE 가 환자 last_auth hospital 자동 조회, 그래도 없으면 일반검진 폴백
+    hospital_id: Optional[str] = Field(None, description="병원 ID (생략 시 환자 last_auth hospital 자동 조회 + 일반검진 폴백)")
     partner_id: str = Field("welno", description="파트너 ID")  # 파트너 ID 추가
     selected_concerns: List[ConcernItem] = Field(..., description="선택한 염려 항목 리스트")
     survey_responses: Optional[Dict[str, Any]] = Field(None, description="설문 응답 (체중 변화, 운동, 가족력 등)")
@@ -55,7 +56,8 @@ class Step1Result(BaseModel):
 class CheckupDesignStep2Request(BaseModel):
     """STEP 2 요청 모델"""
     uuid: str = Field(..., description="환자 UUID")
-    hospital_id: str = Field(..., description="병원 ID")
+    # [v10] hospital_id Optional — BE 가 자동 조회/폴백
+    hospital_id: Optional[str] = Field(None, description="병원 ID (생략 시 자동 조회/폴백)")
     partner_id: str = Field("welno", description="파트너 ID")
     step1_result: Step1Result = Field(..., description="STEP 1 결과")
     selected_concerns: List[ConcernItem] = Field(..., description="선택한 염려 항목 리스트")

@@ -15,6 +15,7 @@ import { useWelnoData } from '../contexts/WelnoDataContext';
 import { API_ENDPOINTS } from '../config/api';
 import ExistingPatientWelcome from './auth/components/ExistingPatientWelcome';
 import { PasswordService } from './PasswordModal/PasswordService';
+import { PasswordSessionService } from '../services/PasswordSessionService';
 import kakaoIcon from '../assets/images/kakao.png';
 import naverIcon from '../assets/images/naver.png';
 import passIcon from '../assets/images/pass.png';
@@ -132,7 +133,22 @@ const AuthForm: React.FC<AuthFormProps> = ({ onBack }) => {
   const handlePasswordSetupSuccess = async (type: PasswordModalType) => {
     console.log('✅ [비밀번호] 설정 완료 - 결과 페이지로 이동');
     setShowPasswordSetupModal(false);
-    
+
+    // [v10 hotfix] 비번 설정/확인 직후 PasswordSessionService 세션 생성 →
+    // CheckupDesignPage 의 usePasswordSessionGuard 가 만료로 오인하여 비번 모달
+    // 재표시되는 회귀 차단. 실패해도 흐름 차단 X.
+    if (passwordSetupData?.uuid && passwordSetupData?.hospital) {
+      try {
+        await PasswordSessionService.createSession(
+          passwordSetupData.uuid,
+          passwordSetupData.hospital
+        );
+        console.log('🔐 [v10] 비번 세션 생성 완료');
+      } catch (e) {
+        console.warn('⚠️ [v10] 비번 세션 생성 실패 (계속 진행):', e);
+      }
+    }
+
     // ✅ IndexedDB 재업로드 제거!
     // 백엔드는 이미 Tilko에서 받은 데이터를 DB에 저장했으므로
     // 프론트에서 다시 업로드할 필요 없음

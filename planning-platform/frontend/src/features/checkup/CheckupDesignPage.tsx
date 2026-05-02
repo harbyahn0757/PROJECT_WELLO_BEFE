@@ -100,10 +100,14 @@ const CheckupDesignPage: React.FC = () => {
           hospital = state.hospital.hospital_id;
         }
 
-        if (!uuid || !hospital) {
+        // [v10] hospital 없어도 BE 가 환자 last_auth hospital 자동 조회 + 일반검진 폴백 → uuid 만 필수
+        if (!uuid) {
           setError('정보를 찾지 못했어요');
           setLoading(false);
           return;
+        }
+        if (!hospital) {
+          console.log('[v10] hospital 미지정 — BE 자동 조회/일반 폴백');
         }
 
         // link_data 모드 불필요 — 링크 데이터는 save-link-health-data API로 DB에 이미 저장됨
@@ -115,7 +119,7 @@ const CheckupDesignPage: React.FC = () => {
         if (!shouldRefresh) {
           try {
             // 1순위: 완료된 설계 확인
-            const designResult = await checkupDesignService.getLatestCheckupDesign(uuid, hospital);
+            const designResult = await checkupDesignService.getLatestCheckupDesign(uuid, hospital || '');
             if (designResult.success && designResult.data) {
               console.log('✅ [검진설계] 완료된 설계 발견 - 선택 모달');
               const savedData = designResult.data;
@@ -141,7 +145,7 @@ const CheckupDesignPage: React.FC = () => {
             }
             
             // 2순위: 미완료 설계 확인 (STEP1만 완료)
-            const incompleteResult = await checkupDesignService.getIncompleteCheckupDesign(uuid, hospital);
+            const incompleteResult = await checkupDesignService.getIncompleteCheckupDesign(uuid, hospital || '');
             if (incompleteResult.success && incompleteResult.data) {
               console.log('⚠️ [검진설계] 미완료 설계 발견 - 복구 처리');
               
@@ -233,7 +237,7 @@ const CheckupDesignPage: React.FC = () => {
         }
 
         // 공용 데이터 로더 사용 (API 우선, IndexedDB 폴백)
-        const result = await loadHealthData(uuid, hospital, state.patient?.name);
+        const result = await loadHealthData(uuid, hospital || '', state.patient?.name);
         
         console.log('📊 [검진설계] 데이터 로드 완료:', {
           healthDataCount: result.healthData.ResultList.length,
