@@ -69,6 +69,48 @@ def classify_error(exc: Exception) -> ErrorClass:
     return ErrorClass.UNKNOWN
 
 
+class QuotaGuard:
+    """엔드포인트별 일별/시간별 호출 상한 카운터 (in-memory 폴백 포함)"""
+
+    def __init__(self):
+        self._daily: Dict[str, int] = {}    # {endpoint:date_str: count}
+        self._hourly: Dict[str, int] = {}   # {endpoint:date_hour_str: count}
+        self._quota_alert_at: Dict[str, float] = {}  # Slack dedup 1h
+
+    def _daily_key(self, endpoint: str) -> str:
+        from datetime import date
+        return f"{endpoint}:{date.today().isoformat()}"
+
+    def _hourly_key(self, endpoint: str) -> str:
+        from datetime import datetime as _dt
+        now = _dt.now()
+        return f"{endpoint}:{now.strftime('%Y-%m-%dT%H')}"
+
+    def check(self, endpoint: str, daily_ceiling: int, hourly_ceiling: int) -> bool:
+        """True = 허용, False = 초과"""
+        dk = self._daily_key(endpoint)
+        hk = self._hourly_key(endpoint)
+        if self._daily.get(dk, 0) >= daily_ceiling:
+            return False
+        if self._hourly.get(hk, 0) >= hourly_ceiling:
+            return False
+        return True
+
+    def record(self, endpoint: str) -> None:
+        dk = self._daily_key(endpoint)
+        hk = self._hourly_key(endpoint)
+        self._daily[dk] = self._daily.get(dk, 0) + 1
+        self._hourly[hk] = self._hourly.get(hk, 0) + 1
+
+    def should_alert(self, endpoint: str) -> bool:
+        """Slack 알림 dedup 1h"""
+        last = self._quota_alert_at.get(endpoint, 0.0)
+        if time.monotonic() - last >= 3600:
+            self._quota_alert_at[endpoint] = time.monotonic()
+            return True
+        return False
+
+
 class LLMRouter:
     """Gemini/OpenAI 자동 폴백 라우터 (in-memory 싱글턴)"""
 
@@ -84,6 +126,7 @@ class LLMRouter:
         self._last_alert_at: float = 0.0
         self._last_transition_at: float = 0.0
         self._last_transition_key: Optional[str] = None
+        self._quota: QuotaGuard = QuotaGuard()
         self._override_state: Optional[str] = None
         self._override_widgets: Dict[str, str] = {}
         self._override_task: Optional[asyncio.Task] = None
@@ -145,9 +188,24 @@ class LLMRouter:
             if t and not t.done():
                 t.cancel()
 
-    async def call_api(self, request: Any, **kwargs) -> Any:
-        """Gemini 우선 호출, 실패 시 OpenAI 폴백. GeminiResponse 호환 반환."""
+    async def call_api(self, request: Any, endpoint: str = "default", **kwargs) -> Any:
+        """Gemini 우선 호출, 실패 시 OpenAI 폴백. GeminiResponse 호환 반환.
+
+        Args:
+            endpoint: 쿼터 추적용 엔드포인트 식별자
+                      (chat_tagging / rag_chat / checkup_design / default)
+        """
         from .gemini_service import gemini_service, GeminiResponse
+
+        # Quota 체크
+        daily_ceiling, hourly_ceiling = self._quota_ceilings(endpoint)
+        if not self._quota.check(endpoint, daily_ceiling, hourly_ceiling):
+            if self._quota.should_alert(endpoint):
+                logger.warning("[LLMRouter] quota_exceeded endpoint=%s", endpoint)
+                asyncio.create_task(self._notify_quota_exceeded(endpoint))
+            return GeminiResponse(success=False, error="quota_exceeded")
+        self._quota.record(endpoint)
+
         state = self.state
 
         if state == LLMState.HEALTHY:
@@ -229,6 +287,33 @@ class LLMRouter:
         return {"healthy": False, "provider": None, "error": "all providers down"}
 
     # ── Internal helpers ────────────────────────────────────────────────────
+    def _quota_ceilings(self, endpoint: str):
+        """(daily_ceiling, hourly_ceiling) 반환"""
+        cfg = self._cfg
+        daily_map = {
+            "chat_tagging": getattr(cfg, "llm_quota_chat_tagging_daily", 2000),
+            "rag_chat": getattr(cfg, "llm_quota_rag_chat_daily", 5000),
+            "checkup_design": getattr(cfg, "llm_quota_checkup_design_daily", 1000),
+        }
+        daily = daily_map.get(endpoint, 5000)
+        multiplier = getattr(cfg, "llm_quota_hourly_multiplier", 0.15)
+        return daily, max(1, int(daily * multiplier))
+
+    async def _notify_quota_exceeded(self, endpoint: str) -> None:
+        try:
+            from .slack_service import get_slack_service, AlertType
+            from ..core.config import settings
+            if settings.slack_webhook_url:
+                slack = get_slack_service(settings.slack_webhook_url)
+                await slack.send_error_alert(AlertType.API_ERROR, {
+                    "error_type": "LLM Quota 초과",
+                    "location": f"llm_router:quota:{endpoint}",
+                    "error_message": f"endpoint={endpoint} daily/hourly 상한 도달",
+                    "uuid": "system",
+                })
+        except Exception as e:
+            logger.warning("[LLMRouter] quota slack notify failed: %s", e)
+
     async def _call_openai(self, request: Any, **kwargs) -> Any:
         from .gpt_service import gpt_service, GPTResponse
         from .gemini_service import GeminiResponse

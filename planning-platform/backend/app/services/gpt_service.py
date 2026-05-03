@@ -126,9 +126,10 @@ class GPTService:
             
             result = response.choices[0].message.content
             usage = {
-                "prompt_tokens": response.usage.prompt_tokens,
-                "completion_tokens": response.usage.completion_tokens,
-                "total_tokens": response.usage.total_tokens
+                "input_tokens": response.usage.prompt_tokens,
+                "output_tokens": response.usage.completion_tokens,
+                "cached_tokens": getattr(getattr(response.usage, "prompt_tokens_details", None), "cached_tokens", 0) or 0,
+                "total_tokens": response.usage.total_tokens,
             }
             
             logger.info(f"✅ [GPT Service] 응답 수신 완료 - 응답 길이: {len(result) if result else 0}, 토큰 사용: {usage['total_tokens']}")

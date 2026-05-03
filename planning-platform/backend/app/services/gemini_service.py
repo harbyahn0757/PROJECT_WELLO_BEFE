@@ -302,8 +302,11 @@ class GeminiService:
                 content=response_text,
                 success=True,
                 usage={
-                    "total_tokens": response.usage_metadata.total_token_count if response.usage_metadata else 0
-                }
+                    "input_tokens": response.usage_metadata.prompt_token_count if response.usage_metadata else 0,
+                    "output_tokens": response.usage_metadata.candidates_token_count if response.usage_metadata else 0,
+                    "cached_tokens": getattr(response.usage_metadata, "cached_content_token_count", 0) if response.usage_metadata else 0,
+                    "total_tokens": response.usage_metadata.total_token_count if response.usage_metadata else 0,
+                } if response.usage_metadata else {}
             )
 
         except Exception as e:

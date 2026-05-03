@@ -1772,22 +1772,23 @@ async def create_checkup_design_step2(
             logger.warning(f"⚠️ [STEP2-2] 프롬프트 txt 저장 실패: {str(e)}")
         logger.info(f"🤖 [STEP2-2] GPT API 호출 중... (모델: {openai_model})")
         
-        gpt_request_p2 = GPTRequest(
-            system_message=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2,
-            user_message=user_message_p2,
-            model=openai_model,
+        gemini_request_p2 = GeminiRequest(
+            prompt=user_message_p2,
+            model=settings.google_gemini_model,
             temperature=0.5,
             max_tokens=5000,  # Upselling (multi-year + strategies 대응)
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
+            system_instruction=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2,
         )
-        
-        gpt_response_p2 = await gpt_service.call_api(
-            gpt_request_p2,
+
+        gpt_response_p2 = await llm_router.call_api(
+            gemini_request_p2,
+            endpoint="checkup_design",
             save_log=True,
             patient_uuid=request.uuid,
             session_id=request.session_id if hasattr(request, 'session_id') and request.session_id else None,
             step_number="2-2",
-            step_name="Priority 2, 3 - Upselling 전략"
+            step_name="Priority 2, 3 - Upselling 전략",
         )
         elapsed_p2 = time.time() - start_time_p2
         logger.info(f"✅ [STEP2-2] GPT 응답 완료 - {elapsed_p2:.1f}초")

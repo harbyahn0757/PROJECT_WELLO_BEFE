@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 
 from ....core.config import settings
+from ....services.llm_router import llm_router
 
 
 router = APIRouter()
@@ -175,6 +176,19 @@ async def test_slack_alert():
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"테스트 알림 실패: {str(e)}")
+
+
+@router.get("/llm")
+async def health_llm():
+    """LLM 서비스 헬스체크 — Gemini/GPT 키 설정 여부 + LLMRouter 상태 반환"""
+    return {
+        "gemini_key_set": bool(settings.google_gemini_api_key)
+            and settings.google_gemini_api_key != "dev-gemini-key",
+        "planning_key_set": bool(settings.google_gemini_planning_api_key),
+        "gpt_key_set": bool(settings.openai_api_key)
+            and settings.openai_api_key != "dev-openai-key",
+        "router_state": llm_router.state,
+    }
 
 
 # 더미 데이터 초기화 기능 제거됨 - 실제 데이터베이스 사용

@@ -158,6 +158,12 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = Field(default="redis://10.0.1.10:6379/0", env="REDIS_URL")
 
+    # LLM Quota (엔드포인트별 일별/시간별 호출 상한)
+    llm_quota_chat_tagging_daily: int = Field(default=2000, env="WELNO_LLM_QUOTA_CHAT_TAGGING_DAILY")
+    llm_quota_rag_chat_daily: int = Field(default=5000, env="WELNO_LLM_QUOTA_RAG_CHAT_DAILY")
+    llm_quota_checkup_design_daily: int = Field(default=1000, env="WELNO_LLM_QUOTA_CHECKUP_DESIGN_DAILY")
+    llm_quota_hourly_multiplier: float = Field(default=0.15, env="WELNO_LLM_QUOTA_HOURLY_MULTIPLIER")
+
     # LLM Router (Gemini → OpenAI 폴백 제어)
     llm_window_seconds: int = Field(default=60, env="WELNO_LLM_WINDOW_SECONDS")
     llm_failure_threshold: int = Field(default=5, env="WELNO_LLM_FAILURE_THRESHOLD")
