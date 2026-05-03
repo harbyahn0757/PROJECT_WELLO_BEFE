@@ -216,17 +216,21 @@ class LLMRouter:
         t0 = time.monotonic()
 
         async def _log_usage(resp: Any, model_name: str, ok: bool, err_class: Optional[str] = None):
-            usage = getattr(resp, "usage", None) or {}
-            llm_usage_logger.log(
-                model=model_name,
-                endpoint=endpoint,
-                input_tokens=int(usage.get("input_tokens", 0)),
-                output_tokens=int(usage.get("output_tokens", 0)),
-                cached_tokens=int(usage.get("cached_tokens", 0)),
-                latency_ms=int((time.monotonic() - t0) * 1000),
-                success=ok,
-                error_class=err_class,
-            )
+            # 로깅 자체 실패가 LLM 응답 흐름을 차단하지 않도록 try/except 보호
+            try:
+                usage = getattr(resp, "usage", None) or {}
+                llm_usage_logger.log(
+                    model=model_name,
+                    endpoint=endpoint,
+                    input_tokens=int(usage.get("input_tokens") or 0),
+                    output_tokens=int(usage.get("output_tokens") or 0),
+                    cached_tokens=int(usage.get("cached_tokens") or 0),
+                    latency_ms=int((time.monotonic() - t0) * 1000),
+                    success=ok,
+                    error_class=err_class,
+                )
+            except Exception as log_exc:
+                logger.warning("[LLMRouter] _log_usage 실패 (무시): %s", log_exc)
 
         if state == LLMState.HEALTHY:
             try:
