@@ -239,7 +239,10 @@ class LLMRouter:
                     await _log_usage(resp, getattr(request, "model", "gemini"), True)
                     return resp
                 await self._record_failure("gemini", Exception(resp.error or "unknown"))
-                if self.state == LLMState.DEGRADED:
+                # HEALTHY 라도 429/quota fail 시 즉시 OpenAI 폴백 (5/2 92건 사용자 fail 방지)
+                err_lower = (resp.error or "").lower()
+                if "429" in err_lower or "quota" in err_lower or "resource_exhausted" in err_lower or self.state == LLMState.DEGRADED:
+                    logger.info("[LLMRouter] Gemini fail (state=%s, err=%s) — 즉시 OpenAI 폴백", self.state, (resp.error or "")[:60])
                     fb = await self._call_openai(request, **kwargs)
                     await _log_usage(fb, "openai-fallback", fb.success,
                                      None if fb.success else "OPENAI_FALLBACK_FAIL")
@@ -248,7 +251,10 @@ class LLMRouter:
                 return resp
             except Exception as e:
                 await self._record_failure("gemini", e)
-                if self.state == LLMState.DEGRADED:
+                err_lower = str(e).lower()
+                # HEALTHY 라도 429/quota exception 시 즉시 OpenAI 폴백
+                if "429" in err_lower or "quota" in err_lower or "resource_exhausted" in err_lower or self.state == LLMState.DEGRADED:
+                    logger.info("[LLMRouter] Gemini exception (state=%s, err=%s) — 즉시 OpenAI 폴백", self.state, str(e)[:60])
                     fb = await self._call_openai(request, **kwargs)
                     await _log_usage(fb, "openai-fallback", fb.success,
                                      None if fb.success else "OPENAI_FALLBACK_FAIL")
