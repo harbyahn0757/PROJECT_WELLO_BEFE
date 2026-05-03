@@ -122,6 +122,7 @@ class Settings(BaseSettings):
     
     # Google Gemini 설정 (RAG용)
     google_gemini_api_key: str = Field(default="dev-gemini-key", env="GOOGLE_GEMINI_API_KEY")
+    google_gemini_planning_api_key: str = Field(default="", env="GOOGLE_GEMINI_PLANNING_API_KEY")  # 검진설계(JERRY_PLANNING) 전용 키. 빈값이면 google_gemini_api_key 폴백
     google_gemini_fast_model: str = Field(default="gemini-3-flash-preview", env="GOOGLE_GEMINI_FAST_MODEL")  # 채팅 응답 생성 (flash-lite도 가능하나 프롬프트 축소 필요)
     google_gemini_model: str = Field(default="gemini-3-flash-preview", env="GOOGLE_GEMINI_MODEL")  # 검진설계 STEP 2 등 고품질 태스크
     google_gemini_lite_model: str = Field(default="gemini-2.5-flash-lite", env="GOOGLE_GEMINI_LITE_MODEL")  # 태깅/분류 경량 태스크

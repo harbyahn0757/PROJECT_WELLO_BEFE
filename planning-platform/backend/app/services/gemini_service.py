@@ -23,6 +23,7 @@ class GeminiRequest:
     response_format: Optional[Dict[str, Any]] = None  # JSON 응답 요청 시 {"type": "json_object"}
     chat_history: Optional[List[Dict[str, str]]] = None  # 세션 히스토리 (role, content)
     system_instruction: Optional[str] = None  # Context Caching용 시스템 프롬프트 (optional)
+    api_key: Optional[str] = None  # 호출별 API 키 override (예: 검진설계 전용 키). None이면 settings.google_gemini_api_key 사용
 
 @dataclass
 class GeminiResponse:
@@ -155,6 +156,13 @@ class GeminiService:
     ) -> GeminiResponse:
         """call_api 내부 구현 (세마포어 안에서 호출됨)."""
         try:
+            # 호출별 API 키 override 처리 (검진설계 전용 키 등)
+            client = self._client
+            override_active = bool(request.api_key)
+            if override_active:
+                client = genai.Client(api_key=request.api_key)
+                logger.info("[Gemini Service] api_key override 활성 — 호출별 임시 client 사용 (cache 비활성)")
+
             # GenerateContentConfig 구성
             config = types.GenerateContentConfig(
                 temperature=request.temperature,
@@ -166,11 +174,11 @@ class GeminiService:
             if request.response_format and request.response_format.get("type") == "json_object":
                 config.response_mime_type = "application/json"
 
-            # Phase 3: Context Caching 적용
+            # Phase 3: Context Caching 적용 (override 시 비활성 — 캐시는 default client 전용)
             cached_content = None
             is_first_message = not (request.chat_history and len(request.chat_history) > 0)
 
-            if self._cache_enabled and request.system_instruction and is_first_message:
+            if self._cache_enabled and not override_active and request.system_instruction and is_first_message:
                 import hashlib
                 content_hash = hashlib.sha256(request.system_instruction.encode()).hexdigest()[:16]
                 cached_content = await self._get_or_create_cache(
@@ -195,7 +203,7 @@ class GeminiService:
                 logger.info(f"📡 [Gemini Service] API 호출 중... (Model: {request.model}, attempt {attempt + 1}/{max_retries})")
                 try:
                     response = await asyncio.wait_for(
-                        self._client.aio.models.generate_content(
+                        client.aio.models.generate_content(
                             model=request.model,
                             contents=request.prompt,
                             config=config,

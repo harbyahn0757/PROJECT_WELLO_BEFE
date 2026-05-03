@@ -1020,13 +1020,16 @@ async def create_checkup_design_step1(
         logger.info(f"🤖 [STEP1-분석] Gemini API 호출 시작... (모델: {fast_model}, max_tokens: {max_tokens})")
         logger.info(f"📊 [STEP1-분석] 프롬프트 길이: {len(user_message)} 문자")
         
+        # 검진설계 전용 키 (JERRY_PLANNING) — 미설정 시 None → gemini_service 가 default 키 사용
+        planning_key = settings.google_gemini_planning_api_key or None
         gemini_request = GeminiRequest(
             prompt=user_message,
             model=fast_model,
             temperature=0.3,
             max_tokens=max_tokens,
             response_format={"type": "json_object"},
-            system_instruction=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1  # Phase 4: System Message 적용
+            system_instruction=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1,  # Phase 4: System Message 적용
+            api_key=planning_key,
         )
         
         # Gemini 서비스 초기화
@@ -1615,13 +1618,16 @@ async def create_checkup_design_step2(
 
             logger.info(f"🤖 [STEP2-1] Gemini API 호출 중... (모델: {powerful_model})")
 
+            # 검진설계 전용 키 (JERRY_PLANNING)
+            planning_key_p1 = settings.google_gemini_planning_api_key or None
             gemini_request_p1 = GeminiRequest(
                 prompt=user_message_p1,
                 model=powerful_model,
                 temperature=0.5,
                 max_tokens=5000,
                 response_format={"type": "json_object"},
-                system_instruction=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2
+                system_instruction=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP2,
+                api_key=planning_key_p1,
             )
 
             max_retries = 2
