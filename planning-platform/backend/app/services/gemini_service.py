@@ -47,8 +47,8 @@ class GeminiService:
         types.SafetySetting(category="HARM_CATEGORY_DANGEROUS_CONTENT", threshold="BLOCK_NONE"),
     ]
 
-    HEALTH_CACHE_TTL_HEALTHY = 300  # 정상: 5분
-    HEALTH_CACHE_TTL_UNHEALTHY = 60  # 비정상: 1분 (빠른 회복 감지)
+    HEALTH_CACHE_TTL_HEALTHY = 3600  # 정상: 1시간 (5/2 폭주 방지 — paid quota 보호)
+    HEALTH_CACHE_TTL_UNHEALTHY = 300  # 비정상: 5분
 
     def __init__(self):
         self._api_key: Optional[str] = None
@@ -89,16 +89,13 @@ class GeminiService:
             await self.initialize()
         if not self._initialized:
             return {"healthy": False, "error": "Gemini 서비스 미초기화"}
+        # 5/2 폭주 방지: 실 generate_content 호출 X. 키 유효성 + 클라이언트 init 만 확인
+        # (실 quota 소비 0건. 운영 라우터 state 머신이 실 호출 fail 자동 감지)
         try:
-            response = await asyncio.wait_for(
-                self._client.aio.models.generate_content(
-                    model="gemini-3-flash-preview",
-                    contents="ping",
-                    config=types.GenerateContentConfig(max_output_tokens=5),
-                ),
-                timeout=5.0,
-            )
-            result = {"healthy": True}
+            if self._api_key and self._client is not None:
+                result = {"healthy": True, "method": "init_only"}
+            else:
+                result = {"healthy": False, "error": "client 미초기화"}
         except asyncio.TimeoutError:
             error_msg = "헬스체크 타임아웃 (5초)"
             logger.error(f"[Gemini] {error_msg}")
@@ -216,7 +213,12 @@ class GeminiService:
                     return GeminiResponse(success=False, error="Gemini API 타임아웃 (60초 초과)")
                 except Exception as retry_err:
                     err_str = str(retry_err)
-                    if ("503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str or "RESOURCE_EXHAUSTED" in err_str):
+                    # 429 (quota) 는 retry 즉시 중단 → llm_router 가 OpenAI 폴백 직행 (quota 회복은 분 단위)
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        logger.warning(f"⚠️ [Gemini] 429 quota — retry skip → OpenAI 폴백 위임")
+                        raise
+                    # 503/UNAVAILABLE 만 짧은 retry (일시 장애)
+                    if "503" in err_str or "UNAVAILABLE" in err_str:
                         wait = 2 ** attempt  # 1초, 2초, 4초
                         logger.warning(f"⚠️ [Gemini] {err_str[:80]}... → {wait}초 후 재시도 ({attempt + 1}/{max_retries})")
                         await asyncio.sleep(wait)
@@ -398,7 +400,11 @@ class GeminiService:
                 except Exception as retry_err:
                     last_err = retry_err
                     err_str = str(retry_err)
-                    if ("503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str or "RESOURCE_EXHAUSTED" in err_str):
+                    # 429 (quota) 는 retry 즉시 중단 → llm_router 가 OpenAI 폴백 직행
+                    if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        logger.warning(f"⚠️ [Gemini] 스트리밍 429 quota — retry skip → OpenAI 폴백 위임")
+                        raise
+                    if "503" in err_str or "UNAVAILABLE" in err_str:
                         wait = 2 ** attempt  # 1초, 2초, 4초
                         logger.warning(f"⚠️ [Gemini] 스트리밍 {err_str[:80]}... → {wait}초 후 재시도 ({attempt + 1}/{max_retries})")
                         await asyncio.sleep(wait)
