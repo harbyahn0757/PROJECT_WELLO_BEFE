@@ -1057,6 +1057,7 @@ class WelnoRagChatService:
                         )
                         retry_res = await llm_router.call_api(
                             GeminiRequest(prompt=retry_prompt, model=settings.google_gemini_fast_model, temperature=0.5),
+                            endpoint="rag_chat",
                             save_log=False,
                         )
                         if retry_res.success and "|" in retry_res.content:
@@ -1356,7 +1357,7 @@ class WelnoRagChatService:
                 response_format={"type": "json_object"}
             )
             
-            response = await llm_router.call_api(gemini_request)
+            response = await llm_router.call_api(gemini_request, endpoint="rag_chat")
             if not response.success:
                 raise Exception(f"LLM 요약 실패: {response.error}")
             

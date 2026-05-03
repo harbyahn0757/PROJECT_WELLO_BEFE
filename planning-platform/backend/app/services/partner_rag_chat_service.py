@@ -957,6 +957,7 @@ class PartnerRagChatService(WelnoRagChatService):
                         temperature=0.9,
                         response_format={"type": "json_object"},
                     ),
+                    endpoint="rag_chat",
                     save_log=False,
                 )
                 logger.info("[greetings] attempt=%d success=%s err=%s len=%s angle_hook=%s",

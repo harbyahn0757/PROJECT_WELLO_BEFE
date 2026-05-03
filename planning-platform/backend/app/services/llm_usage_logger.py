@@ -2,11 +2,12 @@
 LLMUsageLogger — LLM API 호출 비용 추적 싱글턴
 
 welno.llm_usage_log 테이블에 비동기 fire-and-forget INSERT.
-에러 시 logger.warning만 기록, LLM 응답 차단 없음.
+DB 접근은 기존 db_manager (psycopg2 동기) 재사용. INSERT 실패는 logger.warning만,
+LLM 응답 차단 없음.
 """
 
+import asyncio
 import logging
-import time
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -37,27 +38,26 @@ class LLMUsageLogger:
         error_class: Optional[str] = None,
     ) -> None:
         """비동기 fire-and-forget INSERT. 에러 시 warning만."""
-        import asyncio
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.ensure_future(
-                    self._insert(
-                        model=model,
-                        endpoint=endpoint,
-                        session_id=session_id,
-                        partner_id=partner_id,
-                        hospital_id=hospital_id,
-                        input_tokens=input_tokens,
-                        output_tokens=output_tokens,
-                        cached_tokens=cached_tokens,
-                        latency_ms=latency_ms,
-                        success=success,
-                        error_class=error_class,
-                    )
-                )
+            loop = asyncio.get_running_loop()
         except RuntimeError:
-            pass  # no event loop — 무시 (startup 전 호출 등)
+            return  # no running loop — startup 전 호출 등은 무시
+
+        loop.create_task(
+            self._insert(
+                model=model,
+                endpoint=endpoint,
+                session_id=session_id,
+                partner_id=partner_id,
+                hospital_id=hospital_id,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cached_tokens=cached_tokens,
+                latency_ms=latency_ms,
+                success=success,
+                error_class=error_class,
+            )
+        )
 
     async def _insert(
         self,
@@ -74,21 +74,21 @@ class LLMUsageLogger:
         error_class: Optional[str],
     ) -> None:
         try:
-            from ..core.database import get_db_pool
-            pool = await get_db_pool()
-            async with pool.acquire() as conn:
-                await conn.execute(
-                    """
-                    INSERT INTO welno.llm_usage_log
-                      (model, endpoint, session_id, partner_id, hospital_id,
-                       input_tokens, output_tokens, cached_tokens,
-                       latency_ms, success, error_class)
-                    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-                    """,
+            from ..core.database import db_manager
+            await db_manager.execute_update(
+                """
+                INSERT INTO welno.llm_usage_log
+                  (model, endpoint, session_id, partner_id, hospital_id,
+                   input_tokens, output_tokens, cached_tokens,
+                   latency_ms, success, error_class)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
                     model, endpoint, session_id, partner_id, hospital_id,
                     input_tokens, output_tokens, cached_tokens,
                     latency_ms, success, error_class,
-                )
+                ),
+            )
         except Exception as exc:
             logger.warning("[LLMUsageLogger] INSERT 실패 (무시): %s", exc)
 

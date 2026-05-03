@@ -196,6 +196,8 @@ class LLMRouter:
                       (chat_tagging / rag_chat / checkup_design / default)
         """
         from .gemini_service import gemini_service, GeminiResponse
+        from .llm_usage_logger import llm_usage_logger
+        import time
 
         # Quota 체크
         daily_ceiling, hourly_ceiling = self._quota_ceilings(endpoint)
@@ -203,31 +205,63 @@ class LLMRouter:
             if self._quota.should_alert(endpoint):
                 logger.warning("[LLMRouter] quota_exceeded endpoint=%s", endpoint)
                 asyncio.create_task(self._notify_quota_exceeded(endpoint))
+            llm_usage_logger.log(
+                model="(quota_blocked)", endpoint=endpoint,
+                success=False, error_class="QUOTA_BLOCKED",
+            )
             return GeminiResponse(success=False, error="quota_exceeded")
         self._quota.record(endpoint)
 
         state = self.state
+        t0 = time.monotonic()
+
+        async def _log_usage(resp: Any, model_name: str, ok: bool, err_class: Optional[str] = None):
+            usage = getattr(resp, "usage", None) or {}
+            llm_usage_logger.log(
+                model=model_name,
+                endpoint=endpoint,
+                input_tokens=int(usage.get("input_tokens", 0)),
+                output_tokens=int(usage.get("output_tokens", 0)),
+                cached_tokens=int(usage.get("cached_tokens", 0)),
+                latency_ms=int((time.monotonic() - t0) * 1000),
+                success=ok,
+                error_class=err_class,
+            )
 
         if state == LLMState.HEALTHY:
             try:
                 resp = await gemini_service.call_api(request, **kwargs)
                 if resp.success:
+                    await _log_usage(resp, getattr(request, "model", "gemini"), True)
                     return resp
                 await self._record_failure("gemini", Exception(resp.error or "unknown"))
                 if self.state == LLMState.DEGRADED:
-                    return await self._call_openai(request, **kwargs)
+                    fb = await self._call_openai(request, **kwargs)
+                    await _log_usage(fb, "openai-fallback", fb.success,
+                                     None if fb.success else "OPENAI_FALLBACK_FAIL")
+                    return fb
+                await _log_usage(resp, getattr(request, "model", "gemini"), False, "GEMINI_FAIL")
                 return resp
             except Exception as e:
                 await self._record_failure("gemini", e)
                 if self.state == LLMState.DEGRADED:
-                    return await self._call_openai(request, **kwargs)
+                    fb = await self._call_openai(request, **kwargs)
+                    await _log_usage(fb, "openai-fallback", fb.success,
+                                     None if fb.success else "OPENAI_FALLBACK_FAIL")
+                    return fb
                 raise
 
         if state == LLMState.DEGRADED:
-            return await self._call_openai(request, **kwargs)
+            fb = await self._call_openai(request, **kwargs)
+            await _log_usage(fb, "openai-degraded", fb.success,
+                             None if fb.success else "OPENAI_DEGRADED_FAIL")
+            return fb
 
         # DOWN
         from .gemini_service import GeminiResponse
+        llm_usage_logger.log(
+            model="(down)", endpoint=endpoint, success=False, error_class="DOWN",
+        )
         return GeminiResponse(success=False, error="LLM services unavailable (DOWN)")
 
     async def stream_api(

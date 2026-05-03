@@ -670,6 +670,7 @@ async def llm_analyze_session(
                 max_tokens=2000,
                 response_format={"type": "json_object"},
             ),
+            endpoint="chat_tagging",
             save_log=False,
         )
 
@@ -1063,6 +1064,7 @@ AI 권장: {rec_str}
         from .llm_router import llm_router
         res = await llm_router.call_api(
             GeminiRequest(prompt=prompt, model=settings.google_gemini_lite_model, temperature=0.5),
+            endpoint="chat_tagging",
             save_log=False,
         )
         if res.success and res.content:

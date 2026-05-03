@@ -252,13 +252,16 @@ async def _run_step1(
         ))
     else:
         # llm_router 호출 (Gemini 우선, 실패 시 자동 폴백)
-        response = await llm_router.call_api(GeminiRequest(
-            prompt=prompt,
-            model=settings.google_gemini_fast_model,
-            temperature=0.7,
-            max_tokens=4000,
-            system_instruction=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1,
-        ))
+        response = await llm_router.call_api(
+            GeminiRequest(
+                prompt=prompt,
+                model=settings.google_gemini_fast_model,
+                temperature=0.7,
+                max_tokens=4000,
+                system_instruction=CHECKUP_DESIGN_SYSTEM_MESSAGE_STEP1,
+            ),
+            endpoint="checkup_design",
+        )
 
     if not response.success or not response.content:
         logger.error(f"[auto_trigger] Step1 {'GPT' if use_gpt_fallback else 'Gemini'} 호출 실패: {response.error}")

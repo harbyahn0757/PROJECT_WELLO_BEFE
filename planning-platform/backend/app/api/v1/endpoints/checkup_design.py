@@ -1041,6 +1041,7 @@ async def create_checkup_design_step1(
         logger.info(f"📡 [STEP1-분석] LLM API 호출 중...")
         gemini_api_response = await llm_router.call_api(
             gemini_request,
+            endpoint="checkup_design",
             save_log=True,
             patient_uuid=request.uuid,
             session_id=session_id,
@@ -1641,6 +1642,7 @@ async def create_checkup_design_step2(
 
                     gemini_response_p1 = await llm_router.call_api(
                         gemini_request_p1,
+                        endpoint="checkup_design",
                         save_log=True,
                         patient_uuid=request.uuid,
                         session_id=request.session_id if hasattr(request, 'session_id') and request.session_id else None,
