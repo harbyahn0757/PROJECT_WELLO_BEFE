@@ -78,6 +78,26 @@ class OverviewRequest(BaseModel):
 class PatientListRequest(BaseModel):
     hospital_id: Optional[str] = None
 
+
+# ── B1: B2B 산업군 차원 — 신규 list/distribution endpoint (기존 변경 X) ──
+class IndustryPatientListRequest(BaseModel):
+    """산업군별 환자 list — 5 산업군 × stage × score 필터.
+    SoT: docs/spec/B2B_TAGGING_SYSTEM_v2.md
+    """
+    hospital_id: Optional[str] = None
+    industry: str = "hospital"  # hospital/supplement/fitness/insurance/mental_care
+    min_score: int = 0          # score >= min_score
+    stage: Optional[str] = None # awareness/interest/consider/decision/action — None 이면 전체
+    limit: int = 50
+    offset: int = 0
+
+
+class IndustryDistributionRequest(BaseModel):
+    """산업군 × stage 분포 통계 (백오피스 DashboardPage / AnalyticsPage 용)"""
+    hospital_id: Optional[str] = None
+    date_from: Optional[str] = None
+    date_to: Optional[str] = None
+
 class ExportJsonRequest(BaseModel):
     hospital_id: Optional[str] = None
     date_from: Optional[str] = None
@@ -2022,6 +2042,172 @@ class CampaignTargetsRequest(BaseModel):
     date_to: Optional[str] = None
     limit: int = 100
     offset: int = 0
+
+
+# ─── B1: B2B 산업군별 환자 list / 분포 (v2 industry_scores jsonb 사용) ───
+
+VALID_INDUSTRIES_V2 = {"hospital", "supplement", "fitness", "insurance", "mental_care"}
+VALID_STAGES_V2 = {"none", "awareness", "interest", "consider", "decision", "action"}
+
+
+@router.post("/patients/by-industry")
+async def patients_by_industry(req: IndustryPatientListRequest):
+    """산업군별 환자 list — RevisitPage 등 신규 화면에서 사용.
+
+    industry_scores jsonb 의 score/stage 기준 필터 + 정렬.
+    """
+    if req.industry not in VALID_INDUSTRIES_V2:
+        raise HTTPException(400, f"invalid industry: {req.industry}")
+    if req.stage is not None and req.stage not in VALID_STAGES_V2:
+        raise HTTPException(400, f"invalid stage: {req.stage}")
+
+    where_parts = ["t.tagging_version = 5", "t.industry_scores IS NOT NULL"]
+    params: list = []
+
+    if req.hospital_id:
+        where_parts.append("c.hospital_id = %s")
+        params.append(req.hospital_id)
+
+    # score 필터 — jsonb path
+    where_parts.append(f"(t.industry_scores->%s->>'score')::int >= %s")
+    params.extend([req.industry, req.min_score])
+
+    if req.stage:
+        where_parts.append(f"t.industry_scores->%s->>'stage' = %s")
+        params.extend([req.industry, req.stage])
+
+    where = " AND ".join(where_parts)
+    params.extend([req.industry, req.limit, req.offset])
+
+    rows = await db_manager.execute_query(f"""
+        SELECT
+          t.session_id, t.partner_id, c.hospital_id, c.user_uuid,
+          (t.industry_scores->%s->>'score')::int AS industry_score,
+          t.industry_scores->%s->>'stage' AS industry_stage,
+          t.industry_scores->%s->'sub_categories' AS sub_categories,
+          t.health_concerns, t.signals, t.evidence_quotes,
+          t.risk_level, t.sentiment, t.conversation_summary,
+          t.consultation_requested, t.consultation_status,
+          t.created_at, t.updated_at,
+          h.hospital_name
+        FROM welno.tb_chat_session_tags t
+        JOIN welno.tb_partner_rag_chat_log c ON c.session_id = t.session_id
+        LEFT JOIN welno.tb_hospital_rag_config h
+          ON h.hospital_id = c.hospital_id AND h.is_active = true
+        WHERE {where}
+        ORDER BY (t.industry_scores->%s->>'score')::int DESC NULLS LAST, t.updated_at DESC
+        LIMIT %s OFFSET %s
+    """, tuple([req.industry] * 3 + params))
+
+    # JSON parse helper
+    def _parse(v):
+        if v is None:
+            return None
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except Exception:
+                return v
+        return v
+
+    out = []
+    for r in rows:
+        out.append({
+            "session_id": r["session_id"],
+            "partner_id": r["partner_id"],
+            "hospital_id": r["hospital_id"],
+            "hospital_name": r.get("hospital_name"),
+            "user_uuid": r["user_uuid"],
+            "industry": req.industry,
+            "industry_score": r["industry_score"],
+            "industry_stage": r["industry_stage"],
+            "sub_categories": _parse(r["sub_categories"]),
+            "health_concerns": _parse(r["health_concerns"]),
+            "signals": _parse(r["signals"]),
+            "evidence_quotes": _parse(r["evidence_quotes"]),
+            "risk_level": r["risk_level"],
+            "sentiment": r["sentiment"],
+            "summary": r["conversation_summary"],
+            "consultation_requested": r["consultation_requested"],
+            "consultation_status": r["consultation_status"],
+            "updated_at": r["updated_at"].isoformat() if r["updated_at"] else None,
+        })
+
+    return {
+        "success": True,
+        "industry": req.industry,
+        "min_score": req.min_score,
+        "stage": req.stage,
+        "count": len(out),
+        "patients": out,
+    }
+
+
+@router.post("/dashboard/industry-distribution")
+async def industry_distribution(req: IndustryDistributionRequest):
+    """산업군 × stage 분포 (DashboardPage / AnalyticsPage 용).
+
+    응답: {industry: {stage: count, total_score: avg, ...}}
+    """
+    where_parts = ["t.tagging_version = 5", "t.industry_scores IS NOT NULL"]
+    params: list = []
+    if req.hospital_id:
+        where_parts.append("c.hospital_id = %s")
+        params.append(req.hospital_id)
+    if req.date_from:
+        where_parts.append("t.updated_at >= %s")
+        params.append(req.date_from)
+    if req.date_to:
+        where_parts.append("t.updated_at <= %s")
+        params.append(req.date_to)
+    where = " AND ".join(where_parts)
+
+    rows = await db_manager.execute_query(f"""
+        SELECT t.industry_scores
+        FROM welno.tb_chat_session_tags t
+        JOIN welno.tb_partner_rag_chat_log c ON c.session_id = t.session_id
+        WHERE {where}
+    """, tuple(params))
+
+    # 5 산업군 × 6 stage 집계
+    dist: dict = {ind: {st: 0 for st in VALID_STAGES_V2} for ind in VALID_INDUSTRIES_V2}
+    score_sum: dict = {ind: 0 for ind in VALID_INDUSTRIES_V2}
+    score_n: dict = {ind: 0 for ind in VALID_INDUSTRIES_V2}
+
+    for r in rows:
+        scores = r["industry_scores"]
+        if isinstance(scores, str):
+            try:
+                scores = json.loads(scores)
+            except Exception:
+                continue
+        if not isinstance(scores, dict):
+            continue
+        for ind in VALID_INDUSTRIES_V2:
+            d = scores.get(ind) or {}
+            stage = d.get("stage", "none")
+            score = int(d.get("score", 0)) if isinstance(d.get("score"), (int, float)) else 0
+            if stage in dist[ind]:
+                dist[ind][stage] += 1
+            if score > 0:
+                score_sum[ind] += score
+                score_n[ind] += 1
+
+    summary = []
+    for ind in VALID_INDUSTRIES_V2:
+        avg = round(score_sum[ind] / score_n[ind], 1) if score_n[ind] > 0 else 0
+        summary.append({
+            "industry": ind,
+            "stages": dist[ind],
+            "total_with_signal": score_n[ind],
+            "avg_score": avg,
+        })
+
+    return {
+        "success": True,
+        "total_sessions": len(rows),
+        "industries": summary,
+    }
 
 
 @router.post("/checkup-design/campaign/targets")
