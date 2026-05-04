@@ -170,9 +170,28 @@ class Settings(BaseSettings):
     llm_cost_cap_block_usd: float = Field(default=20.0, env="WELNO_LLM_COST_CAP_BLOCK_USD")
     llm_cost_cap_enabled: bool = Field(default=True, env="WELNO_LLM_COST_CAP_ENABLED")
 
+    # M1: 월간 비용 cap — Anthropic monthly spend cap 패턴 (Gemini 4월 2026 강제 cap 적용 트렌드)
+    # 4월 사고 ~$700 → cap $200 warn / $500 block (4월의 71%) = 동일 패턴 재발 시 절반 절약
+    # NOTE 설계 의도: 일별 cap = primary guard (분당~시간 폭주 즉시 차단),
+    #                 월별 cap = backstop (장기간 dribble 누적 또는 일별 cap 실효 무력화 대비).
+    #                 default 일 $20 × 30일 = $600 이 월 $500 보다 큼 → 운영 중 월별 cap 이 먼저 발동되는 게 정상.
+    #                 임계 조정 시 두 값 의미 검토 후 일관 변경 권고.
+    llm_cost_monthly_warn_usd: float = Field(default=200.0, env="WELNO_LLM_COST_MONTHLY_WARN_USD")
+    llm_cost_monthly_block_usd: float = Field(default=500.0, env="WELNO_LLM_COST_MONTHLY_BLOCK_USD")
+
     # LLM 분당 spike 감지 (5분 sliding window)
     llm_spike_5min_threshold: int = Field(default=20, env="WELNO_LLM_SPIKE_5MIN_THRESHOLD")
     llm_spike_enabled: bool = Field(default=True, env="WELNO_LLM_SPIKE_ENABLED")
+
+    # M9: error rate spike (5min window) — 정상 fail rate 0.7% (5/3+5/4 145건 중 2건). 임계 10% = 14배
+    llm_error_rate_5min_threshold: float = Field(default=0.10, env="WELNO_LLM_ERROR_RATE_5MIN")
+    llm_error_rate_min_calls: int = Field(default=10, env="WELNO_LLM_ERROR_RATE_MIN_CALLS")
+
+    # M8: token spike — endpoint 별 평균 input 토큰 대비 N배 시 알림 (loop/prompt bug 조기 감지)
+    llm_token_spike_multiplier: float = Field(default=1.5, env="WELNO_LLM_TOKEN_SPIKE_MULTIPLIER")
+
+    # M10: cc-dashboard readonly 인증 (필수 — 미설정 시 endpoint 503)
+    welno_admin_api_key: Optional[str] = Field(default=None, env="WELNO_ADMIN_API_KEY")
 
     # LLM Router (Gemini → OpenAI 폴백 제어)
     llm_window_seconds: int = Field(default=60, env="WELNO_LLM_WINDOW_SECONDS")

@@ -42,6 +42,7 @@ from .api.v1.endpoints import (
     hospital_survey,
     partner_office,
     agent_survey,
+    llm_monitoring,
     consultation,
     widget_status,
 )
@@ -125,6 +126,8 @@ app.include_router(hospitals.router, prefix="/api/v1/hospitals", tags=["hospital
 app.include_router(checkup_design.router, prefix="/api/v1/checkup-design", tags=["checkup-design"])
 app.include_router(welno_data.router, prefix="/api/v1/welno", tags=["welno"])
 app.include_router(welno_unified_status.router, prefix="/api/v1/welno", tags=["welno-unified-status"])
+app.include_router(llm_monitoring.router, prefix="/api/v1/admin/llm", tags=["llm-monitoring"])
+app.include_router(llm_monitoring.router, prefix="/welno-api/v1/admin/llm", tags=["llm-monitoring-welno"])
 app.include_router(file_management.router, prefix="/api/v1/admin", tags=["admin"])
 app.include_router(embedding_management.router, prefix="/api/v1/admin", tags=["admin-embedding"])
 app.include_router(password.router, prefix="/api/v1", tags=["password"])
@@ -333,6 +336,42 @@ async def startup_event():
         print("✅ [태깅복구] 미태깅 세션 자동 복구 스케줄러 시작 (1시간 간격, 5분 후 첫 실행)")
     except Exception as e:
         print(f"⚠️ [태깅복구] 스케줄러 시작 실패: {e}")
+
+    # M4: DAILY_COST_SUMMARY 매일 09:00 KST 발송 스케줄러
+    try:
+        import asyncio
+        from datetime import datetime, time as dtime
+        try:
+            from zoneinfo import ZoneInfo
+            _KST = ZoneInfo("Asia/Seoul")
+        except Exception:
+            from datetime import timezone, timedelta
+            _KST = timezone(timedelta(hours=9))
+
+        async def _daily_cost_summary_loop():
+            """매일 09:00 KST 어제 LLM 사용량/비용 요약 Slack 발송."""
+            await asyncio.sleep(60)  # startup 후 1분 대기
+            while True:
+                try:
+                    now_kst = datetime.now(_KST)
+                    target = now_kst.replace(hour=9, minute=0, second=0, microsecond=0)
+                    if target <= now_kst:
+                        from datetime import timedelta as _td
+                        target = target + _td(days=1)
+                    sleep_secs = (target - now_kst).total_seconds()
+                    print(f"💰 [일일요약] 다음 발송: {target.strftime('%Y-%m-%d %H:%M:%S KST')} ({int(sleep_secs)}s 후)")
+                    await asyncio.sleep(sleep_secs)
+                    # 어제 사용량 집계
+                    from .services.daily_summary_service import send_daily_cost_summary
+                    await send_daily_cost_summary()
+                except Exception as e:
+                    print(f"⚠️ [일일요약] 실행 실패: {e}")
+                    await asyncio.sleep(3600)  # 1시간 후 재시도
+
+        asyncio.create_task(_daily_cost_summary_loop())
+        print("✅ [일일요약] LLM 비용 요약 스케줄러 시작 (매일 09:00 KST)")
+    except Exception as e:
+        print(f"⚠️ [일일요약] 스케줄러 시작 실패: {e}")
 
     print("✅ [시스템] 서버 시작 완료")
 
