@@ -43,9 +43,14 @@ interface Patient {
   industry_score: number;
   industry_stage: string;
   sub_categories?: string[];
-  health_concerns?: Array<{ topic: string; intensity: string; evidence?: string }>;
+  health_concerns?: Array<{ topic: string; intensity: string; intent?: string; evidence?: string }>;
   signals?: { urgency?: string; readiness?: string; buying_intent?: string; anxiety_level?: string };
   evidence_quotes?: string[];
+  composite_risk?: {
+    overall?: string;
+    factors?: { metric_severity?: string; patient_concern?: string; urgency?: string };
+    reason?: string;
+  };
   risk_level?: string;
   sentiment?: string;
   summary?: string;
@@ -53,6 +58,31 @@ interface Patient {
   consultation_status?: string;
   updated_at?: string;
 }
+
+const COMPOSITE_COLORS: Record<string, string> = {
+  critical: '#7f1d1d',
+  high:     '#dc2626',
+  medium:   '#d97706',
+  low:      '#059669',
+};
+const COMPOSITE_LABELS: Record<string, string> = {
+  critical: '🚨 긴급',
+  high:     '⚠️ 고위험',
+  medium:   '🟡 중위험',
+  low:      '🟢 저위험',
+};
+const INTENT_LABELS: Record<string, string> = {
+  concern:    '걱정',
+  info_seek:  '정보',
+  action:     '행동',
+  curiosity:  '호기심',
+};
+const INTENT_COLORS: Record<string, string> = {
+  concern:    '#dc2626',
+  info_seek:  '#0ea5e9',
+  action:     '#9333ea',
+  curiosity:  '#94a3b8',
+};
 
 interface IndustryDist {
   industry: string;
@@ -199,9 +229,9 @@ export default function IndustryPage() {
                 <th style={{ padding: 8 }}>score</th>
                 <th style={{ padding: 8 }}>stage</th>
                 <th style={{ padding: 8 }}>sub_category</th>
-                <th style={{ padding: 8 }}>risk</th>
+                <th style={{ padding: 8 }}>composite_risk</th>
                 <th style={{ padding: 8 }}>signals</th>
-                <th style={{ padding: 8 }}>health_concerns</th>
+                <th style={{ padding: 8 }}>health_concerns + intent</th>
                 <th style={{ padding: 8 }}>요약</th>
                 <th style={{ padding: 8 }}>상담</th>
                 <th style={{ padding: 8 }}>updated</th>
@@ -212,6 +242,8 @@ export default function IndustryPage() {
                 <tr><td colSpan={11} style={{ padding: 24, textAlign: 'center', color: '#9ca3af' }}>해당 조건 환자 없음</td></tr>
               ) : patients.map((p) => {
                 const stageColor = STAGES.find((s) => s.id === p.industry_stage)?.color || '#9ca3af';
+                const cr = p.composite_risk;
+                const crOverall = cr?.overall || p.risk_level;
                 return (
                   <tr key={p.session_id} style={{ borderBottom: '1px solid #e5e7eb' }}>
                     <td style={{ padding: 8, fontSize: 12 }}>{p.hospital_name?.slice(0, 12) || '-'}</td>
@@ -223,14 +255,32 @@ export default function IndustryPage() {
                       </span>
                     </td>
                     <td style={{ padding: 8, fontSize: 11 }}>{(p.sub_categories || []).join(', ')}</td>
-                    <td style={{ padding: 8, fontSize: 11 }}>{p.risk_level}</td>
+                    <td style={{ padding: 8 }}>
+                      {crOverall && (
+                        <span
+                          title={cr?.reason || `metric=${cr?.factors?.metric_severity || '-'}, concern=${cr?.factors?.patient_concern || '-'}, urgency=${cr?.factors?.urgency || '-'}`}
+                          style={{ background: COMPOSITE_COLORS[crOverall] || '#9ca3af', color: 'white', padding: '2px 8px', borderRadius: 4, fontSize: 11, cursor: 'help' }}
+                        >
+                          {COMPOSITE_LABELS[crOverall] || crOverall}
+                        </span>
+                      )}
+                    </td>
                     <td style={{ padding: 8, fontSize: 11 }}>
                       {p.signals && [
                         p.signals.urgency, p.signals.readiness, p.signals.buying_intent
                       ].filter(Boolean).join('/')}
                     </td>
                     <td style={{ padding: 8, fontSize: 11 }}>
-                      {(p.health_concerns || []).map((h) => `${h.topic}(${h.intensity})`).join(', ')}
+                      {(p.health_concerns || []).map((h, idx) => (
+                        <span key={idx} style={{ marginRight: 6 }}>
+                          {h.topic}({h.intensity})
+                          {h.intent && (
+                            <span style={{ marginLeft: 3, padding: '1px 5px', borderRadius: 3, background: INTENT_COLORS[h.intent] || '#94a3b8', color: 'white', fontSize: 10 }}>
+                              {INTENT_LABELS[h.intent] || h.intent}
+                            </span>
+                          )}
+                        </span>
+                      ))}
                     </td>
                     <td style={{ padding: 8, fontSize: 11, maxWidth: 280 }}>{p.summary?.slice(0, 50)}</td>
                     <td style={{ padding: 8 }}>{p.consultation_requested ? <span style={{ color: '#dc2626', fontWeight: 600 }}>요청됨</span> : '-'}</td>
