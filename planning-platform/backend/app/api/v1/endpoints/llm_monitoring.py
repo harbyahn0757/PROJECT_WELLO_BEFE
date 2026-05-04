@@ -22,7 +22,7 @@ except Exception:
 
 def _verify_key(x_admin_key: Optional[str]) -> None:
     """간단 readonly key 인증. settings.welno_admin_api_key 와 비교."""
-    from ...core.config import settings
+    from app.core.config import settings
     expected = getattr(settings, "welno_admin_api_key", None)
     if not expected:
         # 미설정 시 차단 (production 안전 기본값)
@@ -38,8 +38,8 @@ async def overview(
 ) -> Dict[str, Any]:
     """오늘+최근 N일 요약 — calls, cost, p95 latency, fail rate, top model."""
     _verify_key(x_admin_key)
-    from ...core.database import db_manager
-    from ...core.llm_pricing import estimate_usd
+    from app.core.database import db_manager
+    from app.core.llm_pricing import estimate_usd
 
     now_kst = datetime.now(_KST)
     today_start = now_kst.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -141,9 +141,9 @@ async def realtime(
 ) -> Dict[str, Any]:
     """LLMRouter QuotaGuard in-memory snapshot — 분 단위 spike, EWMA, 월 누적."""
     _verify_key(x_admin_key)
-    from ...services.llm_router import llm_router
+    from app.services.llm_router import llm_router
     q = llm_router._quota
-    from ...core.config import settings
+    from app.core.config import settings
     return {
         "state": llm_router.state.value,
         "today_usd": round(q.daily_usd(), 4),
@@ -171,7 +171,7 @@ async def recent_failures(
 ) -> Dict[str, Any]:
     """최근 실패 N건 — error_class 별 상세 (MAX_TOKENS / 503 / QUOTA / SAFETY)."""
     _verify_key(x_admin_key)
-    from ...core.database import db_manager
+    from app.core.database import db_manager
     sql = """
         SELECT to_char(ts AT TIME ZONE 'Asia/Seoul', 'YYYY-MM-DD HH24:MI:SS') AS ts_kst,
                endpoint, model, error_class, session_id, partner_id, hospital_id,
