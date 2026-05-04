@@ -70,11 +70,17 @@ def classify_error(exc: Exception) -> ErrorClass:
 
 
 class QuotaGuard:
-    """엔드포인트별 일별/시간별 호출 상한 카운터 (in-memory 폴백 포함)"""
+    """엔드포인트별 일별/시간별 호출 상한 카운터 (in-memory 폴백 포함)
+
+    P0-E5: 일별 USD 비용 누적 + cap (warn/block) — 4월 사고 메커니즘 무관 차단
+    P0-E6: 5분 sliding window spike 감지 (분당 폭주 즉시 감지)
+    """
 
     def __init__(self):
         self._daily: Dict[str, int] = {}    # {endpoint:date_str: count}
         self._hourly: Dict[str, int] = {}   # {endpoint:date_hour_str: count}
+        self._daily_usd: Dict[str, float] = {}  # {date_str: usd_total}  — 전체 endpoint 합산
+        self._minute_calls: Dict[str, int] = {}  # {YYYY-MM-DDTHH:MM: count} — 5분 spike
         self._quota_alert_at: Dict[str, float] = {}  # Slack dedup 1h
 
     def _daily_key(self, endpoint: str) -> str:
@@ -96,11 +102,18 @@ class QuotaGuard:
             return False
         return True
 
-    def record(self, endpoint: str) -> None:
+    def record(self, endpoint: str, daily_ceiling: int = 0) -> float:
+        """카운터 +1, daily_ceiling 대비 사용률 반환 (0.0~1.0+). 80% 사전 경고 트리거용."""
         dk = self._daily_key(endpoint)
         hk = self._hourly_key(endpoint)
         self._daily[dk] = self._daily.get(dk, 0) + 1
         self._hourly[hk] = self._hourly.get(hk, 0) + 1
+        if daily_ceiling > 0:
+            return self._daily[dk] / daily_ceiling
+        return 0.0
+
+    def get_daily_count(self, endpoint: str) -> int:
+        return self._daily.get(self._daily_key(endpoint), 0)
 
     def should_alert(self, endpoint: str) -> bool:
         """Slack 알림 dedup 1h"""
@@ -109,6 +122,38 @@ class QuotaGuard:
             self._quota_alert_at[endpoint] = time.monotonic()
             return True
         return False
+
+    # ── P0-E5 비용 누적 & cap
+    def _today_str(self) -> str:
+        from datetime import date
+        return date.today().isoformat()
+
+    def add_cost(self, usd: float) -> float:
+        """단일 호출 비용 누적, 일일 누적 반환."""
+        d = self._today_str()
+        self._daily_usd[d] = self._daily_usd.get(d, 0.0) + max(0.0, usd or 0.0)
+        return self._daily_usd[d]
+
+    def daily_usd(self) -> float:
+        return self._daily_usd.get(self._today_str(), 0.0)
+
+    # ── P0-E6 5분 sliding window spike
+    def _minute_key(self, offset_min: int = 0) -> str:
+        from datetime import datetime as _dt, timedelta
+        t = _dt.now() - timedelta(minutes=offset_min)
+        return t.strftime("%Y-%m-%dT%H:%M")
+
+    def record_minute(self) -> int:
+        """현재 분 카운터 +1 후 직전 5분 합 반환 (sliding window)."""
+        now_key = self._minute_key(0)
+        self._minute_calls[now_key] = self._minute_calls.get(now_key, 0) + 1
+        # 5분 window 합 (현재 + 이전 4분)
+        total = sum(self._minute_calls.get(self._minute_key(i), 0) for i in range(5))
+        # 오래된 키 정리 (10분 이상 경과)
+        if len(self._minute_calls) > 30:
+            cutoff = self._minute_key(10)
+            self._minute_calls = {k: v for k, v in self._minute_calls.items() if k >= cutoff}
+        return total
 
 
 class LLMRouter:
@@ -188,12 +233,22 @@ class LLMRouter:
             if t and not t.done():
                 t.cancel()
 
-    async def call_api(self, request: Any, endpoint: str = "default", **kwargs) -> Any:
+    async def call_api(
+        self,
+        request: Any,
+        endpoint: str = "default",
+        session_id: Optional[str] = None,
+        partner_id: Optional[str] = None,
+        hospital_id: Optional[str] = None,
+        **kwargs,
+    ) -> Any:
         """Gemini 우선 호출, 실패 시 OpenAI 폴백. GeminiResponse 호환 반환.
 
         Args:
             endpoint: 쿼터 추적용 엔드포인트 식별자
                       (chat_tagging / rag_chat / checkup_design / default)
+            session_id/partner_id/hospital_id: usage_log 추적용 — 5/4 점검 결과 145건 100% NULL 이라
+                                              session 단위 retry loop 감지 불가 → P0 추적 가능화
         """
         from .gemini_service import gemini_service, GeminiResponse
         from .llm_usage_logger import llm_usage_logger
@@ -207,10 +262,41 @@ class LLMRouter:
                 asyncio.create_task(self._notify_quota_exceeded(endpoint))
             llm_usage_logger.log(
                 model="(quota_blocked)", endpoint=endpoint,
+                session_id=session_id, partner_id=partner_id, hospital_id=hospital_id,
                 success=False, error_class="QUOTA_BLOCKED",
             )
-            return GeminiResponse(success=False, error="quota_exceeded")
-        self._quota.record(endpoint)
+            return GeminiResponse(success=False, error="quota_exceeded", error_class="QUOTA_BLOCKED")
+
+        # P0-E5 비용 cap — 일별 USD 누적 도달 시 차단 (4월 100만원 사고 재발 방지)
+        from ..core.config import settings as _cfg
+        if getattr(_cfg, "llm_cost_cap_enabled", True):
+            today_usd = self._quota.daily_usd()
+            block_cap = float(getattr(_cfg, "llm_cost_cap_block_usd", 20.0))
+            if today_usd >= block_cap:
+                if self._quota.should_alert("cost_cap_block"):
+                    logger.error("[LLMRouter] cost_cap BLOCK — today=$%.4f >= $%.2f endpoint=%s",
+                                 today_usd, block_cap, endpoint)
+                    asyncio.create_task(self._notify_cost_cap_block(today_usd, block_cap))
+                llm_usage_logger.log(
+                    model="(cost_blocked)", endpoint=endpoint,
+                    session_id=session_id, partner_id=partner_id, hospital_id=hospital_id,
+                    success=False, error_class="COST_CAP_BLOCKED",
+                )
+                return GeminiResponse(success=False, error=f"cost_cap_blocked (${today_usd:.2f} >= ${block_cap:.2f})", error_class="COST_CAP_BLOCKED")
+
+        ratio = self._quota.record(endpoint, daily_ceiling)
+        # 80% 사전 경고 — Free Tier 1개월 100% fail 사고 재발 방지 (운영자 사전 인지)
+        if ratio >= 0.8 and self._quota.should_alert(f"{endpoint}:warn80"):
+            asyncio.create_task(self._notify_quota_threshold(endpoint, ratio, daily_ceiling))
+
+        # P0-E6 5분 sliding window spike 감지 (4월 무한 retry 폭주 즉시 감지)
+        if getattr(_cfg, "llm_spike_enabled", True):
+            spike_count = self._quota.record_minute()
+            spike_threshold = int(getattr(_cfg, "llm_spike_5min_threshold", 20))
+            if spike_count >= spike_threshold and self._quota.should_alert(f"{endpoint}:spike5min"):
+                logger.warning("[LLMRouter] 5min spike — %d calls/5min (threshold=%d) endpoint=%s",
+                               spike_count, spike_threshold, endpoint)
+                asyncio.create_task(self._notify_spike(endpoint, spike_count, spike_threshold))
 
         state = self.state
         t0 = time.monotonic()
@@ -219,15 +305,34 @@ class LLMRouter:
             # 로깅 자체 실패가 LLM 응답 흐름을 차단하지 않도록 try/except 보호
             try:
                 usage = getattr(resp, "usage", None) or {}
+                # resp.error_class 가 있으면 우선 사용 (gemini_service 가 세분화한 분류)
+                resp_err_class = getattr(resp, "error_class", None)
+                final_err_class = err_class if err_class is not None else resp_err_class
+                in_t = int(usage.get("input_tokens") or 0)
+                out_t = int(usage.get("output_tokens") or 0)
+                cached_t = int(usage.get("cached_tokens") or 0)
+                # P0-E5 비용 누적 — 성공/실패 무관 (실패도 input 토큰 청구되는 경우 있음)
+                try:
+                    from ..core.llm_pricing import estimate_usd as _est
+                    cost = _est(model_name, in_t, out_t, cached_t)
+                    today_total = self._quota.add_cost(cost)
+                    warn_cap = float(getattr(_cfg, "llm_cost_cap_warn_usd", 5.0))
+                    if today_total >= warn_cap and self._quota.should_alert("cost_cap_warn"):
+                        asyncio.create_task(self._notify_cost_cap_warn(today_total, warn_cap))
+                except Exception as cost_exc:
+                    logger.debug("[LLMRouter] cost estimate skip: %s", cost_exc)
                 llm_usage_logger.log(
                     model=model_name,
                     endpoint=endpoint,
-                    input_tokens=int(usage.get("input_tokens") or 0),
-                    output_tokens=int(usage.get("output_tokens") or 0),
-                    cached_tokens=int(usage.get("cached_tokens") or 0),
+                    session_id=session_id,
+                    partner_id=partner_id,
+                    hospital_id=hospital_id,
+                    input_tokens=in_t,
+                    output_tokens=out_t,
+                    cached_tokens=cached_t,
                     latency_ms=int((time.monotonic() - t0) * 1000),
                     success=ok,
-                    error_class=err_class,
+                    error_class=final_err_class,
                 )
             except Exception as log_exc:
                 logger.warning("[LLMRouter] _log_usage 실패 (무시): %s", log_exc)
@@ -247,7 +352,9 @@ class LLMRouter:
                     await _log_usage(fb, "openai-fallback", fb.success,
                                      None if fb.success else "OPENAI_FALLBACK_FAIL")
                     return fb
-                await _log_usage(resp, getattr(request, "model", "gemini"), False, "GEMINI_FAIL")
+                # err_class None → _log_usage 가 resp.error_class (gemini_service 세분화) 우선 사용
+                # MAX_TOKENS / SAFETY 시 retry 무의미 → 호출자 (greetings 등) 에게 전파만
+                await _log_usage(resp, getattr(request, "model", "gemini"), False, None)
                 return resp
             except Exception as e:
                 await self._record_failure("gemini", e)
@@ -262,6 +369,20 @@ class LLMRouter:
                 raise
 
         if state == LLMState.DEGRADED:
+            # P0-E5 dev-reviewer CONDITIONAL fix — DEGRADED 분기에도 cap 재확인
+            # (race: 함수 진입 직후 다른 비동기 호출이 누적 → 단일 호출 우회 차단)
+            if getattr(_cfg, "llm_cost_cap_enabled", True):
+                today_usd = self._quota.daily_usd()
+                block_cap = float(getattr(_cfg, "llm_cost_cap_block_usd", 20.0))
+                if today_usd >= block_cap:
+                    if self._quota.should_alert("cost_cap_block_degraded"):
+                        asyncio.create_task(self._notify_cost_cap_block(today_usd, block_cap))
+                    llm_usage_logger.log(
+                        model="(cost_blocked_degraded)", endpoint=endpoint,
+                        session_id=session_id, partner_id=partner_id, hospital_id=hospital_id,
+                        success=False, error_class="COST_CAP_BLOCKED",
+                    )
+                    return GeminiResponse(success=False, error=f"cost_cap_blocked (degraded, ${today_usd:.2f})", error_class="COST_CAP_BLOCKED")
             fb = await self._call_openai(request, **kwargs)
             await _log_usage(fb, "openai-degraded", fb.success,
                              None if fb.success else "OPENAI_DEGRADED_FAIL")
@@ -270,9 +391,11 @@ class LLMRouter:
         # DOWN
         from .gemini_service import GeminiResponse
         llm_usage_logger.log(
-            model="(down)", endpoint=endpoint, success=False, error_class="DOWN",
+            model="(down)", endpoint=endpoint,
+            session_id=session_id, partner_id=partner_id, hospital_id=hospital_id,
+            success=False, error_class="DOWN",
         )
-        return GeminiResponse(success=False, error="LLM services unavailable (DOWN)")
+        return GeminiResponse(success=False, error="LLM services unavailable (DOWN)", error_class="DOWN")
 
     async def stream_api(
         self,
@@ -357,6 +480,80 @@ class LLMRouter:
                 })
         except Exception as e:
             logger.warning("[LLMRouter] quota slack notify failed: %s", e)
+
+    async def _notify_cost_cap_warn(self, today_usd: float, warn_cap: float) -> None:
+        """일별 비용 사전 경고 ($5/일 도달, 1h dedup)."""
+        try:
+            from .slack_service import get_slack_service, AlertType
+            from ..core.config import settings
+            if settings.slack_webhook_url:
+                slack = get_slack_service(settings.slack_webhook_url)
+                await slack.send_error_alert(AlertType.QUOTA_THRESHOLD, {
+                    "error_type": f"💰 LLM 비용 사전 경고 — 일 ${today_usd:.2f} (warn cap ${warn_cap:.2f})",
+                    "location": "llm_router:cost_cap_warn",
+                    "error_message": f"오늘 누적 ${today_usd:.4f} ≥ warn ${warn_cap:.2f}. block cap 도달 전 운영팀 사전 인지 (1h dedup).",
+                    "uuid": "system",
+                })
+        except Exception as e:
+            logger.warning("[LLMRouter] cost warn slack notify failed: %s", e)
+
+    async def _notify_cost_cap_block(self, today_usd: float, block_cap: float) -> None:
+        """일별 비용 차단 — 4월 100만원 사고 재발 방지 (1h dedup)."""
+        try:
+            from .slack_service import get_slack_service, AlertType
+            from ..core.config import settings
+            if settings.slack_webhook_url:
+                slack = get_slack_service(settings.slack_webhook_url)
+                await slack.send_error_alert(AlertType.SYSTEM_ERROR, {
+                    "error_type": f"🛑 LLM 비용 cap 차단 — 일 ${today_usd:.2f} ≥ ${block_cap:.2f}",
+                    "location": "llm_router:cost_cap_block",
+                    "error_message": (
+                        f"누적 ${today_usd:.4f} block cap ${block_cap:.2f} 도달. "
+                        f"이후 호출 차단 → COST_CAP_BLOCKED 응답. "
+                        f"하루 자정 자동 reset. 임계 조정: WELNO_LLM_COST_CAP_BLOCK_USD"
+                    ),
+                    "uuid": "system",
+                })
+        except Exception as e:
+            logger.warning("[LLMRouter] cost block slack notify failed: %s", e)
+
+    async def _notify_spike(self, endpoint: str, count_5min: int, threshold: int) -> None:
+        """5분 sliding window spike 감지 — 무한 retry/봇 폭주 즉시 감지 (1h dedup)."""
+        try:
+            from .slack_service import get_slack_service, AlertType
+            from ..core.config import settings
+            if settings.slack_webhook_url:
+                slack = get_slack_service(settings.slack_webhook_url)
+                await slack.send_error_alert(AlertType.QUOTA_THRESHOLD, {
+                    "error_type": f"⚡ LLM 5분 spike — {count_5min} calls/5min (threshold={threshold})",
+                    "location": f"llm_router:spike5min:{endpoint}",
+                    "error_message": (
+                        f"endpoint={endpoint} 5분 누적 호출 {count_5min} ≥ {threshold}. "
+                        f"4월 무한 retry / 봇 트래픽 의심. "
+                        f"임계 조정: WELNO_LLM_SPIKE_5MIN_THRESHOLD"
+                    ),
+                    "uuid": "system",
+                })
+        except Exception as e:
+            logger.warning("[LLMRouter] spike slack notify failed: %s", e)
+
+    async def _notify_quota_threshold(self, endpoint: str, ratio: float, ceiling: int) -> None:
+        try:
+            from .slack_service import get_slack_service, AlertType
+            from ..core.config import settings
+            if settings.slack_webhook_url:
+                slack = get_slack_service(settings.slack_webhook_url)
+                await slack.send_error_alert(AlertType.QUOTA_THRESHOLD, {
+                    "error_type": f"LLM Quota {int(ratio*100)}% 도달 (사전 경고)",
+                    "location": f"llm_router:quota:{endpoint}",
+                    "error_message": (
+                        f"endpoint={endpoint} usage={self._quota.get_daily_count(endpoint)}/{ceiling} "
+                        f"({int(ratio*100)}%) — 1h dedup, ceiling 도달 전 운영팀 사전 인지용"
+                    ),
+                    "uuid": "system",
+                })
+        except Exception as e:
+            logger.warning("[LLMRouter] quota threshold slack notify failed: %s", e)
 
     async def _call_openai(self, request: Any, **kwargs) -> Any:
         from .gpt_service import gpt_service, GPTResponse

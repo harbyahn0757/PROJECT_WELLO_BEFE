@@ -164,6 +164,16 @@ class Settings(BaseSettings):
     llm_quota_checkup_design_daily: int = Field(default=1000, env="WELNO_LLM_QUOTA_CHECKUP_DESIGN_DAILY")
     llm_quota_hourly_multiplier: float = Field(default=0.15, env="WELNO_LLM_QUOTA_HOURLY_MULTIPLIER")
 
+    # LLM 비용 cap (USD/일) — 4월 100만원 사고 재발 방지
+    # 5/3~5/4 정상 트래픽 = $0.009/일. cap $5 = 정상 555배. cap $20 = 4월 사고 직전 차단.
+    llm_cost_cap_warn_usd: float = Field(default=5.0, env="WELNO_LLM_COST_CAP_WARN_USD")
+    llm_cost_cap_block_usd: float = Field(default=20.0, env="WELNO_LLM_COST_CAP_BLOCK_USD")
+    llm_cost_cap_enabled: bool = Field(default=True, env="WELNO_LLM_COST_CAP_ENABLED")
+
+    # LLM 분당 spike 감지 (5분 sliding window)
+    llm_spike_5min_threshold: int = Field(default=20, env="WELNO_LLM_SPIKE_5MIN_THRESHOLD")
+    llm_spike_enabled: bool = Field(default=True, env="WELNO_LLM_SPIKE_ENABLED")
+
     # LLM Router (Gemini → OpenAI 폴백 제어)
     llm_window_seconds: int = Field(default=60, env="WELNO_LLM_WINDOW_SECONDS")
     llm_failure_threshold: int = Field(default=5, env="WELNO_LLM_FAILURE_THRESHOLD")

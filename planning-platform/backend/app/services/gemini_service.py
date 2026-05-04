@@ -32,6 +32,9 @@ class GeminiResponse:
     success: bool = False
     error: Optional[str] = None
     usage: Optional[Dict[str, int]] = None
+    # 5/3~5/4 실패 100%가 MAX_TOKENS — error_class 세분화로 retry/모니터링 분기 정확화
+    # 값: GEMINI_503 / GEMINI_MAX_TOKENS / GEMINI_QUOTA / GEMINI_SAFETY / GEMINI_UNKNOWN
+    error_class: Optional[str] = None
 
 class GeminiService:
     """Google Gemini 서비스 클래스"""
@@ -60,6 +63,24 @@ class GeminiService:
         self._health_cache: Optional[dict] = None  # 헬스체크 결과 캐시
         self._health_cache_time: float = 0  # 캐시 갱신 시각
         self._semaphore: asyncio.Semaphore = asyncio.Semaphore(self.MAX_CONCURRENT_CALLS)
+
+    def _build_config(self, request: "GeminiRequest") -> "types.GenerateContentConfig":
+        """GenerateContentConfig 구성 (call_api/stream_api 공용).
+        gemini-3-flash-preview 는 thinking 모델 — thinking 토큰이 max_output_tokens 에 포함됨.
+        5/3~5/4 MAX_TOKENS 실패 100% 가 thinking 폭주로 답변 토큰 부족 추정 → thinking_budget 으로 사고 한도 분리.
+        """
+        cfg_kwargs = dict(
+            temperature=request.temperature,
+            max_output_tokens=request.max_tokens,
+            safety_settings=self.SAFETY_SETTINGS,
+        )
+        model = request.model or ""
+        if "gemini-3" in model or "thinking" in model:
+            try:
+                cfg_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=1024)
+            except Exception as _thk_err:
+                logger.warning("[Gemini] thinking_config 미지원 — skip: %s", _thk_err)
+        return types.GenerateContentConfig(**cfg_kwargs)
 
     async def initialize(self):
         """Gemini 클라이언트 초기화"""
@@ -160,12 +181,8 @@ class GeminiService:
                 client = genai.Client(api_key=request.api_key)
                 logger.info("[Gemini Service] api_key override 활성 — 호출별 임시 client 사용 (cache 비활성)")
 
-            # GenerateContentConfig 구성
-            config = types.GenerateContentConfig(
-                temperature=request.temperature,
-                max_output_tokens=request.max_tokens,
-                safety_settings=self.SAFETY_SETTINGS,
-            )
+            # GenerateContentConfig 구성 (thinking_config 포함, _build_config 헬퍼 위임)
+            config = self._build_config(request)
 
             # JSON 응답 요청
             if request.response_format and request.response_format.get("type") == "json_object":
@@ -217,13 +234,15 @@ class GeminiService:
                     if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
                         logger.warning(f"⚠️ [Gemini] 429 quota — retry skip → OpenAI 폴백 위임")
                         raise
-                    # 503/UNAVAILABLE 만 짧은 retry (일시 장애)
+                    # 503/UNAVAILABLE — 1회만 retry (UX: 30s → 10s 단축)
+                    # 직전: 1s/2s/4s 3회 retry → 응답 누적 30초. llm_router 가 즉시 OpenAI 폴백하면 더 빠름
                     if "503" in err_str or "UNAVAILABLE" in err_str:
-                        wait = 2 ** attempt  # 1초, 2초, 4초
-                        logger.warning(f"⚠️ [Gemini] {err_str[:80]}... → {wait}초 후 재시도 ({attempt + 1}/{max_retries})")
-                        await asyncio.sleep(wait)
-                        if attempt == max_retries - 1:
-                            raise  # 마지막 시도도 실패 시 예외 전파
+                        if attempt == 0:
+                            logger.warning(f"⚠️ [Gemini] 503 1회 retry → 실패 시 즉시 폴백 위임")
+                            await asyncio.sleep(1)
+                        else:
+                            logger.warning(f"⚠️ [Gemini] 503 재발 — retry skip → OpenAI 폴백 위임")
+                            raise
                     else:
                         raise  # 503/429 외 에러는 즉시 전파
 
@@ -239,15 +258,42 @@ class GeminiService:
             if finish_reason != "STOP":  # STOP이 아니면 비정상
                 logger.warning(f"⚠️ [Gemini Service] 비정상 종료: {finish_reason}")
 
+                # 진단용 — usage_metadata 의 thoughts/output 토큰 분포 + 잘린 응답 일부
+                meta = getattr(response, "usage_metadata", None)
+                thoughts = getattr(meta, "thoughts_token_count", None) if meta else None
+                cand_out = getattr(meta, "candidates_token_count", None) if meta else None
+                prompt_t = getattr(meta, "prompt_token_count", None) if meta else None
+                partial_text = ""
+                try:
+                    parts = response.candidates[0].content.parts or []
+                    partial_text = "".join(getattr(p, "text", "") or "" for p in parts)[:300]
+                except Exception:
+                    partial_text = "(parts 추출 실패)"
+
                 if finish_reason == "MAX_TOKENS":
-                    logger.error(f"❌ [Gemini Service] 토큰 제한 초과 (max: {request.max_tokens})")
-                    return GeminiResponse(success=False, error=f"응답이 토큰 제한({request.max_tokens})을 초과했습니다")
+                    logger.error(
+                        "❌ [Gemini Service] MAX_TOKENS 초과 max=%s prompt=%s thoughts=%s output=%s partial=%r",
+                        request.max_tokens, prompt_t, thoughts, cand_out, partial_text
+                    )
+                    return GeminiResponse(
+                        success=False,
+                        error=f"응답이 토큰 제한({request.max_tokens})을 초과했습니다 (thoughts={thoughts}, output={cand_out})",
+                        error_class="GEMINI_MAX_TOKENS",
+                    )
                 elif finish_reason == "SAFETY":
-                    logger.error(f"❌ [Gemini Service] 안전 필터에 의해 차단됨")
-                    return GeminiResponse(success=False, error="안전 필터에 의해 응답이 차단되었습니다")
+                    logger.error("❌ [Gemini Service] 안전 필터 차단 partial=%r", partial_text)
+                    return GeminiResponse(
+                        success=False,
+                        error="안전 필터에 의해 응답이 차단되었습니다",
+                        error_class="GEMINI_SAFETY",
+                    )
                 else:
-                    logger.error(f"❌ [Gemini Service] 알 수 없는 종료 이유: {finish_reason}")
-                    return GeminiResponse(success=False, error=f"응답 생성 실패: {finish_reason}")
+                    logger.error("❌ [Gemini Service] 알 수 없는 종료 이유: %s partial=%r", finish_reason, partial_text)
+                    return GeminiResponse(
+                        success=False,
+                        error=f"응답 생성 실패: {finish_reason}",
+                        error_class="GEMINI_UNKNOWN",
+                    )
 
             response_text = response.text
 
@@ -314,10 +360,18 @@ class GeminiService:
         except Exception as e:
             err_str = str(e)
             logger.error(f"[Gemini Service] API 호출 실패: {err_str}")
+            # error_class 분류 — 503/429/quota/unknown
+            err_lower = err_str.lower()
+            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_lower:
+                err_class = "GEMINI_QUOTA"
+            elif "503" in err_str or "UNAVAILABLE" in err_str:
+                err_class = "GEMINI_503"
+            else:
+                err_class = "GEMINI_UNKNOWN"
             # 503/429는 일시적 과부하 — 슬랙 알림 스킵 (알림 폭탄 방지)
-            if not ("503" in err_str or "429" in err_str or "UNAVAILABLE" in err_str or "RESOURCE_EXHAUSTED" in err_str):
+            if err_class == "GEMINI_UNKNOWN":
                 await self._notify_slack("Gemini API 호출 실패", "call_api", err_str)
-            return GeminiResponse(success=False, error=err_str)
+            return GeminiResponse(success=False, error=err_str, error_class=err_class)
 
     async def stream_api(self, request: GeminiRequest, session_id: Optional[str] = None):
         """
@@ -336,12 +390,8 @@ class GeminiService:
             return
 
         try:
-            # GenerateContentConfig 구성
-            config = types.GenerateContentConfig(
-                temperature=request.temperature,
-                max_output_tokens=request.max_tokens,
-                safety_settings=self.SAFETY_SETTINGS,
-            )
+            # GenerateContentConfig 구성 (thinking_config 포함, _build_config 헬퍼 위임)
+            config = self._build_config(request)
 
             # Context Caching 시도 (첫 메시지 + system_instruction 있을 때만)
             cached_content = None
@@ -405,11 +455,12 @@ class GeminiService:
                         logger.warning(f"⚠️ [Gemini] 스트리밍 429 quota — retry skip → OpenAI 폴백 위임")
                         raise
                     if "503" in err_str or "UNAVAILABLE" in err_str:
-                        wait = 2 ** attempt  # 1초, 2초, 4초
-                        logger.warning(f"⚠️ [Gemini] 스트리밍 {err_str[:80]}... → {wait}초 후 재시도 ({attempt + 1}/{max_retries})")
-                        await asyncio.sleep(wait)
-                        if attempt == max_retries - 1:
-                            raise  # 마지막 시도도 실패 시 예외 전파
+                        if attempt == 0:
+                            logger.warning(f"⚠️ [Gemini] 스트리밍 503 1회 retry → 실패 시 폴백 위임")
+                            await asyncio.sleep(1)
+                        else:
+                            logger.warning(f"⚠️ [Gemini] 스트리밍 503 재발 — retry skip → 폴백 위임")
+                            raise
                     else:
                         raise  # 503/429 외 에러는 즉시 전파
 

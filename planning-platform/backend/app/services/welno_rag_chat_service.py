@@ -1059,6 +1059,8 @@ class WelnoRagChatService:
                             GeminiRequest(prompt=retry_prompt, model=settings.google_gemini_fast_model, temperature=0.5),
                             endpoint="rag_chat",
                             save_log=False,
+                            session_id=session_id,
+                            hospital_id=hospital_id,
                         )
                         if retry_res.success and "|" in retry_res.content:
                             suggestions = [s.strip() for s in retry_res.content.strip().split("|") if s.strip()][:3]
@@ -1357,7 +1359,7 @@ class WelnoRagChatService:
                 response_format={"type": "json_object"}
             )
             
-            response = await llm_router.call_api(gemini_request, endpoint="rag_chat")
+            response = await llm_router.call_api(gemini_request, endpoint="rag_chat", session_id=uuid, hospital_id=hospital_id)
             if not response.success:
                 raise Exception(f"LLM 요약 실패: {response.error}")
             

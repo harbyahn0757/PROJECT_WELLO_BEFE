@@ -30,6 +30,10 @@ class AlertType(str, Enum):
     API_ERROR = "api_error"
     RAG_DISCREPANCY = "rag_discrepancy"  # 파트너 위젯: 클라이언트 판정과 RAG 참고문헌 간 큰 차이
     TAGGING_FAILURE = "tagging_failure"  # 채팅 세션 자동 태깅 실패
+    REDIS_FAILURE = "redis_failure"      # Redis 연결 실패 (1개월 chat fail 사고 재발 방지)
+    QUOTA_THRESHOLD = "quota_threshold"  # LLM Quota 80% 도달 사전 경고
+    USER_CHAT_FAIL = "user_chat_fail"    # 사용자에게 "일시적 오류" 응답 노출 즉시 감지
+    DAILY_COST_SUMMARY = "daily_cost_summary"  # 매일 09:00 LLM 비용 요약
 
 
 class SlackColor(str, Enum):
@@ -141,6 +145,26 @@ class SlackService:
                 "emoji": "🏷",
                 "title": "채팅 태깅 실패",
                 "color": SlackColor.DANGER
+            },
+            AlertType.REDIS_FAILURE: {
+                "emoji": "🔴",
+                "title": "Redis 연결 실패 (chat history/cache 비활성)",
+                "color": SlackColor.DANGER
+            },
+            AlertType.QUOTA_THRESHOLD: {
+                "emoji": "⚠️",
+                "title": "LLM Quota 사전 경고",
+                "color": SlackColor.WARNING
+            },
+            AlertType.USER_CHAT_FAIL: {
+                "emoji": "🚨",
+                "title": "사용자 chat 실패 응답 노출",
+                "color": SlackColor.DANGER
+            },
+            AlertType.DAILY_COST_SUMMARY: {
+                "emoji": "💰",
+                "title": "LLM 일일 비용 요약",
+                "color": SlackColor.GOOD
             }
         }
         return configs.get(alert_type, {

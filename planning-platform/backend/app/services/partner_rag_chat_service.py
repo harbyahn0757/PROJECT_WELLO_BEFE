@@ -153,10 +153,16 @@ class PartnerRagChatService(WelnoRagChatService):
             ):
                 yield chunk
             
-            # 최종 추적 보고서 저장
+            # 최종 추적 보고서 — 디스크 무한 누적 방지 (179MB/5,673개 회귀 차단)
+            # logger.debug 출력 + Redis 조건부 저장 (settings.debug=True 시만, TTL 24h)
             trace_data["timings"]["total_process_ms"] = (time.time() - start_time) * 1000
-            with open(f"/home/welno/workspace/PROJECT_WELNO_BEFE/planning-platform/backend/logs/trace_{uuid}_{int(time.time())}.json", "w", encoding="utf-8") as f:
-                json.dump(trace_data, f, ensure_ascii=False, indent=2)
+            try:
+                trace_json = json.dumps(trace_data, ensure_ascii=False)
+                logger.debug("[trace] uuid=%s session=%s len=%d", uuid, session_id, len(trace_json))
+                if getattr(settings, "debug", False) and self.redis_client:
+                    self.redis_client.setex(f"trace:{session_id}", 86400, trace_json)
+            except Exception as trace_exc:
+                logger.warning("[trace] 저장 실패 (무시): %s", trace_exc)
                 
         except Exception as e:
             logger.error(f"❌ [파트너 RAG] 응답 생성 실패 - {partner_info.partner_id}: {e}")
@@ -959,6 +965,8 @@ class PartnerRagChatService(WelnoRagChatService):
                     ),
                     endpoint="rag_chat",
                     save_log=False,
+                    partner_id=partner_info.partner_id if partner_info else None,
+                    hospital_id=(processed_data.get("partner_hospital_id") or processed_data.get("hospital_id")) if processed_data else None,
                 )
                 logger.info("[greetings] attempt=%d success=%s err=%s len=%s angle_hook=%s",
                             attempt + 1,
@@ -1001,7 +1009,11 @@ class PartnerRagChatService(WelnoRagChatService):
                     except json.JSONDecodeError as e:
                         logger.warning("[greetings] JSON 파싱 실패: %s | raw=%s", e, raw[:200])
                 elif res and not res.success:
-                    logger.warning("[greetings] LLM 호출 실패: %s", res.error)
+                    logger.warning("[greetings] LLM 호출 실패: %s (class=%s)", res.error, getattr(res, "error_class", None))
+                    # MAX_TOKENS / SAFETY 시 outer retry 무의미 (동일 prompt = 동일 결과) → 즉시 폴백
+                    if getattr(res, "error_class", None) in ("GEMINI_MAX_TOKENS", "GEMINI_SAFETY"):
+                        logger.warning("[greetings] retry 무의미 — 폴백 사용 (class=%s)", res.error_class)
+                        break
             except Exception as e:
                 logger.warning("[greetings] 예외 attempt=%d: %s", attempt + 1, e)
 
