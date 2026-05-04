@@ -2058,29 +2058,53 @@ async def patients_by_industry(
     """산업군별 환자 list — RevisitPage 등 신규 화면에서 사용.
 
     industry_scores jsonb 의 score/stage 기준 필터 + 정렬.
+    P0 보안: JWT 의 user["partner_id"] 로 partner 격리 (다른 파트너 환자 노출 차단).
+    super_admin 만 모든 partner 조회 가능.
     """
     if req.industry not in VALID_INDUSTRIES_V2:
         raise HTTPException(400, f"invalid industry: {req.industry}")
     if req.stage is not None and req.stage not in VALID_STAGES_V2:
         raise HTTPException(400, f"invalid stage: {req.stage}")
 
+    user_partner_id = user.get("partner_id")
+    is_super_admin = user.get("permission_level") == "super_admin"
+    if not user_partner_id and not is_super_admin:
+        raise HTTPException(403, "user partner_id missing")
+
+    # ── SQL 빌더 — placeholder 순서 명확히 ──
+    # 1) SELECT (3 placeholder: industry × 3)
+    # 2) WHERE — partner_id (1) + [hospital_id (1)?] + score (industry+min_score 2) + [stage (industry+stage 2)?]
+    # 3) ORDER BY (1: industry)
+    # 4) LIMIT (2: limit, offset)
     where_parts = ["t.tagging_version = 5", "t.industry_scores IS NOT NULL"]
-    params: list = []
+    where_params: list = []
+
+    # P0 hotfix — partner_id 격리 (super_admin 외 강제)
+    if not is_super_admin:
+        where_parts.append("t.partner_id = %s")
+        where_params.append(user_partner_id)
 
     if req.hospital_id:
         where_parts.append("c.hospital_id = %s")
-        params.append(req.hospital_id)
+        where_params.append(req.hospital_id)
 
     # score 필터 — jsonb path
-    where_parts.append(f"(t.industry_scores->%s->>'score')::int >= %s")
-    params.extend([req.industry, req.min_score])
+    where_parts.append("(t.industry_scores->%s->>'score')::int >= %s")
+    where_params.extend([req.industry, req.min_score])
 
     if req.stage:
-        where_parts.append(f"t.industry_scores->%s->>'stage' = %s")
-        params.extend([req.industry, req.stage])
+        where_parts.append("t.industry_scores->%s->>'stage' = %s")
+        where_params.extend([req.industry, req.stage])
 
     where = " AND ".join(where_parts)
-    params.extend([req.industry, req.limit, req.offset])
+
+    # placeholder 순서: SELECT(3) + WHERE(N) + ORDER(1) + LIMIT(2)
+    all_params = (
+        [req.industry] * 3                                    # SELECT 3개
+        + where_params                                        # WHERE N개
+        + [req.industry]                                      # ORDER BY 1개
+        + [req.limit, req.offset]                             # LIMIT 2개
+    )
 
     rows = await db_manager.execute_query(f"""
         SELECT
@@ -2100,7 +2124,7 @@ async def patients_by_industry(
         WHERE {where}
         ORDER BY (t.industry_scores->%s->>'score')::int DESC NULLS LAST, t.updated_at DESC
         LIMIT %s OFFSET %s
-    """, tuple([req.industry] * 3 + params))
+    """, tuple(all_params))
 
     # JSON parse helper
     def _parse(v):
@@ -2154,9 +2178,21 @@ async def industry_distribution(
     """산업군 × stage 분포 (DashboardPage / AnalyticsPage 용).
 
     응답: {industry: {stage: count, total_score: avg, ...}}
+    P0 보안: partner_id 격리.
     """
+    user_partner_id = user.get("partner_id")
+    is_super_admin = user.get("permission_level") == "super_admin"
+    if not user_partner_id and not is_super_admin:
+        raise HTTPException(403, "user partner_id missing")
+
     where_parts = ["t.tagging_version = 5", "t.industry_scores IS NOT NULL"]
     params: list = []
+
+    # P0 hotfix — partner_id 격리
+    if not is_super_admin:
+        where_parts.append("t.partner_id = %s")
+        params.append(user_partner_id)
+
     if req.hospital_id:
         where_parts.append("c.hospital_id = %s")
         params.append(req.hospital_id)
