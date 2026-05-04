@@ -36,14 +36,14 @@ def build_prompt_v2(
     context_section: str = "",
     conv_pattern: str = "",
 ) -> str:
-    """B2B CRM v2 태깅 prompt 생성. 짧고 명확."""
+    """B2B CRM v2.1 태깅 prompt 생성. 강화 룰 (P1~P4)."""
     return f"""건강상담 대화를 B2B CRM 관점에서 분석합니다.
 환자(수검자) 질문과 상담사(AI) 답변이 턴 번호(#)로 구분됩니다.
 
-⚠️ 핵심 원칙:
-1. health_concerns / industry_scores 는 [환자 질문]에서만 추출. 상담사 일방 언급은 제외.
-2. industry_scores 는 5 산업군 모두 점수 (0~100) — 신호 없으면 score 0, stage "none"
-3. evidence_quotes 는 점수 근거 인용 — 환자 발화 그대로 (3~5개)
+⚠️ 절대 원칙 (위반 시 결과 무효):
+1. health_concerns / industry_scores / evidence_quotes 는 [환자 질문]에서만 추출. 상담사 답변/안내 절대 인용 금지.
+2. industry_scores 는 5 산업군 모두 점수 (0~100) — 환자가 직접 언급/질문 안 했으면 score 0, stage "none"
+3. signals 는 default 사용 금지 — 대화 패턴에 따라 명확히 차별화
 
 {INDUSTRY_DEFS}
 
@@ -65,7 +65,7 @@ def build_prompt_v2(
   "health_concerns": [
     {{"topic": "혈압|혈당|콜레스테롤|간|신장|비만|정신건강|갑상선|일반",
       "intensity": "low|medium|high",
-      "evidence": "환자 발화 인용"}}
+      "evidence": "환자 발화 그대로 인용 — 답변/안내 텍스트 금지"}}
   ],
 
   "industry_scores": {{
@@ -88,22 +88,43 @@ def build_prompt_v2(
   "key_concerns": ["환자가 표현한 우려 -- 최대 3개"]
 }}
 
-[Stage 판정 가이드]
-- 환자가 "어떻게 해야 하나요" 같은 행동 질문 → consider/decision
-- 환자가 "예약하고 싶어요/사고 싶어요" → action
-- 환자가 "이게 효과가 있나요" → consider (영양제) 또는 interest
-- 환자가 "그렇군요/감사합니다" 만 → awareness 또는 none
-- 1턴 + 단순 인사 → 모든 산업군 score 0~10, stage "none"
+[P1] evidence_quotes / health_concerns.evidence — 환자 발화 strict
+- 절대 사용 금지: "고객님의 ~수치는...", "정상 범위 안에 있더라도...", "권해요/추천해요" — 모두 상담사 답변
+- 사용 OK: 환자가 직접 묻거나 표현한 발화만. (예: "간 수치를 낮추려면?", "걱정돼요")
+- 환자 발화 부족하면 evidence_quotes 빈 배열 [] 또는 1~2개만 (상담사 답변으로 채우지 말 것)
 
-[Industry score 계산]
-- 환자가 직접 언급/질문한 산업군만 score > 30
-- 검진 이상소견 + 환자 관심 → hospital score ↑
-- "영양제/비타민/오메가3" 언급 → supplement score ↑
-- "운동/다이어트/PT" 언급 → fitness score ↑
-- "보험/실손" 언급 → insurance score ↑
-- "잠/스트레스/우울" 언급 → mental_care score ↑
+[P2] signals 차별화 — default 출력 금지
+- urgency:
+  - "urgent" — 검진 high 위험 + 환자가 "빨리/즉시/지금/바로" 단어 사용
+  - "relaxed" — 검진 정상 + 환자 단순 호기심
+  - "normal" — 그 외 (default 아님, 명시 판정)
+- readiness:
+  - "committed" — 환자가 "할게요/하겠습니다/예약/신청/시작" 명시
+  - "postponed" — 환자가 "나중에/괜찮아요/다음에" 명시
+  - "considering" — 환자가 정보 탐색 중 (default)
+- buying_intent:
+  - "strong" — 환자가 "어디서/얼마/추천해줘/사고싶다" 등 구매 단어
+  - "none" — 구매/소비 단어 0건
+  - "exploring" — 영양제/약 등 언급은 하지만 구매 의향 명시 X
+- timeline_days: 환자가 "이번주/다음달/3개월" 등 시기 명시 시 매핑. 없으면 365
 
-JSON 외 텍스트 출력 금지.""".strip()
+[P3] industry_scores — 환자 발화 strict (상담사 답변 무관)
+- hospital: 환자가 "재검/병원 가야하나/진료/예약/응급" 등 언급
+- supplement: 환자가 "영양제/비타민/오메가3/약/보충제" 등 직접 질문
+- fitness: 환자가 "운동/다이어트/PT/체중감량/헬스장" 등 **직접** 질문 (상담사 권유는 fitness 0)
+- insurance: 환자가 "보험/실손/암보험" 등 언급
+- mental_care: 환자가 "잠/스트레스/우울/불안" 등 언급
+- 답변에 운동 안내가 나와도 환자가 묻지 않으면 fitness score = 0
+
+[P4] Stage 판정 룰 (consider 편중 방지)
+- "none" (score 0~10) — 산업군 신호 없음
+- "awareness" (10~30) — 1턴 + 단순 인사/확인 ("네", "알겠어요")
+- "interest" (30~50) — 환자가 정보 탐색 ("증상이 뭐예요?", "왜 그런가요?")
+- "consider" (50~70) — 효과/방법/시기 비교 ("어떻게 관리?", "효과가 있나요?")
+- "decision" (70~85) — 구체 행동 의지 ("재검 받을게요", "운동 시작해야겠어요")
+- "action" (85~100) — 즉시 실행 의사 ("예약하고 싶어요", "어디서 사나요?")
+
+JSON 외 텍스트 출력 금지. 위 P1~P4 위반 시 결과 무효.""".strip()
 
 
 # ─── v2 → v1 호환 매핑 (백오피스 5 페이지 유지) ────────────────────
