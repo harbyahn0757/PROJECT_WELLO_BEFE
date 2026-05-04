@@ -51,6 +51,7 @@ async def overview(
                COALESCE(output_tokens, 0) AS out_t,
                COALESCE(cached_tokens, 0) AS cached_t,
                COALESCE(latency_ms, 0) AS lat_ms,
+               ttft_ms,
                session_id, partner_id, hospital_id, ts
         FROM welno.llm_usage_log
         WHERE ts >= %s
@@ -63,6 +64,7 @@ async def overview(
     by_model: Dict[str, Dict[str, Any]] = {}
     by_error_class: Dict[str, int] = {}
     latencies: List[int] = []
+    ttfts: List[int] = []
     sessions: Dict[str, Dict[str, Any]] = {}
 
     for r in rows:
@@ -92,6 +94,10 @@ async def overview(
         lat = int(r["lat_ms"] or 0)
         if lat > 0:
             latencies.append(lat)
+        # db_manager.execute_query 가 dict 반환 (database.py:62) → r.get 안전
+        ttft = r.get("ttft_ms")
+        if ttft is not None and ttft > 0:
+            ttfts.append(int(ttft))
         sid = r["session_id"]
         if sid:
             s_b = sessions.setdefault(sid, {"calls": 0, "cost": 0.0, "fail": 0, "endpoint": ep, "partner": r["partner_id"]})
@@ -104,6 +110,13 @@ async def overview(
     if latencies:
         latencies.sort()
         p95 = latencies[min(int(len(latencies) * 0.95), len(latencies) - 1)]
+
+    ttft_p95 = 0
+    ttft_p50 = 0
+    if ttfts:
+        ttfts.sort()
+        ttft_p95 = ttfts[min(int(len(ttfts) * 0.95), len(ttfts) - 1)]
+        ttft_p50 = ttfts[len(ttfts) // 2]
 
     top_sessions = sorted(
         [{"session_id": k, **v} for k, v in sessions.items()],
@@ -125,6 +138,9 @@ async def overview(
             "fail_rate": (total_fail / total_calls) if total_calls else 0.0,
             "cost_usd": round(total_cost, 4),
             "p95_latency_ms": p95,
+            "ttft_p50_ms": ttft_p50,
+            "ttft_p95_ms": ttft_p95,
+            "ttft_samples": len(ttfts),
             "unique_sessions": len(sessions),
         },
         "by_day": [{"date": k, **v, "cost": round(v["cost"], 4)} for k, v in sorted(by_day.items())],

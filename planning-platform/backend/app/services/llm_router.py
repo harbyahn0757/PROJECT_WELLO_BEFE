@@ -537,6 +537,18 @@ class LLMRouter:
                 else:
                     ttft_ms = int((time.monotonic() - _ttft_t0) * 1000)
                     logger.info("[TTFT] provider=gemini session=%s ms=%d", (session_id or "-")[:24], ttft_ms)
+                    # P2-2: TTFT 별도 INSERT (정보용, stream 본 호출과 별개 row)
+                    try:
+                        from .llm_usage_logger import llm_usage_logger
+                        llm_usage_logger.log(
+                            model=getattr(request, "model", "gemini") + "-stream",
+                            endpoint="rag_chat_stream",
+                            session_id=session_id,
+                            ttft_ms=ttft_ms,
+                            success=True,
+                        )
+                    except Exception:
+                        pass
                     yield first
                     try:
                         async for chunk in gen:
@@ -558,6 +570,17 @@ class LLMRouter:
                     if not _first_yielded:
                         ttft_ms = int((time.monotonic() - _ttft_t0) * 1000)
                         logger.info("[TTFT] provider=openai session=%s ms=%d", (session_id or "-")[:24], ttft_ms)
+                        try:
+                            from .llm_usage_logger import llm_usage_logger
+                            llm_usage_logger.log(
+                                model="openai-stream",
+                                endpoint="rag_chat_stream",
+                                session_id=session_id,
+                                ttft_ms=ttft_ms,
+                                success=True,
+                            )
+                        except Exception:
+                            pass
                         _first_yielded = True
                     yield chunk
                 return

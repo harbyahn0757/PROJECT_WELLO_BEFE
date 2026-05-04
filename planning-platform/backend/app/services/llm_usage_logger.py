@@ -36,8 +36,11 @@ class LLMUsageLogger:
         latency_ms: Optional[int] = None,
         success: bool = True,
         error_class: Optional[str] = None,
+        ttft_ms: Optional[int] = None,
     ) -> None:
-        """비동기 fire-and-forget INSERT. 에러 시 warning만."""
+        """비동기 fire-and-forget INSERT. 에러 시 warning만.
+        P2-2: ttft_ms 컬럼 — 스트리밍 첫 chunk 도달 latency (P95 < 500ms SLO).
+        """
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -56,6 +59,7 @@ class LLMUsageLogger:
                 latency_ms=latency_ms,
                 success=success,
                 error_class=error_class,
+                ttft_ms=ttft_ms,
             )
         )
 
@@ -72,6 +76,7 @@ class LLMUsageLogger:
         latency_ms: Optional[int],
         success: bool,
         error_class: Optional[str],
+        ttft_ms: Optional[int] = None,
     ) -> None:
         try:
             from ..core.database import db_manager
@@ -80,13 +85,13 @@ class LLMUsageLogger:
                 INSERT INTO welno.llm_usage_log
                   (model, endpoint, session_id, partner_id, hospital_id,
                    input_tokens, output_tokens, cached_tokens,
-                   latency_ms, success, error_class)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   latency_ms, success, error_class, ttft_ms)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     model, endpoint, session_id, partner_id, hospital_id,
                     input_tokens, output_tokens, cached_tokens,
-                    latency_ms, success, error_class,
+                    latency_ms, success, error_class, ttft_ms,
                 ),
             )
         except Exception as exc:
