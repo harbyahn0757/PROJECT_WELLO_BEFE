@@ -2076,7 +2076,7 @@ async def patients_by_industry(
     # 2) WHERE — partner_id (1) + [hospital_id (1)?] + score (industry+min_score 2) + [stage (industry+stage 2)?]
     # 3) ORDER BY (1: industry)
     # 4) LIMIT (2: limit, offset)
-    where_parts = ["t.tagging_version = 5", "t.industry_scores IS NOT NULL"]
+    where_parts = ["t.tagging_version >= 5", "t.industry_scores IS NOT NULL"]
     where_params: list = []
 
     # P0 hotfix — partner_id 격리 (super_admin 외 강제)
@@ -2187,7 +2187,7 @@ async def industry_distribution(
     if not user_partner_id and not is_super_admin:
         raise HTTPException(403, "user partner_id missing")
 
-    where_parts = ["t.tagging_version = 5", "t.industry_scores IS NOT NULL"]
+    where_parts = ["t.tagging_version >= 5", "t.industry_scores IS NOT NULL"]
     params: list = []
 
     # P0 hotfix — partner_id 격리
