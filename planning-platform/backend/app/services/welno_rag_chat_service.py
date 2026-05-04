@@ -229,6 +229,37 @@ class WelnoRagChatService:
         except Exception as e:
             logger.warning(f"⚠️ [대화 로그] 저장 실패: {e}")
 
+    def _build_persona_instruction(self, trace_data: Optional[Dict[str, Any]]) -> Optional[str]:
+        """P1-A1: 페르소나 톤 지침 생성 (chat_persona_data 활용, 없으면 None).
+        5종: Worrier / Symptom_Solver / Manager / Optimizer / Minimalist
+        """
+        if not trace_data:
+            return None
+        # chat_persona_data 가 trace_data 에 들어와있으면 활용
+        persona_data = trace_data.get("chat_persona_data") or {}
+        if not isinstance(persona_data, dict):
+            return None
+        primary = persona_data.get("primary_persona") or persona_data.get("persona")
+        if not primary:
+            return None
+        # checkup_design.persona 의 톤/전략/메시지 맵 재사용
+        try:
+            from .checkup_design.persona import _get_tone_map, _get_strategy_map, _get_message_map
+            tone = _get_tone_map(primary)
+            strategy = _get_strategy_map(primary)
+            message = _get_message_map(primary)
+        except Exception as imp_exc:
+            logger.debug("[A1 persona] tone map import 실패 (skip): %s", imp_exc)
+            return None
+        return (
+            "[페르소나 톤 지침 — 본 대화 일관 적용]\n"
+            f"- 사용자 성향: {primary}\n"
+            f"- 권장 톤: {tone}\n"
+            f"- 전략: {strategy}\n"
+            f"- 도입부 자연스러운 반영 (그대로 인용 금지, 톤만 차용): \"{message}\"\n"
+            "- 페르소나 명칭은 사용자에게 노출 금지 (내부 분류)"
+        )
+
     async def handle_user_message_stream(
         self,
         uuid: str,
@@ -276,6 +307,7 @@ class WelnoRagChatService:
             user_messages = [m for m in history if m.get("role") == "user"]
             message_count = len(user_messages)
             is_first_message = message_count <= 1
+            patient_name = "고객"  # P1-A3 fix: health_info error 케이스 NameError 방지 (dev-reviewer CONDITIONAL)
             
             meta_key = f"welno:rag_chat:metadata:{uuid}:{hospital_id}:{session_id}"
             metadata_json = self.redis_client.get(meta_key) if self.redis_client else None
@@ -323,6 +355,18 @@ class WelnoRagChatService:
                         patient_name = health_info.get("patient", {}).get("name", "고객")
                         health_data = health_info.get("health_data", [])
                         prescription_data = health_info.get("prescription_data", [])
+
+                        # P1-A1 지원: chat_persona_data 를 trace_data 에 전파 (system_instruction 페르소나 block 에서 활용)
+                        if trace_data is not None:
+                            try:
+                                _cpd = (health_info.get("patient") or {}).get("chat_persona_data")
+                                if isinstance(_cpd, str):
+                                    import json as _json
+                                    _cpd = _json.loads(_cpd) if _cpd else None
+                                if _cpd:
+                                    trace_data["chat_persona_data"] = _cpd
+                            except Exception as _persona_exc:
+                                logger.debug("[A1 persona] chat_persona_data 추출 실패 (skip): %s", _persona_exc)
                         
                         logger.info(f"📊 [검진데이터] 조회 결과: health_data={len(health_data)}건, prescription_data={len(prescription_data)}건, error=no")
                         
@@ -589,6 +633,36 @@ class WelnoRagChatService:
                             for m in history
                             if m.get("content")
                         ]
+
+                        # P1-C2: history 압축 — 7턴+ 시 직전 6턴 원문 + 이전 대화 요약
+                        # input 토큰 -50% 효과 (긴 세션) + Gemini Context Caching hit rate ↑
+                        FULL_TURNS = 6
+                        if len(chat_history) > FULL_TURNS * 2 + 2:
+                            try:
+                                from .chat_tagging_service import generate_conversation_summary
+                                summary_key = f"welno:rag_chat:history_summary:{session_id}"
+                                cached_summary = None
+                                if self.redis_client:
+                                    try:
+                                        cached_summary = self.redis_client.get(summary_key)
+                                    except Exception:
+                                        cached_summary = None
+                                if not cached_summary:
+                                    older = chat_history[:-FULL_TURNS * 2]
+                                    cached_summary = await generate_conversation_summary(older)
+                                    if self.redis_client and cached_summary:
+                                        try:
+                                            self.redis_client.setex(summary_key, 3600, cached_summary)
+                                        except Exception:
+                                            pass
+                                if cached_summary:
+                                    chat_history = [
+                                        {"role": "system", "content": f"[이전 대화 요약]\n{cached_summary}"}
+                                    ] + chat_history[-FULL_TURNS * 2:]
+                                    logger.info(f"📜 [히스토리 압축] {FULL_TURNS}턴 + 요약 적용 (총 {len(chat_history)} entries)")
+                            except Exception as comp_exc:
+                                logger.warning(f"[히스토리 압축] 실패 (원본 사용): {comp_exc}")
+
                         logger.info(f"📜 [세션 히스토리] {len(chat_history)}개 메시지 로드")
                 # 디버그: chat_history 실제 전달 여부 + 길이 + 마지막 메시지 (멀티턴 검증용)
                 logger.error("[chat_debug] is_first=%s history_len=%s last=%s msg=%s",
@@ -600,6 +674,14 @@ class WelnoRagChatService:
                 # 프롬프트 구성
                 hospital_config = trace_data.get("hospital_config") if trace_data else None
                 raw_persona = hospital_config.get("persona_prompt") if hospital_config else None
+
+                # P1-A2: HospitalRagConfig.llm_config 활성화 — 병원별 모델/파라미터 A/B 가능
+                # 컬럼은 SELECT 됐으나 코드 미참조 상태였음. 본 라운드부터 활용.
+                _llm_cfg = (hospital_config or {}).get("llm_config") if isinstance(hospital_config, dict) else None
+                _llm_cfg = _llm_cfg if isinstance(_llm_cfg, dict) else {}
+                rag_model = _llm_cfg.get("model") or settings.google_gemini_fast_model
+                rag_temperature = float(_llm_cfg.get("temperature", 0.7))
+                rag_max_tokens = int(_llm_cfg.get("max_tokens", 4096))
                 
                 # 병원명/전화번호 추출 (파트너 전달 데이터 우선 → DB 설정 보조)
                 processed_data_for_persona = trace_data.get("processed_data", {}) if trace_data else {}
@@ -651,6 +733,13 @@ class WelnoRagChatService:
                     system_parts = []
                     if custom_persona:
                         system_parts.append(custom_persona)
+
+                    # P1-A1: 페르소나 톤 지침 주입 (DB toggle persona_enabled)
+                    if _llm_cfg.get("persona_enabled", False):
+                        persona_block = self._build_persona_instruction(trace_data)
+                        if persona_block:
+                            system_parts.append(persona_block)
+
                     system_parts.append(rules_prompt)
                     # 환자 건강 데이터 (세션 내 고정 → 캐시에 포함)
                     if briefing_context or past_survey_info:
@@ -670,7 +759,7 @@ class WelnoRagChatService:
                     is_greeting_or_short = msg_stripped in _GREETINGS and not is_health_question
                     logger.info(f"🔍 [채팅] 첫 메시지 chat_stage: {chat_stage}, message: {message[:50]}, is_greeting={is_greeting_or_short}, is_health={is_health_question}")
                     if is_health_question:
-                        stage_instruction = "**상담 지침**: 사용자가 검진 결과에 대해 물어보고 있습니다. 검진 데이터와 참고 문헌을 활용하여 주요 소견을 종합적으로 설명하세요. 2-3문단으로 충분히 답변하세요."
+                        stage_instruction = "**상담 지침**: 사용자가 검진 결과에 대해 물어보고 있습니다. 검진 데이터와 참고 문헌을 활용하여 주요 소견을 종합적으로 설명하세요."
                     elif is_greeting_or_short:
                         stage_instruction = "**상담 지침**: 사용자가 인사나 짧은 말만 한 경우, 참고 문헌을 요약·나열하지 말고, 친절히 인사한 뒤 '어떤 부분이 궁금하세요? 😊' 라고 짧게 물어보세요."
                         chat_stage = "normal"
@@ -680,6 +769,16 @@ class WelnoRagChatService:
                     else:
                         stage_instruction = "핵심 이상 소견 위주로 간결하게 설명하되, '자세한 내용은 담당 의료진과 상담하시길 권해요'로 안내하세요. 정상 항목은 나열하지 마세요."
                         chat_stage = "normal"
+
+                    # P1-A3: 응답 길이 + 호명 + 수치 인용 강제 (5/3+5/4 사용자 평가 "교과서적/후킹 약함" 대응)
+                    # 짧은 인사형은 제외 (이미 짧게 답하라고 지침)
+                    if not is_greeting_or_short:
+                        stage_instruction += (
+                            f"\n\n**응답 형식 (필수)**:\n"
+                            f"- 길이: 300~500자(공백 포함). 항목 나열 최대 2가지.\n"
+                            f"- 도입부 1문장: '{patient_name}님의 [수치명]은 [값]이에요.' 패턴. 수치 없으면 '결과를 보면' 으로 자연 시작.\n"
+                            f"- 진단·소견 단정 금지. '~할 수 있어요', '~참고하세요' 톤."
+                        )
                     if is_partner_session:
                         # 파트너 세션: data_type + 수치 유무 확인
                         _partner_data_type = ""
@@ -772,7 +871,7 @@ class WelnoRagChatService:
                         trace_data["system_instruction_length"] = len(system_instruction)
                         trace_data["is_first_message"] = True
 
-                    gemini_req = GeminiRequest(prompt=prompt, model=settings.google_gemini_fast_model, system_instruction=system_instruction, chat_history=None, temperature=0.7)
+                    gemini_req = GeminiRequest(prompt=prompt, model=rag_model, system_instruction=system_instruction, chat_history=None, temperature=rag_temperature, max_tokens=rag_max_tokens)
                 else:
                     # 이후 메시지: 히스토리 + 검진/복약/문진 데이터 요약 포함
                     # Redis에서 저장된 검진/복약 데이터 요약 가져오기
@@ -850,6 +949,13 @@ class WelnoRagChatService:
                     system_parts = []
                     if custom_persona:
                         system_parts.append(custom_persona)
+
+                    # P1-A1: 페르소나 톤 지침 주입 (DB toggle persona_enabled)
+                    if _llm_cfg.get("persona_enabled", False):
+                        persona_block = self._build_persona_instruction(trace_data)
+                        if persona_block:
+                            system_parts.append(persona_block)
+
                     system_parts.append(rules_prompt)
                     # 환자 데이터 (Redis에서 가져온 요약)
                     if data_summary or past_survey_info_subsequent:
@@ -873,9 +979,15 @@ class WelnoRagChatService:
                             stage_instruction = (
                                 "**상담 지침**: 환자의 실제 검진 수치와 [건강 가이드 자료]의 기준을 빗대어 설명하세요. "
                                 "예: '고객님의 수치는 OO인데, 가이드라인 기준으로는 OO 구간이에요. 이 구간에서는 OO를 권고하고 있어요.' "
-                                "2-3문단으로 구체적으로 답변하고, 필요시 '담당 의료진과 상담하시길 권해요 😊'로 안내하세요."
+                                "구체적으로 답변하고, 필요시 '담당 의료진과 상담하시길 권해요 😊'로 안내하세요."
                             )
+                    # P1-A3: 응답 길이 + 호명 + 수치 인용 강제 (subsequent message)
                     if stage_instruction:
+                        stage_instruction += (
+                            f"\n\n**응답 형식 (필수)**:\n"
+                            f"- 길이: 300~500자(공백 포함). 항목 나열 최대 2가지.\n"
+                            f"- 도입부 1문장 호명 + 구체 수치 1개. 진단·소견 단정 금지."
+                        )
                         system_parts.append(stage_instruction)
 
                     # SUGGESTIONS (종료 의사 감지 시 비생성)
@@ -935,7 +1047,7 @@ class WelnoRagChatService:
                             + "- 같은 수치를 또 언급하지 말고, 다음 단계 조언이나 다른 관점을 제공하세요."
                         )
 
-                    gemini_req = GeminiRequest(prompt=prompt, model=settings.google_gemini_fast_model, system_instruction=system_instruction, chat_history=chat_history, temperature=0.7)
+                    gemini_req = GeminiRequest(prompt=prompt, model=rag_model, system_instruction=system_instruction, chat_history=chat_history, temperature=rag_temperature, max_tokens=rag_max_tokens)
                 
                 # Gemini API 호출 타이밍
                 gemini_start = time.time()

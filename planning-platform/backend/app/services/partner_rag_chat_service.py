@@ -616,11 +616,12 @@ class PartnerRagChatService(WelnoRagChatService):
                 key_type="context",
                 partner_id=uuid  # partner_id가 없으므로 uuid 사용
             )
-            self.redis_client.setex(context_key, 3600, context)
-            
+            # P1-C1: TTL 24h 통일 (mapping 86400 vs 본문 3600 불일치 → cache miss 빈번 fix)
+            self.redis_client.setex(context_key, 86400, context)
+
             # 컨텍스트 키 매핑 저장
             context_mapping_key = f"welno:partner_rag:mapping:{session_id}:context"
-            self.redis_client.setex(context_mapping_key, 3600, context_key)
+            self.redis_client.setex(context_mapping_key, 86400, context_key)
             
             logger.info(f"✅ [파트너 RAG] 컨텍스트 주입 완료 - {len(context)}자")
             
@@ -766,12 +767,13 @@ class PartnerRagChatService(WelnoRagChatService):
                 "previous_message_count": previous_message_count,
             }
 
-            # 9. Redis에 warmup 결과 캐시 (1시간, 같은 환자 재호출 시 Gemini 스킵)
+            # P1-C1: warmup 캐시 TTL 24h 통일 (data_mapping 86400 ↔ 본문 3600 불일치 fix)
+            # 환자 데이터 변경 빈도 낮음 → 24h 지연 수용 가능
             if self.redis_client:
                 try:
                     import json as _json
-                    self.redis_client.setex(cache_key, 3600, _json.dumps(result, ensure_ascii=False))
-                    logger.info(f"✅ [웜업] 캐시 저장 완료 ({cache_key}, TTL=1h)")
+                    self.redis_client.setex(cache_key, 86400, _json.dumps(result, ensure_ascii=False))
+                    logger.info(f"✅ [웜업] 캐시 저장 완료 ({cache_key}, TTL=24h)")
                 except Exception:
                     pass
 
