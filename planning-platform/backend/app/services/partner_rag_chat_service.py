@@ -716,7 +716,8 @@ class PartnerRagChatService(WelnoRagChatService):
             # 5. 후킹 인사말 + 채팅 인사말 통합 생성 (맥락 연결)
             # 재접속: 재방문 인사말 우선 / 정상인: 쌍 템플릿에서 즉시 반환, 이상소견: 단일 모델 호출로 동시 생성
             hook_greeting, data_science_greeting = await self._generate_greetings(
-                partner_info, processed_data, is_returning=is_returning, previous_topics=previous_topics
+                partner_info, processed_data, is_returning=is_returning, previous_topics=previous_topics,
+                session_id=session_id, hospital_id=hospital_id,
             )
             abnormal_items = self._scan_all_abnormals(processed_data.get("health_metrics", {}))
 
@@ -844,6 +845,8 @@ class PartnerRagChatService(WelnoRagChatService):
         processed_data: Dict[str, Any],
         is_returning: bool = False,
         previous_topics: Optional[List[str]] = None,
+        session_id: Optional[str] = None,
+        hospital_id: Optional[str] = None,
     ) -> tuple:
         """후킹 메시지 + 채팅 인사말을 한 번에 생성 (맥락 연결)
         Returns: (hook_greeting, chat_greeting)
@@ -965,8 +968,12 @@ class PartnerRagChatService(WelnoRagChatService):
                     ),
                     endpoint="rag_chat",
                     save_log=False,
+                    session_id=session_id,
                     partner_id=partner_info.partner_id if partner_info else None,
-                    hospital_id=(processed_data.get("partner_hospital_id") or processed_data.get("hospital_id")) if processed_data else None,
+                    hospital_id=(
+                        hospital_id
+                        or (processed_data.get("partner_hospital_id") or processed_data.get("hospital_id") if processed_data else None)
+                    ),
                 )
                 logger.info("[greetings] attempt=%d success=%s err=%s len=%s angle_hook=%s",
                             attempt + 1,
