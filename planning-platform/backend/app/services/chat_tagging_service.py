@@ -574,98 +574,17 @@ async def llm_analyze_session(
         context_blocks = [b for b in [health_context, survey_context, es_context] if b]
         context_section = "\n\n".join(context_blocks) if context_blocks else "[검진 데이터 없음]"
 
-        prompt = f"""건강상담 대화를 분석합니다. 환자(수검자) 질문과 상담사(AI) 답변이 턴 번호(#)로 구분되어 있습니다.
-반드시 아래 규칙을 지켜서 JSON만 출력하세요.
-
-⚠️ 핵심 원칙: interest_tags와 key_concerns는 반드시 [환자 질문]에서만 추출하세요.
-[상담사 답변]에서 일방적으로 언급한 건강 주제는 관심사가 아닙니다.
-예: 환자가 "혈압이 걱정돼요"라고 했으면 → 혈압은 관심사 ✓
-예: 상담사가 "콜레스테롤도 관리하세요"라고 했지만 환자가 언급 안 했으면 → 콜레스테롤은 관심사 ✗
-
-{context_section}
-
-{conv_pattern}
-
-[대화] (총 {total_user_turns}턴)
-{conversation_text}
-
-분석 규칙:
-- summary: "환자가 ~에 대해 질문하고, 상담사가 ~을 안내함" 형식으로 화자를 구분하여 1-2문장 요약
-- sentiment: 환자의 감정만 기준 (상담사 톤 무시). 7가지 중 선택:
-  "worried": 건강 걱정/불안 표현, "curious": 궁금해하며 질문, "confused": 결과를 이해 못함/당혹,
-  "negative": 불만/짜증, "positive": 감사/안심, "grateful": 고마움 직접 표현, "neutral": 감정 표현 없음.
-  주의: "왜 다 이상이야", "이해가 안 돼" 같은 표현은 neutral이 아니라 confused. "궁금해서요", "정상인가요?" 같은 표현은 curious.
-- interest_tags: 환자가 직접 물어보거나 걱정한 건강 주제만 추출. 상담사가 일방적으로 언급하거나 안내한 주제는 절대 포함하지 마세요. 각 태그에 관심 강도를 표기:
-  - "high": 환자가 후속 질문으로 파고들거나 반복해서 물어본 주제
-  - "medium": 환자가 구체적으로 질문한 주제
-  - "low": 환자가 가볍게 언급하거나 첫 질문에서만 나온 주제
-- key_concerns: 환자가 명시적으로 표현한 걱정/우려만 (상담사 언급 제외)
-- risk_level: 상담사 답변과 검진 이상소견을 종합 판단
-- follow_up_needed: 상담사가 병원 방문/추가 검사를 권고했으면 true
-- counselor_recommendations: 상담사가 제공한 핵심 조언 요약 (최대 3개)
-- conversation_depth: 환자 질문 깊이 — deep(같은 주제 2회 이상 파고듦), moderate(구체적 질문), shallow(단순 질문)
-- engagement_score: 환자 참여도 점수 0-100 (반복질문, 후속질문, 질문 수 종합)
-- action_intent: 환자 행동 의향 — active(병원방문/생활개선 의지 표현), considering(고민중), passive(특별한 의지 없음)
-- nutrition_interests: 환자가 관심 보인 식단/영양 주제 (식단관리, 영양제, 운동 등)
-- commercial_tags: 환자의 관심사를 상품/서비스 카테고리로 변환. 의학적 관심+위험도 조합으로 타겟 세그먼트 도출.
-  예: [간수치 high + 피로 관심] → [{{"category": "간건강", "product_hint": "밀크씨슬", "segment": "고관여"}}]
-  관심이 없거나 해당 없으면 빈 배열.
-- buying_signal: 대화 중 구매/소비 의향 신호 판단.
-  "high": 가격 문의, 제품 추천 요청, 어디서 사는지 질문
-  "mid": 영양제/보충제 언급, 비교 질문
-  "low": 구매 관련 언급 전혀 없음
-
-응답 JSON:
-{{
-  "summary": "환자가 ~를 질문하고, 상담사가 ~를 안내함",
-  "sentiment": "positive|negative|neutral|worried|grateful|curious|confused 중 하나",
-  "interest_tags": [{{"topic": "주제", "intensity": "high|medium|low"}}],
-  "risk_level": "low|medium|high",
-  "key_concerns": ["환자가 표현한 우려사항 -- 최대 3개"],
-  "follow_up_needed": true 또는 false,
-  "counselor_recommendations": ["상담사 핵심 조언 -- 최대 3개"],
-  "conversation_depth": "deep|moderate|shallow",
-  "engagement_score": 0-100,
-  "action_intent": "active|considering|passive",
-  "nutrition_interests": ["식단관리", "영양제"],
-  "commercial_tags": [{{"category": "카테고리", "product_hint": "상품힌트", "segment": "고관여|일반"}}],
-  "buying_signal": "high|mid|low",
-  "classification_confidence": 0.85
-}}
-
-⚠️ classification_confidence 필드는 반드시 포함하세요 (누락 금지):
-- 0.3-0.5: 1턴 + 단순 질문, 맥락 부족
-- 0.6-0.7: 건강 관련이지만 구체적이지 않음
-- 0.8-0.9: 구체적 건강 대화 (증상/수치 언급)
-- 0.95-1.0: 명확한 증상 + 수치 + 병명 언급
-이 필드가 없으면 분석 결과를 활용할 수 없습니다."""
-
-        # ── 병원 전용 추가 분석 (모든 세션에 항상 포함) ──
-        prompt += """
-
-[병원 파트너 전용 — 반드시 추가 분석]
-위 JSON에 아래 6개 필드를 추가하세요:
-- medical_tags: 의료 관련 키워드만 순수 문자열 배열로 반환. 예: ["혈압", "콜레스테롤", "간"]. interest_tags와 달리 topic/intensity 객체가 아닌 단순 문자열 리스트여야 합니다.
-- lifestyle_tags: 생활습관 관련 키워드만 순수 문자열 배열로 반환. 예: ["다이어트", "운동", "식단"]. 단순 문자열 리스트여야 합니다.
-- medical_urgency: 검진 이상소견+대화 종합 판단.
-  "urgent": 위험수준 수치+증상 언급, "borderline": 경계 수치, "normal": 정상 범위
-- anxiety_level: 환자 불안 수준 (적극적으로 판단할 것 — 건강 관련 질문 자체가 걱정의 표현임).
-  "high": 걱정/불안 직접 표현, 반복 질문, 증상 호소, "medium": 건강 관련 질문 2회 이상 또는 수치에 대한 우려, "low": 단순 정보 확인 1회
-- prospect_type: 병원 전환 5분류. 대화 내용과 검진 수치를 모두 고려하여 판단. 주의: "lifestyle_improvable"은 catch-all이 아님!
-  "low_engagement": 1턴 대화 + 구체적 건강 질문 없음 → 인사/단순확인만 하고 이탈
-  "needs_visit": 위험수준 수치 + 증상 언급 → 실제 진료 필요
-  "borderline_worried": 경계수치이면서 anxiety_level이 medium 이상 → 핵심 전환 대상. 단순 질문 1회만 한 경우는 해당 안됨.
-  "lifestyle_improvable": 환자가 식이/운동/생활습관을 직접 언급한 경우만. 단순히 "내 결과 어때?" 수준은 해당 안됨.
-  "chronic_management": 만성질환(혈압/당뇨/간) 관련 지속 관리 대화 + 이미 질환을 인지하고 관리 중인 경우
-- hospital_prospect_score: 0-100 병원 전환 가망 점수 (urgency+anxiety+engagement 종합)
-
-[종합 교차분석 가이드 — 데이터가 있는 항목만 적용]
-- 검진 이상 수치인데 대화에서 해당 항목에 관심 없음 → "무관심 위험" → medical_urgency 상향
-- 설문에서 흡연/음주인데 검진 간수치/혈압 이상 → lifestyle_tags에 원인 반영
-- 병원 활성 수검자 수가 많으면 → 참여도 높은 병원 → hospital_prospect_score 소폭 가산
-- 대화 질문 간격 짧고 + 검진 이상 항목 관련 질문 → anxiety_level 상향
-- 검진 이상 + 대화에서 해당 질문 → borderline_worried 우선 고려
-- 설문에서 운동 안 함 + BMI 과체중 → lifestyle_tags에 "운동부족+비만" 반영"""
+        # P2 v2: B2B CRM 5 산업군 태깅 — chat_tagging_v2_prompt.build_prompt_v2 사용
+        # SoT: docs/spec/B2B_TAGGING_SYSTEM_v2.md
+        # 출력: health_concerns / industry_scores (5 산업군) / signals / sentiment / risk_level / summary / evidence_quotes
+        # v1 호환 필드 (interest_tags, prospect_type, hospital_prospect_score 등) 는 build_v1_compat_fields 알고리즘 매핑으로 채움
+        from .chat_tagging_v2_prompt import build_prompt_v2
+        prompt = build_prompt_v2(
+            conversation_text=conversation_text,
+            total_user_turns=total_user_turns,
+            context_section=context_section,
+            conv_pattern=conv_pattern,
+        )
 
         # llm_router 호출 (Gemini 우선, 실패 시 OpenAI 자동 폴백)
         # response_format=json_object → Gemini는 application/json 강제, OpenAI는 동일 옵션 지원
@@ -696,7 +615,25 @@ async def llm_analyze_session(
 
         result = json.loads(raw_text)
 
-        # 필드 검증 및 정규화
+        # ─── P2 v2: B2B CRM 태깅 — 검증 + 정규화 + v1 호환 매핑 ─────────
+        from .chat_tagging_v2_prompt import (
+            normalize_v2_tags, validate_v2_tags, build_v1_compat_fields,
+        )
+
+        # v2 출력 정규화 (누락 필드 default 채움 + clamp)
+        result = normalize_v2_tags(result)
+
+        # v2 검증 — 실패 시 logger.warning + 정규화된 default 사용 (응답 차단 X)
+        v2_err = validate_v2_tags(result)
+        if v2_err:
+            logger.warning("[태깅-v2] 검증 실패 (default 사용): %s", v2_err)
+
+        # v1 호환 필드 자동 매핑 — 백오피스 5 페이지 호환 (1개월 병행 후 DROP 예정)
+        v1_compat = build_v1_compat_fields(result, message_count=total_user_turns)
+        for k, v in v1_compat.items():
+            result.setdefault(k, v)
+
+        # 기존 v1 검증 — sentiment/risk_level 안전성 (v2 normalize 가 이미 처리)
         valid_sentiments = {"positive", "negative", "neutral", "worried", "grateful", "curious", "confused"}
         if result.get("sentiment") not in valid_sentiments:
             result["sentiment"] = "neutral"
@@ -705,7 +642,7 @@ async def llm_analyze_session(
         if result.get("risk_level") not in valid_risk_levels:
             result["risk_level"] = "low"
 
-        # interest_tags: [{topic, intensity}] 형식 → 정규화
+        # interest_tags 정규화 (v1 호환 — health_concerns 에서 매핑됐지만 안전성 한 번 더)
         raw_tags = result.get("interest_tags", [])
         if not isinstance(raw_tags, list):
             raw_tags = []
@@ -717,7 +654,6 @@ async def llm_analyze_session(
                     intensity = "medium"
                 normalized_tags.append({"topic": str(tag["topic"]), "intensity": intensity})
             elif isinstance(tag, str):
-                # 폴백: 문자열이면 medium으로 처리
                 normalized_tags.append({"topic": tag, "intensity": "medium"})
         result["interest_tags"] = normalized_tags
 
@@ -1108,6 +1044,14 @@ async def _save_tags_to_db(tag_data: Dict[str, Any]) -> None:
     medical_tags = d.get("medical_tags")
     lifestyle_tags = d.get("lifestyle_tags")
 
+    # P2 v2: B2B CRM 신규 jsonb 컬럼 (industry_scores / health_concerns / signals / evidence_quotes)
+    industry_scores = d.get("industry_scores")
+    health_concerns = d.get("health_concerns")
+    signals = d.get("signals")
+    evidence_quotes = d.get("evidence_quotes")
+    # tagging_version: v1=병원전용, v2=B2B 산업군. industry_scores 있으면 v2.
+    tagging_version_v2 = "v2" if industry_scores else "v1"
+
     upsert_query = """
         INSERT INTO welno.tb_chat_session_tags
         (session_id, partner_id, interest_tags, risk_tags, keyword_tags,
@@ -1120,10 +1064,12 @@ async def _save_tags_to_db(tag_data: Dict[str, Any]) -> None:
          suggested_revisit_messages,
          medical_tags, lifestyle_tags, medical_urgency,
          anxiety_level, prospect_type, hospital_prospect_score,
-         conversation_intent, classification_confidence)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 4,
+         conversation_intent, classification_confidence,
+         industry_scores, health_concerns, signals, evidence_quotes)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s, %s, %s, %s)
+                %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s, %s, %s)
         ON CONFLICT (session_id, partner_id) DO UPDATE SET
             interest_tags = EXCLUDED.interest_tags,
             risk_tags = EXCLUDED.risk_tags,
@@ -1157,6 +1103,10 @@ async def _save_tags_to_db(tag_data: Dict[str, Any]) -> None:
             hospital_prospect_score = EXCLUDED.hospital_prospect_score,
             conversation_intent = EXCLUDED.conversation_intent,
             classification_confidence = EXCLUDED.classification_confidence,
+            industry_scores = EXCLUDED.industry_scores,
+            health_concerns = EXCLUDED.health_concerns,
+            signals = EXCLUDED.signals,
+            evidence_quotes = EXCLUDED.evidence_quotes,
             updated_at = NOW()
     """
     await db_manager.execute_update(upsert_query, (
@@ -1173,6 +1123,7 @@ async def _save_tags_to_db(tag_data: Dict[str, Any]) -> None:
         json.dumps(d.get("key_concerns", []), ensure_ascii=False),
         d.get("follow_up_needed", False),
         d.get("tagging_model", "rule-based"),
+        tagging_version_v2,
         json.dumps(d.get("counselor_recommendations", []), ensure_ascii=False),
         d.get("conversation_depth", "shallow"),
         d.get("engagement_score", 0),
@@ -1193,6 +1144,11 @@ async def _save_tags_to_db(tag_data: Dict[str, Any]) -> None:
         d.get("hospital_prospect_score"),
         d.get("conversation_intent", "health_question"),
         d.get("classification_confidence", 0.5),
+        # P2 v2: 신규 jsonb 컬럼
+        json.dumps(industry_scores, ensure_ascii=False) if industry_scores else None,
+        json.dumps(health_concerns, ensure_ascii=False) if health_concerns else None,
+        json.dumps(signals, ensure_ascii=False) if signals else None,
+        json.dumps(evidence_quotes, ensure_ascii=False) if evidence_quotes else None,
     ))
 
 
@@ -1420,6 +1376,11 @@ async def tag_chat_session(
             "anxiety_level": anxiety_level,
             "prospect_type": prospect_type,
             "hospital_prospect_score": hospital_prospect_score,
+            # P2 v2: B2B 산업군 jsonb (LLM v2 prompt 출력 → DB 저장 → 백오피스 신규 화면 활용)
+            "industry_scores": llm_result.get("industry_scores") if llm_result else None,
+            "health_concerns": llm_result.get("health_concerns") if llm_result else None,
+            "signals": llm_result.get("signals") if llm_result else None,
+            "evidence_quotes": llm_result.get("evidence_quotes") if llm_result else None,
         }
 
         # 재방문 추천 메시지 3종 생성 (follow_up_needed=true일 때)
