@@ -12,6 +12,7 @@ const PAGE_TITLES: Record<string, string> = {
   embedding: '검진결과 상담',
   survey: '만족도 조사',
   revisit: '재환가망고객',
+  industry: '산업군 CRM',
   analytics: '데이터 분석',
   'checkup-design': '검진설계',  // 상담+관리 통합 (2026-04-08)
   'health-report': 'mediArc 리포트',
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { key: 'embedding', label: '검진결과 상담', path: '/backoffice/embedding' },
   { key: 'survey', label: '만족도 조사', path: '/backoffice/survey' },
   { key: 'revisit', label: '재환가망고객', path: '/backoffice/revisit' },
+  { key: 'industry', label: '산업군 CRM', path: '/backoffice/industry' },
   { key: 'analytics', label: '데이터 분석', path: '/backoffice/analytics' },
   { key: 'checkup-design', label: '검진설계', path: '/backoffice/checkup-design' },
   { key: 'health-report', label: 'mediArc 리포트', path: '/backoffice/health-report' },

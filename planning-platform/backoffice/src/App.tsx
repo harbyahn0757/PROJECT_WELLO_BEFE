@@ -10,6 +10,7 @@ import SurveyPage from './pages/SurveyPage';
 import PatientPage from './pages/PatientPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import RevisitPage from './pages/RevisitPage';
+import IndustryPage from './pages/IndustryPage';
 import CheckupDesignManagementPage from './pages/CheckupDesignManagementPage';
 import ConsultationPage from './pages/ConsultationPage';
 import HealthReportPage from './pages/HealthReportPage';
@@ -78,6 +79,7 @@ const App: React.FC = () => {
             <Route path="survey" element={<SurveyPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
             <Route path="revisit" element={<RevisitPage />} />
+            <Route path="industry" element={<IndustryPage />} />
             <Route path="checkup-design" element={<CheckupDesignManagementPage />} />
             <Route path="health-report" element={<HealthReportPage />} />
             {/* /consultation: CheckupDesignManagementPage로 통합됨 (2026-04-08). legacy 북마크 호환 redirect */}
