@@ -2051,7 +2051,10 @@ VALID_STAGES_V2 = {"none", "awareness", "interest", "consider", "decision", "act
 
 
 @router.post("/patients/by-industry")
-async def patients_by_industry(req: IndustryPatientListRequest):
+async def patients_by_industry(
+    req: IndustryPatientListRequest,
+    user: dict = Depends(get_current_user),
+):
     """산업군별 환자 list — RevisitPage 등 신규 화면에서 사용.
 
     industry_scores jsonb 의 score/stage 기준 필터 + 정렬.
@@ -2144,7 +2147,10 @@ async def patients_by_industry(req: IndustryPatientListRequest):
 
 
 @router.post("/dashboard/industry-distribution")
-async def industry_distribution(req: IndustryDistributionRequest):
+async def industry_distribution(
+    req: IndustryDistributionRequest,
+    user: dict = Depends(get_current_user),
+):
     """산업군 × stage 분포 (DashboardPage / AnalyticsPage 용).
 
     응답: {industry: {stage: count, total_score: avg, ...}}
