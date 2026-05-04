@@ -1049,8 +1049,8 @@ async def _save_tags_to_db(tag_data: Dict[str, Any]) -> None:
     health_concerns = d.get("health_concerns")
     signals = d.get("signals")
     evidence_quotes = d.get("evidence_quotes")
-    # tagging_version: v1=병원전용, v2=B2B 산업군. industry_scores 있으면 v2.
-    tagging_version_v2 = "v2" if industry_scores else "v1"
+    # tagging_version INT (4=v1 병원전용, 5=v2 B2B 산업군). industry_scores 있으면 5(v2).
+    tagging_version_v2 = 5 if industry_scores else 4
 
     upsert_query = """
         INSERT INTO welno.tb_chat_session_tags

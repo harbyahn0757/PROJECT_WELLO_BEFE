@@ -12,12 +12,12 @@ BEGIN;
 
 -- ─── 1. tb_chat_session_tags 신규 컬럼 ───────────────────────
 
+-- tagging_version 은 이미 INT 로 존재 (4=v1, 5=v2 의미로 재정의). 신규 컬럼 4개만 추가.
 ALTER TABLE welno.tb_chat_session_tags
     ADD COLUMN IF NOT EXISTS industry_scores JSONB,
     ADD COLUMN IF NOT EXISTS health_concerns JSONB,
     ADD COLUMN IF NOT EXISTS signals JSONB,
-    ADD COLUMN IF NOT EXISTS evidence_quotes JSONB,
-    ADD COLUMN IF NOT EXISTS tagging_version VARCHAR(8) DEFAULT 'v1';
+    ADD COLUMN IF NOT EXISTS evidence_quotes JSONB;
 
 COMMENT ON COLUMN welno.tb_chat_session_tags.industry_scores IS
     'B2B 산업군별 lead score (5 산업군: hospital/supplement/fitness/insurance/mental_care). 형식: {"hospital":{"score":82,"stage":"decision","sub_categories":["recall"]},...}';
@@ -32,35 +32,19 @@ COMMENT ON COLUMN welno.tb_chat_session_tags.evidence_quotes IS
     '점수 근거 인용문 (정확도 검증용). 형식: ["혈압 약 먹어야 하나요","오메가3 효과 있나요"]';
 
 COMMENT ON COLUMN welno.tb_chat_session_tags.tagging_version IS
-    '태깅 버전 (v1=병원전용 prospect_type, v2=B2B 산업군). 1개월 병행 후 v1 컬럼 DROP 예정';
+    '태깅 버전 INT (4=v1 병원전용, 5=v2 B2B 산업군). industry_scores 채워지면 v2. 1개월 병행 후 v1 컬럼 DROP 예정';
 
--- ─── 2. 산업군 별 조회 인덱스 (jsonb path) ──────────────────────
+-- ─── 2. 인덱스 — GIN (jsonb 전체 쿼리 가속) ────────────────────
+-- ::int DESC NULLS LAST 식 인덱스는 jsonb 캐스팅이 IMMUTABLE 아니라 거부됨.
+-- → GIN 인덱스 1개로 5 산업군 + signals 쿼리 모두 가속.
+CREATE INDEX IF NOT EXISTS idx_chat_tags_industry_scores_gin
+    ON welno.tb_chat_session_tags USING GIN (industry_scores);
 
--- 5 산업군 score 조회 가속 (RevisitPage 산업군별 정렬용)
-CREATE INDEX IF NOT EXISTS idx_chat_tags_industry_hospital
-    ON welno.tb_chat_session_tags ((industry_scores->'hospital'->>'score')::int DESC NULLS LAST)
-    WHERE industry_scores IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_chat_tags_signals_gin
+    ON welno.tb_chat_session_tags USING GIN (signals);
 
-CREATE INDEX IF NOT EXISTS idx_chat_tags_industry_supplement
-    ON welno.tb_chat_session_tags ((industry_scores->'supplement'->>'score')::int DESC NULLS LAST)
-    WHERE industry_scores IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_chat_tags_industry_fitness
-    ON welno.tb_chat_session_tags ((industry_scores->'fitness'->>'score')::int DESC NULLS LAST)
-    WHERE industry_scores IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_chat_tags_industry_insurance
-    ON welno.tb_chat_session_tags ((industry_scores->'insurance'->>'score')::int DESC NULLS LAST)
-    WHERE industry_scores IS NOT NULL;
-
-CREATE INDEX IF NOT EXISTS idx_chat_tags_industry_mental
-    ON welno.tb_chat_session_tags ((industry_scores->'mental_care'->>'score')::int DESC NULLS LAST)
-    WHERE industry_scores IS NOT NULL;
-
--- 산업군 stage 조회 (예: 모든 'decision' 상태 환자)
-CREATE INDEX IF NOT EXISTS idx_chat_tags_signals_urgency
-    ON welno.tb_chat_session_tags ((signals->>'urgency'))
-    WHERE signals IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_chat_tags_health_concerns_gin
+    ON welno.tb_chat_session_tags USING GIN (health_concerns);
 
 -- ─── 3. 기존 컬럼 deprecated 마킹 (DROP 안 함) ────────────────────
 
