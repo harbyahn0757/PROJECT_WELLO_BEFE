@@ -615,20 +615,27 @@ async def llm_analyze_session(
 
         result = json.loads(raw_text)
 
-        # ─── P2 v2: B2B CRM 태깅 — 검증 + 정규화 + v1 호환 매핑 ─────────
+        # ─── v2/v3 B2B CRM 태깅 — 검증 + 정규화 + v1 호환 매핑 ─────────
         from .chat_tagging_v2_prompt import (
             normalize_v2_tags, validate_v2_tags, build_v1_compat_fields,
+            _COMPOSITE_TO_RISK_LEVEL,
         )
 
-        # v2 출력 정규화 (누락 필드 default 채움 + clamp)
+        # v2/v3 출력 정규화 (누락 필드 default + clamp + intent default)
         result = normalize_v2_tags(result)
 
-        # v2 검증 — 실패 시 logger.warning + 정규화된 default 사용 (응답 차단 X)
+        # 검증 — 실패 시 logger.warning + 정규화된 default 사용 (응답 차단 X)
         v2_err = validate_v2_tags(result)
         if v2_err:
             logger.warning("[태깅-v2] 검증 실패 (default 사용): %s", v2_err)
 
-        # v1 호환 필드 자동 매핑 — 백오피스 5 페이지 호환 (1개월 병행 후 DROP 예정)
+        # v3 — composite_risk 가 LLM 출력에 있으면 risk_level override (백오피스 호환)
+        cr = result.get("composite_risk") or {}
+        cr_overall = cr.get("overall") if isinstance(cr, dict) else None
+        if cr_overall in _COMPOSITE_TO_RISK_LEVEL:
+            result["risk_level"] = _COMPOSITE_TO_RISK_LEVEL[cr_overall]
+
+        # v1 호환 필드 자동 매핑 — 백오피스 7 페이지 호환 (1개월 병행 후 DROP 예정)
         v1_compat = build_v1_compat_fields(result, message_count=total_user_turns)
         for k, v in v1_compat.items():
             result.setdefault(k, v)
@@ -1044,13 +1051,19 @@ async def _save_tags_to_db(tag_data: Dict[str, Any]) -> None:
     medical_tags = d.get("medical_tags")
     lifestyle_tags = d.get("lifestyle_tags")
 
-    # P2 v2: B2B CRM 신규 jsonb 컬럼 (industry_scores / health_concerns / signals / evidence_quotes)
+    # v2/v3 B2B CRM 신규 jsonb 컬럼
     industry_scores = d.get("industry_scores")
     health_concerns = d.get("health_concerns")
     signals = d.get("signals")
     evidence_quotes = d.get("evidence_quotes")
-    # tagging_version INT (4=v1 병원전용, 5=v2 B2B 산업군). industry_scores 있으면 5(v2).
-    tagging_version_v2 = 5 if industry_scores else 4
+    composite_risk = d.get("composite_risk")  # v3 신규
+    # tagging_version INT (4=v1, 5=v2, 6=v3). composite_risk 있으면 v3.
+    if composite_risk:
+        tagging_version_v2 = 6
+    elif industry_scores:
+        tagging_version_v2 = 5
+    else:
+        tagging_version_v2 = 4
 
     upsert_query = """
         INSERT INTO welno.tb_chat_session_tags
@@ -1065,11 +1078,12 @@ async def _save_tags_to_db(tag_data: Dict[str, Any]) -> None:
          medical_tags, lifestyle_tags, medical_urgency,
          anxiety_level, prospect_type, hospital_prospect_score,
          conversation_intent, classification_confidence,
-         industry_scores, health_concerns, signals, evidence_quotes)
+         industry_scores, health_concerns, signals, evidence_quotes,
+         composite_risk)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                 %s, %s, %s, %s, %s, %s, %s, %s,
-                %s, %s, %s, %s)
+                %s, %s, %s, %s, %s)
         ON CONFLICT (session_id, partner_id) DO UPDATE SET
             interest_tags = EXCLUDED.interest_tags,
             risk_tags = EXCLUDED.risk_tags,
@@ -1107,6 +1121,7 @@ async def _save_tags_to_db(tag_data: Dict[str, Any]) -> None:
             health_concerns = EXCLUDED.health_concerns,
             signals = EXCLUDED.signals,
             evidence_quotes = EXCLUDED.evidence_quotes,
+            composite_risk = EXCLUDED.composite_risk,
             updated_at = NOW()
     """
     await db_manager.execute_update(upsert_query, (
@@ -1144,11 +1159,12 @@ async def _save_tags_to_db(tag_data: Dict[str, Any]) -> None:
         d.get("hospital_prospect_score"),
         d.get("conversation_intent", "health_question"),
         d.get("classification_confidence", 0.5),
-        # P2 v2: 신규 jsonb 컬럼
+        # v2/v3 신규 jsonb 컬럼
         json.dumps(industry_scores, ensure_ascii=False) if industry_scores else None,
         json.dumps(health_concerns, ensure_ascii=False) if health_concerns else None,
         json.dumps(signals, ensure_ascii=False) if signals else None,
         json.dumps(evidence_quotes, ensure_ascii=False) if evidence_quotes else None,
+        json.dumps(composite_risk, ensure_ascii=False) if composite_risk else None,  # v3
     ))
 
 
@@ -1376,11 +1392,12 @@ async def tag_chat_session(
             "anxiety_level": anxiety_level,
             "prospect_type": prospect_type,
             "hospital_prospect_score": hospital_prospect_score,
-            # P2 v2: B2B 산업군 jsonb (LLM v2 prompt 출력 → DB 저장 → 백오피스 신규 화면 활용)
+            # v2/v3 B2B 산업군 jsonb (LLM 출력 → DB 저장 → 백오피스 IndustryPage)
             "industry_scores": llm_result.get("industry_scores") if llm_result else None,
             "health_concerns": llm_result.get("health_concerns") if llm_result else None,
             "signals": llm_result.get("signals") if llm_result else None,
             "evidence_quotes": llm_result.get("evidence_quotes") if llm_result else None,
+            "composite_risk": llm_result.get("composite_risk") if llm_result else None,  # v3
         }
 
         # 재방문 추천 메시지 3종 생성 (follow_up_needed=true일 때)

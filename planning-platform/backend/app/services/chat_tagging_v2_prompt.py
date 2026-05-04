@@ -36,14 +36,15 @@ def build_prompt_v2(
     context_section: str = "",
     conv_pattern: str = "",
 ) -> str:
-    """B2B CRM v2.1 태깅 prompt 생성. 강화 룰 (P1~P4)."""
+    """B2B CRM v3 태깅 prompt 생성. Fix 1~6 통합 강화."""
     return f"""건강상담 대화를 B2B CRM 관점에서 분석합니다.
 환자(수검자) 질문과 상담사(AI) 답변이 턴 번호(#)로 구분됩니다.
 
-⚠️ 절대 원칙 (위반 시 결과 무효):
+⚠️ 절대 원칙:
 1. health_concerns / industry_scores / evidence_quotes 는 [환자 질문]에서만 추출. 상담사 답변/안내 절대 인용 금지.
-2. industry_scores 는 5 산업군 모두 점수 (0~100) — 환자가 직접 언급/질문 안 했으면 score 0, stage "none"
-3. signals 는 default 사용 금지 — 대화 패턴에 따라 명확히 차별화
+2. industry_scores 는 5 산업군 모두 점수 (0~100). 환자가 직접 언급/질문 안 했으면 score 0, stage "none"
+3. signals 는 default 출력 금지 — 환자 단어 패턴으로 명확히 차별화
+4. composite_risk 는 검진 수치 + 환자 표현 + 시급성 종합 4 단계 (critical/high/medium/low)
 
 {INDUSTRY_DEFS}
 
@@ -62,10 +63,21 @@ def build_prompt_v2(
   "risk_level": "low|medium|high",
   "follow_up_needed": true|false,
 
+  "composite_risk": {{
+    "overall": "critical|high|medium|low",
+    "factors": {{
+      "metric_severity": "high|medium|low",
+      "patient_concern": "high|medium|low",
+      "urgency": "urgent|normal|relaxed"
+    }},
+    "reason": "검진 수치 + 환자 표현 + 시급성 결정 근거 (1문장)"
+  }},
+
   "health_concerns": [
     {{"topic": "혈압|혈당|콜레스테롤|간|신장|비만|정신건강|갑상선|일반",
       "intensity": "low|medium|high",
-      "evidence": "환자 발화 그대로 인용 — 답변/안내 텍스트 금지"}}
+      "intent": "concern|info_seek|action|curiosity",
+      "evidence": "환자 발화 그대로 인용"}}
   ],
 
   "industry_scores": {{
@@ -88,43 +100,67 @@ def build_prompt_v2(
   "key_concerns": ["환자가 표현한 우려 -- 최대 3개"]
 }}
 
-[P1] evidence_quotes / health_concerns.evidence — 환자 발화 strict
-- 절대 사용 금지: "고객님의 ~수치는...", "정상 범위 안에 있더라도...", "권해요/추천해요" — 모두 상담사 답변
-- 사용 OK: 환자가 직접 묻거나 표현한 발화만. (예: "간 수치를 낮추려면?", "걱정돼요")
-- 환자 발화 부족하면 evidence_quotes 빈 배열 [] 또는 1~2개만 (상담사 답변으로 채우지 말 것)
+[P1] evidence / health_concerns.evidence — 환자 발화 strict
+- 절대 금지: "고객님의 수치는...", "정상 범위 안에 있어도...", "권해요/추천해요" — 모두 상담사 답변
+- 사용 OK: 환자가 직접 묻거나 표현한 발화 (예: "간 수치를 낮추려면?", "걱정돼요")
+- 환자 발화 부족하면 evidence_quotes 빈 배열 [] (상담사 답변 인용 금지)
 
-[P2] signals 차별화 — default 출력 금지
-- urgency:
-  - "urgent" — 검진 high 위험 + 환자가 "빨리/즉시/지금/바로" 단어 사용
-  - "relaxed" — 검진 정상 + 환자 단순 호기심
-  - "normal" — 그 외 (default 아님, 명시 판정)
-- readiness:
-  - "committed" — 환자가 "할게요/하겠습니다/예약/신청/시작" 명시
-  - "postponed" — 환자가 "나중에/괜찮아요/다음에" 명시
-  - "considering" — 환자가 정보 탐색 중 (default)
-- buying_intent:
-  - "strong" — 환자가 "어디서/얼마/추천해줘/사고싶다" 등 구매 단어
-  - "none" — 구매/소비 단어 0건
-  - "exploring" — 영양제/약 등 언급은 하지만 구매 의향 명시 X
-- timeline_days: 환자가 "이번주/다음달/3개월" 등 시기 명시 시 매핑. 없으면 365
+[P2] signals 차별화 — few-shot 예시
+환자: "혈압 약 시작해야 할까요? 빨리 알려주세요"
+→ urgency: "urgent" (빨리), readiness: "committed" (할까요 = 행동 의지)
 
-[P3] industry_scores — 환자 발화 strict (상담사 답변 무관)
-- hospital: 환자가 "재검/병원 가야하나/진료/예약/응급" 등 언급
-- supplement: 환자가 "영양제/비타민/오메가3/약/보충제" 등 직접 질문
-- fitness: 환자가 "운동/다이어트/PT/체중감량/헬스장" 등 **직접** 질문 (상담사 권유는 fitness 0)
-- insurance: 환자가 "보험/실손/암보험" 등 언급
-- mental_care: 환자가 "잠/스트레스/우울/불안" 등 언급
-- 답변에 운동 안내가 나와도 환자가 묻지 않으면 fitness score = 0
+환자: "혈압 좀 걱정되네요"
+→ urgency: "normal", readiness: "considering" (걱정만, 행동 X)
 
-[P4] Stage 판정 룰 (consider 편중 방지)
-- "none" (score 0~10) — 산업군 신호 없음
-- "awareness" (10~30) — 1턴 + 단순 인사/확인 ("네", "알겠어요")
-- "interest" (30~50) — 환자가 정보 탐색 ("증상이 뭐예요?", "왜 그런가요?")
-- "consider" (50~70) — 효과/방법/시기 비교 ("어떻게 관리?", "효과가 있나요?")
-- "decision" (70~85) — 구체 행동 의지 ("재검 받을게요", "운동 시작해야겠어요")
-- "action" (85~100) — 즉시 실행 의사 ("예약하고 싶어요", "어디서 사나요?")
+환자: "그렇군요, 알겠어요"
+→ urgency: "relaxed", readiness: "postponed" (수동)
 
-JSON 외 텍스트 출력 금지. 위 P1~P4 위반 시 결과 무효.""".strip()
+환자: "오메가3 어디서 사나요? 추천 좀"
+→ buying_intent: "strong" (어디서/추천)
+
+환자: "오메가3 효과 있나요?"
+→ buying_intent: "exploring" (정보 탐색)
+
+[P3] industry_scores — 환자 발화 strict
+- hospital: 환자가 "재검/병원/진료/예약/응급" 직접 언급
+- supplement: 환자가 "영양제/비타민/오메가3/약/보충제" 직접 질문
+- fitness: 환자가 "운동/다이어트/PT/체중감량/헬스장" **직접** 질문 (상담사 권유는 fitness 0)
+- insurance: 환자가 "보험/실손/암보험" 언급
+- mental_care: 환자가 "잠/스트레스/우울/불안" 언급
+- 답변에 나와도 환자가 묻지 않으면 score 0
+
+[P4] Stage 판정
+- "none" (0~10): 산업군 신호 없음
+- "awareness" (10~30): 1턴 + 단순 인사 ("네", "알겠어요")
+- "interest" (30~50): 정보 탐색 ("증상이 뭐예요?", "왜 그런가요?")
+- "consider" (50~70): 효과/방법 비교 ("어떻게 관리?", "효과 있나요?")
+- "decision" (70~85): 구체 의지 ("재검 받을게요", "시작해야겠어요")
+- "action" (85~100): 즉시 실행 ("예약할게요", "어디서 사나요?")
+
+[P5] risk_level 결정 룰 (NEW)
+- "high": 검진 수치 high 위험 1개+ AND 환자가 우려/증상 호소 (둘 다)
+- "medium": (검진 수치 medium 위험 또는 high 1개) AND (환자 우려 표현 또는 정상 약간 벗어남)
+- "low": 검진 정상 OR 환자 단순 정보 확인만
+- ⚠️ 검진 수치 high 1개만 있고 환자 우려 표현 없으면 → medium (자동 high 아님)
+
+[P6] composite_risk 4 단계 결정 룰 (NEW — CRM 우선순위 핵심)
+- "critical": metric_severity=high AND patient_concern=high AND urgency=urgent
+  → 의료진 즉시 알림 (Slack push)
+- "high": (metric=high AND concern≥medium) OR (metric=high AND urgency=urgent)
+  → 알림톡 우선 발송
+- "medium": metric=medium 또는 concern=high
+  → 콘텐츠 발송
+- "low": 검진 정상 또는 환자 무관심
+  → 가벼운 정보만
+- reason 필드 필수 — 결정 근거 1문장 (예: "AST 75 high + 환자 '걱정돼요' 명시 + 즉시 단어")
+
+[health_concerns intent — Fix 2 (NEW)]
+- "concern": 환자가 우려/걱정 표현 ("걱정돼요", "괜찮나요?")
+- "info_seek": 정보 탐색 ("뭐예요?", "왜 그런가요?")
+- "action": 행동 의지 ("어떻게 관리?", "낮추려면?")
+- "curiosity": 단순 호기심 ("궁금해서요")
+
+JSON 외 텍스트 출력 금지. 위 P1~P6 위반 시 결과 무효.""".strip()
 
 
 # ─── v2 → v1 호환 매핑 (백오피스 5 페이지 유지) ────────────────────
@@ -227,6 +263,14 @@ def build_v1_compat_fields(v2_tags: Dict[str, Any], message_count: int) -> Dict[
                 "segment": "고관여" if supp.get("score", 0) >= 70 else "일반",
             })
 
+    # v3 — interest_tags 의 intent → action_intent 매핑 (Fix 2)
+    if health_concerns:
+        intents = [c.get("intent") for c in health_concerns if isinstance(c, dict)]
+        if intents.count("action") >= 1:
+            action_intent = "active"
+        elif intents.count("concern") >= 2:
+            action_intent = "considering"
+
     return {
         "interest_tags": interest_tags,
         "prospect_type": prospect_type,
@@ -251,6 +295,8 @@ def build_v1_compat_fields(v2_tags: Dict[str, Any], message_count: int) -> Dict[
 VALID_INDUSTRIES = {"hospital", "supplement", "fitness", "insurance", "mental_care"}
 VALID_STAGES = {"none", "awareness", "interest", "consider", "decision", "action"}
 VALID_INTENSITIES = {"low", "medium", "high"}
+VALID_COMPOSITE_OVERALL = {"critical", "high", "medium", "low"}
+VALID_INTENT = {"concern", "info_seek", "action", "curiosity"}
 
 
 def validate_v2_tags(tags: Dict[str, Any]) -> Optional[str]:
@@ -307,4 +353,31 @@ def normalize_v2_tags(tags: Dict[str, Any]) -> Dict[str, Any]:
     tags.setdefault("summary", "")
     tags.setdefault("follow_up_needed", False)
 
+    # v3 — composite_risk normalize
+    cr = tags.setdefault("composite_risk", {})
+    cr.setdefault("overall", "low")
+    if cr["overall"] not in VALID_COMPOSITE_OVERALL:
+        cr["overall"] = "low"
+    factors = cr.setdefault("factors", {})
+    factors.setdefault("metric_severity", "low")
+    factors.setdefault("patient_concern", "low")
+    factors.setdefault("urgency", "normal")
+    cr.setdefault("reason", "")
+
+    # v3 — health_concerns 의 intent 필드 default
+    for hc in tags.get("health_concerns", []) or []:
+        if isinstance(hc, dict):
+            intent = hc.get("intent")
+            if intent not in VALID_INTENT:
+                hc["intent"] = "info_seek"  # default
+
     return tags
+
+
+# v3 — composite_risk → v1 risk_level 매핑 (백오피스 호환)
+_COMPOSITE_TO_RISK_LEVEL = {
+    "critical": "high",
+    "high": "high",
+    "medium": "medium",
+    "low": "low",
+}
