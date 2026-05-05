@@ -161,11 +161,25 @@ def build_prompt_v2(
 - "decision" (70~85): 구체 의지 ("재검 받을게요", "시작해야겠어요")
 - "action" (85~100): 즉시 실행 ("예약할게요", "어디서 사나요?")
 
-[P5] risk_level 결정 룰 (NEW)
-- "high": 검진 수치 high 위험 1개+ AND 환자가 우려/증상 호소 (둘 다)
-- "medium": (검진 수치 medium 위험 또는 high 1개) AND (환자 우려 표현 또는 정상 약간 벗어남)
-- "low": 검진 정상 OR 환자 단순 정보 확인만
-- ⚠️ 검진 수치 high 1개만 있고 환자 우려 표현 없으면 → medium (자동 high 아님)
+[P5] risk_level 결정 룰 (Fix 4 강화 — over-reach 방지)
+
+CRITICAL: 검진 수치만 보고 "환자가 우려할 것" 추정 금지. **환자 발화 원문에 명시적 우려 단어가 있어야** high.
+
+- "high": (검진 수치 high 위험 1개+) AND (환자 발화에 명시적 우려/증상/긴급 단어)
+  ✅ 우려 단어 예: "걱정돼요", "괜찮나요?", "위험한가요?", "큰일나요?", "심각한가요?", "죽을것같아요", "아파요"
+  ❌ 단순 정보 질문은 우려 NOT: "어때?", "어떤가요?", "낮은가요?", "높은가요?", "뭐예요?", "왜?", "어떤부분?"
+- "medium": 검진 수치 medium 위험 OR (high 1개+ AND 환자 발화 단순 정보 질문)
+- "low": 검진 정상 OR 환자 단순 정보/요약 요청 ("결과 다운로드", "요약해줘", "비교해줘")
+
+⚠️ 강제 룰 (위반 시 결과 무효):
+1. 환자 발화에 명시적 우려 단어 0건 (sentiment=neutral/curious 도 동일) → risk_level="high" 절대 금지 (medium 까지만 가능)
+2. user_messages 1~3건 + 단순 정보 질문 + **검진 abnormal 2건 이하** → risk_level 한 단계 강등
+   ⚠️ 검진 abnormal 3건+ 환자는 짧은 발화여도 medium 유지 (의료진 follow-up 누락 방지)
+3. composite_risk.reason 단어 → risk_level 일치 필수:
+   - reason 에 "중간 수준" / "중간 정도" → risk_level="medium"
+   - reason 에 "낮음" / "낮은 수준" / "정상 수준" → risk_level="low"
+   - reason 에 "심각" / "위험" / "긴급" / "즉시" → risk_level="high" (단 강제룰 1 위반 시 medium)
+4. composite_risk.level="critical" 출력 시 → risk_level="high" 일치 필수 (백엔드에서도 강제됨)
 
 [P6] composite_risk 4 단계 결정 룰 (NEW — CRM 우선순위 핵심)
 - "critical": metric_severity=high AND patient_concern=high AND urgency=urgent

@@ -1302,13 +1302,31 @@ async def tag_chat_session(
             key_concerns = llm_result["key_concerns"]
             counselor_recommendations = llm_result.get("counselor_recommendations", [])
 
-            # risk_level: LLM vs 규칙 기반 중 더 높은 값 채택
+            # risk_level: LLM 단독 채택 (Fix 3) + 의료 안전망 (Fix 5)
+            # - Fix 3: 룰 MAX override 폐지 — 검진 "질환의심" 1건만으로 LLM medium → high 강제 제거
+            # - Fix 5: composite_risk=critical OR 검진 abnormal 3건+ 시 의료 안전망 강제
+            #   (LLM 이 환자 발화 우려도 못 잡아도 의료진 누락 방지)
             risk_level = llm_result["risk_level"]
-            metrics_risk = calculate_risk_level(risk_tags)
-            RISK_ORDER = {"low": 0, "medium": 1, "high": 2}
-            if RISK_ORDER.get(metrics_risk, 0) > RISK_ORDER.get(risk_level, 0):
-                risk_level = metrics_risk
-            follow_up_needed = llm_result["follow_up_needed"] or (risk_level == "high")
+            composite_risk_obj = llm_result.get("composite_risk") or {}
+            composite_level = (composite_risk_obj.get("level") or "").lower()
+            abnormal_count = len(risk_tags) if isinstance(risk_tags, list) else 0
+
+            # 의료 안전망 1: composite_risk=critical → risk_level 최소 high 강제
+            if composite_level == "critical" and risk_level != "high":
+                logger.info(f"🛡️ [의료안전망] composite_risk=critical → risk_level high 강제: session={session_id}")
+                risk_level = "high"
+            # 의료 안전망 2: 검진 abnormal 3건+ AND LLM low 판정 → medium 강제 (의료진 follow-up 누락 방지)
+            elif abnormal_count >= 3 and risk_level == "low":
+                logger.info(f"🛡️ [의료안전망] abnormal {abnormal_count}건 + LLM low → medium 강제: session={session_id}")
+                risk_level = "medium"
+
+            # follow_up_needed: 의료 안전망 트리거 시 강제 True (dev-reviewer 시나리오 1 대응)
+            follow_up_needed = (
+                llm_result["follow_up_needed"]
+                or (risk_level == "high")
+                or (composite_level == "critical")
+                or (abnormal_count >= 3)
+            )
 
             conversation_depth = llm_result.get("conversation_depth", "shallow")
             engagement_score = llm_result.get("engagement_score", 0)
