@@ -71,9 +71,9 @@ QUALITY_REQUIRED_FIELDS = [
     "creatinine", "gfr",
 ]
 
-# 위험도 심각도 키워드
-RISK_SEVERITY_HIGH = ["위험", "이상", "질환의심"]
-RISK_SEVERITY_MEDIUM = ["경계", "주의필요", "주의", "전단계"]
+# 위험도 심각도 키워드 — dev-reviewer 7차 권고: "이상" 은 medium 으로 완화 (high 34% 과추출 fix)
+RISK_SEVERITY_HIGH = ["위험", "질환의심"]
+RISK_SEVERITY_MEDIUM = ["경계", "주의필요", "주의", "전단계", "이상"]
 
 # 식단·영양제 키워드
 NUTRITION_KEYWORDS: Dict[str, List[str]] = {
@@ -1331,19 +1331,15 @@ async def tag_chat_session(
                 pass  # DB 조회 실패해도 기존 점수 유지
 
             action_intent = llm_result.get("action_intent", "passive")
+            # nutrition_tags / buying_signal: LLM 단독 채택 (dev-reviewer 7차 권고)
+            # - 룰 MAX/합집합 폐지: binary 키워드 매칭이 LLM 종합 판단 override 위험
+            # - LLM signals.buying_intent + industry_scores.supplement 가 이미 종합 판단 포함
             nutrition_tags = llm_result.get("nutrition_interests", [])
-            # 규칙 기반 nutrition_tags도 병합
-            rule_nutrition = extract_nutrition_tags(messages)
-            nutrition_tags = list(set(nutrition_tags) | set(rule_nutrition))
             commercial_tags = llm_result.get("commercial_tags", [])
             buying_signal = llm_result.get("buying_signal", "low")
-            # 규칙 기반으로 보충
+            # commercial_tags 만 LLM 비어있을 때 룰 fallback (interest_tags → 카테고리 매핑은 결정적)
             if not commercial_tags:
                 commercial_tags = extract_commercial_tags(interest_tags)
-            rule_signal = extract_buying_signal(messages)
-            SIGNAL_ORDER = {"low": 0, "mid": 1, "high": 2}
-            if SIGNAL_ORDER.get(rule_signal, 0) > SIGNAL_ORDER.get(buying_signal, 0):
-                buying_signal = rule_signal
             # 병원 전용 필드 (LLM이 반환한 경우에만)
             medical_tags = llm_result.get("medical_tags")
             lifestyle_tags_val = llm_result.get("lifestyle_tags")
