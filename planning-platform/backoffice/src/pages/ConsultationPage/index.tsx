@@ -84,6 +84,12 @@ interface SessionTags {
   medical_urgency: string | null;
   engagement_score: number | null;
   suggested_revisit_messages: any[] | null;
+  // v3 — B2B CRM 차원 (Fix 3-10 후 노출)
+  composite_risk?: { overall?: string; reason?: string; factors?: any } | null;
+  industry_scores?: Record<string, { score?: number; stage?: string; sub_categories?: string[] }> | null;
+  signals?: { urgency?: string; readiness?: string; buying_intent?: string; anxiety_level?: string; timeline_days?: number } | null;
+  health_concerns?: any[] | null;
+  follow_up_needed?: boolean | null;
 }
 
 interface TimingData {
@@ -492,6 +498,20 @@ const DrawerHeader: React.FC<DrawerHeaderProps> = ({
           {detail?.sessionTags?.risk_level && (
             <span className="consultation-page__risk-badge" style={{ background: RISK_COLORS[detail.sessionTags.risk_level] || '#6b7280' }}>
               {RISK_LABELS[detail.sessionTags.risk_level] || detail.sessionTags.risk_level}
+            </span>
+          )}
+          {/* v3 — composite_risk 4 단계 badge (Fix 5/10 의료 안전망 트리거 시각화) */}
+          {detail?.sessionTags?.composite_risk?.overall && (
+            <span className="consultation-page__risk-badge" style={{
+              background: { critical: '#dc2626', high: '#f97316', medium: '#facc15', low: '#10b981' }[detail.sessionTags.composite_risk.overall] || '#6b7280',
+              marginLeft: 6
+            }} title={detail.sessionTags.composite_risk.reason || ''}>
+              종합 {{ critical: '🚨긴급', high: '⚠️고위험', medium: '🟡중위험', low: '🟢저위험' }[detail.sessionTags.composite_risk.overall] || detail.sessionTags.composite_risk.overall}
+            </span>
+          )}
+          {detail?.sessionTags?.follow_up_needed && (
+            <span className="consultation-page__tag consultation-page__tag--warn" style={{ marginLeft: 6 }}>
+              follow-up 필요
             </span>
           )}
         </div>

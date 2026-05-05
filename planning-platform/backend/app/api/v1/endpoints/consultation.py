@@ -702,7 +702,9 @@ async def consultation_detail(
                           medical_tags, lifestyle_tags, nutrition_tags,
                           anxiety_level, hospital_prospect_score,
                           medical_urgency, engagement_score,
-                          suggested_revisit_messages
+                          suggested_revisit_messages,
+                          composite_risk, industry_scores, signals,
+                          health_concerns, follow_up_needed
                    FROM welno.tb_chat_session_tags
                    WHERE session_id IN (
                      SELECT session_id
@@ -739,6 +741,12 @@ async def consultation_detail(
                     "suggested_revisit_messages": _parse_json(
                         tag_row.get("suggested_revisit_messages")
                     ),
+                    # v3 — B2B CRM 차원 (Fix 3-10 후 노출)
+                    "composite_risk": _parse_json(tag_row.get("composite_risk")),
+                    "industry_scores": _parse_json(tag_row.get("industry_scores")),
+                    "signals": _parse_json(tag_row.get("signals")),
+                    "health_concerns": _parse_json(tag_row.get("health_concerns")),
+                    "follow_up_needed": tag_row.get("follow_up_needed"),
                 }
         except Exception as tag_err:
             logger.warning(f"[consultation] session_tags 조회 실패: {tag_err}")
