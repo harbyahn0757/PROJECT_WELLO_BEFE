@@ -46,6 +46,30 @@ def build_prompt_v2(
 3. signals 는 default 출력 금지 — 환자 단어 패턴으로 명확히 차별화
 4. composite_risk 는 검진 수치 + 환자 표현 + 시급성 종합 4 단계 (critical/high/medium/low)
 
+[signals 차별화 핵심 패턴 — 스키마 앞 우선 학습]
+환자: "혈압 약 시작해야 할까요? 빨리 알려주세요"
+→ {{urgency: "urgent", readiness: "committed", buying_intent: "exploring"}}
+
+환자: "혈압 좀 걱정되네요"
+→ {{urgency: "normal", readiness: "considering", buying_intent: "none"}}
+
+환자: "그렇군요, 알겠어요"
+→ {{urgency: "relaxed", readiness: "postponed", buying_intent: "none"}}
+
+환자: "오메가3 어디서 사나요? 추천 좀"
+→ {{urgency: "normal", readiness: "committed", buying_intent: "strong"}}
+
+환자: "오메가3 효과 있나요?"
+→ {{urgency: "normal", readiness: "considering", buying_intent: "exploring"}}
+
+환자: "다음 검진 언제? 나중에 받을게요"
+→ {{urgency: "relaxed", readiness: "postponed", buying_intent: "none"}}
+
+환자: "지금 당장 진료 받아야 하나요?"
+→ {{urgency: "urgent", readiness: "considering", buying_intent: "none"}}
+
+⚠️ 위 7개 패턴 중 1개 이상 매칭 안 되면 default 사용 — 그 외엔 default 금지.
+
 {INDUSTRY_DEFS}
 
 {context_section}
