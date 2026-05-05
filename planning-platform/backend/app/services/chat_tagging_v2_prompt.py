@@ -121,29 +121,24 @@ def build_prompt_v2(
   }},
 
   "evidence_quotes": ["환자 발화1", "환자 발화2", "환자 발화3"],
-  "key_concerns": ["환자가 표현한 우려 -- 최대 3개"]
+  "key_concerns": ["환자가 표현한 우려 -- 최대 3개"],
+
+  "action_intent": "passive|considering|active",
+  "counselor_recommendations": ["상담사 행동 권고 -- 최대 3개 (예: 알림톡 발송, 재방문 유도)"],
+  "conversation_depth": "shallow|medium|deep",
+  "engagement_score": 0,
+  "buying_signal": "low|mid|high",
+  "nutrition_interests": ["영양제 카테고리 -- 환자 직접 언급한 것만"],
+  "commercial_tags": ["상품 카테고리 -- LLM 판단"]
 }}
 
 [P1] evidence / health_concerns.evidence — 환자 발화 strict
 - 절대 금지: "고객님의 수치는...", "정상 범위 안에 있어도...", "권해요/추천해요" — 모두 상담사 답변
 - 사용 OK: 환자가 직접 묻거나 표현한 발화 (예: "간 수치를 낮추려면?", "걱정돼요")
 - 환자 발화 부족하면 evidence_quotes 빈 배열 [] (상담사 답변 인용 금지)
+- ⚠️ evidence_quotes 빈 배열이면 risk_level="high" 절대 금지 (강제 medium 강등)
 
-[P2] signals 차별화 — few-shot 예시
-환자: "혈압 약 시작해야 할까요? 빨리 알려주세요"
-→ urgency: "urgent" (빨리), readiness: "committed" (할까요 = 행동 의지)
-
-환자: "혈압 좀 걱정되네요"
-→ urgency: "normal", readiness: "considering" (걱정만, 행동 X)
-
-환자: "그렇군요, 알겠어요"
-→ urgency: "relaxed", readiness: "postponed" (수동)
-
-환자: "오메가3 어디서 사나요? 추천 좀"
-→ buying_intent: "strong" (어디서/추천)
-
-환자: "오메가3 효과 있나요?"
-→ buying_intent: "exploring" (정보 탐색)
+[P2 통합됨 — 스키마 앞 7 패턴 학습으로 대체. 토큰 절감 Fix 8]
 
 [P3] industry_scores — 환자 발화 strict
 - hospital: 환자가 "재검/병원/진료/예약/응급" 직접 언급
@@ -180,6 +175,7 @@ CRITICAL: 검진 수치만 보고 "환자가 우려할 것" 추정 금지. **환
    - reason 에 "낮음" / "낮은 수준" / "정상 수준" → risk_level="low"
    - reason 에 "심각" / "위험" / "긴급" / "즉시" → risk_level="high" (단 강제룰 1 위반 시 medium)
 4. composite_risk.level="critical" 출력 시 → risk_level="high" 일치 필수 (백엔드에서도 강제됨)
+5. evidence_quotes 빈 배열 [] → risk_level="high" 절대 금지 (Fix 7 — 강제룰 1 과 일관, 백엔드 강등)
 
 [P6] composite_risk 4 단계 결정 룰 (NEW — CRM 우선순위 핵심)
 - "critical": metric_severity=high AND patient_concern=high AND urgency=urgent

@@ -1308,7 +1308,8 @@ async def tag_chat_session(
             #   (LLM 이 환자 발화 우려도 못 잡아도 의료진 누락 방지)
             risk_level = llm_result["risk_level"]
             composite_risk_obj = llm_result.get("composite_risk") or {}
-            composite_level = (composite_risk_obj.get("level") or "").lower()
+            # schema 키는 "overall" (Fix 10 — 버그 fix: 이전 "level" 로 access 하던 오류)
+            composite_level = (composite_risk_obj.get("overall") or composite_risk_obj.get("level") or "").lower()
             abnormal_count = len(risk_tags) if isinstance(risk_tags, list) else 0
 
             # 의료 안전망 1: composite_risk=critical → risk_level 최소 high 강제
@@ -1318,6 +1319,13 @@ async def tag_chat_session(
             # 의료 안전망 2: 검진 abnormal 3건+ AND LLM low 판정 → medium 강제 (의료진 follow-up 누락 방지)
             elif abnormal_count >= 3 and risk_level == "low":
                 logger.info(f"🛡️ [의료안전망] abnormal {abnormal_count}건 + LLM low → medium 강제: session={session_id}")
+                risk_level = "medium"
+
+            # Fix 7 — evidence_quotes 빈 배열 + risk_level=high → medium 강등
+            # (LLM 이 환자 발화 우려 단어 인용 못 했는데 high 판정 = over-reach)
+            evidence_quotes = llm_result.get("evidence_quotes") or []
+            if risk_level == "high" and not evidence_quotes and composite_level != "critical":
+                logger.info(f"🛡️ [over-reach] evidence_quotes 빈 배열 + high → medium 강등: session={session_id}")
                 risk_level = "medium"
 
             # follow_up_needed: 의료 안전망 트리거 시 강제 True (dev-reviewer 시나리오 1 대응)
