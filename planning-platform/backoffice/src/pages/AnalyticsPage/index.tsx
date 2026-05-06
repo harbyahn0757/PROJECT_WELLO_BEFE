@@ -49,6 +49,9 @@ interface SessionItem {
   interest_tags: { topic: string; intensity: string }[];
   commercial_tags: { category: string; product_hint: string; segment: string }[];
   key_concerns: string[];
+  // v3 — B2B CRM 차원 (Fix 3-10 후 노출)
+  composite_risk?: { overall?: string; reason?: string } | null;
+  industry_scores?: Record<string, { score?: number; stage?: string }> | null;
 }
 
 interface AnalyticsResponse {
@@ -72,6 +75,9 @@ interface AnalyticsResponse {
   prospect_type_distribution?: DistItem[];
   medical_urgency_distribution?: DistItem[];
   medical_tags_top?: InterestItem[];
+  // v3 — B2B CRM 차원
+  composite_risk_distribution?: DistItem[];
+  industry_distribution?: { industry: string; stage: string; cnt: number }[];
 }
 
 interface FilterState {

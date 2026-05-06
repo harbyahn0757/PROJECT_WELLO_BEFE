@@ -45,6 +45,9 @@ interface Candidate {
   last_chat_date: string | null;
   // 병원 전용
   medical_tags?: string[];
+  // v3 — B2B CRM 차원 (Fix 3-10 후 노출)
+  composite_risk?: { overall?: string; reason?: string } | null;
+  industry_scores?: Record<string, { score?: number; stage?: string }> | null;
   lifestyle_tags?: string[];
   medical_urgency?: string;
   anxiety_level?: string;
