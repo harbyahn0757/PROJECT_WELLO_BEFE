@@ -1203,7 +1203,7 @@ async def analytics(
     for row in daily_trend:
         row["date"] = str(row["date"])
 
-    # 13) sessions (paginated)
+    # 13) sessions (paginated) — v3 차원 (composite_risk/industry_scores) JOIN 추가
     offset = (req.page - 1) * req.page_size
     sessions = await db_manager.execute_query(
         f"""SELECT v.session_id, v.hospital_name,
@@ -1213,8 +1213,10 @@ async def analytics(
                    COALESCE(v.follow_up_needed, false) AS follow_up_needed,
                    v.buying_signal, v.vip_risk_score,
                    v.conversation_summary AS summary,
-                   v.interest_tags, v.commercial_tags, v.key_concerns
+                   v.interest_tags, v.commercial_tags, v.key_concerns,
+                   t3.composite_risk, t3.industry_scores, t3.signals, t3.health_concerns
             FROM welno.v_analysis_cross v
+            LEFT JOIN welno.tb_chat_session_tags t3 ON t3.session_id = v.session_id
             WHERE {where}
             ORDER BY v.chat_date DESC
             LIMIT %s OFFSET %s""",
@@ -1262,6 +1264,15 @@ async def analytics(
             row["key_concerns"] = [c for c in raw_kc if isinstance(c, str)]
         else:
             row["key_concerns"] = []
+
+        # v3 jsonb 필드 parsing (composite_risk / industry_scores / signals / health_concerns)
+        for v3_key in ("composite_risk", "industry_scores", "signals", "health_concerns"):
+            raw_v = row.get(v3_key)
+            if raw_v and isinstance(raw_v, str):
+                try:
+                    row[v3_key] = _json.loads(raw_v)
+                except Exception:
+                    row[v3_key] = None
 
     # 14) total count for pagination
     total_row = await db_manager.execute_one(
